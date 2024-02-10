@@ -131,9 +131,9 @@ contract SignalService is EssentialContract, ISignalService {
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
         // We always verify the proofs in the reversed order (top to bottom).
-
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
             if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
                 revert SS_INVALID_RELAY();
@@ -150,7 +150,6 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
 
         verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
-
         return true;
     }
 
@@ -197,6 +196,12 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
+    }
+
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function skipProofCheck() public pure virtual returns (bool) {
+        return false;
     }
 
     /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded

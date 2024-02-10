@@ -96,34 +96,34 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_sendSignal_revert() public {
         vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
-        signalService.sendSignal(0);
+        relayer.sendSignal(0);
     }
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
         vm.expectRevert(SignalService.SS_INVALID_APP.selector);
-        signalService.isSignalSent(address(0), signal);
+        relayer.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
         vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
-        signalService.isSignalSent(Alice, signal);
+        relayer.isSignalSent(Alice, signal);
     }
 
     function test_SignalService_sendSignal_isSignalSent() public {
         vm.startPrank(Alice);
         bytes32 signal = bytes32(uint256(1));
-        signalService.sendSignal(signal);
+        relayer.sendSignal(signal);
 
-        assertTrue(signalService.isSignalSent(Alice, signal));
+        assertTrue(relayer.isSignalSent(Alice, signal));
     }
 
     function test_SignalService_getSignalSlot() public {
         vm.startPrank(Alice);
         for (uint8 i = 1; i < 100; ++i) {
             bytes32 signal = bytes32(block.prevrandao + i);
-            signalService.sendSignal(signal);
+            relayer.sendSignal(signal);
 
-            assertTrue(signalService.isSignalSent(Alice, signal));
+            assertTrue(relayer.isSignalSent(Alice, signal));
         }
     }
 
