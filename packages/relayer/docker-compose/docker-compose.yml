@@ -6,8 +6,9 @@ services:
       - SYS_NICE
     restart: always
     environment:
-      - MYSQL_DATABASE=relayer
-      - MYSQL_ROOT_PASSWORD=passw00d
+    #save the core details in environment file
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     ports:
       - "3306:3306"
     volumes:

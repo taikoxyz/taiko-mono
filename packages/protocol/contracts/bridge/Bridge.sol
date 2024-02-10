@@ -97,9 +97,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes32[] calldata msgHashes,
         bool toSuspend
     )
-        external
+    //@audit - function can be called from outside of thee contract if it is external
+       internal
         onlyFromOwnerOrNamed("bridge_watchdog")
     {
+          //@audit - 4 Improved visibility check and removal of magic numbers.
+          require(block.chainid == CHAIN_ID, "Invalid chain");
         uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
             bytes32 msgHash = msgHashes[i];
@@ -114,7 +117,9 @@ contract Bridge is EssentialContract, IBridge {
         address addr,
         bool toBan
     )
-        external
+
+    //@audit 2 - visibility changed external to internal for not calliing the fucntion outside of contract
+        internal
         onlyFromOwnerOrNamed("bridge_watchdog")
         nonReentrant
     {
@@ -251,7 +256,8 @@ contract Bridge is EssentialContract, IBridge {
         Message calldata message,
         bytes calldata proof
     )
-        external
+    //@audit 3 - same as here as @Audit 2
+        internal
         nonReentrant
         whenNotPaused
         sameChain(message.destChainId)
