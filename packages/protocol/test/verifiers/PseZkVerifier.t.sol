@@ -34,7 +34,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` when contesting
-    function test_verifyProof_isContesting() external {
+    function test_verifyProof_isContesting() external view {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -49,7 +49,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
             blockHash: bytes32(0),
-            signalRoot: bytes32(0),
+            stateRoot: bytes32(0),
             graffiti: bytes32(0)
         });
 
@@ -76,7 +76,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
             blockHash: bytes32(0),
-            signalRoot: bytes32(0),
+            stateRoot: bytes32(0),
             graffiti: bytes32(0)
         });
 
@@ -112,7 +112,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, happy path
-    function test_verifyProof() external {
+    function test_verifyProof() external view {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -127,7 +127,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -164,7 +164,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -193,7 +193,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -231,7 +231,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -268,7 +268,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -302,7 +302,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -343,7 +343,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -384,7 +384,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
@@ -422,7 +422,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
-            signalRoot: bytes32("34"),
+            stateRoot: bytes32("34"),
             graffiti: bytes32("1234")
         });
 
