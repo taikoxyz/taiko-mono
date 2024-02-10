@@ -77,7 +77,7 @@ library LibUtils {
             remoteBlockId: blockId,
             syncedInBlock: blk.proposedIn,
             blockHash: transition.blockHash,
-            signalRoot: transition.signalRoot
+            stateRoot: transition.stateRoot
         });
     }
 

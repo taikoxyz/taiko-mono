@@ -282,13 +282,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         signalServiceProxy.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
-        assertEq(
-            true,
-            signalServiceProxy.isAuthorizedAs(
-                getPredeployedContractAddress("TaikoL2"), bytes32((block.chainid))
-            )
-        );
-
         vm.startPrank(ownerSecurityCouncil);
 
         SignalService signalService =

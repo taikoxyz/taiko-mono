@@ -321,7 +321,7 @@ subgraph L1Storage[L1 Storage]
 b_l1_taiko_addr[/taikoL1Address/]
 b_l1_signal_service_addr[/L1 signalServiceAddress/]
 b_l2_signal_service_addr[/L2 signalServiceAddress/]
-b_signal_root[/signalRoot/]
+b_signal_root[/stateRoot/]
 end
 
 L1Storage:::group
@@ -331,7 +331,7 @@ subgraph L2Storage[L2 Storage]
 s_public_input_hash[/publicInputHash/]
 s_parent_timestamp[/parentTimestamp/]
 s_gas_excess[/gasExcess/]
-s_signal_root[/signalRoot/]
+s_signal_root[/stateRoot/]
 end
 
 L2Storage:::group
@@ -340,7 +340,7 @@ subgraph BlockEvidence
 e_meta_hash(metaHash)
 e_parent_hash(parentHash):::transition
 e_block_hash(blockHash)
-e_signal_root(signalRoot)
+e_signal_root(stateRoot)
 e_graffiti(graffiti)
 e_prover(prover)
 e_parent_gas_used(parentGasUsed):::transition

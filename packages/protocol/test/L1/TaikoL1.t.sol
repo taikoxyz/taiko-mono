@@ -52,8 +52,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
+            bytes32 stateRoot = bytes32(1e9 + blockId);
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -84,9 +84,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
+            bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
@@ -115,9 +115,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
+            bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
@@ -207,7 +207,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
         bytes32 blockHash;
-        bytes32 signalRoot;
+        bytes32 stateRoot;
         bytes32[] memory parentHashes = new bytes32[](count);
         parentHashes[0] = GENESIS_BLOCK_HASH;
 
@@ -223,10 +223,10 @@ contract TaikoL1Test is TaikoL1TestBase {
             mine(5);
 
             blockHash = bytes32(1e10 + uint256(blockId));
-            signalRoot = bytes32(1e9 + uint256(blockId));
+            stateRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, signalRoot, meta.minTier, ""
+                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, stateRoot, meta.minTier, ""
             );
 
             vm.roll(block.number + 15 * 12);
@@ -245,12 +245,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint64 queriedBlockId = 1;
         bytes32 expectedSR = bytes32(1e9 + uint256(queriedBlockId));
 
-        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).signalRoot);
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).stateRoot);
 
         // 2nd
         queriedBlockId = 2;
         expectedSR = bytes32(1e9 + uint256(queriedBlockId));
-        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).signalRoot);
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).stateRoot);
 
         // Not found -> reverts
         vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
