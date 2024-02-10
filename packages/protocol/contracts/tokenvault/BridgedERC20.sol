@@ -36,9 +36,9 @@ contract BridgedERC20 is
     address public srcToken; // slot 1
     uint8 private srcDecimals;
     uint256 public srcChainId; // slot 2
-    address public snapshooter;
+    address public snapshooter; // slot 3
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_PARAMS();
