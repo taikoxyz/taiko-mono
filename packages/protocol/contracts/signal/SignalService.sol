@@ -136,7 +136,7 @@ contract SignalService is EssentialContract, ISignalService {
                 revert SS_INVALID_RELAY();
             }
 
-            _verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
+            verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
 
             _srcChainId = hop.chainId;
             _srcApp = hop.relay;
@@ -146,11 +146,11 @@ contract SignalService is EssentialContract, ISignalService {
         ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
         bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
 
-        _verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
+        verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
         return true;
     }
 
-    function _verifyMerkleProof(
+    function verifyMerkleProof(
         bytes32 stateRoot,
         uint64 srcChainId,
         address srcApp,
