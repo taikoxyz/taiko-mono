@@ -121,19 +121,16 @@ contract SignalService is EssentialContract, ISignalService {
             hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
 
-        bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
-        if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
-
         // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
         // the following order:
-        // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2 contract has
+        // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2
+        // contract has
         // sent a given hop stateRoot on chainB using its own signal service.
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
         // We always verify the proofs in the reversed order (top to bottom).
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
-            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
             if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
                 revert SS_INVALID_RELAY();
