@@ -23,7 +23,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         super.setUp();
 
         // Call the AttestationBase init setup
-        super.intialSetup();
+        super.initialSetup();
 
         registerAddress("automata_dcap_attestation", address(attestation));
     }

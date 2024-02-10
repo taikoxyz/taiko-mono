@@ -43,7 +43,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector)
+                data: abi.encodeCall(AddressManager.init, ())
             })
         );
 
@@ -51,7 +51,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector)
+                data: abi.encodeCall(SignalService.init, address(addressManager))
             })
         );
 
@@ -59,7 +59,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_pse_zkevm",
                 impl: address(new PseZkVerifier()),
-                data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(PseZkVerifier.init, address(addressManager))
             })
         );
 
@@ -67,7 +67,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
-                data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(SgxVerifier.init, address(addressManager))
             })
         );
 
@@ -79,7 +79,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_sgx_and_pse_zkevm",
                 impl: address(new SgxAndZkVerifier()),
-                data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(SgxAndZkVerifier.init, address(addressManager))
             })
         );
 
@@ -87,7 +87,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
-                data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(GuardianVerifier.init, address(addressManager))
             })
         );
 
@@ -95,7 +95,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
-                data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(GuardianProver.init, address(addressManager))
             })
         );
 
@@ -105,7 +105,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_provider",
                 impl: address(new TaikoA6TierProvider()),
-                data: bytes.concat(TaikoA6TierProvider.init.selector)
+                data: abi.encodeCall(TaikoA6TierProvider.init, ())
             })
         );
 
@@ -114,7 +114,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    data: abi.encodeCall(Bridge.init, address(addressManager)),
                     registerTo: address(addressManager),
                     owner: address(0)
                 })
@@ -125,7 +125,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(AssignmentHook.init, address(addressManager))
             })
         );
 
@@ -148,14 +148,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: bytes.concat(
-                    TaikoToken.init.selector,
-                    abi.encode(
-                        "Taiko Token", //
-                        "TTKOk",
-                        address(this)
-                    )
-                    ),
+                data: abi.encodeCall(TaikoToken.init, ("Taiko Token", "TTKOk", address(this))),
                 registerTo: address(addressManager),
                 owner: address(0)
             })
