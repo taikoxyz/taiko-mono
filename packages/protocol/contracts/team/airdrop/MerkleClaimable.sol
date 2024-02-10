@@ -44,11 +44,33 @@ abstract contract MerkleClaimable is EssentialContract {
 
     function claim(
         bytes calldata data,
+        bytes calldata extraData,
         bytes32[] calldata proof
     )
         external
         nonReentrant
         ongoingClaim
+    {
+        _claim(data, extraData, proof);
+    }
+
+    function claim(
+        bytes calldata data,
+        bytes32[] calldata proof
+    )
+        external
+        nonReentrant
+        ongoingClaim
+    {
+        _claim(data, bytes(""), proof);
+    }
+
+    function _claim(
+        bytes calldata data,
+        bytes memory extraData,
+        bytes32[] calldata proof
+    )
+        private
     {
         bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
 
@@ -59,7 +81,7 @@ abstract contract MerkleClaimable is EssentialContract {
         }
 
         isClaimed[hash] = true;
-        _claimWithData(data);
+        _claimWithData(data, extraData);
         emit Claimed(hash);
     }
 
@@ -85,5 +107,5 @@ abstract contract MerkleClaimable is EssentialContract {
     }
 
     /// @dev Must revert in case of errors.
-    function _claimWithData(bytes calldata data) internal virtual;
+    function _claimWithData(bytes calldata data, bytes memory extraData) internal virtual;
 }
