@@ -3,12 +3,6 @@ pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
 
-contract MyERC20 is ERC20 {
-    constructor(address owner) ERC20("Taiko Token", "TKO") {
-        _mint(owner, 1_000_000_000e18);
-    }
-}
-
 contract MockERC20Airdrop is ERC20Airdrop {
     function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
@@ -35,7 +29,7 @@ contract TestERC20Airdrop is TaikoTest {
     uint64 public claimStart;
     uint64 public claimEnd;
 
-    ERC20 token;
+    TaikoToken token;
     ERC20Airdrop airdrop;
 
     function setUp() public {
@@ -43,7 +37,11 @@ contract TestERC20Airdrop is TaikoTest {
         claimEnd = uint64(block.timestamp + 10_000);
         merkleProof = new bytes32[](3);
 
-        token = new MyERC20(address(owner));
+        token =    TaikoToken(  deployProxy({
+            name: "taiko_token",
+            impl: address(new TaikoToken()),
+            data: abi.encodeCall(TaikoToken.init, ("Taiko Token", "TKO", owner)) }));
+
 
         airdrop = ERC20Airdrop(
             deployProxy({
@@ -68,7 +66,7 @@ contract TestERC20Airdrop is TaikoTest {
         airdrop.claimAndDelegate(Lily, 100, merkleProof, delegation);
 
         vm.prank(owner, owner);
-        MyERC20(address(token)).approve(address(airdrop), 1_000_000_000e18);
+        token.approve(address(airdrop), 1_000_000_000e18);
 
         vm.expectRevert(); // cannot decode the delegation data
         vm.prank(Lily, Lily);
