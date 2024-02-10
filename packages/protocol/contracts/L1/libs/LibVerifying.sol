@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
+import "../../cache/ICrossChainCache.sol";
 import "../../signal/ISignalService.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
@@ -38,10 +39,7 @@ library LibVerifying {
         uint8 contestations
     );
 
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
-    );
-
+ 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -237,6 +235,11 @@ library LibVerifying {
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
+                // Cache L2's block hash and state root.
+                ICrossChainCache cache = ICrossChainCache(resolver.resolve("xchain_cache", false));
+                cache.cacheBlockHash(config.chainId, blockHash);
+                cache.cacheBlockHash(config.chainId, stateRoot);
+
                 // Store the L2's state root as a signal to the local signal
                 // service to allow for multi-hop bridging.
                 //
@@ -244,10 +247,6 @@ library LibVerifying {
                 // is sent as a signal and verifiable with merkle proofs, all other blocks'
                 // stateRoot are not.
                 ISignalService(resolver.resolve("signal_service", false)).sendSignal(stateRoot);
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
-                );
             }
         }
     }

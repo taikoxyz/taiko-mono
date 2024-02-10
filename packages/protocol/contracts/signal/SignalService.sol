@@ -16,7 +16,7 @@ pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
-import "../common/ICrossChainSync.sol";
+import "../cache/ICrossChainCache.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./IHopRelayRegistry.sol";
@@ -45,7 +45,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     struct Proof {
-        uint64 height;
+        bytes32 stateRoot;
         bytes merkleProof;
         // Ensure that hops are ordered such that those closer to the signal's source chain come
         // before others.
@@ -98,7 +98,6 @@ contract SignalService is EssentialContract, ISignalService {
         bytes calldata proof
     )
         public
-        view
         virtual
         returns (bool)
     {
@@ -121,6 +120,8 @@ contract SignalService is EssentialContract, ISignalService {
             hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
 
+        ICrossChainCache cache = ICrossChainCache(resolve("xchain_cache", false));
+
         // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
         // the following order:
         // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2
@@ -138,15 +139,18 @@ contract SignalService is EssentialContract, ISignalService {
 
             verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
 
+            cache.cacheBlockHash(_srcChainId, hop.stateRoot);
+
             _srcChainId = hop.chainId;
             _srcApp = hop.relay;
             _srcSignal = hop.stateRoot;
         }
 
-        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
-        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
+        if (!cache.isStateRootCached(_srcChainId, p.stateRoot)) {
+            revert SS_INVALID_STATE_ROOT();
+        }
 
-        verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
+        verifyMerkleProof(p.stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
         return true;
     }
 
