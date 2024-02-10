@@ -58,6 +58,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
     error SS_INVALID_APP();
+    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_STATE_ROOT();
@@ -122,6 +123,9 @@ contract SignalService is EssentialContract, ISignalService {
             hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
 
+        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
+        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
+
         // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
         // the following order:
         // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2
@@ -145,9 +149,6 @@ contract SignalService is EssentialContract, ISignalService {
             _srcSignal = hop.stateRoot;
         }
 
-        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
-        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
-
         verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
         return true;
     }
@@ -163,6 +164,9 @@ contract SignalService is EssentialContract, ISignalService {
         view
         virtual
     {
+        if (stateRoot == 0) revert SS_INVALID_STATE_ROOT();
+        if (merkleProof.length == 0) revert SS_INVALID_PROOF();
+
         address signalService = resolve(srcChainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
@@ -170,7 +174,13 @@ contract SignalService is EssentialContract, ISignalService {
             stateRoot, signalService, slot, hex"01", merkleProof
         );
 
-        if (!verified) revert SS_INVALID_APP_PROOF();
+        if (!verified) revert SS_INVALID_PROOF();
+    }
+
+    /// @notice Checks if multi-hop is enabled.
+    /// @return Returns true if multi-hop bridging is enabled.
+    function isMultiHopEnabled() public view virtual returns (bool) {
+        return false;
     }
 
     /// @notice Get the storage slot of the signal.
