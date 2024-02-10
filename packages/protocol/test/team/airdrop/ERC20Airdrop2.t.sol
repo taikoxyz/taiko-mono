@@ -10,7 +10,7 @@ contract MyERC20 is ERC20 {
 }
 
 contract MockERC20Airdrop2 is ERC20Airdrop2 {
-    function verifyMerkleProof(
+    function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
         bytes32, /*merkleRoot*/
         bytes32 /*value*/
@@ -53,10 +53,9 @@ contract TestERC20Airdrop2 is TaikoTest {
             })
         );
 
-     
- vm.prank(owner, owner);
-         MyERC20(address(token)).approve(address(airdrop2), 1_000_000_000e18);
-            vm.roll(block.number + 1);
+        vm.prank(owner, owner);
+        MyERC20(address(token)).approve(address(airdrop2), 1_000_000_000e18);
+        vm.roll(block.number + 1);
     }
 
     function test_withdraw_for_airdrop2_withdraw_daily() public {

@@ -15,7 +15,7 @@ contract SignalServiceForTest is SignalService {
         _multiHopEnabled = enabled;
     }
 
-    function verifyMerkleProof(
+    function _verifyMerkleProof(
         bytes32, /*stateRoot*/
         uint64, /*srcChainId*/
         address, /*srcApp*/
@@ -26,7 +26,7 @@ contract SignalServiceForTest is SignalService {
         view
         override
     {
-        if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
+        if (!_skipVerifyMerkleProof) revert("_verifyMerkleProof failed");
     }
 
     function isMultiHopEnabled() public view override returns (bool) {

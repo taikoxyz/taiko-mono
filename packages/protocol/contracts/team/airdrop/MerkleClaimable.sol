@@ -41,26 +41,6 @@ abstract contract MerkleClaimable is EssentialContract {
         _;
     }
 
-    function __MerkleClaimable_init(
-        uint64 _claimStart,
-        uint64 _claimEnd,
-        bytes32 _merkleRoot
-    )
-        internal
-    {
-        _setConfig(_claimStart, _claimEnd, _merkleRoot);
-    }
-
-    function _verifyClaim(bytes memory data, bytes32[] calldata proof) internal ongoingClaim {
-        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
-
-        if (isClaimed[hash]) revert CLAIMED_ALREADY();
-        if (!verifyMerkleProof(proof, merkleRoot, hash)) revert INVALID_PROOF();
-
-        isClaimed[hash] = true;
-        emit Claimed(hash);
-    }
-
     /// @notice Set config parameters
     /// @param _claimStart Unix timestamp for claim start
     /// @param _claimEnd Unix timestamp for claim end
@@ -76,7 +56,28 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function verifyMerkleProof(
+    // solhint-disable-next-line func-name-mixedcase
+    function __MerkleClaimable_init(
+        uint64 _claimStart,
+        uint64 _claimEnd,
+        bytes32 _merkleRoot
+    )
+        internal
+    {
+        _setConfig(_claimStart, _claimEnd, _merkleRoot);
+    }
+
+    function _verifyClaim(bytes memory data, bytes32[] calldata proof) internal ongoingClaim {
+        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
+
+        if (isClaimed[hash]) revert CLAIMED_ALREADY();
+        if (!_verifyMerkleProof(proof, merkleRoot, hash)) revert INVALID_PROOF();
+
+        isClaimed[hash] = true;
+        emit Claimed(hash);
+    }
+
+    function _verifyMerkleProof(
         bytes32[] calldata _proof,
         bytes32 _merkleRoot,
         bytes32 _value
