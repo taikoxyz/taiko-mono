@@ -59,7 +59,6 @@ contract ERC20Airdrop2 is MerkleClaimable {
         initializer
     {
         __Essential_init();
-        // Unix timestamp=_claimEnd+1 marks the first timestamp the users are able to withdraw.
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
