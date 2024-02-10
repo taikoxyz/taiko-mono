@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/governance/utils/IVotesUpgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
@@ -63,6 +63,6 @@ contract ERC20Airdrop is MerkleClaimable {
         // client can change the data to call delegateBySig for another user.
         (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(delegationData, (address, uint256, uint256, uint8, bytes32, bytes32));
-        IVotesUpgradeable(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
+        IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
     }
 }

@@ -76,8 +76,17 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function verifyMerkleProof(bytes32[] calldata proof, bytes32 merkleRoot, bytes32 value) internal virtual returns (bool){
-        return MerkleProof.verify(proof, merkleRoot, value);
+    function verifyMerkleProof(
+        bytes32[] calldata _proof,
+        bytes32 _merkleRoot,
+        bytes32 _value
+    )
+        internal
+        pure
+        virtual
+        returns (bool)
+    {
+        return MerkleProof.verify(_proof, _merkleRoot, _value);
     }
 
     function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {

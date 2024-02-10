@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "../../TaikoTest.sol";
 
 contract MockMerkleClaimable is MerkleClaimable {
-
     function init(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) external initializer {
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
     }
@@ -15,7 +14,7 @@ contract MockMerkleClaimable is MerkleClaimable {
 }
 
 contract TestMerkleClaimable is TaikoTest {
-    bytes public  data = abi.encode(Alice, 100);
+    bytes public data = abi.encode(Alice, 100);
 
     bytes32 public constant merkleRoot =
         0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
@@ -26,6 +25,14 @@ contract TestMerkleClaimable is TaikoTest {
     MockMerkleClaimable public merkleClaimable;
 
     function setUp() public {
+        claimStart = uint64(block.timestamp + 10);
+        claimEnd = uint64(block.timestamp + 10_000);
+
+        merkleProof = new bytes32[](3);
+        merkleProof[0] = 0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
+        merkleProof[1] = 0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
+        merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
+
         merkleClaimable = MockMerkleClaimable(
             deployProxy({
                 name: "MockMerkleClaimable",
@@ -34,19 +41,11 @@ contract TestMerkleClaimable is TaikoTest {
             })
         );
 
-        claimStart = uint64(block.timestamp + 10);
-        claimEnd = uint64(block.timestamp + 10_000);
-
         vm.startPrank(merkleClaimable.owner());
         merkleClaimable.setConfig(claimStart, claimEnd, merkleRoot);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
-
-        merkleProof = new bytes32[](3);
-        merkleProof[0] = 0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
-        merkleProof[1] = 0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
-        merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
     }
 
     function test_verifyClaim_when_it_starts() public {
