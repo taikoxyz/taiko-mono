@@ -100,12 +100,12 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     /// message verification.
     /// @param l1BlockHash The latest L1 block hash when this block was
     /// proposed.
-    /// @param l1SignalRoot The latest value of the L1 signal root.
+    /// @param l1StateRoot The latest L1 block's state root.
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1BlockHash,
-        bytes32 l1SignalRoot,
+        bytes32 l1StateRoot,
         uint64 l1Height,
         uint32 parentGasUsed
     )
@@ -113,9 +113,11 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         nonReentrant
     {
         if (
-            l1BlockHash == 0 || l1SignalRoot == 0 || l1Height == 0
+            l1BlockHash == 0 || l1StateRoot == 0 || l1Height == 0
                 || (block.number != 1 && parentGasUsed == 0)
-        ) revert L2_INVALID_PARAM();
+        ) {
+            revert L2_INVALID_PARAM();
+        }
 
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
@@ -139,10 +141,11 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        // Store the L1's signal root as a signal to the local signal service to
+        // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).sendSignal(l1SignalRoot);
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1SignalRoot);
+        ISignalService(resolve("signal_service", false)).sendSignal(l1StateRoot);
+
+        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
@@ -150,7 +153,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             remoteBlockId: l1Height,
             syncedInBlock: uint64(block.number),
             blockHash: l1BlockHash,
-            signalRoot: l1SignalRoot
+            stateRoot: l1StateRoot
         });
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;

@@ -102,8 +102,6 @@ contract DeployOnL1 is DeployCapability {
         console2.log("------------------------------------------");
 
         if (signalService.owner() == address(this)) {
-            signalService.authorize(taikoL1Addr, bytes32(block.chainid));
-            signalService.authorize(vm.envAddress("TAIKO_L2_ADDRESS"), bytes32(uint256(l2ChainId)));
             signalService.transferOwnership(timelock);
         } else {
             console2.log("------------------------------------------");
@@ -221,7 +219,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, ()),
+            data: abi.encodeCall(SignalService.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: address(0)
         });
