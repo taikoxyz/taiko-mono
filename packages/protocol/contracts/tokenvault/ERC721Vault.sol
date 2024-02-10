@@ -206,7 +206,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// @param user The user's address.
     /// @param op BridgeTransferOp data.
     /// @return msgData Encoded message data.
-     /// @return ctoken The canonical token.
+    /// @return ctoken The canonical token.
     function _handleMessage(
         address user,
         BridgeTransferOp calldata op
