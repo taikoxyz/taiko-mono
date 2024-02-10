@@ -82,7 +82,7 @@ contract TestMerkleClaimable is TaikoTest {
     function test_verifyClaim_with_invalid_proofs_while_its_ongoing() public {
         vm.warp(claimStart);
         merkleProof[1] = randBytes32();
-        vm.expectRevert(MerkleClaimable.CLAIMED_ALREADY.selector);
+        vm.expectRevert(MerkleClaimable.INVALID_PROOF.selector);
         merkleClaimable.verifyClaim(data, merkleProof);
     }
 }
