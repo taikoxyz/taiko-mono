@@ -48,12 +48,14 @@ contract ERC20Airdrop is MerkleClaimable {
         // Transfer the token first
         IERC20(token).transferFrom(vault, user, amount);
 
-        // Delegate the voting power to delegatee.
-        // Note that the signature (v,r,s) may not correspond to the user address,
-        // but since the data is provided by Taiko backend, it's not an issue even if
-        // client can change the data to call delegateBySig for another user.
-        (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
-            abi.decode(extraData, (address, uint256, uint256, uint8, bytes32, bytes32));
-        IVotesUpgradeable(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
+        if (extraData.length > 0) {
+            // Delegate the voting power to delegatee.
+            // Note that the signature (v,r,s) may not correspond to the user address,
+            // but since the data is provided by Taiko backend, it's not an issue even if
+            // client can change the data to call delegateBySig for another user.
+            (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
+                abi.decode(extraData, (address, uint256, uint256, uint8, bytes32, bytes32));
+            IVotesUpgradeable(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
+        }
     }
 }
