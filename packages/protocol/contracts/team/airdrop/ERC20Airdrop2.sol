@@ -67,6 +67,21 @@ contract ERC20Airdrop2 is MerkleClaimable {
         withdrawalWindow = _withdrawalWindow;
     }
 
+    function claim(
+        address user,
+        uint256 amount,
+        bytes32[] calldata proof
+    )
+        external
+        nonReentrant
+    {
+        // Check if this can be claimed
+        _verifyClaim(abi.encode(user, amount), proof);
+
+        // Assign the tokens
+        claimedAmount[user] += amount;
+    }
+
     /// @notice External withdraw function
     /// @param user User address
     function withdraw(address user) external ongoingWithdrawals {
@@ -102,11 +117,5 @@ contract ERC20Airdrop2 is MerkleClaimable {
             * (block.timestamp.min(claimEnd + withdrawalWindow) - claimEnd) / withdrawalWindow;
 
         withdrawableAmount = timeBasedAllowance - withdrawnAmount[user];
-    }
-
-    function _claimWithData(bytes calldata data, bytes memory extraData) internal override {
-        if (extraData.length != 0) revert INVALID_DATA();
-        (address user, uint256 amount) = abi.decode(data, (address, uint256));
-        claimedAmount[user] += amount;
     }
 }
