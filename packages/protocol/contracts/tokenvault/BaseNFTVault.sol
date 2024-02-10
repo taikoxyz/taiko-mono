@@ -79,6 +79,7 @@ abstract contract BaseNFTVault is BaseVault {
         address indexed from,
         address indexed to,
         uint64 destChainId,
+        address ctoken,
         address token,
         uint256[] tokenIds,
         uint256[] amounts
@@ -87,6 +88,7 @@ abstract contract BaseNFTVault is BaseVault {
     event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
+        address ctoken,
         address token,
         uint256[] tokenIds,
         uint256[] amounts
@@ -97,6 +99,7 @@ abstract contract BaseNFTVault is BaseVault {
         address indexed from,
         address indexed to,
         uint64 srcChainId,
+        address ctoken,
         address token,
         uint256[] tokenIds,
         uint256[] amounts
