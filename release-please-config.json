@@ -1,6 +1,5 @@
 {
   "packages": {
-    ".": {},
     "packages/branding": {},
     "packages/bridge-ui-v2": {},
     "packages/eventindexer": {},
@@ -8,5 +7,6 @@
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/status-page": {}
-  }
+  },
+  "separate-pull-requests": true
 }
