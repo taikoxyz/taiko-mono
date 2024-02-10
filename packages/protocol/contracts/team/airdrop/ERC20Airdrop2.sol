@@ -38,7 +38,6 @@ contract ERC20Airdrop2 is MerkleClaimable {
     event Withdrawn(address user, uint256 amount);
 
     error WITHDRAWALS_NOT_ONGOING();
-    error INVALID_DATA();
 
     modifier ongoingWithdrawals() {
         if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
