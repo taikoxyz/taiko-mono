@@ -15,7 +15,7 @@ contract SignalServiceForTest is SignalService {
         _multiHopEnabled = enabled;
     }
 
-    function _verifyMerkleProof(
+    function verifyMerkleProof(
         bytes32, /*stateRoot*/
         uint64, /*srcChainId*/
         address, /*srcApp*/
