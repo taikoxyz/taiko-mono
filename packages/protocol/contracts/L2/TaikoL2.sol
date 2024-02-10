@@ -141,7 +141,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        // Store the L1's block hash as a signal to the local signal service to
+        // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
         ISignalService(resolve("signal_service", false)).sendSignal(l1StateRoot);
 
