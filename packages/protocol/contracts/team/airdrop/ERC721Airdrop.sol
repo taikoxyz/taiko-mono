@@ -24,8 +24,8 @@ contract ERC721Airdrop is MerkleClaimable {
     uint256[48] private __gap;
 
     function init(
-        uint64 _claimStarts,
-        uint64 _claimEnds,
+        uint64 _claimStart,
+        uint64 _claimEnd,
         bytes32 _merkleRoot,
         address _token,
         address _vault
@@ -34,7 +34,7 @@ contract ERC721Airdrop is MerkleClaimable {
         initializer
     {
         __Essential_init();
-        _setConfig(_claimStarts, _claimEnds, _merkleRoot);
+        __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
         vault = _vault;

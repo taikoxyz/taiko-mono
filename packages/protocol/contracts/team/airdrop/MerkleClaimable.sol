@@ -14,8 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import { MerkleProofUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
 import "../../common/EssentialContract.sol";
 
 /// @title MerkleClaimable
@@ -42,23 +41,23 @@ abstract contract MerkleClaimable is EssentialContract {
         _;
     }
 
-    function _verifyClaim(
-        bytes memory data,
-        bytes32[] calldata proof
+    function __MerkleClaimable_init(
+        uint64 _claimStart,
+        uint64 _claimEnd,
+        bytes32 _merkleRoot
     )
         internal
-        ongoingClaim
     {
+        _setConfig(_claimStart, _claimEnd, _merkleRoot);
+    }
+
+    function _verifyClaim(bytes memory data, bytes32[] calldata proof) internal ongoingClaim {
         bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
 
         if (isClaimed[hash]) revert CLAIMED_ALREADY();
-
-        if (!MerkleProofUpgradeable.verify(proof, merkleRoot, hash)) {
-            revert INVALID_PROOF();
-        }
+        if (!verifyMerkleProof(proof, merkleRoot, hash)) revert INVALID_PROOF();
 
         isClaimed[hash] = true;
-
         emit Claimed(hash);
     }
 
@@ -77,7 +76,11 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) internal {
+    function verifyMerkleProof(bytes32[] calldata proof, bytes32 merkleRoot, bytes32 value) internal virtual returns (bool){
+        return MerkleProof.verify(proof, merkleRoot, value);
+    }
+
+    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
         claimStart = _claimStart;
         claimEnd = _claimEnd;
         merkleRoot = _merkleRoot;
