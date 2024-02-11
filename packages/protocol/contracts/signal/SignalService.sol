@@ -169,10 +169,9 @@ contract SignalService is EssentialContract, ISignalService {
         address signalService = resolve(srcChainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-        bool verified =
-            LibTrieProof.verifyFullMerkleProof(stateRoot, signalService, slot, hex"01", merkleProof);
 
-        if (!verified) revert SS_INVALID_PROOF();
+        // verifyFullMerkleProof() will revert in case if something is not valid
+        LibTrieProof.verifyFullMerkleProof(stateRoot, signalService, slot, merkleProof);
     }
 
     /// @notice Checks if multi-hop is enabled.
