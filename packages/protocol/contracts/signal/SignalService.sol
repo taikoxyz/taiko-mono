@@ -56,8 +56,8 @@ contract SignalService is EssentialContract, ISignalService {
         Hop[] hops;
     }
 
-    event StateRootRelayed(uint64 indexed blockId, bytes32 indexed stateRoot);
-    event SignalRootRelayed(uint64 indexed blockId, bytes32 indexed signalRoot);
+    event StateRootRelayed(uint64 indexed blockId, bytes32 indexed stateRoot, bytes32 signal);
+    event SignalRootRelayed(uint64 indexed blockId, bytes32 indexed signalRoot, bytes32 signal);
 
     uint256[50] private __gap;
 
@@ -244,14 +244,16 @@ contract SignalService is EssentialContract, ISignalService {
 
     function _relayStateRoot(uint64 chainId, bytes32 stateRoot) internal returns (bytes32) {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        emit StateRootRelayed(chainId, stateRoot);
-        return _sendSignal(LibSignals.signalForStateRoot(chainId, stateRoot));
+        bytes32 signal = LibSignals.signalForStateRoot(chainId, stateRoot);
+        emit StateRootRelayed(chainId, stateRoot, signal);
+        return _sendSignal(signal);
     }
 
     function _relaySignalRoot(uint64 chainId, bytes32 signalRoot) internal returns (bytes32) {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        emit SignalRootRelayed(chainId, signalRoot);
-        return _sendSignal(LibSignals.signalForSignalRoot(chainId, signalRoot));
+        bytes32 signal = LibSignals.signalForSignalRoot(chainId, signalRoot);
+        emit SignalRootRelayed(chainId, signalRoot, signal);
+        return _sendSignal(signal);
     }
 
     function _authorizePause(address) internal pure override {
