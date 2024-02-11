@@ -52,7 +52,11 @@ contract TestLibTrieProof is TaikoTest {
         bytes memory merkleProof = abi.encode(accountProof, storageProof);
 
         bool verified = LibTrieProof.verifyFullMerkleProof(
-            worldStateRoot, contractWhichStoresValue1AtSlot, slotStoredAtTheApp, merkleProof
+            worldStateRoot,
+            contractWhichStoresValue1AtSlot,
+            slotStoredAtTheApp,
+            hex"01",
+            merkleProof
         );
 
         assertEq(verified, true);

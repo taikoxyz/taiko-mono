@@ -33,6 +33,7 @@ library LibTrieProof {
         bytes32 stateRoot,
         address addr,
         bytes32 slot,
+        bytes memory value,
         bytes memory mkproof
     )
         internal
@@ -53,7 +54,7 @@ library LibTrieProof {
             RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
 
         verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), hex"01", storageProof, bytes32(storageRoot)
+            bytes.concat(slot), value, storageProof, bytes32(storageRoot)
         );
 
         if (!verified) revert LTP_INVALID_INCLUSION_PROOF();
