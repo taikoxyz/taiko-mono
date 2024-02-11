@@ -26,6 +26,7 @@ library LibTrieProof {
      * @param stateRoot The merkle root of state tree.
      * @param addr The address of contract.
      * @param slot The slot in the contract.
+     * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding storage proof.
      * @return verified The verification result.
      */
