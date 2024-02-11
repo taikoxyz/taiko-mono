@@ -28,16 +28,16 @@ interface ISignalService {
     /// @return True if the signal has been sent, otherwise false.
     function isSignalSent(address app, bytes32 signal) external view returns (bool);
 
-    function relayChainStateRoot(
+    function relayStateRoot(
         uint64 chainId,
         bytes32 stateRoot
     )
         external
         returns (bytes32 slot);
 
-    function relaySignalServiceStorageRoot(
+    function relaySignalRoot(
         uint64 chainId,
-        bytes32 storageRoot
+        bytes32 signalRoot
     )
         external
         returns (bytes32 slot);

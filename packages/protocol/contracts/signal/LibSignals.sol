@@ -26,7 +26,7 @@ library LibSignals {
         return keccak256(abi.encode("STATE_ROOT", chainId, stateRoot));
     }
 
-    function signalForStorageRoot(
+    function signalForSignalRoot(
         uint64 chainId,
         bytes32 storageRoot
     )
@@ -34,6 +34,6 @@ library LibSignals {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode("SIGNAL_SERVICE_STORAGE_ROOT", chainId, storageRoot));
+        return keccak256(abi.encode("SIGNAL_ROOT", chainId, storageRoot));
     }
 }

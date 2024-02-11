@@ -143,7 +143,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).relayChainStateRoot(
+        ISignalService(resolve("signal_service", false)).relayStateRoot(
             ownerChainId, l1StateRoot
         );
 

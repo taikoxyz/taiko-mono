@@ -78,7 +78,7 @@ contract SignalService is EssentialContract, ISignalService {
         return _sendSignal(signal);
     }
 
-    function relayChainStateRoot(
+    function relayStateRoot(
         uint64 chainId,
         bytes32 stateRoot
     )
@@ -91,16 +91,16 @@ contract SignalService is EssentialContract, ISignalService {
         // TODO: emit an event
     }
 
-    function relaySignalServiceStorageRoot(
+    function relaySignalRoot(
         uint64 chainId,
-        bytes32 storageRoot
+        bytes32 signalRoot
     )
         public
         onlyFromNamed("taiko")
         returns (bytes32 slot)
     {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        return _sendSignal(LibSignals.signalForStorageRoot(chainId, storageRoot));
+        return _sendSignal(LibSignals.signalForSignalRoot(chainId, signalRoot));
         // TODO: emit an event
     }
 
@@ -166,13 +166,13 @@ contract SignalService is EssentialContract, ISignalService {
             );
 
             if (hop.cacheRootHash) {
-                if (hop.isStateRoot) relayChainStateRoot(_chainId, hop.rootHash);
-                else relaySignalServiceStorageRoot(_chainId, hop.rootHash);
+                if (hop.isStateRoot) relayStateRoot(_chainId, hop.rootHash);
+                else relaySignalRoot(_chainId, hop.rootHash);
             }
 
             _signal = hop.isStateRoot
                 ? LibSignals.signalForStateRoot(_chainId, hop.rootHash)
-                : LibSignals.signalForStorageRoot(_chainId, hop.rootHash);
+                : LibSignals.signalForSignalRoot(_chainId, hop.rootHash);
 
             _chainId = hop.chainId;
             _app = hop.relay;
@@ -182,7 +182,7 @@ contract SignalService is EssentialContract, ISignalService {
         // relayed as a signal.
         bytes32 lastSignal = p.isStateRoot
             ? LibSignals.signalForStateRoot(_chainId, p.rootHash)
-            : LibSignals.signalForStorageRoot(_chainId, p.rootHash);
+            : LibSignals.signalForSignalRoot(_chainId, p.rootHash);
 
         bool lastSignalRelayed = isSignalSent(resolve("taiko", false), lastSignal);
         if (!lastSignalRelayed) revert SS_INVALID_ROOT_HASH();
@@ -191,7 +191,7 @@ contract SignalService is EssentialContract, ISignalService {
             verifyMerkleProof(_chainId, _app, _signal, p.rootHash, p.isStateRoot, p.merkleProof);
 
         if (p.isStateRoot && p.cacheSignalServiceStorageRoot) {
-            relaySignalServiceStorageRoot(_chainId, storageRoot);
+            relaySignalRoot(_chainId, storageRoot);
         }
         return true;
     }
