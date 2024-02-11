@@ -89,7 +89,7 @@ contract SignalService is EssentialContract, ISignalService {
         onlyFromNamed("taiko")
         returns (bytes32)
     {
-      return _relayStateRoot(chainId, stateRoot);
+        return _relayStateRoot(chainId, stateRoot);
     }
 
     function relaySignalRoot(
@@ -254,25 +254,13 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-      function _relayStateRoot(
-        uint64 chainId,
-        bytes32 stateRoot
-    )
-        internal
-        returns (bytes32)
-    {
+    function _relayStateRoot(uint64 chainId, bytes32 stateRoot) internal returns (bytes32) {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
         emit StateRootRelayed(chainId, stateRoot);
         return _sendSignal(LibSignals.signalForStateRoot(chainId, stateRoot));
     }
 
-    function _relaySignalRoot(
-        uint64 chainId,
-        bytes32 signalRoot
-    )
-        internal
-        returns (bytes32)
-    {
+    function _relaySignalRoot(uint64 chainId, bytes32 signalRoot) internal returns (bytes32) {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
         emit SignalRootRelayed(chainId, signalRoot);
         return _sendSignal(LibSignals.signalForSignalRoot(chainId, signalRoot));
