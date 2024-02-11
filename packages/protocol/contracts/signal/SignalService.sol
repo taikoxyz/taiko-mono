@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
+import "../libs/LibTrieProof.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./IHopRelayRegistry.sol";
@@ -57,6 +58,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
     error SS_INVALID_APP();
+    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_STATE_ROOT();
@@ -121,6 +123,9 @@ contract SignalService is EssentialContract, ISignalService {
             hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
 
+        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
+        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
+
         // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
         // the following order:
         // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2
@@ -130,6 +135,7 @@ contract SignalService is EssentialContract, ISignalService {
         // We always verify the proofs in the reversed order (top to bottom).
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
             if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
                 revert SS_INVALID_RELAY();
@@ -141,9 +147,6 @@ contract SignalService is EssentialContract, ISignalService {
             _srcApp = hop.relay;
             _srcSignal = hop.stateRoot;
         }
-
-        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
-        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
 
         verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
         return true;
@@ -163,9 +166,11 @@ contract SignalService is EssentialContract, ISignalService {
         if (stateRoot == 0) revert SS_INVALID_STATE_ROOT();
         if (merkleProof.length == 0) revert SS_INVALID_PROOF();
 
-        bool verified;
+        address signalService = resolve(srcChainId, "signal_service", false);
 
-        // TODO(dani): implement this please
+        bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
+        bool verified =
+            LibTrieProof.verifyFullMerkleProof(stateRoot, signalService, slot, hex"01", merkleProof);
 
         if (!verified) revert SS_INVALID_PROOF();
     }
