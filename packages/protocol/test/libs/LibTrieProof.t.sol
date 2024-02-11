@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import "../TaikoTest.sol";
 import "../../contracts/libs/LibTrieProof.sol";
 
-contract TestVerifyFullMerkleProof is TaikoTest {
-    function test_verifyFullMerkleProof() public {
+contract TestLibTrieProof is TaikoTest {
+    function test_verifyFullMerkleProof() public pure {
         // Not needed for now, but leave it as is.
         //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
         // contract, this is why this chainId.
@@ -51,7 +51,6 @@ contract TestVerifyFullMerkleProof is TaikoTest {
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
         bytes memory merkleProof = abi.encode(accountProof, storageProof);
 
-        vm.startPrank(Alice);
         LibTrieProof.verifyFullMerkleProof(
             worldStateRoot,
             contractWhichStoresValue1AtSlot,

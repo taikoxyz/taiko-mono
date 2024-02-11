@@ -18,6 +18,7 @@ library LibTrieProof {
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     error LTP_INVALID_ACCOUNT_PROOF();
+    error LTP_INVALID_INCLUSION_PROOF();
 
     /**
      * Verifies that the value of a slot in the storage of an account is value.
@@ -27,18 +28,16 @@ library LibTrieProof {
      * @param slot The slot in the contract.
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding storage proof.
-     * @return verified The verification result.
      */
     function verifyFullMerkleProof(
         bytes32 stateRoot,
         address addr,
         bytes32 slot,
-        bytes32 value,
+        bytes memory value,
         bytes memory mkproof
     )
         internal
         pure
-        returns (bool verified)
     {
         (bytes[] memory accountProof, bytes[] memory storageProof) =
             abi.decode(mkproof, (bytes[], bytes[]));
@@ -53,8 +52,10 @@ library LibTrieProof {
         bytes memory storageRoot =
             RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
 
-        verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), bytes.concat(value), storageProof, bytes32(storageRoot)
+        bool verified = SecureMerkleTrie.verifyInclusionProof(
+            bytes.concat(slot), value, storageProof, bytes32(storageRoot)
         );
+
+        if (!verified) revert LTP_INVALID_INCLUSION_PROOF();
     }
 }

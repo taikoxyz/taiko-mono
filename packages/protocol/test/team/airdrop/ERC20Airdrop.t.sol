@@ -37,11 +37,13 @@ contract TestERC20Airdrop is TaikoTest {
         claimEnd = uint64(block.timestamp + 10_000);
         merkleProof = new bytes32[](3);
 
-        token =    TaikoToken(  deployProxy({
-            name: "taiko_token",
-            impl: address(new TaikoToken()),
-            data: abi.encodeCall(TaikoToken.init, ("Taiko Token", "TKO", owner)) }));
-
+        token = TaikoToken(
+            deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: abi.encodeCall(TaikoToken.init, ("Taiko Token", "TKO", owner))
+            })
+        );
 
         airdrop = ERC20Airdrop(
             deployProxy({
