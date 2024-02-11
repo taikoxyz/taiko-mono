@@ -45,4 +45,8 @@ interface ISignalService {
         external
         view
         returns (bool);
+
+
+    function relayChainStateRoot(uint64 chainId, bytes32 stateRoot) external;
+    function relaySignalServiceStorageRoot(uint64 chainId, bytes32 storageRoot) external;
 }

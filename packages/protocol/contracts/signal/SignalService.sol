@@ -77,6 +77,9 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
+    function relayChainStateRoot(uint64 chainId, bytes32 stateRoot) external {}
+    function relaySignalServiceStorageRoot(uint64 chainId, bytes32 storageRoot) external{}
+
     /// @inheritdoc ISignalService
     function isSignalSent(address app, bytes32 signal) public view returns (bool) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
