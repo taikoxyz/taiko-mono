@@ -34,9 +34,9 @@ library LibTrieProof {
         address addr,
         bytes32 slot,
         bytes32 value,
-        bytes calldata mkproof
+        bytes memory mkproof
     )
-        public
+        internal
         pure
         returns (bool verified)
     {
