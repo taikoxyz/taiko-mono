@@ -57,6 +57,9 @@ contract SignalService is EssentialContract, ISignalService {
         Hop[] hops;
     }
 
+    event StateRootRelayed(uint64 indexed blockId, bytes32 indexed stateRoot);
+    event SignalRootRelayed(uint64 indexed blockId, bytes32 indexed signalRoot);
+
     uint256[50] private __gap;
 
     error SS_INVALID_PARAMS();
@@ -74,7 +77,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
+    function sendSignal(bytes32 signal) external returns (bytes32 slot) {
         return _sendSignal(signal);
     }
 
@@ -82,26 +85,22 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 chainId,
         bytes32 stateRoot
     )
-        public
+        external
         onlyFromNamed("taiko")
-        returns (bytes32 slot)
+        returns (bytes32)
     {
-        if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        return _sendSignal(LibSignals.signalForStateRoot(chainId, stateRoot));
-        // TODO: emit an event
+      return _relayStateRoot(chainId, stateRoot);
     }
 
     function relaySignalRoot(
         uint64 chainId,
         bytes32 signalRoot
     )
-        public
+        external
         onlyFromNamed("taiko")
-        returns (bytes32 slot)
+        returns (bytes32)
     {
-        if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        return _sendSignal(LibSignals.signalForSignalRoot(chainId, signalRoot));
-        // TODO: emit an event
+        return _relaySignalRoot(chainId, signalRoot);
     }
 
     /// @inheritdoc ISignalService
@@ -166,8 +165,8 @@ contract SignalService is EssentialContract, ISignalService {
             );
 
             if (hop.cacheRootHash) {
-                if (hop.isStateRoot) relayStateRoot(_chainId, hop.rootHash);
-                else relaySignalRoot(_chainId, hop.rootHash);
+                if (hop.isStateRoot) _relayStateRoot(_chainId, hop.rootHash);
+                else _relaySignalRoot(_chainId, hop.rootHash);
             }
 
             _signal = hop.isStateRoot
@@ -191,7 +190,7 @@ contract SignalService is EssentialContract, ISignalService {
             verifyMerkleProof(_chainId, _app, _signal, p.rootHash, p.isStateRoot, p.merkleProof);
 
         if (p.isStateRoot && p.cacheSignalServiceStorageRoot) {
-            relaySignalRoot(_chainId, signalRoot);
+            _relaySignalRoot(_chainId, signalRoot);
         }
         return true;
     }
@@ -253,6 +252,30 @@ contract SignalService is EssentialContract, ISignalService {
         assembly {
             sstore(slot, 1)
         }
+    }
+
+      function _relayStateRoot(
+        uint64 chainId,
+        bytes32 stateRoot
+    )
+        internal
+        returns (bytes32)
+    {
+        if (chainId == block.chainid) revert SS_INVALID_PARAMS();
+        emit StateRootRelayed(chainId, stateRoot);
+        return _sendSignal(LibSignals.signalForStateRoot(chainId, stateRoot));
+    }
+
+    function _relaySignalRoot(
+        uint64 chainId,
+        bytes32 signalRoot
+    )
+        internal
+        returns (bytes32)
+    {
+        if (chainId == block.chainid) revert SS_INVALID_PARAMS();
+        emit SignalRootRelayed(chainId, signalRoot);
+        return _sendSignal(LibSignals.signalForSignalRoot(chainId, signalRoot));
     }
 
     function _authorizePause(address) internal pure override {
