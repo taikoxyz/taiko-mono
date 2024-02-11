@@ -17,6 +17,8 @@ library LibTrieProof {
     // following order: nonce, balance, storageHash, codeHash.
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
+    error LTP_INVALID_ACCOUNT_PROOF();
+
     /**
      * Verifies that the value of a slot in the storage of an account is value.
      *
@@ -27,7 +29,7 @@ library LibTrieProof {
      * @param mkproof The proof obtained by encoding storage proof.
      * @return verified The verification result.
      */
-    function verifyWithAccountProof(
+    function verifyFullMerkleProof(
         bytes32 stateRoot,
         address addr,
         bytes32 slot,
@@ -44,7 +46,7 @@ library LibTrieProof {
         bytes memory rlpAccount =
             SecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);
 
-        require(rlpAccount.length != 0, "LTP:invalid account proof");
+        if (rlpAccount.length == 0) revert LTP_INVALID_ACCOUNT_PROOF();
 
         RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
