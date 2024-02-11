@@ -44,10 +44,10 @@ contract BridgedERC20 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_UNAUTHORIZED();
 
-
-    modifier onlyOwnerOrSnapshooter {
-        if (msg.sender != owner() && msg.sender != snapshooter) 
-        revert  BTOKEN_UNAUTHORIZED();
+    modifier onlyOwnerOrSnapshooter() {
+        if (msg.sender != owner() && msg.sender != snapshooter) {
+            revert BTOKEN_UNAUTHORIZED();
+        }
         _;
     }
     /// @notice Initializes the contract.
@@ -59,6 +59,7 @@ contract BridgedERC20 is
     /// @param _decimals The number of decimal places of the source token.
     /// @param _symbol The symbol of the token.
     /// @param _name The name of the token.
+
     function init(
         address _addressManager,
         address _srcToken,
