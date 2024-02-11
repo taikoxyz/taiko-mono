@@ -8,7 +8,7 @@ pragma solidity ^0.8.24;
 
 import { RLPReader } from "../thirdparty/optimism/rlp/RLPReader.sol";
 import { SecureMerkleTrie } from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
-
+import "forge-std/console2.sol";
 /**
  * @title LibTrieProof
  */
@@ -18,43 +18,47 @@ library LibTrieProof {
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     error LTP_INVALID_ACCOUNT_PROOF();
+    error LTP_INVALID_STORAGE_PROOF();
 
-    /**
-     * Verifies that the value of a slot in the storage of an account is value.
-     *
-     * @param stateRoot The merkle root of state tree.
-     * @param addr The address of contract.
-     * @param slot The slot in the contract.
-     * @param value The value to be verified.
-     * @param mkproof The proof obtained by encoding storage proof.
-     * @return verified The verification result.
-     */
-    function verifyFullMerkleProof(
-        bytes32 stateRoot,
+    /// @notice Verifies that the value of a slot in the storage of an account is value.
+    /// @param rootHash The merkle root of state tree.
+    /// @param addr The address of contract.
+    /// @param slot The slot in the contract.
+    /// @param value The value to be verified.
+    /// @param accountProof The account proof.
+    /// @param storageProof The storage proof.
+    function verifyMerkleProof(
+        bytes32 rootHash,
         address addr,
         bytes32 slot,
         bytes32 value,
-        bytes memory mkproof
+        bytes[] memory accountProof,
+        bytes[] memory storageProof
     )
         internal
-        pure
-        returns (bool verified)
+        // pure
+        view
     {
-        (bytes[] memory accountProof, bytes[] memory storageProof) =
-            abi.decode(mkproof, (bytes[], bytes[]));
+        bytes32 storageRoot;
+        if (accountProof.length == 0) {
+            storageRoot = rootHash;
+        } else {
+            bytes memory rlpAccount =
+                SecureMerkleTrie.get(abi.encodePacked(addr), accountProof, rootHash);
 
-        bytes memory rlpAccount =
-            SecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);
+            if (rlpAccount.length == 0) revert LTP_INVALID_ACCOUNT_PROOF();
 
-        if (rlpAccount.length == 0) revert LTP_INVALID_ACCOUNT_PROOF();
+            RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
-        RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
+            storageRoot =
+                bytes32(RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
+        }
 
-        bytes memory storageRoot =
-            RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
-
-        verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), bytes.concat(value), storageProof, bytes32(storageRoot)
+        console2.log("storage root: ", uint(storageRoot));
+        bool verified = SecureMerkleTrie.verifyInclusionProof(
+            bytes.concat(slot), bytes.concat(value), storageProof, storageRoot
         );
+
+        if (!verified) revert LTP_INVALID_STORAGE_PROOF();
     }
 }

@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import "../TaikoTest.sol";
 import "../../contracts/libs/LibTrieProof.sol";
 
-contract TestVerifyFullMerkleProof is TaikoTest {
-    function test_verifyFullMerkleProof() public {
+contract TestLibTrieProof is TaikoTest {
+    function test_verifyMerkleProof() public {
         // Not needed for now, but leave it as is.
         //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
         // contract, this is why this chainId.
@@ -20,12 +20,14 @@ contract TestVerifyFullMerkleProof is TaikoTest {
         bytes32 slotStoredAtTheApp =
             0xfa2ef1bab164a0522c2c110bbea1a54ac6399d3ba24437480c29947143a5402e;
         // This is the worldStateRoot at blockheight: 0x5000B5 (Sepolia!)
-        bytes32 worldStateRoot = 0x90c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe;
+        bytes32 stateRoot = 0x90c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe;
         // This is the worldStateRoot just RLP encoded with
         // https://toolkit.abdk.consulting/ethereum#key-to-address,rlp
         // Not needed for now but leave it as is
         //bytes memory worldStateRootRLPEncoded =
         // hex"e1a090c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe";
+
+        bytes32 storageRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
 
         bytes[] memory accountProof = new bytes[](8);
         // eth_getProof responds some bytes
@@ -49,15 +51,28 @@ contract TestVerifyFullMerkleProof is TaikoTest {
         bytes[] memory storageProof = new bytes[](1);
         storageProof[0] =
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
-        bytes memory merkleProof = abi.encode(accountProof, storageProof);
 
-        vm.startPrank(Alice);
-        LibTrieProof.verifyFullMerkleProof(
-            worldStateRoot,
+       bool verified =  LibTrieProof.verifyMerkleProof(
+            stateRoot,
             contractWhichStoresValue1AtSlot,
             slotStoredAtTheApp,
             hex"01",
-            merkleProof
+            accountProof,
+            storageProof
         );
+
+       console2.log("verified:", verified);
+
+
+// accountProof = new bytes[](8);
+//           LibTrieProof.verifyMerkleProof(
+//             storageRoot,
+//             contractWhichStoresValue1AtSlot,
+//             slotStoredAtTheApp,
+//             hex"01",
+//             accountProof
+//             storageProof
+//         );
+
     }
 }

@@ -16,12 +16,10 @@ contract SignalServiceForTest is SignalService {
     }
 
     function verifyMerkleProof(
-        uint64, /*srcChainId*/
-        address, /*srcApp*/
-        bytes32, /*srcSignal*/
-        bytes32, /*rootHash*/
-        bool, /*isStateRoot*/
-        bytes memory /*merkleProof*/
+        uint64, /*chainId*/
+        address, /*app*/
+        bytes32, /*signal*/
+        HopProof memory /*hopProof*/
     )
         public
         view

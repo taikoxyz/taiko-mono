@@ -37,8 +37,8 @@ contract SignalService is EssentialContract, ISignalService {
 
     struct HopProof {
         bytes32 rootHash;
-        bool isStateRoot;
-        bytes merkleProof;
+        bytes[] accountProof;
+        bytes[] storageProof;
         bool cacheLocally;
     }
 
@@ -63,7 +63,6 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
     error SS_INVALID_APP();
-    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_ROOT_HASH();
@@ -141,28 +140,22 @@ contract SignalService is EssentialContract, ISignalService {
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
         // We always verify the proofs in the reversed order (top to bottom).
+        bool isFullProof;
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
-            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
             bool isHopTrusted = hrr.isRelayRegistered(_chainId, hop.chainId, hop.relay);
             if (!isHopTrusted) revert SS_INVALID_RELAY();
 
-            verifyMerkleProof(
-                _chainId,
-                _app,
-                _signal,
-                hop.proof.rootHash,
-                hop.proof.isStateRoot,
-                hop.proof.merkleProof
-            );
+            verifyMerkleProof(_chainId, _app, _signal, hop.proof);
 
+            isFullProof = hop.proof.accountProof.length > 0;
             if (hop.proof.cacheLocally) {
-                (_signal,) = hop.proof.isStateRoot
+                (_signal,) = isFullProof
                     ? _relayStateRoot(_chainId, hop.proof.rootHash)
                     : _relaySignalRoot(_chainId, hop.proof.rootHash);
             } else {
-                _signal = hop.proof.isStateRoot
+                _signal = isFullProof
                     ? signalForStateRoot(_chainId, hop.proof.rootHash)
                     : signalForSignalRoot(_chainId, hop.proof.rootHash);
             }
@@ -173,18 +166,17 @@ contract SignalService is EssentialContract, ISignalService {
 
         // check p.rootHash is trusted locally -- this is true only when it has been locally
         // relayed as a signal.
-        bytes32 lastSignal = p.proof.isStateRoot
+        isFullProof = p.proof.accountProof.length > 0;
+        bytes32 lastSignal = isFullProof
             ? signalForStateRoot(_chainId, p.proof.rootHash)
             : signalForSignalRoot(_chainId, p.proof.rootHash);
 
         bool lastSignalRelayed = isSignalSent(resolve("taiko", false), lastSignal);
         if (!lastSignalRelayed) revert SS_INVALID_ROOT_HASH();
 
-        bytes32 signalRoot = verifyMerkleProof(
-            _chainId, _app, _signal, p.proof.rootHash, p.proof.isStateRoot, p.proof.merkleProof
-        );
+        bytes32 signalRoot = verifyMerkleProof(_chainId, _app, _signal, p.proof);
 
-        if (p.proof.isStateRoot && p.proof.cacheLocally) {
+        if (isFullProof && p.proof.cacheLocally) {
             _relaySignalRoot(_chainId, signalRoot);
         }
 
@@ -195,30 +187,27 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 chainId,
         address app,
         bytes32 signal,
-        bytes32 rootHash,
-        bool isStateRoot,
-        bytes memory merkleProof
+        HopProof memory hopProof
     )
         public
         view
         virtual
         returns (bytes32 signalRoot)
     {
-        if (rootHash == 0) revert SS_INVALID_ROOT_HASH();
-        if (merkleProof.length == 0) revert SS_INVALID_PROOF();
+        if (hopProof.rootHash == 0) revert SS_INVALID_ROOT_HASH();
+        if (hopProof.storageProof.length == 0) revert SS_INVALID_PROOF();
 
-        address signalService = resolve(srcChainId, "signal_service", false);
+        address signalService = resolve(chainId, "signal_service", false);
 
-        bool verified;
-
-        if (isStateRoot) {
-            bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-            verified = LibTrieProof.verifyFullMerkleProof(rootHash, signalService, slot, hex"01", merkleProof);
-        } else {
-            // TODO: verify against signal root
-        }
-
-        if (!verified) revert SS_INVALID_PROOF();
+        bytes32 slot = getSignalSlot(chainId, app, signal);
+        LibTrieProof.verifyMerkleProof(
+            hopProof.rootHash,
+            signalService,
+            slot,
+            hex"01",
+            hopProof.accountProof,
+            hopProof.storageProof
+        );
     }
 
     /// @notice Checks if multi-hop is enabled.
