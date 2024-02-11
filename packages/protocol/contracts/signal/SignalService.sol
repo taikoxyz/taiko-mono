@@ -187,11 +187,11 @@ contract SignalService is EssentialContract, ISignalService {
         bool lastSignalRelayed = isSignalSent(resolve("taiko", false), lastSignal);
         if (!lastSignalRelayed) revert SS_INVALID_ROOT_HASH();
 
-        bytes32 storageRoot =
+        bytes32 signalRoot =
             verifyMerkleProof(_chainId, _app, _signal, p.rootHash, p.isStateRoot, p.merkleProof);
 
         if (p.isStateRoot && p.cacheSignalServiceStorageRoot) {
-            relaySignalRoot(_chainId, storageRoot);
+            relaySignalRoot(_chainId, signalRoot);
         }
         return true;
     }
@@ -207,7 +207,7 @@ contract SignalService is EssentialContract, ISignalService {
         public
         view
         virtual
-        returns (bytes32)
+        returns (bytes32 signalRoot)
     {
         if (rootHash == 0) revert SS_INVALID_ROOT_HASH();
         if (merkleProof.length == 0) revert SS_INVALID_PROOF();
@@ -215,9 +215,9 @@ contract SignalService is EssentialContract, ISignalService {
         bool verified;
 
         if (isStateRoot) {
-            // TODO: verify full block merkle root
+            // TODO: verify against storage root
         } else {
-            // TODO: verify signal service storage root
+            // TODO: verify against signal root
         }
 
         if (!verified) revert SS_INVALID_PROOF();
