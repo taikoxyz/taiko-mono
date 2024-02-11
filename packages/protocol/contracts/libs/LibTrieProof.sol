@@ -56,5 +56,8 @@ library LibTrieProof {
         verified = SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(slot), bytes.concat(value), storageProof, bytes32(storageRoot)
         );
+
+        // TODO(dani): may I suggest to remove the return value and revert in this fuction if
+        // verified is false?
     }
 }
