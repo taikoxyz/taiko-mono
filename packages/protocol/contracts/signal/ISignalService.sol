@@ -57,6 +57,5 @@ interface ISignalService {
         bytes calldata proof
     )
         external
-        view
         returns (bool);
 }

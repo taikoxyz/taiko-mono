@@ -19,12 +19,14 @@ contract SignalServiceForTest is SignalService {
         uint64, /*srcChainId*/
         address, /*srcApp*/
         bytes32, /*srcSignal*/
-        bytes32, /*stateRoot*/
+        bytes32, /*rootHash*/
+        bool, /*isStateRoot*/
         bytes memory /*merkleProof*/
     )
         public
         view
         override
+        returns (bytes32 storageRoot)
     {
         if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
     }
