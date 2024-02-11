@@ -21,6 +21,7 @@ import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./IHopRelayRegistry.sol";
 import "./ISignalService.sol";
+import "./LibSignals.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -70,15 +71,24 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal) public returns (bytes32 slot) {
-        if (signal == 0) revert SS_INVALID_SIGNAL();
-        slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
-        assembly {
-            sstore(slot, 1)
-        }
+        return _sendSignal(signal);
     }
 
-    function relayChainStateRoot(uint64 chainId, bytes32 stateRoot) external {}
-    function relaySignalServiceStorageRoot(uint64 chainId, bytes32 storageRoot) external{}
+    function relayChainStateRoot(uint64 chainId, bytes32 stateRoot) public returns (bytes32 slot) {
+        return _sendSignal(LibSignals.signalForStateRoot(chainId, stateRoot));
+        // TODO: emit an event
+    }
+
+    function relaySignalServiceStorageRoot(
+        uint64 chainId,
+        bytes32 storageRoot
+    )
+        public
+        returns (bytes32 slot)
+    {
+        return _sendSignal(LibSignals.signalForStorageRoot(chainId, storageRoot));
+        // TODO: emit an event
+    }
 
     /// @inheritdoc ISignalService
     function isSignalSent(address app, bytes32 signal) public view returns (bool) {
@@ -196,6 +206,14 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
+    }
+
+    function _sendSignal(bytes32 signal) internal returns (bytes32 slot) {
+        if (signal == 0) revert SS_INVALID_SIGNAL();
+        slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
+        assembly {
+            sstore(slot, 1)
+        }
     }
 
     function _authorizePause(address) internal pure override {

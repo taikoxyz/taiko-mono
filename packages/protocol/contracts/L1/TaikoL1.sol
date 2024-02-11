@@ -163,19 +163,6 @@ contract TaikoL1 is
         return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
     }
 
-    /// @inheritdoc ICrossChainSync
-    /// @notice Important: as this contract doesn't send each block's state root as a signal when
-    /// the block is verified, bridging developers should subscribe to CrossChainSynced events
-    /// to ensure all synced state roots are verifiable using merkle proofs.
-    function getSyncedSnippet(uint64 blockId)
-        public
-        view
-        override
-        returns (ICrossChainSync.Snippet memory)
-    {
-        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
-    }
-
     /// @notice Gets the state variables of the TaikoL1 contract.
     function getStateVariables()
         public

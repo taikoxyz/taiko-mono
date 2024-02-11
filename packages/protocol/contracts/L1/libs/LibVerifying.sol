@@ -39,10 +39,6 @@ library LibVerifying {
         uint8 contestations
     );
 
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
-    );
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -244,12 +240,8 @@ library LibVerifying {
                 // This also means if we verified more than one block, only the last one's stateRoot
                 // is sent as a signal and verifiable with merkle proofs, all other blocks'
                 // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(
-                    LibSignals.signalForStateRoot(config.chainId, stateRoot)
-                );
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
+                ISignalService(resolver.resolve("signal_service", false)).relayChainStateRoot(
+                    config.chainId, stateRoot
                 );
             }
         }

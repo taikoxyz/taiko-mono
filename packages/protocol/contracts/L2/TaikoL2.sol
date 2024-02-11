@@ -143,9 +143,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).sendSignal(l1StateRoot);
-
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
+        ISignalService(resolve("signal_service", false)).relayChainStateRoot(ownerChainId, l1StateRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
@@ -169,17 +167,6 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         } else {
             IERC20(token).safeTransfer(to, IERC20(token).balanceOf(address(this)));
         }
-    }
-
-    /// @inheritdoc ICrossChainSync
-    function getSyncedSnippet(uint64 blockId)
-        public
-        view
-        override
-        returns (ICrossChainSync.Snippet memory)
-    {
-        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return snippets[id];
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for

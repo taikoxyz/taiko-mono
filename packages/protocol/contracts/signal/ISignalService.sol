@@ -19,14 +19,28 @@ interface ISignalService {
     /// @notice Send a signal (message) by setting the storage slot to a value
     /// of 1.
     /// @param signal The signal (message) to send.
-    /// @return storageSlot The location in storage where this signal is stored.
-    function sendSignal(bytes32 signal) external returns (bytes32 storageSlot);
+    /// @return slot The location in storage where this signal is stored.
+    function sendSignal(bytes32 signal) external returns (bytes32 slot);
 
     /// @notice Verifies if a particular signal has already been sent.
     /// @param app The address that initiated the signal.
     /// @param signal The signal (message) to send.
     /// @return True if the signal has been sent, otherwise false.
     function isSignalSent(address app, bytes32 signal) external view returns (bool);
+
+    function relayChainStateRoot(
+        uint64 chainId,
+        bytes32 stateRoot
+    )
+        external
+        returns (bytes32 slot);
+        
+    function relaySignalServiceStorageRoot(
+        uint64 chainId,
+        bytes32 storageRoot
+    )
+        external
+        returns (bytes32 slot);
 
     /// @notice Verifies if a signal has been received on the target chain.
     /// @param srcChainId The identifier for the source chain from which the
@@ -45,8 +59,4 @@ interface ISignalService {
         external
         view
         returns (bool);
-
-
-    function relayChainStateRoot(uint64 chainId, bytes32 stateRoot) external;
-    function relaySignalServiceStorageRoot(uint64 chainId, bytes32 storageRoot) external;
 }
