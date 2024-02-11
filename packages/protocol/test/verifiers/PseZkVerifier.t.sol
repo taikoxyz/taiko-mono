@@ -50,7 +50,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32(0),
             blockHash: bytes32(0),
             stateRoot: bytes32(0),
-            graffiti: bytes32(0)
+            graffiti: bytes32(0),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -77,7 +78,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32(0),
             blockHash: bytes32(0),
             stateRoot: bytes32(0),
-            graffiti: bytes32(0)
+            graffiti: bytes32(0),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -128,7 +130,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -165,7 +168,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -194,7 +198,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -232,7 +237,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -269,7 +275,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -303,7 +310,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -344,7 +352,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -385,7 +394,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -423,7 +433,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("23"),
             stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
+            graffiti: bytes32("1234"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
