@@ -34,22 +34,21 @@ import "./ISignalService.sol";
 contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
-    // merkleProof represents ABI-encoded tuple of (key, value, and proof)
-    // returned from the eth_getProof() API.
-    struct Hop {
-        uint64 chainId;
+    struct HopProof {
         bytes32 rootHash;
         bool isStateRoot;
         bytes merkleProof;
-        address relay;
         bool cacheLocally;
     }
 
-    struct Proof {
-        bytes32 rootHash;
-        bool isStateRoot;
-        bytes merkleProof;
-        bool cacheLocally;
+    struct Hop {
+        uint64 chainId;
+        address relay;
+        HopProof proof;
+    }
+
+    struct MultiHopProof {
+        HopProof proof;
         // Ensure that hops are ordered such that those closer to the signal's source chain come
         // before others.
         Hop[] hops;
@@ -118,7 +117,7 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_PARAMS();
         }
 
-        Proof memory p = abi.decode(proof, (Proof));
+        MultiHopProof memory p = abi.decode(proof, (MultiHopProof));
         if (!isMultiHopEnabled() && p.hops.length > 0) {
             revert SS_MULTIHOP_DISABLED();
         }
@@ -148,17 +147,22 @@ contract SignalService is EssentialContract, ISignalService {
             if (!isHopTrusted) revert SS_INVALID_RELAY();
 
             verifyMerkleProof(
-                _chainId, _app, _signal, hop.rootHash, hop.isStateRoot, hop.merkleProof
+                _chainId,
+                _app,
+                _signal,
+                hop.proof.rootHash,
+                hop.proof.isStateRoot,
+                hop.proof.merkleProof
             );
 
-            if (hop.cacheLocally) {
-                (_signal,) = hop.isStateRoot
-                    ? _relayStateRoot(_chainId, hop.rootHash)
-                    : _relaySignalRoot(_chainId, hop.rootHash);
+            if (hop.proof.cacheLocally) {
+                (_signal,) = hop.proof.isStateRoot
+                    ? _relayStateRoot(_chainId, hop.proof.rootHash)
+                    : _relaySignalRoot(_chainId, hop.proof.rootHash);
             } else {
-                _signal = hop.isStateRoot
-                    ? signalForStateRoot(_chainId, hop.rootHash)
-                    : signalForSignalRoot(_chainId, hop.rootHash);
+                _signal = hop.proof.isStateRoot
+                    ? signalForStateRoot(_chainId, hop.proof.rootHash)
+                    : signalForSignalRoot(_chainId, hop.proof.rootHash);
             }
 
             _chainId = hop.chainId;
@@ -167,17 +171,18 @@ contract SignalService is EssentialContract, ISignalService {
 
         // check p.rootHash is trusted locally -- this is true only when it has been locally
         // relayed as a signal.
-        bytes32 lastSignal = p.isStateRoot
-            ? signalForStateRoot(_chainId, p.rootHash)
-            : signalForSignalRoot(_chainId, p.rootHash);
+        bytes32 lastSignal = p.proof.isStateRoot
+            ? signalForStateRoot(_chainId, p.proof.rootHash)
+            : signalForSignalRoot(_chainId, p.proof.rootHash);
 
         bool lastSignalRelayed = isSignalSent(resolve("taiko", false), lastSignal);
         if (!lastSignalRelayed) revert SS_INVALID_ROOT_HASH();
 
-        bytes32 signalRoot =
-            verifyMerkleProof(_chainId, _app, _signal, p.rootHash, p.isStateRoot, p.merkleProof);
+        bytes32 signalRoot = verifyMerkleProof(
+            _chainId, _app, _signal, p.proof.rootHash, p.proof.isStateRoot, p.proof.merkleProof
+        );
 
-        if (p.isStateRoot && p.cacheLocally) {
+        if (p.proof.isStateRoot && p.proof.cacheLocally) {
             _relaySignalRoot(_chainId, signalRoot);
         }
         return true;
