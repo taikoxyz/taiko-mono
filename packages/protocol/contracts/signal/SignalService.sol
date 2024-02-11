@@ -129,8 +129,7 @@ contract SignalService is EssentialContract, ISignalService {
         // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
         // the following order:
         // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2
-        // contract has
-        // sent a given hop stateRoot on chainB using its own signal service.
+        // contract has sent a given hop stateRoot on chainB using its own signal service.
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
         // We always verify the proofs in the reversed order (top to bottom).
@@ -198,12 +197,6 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
-    }
-
-    /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) {
-        return false;
     }
 
     function _authorizePause(address) internal pure override {
