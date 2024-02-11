@@ -49,8 +49,8 @@ contract SignalService is EssentialContract, ISignalService {
 
     struct MultiHopProof {
         HopProof proof;
-        // Ensure that hops are ordered such that those closer to the signal's source chain come
-        // before others.
+        // Ensure that hops are ordered such that those closer
+        // to the signal's source chain come before others.
         Hop[] hops;
     }
 
