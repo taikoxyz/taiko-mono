@@ -43,14 +43,14 @@ contract SignalService is EssentialContract, ISignalService {
         bool isStateRoot;
         bytes merkleProof;
         address relay;
-        bool cacheRootHash;
+        bool cacheLocally;
     }
 
     struct Proof {
         bytes32 rootHash;
         bool isStateRoot;
         bytes merkleProof;
-        bool cacheSignalServiceStorageRoot;
+        bool cacheLocally;
         // Ensure that hops are ordered such that those closer to the signal's source chain come
         // before others.
         Hop[] hops;
@@ -152,7 +152,7 @@ contract SignalService is EssentialContract, ISignalService {
                 _chainId, _app, _signal, hop.rootHash, hop.isStateRoot, hop.merkleProof
             );
 
-            if (hop.cacheRootHash) {
+            if (hop.cacheLocally) {
                 (_signal,) = hop.isStateRoot
                     ? _relayStateRoot(_chainId, hop.rootHash)
                     : _relaySignalRoot(_chainId, hop.rootHash);
@@ -178,7 +178,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 signalRoot =
             verifyMerkleProof(_chainId, _app, _signal, p.rootHash, p.isStateRoot, p.merkleProof);
 
-        if (p.isStateRoot && p.cacheSignalServiceStorageRoot) {
+        if (p.isStateRoot && p.cacheLocally) {
             _relaySignalRoot(_chainId, signalRoot);
         }
         return true;
