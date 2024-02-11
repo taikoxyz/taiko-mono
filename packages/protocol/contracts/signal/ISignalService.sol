@@ -30,8 +30,6 @@ interface ISignalService {
 
     function relayStateRoot(uint64 chainId, bytes32 stateRoot) external returns (bytes32 slot);
 
-    function relaySignalRoot(uint64 chainId, bytes32 signalRoot) external returns (bytes32 slot);
-
     /// @notice Verifies if a signal has been received on the target chain.
     /// @param srcChainId The identifier for the source chain from which the
     /// signal originated.

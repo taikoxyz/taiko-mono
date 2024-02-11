@@ -92,17 +92,6 @@ contract SignalService is EssentialContract, ISignalService {
         return _relayStateRoot(chainId, stateRoot);
     }
 
-    function relaySignalRoot(
-        uint64 chainId,
-        bytes32 signalRoot
-    )
-        external
-        onlyFromNamed("taiko")
-        returns (bytes32)
-    {
-        return _relaySignalRoot(chainId, signalRoot);
-    }
-
     /// @inheritdoc ISignalService
     function isSignalSent(address app, bytes32 signal) public view returns (bool) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
