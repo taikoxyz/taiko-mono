@@ -86,9 +86,9 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         onlyFromNamed("taiko")
-        returns (bytes32)
+        returns (bytes32 slot)
     {
-        return _relayStateRoot(chainId, stateRoot);
+        (, slot) = _relayStateRoot(chainId, stateRoot);
     }
 
     /// @inheritdoc ISignalService
@@ -153,13 +153,14 @@ contract SignalService is EssentialContract, ISignalService {
             );
 
             if (hop.cacheRootHash) {
-                if (hop.isStateRoot) _relayStateRoot(_chainId, hop.rootHash);
-                else _relaySignalRoot(_chainId, hop.rootHash);
+                (_signal,) = hop.isStateRoot
+                    ? _relayStateRoot(_chainId, hop.rootHash)
+                    : _relaySignalRoot(_chainId, hop.rootHash);
+            } else {
+                _signal = hop.isStateRoot
+                    ? LibSignals.signalForStateRoot(_chainId, hop.rootHash)
+                    : LibSignals.signalForSignalRoot(_chainId, hop.rootHash);
             }
-
-            _signal = hop.isStateRoot
-                ? LibSignals.signalForStateRoot(_chainId, hop.rootHash)
-                : LibSignals.signalForSignalRoot(_chainId, hop.rootHash);
 
             _chainId = hop.chainId;
             _app = hop.relay;
@@ -242,18 +243,30 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    function _relayStateRoot(uint64 chainId, bytes32 stateRoot) internal returns (bytes32) {
+    function _relayStateRoot(
+        uint64 chainId,
+        bytes32 stateRoot
+    )
+        internal
+        returns (bytes32 signal, bytes32 slot)
+    {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        bytes32 signal = LibSignals.signalForStateRoot(chainId, stateRoot);
+        signal = LibSignals.signalForStateRoot(chainId, stateRoot);
+        slot = _sendSignal(signal);
         emit StateRootRelayed(chainId, stateRoot, signal);
-        return _sendSignal(signal);
     }
 
-    function _relaySignalRoot(uint64 chainId, bytes32 signalRoot) internal returns (bytes32) {
+    function _relaySignalRoot(
+        uint64 chainId,
+        bytes32 signalRoot
+    )
+        internal
+        returns (bytes32 signal, bytes32 slot)
+    {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        bytes32 signal = LibSignals.signalForSignalRoot(chainId, signalRoot);
+        signal = LibSignals.signalForSignalRoot(chainId, signalRoot);
+        slot = _sendSignal(signal);
         emit SignalRootRelayed(chainId, signalRoot, signal);
-        return _sendSignal(signal);
     }
 
     function _authorizePause(address) internal pure override {
