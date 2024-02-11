@@ -18,7 +18,6 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
-import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
 import "./LibUtils.sol";

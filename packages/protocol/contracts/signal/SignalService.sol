@@ -20,7 +20,6 @@ import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./IHopRelayRegistry.sol";
 import "./ISignalService.sol";
-import "./LibSignals.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -158,8 +157,8 @@ contract SignalService is EssentialContract, ISignalService {
                     : _relaySignalRoot(_chainId, hop.rootHash);
             } else {
                 _signal = hop.isStateRoot
-                    ? LibSignals.signalForStateRoot(_chainId, hop.rootHash)
-                    : LibSignals.signalForSignalRoot(_chainId, hop.rootHash);
+                    ? signalForStateRoot(_chainId, hop.rootHash)
+                    : signalForSignalRoot(_chainId, hop.rootHash);
             }
 
             _chainId = hop.chainId;
@@ -169,8 +168,8 @@ contract SignalService is EssentialContract, ISignalService {
         // check p.rootHash is trusted locally -- this is true only when it has been locally
         // relayed as a signal.
         bytes32 lastSignal = p.isStateRoot
-            ? LibSignals.signalForStateRoot(_chainId, p.rootHash)
-            : LibSignals.signalForSignalRoot(_chainId, p.rootHash);
+            ? signalForStateRoot(_chainId, p.rootHash)
+            : signalForSignalRoot(_chainId, p.rootHash);
 
         bool lastSignalRelayed = isSignalSent(resolve("taiko", false), lastSignal);
         if (!lastSignalRelayed) revert SS_INVALID_ROOT_HASH();
@@ -235,6 +234,21 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
+    function signalForStateRoot(uint64 chainId, bytes32 stateRoot) public pure returns (bytes32) {
+        return keccak256(abi.encode("STATE_ROOT", chainId, stateRoot));
+    }
+
+    function signalForSignalRoot(
+        uint64 chainId,
+        bytes32 storageRoot
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode("SIGNAL_ROOT", chainId, storageRoot));
+    }
+
     function _sendSignal(bytes32 signal) internal returns (bytes32 slot) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
         slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
@@ -251,7 +265,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 signal, bytes32 slot)
     {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        signal = LibSignals.signalForStateRoot(chainId, stateRoot);
+        signal = signalForStateRoot(chainId, stateRoot);
         slot = _sendSignal(signal);
         emit StateRootRelayed(chainId, stateRoot, signal);
     }
@@ -264,7 +278,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 signal, bytes32 slot)
     {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
-        signal = LibSignals.signalForSignalRoot(chainId, signalRoot);
+        signal = signalForSignalRoot(chainId, signalRoot);
         slot = _sendSignal(signal);
         emit SignalRootRelayed(chainId, signalRoot, signal);
     }
