@@ -28,7 +28,6 @@ library LibTrieProof {
      * @param slot The slot in the contract.
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding storage proof.
-     * @return verified The verification result.
      */
     function verifyFullMerkleProof(
         bytes32 stateRoot,
@@ -39,7 +38,6 @@ library LibTrieProof {
     )
         internal
         pure
-        returns (bool verified)
     {
         (bytes[] memory accountProof, bytes[] memory storageProof) =
             abi.decode(mkproof, (bytes[], bytes[]));
@@ -54,7 +52,7 @@ library LibTrieProof {
         bytes memory storageRoot =
             RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
 
-        verified = SecureMerkleTrie.verifyInclusionProof(
+        bool verified = SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(slot), value, storageProof, bytes32(storageRoot)
         );
 

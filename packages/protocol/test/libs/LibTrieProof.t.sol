@@ -5,7 +5,7 @@ import "../TaikoTest.sol";
 import "../../contracts/libs/LibTrieProof.sol";
 
 contract TestLibTrieProof is TaikoTest {
-    function test_verifyFullMerkleProof() public {
+    function test_verifyFullMerkleProof() public pure {
         // Not needed for now, but leave it as is.
         //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
         // contract, this is why this chainId.
@@ -51,14 +51,12 @@ contract TestLibTrieProof is TaikoTest {
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
         bytes memory merkleProof = abi.encode(accountProof, storageProof);
 
-        bool verified = LibTrieProof.verifyFullMerkleProof(
+        LibTrieProof.verifyFullMerkleProof(
             worldStateRoot,
             contractWhichStoresValue1AtSlot,
             slotStoredAtTheApp,
             hex"01",
             merkleProof
         );
-
-        assertEq(verified, true);
     }
 }
