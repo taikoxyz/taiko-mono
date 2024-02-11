@@ -11,6 +11,7 @@
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { network } from '$stores/network';
+  import OnNetwork from '$components/OnNetwork/OnNetwork.svelte';
 
   export let value: Maybe<GetNetworkResult['chain']> = $network;
   export let label = '';
@@ -38,6 +39,8 @@
   };
 
   const onAccountChange = () => {
+    console.log('onAccountChange');
+
     value = $network;
   };
 </script>
@@ -79,3 +82,4 @@
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
 <OnAccount change={onAccountChange} />
+<OnNetwork change={onAccountChange} />
