@@ -16,6 +16,7 @@ pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
+import "../libs/LibTrieProof.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./IHopRelayRegistry.sol";
@@ -62,6 +63,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
     error SS_INVALID_APP();
+    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_ROOT_HASH();
@@ -141,6 +143,7 @@ contract SignalService is EssentialContract, ISignalService {
         // We always verify the proofs in the reversed order (top to bottom).
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
             bool isHopTrusted = hrr.isRelayRegistered(_chainId, hop.chainId, hop.relay);
             if (!isHopTrusted) revert SS_INVALID_RELAY();
@@ -184,6 +187,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (p.proof.isStateRoot && p.proof.cacheLocally) {
             _relaySignalRoot(_chainId, signalRoot);
         }
+
         return true;
     }
 
@@ -203,10 +207,13 @@ contract SignalService is EssentialContract, ISignalService {
         if (rootHash == 0) revert SS_INVALID_ROOT_HASH();
         if (merkleProof.length == 0) revert SS_INVALID_PROOF();
 
+        address signalService = resolve(srcChainId, "signal_service", false);
+
         bool verified;
 
         if (isStateRoot) {
-            // TODO: verify against storage root
+            bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
+            verified = LibTrieProof.verifyFullMerkleProof(rootHash, signalService, slot, hex"01", merkleProof);
         } else {
             // TODO: verify against signal root
         }
