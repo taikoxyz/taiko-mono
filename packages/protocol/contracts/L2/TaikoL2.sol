@@ -139,10 +139,13 @@ contract TaikoL2 is CrossChainOwned {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        // Store the L1's state root as a signal to the local signal service to
-        // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).relayStateRoot(ownerChainId, l1StateRoot);
-
+        if (relayStateRoot()) {
+            // Store the L1's state root as a signal to the local signal service to
+            // allow for multi-hop bridging.
+            ISignalService(resolve("signal_service", false)).relayStateRoot(
+                ownerChainId, l1StateRoot
+            );
+        }
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         publicInputHash = publicInputHashNew;
@@ -199,8 +202,12 @@ contract TaikoL2 is CrossChainOwned {
 
     /// @notice Tells if we need to validate basefee (for simulation).
     /// @return Returns true to skip checking basefee mismatch.
-    function skipFeeCheck() public pure virtual returns (bool) {
+    function skipFeeCheck() internal pure virtual returns (bool) {
         return false;
+    }
+
+    function relayStateRoot() internal pure virtual returns (bool) {
+        return true;
     }
 
     function _calcPublicInputHash(uint256 blockId)

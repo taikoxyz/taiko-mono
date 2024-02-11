@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../TaikoTest.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
-    function skipFeeCheck() public pure override returns (bool) {
+    function skipFeeCheck() internal pure override returns (bool) {
         return true;
     }
 }
