@@ -24,8 +24,8 @@ contract ERC721Airdrop is MerkleClaimable {
     uint256[48] private __gap;
 
     function init(
-        uint64 _claimStarts,
-        uint64 _claimEnds,
+        uint64 _claimStart,
+        uint64 _claimEnd,
         bytes32 _merkleRoot,
         address _token,
         address _vault
@@ -34,15 +34,24 @@ contract ERC721Airdrop is MerkleClaimable {
         initializer
     {
         __Essential_init();
-        _setConfig(_claimStarts, _claimEnds, _merkleRoot);
+        __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
         vault = _vault;
     }
 
-    function _claimWithData(bytes calldata data) internal override {
-        (address user, uint256[] memory tokenIds) = abi.decode(data, (address, uint256[]));
+    function claim(
+        address user,
+        uint256[] calldata tokenIds,
+        bytes32[] calldata proof
+    )
+        external
+        nonReentrant
+    {
+        // Check if this can be claimed
+        _verifyClaim(abi.encode(user, tokenIds), proof);
 
+        // Transfer the tokens
         for (uint256 i; i < tokenIds.length; ++i) {
             IERC721Upgradeable(token).safeTransferFrom(vault, user, tokenIds[i]);
         }
