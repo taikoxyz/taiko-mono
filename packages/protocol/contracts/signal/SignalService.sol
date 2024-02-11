@@ -40,13 +40,13 @@ contract SignalService is EssentialContract, ISignalService {
     // returned from the eth_getProof() API.
     struct Hop {
         uint64 chainId;
-        address relay;
         bytes32 stateRoot;
         bytes merkleProof;
+        address relay;
     }
 
     struct Proof {
-        uint64 height;
+        bytes32 stateRoot;
         bytes merkleProof;
         // Ensure that hops are ordered such that those closer to the signal's source chain come
         // before others.
@@ -74,7 +74,14 @@ contract SignalService is EssentialContract, ISignalService {
         return _sendSignal(signal);
     }
 
-    function relayChainStateRoot(uint64 chainId, bytes32 stateRoot) public returns (bytes32 slot) {
+    function relayChainStateRoot(
+        uint64 chainId,
+        bytes32 stateRoot
+    )
+        public
+        onlyFromNamed("taiko")
+        returns (bytes32 slot)
+    {
         return _sendSignal(LibSignals.signalForStateRoot(chainId, stateRoot));
         // TODO: emit an event
     }
@@ -84,6 +91,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 storageRoot
     )
         public
+        onlyFromNamed("taiko")
         returns (bytes32 slot)
     {
         return _sendSignal(LibSignals.signalForStorageRoot(chainId, storageRoot));
@@ -124,15 +132,32 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_MULTIHOP_DISABLED();
         }
 
-        uint64 _srcChainId = srcChainId;
-        address _srcApp = app;
-        bytes32 _srcSignal = signal;
-
         // Verify hop proofs
         IHopRelayRegistry hrr;
         if (p.hops.length > 0) {
             hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
+
+        uint64 _srcChainId = srcChainId;
+        address _srcApp = app;
+        bytes32 _srcSignal = signal;
+
+        //       struct Hop {
+        //     uint64 chainId;
+        //     bytes32 stateRoot;
+        //     bytes merkleProof;
+        //      address relay;
+        // }
+
+        // struct Proof {
+        //     uint64 chainId;
+        //     bytes32 stateRoot;
+        //     bytes merkleProof;
+        //     // Ensure that hops are ordered such that those closer to the signal's source chain
+        // come
+        //     // before others.
+        //     Hop[] hops;
+        // }
 
         // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
         // the following order:
@@ -142,32 +167,34 @@ contract SignalService is EssentialContract, ISignalService {
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
         // We always verify the proofs in the reversed order (top to bottom).
-        for (uint256 i; i < p.hops.length; ++i) {
-            Hop memory hop = p.hops[i];
+        // for (uint256 i; i < p.hops.length; ++i) {
+        //     Hop memory hop = p.hops[i];
 
-            if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
-                revert SS_INVALID_RELAY();
-            }
+        //     if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
+        //         revert SS_INVALID_RELAY();
+        //     }
 
-            verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
+        //     verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
 
-            _srcChainId = hop.chainId;
-            _srcApp = hop.relay;
-            _srcSignal = hop.stateRoot;
+        //     _srcChainId = hop.chainId;
+        //     _srcApp = hop.relay;
+        //     _srcSignal = hop.stateRoot;
+        // }
+
+        address relay = resolve("taiko", false);
+        if (!isSignalSent(relay, LibSignals.signalForStateRoot(_srcChainId, p.stateRoot))) {
+            revert SS_INVALID_STATE_ROOT();
         }
 
-        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
-        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
-
-        verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
+        verifyMerkleProof(_srcChainId, _srcApp, _srcSignal, p.stateRoot, p.merkleProof);
         return true;
     }
 
     function verifyMerkleProof(
-        bytes32 stateRoot,
         uint64 srcChainId,
         address srcApp,
         bytes32 srcSignal,
+        bytes32 stateRoot,
         bytes memory merkleProof
     )
         public

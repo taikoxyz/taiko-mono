@@ -34,7 +34,7 @@ interface ISignalService {
     )
         external
         returns (bytes32 slot);
-        
+
     function relaySignalServiceStorageRoot(
         uint64 chainId,
         bytes32 storageRoot
