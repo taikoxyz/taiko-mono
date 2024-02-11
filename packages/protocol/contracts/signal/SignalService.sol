@@ -207,7 +207,7 @@ contract SignalService is EssentialContract, ISignalService {
         public
         view
         virtual
-        returns (bytes32 storageRoot)
+        returns (bytes32)
     {
         if (rootHash == 0) revert SS_INVALID_ROOT_HASH();
         if (merkleProof.length == 0) revert SS_INVALID_PROOF();

@@ -26,7 +26,7 @@ contract SignalServiceForTest is SignalService {
         public
         view
         override
-        returns (bytes32 storageRoot)
+        returns (bytes32)
     {
         if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
     }
