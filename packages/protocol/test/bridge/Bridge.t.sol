@@ -38,7 +38,6 @@ contract BridgeTest is TaikoTest {
     Bridge destChainBridge;
     TwoStepBridge dest2StepBridge;
     SignalService signalService;
-    DummyCrossChainSync crossChainSync;
     SkipProofCheckSignal mockProofSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
     uint64 destChainId = 19_389;
@@ -107,8 +106,6 @@ contract BridgeTest is TaikoTest {
 
         vm.deal(address(destChainBridge), 100 ether);
         vm.deal(address(dest2StepBridge), 100 ether);
-
-        crossChainSync = new DummyCrossChainSync();
 
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
@@ -633,8 +630,6 @@ contract BridgeTest is TaikoTest {
         badReceiver = new BadReceiver();
 
         uint64 dest = 1337;
-        addressManager.setAddress(dest, "taiko", address(crossChainSync));
-
         addressManager.setAddress(1336, "bridge", 0x564540a26Fb667306b3aBdCB4ead35BEb88698ab);
 
         addressManager.setAddress(dest, "bridge", address(destChainBridge));
@@ -643,10 +638,11 @@ contract BridgeTest is TaikoTest {
 
         addressManager.setAddress(dest, "signal_service", address(mockProofSignalService));
 
-        crossChainSync.setSyncedData(
-            0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e,
-            0x631b214fb030d82847224f0b3d3b906a6764dded176ad3c7262630204867ba85
-        );
+        // TODO
+        // crossChainSync.setSyncedData(
+        //     0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e,
+        //     0x631b214fb030d82847224f0b3d3b906a6764dded176ad3c7262630204867ba85
+        // );
 
         vm.deal(address(destChainBridge), 1 ether);
 

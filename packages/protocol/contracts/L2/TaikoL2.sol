@@ -17,7 +17,6 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../common/ICrossChainSync.sol";
 import "../signal/ISignalService.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
@@ -30,7 +29,7 @@ import "./CrossChainOwned.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is CrossChainOwned, ICrossChainSync {
+contract TaikoL2 is CrossChainOwned {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -46,14 +45,13 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
-    mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash; // slot 3
-    uint64 public gasExcess; // slot 4
+    bytes32 public publicInputHash; // slot 2
+    uint64 public gasExcess; // slot 3
     uint64 public latestSyncedL1Height;
 
-    uint256[146] private __gap;
+    uint256[147] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -147,12 +145,6 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] = ICrossChainSync.Snippet({
-            remoteBlockId: l1Height,
-            syncedInBlock: uint64(block.number),
-            blockHash: l1BlockHash,
-            stateRoot: l1StateRoot
-        });
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 
