@@ -135,17 +135,11 @@ contract TaikoL2 is CrossChainOwned {
         // Verify the base fee per gas is correct
         uint256 basefee;
         (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
-        if (!skipFeeCheck() && block.basefee != basefee) {
-            revert L2_BASEFEE_MISMATCH();
-        }
 
-        if (relayStateRoot()) {
-            // Store the L1's state root as a signal to the local signal service to
-            // allow for multi-hop bridging.
-            ISignalService(resolve("signal_service", false)).relayStateRoot(
-                ownerChainId, l1StateRoot
-            );
-        }
+        verifyBaseFee(basefee);
+
+        relayStateRoot(ownerChainId, l1StateRoot);
+
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         publicInputHash = publicInputHashNew;
@@ -206,8 +200,14 @@ contract TaikoL2 is CrossChainOwned {
         return false;
     }
 
-    function relayStateRoot() internal pure virtual returns (bool) {
-        return true;
+    function verifyBaseFee(uint256 basefee) internal virtual {
+        if (block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+    }
+
+    function relayStateRoot(uint64 chainId, bytes32 signalRoot) internal virtual {
+        // Store the L1's state root as a signal to the local signal service to
+        // allow for multi-hop bridging.
+        ISignalService(resolve("signal_service", false)).relayStateRoot(chainId, signalRoot);
     }
 
     function _calcPublicInputHash(uint256 blockId)

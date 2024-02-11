@@ -50,7 +50,7 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
         return _config;
     }
 
-    function relayStateRoot() internal pure override returns (bool) {
-        return false;
+    function relayStateRoot(uint64 chainId, bytes32 signalRoot) internal pure override {
+        // Do nothing
     }
 }

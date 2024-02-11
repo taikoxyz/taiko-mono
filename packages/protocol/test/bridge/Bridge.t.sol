@@ -638,7 +638,6 @@ contract BridgeTest is TaikoTest {
 
         addressManager.setAddress(dest, "signal_service", address(mockProofSignalService));
 
-
         vm.deal(address(destChainBridge), 1 ether);
 
         vm.chainId(dest);
