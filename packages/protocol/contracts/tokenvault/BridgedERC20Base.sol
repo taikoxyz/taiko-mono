@@ -33,25 +33,26 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     error BB_MINT_DISALLOWED();
 
     function changeMigrationStatus(
-        address addr,
-        bool inbound
+        address _migratingAddress,
+        bool _migratingInbound
     )
         external
+        nonReentrant
         whenNotPaused
         onlyFromOwnerOrNamed("erc20_vault")
     {
-        if (addr == migratingAddress && inbound == migratingInbound) {
+        if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
             revert BB_INVALID_PARAMS();
         }
 
-        migratingAddress = addr;
-        migratingInbound = inbound;
-        emit MigrationStatusChanged(addr, inbound);
+        migratingAddress = _migratingAddress;
+        migratingInbound = _migratingInbound;
+        emit MigrationStatusChanged(_migratingAddress, _migratingInbound);
     }
 
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
         // mint is disabled while migrating outbound.
-        if (migratingAddress != address(0) && !migratingInbound) revert BB_MINT_DISALLOWED();
+        if (_isMigratingOut()) revert BB_MINT_DISALLOWED();
 
         if (msg.sender == migratingAddress) {
             // Inbound migration
@@ -65,14 +66,15 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     }
 
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
-        if (migratingAddress != address(0) && !migratingInbound) {
+        if (_isMigratingOut()) {
+            // Only the owner of the tokens himself can migrate out
             if (msg.sender != account) revert BB_PERMISSION_DENIED();
-            // Outbond migration
+            // Outbound migration
             emit MigratedTo(migratingAddress, account, amount);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(migratingAddress).mint(account, amount);
         } else if (msg.sender != resolve("erc20_vault", true)) {
-            // Bridging to vault
+            // Only the vault can burn tokens when not migrating out
             revert RESOLVER_DENIED();
         }
 
@@ -81,6 +83,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return super.owner();
+    }
+
+    function _isMigratingOut() internal view returns (bool) {
+        return migratingAddress != address(0) && !migratingInbound;
     }
 
     function _mintToken(address account, uint256 amount) internal virtual;

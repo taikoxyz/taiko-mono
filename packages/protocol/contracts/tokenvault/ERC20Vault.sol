@@ -58,7 +58,7 @@ contract ERC20Vault is BaseVault {
 
     mapping(address btoken => bool blacklisted) public btokenBlacklist;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
@@ -106,6 +106,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_NEW_BTOKEN();
+    error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 
     function changeBridgedToken(
@@ -130,10 +131,13 @@ contract ERC20Vault is BaseVault {
 
         btokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
+        // TODO(Brecht): if the ctoken is on the current chain, should we check the
+        // symbol/name/decimals against the actual token?
+
         if (btokenOld != address(0)) {
             CanonicalERC20 memory _ctoken = bridgedToCanonical[btokenOld];
 
-            // Check that the ctoken must match the saved one.
+            // The ctoken must match the saved one.
             if (
                 _ctoken.decimals != ctoken.decimals
                     || keccak256(bytes(_ctoken.symbol)) != keccak256(bytes(ctoken.symbol))
@@ -225,11 +229,14 @@ contract ERC20Vault is BaseVault {
         whenNotPaused
     {
         IBridge.Context memory ctx = checkProcessMessageContext();
-        address _to = to == address(0) || to == address(this) ? from : to;
+
+        // Don't allow sending to disallowed addresses.
+        // Don't send the tokens back to `from` because `from` is on the source chain.
+        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
         // Transfer the ETH and the tokens to the `to` address
-        address token = _transferTokens(ctoken, _to, amount);
-        _to.sendEther(msg.value);
+        address token = _transferTokens(ctoken, to, amount);
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -256,8 +263,6 @@ contract ERC20Vault is BaseVault {
 
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
-
-        if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.owner, amount);

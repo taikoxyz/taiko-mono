@@ -46,7 +46,10 @@ contract Bridge is EssentialContract, IBridge {
         address preferredExecutor;
     }
 
-    uint256 internal constant PLACEHOLDER = type(uint256).max;
+    // The slot in transient storage of the call context
+    // This is the keccak256 hash of "bridge.ctx_slot"
+    bytes32 private constant _CTX_SLOT =
+        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
@@ -89,7 +92,6 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
         __Essential_init(_addressManager);
-        _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
@@ -134,7 +136,7 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         returns (bytes32 msgHash, Message memory _message)
     {
-        // Ensure the message user is not null.
+        // Ensure the message owner is not null.
         if (message.owner == address(0)) revert B_INVALID_USER();
 
         // Check if the destination chain is enabled.
@@ -211,7 +213,7 @@ contract Bridge is EssentialContract, IBridge {
             // Execute the recall logic based on the contract's support for the
             // IRecallableSender interface
             if (message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
-                _ctx = Context({
+                _storeContext({
                     msgHash: msgHash,
                     from: address(this),
                     srcChainId: message.srcChainId
@@ -223,11 +225,7 @@ contract Bridge is EssentialContract, IBridge {
                 );
 
                 // Reset the context after the message call
-                _ctx = Context({
-                    msgHash: bytes32(PLACEHOLDER),
-                    from: address(uint160(PLACEHOLDER)),
-                    srcChainId: uint64(PLACEHOLDER)
-                });
+                _resetContext();
             } else {
                 message.owner.sendEther(message.value);
             }
@@ -256,6 +254,10 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
+        // TODO(Brecht): `message.owner`, but this is the `msg.sender` on the source chain.
+        // If the address is not owned by the same entity on the destination chain
+        // (e.g. can be the case for smart wallets/general contracts) this can give unexpected
+        // results (especially with refunding).
         bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
@@ -279,8 +281,6 @@ contract Bridge is EssentialContract, IBridge {
                 });
             }
         }
-
-        // assert(receivedAt != 0);
 
         if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
             // If msg.sender is not the one that proved the message, then there
@@ -358,9 +358,10 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
-        // be the message.owner.
-        if (message.gasLimit == 0 || isLastAttempt) {
+        // If isLastAttempt is true, the caller must be the message.owner.
+        // TODO(Brecht): why not allow anyone to call when message.gasLimit == 0?
+        // There is no fee to be earned, and there won't be any gas limit anyway.
+        if (isLastAttempt) {
             if (msg.sender != message.owner) revert B_PERMISSION_DENIED();
         }
 
@@ -443,11 +444,11 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
-    function context() public view returns (Context memory) {
-        if (_ctx.msgHash == bytes32(PLACEHOLDER) || _ctx.msgHash == 0) {
+    function context() public view returns (Context memory ctx) {
+        ctx = _loadContext();
+        if (ctx.msgHash == 0) {
             revert B_INVALID_CONTEXT();
         }
-        return _ctx;
     }
 
     /// @notice Returns invocation delay values.
@@ -516,17 +517,13 @@ contract Bridge is EssentialContract, IBridge {
         if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
         assert(message.from != address(this));
 
-        _ctx = Context({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
+        _storeContext({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
 
         // Perform the message call and capture the success value
         (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
 
         // Reset the context after the message call
-        _ctx = Context({
-            msgHash: bytes32(PLACEHOLDER),
-            from: address(uint160(PLACEHOLDER)),
-            srcChainId: uint64(PLACEHOLDER)
-        });
+        _resetContext();
     }
 
     /// @notice Updates the status of a bridge message.
@@ -550,13 +547,13 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if the signal was received.
     /// @param signalService The signalService
     /// @param signal The signal.
-    /// @param srcChainId The ID of the source chain.
+    /// @param chainId The ID of the chain the signal is stored on
     /// @param proof The merkle inclusion proof.
     /// @return True if the message was received.
     function _proveSignalReceived(
         address signalService,
         bytes32 signal,
-        uint64 srcChainId,
+        uint64 chainId,
         bytes calldata proof
     )
         private
@@ -565,9 +562,36 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes memory data = abi.encodeCall(
             ISignalService.proveSignalReceived,
-            (srcChainId, resolve(srcChainId, "bridge", false), signal, proof)
+            (chainId, resolve(chainId, "bridge", false), signal, proof)
         );
         (bool success, bytes memory ret) = signalService.staticcall(data);
         return success ? abi.decode(ret, (bool)) : false;
+    }
+
+    /// @notice Resets the call context
+    function _resetContext() internal {
+        _storeContext(bytes32(0), address(0), uint64(0));
+    }
+
+    /// @notice Stores the call context
+    function _storeContext(bytes32 msgHash, address from, uint64 srcChainId) internal {
+        assembly {
+            tstore(_CTX_SLOT, msgHash)
+            tstore(add(_CTX_SLOT, 1), from)
+            tstore(add(_CTX_SLOT, 2), srcChainId)
+        }
+    }
+
+    /// @notice Loads the call context
+    function _loadContext() internal view returns (Context memory) {
+        bytes32 msgHash;
+        address from;
+        uint64 srcChainId;
+        assembly {
+            msgHash := tload(_CTX_SLOT)
+            from := tload(add(_CTX_SLOT, 1))
+            srcChainId := tload(add(_CTX_SLOT, 2))
+        }
+        return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
     }
 }

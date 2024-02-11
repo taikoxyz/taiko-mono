@@ -45,10 +45,7 @@ contract GuardianProver is Guardians {
 
         if (approved) {
             deleteApproval(hash);
-            bytes memory data =
-                abi.encodeCall(ITaikoL1.proveBlock, (meta.id, abi.encode(meta, tran, proof)));
-            (bool success,) = resolve("taiko", false).call(data);
-            if (!success) revert PROVING_FAILED();
+            ITaikoL1(resolve("taiko", false)).proveBlock(meta.id, abi.encode(meta, tran, proof));
         }
     }
 }

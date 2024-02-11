@@ -28,7 +28,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     uint256[48] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
-    error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
     /// @dev Initializer function to be called after deployment.
@@ -47,14 +46,12 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         external
         initializer
     {
-        if (
-            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-                || bytes(_symbol).length == 0 || bytes(_name).length == 0
-        ) {
-            revert BTOKEN_INVALID_PARAMS();
-        }
+        // Check if provided parameters are valid
+        LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
+
         __Essential_init(_addressManager);
         __ERC721_init(_name, _symbol);
+
         srcToken = _srcToken;
         srcChainId = _srcChainId;
     }
@@ -111,9 +108,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return (srcToken, srcChainId);
     }
 
-    /// @notice Returns an empty token URI.
-    function tokenURI(uint256) public pure virtual override returns (string memory) {
-        return "";
+    /// @notice Returns the token URI.
+    function tokenURI(uint256) public view virtual override returns (string memory) {
+        return LibBridgedToken.buildURI(srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(

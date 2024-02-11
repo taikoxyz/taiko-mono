@@ -21,6 +21,7 @@ import "../TaikoData.sol";
 abstract contract Guardians is EssentialContract {
     uint256 public constant MIN_NUM_GUARDIANS = 5;
 
+    // Contains the index of the guardian in `guardians` plus one (zero means not a guardian)
     mapping(address guardian => uint256 id) public guardianIds; // slot 1
     mapping(uint32 version => mapping(bytes32 => uint256 approvalBits)) internal _approvals;
     address[] public guardians; // slot 3
@@ -48,34 +49,41 @@ abstract contract Guardians is EssentialContract {
         onlyOwner
         nonReentrant
     {
+        // We need at least MIN_NUM_GUARDIANS and at most 255 guardians (so the approval bits fit in
+        // a uint256)
         if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
             revert INVALID_GUARDIAN_SET();
         }
-        if (_minGuardians < _newGuardians.length >> 1 || _minGuardians > _newGuardians.length) {
+        // Minimum number of guardians to approve is at least equal or greater than half the
+        // guardians (rounded up) and less or equal than the total number of guardians
+        if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
+        {
             revert INVALID_MIN_GUARDIANS();
         }
 
-        // Delete current guardians data
-        uint256 guardiansLength = guardians.length;
-        for (uint256 i; i < guardiansLength; ++i) {
+        // Delete the current guardians
+        for (uint256 i; i < guardians.length; ++i) {
             delete guardianIds[guardians[i]];
         }
-        assembly {
-            sstore(guardians.slot, 0)
-        }
+        delete guardians;
 
-        for (uint256 i = 0; i < _newGuardians.length;) {
+        // Set the new guardians
+        for (uint256 i = 0; i < _newGuardians.length; ++i) {
             address guardian = _newGuardians[i];
             if (guardian == address(0)) revert INVALID_GUARDIAN();
+            // This makes sure there are not duplicate addresses
             if (guardianIds[guardian] != 0) revert INVALID_GUARDIAN_SET();
 
             // Save and index the guardian
             guardians.push(guardian);
-            guardianIds[guardian] = ++i;
+            guardianIds[guardian] = guardians.length;
         }
 
+        // Bump the version so previous approvals get invalidated
+        ++version;
+
         minGuardians = _minGuardians;
-        emit GuardiansUpdated(++version, _newGuardians);
+        emit GuardiansUpdated(version, _newGuardians);
     }
 
     function isApproved(bytes32 hash) public view returns (bool) {
