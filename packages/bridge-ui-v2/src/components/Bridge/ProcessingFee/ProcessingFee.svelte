@@ -49,7 +49,6 @@
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and the input box is empty
     if ($processingFeeMethod === ProcessingFeeMethod.CUSTOM && inputBox?.getValue() === '') {
-      prettier;
       // If so, let's switch to RECOMMENDED method
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
