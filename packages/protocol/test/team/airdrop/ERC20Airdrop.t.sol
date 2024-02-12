@@ -196,7 +196,7 @@ contract TestERC20Airdrop is TaikoTest {
 
         bytes memory delegation = bytes("");
 
-        vm.expectRevert("ERC20: insufficient allowance"); // no allowance
+        vm.expectRevert(); //invalid delegate signature
         vm.prank(Lily, Lily);
         airdrop.claimAndDelegate(Lily, 100, merkleProof, delegation);
 
