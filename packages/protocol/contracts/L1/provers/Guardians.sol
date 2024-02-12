@@ -47,7 +47,6 @@ abstract contract Guardians is EssentialContract {
     )
         external
         onlyOwner
-        nonReentrant
     {
         // We need at least MIN_NUM_GUARDIANS and at most 255 guardians (so the approval bits fit in
         // a uint256)

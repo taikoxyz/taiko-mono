@@ -79,7 +79,6 @@ contract BridgedERC1155 is
         uint256 amount
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
@@ -96,7 +95,6 @@ contract BridgedERC1155 is
         uint256 amount
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
     {

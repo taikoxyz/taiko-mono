@@ -50,7 +50,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         emit MigrationStatusChanged(_migratingAddress, _migratingInbound);
     }
 
-    function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
+    function mint(address account, uint256 amount) public  whenNotPaused {
         // mint is disabled while migrating outbound.
         if (_isMigratingOut()) revert BB_MINT_DISALLOWED();
 
