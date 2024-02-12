@@ -118,6 +118,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
+        nonReentrant
     {
         if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
         addressBanned[addr] = toBan;
@@ -131,6 +132,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         override
+        nonReentrant
         whenNotPaused
         returns (bytes32 msgHash, Message memory _message)
     {

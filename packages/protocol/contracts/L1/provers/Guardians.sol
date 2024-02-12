@@ -41,7 +41,14 @@ abstract contract Guardians is EssentialContract {
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
     /// @param _minGuardians The minimum required to sign
-    function setGuardians(address[] memory _newGuardians, uint8 _minGuardians) external onlyOwner {
+    function setGuardians(
+        address[] memory _newGuardians,
+        uint8 _minGuardians
+    )
+        external
+        onlyOwner
+        nonReentrant
+    {
         // We need at least MIN_NUM_GUARDIANS and at most 255 guardians (so the approval bits fit in
         // a uint256)
         if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {

@@ -64,6 +64,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 tokenId
     )
         public
+        nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
     {
@@ -78,6 +79,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 tokenId
     )
         public
+        nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
     {
