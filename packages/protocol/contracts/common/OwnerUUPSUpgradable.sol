@@ -44,7 +44,7 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         if (_loadReentryLock() == _TRUE) revert REENTRANT_CALL();
         _storeReentryLock(_TRUE);
         _;
-        _storeReentryLock(_FALSE);
+        _storeReentryLock(0);
     }
 
     modifier whenPaused() {
