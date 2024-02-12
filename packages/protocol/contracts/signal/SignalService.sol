@@ -61,7 +61,6 @@ contract SignalService is EssentialContract, ISignalService {
     uint256[50] private __gap;
 
     error SS_INVALID_PARAMS();
-    error SS_INVALID_PROOF();
     error SS_INVALID_APP();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
@@ -194,16 +193,10 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (bytes32 signalRoot)
     {
-        if (hopProof.rootHash == 0) revert SS_INVALID_ROOT_HASH();
-        if (hopProof.storageProof.length == 0) revert SS_INVALID_PROOF();
-
-        address signalService = resolve(chainId, "signal_service", false);
-
-        bytes32 slot = getSignalSlot(chainId, app, signal);
         signalRoot = LibTrieProof.verifyMerkleProof(
             hopProof.rootHash,
-            signalService,
-            slot,
+            resolve(chainId, "signal_service", false),
+            getSignalSlot(chainId, app, signal),
             hex"01",
             hopProof.accountProof,
             hopProof.storageProof
