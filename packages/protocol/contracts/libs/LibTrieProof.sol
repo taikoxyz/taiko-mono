@@ -20,24 +20,24 @@ library LibTrieProof {
     error LTP_INVALID_ACCOUNT_PROOF();
     error LTP_INVALID_STORAGE_PROOF();
 
-    /// @notice Verifies that the value of a slot in the storage of an account is value.
-    /// @param rootHash The merkle root of state tree.
-    /// @param addr The address of contract.
-    /// @param slot The slot in the contract.
-    /// @param value The value to be verified.
-    /// @param accountProof The account proof.
-    /// @param storageProof The storage proof.
-    function verifyMerkleProof(
-        bytes32 rootHash,
+    /**
+     * Verifies that the value of a slot in the storage of an account is value.
+     *
+     * @param stateRoot The merkle root of state tree.
+     * @param addr The address of contract.
+     * @param slot The slot in the contract.
+     * @param value The value to be verified.
+     * @param mkproof The proof obtained by encoding storage proof.
+     */
+    function verifyFullMerkleProof(
+        bytes32 stateRoot,
         address addr,
         bytes32 slot,
-        bytes32 value,
-        bytes[] memory accountProof,
-        bytes[] memory storageProof
+        bytes memory value,
+        bytes memory mkproof
     )
         internal
-        // pure
-        view
+        pure
     {
         bytes32 storageRoot;
         if (accountProof.length == 0) {
@@ -54,9 +54,8 @@ library LibTrieProof {
                 bytes32(RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
         }
 
-        console2.log("storage root: ", uint(storageRoot));
         bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), bytes.concat(value), storageProof, storageRoot
+            bytes.concat(slot), value, storageProof, bytes32(storageRoot)
         );
 
         if (!verified) revert LTP_INVALID_STORAGE_PROOF();

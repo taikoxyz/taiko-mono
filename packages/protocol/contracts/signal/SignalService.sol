@@ -200,7 +200,7 @@ contract SignalService is EssentialContract, ISignalService {
         address signalService = resolve(chainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(chainId, app, signal);
-        LibTrieProof.verifyMerkleProof(
+        LibTrieProof.verifyFullMerkleProof(
             hopProof.rootHash,
             signalService,
             slot,
