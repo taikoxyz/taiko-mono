@@ -144,17 +144,16 @@ contract TestSignalService is TaikoTest {
 
         assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
 
-
-         p.proof.accountProof = new bytes[](0);
-          vm.expectRevert();
-          signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        p.proof.accountProof = new bytes[](0);
+        vm.expectRevert();
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
         signalService.setSkipMerkleProofCheck(false);
         vm.expectRevert();
         signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 
-        function test_SignalService_proveSignalReceived_L1_L2_storage_proof() public {
+    function test_SignalService_proveSignalReceived_L1_L2_storage_proof() public {
         signalService.setSkipMerkleProofCheck(true);
         signalService.setMultiHopEnabled(false);
 
@@ -178,86 +177,103 @@ contract TestSignalService is TaikoTest {
 
         assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
 
-          p.proof.accountProof = new bytes[](1);
-          vm.expectRevert();
-          signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        p.proof.accountProof = new bytes[](1);
+        vm.expectRevert();
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
         signalService.setSkipMerkleProofCheck(false);
         vm.expectRevert();
         signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 
-    // function test_SignalService_proveSignalReceived_multi_hop_L2_L2() public {
-    //     signalService.setSkipMerkleProofCheck(true);
-    //     signalService.setMultiHopEnabled(false);
+    function test_SignalService_proveSignalReceived_multi_hops() public {
+        signalService.setSkipMerkleProofCheck(true);
+        signalService.setMultiHopEnabled(false);
 
-    //     bytes32 stateRoot = randBytes32();
-    //     crossChainSync.setSyncedData("", stateRoot);
 
-    //     uint64 localChainId = uint64(block.chainid);
+        uint64 localChainId = uint64(block.chainid);
 
-    //     uint64 srcChainId = localChainId + 1;
+        vm.prank(Alice);
+        addressManager.setAddress(localChainId, "taiko", taiko);
 
-    //     uint64 hop1ChainId = localChainId + 2;
-    //     address hop1Relay = randAddress();
-    //     bytes32 hop1StateRoot = randBytes32();
+        uint64 srcChainId = localChainId + 1;
 
-    //     uint64 hop2ChainId = localChainId + 3;
-    //     address hop2Relay = randAddress();
-    //     bytes32 hop2StateRoot = randBytes32();
+        uint64 hop1ChainId = localChainId + 2;
+        address hop1Relay = randAddress();
+        bytes32 hop1StateRoot = randBytes32();
 
-    //     address app = randAddress();
-    //     bytes32 signal = randBytes32();
+        uint64 hop2ChainId = localChainId + 3;
+        address hop2Relay = randAddress();
+        bytes32 hop2StateRoot = randBytes32();
 
-    //     SignalService.Proof memory p;
-    //     p.height = 10;
-    //     p.hops = new SignalService.Hop[](2);
+        bytes32 localCachedStateRoot = randBytes32();
+        address app = randAddress();
+        bytes32 signal = randBytes32();
 
-    //     p.hops[0] = SignalService.Hop({
-    //         chainId: hop1ChainId,
-    //         relay: hop1Relay,
-    //         stateRoot: hop1StateRoot,
-    //         merkleProof: "dummy proof1"
-    //     });
+        SignalService.MultiHopProof memory p;
+        // p.height = 10;
+        p.hops = new SignalService.Hop[](2);
 
-    //     p.hops[1] = SignalService.Hop({
-    //         chainId: hop2ChainId,
-    //         relay: hop2Relay,
-    //         stateRoot: hop2StateRoot,
-    //         merkleProof: "dummy proof2"
-    //     });
+        p.hops[0].chainId = hop1ChainId;
+        p.hops[0].relay = hop1Relay;
+        p.hops[0].proof = SignalService.HopProof({
+            rootHash: hop1StateRoot,
+            accountProof: new bytes[](1),
+            storageProof: new bytes[](1),
+            cacheLocally: true
+            });
 
-    //     vm.startPrank(Alice);
-    //     register(address(addressManager), "taiko", address(crossChainSync), localChainId);
+            p.hops[1].chainId = hop2ChainId;
+        p.hops[1].relay = hop2Relay;
+        p.hops[1].proof = SignalService.HopProof({
+            rootHash: hop2StateRoot,
+            accountProof: new bytes[](0),
+            storageProof: new bytes[](1),
+            cacheLocally: true
+            });
 
-    //     // Multiple is disabled, shall revert
-    //     vm.expectRevert(SignalService.SS_MULTIHOP_DISABLED.selector);
-    //     signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        p.proof = SignalService.HopProof({
+            rootHash: localCachedStateRoot,
+            accountProof: new bytes[](1),
+            storageProof: new bytes[](1),
+            cacheLocally: true
+            });
+    
 
-    //     // Enable multi-hop
-    //     vm.startPrank(Alice);
-    //     signalService.setMultiHopEnabled(true);
+        // Multiple is disabled, shall revert
+        vm.expectRevert(SignalService.SS_MULTIHOP_DISABLED.selector);
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
-    //     // Neither relay is registered
-    //     vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
-    //     signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        // Enable multi-hop
+        vm.startPrank(Alice);
+        signalService.setMultiHopEnabled(true);
 
-    //     // Register both relays
-    //     vm.startPrank(Alice);
-    //     hopRelayRegistry.registerRelay(srcChainId, hop1ChainId, hop1Relay);
-    //     hopRelayRegistry.registerRelay(hop1ChainId, hop2ChainId, hop2Relay);
-    //     vm.stopPrank();
+        // Neither relay is registered
+        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
-    //     signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        // Register both relays
+        vm.startPrank(Alice);
+        hopRelayRegistry.registerRelay(srcChainId, hop1ChainId, hop1Relay);
+        hopRelayRegistry.registerRelay(hop1ChainId, hop2ChainId, hop2Relay);
+        vm.stopPrank();
 
-    //     // Deregister the first relay and register it again with incorrect chainIds
-    //     vm.startPrank(Alice);
-    //     hopRelayRegistry.deregisterRelay(srcChainId, hop1ChainId, hop1Relay);
-    //     hopRelayRegistry.registerRelay(999, 888, hop1Relay);
-    //     vm.stopPrank();
+vm.expectRevert(SignalService.SS_INVALID_ROOT_HASH.selector);
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
-    //     // Still revert
-    //     vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
-    //     signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
-    // }
+ vm.prank(taiko);
+        signalService.relaySignalRoot(hop2ChainId, localCachedStateRoot);
+
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+
+        // // Deregister the first relay and register it again with incorrect chainIds
+        // vm.startPrank(Alice);
+        // hopRelayRegistry.deregisterRelay(srcChainId, hop1ChainId, hop1Relay);
+        // hopRelayRegistry.registerRelay(999, 888, hop1Relay);
+        // vm.stopPrank();
+
+        // // Still revert
+        // vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
+        // signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+    }
 }

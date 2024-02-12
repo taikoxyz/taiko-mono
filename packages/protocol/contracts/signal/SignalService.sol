@@ -88,10 +88,10 @@ contract SignalService is EssentialContract, ISignalService {
         onlyFromNamed("taiko")
         returns (bytes32 slot)
     {
-        (, slot) = _relayStateRoot(chainId, stateRoot);
+        (, slot) = _relayStateRoot( chainId, stateRoot);
     }
 
-        function relaySignalRoot(
+    function relaySignalRoot(
         uint64 chainId,
         bytes32 signalRoot
     )
@@ -99,7 +99,7 @@ contract SignalService is EssentialContract, ISignalService {
         onlyFromNamed("taiko")
         returns (bytes32 slot)
     {
-        (, slot) = _relaySignalRoot(chainId, signalRoot);
+        (, slot) = _relaySignalRoot( chainId, signalRoot);
     }
 
     /// @inheritdoc ISignalService
@@ -164,7 +164,7 @@ contract SignalService is EssentialContract, ISignalService {
             isFullProof = hop.proof.accountProof.length > 0;
             if (hop.proof.cacheLocally) {
                 (_signal,) = isFullProof
-                    ? _relayStateRoot(_chainId, hop.proof.rootHash)
+                    ? _relayStateRoot( _chainId, hop.proof.rootHash)
                     : _relaySignalRoot(_chainId, hop.proof.rootHash);
             } else {
                 _signal = isFullProof
@@ -251,10 +251,10 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 signal)
     {
         signal = keccak256(abi.encode("STATE_ROOT", chainId, stateRoot));
-       console2.log("----->>");
-       console2.log(chainId);
-       console2.log(uint(stateRoot));
-       console2.log(uint(signal));
+        console2.log("----->>");
+        console2.log(chainId);
+        console2.log(uint256(stateRoot));
+        console2.log(uint256(signal));
         console2.log("----->>");
     }
 
@@ -289,7 +289,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         console2.log("send signa:", msg.sender, uint256(signal));
 
-        slot = _sendSignal(address(this), signal);
+        slot = _sendSignal(resolve("taiko",false), signal);
         emit StateRootRelayed(chainId, stateRoot, signal);
     }
 
@@ -302,7 +302,7 @@ contract SignalService is EssentialContract, ISignalService {
     {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
         signal = signalForSignalRoot(chainId, signalRoot);
-        slot = _sendSignal(address(this), signal);
+        slot = _sendSignal(resolve("taiko", false), signal);
         emit SignalRootRelayed(chainId, signalRoot, signal);
     }
 
