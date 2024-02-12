@@ -48,7 +48,7 @@
 
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and zero amount entered
-    if ($processingFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
+    if ($processingFeeMethod === ProcessingFeeMethod.CUSTOM && inputBox?.getValue() === '') {
       prettier;
       // If so, let's switch to RECOMMENDED method
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
