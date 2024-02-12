@@ -33,15 +33,23 @@
   let modalOpen = false;
   let inputBox: InputBox | undefined;
 
+  let tempProcessingFeeMethod = $processingFeeMethod;
+
   // Public API
   export function resetProcessingFee() {
     inputBox?.clear();
     $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   }
 
+  function confirmChanges() {
+    $processingFeeMethod = tempProcessingFeeMethod;
+    closeModal();
+  }
+
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and zero amount entered
     if ($processingFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
+      prettier;
       // If so, let's switch to RECOMMENDED method
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
@@ -50,6 +58,8 @@
   }
 
   function openModal() {
+    tempProcessingFeeMethod = $processingFeeMethod;
+
     // Keep track of the selected method before opening the modal
     // so if we cancel we can go back to the previous method
     prevOptionSelected = $processingFeeMethod;
@@ -59,7 +69,6 @@
 
   function cancelModal() {
     inputBox?.clear();
-    $processingFeeMethod = prevOptionSelected;
     closeModal();
   }
 
@@ -68,7 +77,7 @@
   }
 
   function inputProcessFee(event: Event) {
-    if ($processingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
+    if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
     const { value } = event.target as HTMLInputElement;
     $processingFee = parseToWei(value);
@@ -212,7 +221,7 @@
                 type="radio"
                 value={ProcessingFeeMethod.RECOMMENDED}
                 name="processingFeeMethod"
-                bind:group={$processingFeeMethod} />
+                bind:group={tempProcessingFeeMethod} />
             </li>
 
             <!-- NONE -->
@@ -233,7 +242,7 @@
                   disabled={!hasEnoughEth}
                   value={ProcessingFeeMethod.NONE}
                   name="processingFeeMethod"
-                  bind:group={$processingFeeMethod} />
+                  bind:group={tempProcessingFeeMethod} />
               </div>
 
               {#if !hasEnoughEth}
@@ -257,16 +266,16 @@
                 type="radio"
                 value={ProcessingFeeMethod.CUSTOM}
                 name="processingFeeMethod"
-                bind:group={$processingFeeMethod} />
+                bind:group={tempProcessingFeeMethod} />
             </li>
           </ul>
           <div class="relative f-items-center my-[20px]">
-            {#if $processingFeeMethod === ProcessingFeeMethod.CUSTOM}
+            {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}
               <InputBox
                 type="number"
                 min="0"
                 placeholder="0.01"
-                disabled={$processingFeeMethod !== ProcessingFeeMethod.CUSTOM}
+                disabled={tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM}
                 class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
                 on:input={inputProcessFee}
                 bind:this={inputBox} />
@@ -277,7 +286,7 @@
             <ActionButton on:click={cancelModal} priority="secondary">
               <span class="body-bold">{$t('common.cancel')}</span>
             </ActionButton>
-            <ActionButton priority="primary" on:click={closeModal}>
+            <ActionButton priority="primary" on:click={confirmChanges}>
               <span class="body-bold">{$t('common.confirm')}</span>
             </ActionButton>
           </div>
