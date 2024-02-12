@@ -43,6 +43,8 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
+
+
     /// @dev Fallback function to receive Ether from Hooks
     receive() external payable {
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();

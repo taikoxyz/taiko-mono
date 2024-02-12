@@ -29,6 +29,9 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - name: Check formatting
+        run: forge fmt --check
+
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
@@ -60,12 +63,3 @@ jobs:
       #   with:
       #     directory: ./packages/protocol/coverage
       #     flags: protocol
-
-      # - name: protocol - Generate contract documentation
-      #   run: pnpm -F protocol export:docs
-
-      # - name: protocol - Commit contract documentation
-      #   uses: stefanzweifel/git-auto-commit-action@v4
-      #   with:
-      #     commit_message: Add auto-generated contract documentation
-      #     file_pattern: "**/*.md"
