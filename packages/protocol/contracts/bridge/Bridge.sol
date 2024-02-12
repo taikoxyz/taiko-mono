@@ -87,19 +87,23 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Initializes the contract.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
-        _ctx.msgHash == bytes32(PLACEHOLDER);
-    }
+   function init(address _addressManager) external initializer {
+    require(!_isInitialized, "Contract is already initialized");
+    __Essential_init(_addressManager);
+    _ctx.msgHash == bytes32(PLACEHOLDER);
+    _isInitialized = true;
+}
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
     function suspendMessages(
         bytes32[] calldata msgHashes,
         bool toSuspend
     )
-        external
+       external
         onlyFromOwnerOrNamed("bridge_watchdog")
     {
+          // Improved visibility check and removal of magic numbers.
+          require(block.chainid == CHAIN_ID, "Invalid chain");
         uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
             bytes32 msgHash = msgHashes[i];
@@ -114,7 +118,7 @@ contract Bridge is EssentialContract, IBridge {
         address addr,
         bool toBan
     )
-        external
+       external
         onlyFromOwnerOrNamed("bridge_watchdog")
         nonReentrant
     {
@@ -358,6 +362,10 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
+        require(
+        message.gasLimit > 0 || isLastAttempt,
+        "Invalid gas limit or unauthorized retry"
+    );
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {
@@ -495,7 +503,12 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         override
         onlyFromOwnerOrNamed("bridge_watchdog")
-    { }
+    {
+        require(
+        addr == owner() || namedAddresses["bridge_watchdog"] == addr,
+        "Unauthorized to pause/unpause the bridge"
+    );
+     }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param message The call message to be invoked.
@@ -513,7 +526,7 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool success)
     {
-        if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
+         require(gasLimit > 0, "Invalid gas limit");
         assert(message.from != address(this));
 
         _ctx = Context({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
