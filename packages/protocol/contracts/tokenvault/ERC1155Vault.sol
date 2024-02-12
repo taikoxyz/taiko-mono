@@ -149,6 +149,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         checkRecallMessageContext();
 
+        if (message.srcChainId != block.chainid) {
+            revert VAULT_INVALID_SRC_CHAIN_ID();
+        }
+
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
             abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[], uint256[]));
 

@@ -118,11 +118,10 @@ library LibProposing {
                 extraData: params.extraData,
                 depositsHash: keccak256(abi.encode(depositsProcessed)),
                 // TODO(Brecht): A bit limiting this is required to be the same address as
-                // msg.sender
+                // msg.sender.
                 // And fees will be collected on L2 so if a smart contract is used as the proposer
-                // it requires
-                // the same contract to be deployed on L2 at the same address owned by the same
-                // entity.
+                // it requires the same contract to be deployed on L2 at the same address owned by
+                // the same entity.
                 coinbase: msg.sender,
                 id: b.numBlocks,
                 gasLimit: config.blockMaxGasLimit,

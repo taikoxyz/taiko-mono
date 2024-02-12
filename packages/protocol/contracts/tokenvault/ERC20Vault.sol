@@ -106,6 +106,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_NEW_BTOKEN();
+    error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 
@@ -260,6 +261,10 @@ contract ERC20Vault is BaseVault {
         whenNotPaused
     {
         checkRecallMessageContext();
+
+        if (message.srcChainId != block.chainid) {
+            revert VAULT_INVALID_SRC_CHAIN_ID();
+        }
 
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
