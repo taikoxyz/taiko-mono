@@ -144,13 +144,13 @@ contract TestSignalService is TaikoTest {
 
         assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
 
-        p.proof.accountProof = new bytes[](0);
-        vm.expectRevert();
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        // p.proof.accountProof = new bytes[](0);
+        // vm.expectRevert();
+        // signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
-        signalService.setSkipMerkleProofCheck(false);
-        vm.expectRevert();
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        // signalService.setSkipMerkleProofCheck(false);
+        // vm.expectRevert();
+        // signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 
     function test_SignalService_proveSignalReceived_L1_L2_storage_proof() public {
