@@ -141,8 +141,8 @@
           "title": "Approval required"
         },
         "approved": {
-          "description_token": "All tokens are approved, you can now bridge your assets",
           "description_eth": "You can now continue to bridge your funds",
+          "description_token": "All tokens are approved, you can now bridge your assets",
           "title": "Proceed to bridge"
         },
         "bridge": {
@@ -309,10 +309,6 @@
       "nft_scanning": "Scanning for NFTs"
     },
     "network": {
-      "success": {
-        "title": "Connected",
-        "message": "Successfully switched to {chainName}"
-      },
       "pending": {
         "message": "Please open your wallet to check the current status.",
         "title": "Network switch pending"
@@ -323,6 +319,10 @@
       },
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",
+      "success": {
+        "message": "Successfully switched to {chainName}",
+        "title": "Connected"
+      },
       "switching": "Switching network"
     }
   },
@@ -428,6 +428,9 @@
       "retry": "Retry"
     },
     "description": "Track your bridge transactions here.",
+    "details_dialog": {
+      "title": "Transaction details"
+    },
     "errors": {
       "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
@@ -449,7 +452,7 @@
       "to": "To"
     },
     "link": {
-      "explorer": "Details",
+      "explorer": "View details",
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",

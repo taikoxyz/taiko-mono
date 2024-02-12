@@ -104,18 +104,17 @@
         </div>
         <!--  CANONICAL INFO -->
         <div class="f-between-center">
-          <div class="f-row gap-2 items-center text-secondary-content">
+          <div class="f-row min-w-1/2 self-end gap-2 items-center text-secondary-content">
             {$t('common.canonical_address')}
             <img alt="source chain icon" src={chainConfig[Number(canonicalChain)]?.icon} class="w-4 h-4" />
           </div>
-          <div class="text-primary-content">
+          <div class="f-row min-w-1/2 text-primary-content">
             {#if canonicalChain && canonicalAddress}
               <a
                 class="flex justify-start link"
                 href={`${chainConfig[canonicalChain].urls.explorer}/token/${canonicalAddress}`}
                 target="_blank">
-                {shortenAddress(canonicalAddress, 10, 13)}
-                <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+                {shortenAddress(canonicalAddress, 6, 8)}
               </a>
             {/if}
           </div>
@@ -123,17 +122,17 @@
         <!-- BRIDGED INFO -->
         <div class="f-between-center">
           {#if showBridgedAddress && bridgedAddress}
-            <div class="f-row gap-2 items-center text-secondary-content">
+            <div class="f-row min-w-1/2 gap-2 items-center text-secondary-content">
               {$t('common.bridged_address')}
               <img alt="destination chain icon" src={chainConfig[Number(bridgedChain)]?.icon} class="w-4 h-4" />
             </div>
-            <div class="text-primary-content">
+            <div class="f-row min-w-1/2 text-primary-content">
               {#if bridgedChain && bridgedAddress}
                 <a
                   class="flex justify-start link"
                   href={`${chainConfig[bridgedChain].urls.explorer}/token/${bridgedAddress}`}
                   target="_blank">
-                  {shortenAddress(bridgedAddress, 10, 13)}
+                  {shortenAddress(bridgedAddress, 6, 8)}
                   <Icon type="arrow-top-right" fillClass="fill-primary-link" />
                 </a>
               {/if}

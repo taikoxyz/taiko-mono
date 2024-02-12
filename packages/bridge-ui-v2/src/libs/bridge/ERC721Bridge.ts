@@ -45,13 +45,14 @@ export class ERC721Bridge extends Bridge {
 
     log('Checking approval for token ', tokenId);
 
-    const requiresApproval = await readContract(config, {
+    const approvedAddress = await readContract(config, {
       abi: erc721ABI,
       address: tokenAddress,
       functionName: 'getApproved',
       args: [tokenId],
       chainId,
     });
+    const requiresApproval = approvedAddress !== spenderAddress;
     log(`Token with ID ${tokenId} requires approval ${spenderAddress}: ${requiresApproval}`);
     return requiresApproval;
   }

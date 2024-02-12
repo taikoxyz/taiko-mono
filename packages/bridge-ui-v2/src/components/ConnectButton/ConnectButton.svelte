@@ -43,15 +43,15 @@
 {#if connected}
   <button
     on:click={connectWallet}
-    class="rounded-full flex items-center pl-[8px] pr-[3px] max-h-[48px] wc-parent-glass !border-solid gap-2 font-bold">
+    class="rounded-full flex items-center pl-[8px] pr-[3px] md:max-h-[48px] max-h-[40px] min-h-[40px] wc-parent-glass !border-solid gap-2 font-bold">
     <img
       alt="chain icon"
       class="w-[24px]"
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
-    <span class="flex items-center text-secondary-content justify-self-start gap-4"
+    <span class="flex items-center text-secondary-content justify-self-start gap-4 md:text-normal text-sm"
       >{renderEthBalance(balance, 6)}
       <span
-        class="flex items-center text-tertiary-content btn-glass-bg rounded-full px-[10px] py-[4px] min-h-[38px] bg-tertiary-background">
+        class="flex items-center text-tertiary-content btn-glass-bg rounded-full px-[10px] py-[4px] md:min-h-[38px] bg-tertiary-background">
         {shortenAddress(accountAddress, 4, 6)}
       </span>
     </span>
