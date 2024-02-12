@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { switchNetwork } from '@wagmi/core';
+  import { switchChain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
@@ -7,6 +7,7 @@
   import { Icon } from '$components/Icon';
   import { warningToast } from '$components/NotificationToast';
   import { setAlternateNetwork } from '$libs/network/setAlternateNetwork';
+  import { config } from '$libs/wagmi';
 
   export let disabled = false;
 
@@ -14,7 +15,7 @@
     if (!$destNetwork) return;
 
     try {
-      await switchNetwork({ chainId: $destNetwork.id });
+      await switchChain(config, { chainId: $destNetwork.id });
       setAlternateNetwork();
     } catch (err) {
       console.error(err);

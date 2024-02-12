@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Chain } from 'viem';
 
   import { BridgingStatus, ImportMethod } from '$components/Bridge/types';
   import { Card } from '$components/Card';
@@ -12,7 +13,6 @@
   import { ETHToken } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
-  import type { Network } from '$stores/network';
 
   import { ImportStep, ReviewStep, StepNavigation } from './NFTBridgeComponents';
   import type IdInput from './NFTBridgeComponents/IDInput/IDInput.svelte';
@@ -43,7 +43,7 @@
   let addressInputComponent: AddressInput;
   let nftIdInputComponent: IdInput;
 
-  function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
+  function onNetworkChange(newNetwork: Chain, oldNetwork: Chain) {
     updateForm();
     activeStep = BridgeSteps.IMPORT;
     if (newNetwork) {

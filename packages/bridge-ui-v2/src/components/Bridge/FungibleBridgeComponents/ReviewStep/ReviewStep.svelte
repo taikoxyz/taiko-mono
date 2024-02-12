@@ -9,7 +9,7 @@
   import { destNetwork as destChain, enteredAmount, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
 
@@ -40,7 +40,7 @@
   <div class="!mt-[10px]">
     <div class="flex justify-between items-center">
       <div class="text-secondary-content">{$t('common.from')}</div>
-      <div class="">{$network?.name}</div>
+      <div class="">{$connectedSourceChain?.name}</div>
     </div>
 
     <div class="flex justify-between items-center">

@@ -11,7 +11,7 @@
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let connected = false;
 
@@ -27,7 +27,7 @@
     web3modalOpen = state.open;
   }
 
-  $: currentChainId = $network?.id;
+  $: currentChainId = $connectedSourceChain?.id;
   $: accountAddress = $account?.address || '';
 
   $: balance = $ethBalance || 0n;
@@ -44,7 +44,10 @@
   <button
     on:click={connectWallet}
     class="rounded-full flex items-center pl-[8px] pr-[3px] max-h-[48px] wc-parent-glass !border-solid gap-2 font-bold">
-    <img alt="chain icon" class="w-[24px]" src={(currentChainId && getChainImage(currentChainId)) || ''} />
+    <img
+      alt="chain icon"
+      class="w-[24px]"
+      src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
     <span class="flex items-center text-secondary-content justify-self-start gap-4"
       >{renderEthBalance(balance, 6)}
       <span

@@ -13,7 +13,7 @@
   import { setAlternateNetwork } from '$libs/network/setAlternateNetwork';
   import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   let sourceToggled = false;
   let destinationToggled = false;
@@ -38,7 +38,7 @@
     destinationToggled && isDesktopOrLarger ? 'rounded-t-[10px]' : 'rounded-[10px]'
   } f-col w-full relative bg-neutral-background `;
 
-  $: srcChain = $network;
+  $: srcChain = $connectedSourceChain;
   $: destChain = $destNetwork;
 
   onMount(() => {

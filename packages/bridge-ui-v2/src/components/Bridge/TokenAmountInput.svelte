@@ -7,14 +7,14 @@
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
   import { InvalidParametersProvidedError, UnknownTokenTypeError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance, TokenType } from '$libs/token';
+  import { ETHToken, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   import {
     computingBalance,
@@ -46,7 +46,7 @@
   export let disabled = false;
 
   export async function validateAmount(token = $selectedToken) {
-    if (!$network?.id) return;
+    if (!$connectedSourceChain?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
     $insufficientBalance = false;
     $insufficientAllowance = false;
@@ -59,7 +59,7 @@
     if (
       !to ||
       !token ||
-      !$network ||
+      !$connectedSourceChain ||
       !$destNetwork ||
       !$tokenBalance ||
       !$selectedToken ||
@@ -77,7 +77,7 @@
   export async function updateBalance(
     token = $selectedToken,
     userAddress = $account?.address,
-    srcChainId = $network?.id,
+    srcChainId = $connectedSourceChain?.id,
     destChainId = $destNetwork?.id,
   ) {
     if (!token || !srcChainId || !userAddress) return;
@@ -141,7 +141,7 @@
   // "MAX" button handler
   async function useMaxAmount() {
     // We cannot calculate the max amount without these guys
-    if (!$selectedToken || !$network || !$destNetwork || !$tokenBalance || !$account?.address) return;
+    if (!$selectedToken || !$connectedSourceChain || !$destNetwork || !$tokenBalance || !$account?.address) return;
     invalidInput = false;
     computingMaxAmount = true;
 
@@ -192,7 +192,12 @@
   $: noDecimalsAllowedAlert = invalidInput;
 
   $: inputDisabled =
-    computingMaxAmount || disabled || !$selectedToken || !$network || $errorComputingBalance || !hasBalance;
+    computingMaxAmount ||
+    disabled ||
+    !$selectedToken ||
+    !$connectedSourceChain ||
+    $errorComputingBalance ||
+    !hasBalance;
 
   $: maxButtonEnabled = hasBalance && !disabled && !$errorComputingBalance;
 

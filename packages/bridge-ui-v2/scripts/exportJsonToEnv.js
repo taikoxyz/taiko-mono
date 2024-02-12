@@ -19,6 +19,7 @@ const defaultPaths = {
 
 // Parse command line arguments
 const args = process.argv.slice(2);
+const isLocal = args.includes('--local');
 const isDev = args.includes('--dev');
 const isProd = args.includes('--prod');
 const isA6 = args.includes('--a6');
@@ -30,6 +31,8 @@ if (isDev) {
   environment = 'dev';
 } else if (isProd) {
   environment = 'prod';
+} else if (isLocal) {
+  environment = 'local';
 }
 
 // Determine the version

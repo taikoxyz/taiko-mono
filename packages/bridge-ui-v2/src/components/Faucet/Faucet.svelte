@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { type Chain, switchNetwork } from '@wagmi/core';
+  import { switchChain } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
+  import { type Chain, ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
@@ -16,7 +16,8 @@
   import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { checkMintable, mint, testERC20Tokens, testNFT, type Token } from '$libs/token';
-  import { account, network, pendingTransactions } from '$stores';
+  import { config } from '$libs/wagmi';
+  import { account, connectedSourceChain, pendingTransactions } from '$stores';
 
   let minting = false;
   let checkingMintable = false;
@@ -35,7 +36,7 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: Number(chains[0].id) });
+      await switchChain(config, { chainId: Number(chains[0].id) });
     } catch (err) {
       console.error(err);
 
@@ -55,15 +56,15 @@
     if (checkingMintable || minting) return;
 
     // Token and source chain are needed to mint
-    if (!selectedToken || !$network) return;
+    if (!selectedToken || !$connectedSourceChain) return;
 
     // Let's begin the minting process
     minting = true;
     mintButtonEnabled = false;
 
     try {
-      const txHash = await mint(selectedToken, $network.id);
-      const explorer = chainConfig[$network.id].urls.explorer;
+      const txHash = await mint(selectedToken, $connectedSourceChain.id);
+      const explorer = chainConfig[$connectedSourceChain.id].urls.explorer;
 
       infoToast({
         title: $t('faucet.mint.tx.title'),
@@ -75,7 +76,7 @@
         }),
       });
 
-      await pendingTransactions.add(txHash, $network.id);
+      await pendingTransactions.add(txHash, $connectedSourceChain.id);
 
       successToast({
         title: $t('faucet.mint.success.title'),
@@ -98,7 +99,7 @@
       }
     } finally {
       minting = false;
-      updateMintButtonState(connected, selectedToken, $network);
+      updateMintButtonState(connected, selectedToken, $connectedSourceChain);
     }
   }
 
@@ -171,11 +172,11 @@
   });
 
   $: connected = isUserConnected($account);
-  $: wrongChain = isWrongChain($network);
+  $: wrongChain = isWrongChain($connectedSourceChain);
 
   $: disabled = !$account || !$account.isConnected;
 
-  $: updateMintButtonState(connected, selectedToken, $network);
+  $: updateMintButtonState(connected, selectedToken, $connectedSourceChain);
 </script>
 
 <Card class="w-full md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.description')}>

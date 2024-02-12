@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { type Chain, switchNetwork } from '@wagmi/core';
+  import { switchChain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { SwitchChainError, UserRejectedRequestError } from 'viem';
+  import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
+  import { config } from '$libs/wagmi';
   import { switchChainModal } from '$stores/modal';
 
   // TODO: We should combine this with the ChainSelector component.
@@ -24,7 +25,7 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: chain.id });
+      await switchChain(config, { chainId: chain.id });
       closeModal();
     } catch (err) {
       console.error(err);
@@ -77,7 +78,6 @@
               </i>
               <span class="body-bold">{chain.name}</span>
             </div>
-            <span class="body-regular">{chain.network}</span>
           </div>
         </li>
       {/each}

@@ -14,7 +14,7 @@
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let contractAddress: Address | string = '';
   export let nftIdsToImport: number[] = [];
@@ -39,7 +39,7 @@
     // interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
 
-    const srcChainId = $network?.id;
+    const srcChainId = $connectedSourceChain?.id;
     if (!srcChainId) return;
 
     if (isValidEthereumAddress && typeof addr === 'string') {
@@ -49,7 +49,7 @@
       } catch {
         addressInputState = AddressInputState.INVALID;
       }
-      if (!$network?.id) throw new Error('network not found');
+      if (!$connectedSourceChain?.id) throw new Error('network not found');
       if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
         addressInputState = AddressInputState.NOT_NFT;
         return;
@@ -88,7 +88,7 @@
           $account?.address!,
           // Ignore as we check this in canValidateIdInput
           // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-          $network?.id!,
+          $connectedSourceChain?.id!,
         );
 
         isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
@@ -101,7 +101,7 @@
           contractAddress: contractAddress as Address,
           // Ignore as we check this in canValidateIdInput
           // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-          srcChainId: $network?.id!,
+          srcChainId: $connectedSourceChain?.id!,
           tokenId,
           owner: $account?.address,
         });
@@ -132,7 +132,7 @@
   $: displayOwnershipError =
     contractAddress && enteredIds && !isOwnerOfAllToken && nftIdsToImport?.length > 0 && !validating;
 
-  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address ? true : false;
+  $: canValidateIdInput = isAddress(contractAddress) && $connectedSourceChain?.id && $account?.address ? true : false;
 
   $: isERC1155 = detectedTokenType === TokenType.ERC1155;
 

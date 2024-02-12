@@ -1,13 +1,22 @@
-import type { Hash } from '@wagmi/core';
-import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, numberToHex, toHex, toRlp } from 'viem';
+import { getPublicClient, readContract } from '@wagmi/core';
+import {
+  type Address,
+  encodeAbiParameters,
+  encodePacked,
+  type Hash,
+  type Hex,
+  keccak256,
+  numberToHex,
+  toHex,
+  toRlp,
+} from 'viem';
 
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
 import { InvalidProofError, PendingBlockError, WrongBridgeConfigError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
-import { publicClient } from '$libs/wagmi';
+import { config } from '$libs/wagmi';
 
 import type { ClientWithEthGetProofRequest, GenerateProofArgs, Hop } from './types';
 
@@ -21,14 +30,19 @@ export class BridgeProver {
   }
 
   protected async getBlockNumber(srcChainId: number, destChainId: number, crossChainSyncAddress: Address) {
-    const crossChainSyncContract = getContract({
-      chainId: destChainId,
+    const syncedSnippet = await readContract(config, {
       address: crossChainSyncAddress,
       abi: crossChainSyncABI,
+      functionName: 'getSyncedSnippet',
+      args: [BigInt(0)],
+      chainId: destChainId,
     });
-    const client = publicClient({ chainId: srcChainId });
-    const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
+
+    const client = getPublicClient(config, { chainId: srcChainId });
+    if (!client) throw new Error('Could not get public client');
+
     const latestBlockHash = syncedSnippet['blockHash'];
+
     const block = await client.getBlock({ blockHash: latestBlockHash });
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
@@ -36,20 +50,9 @@ export class BridgeProver {
     return block.number;
   }
 
-  protected async getBlockFromGetSyncedSnippet(
-    client: PublicClient,
-    crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
-    blockNumber: number,
-  ) {
-    const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(blockNumber)]);
-    const latestBlockHash = syncedSnippet['blockHash'];
-    const block = await client.getBlock({ blockHash: latestBlockHash });
-    return { block, syncedSnippet };
-  }
-
   async encodedStorageProof(args: GenerateProofArgs) {
     const { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
-    const client = publicClient({ chainId: clientChainId });
+    const client = getPublicClient(config, { chainId: clientChainId });
     const key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
     log('Signal slot', key);
 

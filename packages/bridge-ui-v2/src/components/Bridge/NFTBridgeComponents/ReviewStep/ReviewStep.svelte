@@ -13,7 +13,7 @@
   import { LayerType } from '$libs/chain';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
 
@@ -42,7 +42,7 @@
 
   const fetchImage = async () => {
     if (!$selectedNFTs || $selectedNFTs?.length === 0) return;
-    const srcChainId = $network?.id;
+    const srcChainId = $connectedSourceChain?.id;
     const destChainId = $destChain?.id;
     if (!srcChainId || !destChainId) return;
 
@@ -80,7 +80,7 @@
   <div>
     <div class="flex justify-between items-center">
       <div class="text-secondary-content">{$t('common.from')}</div>
-      <div class="">{$network?.name}</div>
+      <div class="">{$connectedSourceChain?.name}</div>
     </div>
     <div class="flex justify-between items-center">
       <div class="text-secondary-content">{$t('common.to')}</div>
@@ -92,7 +92,7 @@
       <div class="">
         <ul>
           {#each nftsToDisplay as nft}
-            {@const currentChain = $network?.id}
+            {@const currentChain = $connectedSourceChain?.id}
             {#if currentChain && $destChain?.id}
               <li>
                 <a

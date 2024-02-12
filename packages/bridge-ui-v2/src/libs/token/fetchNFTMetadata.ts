@@ -7,7 +7,7 @@ import { NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { metadataCache } from '$stores/metadata';
-import { network } from '$stores/network';
+import { connectedSourceChain } from '$stores/network';
 
 import { getTokenAddresses } from './getTokenAddresses';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
@@ -21,7 +21,7 @@ const log = getLogger('libs:token:fetchNFTMetadata');
 
 export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> {
   let uri = token?.uri;
-  const srcChainId = get(network)?.id;
+  const srcChainId = get(connectedSourceChain)?.id;
   const destChainId = get(destNetwork)?.id;
   if (!srcChainId || !destChainId) return null;
 
@@ -83,7 +83,7 @@ const crossChainFetchNFTMetadata = async (token: NFT): Promise<NFTMetadata | nul
   try {
     log(`Trying crosschainFetch for ${token.name} id: ${token.tokenId}`);
 
-    const srcChainId = get(network)?.id;
+    const srcChainId = get(connectedSourceChain)?.id;
     const destChainId = get(destNetwork)?.id;
 
     if (!srcChainId || !destChainId || srcChainId === destChainId) throw new WrongChainError();

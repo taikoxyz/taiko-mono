@@ -1,5 +1,4 @@
-import { getContract } from '@wagmi/core';
-import { UserRejectedRequestError } from 'viem';
+import { getContract, UserRejectedRequestError } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
 import { MintError } from '$libs/error';
@@ -17,7 +16,7 @@ export async function mint(token: Token, chainId: number) {
   const tokenSymbol = token.symbol;
 
   const tokenContract = getContract({
-    walletClient,
+    client: walletClient,
     abi: freeMintErc20ABI,
     address: token.addresses[chainId],
   });

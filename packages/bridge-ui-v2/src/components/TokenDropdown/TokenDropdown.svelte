@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Address } from '@wagmi/core';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
   import { zeroAddress } from 'viem';
 
   import {
@@ -19,12 +19,12 @@
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { tokenService } from '$libs/storage/services';
-  import { ETHToken, getBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
+  import { ETHToken, fetchBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
@@ -58,7 +58,7 @@
   };
 
   const selectToken = async (token: Token) => {
-    const srcChain = $network;
+    const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     $computingBalance = true;
     closeMenu();
@@ -128,7 +128,7 @@
 
   export async function updateBalance(
     userAddress = $account?.address,
-    srcChainId = $network?.id,
+    srcChainId = $connectedSourceChain?.id,
     destChainId = $destNetwork?.id,
   ) {
     const token = value;
@@ -169,13 +169,13 @@
   }
 
   const onNetworkChange = () => {
-    const srcChain = $network;
+    const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
   };
 
   const onAccountChange = () => {
-    const srcChain = $network;
+    const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
   };
@@ -185,7 +185,7 @@
   onDestroy(() => closeMenu());
 
   onMount(async () => {
-    const srcChain = $network;
+    const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     const user = $account?.address;
     $selectedToken = ETHToken;
@@ -194,12 +194,6 @@
     $computingBalance = true;
     value = tokens[0];
     $selectedToken = value;
-    $tokenBalance = await getTokenBalance({
-      token: value,
-      srcChainId: srcChain?.id,
-      destChainId: destChain?.id,
-      userAddress: user,
-    });
     await updateBalance($account?.address, srcChain.id, destChain.id);
     $computingBalance = false;
   });

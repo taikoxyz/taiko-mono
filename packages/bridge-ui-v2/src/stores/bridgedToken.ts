@@ -1,5 +1,5 @@
-import type { Address } from '@wagmi/core';
 import { get, writable } from 'svelte/store';
+import type { Address } from 'viem';
 
 import { getLogger } from '$libs/util/logger';
 

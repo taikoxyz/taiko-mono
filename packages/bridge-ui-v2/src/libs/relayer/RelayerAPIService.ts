@@ -1,7 +1,7 @@
-import type { Address, Hash } from '@wagmi/core';
 import { readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
+import type { Address, Hash } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -11,6 +11,7 @@ import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 import type {
   APIRequestParams,
@@ -93,7 +94,8 @@ export class RelayerAPIService {
     destChainId: number;
   }) {
     const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)];
-    const result = await readContract({
+
+    const result = await readContract(config, {
       address: bridgeAddress,
       abi: bridgeABI,
       chainId: Number(destChainId),
@@ -241,27 +243,28 @@ export class RelayerAPIService {
     return { txs: bridgeTxs, paginationInfo };
   }
 
-  async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {
+  async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
 
-    const blockInfoRecord: Record<number, RelayerBlockInfo> = {};
+    // TODO: why to use a Map here?
+    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
 
     try {
-      const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL, { timeout: apiService.timeout });
+      const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL);
 
       if (response.status >= 400) throw response;
 
       const { data } = response;
 
       if (data?.data.length > 0) {
-        data.data.forEach((blockInfo: RelayerBlockInfo) => (blockInfoRecord[blockInfo.chainID] = blockInfo));
+        data.data.forEach((blockInfo: RelayerBlockInfo) => blockInfoMap.set(blockInfo.chainID, blockInfo));
       }
     } catch (error) {
       console.error(error);
       throw new Error('failed to fetch block info', { cause: error });
     }
 
-    return blockInfoRecord;
+    return blockInfoMap;
   }
 }
 

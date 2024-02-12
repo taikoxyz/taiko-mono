@@ -1,15 +1,15 @@
 <script lang="ts">
-  import type { Chain, GetNetworkResult } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
+  import type { Chain } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { chains } from '$libs/chain';
   import { closeOnClickOrEscape } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let isOpen: boolean;
-  export let value: Maybe<GetNetworkResult['chain']> = null;
+  export let value: Maybe<Chain> = null;
 
   export let switchWallet = false;
   $: isDestination = !switchWallet;
@@ -47,7 +47,7 @@
     class="text-primary-content text-sm"
     use:closeOnClickOrEscape={{ enabled: isOpen, callback: () => (isOpen = false) }}>
     {#each chains as chain (chain.id)}
-      {@const disabled = (isDestination && chain.id === $network?.id) || chain.id === value?.id}
+      {@const disabled = (isDestination && chain.id === $connectedSourceChain?.id) || chain.id === value?.id}
       {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
       <li
         role="menuitem"

@@ -13,7 +13,7 @@
   import { LogoWithText } from '$components/Logo';
   import { ThemeButton } from '$components/ThemeButton';
   import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   let drawerToggleElem: HTMLInputElement;
 
@@ -97,7 +97,11 @@
               </LinkButton>
             </li>
             <li class="border-t border-t-divider-border pt-2">
-              <LinkButton href={$network ? chainConfig[$network.id].urls.explorer : PUBLIC_DEFAULT_EXPLORER} external>
+              <LinkButton
+                href={$connectedSourceChain
+                  ? chainConfig[$connectedSourceChain.id].urls.explorer
+                  : PUBLIC_DEFAULT_EXPLORER}
+                external>
                 <Icon type="explorer" />
                 <span>{$t('nav.explorer')}</span>
               </LinkButton>

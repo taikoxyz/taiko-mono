@@ -5,6 +5,7 @@ import { NoCanonicalInfoFoundError } from '$libs/error';
 import { type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 const log = getLogger('libs:recommendedProcessingFee');
 
@@ -32,7 +33,10 @@ export async function recommendProcessingFee({
   if (!srcChainId) {
     return 0n;
   }
-  const destPublicClient = getPublicClient({ chainId: destChainId });
+  const destPublicClient = getPublicClient(config, { chainId: destChainId });
+
+  if (!destPublicClient) throw new Error('Could not get public client');
+
   // getGasPrice will return gasPrice as 3000000001, rather than 3000000000
   const gasPrice = await destPublicClient.getGasPrice();
 

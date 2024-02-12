@@ -22,7 +22,7 @@ import {
 } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
-import { account, network } from '$stores';
+import { account, connectedSourceChain } from '$stores';
 
 import { checkOwnershipOfNFT } from './checkOwnership';
 import { getTokenAddresses } from './getTokenAddresses';
@@ -48,7 +48,7 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     log('token is ETH');
     return ApprovalStatus.ETH_NO_APPROVAL_REQUIRED;
   }
-  const currentChainId = get(network)?.id;
+  const currentChainId = get(connectedSourceChain)?.id;
   const destinationChainId = get(destNetwork)?.id;
   if (!currentChainId || !destinationChainId) {
     log('no currentChainId or destinationChainId');

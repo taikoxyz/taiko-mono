@@ -7,7 +7,7 @@
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import type { NFT } from '$libs/token';
   import { account } from '$stores/account';
-  import { network as srcChain } from '$stores/network';
+  import { connectedSourceChain as srcChain } from '$stores/network';
 
   import ImportActions from './ImportActions.svelte';
   import ManualImport from './ManualImport.svelte';

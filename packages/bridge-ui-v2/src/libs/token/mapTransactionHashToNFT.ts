@@ -1,10 +1,11 @@
-import { fetchTransaction } from '@wagmi/core';
+import { getTransaction } from '@wagmi/core';
 import { get, writable } from 'svelte/store';
 import { decodeFunctionData, type Hash } from 'viem';
 
 import { erc721VaultABI, erc1155VaultABI } from '$abi';
 import { InvalidParametersProvidedError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 import { fetchNFTImageUrl } from './fetchNFTImageUrl';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
@@ -35,7 +36,7 @@ export const mapTransactionHashToNFT = async ({
   }
   log(`fetching transaction data for ${hash}`);
   // Retrieve transaction data
-  const transactionData = await fetchTransaction({ hash, chainId: srcChainId });
+  const transactionData = await getTransaction(config, { hash, chainId: srcChainId });
 
   const abi = (() => {
     switch (type) {

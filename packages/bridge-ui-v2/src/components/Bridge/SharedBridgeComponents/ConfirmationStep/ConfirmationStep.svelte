@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Hash } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Hash } from 'viem';
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
@@ -35,7 +35,7 @@
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
   import { theme } from '$stores/theme';
 
@@ -52,7 +52,7 @@
   $: statusDescription = '';
 
   const handleBridgeTxHash = async (txHash: Hash) => {
-    const currentChain = $network?.id;
+    const currentChain = $connectedSourceChain?.id;
 
     const destinationChain = $destNetwork?.id;
     const userAccount = $account?.address;
@@ -61,6 +61,7 @@
     const explorer = chainConfig[currentChain].urls.explorer;
 
     await pendingTransactions.add(txHash, currentChain);
+
     bridgingStatus = BridgingStatus.DONE;
     statusTitle = $t('bridge.actions.bridge.success.title');
     statusDescription = $t('bridge.step.confirm.bridge.success.message', {
@@ -85,7 +86,7 @@
   };
 
   const handleApproveTxHash = async (txHash: Hash) => {
-    const currentChain = $network?.id;
+    const currentChain = $connectedSourceChain?.id;
 
     const destinationChain = $destNetwork?.id;
     const userAccount = $account?.address;
@@ -106,7 +107,7 @@
     refreshUserBalance();
     await pendingTransactions.add(approveTxHash, currentChain);
     statusTitle = $t('bridge.actions.approve.success.title');
-    statusDescription = $t('bridge.nft.step.confirm.approve.success.message', {
+    statusDescription = $t('bridge.step.confirm.approve.success.message', {
       values: { url: `${explorer}/tx/${txHash}` },
     });
 
@@ -128,24 +129,24 @@
     });
 
     try {
-      if (!$selectedToken || !$network || !$destNetwork?.id) return;
+      if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
       const type: TokenType = $selectedToken.type;
-      const walletClient = await getConnectedWallet($network.id);
+      const walletClient = await getConnectedWallet($connectedSourceChain.id);
 
-      let tokenAddress = $selectedToken.addresses[$network.id];
+      let tokenAddress = $selectedToken.addresses[$connectedSourceChain.id];
 
       if (type === TokenType.ERC1155 || type === TokenType.ERC721) {
         const tokenIds = $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
 
         const spenderAddress =
           type === TokenType.ERC1155
-            ? routingContractsMap[$network.id][$destNetwork?.id].erc1155VaultAddress
-            : routingContractsMap[$network.id][$destNetwork?.id].erc721VaultAddress;
+            ? routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc1155VaultAddress
+            : routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc721VaultAddress;
 
         const args: NFTApproveArgs = { tokenIds: tokenIds!, tokenAddress, spenderAddress, wallet: walletClient };
         approveTxHash = await (bridges[type] as ERC721Bridge | ERC1155Bridge).approve(args);
       } else {
-        const spenderAddress = routingContractsMap[$network.id][$destNetwork?.id].erc20VaultAddress;
+        const spenderAddress = routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc20VaultAddress;
 
         const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: $enteredAmount };
         approveTxHash = await (bridges[type] as ERC20Bridge).approve(args);
@@ -159,14 +160,14 @@
   }
 
   async function bridge() {
-    if (!$bridgeService || !$selectedToken || !$network || !$destNetwork?.id || !$account?.address) return;
+    if (!$bridgeService || !$selectedToken || !$connectedSourceChain || !$destNetwork?.id || !$account?.address) return;
     bridging = true;
     try {
-      const walletClient = await getConnectedWallet($network.id);
+      const walletClient = await getConnectedWallet($connectedSourceChain.id);
       const commonArgs = {
         to: $recipientAddress || $account.address,
         wallet: walletClient,
-        srcChainId: $network.id,
+        srcChainId: $connectedSourceChain.id,
         destChainId: $destNetwork?.id,
         fee: $processingFee,
       };

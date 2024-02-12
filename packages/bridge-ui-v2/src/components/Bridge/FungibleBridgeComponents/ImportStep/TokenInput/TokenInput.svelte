@@ -25,7 +25,7 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
-  import { getBalance, tokens, TokenType } from '$libs/token';
+  import { fetchBalance, tokens, TokenType } from '$libs/token';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -33,7 +33,7 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   const log = getLogger('TokenInput');
 
@@ -47,7 +47,7 @@
   async function validateAmount(token = $selectedToken) {
     // During validation, we disable all the actions
     const user = $account?.address;
-    if (!$network?.id || !user) return;
+    if (!$connectedSourceChain?.id || !user) return;
     $validatingAmount = true;
     $insufficientBalance = false;
     $insufficientAllowance = false;
@@ -69,7 +69,7 @@
     }
 
     if (!$tokenBalance) {
-      $tokenBalance = await getBalance({ userAddress: user, token, srcChainId: $network?.id });
+      $tokenBalance = await fetchBalance({ userAddress: user, token, srcChainId: $connectedSourceChain?.id });
       if (!$tokenBalance?.value) {
         $insufficientBalance = true;
         $validatingAmount = false;
@@ -124,7 +124,7 @@
 
   const useMaxAmount = async () => {
     log('useMaxAmount');
-    if (!$selectedToken || !$network || !$destNetwork || !$tokenBalance || !$account?.address) return;
+    if (!$selectedToken || !$connectedSourceChain || !$destNetwork || !$tokenBalance || !$account?.address) return;
     try {
       let maxAmount;
       if ($tokenBalance) {
@@ -134,7 +134,7 @@
           token: $selectedToken,
           balance: $tokenBalance.value,
           fee: 0n,
-          srcChainId: $network.id,
+          srcChainId: $connectedSourceChain.id,
           destChainId: $destNetwork.id,
           amount: BigInt(1), // whatever amount to estimate the cost
         });
@@ -158,11 +158,11 @@
     if ($account && $account.address && $account?.isConnected) {
       validateAmount($selectedToken);
       refreshUserBalance();
-      if ($selectedToken)
-        $tokenBalance = await getBalance({
+      if ($selectedToken && $selectedToken.type !== TokenType.ETH)
+        $tokenBalance = await fetchBalance({
           userAddress: $account.address,
           token: $selectedToken,
-          srcChainId: $network?.id,
+          srcChainId: $connectedSourceChain?.id,
         });
 
       previousSelectedToken = $selectedToken;
@@ -184,7 +184,7 @@
   $: validAmount = $enteredAmount > BigInt(0);
 
   $: skipValidate =
-    !$network ||
+    !$connectedSourceChain ||
     !$destNetwork ||
     !$tokenBalance ||
     !$selectedToken ||

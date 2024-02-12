@@ -2,10 +2,10 @@ import { get } from 'svelte/store';
 
 import { chainConfig } from '$chainConfig';
 import { getValidBridges } from '$libs/bridge/bridges';
-import { network } from '$stores/network';
+import { connectedSourceChain } from '$stores/network';
 
 export const getAlternateNetwork = (): number | null => {
-  const currentNetwork = get(network);
+  const currentNetwork = get(connectedSourceChain);
   if (currentNetwork === null || currentNetwork === undefined) {
     return null;
   }
@@ -24,7 +24,7 @@ export const getAlternateNetwork = (): number | null => {
 };
 
 const findValidDestinationChain = () => {
-  const currentNetwork = get(network);
+  const currentNetwork = get(connectedSourceChain);
   if (currentNetwork === null || currentNetwork === undefined) {
     return null;
   }

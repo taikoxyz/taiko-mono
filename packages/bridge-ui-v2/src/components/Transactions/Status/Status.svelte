@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { type Address, fetchBalance, switchNetwork } from '@wagmi/core';
+  import { getBalance, switchChain } from '@wagmi/core';
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { parseEther, UserRejectedRequestError } from 'viem';
+  import { type Address, parseEther, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import {
@@ -29,8 +29,9 @@
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { getLogger } from '$libs/util/logger';
+  import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   export let bridgeTx: BridgeTransaction;
@@ -67,12 +68,12 @@
     if (!isCorrectChain) {
       // TODO: shouldn't we inform the user about this change? wallet will popup,
       //       but it's not clear why
-      await switchNetwork({ chainId: wannaBeChainId });
+      await switchChain(config, { chainId: wannaBeChainId });
     }
   }
 
   async function checkEnoughBalance(address: Address) {
-    const balance = await fetchBalance({ address });
+    const balance = await getBalance(config, { address });
     if (balance.value < parseEther(String(statusComponent.minimumEthToClaim))) {
       throw new InsufficientBalanceError('user has insufficient balance');
     }
@@ -82,7 +83,7 @@
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
-    if (!$network || !$account?.address) return;
+    if (!$connectedSourceChain || !$account?.address) return;
 
     loading = LoadingState.CLAIMING;
 
@@ -94,7 +95,7 @@
       }
 
       // Step 1: make sure the user is on the correct chain
-      await ensureCorrectChain(Number($network.id), Number(bridgeTx.destChainId));
+      await ensureCorrectChain(Number($connectedSourceChain.id), Number(bridgeTx.destChainId));
 
       // Step 2: make sure the user has enough balance on the destination chain
       await checkEnoughBalance($account.address);
@@ -130,7 +131,7 @@
         title: $t('transactions.actions.claim.success.title'),
         message: $t('transactions.actions.claim.success.message', {
           values: {
-            network: $network.name,
+            network: $connectedSourceChain.name,
           },
         }),
       });
@@ -175,7 +176,7 @@
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
-    if (!$network || !$account?.address) return;
+    if (!$connectedSourceChain || !$account?.address) return;
 
     loading = LoadingState.RELEASING;
 
@@ -187,7 +188,7 @@
       }
 
       // Step 1: make sure the user is on the correct chain
-      await ensureCorrectChain(Number($network.id), Number(bridgeTx.srcChainId));
+      await ensureCorrectChain(Number($connectedSourceChain.id), Number(bridgeTx.srcChainId));
 
       // Step 2: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
       const bridge = bridges[bridgeTx.tokenType];
@@ -219,7 +220,7 @@
         title: $t('transactions.actions.release.success.title'),
         message: $t('transactions.actions.release.success.message', {
           values: {
-            network: $network.name,
+            network: $connectedSourceChain.name,
           },
         }),
       });

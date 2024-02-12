@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { erc20ABI, getNetwork, readContract } from '@wagmi/core';
+  import { readContract } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { type Address, formatUnits } from 'viem';
 
+  import { erc20ABI } from '$abi';
   import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
@@ -17,8 +18,9 @@
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
+  import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   import { destNetwork } from '../Bridge/state';
 
@@ -45,7 +47,7 @@
       tokenService.storeToken(customToken, $account?.address as Address);
       customTokens = tokenService.getTokens($account?.address as Address);
 
-      const srcChain = $network;
+      const srcChain = $connectedSourceChain;
       const destChain = $destNetwork;
 
       if (!srcChain || !destChain) return;
@@ -110,7 +112,7 @@
 
     let type: TokenType;
     try {
-      type = await detectContractType(tokenAddress, $network?.id as number);
+      type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
     } catch (error) {
       log('Failed to detect contract type: ', error);
       loadingTokenDetails = false;
@@ -124,7 +126,7 @@
       return;
     }
 
-    const srcChain = $network;
+    const srcChain = $connectedSourceChain;
     if (!srcChain) return;
     try {
       const token = await getTokenWithInfoFromAddress({
@@ -132,15 +134,14 @@
         srcChainId: srcChain.id,
       });
       if (!token) return;
-      const balance = await readContract({
+      const balance = await readContract(config, {
         address: tokenAddress as Address,
         abi: erc20ABI,
         functionName: 'balanceOf',
         args: [$account?.address as Address],
       });
       customTokenWithDetails = { ...token, balance };
-      const { chain } = getNetwork();
-      if (!chain) throw new Error('Chain not found');
+
       customToken = customTokenWithDetails;
     } catch (error) {
       state = AddressInputState.INVALID;

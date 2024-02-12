@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { switchNetwork } from '@wagmi/core';
-  import { get } from 'svelte/store';
+  import { switchChain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
 
@@ -9,8 +8,8 @@
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { setAlternateNetwork } from '$libs/network/setAlternateNetwork';
-  import { network } from '$stores/network';
-  import { switchingNetwork } from '$stores/network';
+  import { config } from '$libs/wagmi';
+  import { connectedSourceChain, switchingNetwork } from '$stores/network';
 
   import ChainPill from './ChainPill/ChainPill.svelte';
   import CombinedChainSelector from './CombinedChainSelector/CombinedChainSelector.svelte';
@@ -24,12 +23,12 @@
 
   async function selectChain(event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) {
     const { chain: selectedChain, switchWallet } = event.detail;
-    const currentChain = $network;
+    const currentChain = $connectedSourceChain;
 
     if (switchWallet && currentChain) {
       $switchingNetwork = true;
       try {
-        await switchNetwork({ chainId: selectedChain.id });
+        await switchChain(config, { chainId: selectedChain.id });
         if (currentChain && selectedChain.id === currentChain.id) {
           // swap the chains
           destNetwork.set(currentChain);
@@ -64,9 +63,9 @@
 
   $: pillValue =
     direction === ChainSelectorDirection.SOURCE
-      ? get(network)
+      ? $connectedSourceChain
       : direction === ChainSelectorDirection.DESTINATION
-        ? get(destNetwork)
+        ? $destNetwork
         : null; // invalid state for pill, must be either source or destination
 </script>
 

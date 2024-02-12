@@ -5,7 +5,7 @@ import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { metadataCache } from '$stores/metadata';
-import { network } from '$stores/network';
+import { connectedSourceChain } from '$stores/network';
 
 import { getTokenAddresses } from './getTokenAddresses';
 import type { NFT, NFTMetadata } from './types';
@@ -13,7 +13,7 @@ import type { NFT, NFTMetadata } from './types';
 const log = getLogger('libs:token:fetchNFTImageUrl');
 
 export const fetchNFTImageUrl = async (token: NFT): Promise<NFT> => {
-  const srcChainId = get(network)?.id;
+  const srcChainId = get(connectedSourceChain)?.id;
   const destChainId = get(destNetwork)?.id;
   if (!srcChainId || !destChainId) return token;
 

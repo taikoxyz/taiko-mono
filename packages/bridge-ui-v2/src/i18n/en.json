@@ -309,6 +309,10 @@
       "nft_scanning": "Scanning for NFTs"
     },
     "network": {
+      "success": {
+        "title": "Connected",
+        "message": "Successfully switched to {chainName}"
+      },
       "pending": {
         "message": "Please open your wallet to check the current status.",
         "title": "Network switch pending"

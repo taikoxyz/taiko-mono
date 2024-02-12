@@ -5,7 +5,7 @@
   import { processingFeeComponent } from '$config';
   import { recommendProcessingFee } from '$libs/fee';
   import type { Token } from '$libs/token';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let amount: bigint;
   export let calculating = false;
@@ -34,11 +34,11 @@
     }
   }
 
-  $: compute($selectedToken, $network?.id, $destNetwork?.id);
+  $: compute($selectedToken, $connectedSourceChain?.id, $destNetwork?.id);
 
   onMount(() => {
     interval = setInterval(() => {
-      compute($selectedToken, $network?.id, $destNetwork?.id);
+      compute($selectedToken, $connectedSourceChain?.id, $destNetwork?.id);
     }, processingFeeComponent.intervalComputeRecommendedFee);
   });
 

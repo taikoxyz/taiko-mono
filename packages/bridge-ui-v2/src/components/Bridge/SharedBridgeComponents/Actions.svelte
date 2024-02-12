@@ -21,7 +21,7 @@
   import { BridgePausedError } from '$libs/error';
   import { TokenType } from '$libs/token';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
-  import { account, network } from '$stores';
+  import { account, connectedSourceChain } from '$stores';
 
   export let approve: () => Promise<void>;
   export let bridge: () => Promise<void>;
@@ -67,7 +67,7 @@
 
   // Basic conditions so we can even start the bridging process
   $: hasAddress = $recipientAddress || $account?.address ? true : false;
-  $: hasNetworks = $network?.id && $destNetwork?.id;
+  $: hasNetworks = $connectedSourceChain?.id && $destNetwork?.id;
   $: hasBalance = !$insufficientBalance && !$computingBalance && !$errorComputingBalance && isValidBalance;
 
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;

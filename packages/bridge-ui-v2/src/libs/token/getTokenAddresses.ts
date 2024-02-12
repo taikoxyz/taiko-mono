@@ -1,11 +1,12 @@
-import { getContract } from '@wagmi/core';
+import { getPublicClient } from '@wagmi/core';
 import { get } from 'svelte/store';
-import { type Abi, type Address, zeroAddress } from 'viem';
+import { type Abi, type Address, getContract, zeroAddress } from 'viem';
 
 import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 import { setTokenInfo, type TokenInfo, tokenInfoStore } from '$stores/tokenInfo';
 
 import { getCanonicalInfoForToken } from './getCanonicalInfoForToken';
@@ -117,15 +118,19 @@ const _getBridgedAddress = async ({
         ? 'erc1155VaultAddress'
         : 'erc20VaultAddress';
 
-  const vaultContract = getContract({
+  const client = await getPublicClient(config, { chainId: bridgedChainId });
+  if (!client) throw new Error('Could not get public client');
+
+  const bridgedVaultContract = getContract({
     abi: vaultABI as Abi,
-    chainId: bridgedChainId,
+    client,
     address: routingContractsMap[bridgedChainId][canonicalChainId][vaultAddressKey],
   });
 
-  bridgedTokenAddress = (await vaultContract.read.canonicalToBridged([
+  bridgedTokenAddress = (await bridgedVaultContract.read.canonicalToBridged([
     BigInt(canonicalChainId),
     canonicalAddress,
   ])) as Address;
+
   return bridgedTokenAddress;
 };

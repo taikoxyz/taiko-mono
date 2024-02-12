@@ -3,8 +3,8 @@
 
   import { destNetwork, selectedToken } from '$components/Bridge/state';
   import { recommendProcessingFee } from '$libs/fee';
-  import { getBalance, type Token } from '$libs/token';
-  import { account, network } from '$stores';
+  import { fetchBalance, type Token } from '$libs/token';
+  import { account, connectedSourceChain } from '$stores';
 
   export let enoughEth: boolean;
   export let calculating = false;
@@ -22,7 +22,7 @@
     try {
       let destBalance;
       // Get the balance of the user on the destination chain
-      destBalance = await getBalance({
+      destBalance = await fetchBalance({
         userAddress,
         srcChainId: destChain,
       });
@@ -46,5 +46,5 @@
     }
   }
 
-  $: compute($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
+  $: compute($selectedToken, $account?.address, $connectedSourceChain?.id, $destNetwork?.id);
 </script>

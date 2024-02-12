@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Chain } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Chain } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
@@ -10,10 +10,10 @@
   import { chains } from '$libs/chain';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { uid } from '$libs/util/uid';
-  import { type Network, network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let isOpen = false;
-  export let value: Maybe<Network> = null;
+  export let value: Maybe<Chain> = null;
   export let switchWallet = false;
 
   let modalOpen = false;
@@ -53,11 +53,11 @@
       <h3 class="title-body-bold">{title}</h3>
     </div>
     <div class="h-sep !my-[20px]" />
-    <ul role="listbox" class="text-primary-content text-sm w-full">
+    <ul role="listbox" class="text-white text-sm w-full">
       {#each chains as chain (chain.id)}
         {@const disabled = !isDestination
-          ? chain.id === $network?.id
-          : chain.id === $destNetwork?.id || chain.id === $network?.id}
+          ? chain.id === $connectedSourceChain?.id
+          : chain.id === $destNetwork?.id || chain.id === $connectedSourceChain?.id}
         {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
         <li
           role="menuitem"

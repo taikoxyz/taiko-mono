@@ -12,7 +12,7 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   const dialogId = `dialog-${uid()}`;
 
@@ -22,7 +22,7 @@
   export let viewOnly = false;
   export let nft: NFT;
 
-  export let srcChainId = Number($network?.id);
+  export let srcChainId = Number($connectedSourceChain?.id);
   export let destChainId = Number($destNetwork?.id);
 
   const dispatch = createEventDispatcher();

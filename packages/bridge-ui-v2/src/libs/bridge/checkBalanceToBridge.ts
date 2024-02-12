@@ -1,4 +1,4 @@
-import { fetchBalance, getPublicClient } from '@wagmi/core';
+import { getBalance } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
@@ -13,6 +13,7 @@ import { getAddress, type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 import { bridges } from './bridges';
 import { ERC20Bridge } from './ERC20Bridge';
@@ -74,7 +75,7 @@ async function handleEthBridge(args: CheckBalanceToBridgeCommonArgs): Promise<vo
   }
 
   if (!estimatedCost) throw new Error('estimated cost is undefined');
-  const balance = await fetchBalance({ address: wallet.account.address, chainId: args.srcChainId });
+  const balance = await getBalance(config, { address: wallet.account.address, chainId: args.srcChainId });
 
   if (estimatedCost > balance.value - _amount) {
     throw new InsufficientBalanceError('you do not have enough balance to bridge');
@@ -87,7 +88,7 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
   const { erc1155VaultAddress } = routingContractsMap[srcChainId][destChainId];
   const tokenAddress = await getAddress({ token, srcChainId, destChainId });
   const wallet = await getConnectedWallet();
-  const balance = await getPublicClient().getBalance(wallet.account);
+  const balance = (await getBalance(config, { address: wallet.account.address, chainId: args.srcChainId })).value;
   const tokenBalance = token.balance;
   const _amount = [amount] as bigint[];
 
@@ -144,7 +145,7 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
   const tokenAddress = await getAddress({ token, srcChainId, destChainId });
   const _amount = amount as bigint;
 
-  const tokenBalance = await fetchBalance({
+  const tokenBalance = await getBalance(config, {
     address: wallet.account.address,
     token: tokenAddress,
     chainId: args.srcChainId,

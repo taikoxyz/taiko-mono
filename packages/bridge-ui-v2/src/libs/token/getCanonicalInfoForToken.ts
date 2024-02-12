@@ -1,11 +1,11 @@
-import { getContract } from '@wagmi/core';
 import { get } from 'svelte/store';
-import { type Abi, type Address, zeroAddress } from 'viem';
+import { type Abi, type Address, getContract, zeroAddress } from 'viem';
 
 import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
+import { publicClient } from '$libs/wagmi';
 import { isCanonicalAddress, tokenInfoStore } from '$stores/tokenInfo';
 
 import { detectContractType } from './detectContractType';
@@ -147,15 +147,19 @@ const _getStatus = async ({ address, srcChainId, destChainId, type }: CheckCanon
         ? 'erc1155VaultAddress'
         : 'erc20VaultAddress';
 
+  const srcClient = await publicClient(srcChainId);
+  const destClient = await publicClient(destChainId);
+  if (!srcClient || !destClient) throw new Error('Could not get public client');
+
   const srcTokenVaultContract = getContract({
     abi: vaultABI as Abi,
-    chainId: srcChainId,
+    client: srcClient,
     address: routingContractsMap[srcChainId][destChainId][vaultAddressKey],
   });
 
   const destTokenVaultContract = getContract({
     abi: vaultABI as Abi,
-    chainId: destChainId,
+    client: destClient,
     address: routingContractsMap[destChainId][srcChainId][vaultAddressKey],
   });
 

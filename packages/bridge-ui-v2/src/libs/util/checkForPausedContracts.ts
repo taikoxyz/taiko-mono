@@ -1,8 +1,10 @@
-import { getContract } from '@wagmi/core';
+import { getPublicClient } from '@wagmi/core';
 import { get } from 'svelte/store';
+import { getContract } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import { config } from '$libs/wagmi';
 import { bridgePausedModal } from '$stores/modal';
 
 import { getLogger } from './logger';
@@ -24,9 +26,13 @@ export const checkForPausedContracts = async () => {
     bridgeContractInfo.map(async (bridgeInfo) => {
       const { srcChainId, bridgeAddress } = bridgeInfo;
 
+      const client = getPublicClient(config, {
+        chainId: srcChainId,
+      });
+      if (!client) return;
       try {
         const contract = getContract({
-          chainId: srcChainId,
+          client,
           abi: bridgeABI,
           address: bridgeAddress,
         });
