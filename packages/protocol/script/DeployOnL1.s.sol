@@ -386,8 +386,7 @@ contract DeployOnL1 is DeployCapability {
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
-        // TODO: uncomment next line to make the test work
-        // as Anvil doesn't support EIP-3855
+        // TODO: uncomment next line when Anvil supports EIP-3855
         // GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
 
