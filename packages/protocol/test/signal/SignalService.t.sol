@@ -27,6 +27,7 @@ contract SignalServiceForTest is SignalService {
         returns (bytes32)
     {
         if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
+        return 0;
     }
 
     function isMultiHopEnabled() public view override returns (bool) {

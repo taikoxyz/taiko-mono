@@ -12,6 +12,7 @@ import "forge-std/console2.sol";
 /**
  * @title LibTrieProof
  */
+
 library LibTrieProof {
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
@@ -23,23 +24,26 @@ library LibTrieProof {
     /**
      * Verifies that the value of a slot in the storage of an account is value.
      *
-     * @param stateRoot The merkle root of state tree.
+     * @param rootHash The merkle root of state tree.
      * @param addr The address of contract.
      * @param slot The slot in the contract.
      * @param value The value to be verified.
-     * @param mkproof The proof obtained by encoding storage proof.
+     * @param accountProof The account proof.
+     * @param storageProof The storage proof.
+     * @return storageRoot The storage root.
      */
-    function verifyFullMerkleProof(
-        bytes32 stateRoot,
+    function verifyMerkleProof(
+        bytes32 rootHash,
         address addr,
         bytes32 slot,
         bytes memory value,
-        bytes memory mkproof
+        bytes[] memory accountProof,
+        bytes[] memory storageProof
     )
         internal
         pure
+        returns (bytes32 storageRoot)
     {
-        bytes32 storageRoot;
         if (accountProof.length == 0) {
             storageRoot = rootHash;
         } else {
