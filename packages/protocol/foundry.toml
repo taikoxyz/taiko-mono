@@ -5,12 +5,13 @@ src = 'contracts'
 out = 'out'
 test = 'test'
 libs = ['lib']
-gas_price = 10000000000 # gas price is 10 Gwei
+gas_price = 10000000000            # gas price is 10 Gwei
 optimizer = true
 optimizer_runs = 200
 ffi = true
 gas_limit = '18446744073709551615'
 memory_limit = 2073741824
+evm_version = 'cancun'
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
 block_gas_limit = 80000000 #80M
