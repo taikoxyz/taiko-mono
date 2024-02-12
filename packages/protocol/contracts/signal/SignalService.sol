@@ -22,6 +22,8 @@ import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./IHopRelayRegistry.sol";
 import "./ISignalService.sol";
 
+import "forge-std/console2.sol";
+
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
@@ -75,7 +77,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal) external returns (bytes32 slot) {
-        return _sendSignal(signal);
+        return _sendSignal(msg.sender, signal);
     }
 
     function relayStateRoot(
@@ -87,6 +89,17 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 slot)
     {
         (, slot) = _relayStateRoot(chainId, stateRoot);
+    }
+
+        function relaySignalRoot(
+        uint64 chainId,
+        bytes32 signalRoot
+    )
+        external
+        onlyFromNamed("taiko")
+        returns (bytes32 slot)
+    {
+        (, slot) = _relaySignalRoot(chainId, signalRoot);
     }
 
     /// @inheritdoc ISignalService
@@ -170,7 +183,9 @@ contract SignalService is EssentialContract, ISignalService {
             ? signalForStateRoot(_chainId, p.proof.rootHash)
             : signalForSignalRoot(_chainId, p.proof.rootHash);
 
-        bool lastSignalRelayed = isSignalSent(resolve("taiko", false), lastSignal);
+        console2.log("last signal:", uint256(lastSignal));
+
+        bool lastSignalRelayed = isSignalSent(address(this), lastSignal);
         if (!lastSignalRelayed) revert SS_INVALID_ROOT_HASH();
 
         bytes32 signalRoot = verifyMerkleProof(_chainId, _app, _signal, p.proof);
@@ -227,8 +242,20 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-    function signalForStateRoot(uint64 chainId, bytes32 stateRoot) public pure returns (bytes32) {
-        return keccak256(abi.encode("STATE_ROOT", chainId, stateRoot));
+    function signalForStateRoot(
+        uint64 chainId,
+        bytes32 stateRoot
+    )
+        public
+        view
+        returns (bytes32 signal)
+    {
+        signal = keccak256(abi.encode("STATE_ROOT", chainId, stateRoot));
+       console2.log("----->>");
+       console2.log(chainId);
+       console2.log(uint(stateRoot));
+       console2.log(uint(signal));
+        console2.log("----->>");
     }
 
     function signalForSignalRoot(
@@ -242,9 +269,9 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encode("SIGNAL_ROOT", chainId, storageRoot));
     }
 
-    function _sendSignal(bytes32 signal) internal returns (bytes32 slot) {
+    function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
-        slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
+        slot = getSignalSlot(uint64(block.chainid), sender, signal);
         assembly {
             sstore(slot, 1)
         }
@@ -259,7 +286,10 @@ contract SignalService is EssentialContract, ISignalService {
     {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
         signal = signalForStateRoot(chainId, stateRoot);
-        slot = _sendSignal(signal);
+
+        console2.log("send signa:", msg.sender, uint256(signal));
+
+        slot = _sendSignal(address(this), signal);
         emit StateRootRelayed(chainId, stateRoot, signal);
     }
 
@@ -272,7 +302,7 @@ contract SignalService is EssentialContract, ISignalService {
     {
         if (chainId == block.chainid) revert SS_INVALID_PARAMS();
         signal = signalForSignalRoot(chainId, signalRoot);
-        slot = _sendSignal(signal);
+        slot = _sendSignal(address(this), signal);
         emit SignalRootRelayed(chainId, signalRoot, signal);
     }
 
