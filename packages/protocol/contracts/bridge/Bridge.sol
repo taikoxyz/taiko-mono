@@ -358,10 +358,9 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // If isLastAttempt is true, the caller must be the message.owner.
-        // TODO(Brecht): why not allow anyone to call when message.gasLimit == 0?
-        // There is no fee to be earned, and there won't be any gas limit anyway.
-        if (isLastAttempt) {
+        // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
+        // be the message.owner.
+        if (message.gasLimit == 0 || isLastAttempt) {
             if (msg.sender != message.owner) revert B_PERMISSION_DENIED();
         }
 
@@ -544,6 +543,33 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
+    /// @notice Resets the call context
+    function _resetContext() private {
+        _storeContext(bytes32(0), address(0), uint64(0));
+    }
+
+    /// @notice Stores the call context
+    function _storeContext(bytes32 msgHash, address from, uint64 srcChainId) private {
+        assembly {
+            tstore(_CTX_SLOT, msgHash)
+            tstore(add(_CTX_SLOT, 1), from)
+            tstore(add(_CTX_SLOT, 2), srcChainId)
+        }
+    }
+
+    /// @notice Loads the call context
+    function _loadContext() private view returns (Context memory) {
+        bytes32 msgHash;
+        address from;
+        uint64 srcChainId;
+        assembly {
+            msgHash := tload(_CTX_SLOT)
+            from := tload(add(_CTX_SLOT, 1))
+            srcChainId := tload(add(_CTX_SLOT, 2))
+        }
+        return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
+    }
+
     /// @notice Checks if the signal was received.
     /// @param signalService The signalService
     /// @param signal The signal.
@@ -566,32 +592,5 @@ contract Bridge is EssentialContract, IBridge {
         );
         (bool success, bytes memory ret) = signalService.staticcall(data);
         return success ? abi.decode(ret, (bool)) : false;
-    }
-
-    /// @notice Resets the call context
-    function _resetContext() internal {
-        _storeContext(bytes32(0), address(0), uint64(0));
-    }
-
-    /// @notice Stores the call context
-    function _storeContext(bytes32 msgHash, address from, uint64 srcChainId) internal {
-        assembly {
-            tstore(_CTX_SLOT, msgHash)
-            tstore(add(_CTX_SLOT, 1), from)
-            tstore(add(_CTX_SLOT, 2), srcChainId)
-        }
-    }
-
-    /// @notice Loads the call context
-    function _loadContext() internal view returns (Context memory) {
-        bytes32 msgHash;
-        address from;
-        uint64 srcChainId;
-        assembly {
-            msgHash := tload(_CTX_SLOT)
-            from := tload(add(_CTX_SLOT, 1))
-            srcChainId := tload(add(_CTX_SLOT, 2))
-        }
-        return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
     }
 }

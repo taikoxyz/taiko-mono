@@ -131,9 +131,6 @@ contract ERC20Vault is BaseVault {
 
         btokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
-        // TODO(Brecht): if the ctoken is on the current chain, should we check the
-        // symbol/name/decimals against the actual token?
-
         if (btokenOld != address(0)) {
             CanonicalERC20 memory _ctoken = bridgedToCanonical[btokenOld];
 
