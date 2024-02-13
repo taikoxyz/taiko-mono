@@ -643,7 +643,8 @@ contract BridgeTest is TaikoTest {
 
         addressManager.setAddress(dest, "signal_service", address(mockProofSignalService));
 
-        crossChainSync.setSyncedData(
+        crossChainSync.setSnippet(
+            123,
             0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e,
             0x631b214fb030d82847224f0b3d3b906a6764dded176ad3c7262630204867ba85
         );

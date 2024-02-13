@@ -45,7 +45,7 @@ contract SignalService is EssentialContract, ISignalService {
     uint256[49] private __gap;
 
     event TrustedRelayUpdated(uint64 indexed hopChainId, uint64 indexed srcChainId, address hop);
-    event ChainDataRelayed(
+    event SnippetRelayed(
         uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
     );
 
@@ -211,7 +211,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 slot)
     {
         bytes32 signal = signalForChainData(chainId, kind, data);
-        emit ChainDataRelayed(chainId, kind, data, signal);
+        emit SnippetRelayed(chainId, kind, data, signal);
         return _sendSignal(address(this), signal);
     }
 

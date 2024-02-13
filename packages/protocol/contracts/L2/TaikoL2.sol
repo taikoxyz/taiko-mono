@@ -45,15 +45,16 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
-    mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
+    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes; // slot 1
 
     // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash; // slot 3
-    uint64 public gasExcess; // slot 4
+    bytes32 public publicInputHash; // slot 2
+    uint64 public gasExcess; // slot 3
     uint64 public latestSyncedL1Height;
 
-    uint256[146] private __gap;
+    ICrossChainSync.Snippet private _chainData; // slot 4, 5, 6
+
+    uint256[144] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -147,19 +148,17 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             ownerChainId, "state_root", l1StateRoot
         );
 
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
+        emit CrossChainSynced(l1Height, l1BlockHash, l1StateRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] = ICrossChainSync.Snippet({
-            remoteBlockId: l1Height,
-            syncedInBlock: uint64(block.number),
-            blockHash: l1BlockHash,
-            stateRoot: l1StateRoot
-        });
 
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
+
+        _chainData.blockId = l1Height;
+        _chainData.blockHash = l1BlockHash;
+        _chainData.stateRoot = l1StateRoot;
 
         emit Anchored(blockhash(parentId), gasExcess);
     }
@@ -175,14 +174,8 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     }
 
     /// @inheritdoc ICrossChainSync
-    function getSyncedSnippet(uint64 blockId)
-        public
-        view
-        override
-        returns (ICrossChainSync.Snippet memory)
-    {
-        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return snippets[id];
+    function getSyncedSnippet() public view returns (ICrossChainSync.Snippet memory) {
+        return _chainData;
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for

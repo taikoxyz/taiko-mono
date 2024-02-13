@@ -53,14 +53,15 @@ contract SkipProofCheckSignal is SignalService {
 }
 
 contract DummyCrossChainSync is EssentialContract, ICrossChainSync {
-    Snippet private _snippet;
+    Snippet private _chainData;
 
-    function setSyncedData(bytes32 blockHash, bytes32 stateRoot) external {
-        _snippet.blockHash = blockHash;
-        _snippet.stateRoot = stateRoot;
+    function setSnippet(uint64 blockId, bytes32 blockHash, bytes32 stateRoot) external {
+        _chainData.blockId = blockId;
+        _chainData.blockHash = blockHash;
+        _chainData.stateRoot = stateRoot;
     }
 
-    function getSyncedSnippet(uint64) external view returns (Snippet memory) {
-        return _snippet;
+    function getSyncedSnippet() public view returns (Snippet memory) {
+        return _chainData;
     }
 }

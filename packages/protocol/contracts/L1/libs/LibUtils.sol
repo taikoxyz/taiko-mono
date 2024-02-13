@@ -53,16 +53,21 @@ library LibUtils {
         ts = state.transitions[slot][tid];
     }
 
+    struct Snippet {
+        uint64 blockId;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+    }
+
     function getSyncedSnippet(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 blockId
+        TaikoData.Config memory config
     )
         external
         view
         returns (ICrossChainSync.Snippet memory)
     {
-        uint64 _blockId = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
+        uint64 _blockId = state.slotB.lastVerifiedBlockId;
         uint64 slot = _blockId % config.blockRingBufferSize;
 
         TaikoData.Block storage blk = state.blocks[slot];
@@ -74,8 +79,7 @@ library LibUtils {
             state.transitions[slot][blk.verifiedTransitionId];
 
         return ICrossChainSync.Snippet({
-            remoteBlockId: blockId,
-            syncedInBlock: blk.proposedIn,
+            blockId: _blockId,
             blockHash: transition.blockHash,
             stateRoot: transition.stateRoot
         });

@@ -247,9 +247,7 @@ library LibVerifying {
                     config.chainId, "state_root", stateRoot
                 );
 
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
-                );
+                emit CrossChainSynced(uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot);
             }
         }
     }
