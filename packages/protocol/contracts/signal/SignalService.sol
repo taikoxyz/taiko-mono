@@ -39,12 +39,8 @@ contract SignalService is EssentialContract, ISignalService {
     bytes32 private constant _STATE_ROOT = bytes32("state_root");
     bytes32 private constant _SIGNAL_ROOT = bytes32("signal_root");
 
-    mapping(uint64 hopChainId => mapping(uint64 srcChainId => address signalService)) public
-        trustedRelays;
+    uint256[50] private __gap;
 
-    uint256[49] private __gap;
-
-    event TrustedRelayUpdated(uint64 indexed hopChainId, uint64 indexed srcChainId, address hop);
     event SnippetRelayed(
         uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
     );
@@ -56,7 +52,6 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
-    error SS_INVALID_RELAY();
     error SS_INVALID_STATE_ROOT();
     error SS_INVALID_SIGNAL();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
@@ -65,24 +60,6 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         __Essential_init(_addressManager);
-    }
-
-    function setTrustedRelay(
-        uint64 hopChainId,
-        uint64 srcChainId,
-        address signalService
-    )
-        external
-        onlyOwner
-    {
-        if (hopChainId == 0 || srcChainId == 0 || hopChainId == srcChainId) {
-            revert SS_INVALID_PARAMS();
-        }
-        if (trustedRelays[hopChainId][srcChainId] == signalService) {
-            revert SS_INVALID_PARAMS();
-        }
-        trustedRelays[hopChainId][srcChainId] = signalService;
-        emit TrustedRelayUpdated(hopChainId, srcChainId, signalService);
     }
 
     /// @inheritdoc ISignalService
@@ -138,9 +115,7 @@ contract SignalService is EssentialContract, ISignalService {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
-
-                _signalService = trustedRelays[hop.chainId][_chainId];
-                if (_signalService == address(0)) revert SS_INVALID_RELAY();
+                _signalService = resolve(hop.chainId, "signal_service", false);
             }
 
             bool isFullProof = hop.accountProof.length > 0;

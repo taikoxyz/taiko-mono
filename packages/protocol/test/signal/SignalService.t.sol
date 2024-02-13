@@ -210,7 +210,8 @@ contract TestSignalService is TaikoTest {
         // proofs[0].chainId must NOT be block.chainid in order not to revert
         proofs[0].chainId = srcChainId + 1;
 
-        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
+        // RESOLVER_ZERO_ADDR
+        vm.expectRevert();
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -368,8 +369,8 @@ contract TestSignalService is TaikoTest {
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
 
-        // expect SS_INVALID_RELAY
-        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
+        // expect RESOLVER_ZERO_ADDR
+        vm.expectRevert();
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -379,10 +380,8 @@ contract TestSignalService is TaikoTest {
 
         // Add two trusted hop relayers
         vm.startPrank(Alice);
-        signalService.setTrustedRelay(proofs[0].chainId, srcChainId, randAddress() /*relay1*/ );
-        signalService.setTrustedRelay(
-            proofs[1].chainId, proofs[0].chainId, randAddress() /*relay2*/
-        );
+        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
