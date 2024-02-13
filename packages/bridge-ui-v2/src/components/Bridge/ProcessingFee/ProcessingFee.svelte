@@ -45,7 +45,7 @@
   function confirmChanges() {
     if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
       // Let's check if we are closing with CUSTOM method selected and the input box is empty
-      if (tempprocessingFee === '') {
+      if (inputBox?.getValue() == '') {
         // If so, let's switch to RECOMMENDED method
         $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
       } else {
@@ -57,7 +57,6 @@
       }
     } else {
       inputBox?.clear();
-      tempprocessingFee = '';
       $processingFeeMethod = tempProcessingFeeMethod;
     }
     closeModal();
@@ -122,7 +121,6 @@
         break;
       case ProcessingFeeMethod.CUSTOM:
         $processingFee = tempprocessingFee;
-        //$processingFee = parseToWei(inputBox?.getValue());
         // We need to wait for Svelte to set the attribute `disabled` on the input
         // to false to be able to focus it
         tick().then(focusInputBox);
