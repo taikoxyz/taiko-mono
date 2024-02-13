@@ -59,7 +59,7 @@ func (p *Prover) abiEncodeSignalProof(ctx context.Context,
 		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedMerkleProof, _, err := p.abiEncodedMerkleProof(
+	encodedMerkleProof, err := p.abiEncodedMerkleProof(
 		ctx,
 		caller,
 		signalServiceAddress,
@@ -118,7 +118,7 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 		return nil, 0, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedMerkleProof, stateRoot, err := p.abiEncodedMerkleProof(
+	encodedMerkleProof, err := p.abiEncodedMerkleProof(
 		ctx,
 		caller,
 		signalServiceAddress,
@@ -135,16 +135,24 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 	hops := []encoding.Hop{}
 
 	for _, hop := range hopParams {
+		block, err := hop.Blocker.BlockByNumber(
+			ctx,
+			new(big.Int).SetUint64(hop.BlockNumber),
+		)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "p.blockHeader")
+		}
+
 		hopStorageSlotKey, err := hop.SignalService.GetSignalSlot(&bind.CallOpts{},
 			hop.ChainID.Uint64(),
 			hop.TaikoAddress,
-			stateRoot,
+			block.Root(),
 		)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "hopSignalService.GetSignalSlot")
 		}
 
-		encodedHopMerkleProof, nextStateRoot, err := p.abiEncodedMerkleProof(
+		encodedHopMerkleProof, err := p.abiEncodedMerkleProof(
 			ctx,
 			hop.Caller,
 			hop.SignalServiceAddress,
@@ -158,11 +166,9 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 		hops = append(hops, encoding.Hop{
 			ChainID:     hop.ChainID.Uint64(),
 			Relay:       hop.TaikoAddress,
-			StateRoot:   stateRoot,
+			StateRoot:   block.Root(),
 			MerkleProof: encodedHopMerkleProof,
 		})
-
-		stateRoot = nextStateRoot
 	}
 
 	signalProof := encoding.SignalProof{
@@ -188,7 +194,7 @@ func (p *Prover) abiEncodedMerkleProof(
 	signalServiceAddress common.Address,
 	key string,
 	blockNumber int64,
-) ([]byte, common.Hash, error) {
+) ([]byte, error) {
 	var ethProof StorageProof
 
 	slog.Info("getting proof",
@@ -205,19 +211,19 @@ func (p *Prover) abiEncodedMerkleProof(
 		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
 	)
 	if err != nil {
-		return nil, common.Hash{}, errors.Wrap(err, "c.CallContext")
+		return nil, errors.Wrap(err, "c.CallContext")
 	}
 
 	slog.Info("proof generated", "value", new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64())
 
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() != int64(1) {
-		return nil, common.Hash{}, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
+		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
 
 	encodedStorageProof, err := encoding.EncodeStorageProof(ethProof.AccountProof, ethProof.StorageProof[0].Proof)
 	if err != nil {
-		return nil, common.Hash{}, errors.Wrap(err, "encoding.EncodeStorageProof")
+		return nil, errors.Wrap(err, "encoding.EncodeStorageProof")
 	}
 
-	return encodedStorageProof, ethProof.StorageHash, nil
+	return encodedStorageProof, nil
 }
