@@ -243,7 +243,7 @@ library LibVerifying {
                 // This also means if we verified more than one block, only the last one's stateRoot
                 // is sent as a signal and verifiable with merkle proofs, all other blocks'
                 // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(stateRoot);
+                ISignalService(resolver.resolve("signal_service", false)).relayChainData(config.chainId, "state_root", stateRoot);
 
                 emit CrossChainSynced(
                     uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot

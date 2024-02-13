@@ -143,7 +143,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).sendSignal(l1StateRoot);
+        ISignalService(resolve("signal_service", false)).relayChainData(ownerChainId, "state_root", l1StateRoot);
 
         emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
 
@@ -155,6 +155,8 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             blockHash: l1BlockHash,
             stateRoot: l1StateRoot
         });
+
+
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 
