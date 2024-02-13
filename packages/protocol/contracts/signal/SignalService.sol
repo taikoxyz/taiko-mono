@@ -22,6 +22,8 @@ import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
+import "forge-std/console2.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
@@ -32,6 +34,7 @@ import "./ISignalService.sol";
 /// Use the respective chain IDs as labels for authorization.
 /// Note: SignalService should not authorize Bridges or other Bridgable
 /// applications.
+
 contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
@@ -47,11 +50,15 @@ contract SignalService is EssentialContract, ISignalService {
 
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
+    error SS_EMPTY_PROOF();
     error SS_INVALID_APP();
     error SS_INVALID_HOP_PROOF();
+    error SS_INVALID_LAST_HOP_CHAINID();
+    error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_STATE_ROOT();
+    error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
     error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -59,7 +66,7 @@ contract SignalService is EssentialContract, ISignalService {
         __Essential_init(_addressManager);
     }
 
-    function updateTrustedRelay(
+    function setTrustedRelay(
         uint64 hopChainId,
         uint64 srcChainId,
         address signalService
@@ -127,49 +134,48 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (bool)
     {
+        if (app == address(0) || signal == 0) revert SS_INVALID_PARAMS();
+
         HopProof[] memory _hopProofs = abi.decode(proof, (HopProof[]));
-        if (_hopProofs.length == 0) revert SS_INVALID_PROOF();
+        if (_hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
         uint64 _chainId = chainId;
         address _app = app;
         bytes32 _signal = signal;
 
-        uint256 lastIdx;
-        unchecked {
-            lastIdx = _hopProofs.length - 1;
-        }
+        for (uint256 i; i < _hopProofs.length; ++i) {
+            HopProof memory hop = _hopProofs[i];
+            bool isLastHop = i == _hopProofs.length - 1;
 
-        HopProof memory hop;
-        for (uint256 i; i < lastIdx; ++i) {
-            if (_chainId == 0 || _chainId == block.chainid) revert SS_INVALID_PARAMS();
-            if (_app == address(0) || _signal == 0) revert SS_INVALID_PARAMS();
-
-            hop = _hopProofs[i];
-            address relay = trustedRelays[hop.chainId][_chainId];
-            if (relay == address(0)) revert SS_INVALID_RELAY();
-
-            _verifyHopProof(_chainId, _app, _signal, hop, relay);
-
-            bytes32 kind = hop.accountProof.length > 0 // this is a full merkle proof
-                ? bytes32("STATE_ROOT")
-                : bytes32("SIGNAL_ROOT");
-
-            if (hop.cacheChainData) {
-                _relayChainData(hop.chainId, kind, hop.rootHash);
+            address relay;
+            if (isLastHop) {
+                if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
+                relay = address(this);
+            } else {
+                if (hop.chainId == 0 || hop.chainId == block.chainid) {
+                    revert SS_INVALID_MID_HOP_CHAINID();
+                }
+                relay = trustedRelays[hop.chainId][_chainId];
+                if (relay == address(0)) revert SS_INVALID_RELAY();
             }
 
-            _signal = _signalForChainData(_chainId, kind, hop.rootHash);
+            bytes32 signalRoot = _verifyHopProof(_chainId, _app, _signal, hop, relay);
+            bool isFullProof = hop.accountProof.length > 0;
+
+            if (hop.cacheChainData) {
+                if (isLastHop) _relayChainData(_chainId, "signal_root", signalRoot);
+                else if (isFullProof) _relayChainData(_chainId, "state_root", hop.rootHash);
+                else _relayChainData(_chainId, "signal_root", hop.rootHash);
+            }
+
+            bytes32 kind = isFullProof ? bytes32("state_root") : bytes32("signal_root");
+            _signal = signalForChainData(_chainId, kind, hop.rootHash);
             _chainId = hop.chainId;
             _app = relay;
         }
 
-        hop = _hopProofs[lastIdx];
-        if (hop.chainId != block.chainid) revert SS_INVALID_PROOF();
+        if (!isSignalSent(_app, _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
 
-        bytes32 singalRoot = _verifyHopProof(_chainId, _app, _signal, hop, address(this));
-        if (hop.cacheChainData) {
-            _relayChainData(hop.chainId, "SIGNAL_ROOT", singalRoot);
-        }
         return true;
     }
 
@@ -191,6 +197,18 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
+    function signalForChainData(
+        uint64 chainId,
+        bytes32 kind,
+        bytes32 data
+    )
+        public
+        view
+        returns (bytes32 signal)
+    {
+        signal = keccak256(abi.encode(chainId, kind, data));
+    }
+
     function _authorizePause(address) internal pure override {
         revert SS_UNSUPPORTED();
     }
@@ -203,8 +221,15 @@ contract SignalService is EssentialContract, ISignalService {
         internal
         returns (bytes32 slot)
     {
-        bytes32 signal = _signalForChainData(chainId, kind, data);
+        bytes32 signal = signalForChainData(chainId, kind, data);
         emit ChainDataRelayed(chainId, kind, data, signal);
+
+        console2.log("--->_relayChainData");
+        console2.log("  chainId:", chainId);
+        console2.log("  kind:", (uint256(kind)));
+        console2.log("  data:", (uint256(data)));
+        console2.log("  signal:", (uint256(signal)));
+
         return _sendSignal(address(this), signal);
     }
 
@@ -227,7 +252,7 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (bytes32 signalRoot)
     {
-        return LibTrieProof.verifyMerkleProof(
+        signalRoot = LibTrieProof.verifyMerkleProof(
             hop.rootHash,
             relay,
             getSignalSlot(chainId, app, signal),
@@ -235,17 +260,7 @@ contract SignalService is EssentialContract, ISignalService {
             hop.accountProof,
             hop.storageProof
         );
-    }
 
-    function _signalForChainData(
-        uint64 chainId,
-        bytes32 kind,
-        bytes32 data
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(chainId, kind, data));
+        console2.log("---> returned from verify: ", uint256(signalRoot));
     }
 }
