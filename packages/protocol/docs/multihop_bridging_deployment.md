@@ -2,4 +2,4 @@
 
 This document brief describes how multi-hop cross-chain bridging is done in Taiko.
 
-![](./multihop/state.png =250x)
+![](./multihop/state.png | width=100)
