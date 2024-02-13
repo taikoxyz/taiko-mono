@@ -221,7 +221,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, 0, 0, 0, 0, false, 0, hookcalls)),
+            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, 0, 0, false, 0, hookcalls)),
             new bytes(txListSize)
         );
     }
@@ -242,7 +242,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             parentHash: parentHash,
             blockHash: blockHash,
             stateRoot: stateRoot,
-            graffiti: 0x0
+            graffiti: 0x0,
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         bytes32 instance =

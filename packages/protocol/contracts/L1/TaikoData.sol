@@ -84,6 +84,7 @@ library TaikoData {
 
     struct BlockParams {
         address assignedProver;
+        address coinbase;
         bytes32 extraData;
         bytes32 blobHash;
         uint24 txListByteOffset;
@@ -121,6 +122,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 stateRoot;
         bytes32 graffiti;
+        bytes32[2] __reserved;
     }
 
     /// @dev Struct representing state transition data.
@@ -136,7 +138,6 @@ library TaikoData {
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
         uint8 contestations;
-        bytes32[4] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
@@ -150,7 +151,6 @@ library TaikoData {
         uint64 proposedIn; // L1 block number
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing an Ethereum deposit.

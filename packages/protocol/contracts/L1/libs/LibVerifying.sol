@@ -116,6 +116,10 @@ library LibVerifying {
     )
         internal
     {
+        if (maxBlocksToVerify == 0) {
+            return;
+        }
+
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
         TaikoData.SlotB memory b = state.slotB;
@@ -136,17 +140,17 @@ library LibVerifying {
         // blockHash on L2.
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
         bytes32 stateRoot;
-        uint64 processed;
+        uint64 numBlocksVerified;
         address tierProvider;
 
         // Unchecked is safe:
         // - assignment is within ranges
-        // - blockId and processed values incremented will still be OK in the
+        // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
         unchecked {
             ++blockId;
 
-            while (blockId < b.numBlocks && processed < maxBlocksToVerify) {
+            while (blockId < b.numBlocks && numBlocksVerified < maxBlocksToVerify) {
                 slot = blockId % config.blockRingBufferSize;
 
                 blk = state.blocks[slot];
@@ -228,11 +232,11 @@ library LibVerifying {
                 });
 
                 ++blockId;
-                ++processed;
+                ++numBlocksVerified;
             }
 
-            if (processed > 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
+            if (numBlocksVerified > 0) {
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;

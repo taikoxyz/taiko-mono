@@ -185,6 +185,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: KNOWN_ADDRESS,
+            msgSender: KNOWN_ADDRESS,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -195,7 +196,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            graffiti: bytes32("78"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -233,6 +235,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: true, // skips all verification when true
             blobUsed: false
@@ -243,7 +246,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            graffiti: bytes32("78"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -264,6 +268,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -274,7 +279,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            graffiti: bytes32("78"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -297,6 +303,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -307,7 +314,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            graffiti: bytes32("78"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -335,6 +343,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -345,7 +354,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            graffiti: bytes32("78"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -374,6 +384,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -384,7 +395,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            graffiti: bytes32("78"),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof

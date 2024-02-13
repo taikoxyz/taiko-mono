@@ -41,13 +41,12 @@ contract BridgedERC20 is
     uint256[47] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
-    error BTOKEN_INVALID_PARAMS();
     error BTOKEN_UNAUTHORIZED();
 
-
-    modifier onlyOwnerOrSnapshooter {
-        if (msg.sender != owner() && msg.sender != snapshooter) 
-        revert  BTOKEN_UNAUTHORIZED();
+    modifier onlyOwnerOrSnapshooter() {
+        if (msg.sender != owner() && msg.sender != snapshooter) {
+            revert BTOKEN_UNAUTHORIZED();
+        }
         _;
     }
     /// @notice Initializes the contract.
@@ -59,6 +58,7 @@ contract BridgedERC20 is
     /// @param _decimals The number of decimal places of the source token.
     /// @param _symbol The symbol of the token.
     /// @param _name The name of the token.
+
     function init(
         address _addressManager,
         address _srcToken,
@@ -71,12 +71,7 @@ contract BridgedERC20 is
         initializer
     {
         // Check if provided parameters are valid
-        if (
-            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-                || bytes(_symbol).length == 0 || bytes(_name).length == 0
-        ) {
-            revert BTOKEN_INVALID_PARAMS();
-        }
+        LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
 
         // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
         __Essential_init(_addressManager);

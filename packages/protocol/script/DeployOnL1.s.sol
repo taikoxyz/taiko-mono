@@ -18,7 +18,6 @@ import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/tiers/OptimisticTierProvider.sol";
@@ -367,7 +366,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(

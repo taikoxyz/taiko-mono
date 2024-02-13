@@ -43,6 +43,11 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    modifier whenProvingNotPaused() {
+        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+        _;
+    }
+
     /// @dev Fallback function to receive Ether from Hooks
     receive() external payable {
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
@@ -75,17 +80,19 @@ contract TaikoL1 is
         (meta, depositsProcessed) =
             LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
 
-        if (!state.slotB.provingPaused && config.maxBlocksToVerifyPerProposal > 0) {
-            LibVerifying.verifyBlocks(
-                state, config, AddressResolver(this), config.maxBlocksToVerifyPerProposal
-            );
-        }
+        _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
     }
 
     /// @inheritdoc ITaikoL1
-    function proveBlock(uint64 blockId, bytes calldata input) external nonReentrant whenNotPaused {
-        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
-
+    function proveBlock(
+        uint64 blockId,
+        bytes calldata input
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        whenProvingNotPaused
+    {
         (
             TaikoData.BlockMetadata memory meta,
             TaikoData.Transition memory tran,
@@ -99,17 +106,12 @@ contract TaikoL1 is
         uint8 maxBlocksToVerify =
             LibProving.proveBlock(state, config, AddressResolver(this), meta, tran, proof);
 
-        if (maxBlocksToVerify > 0) {
-            LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
-        }
+        _verifyBlocks(config, maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
     function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant whenNotPaused {
-        if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
-        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
-
-        LibVerifying.verifyBlocks(state, getConfig(), AddressResolver(this), maxBlocksToVerify);
+        _verifyBlocks(getConfig(), maxBlocksToVerify);
     }
 
     /// @notice Pause block proving.
@@ -248,6 +250,16 @@ contract TaikoL1 is
 
     function isConfigValid() public view returns (bool) {
         return LibVerifying.isConfigValid(getConfig());
+    }
+
+    function _verifyBlocks(
+        TaikoData.Config memory config,
+        uint64 maxBlocksToVerify
+    )
+        internal
+        whenProvingNotPaused
+    {
+        LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
     }
 
     function _authorizePause(address)
