@@ -112,6 +112,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes calldata proof
     )
         public
+        virtual
         returns (bool)
     {
         if (app == address(0) || signal == 0) revert SS_INVALID_PARAMS();
