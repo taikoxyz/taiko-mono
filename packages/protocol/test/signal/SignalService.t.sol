@@ -14,24 +14,6 @@ contract SignalServiceForTest is SignalService {
     function setMultiHopEnabled(bool enabled) external {
         _multiHopEnabled = enabled;
     }
-
-    function verifyMerkleProof(
-        bytes32, /*stateRoot*/
-        uint64, /*srcChainId*/
-        address, /*srcApp*/
-        bytes32, /*srcSignal*/
-        bytes memory /*merkleProof*/
-    )
-        public
-        view
-        override
-    {
-        if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
-    }
-
-    function isMultiHopEnabled() public view override returns (bool) {
-        return _multiHopEnabled;
-    }
 }
 
 contract TestSignalService is TaikoTest {

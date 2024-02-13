@@ -16,11 +16,24 @@ pragma solidity 0.8.24;
 /// a merkle proof.
 
 interface ISignalService {
-    /// @notice Send a signal (message) by setting the storage slot to a value
-    /// of 1.
+    /// @notice Relay a data from a remote chain locally as a signal. The signal is calculated
+    /// uniquely from chainId, kind, and data.
+    /// @param chainId The remote chainId.
+    /// @param kind A value to mark the data type.
+    /// @param data The remote data.
+    /// @return slot The location in storage where this signal is stored.
+    function relayChainData(
+        uint64 chainId,
+        bytes32 kind,
+        bytes32 data
+    )
+        external
+        returns (bytes32 slot);
+
+    /// @notice Send a signal (message) by setting the storage slot to a value of 1.
     /// @param signal The signal (message) to send.
-    /// @return storageSlot The location in storage where this signal is stored.
-    function sendSignal(bytes32 signal) external returns (bytes32 storageSlot);
+    /// @return slot The location in storage where this signal is stored.
+    function sendSignal(bytes32 signal) external returns (bytes32 slot);
 
     /// @notice Verifies if a particular signal has already been sent.
     /// @param app The address that initiated the signal.
@@ -29,7 +42,7 @@ interface ISignalService {
     function isSignalSent(address app, bytes32 signal) external view returns (bool);
 
     /// @notice Verifies if a signal has been received on the target chain.
-    /// @param srcChainId The identifier for the source chain from which the
+    /// @param chainId The identifier for the source chain from which the
     /// signal originated.
     /// @param app The address that initiated the signal.
     /// @param signal The signal (message) to send.
@@ -37,12 +50,11 @@ interface ISignalService {
     /// source chain.
     /// @return True if the signal has been received, otherwise false.
     function proveSignalReceived(
-        uint64 srcChainId,
+        uint64 chainId,
         address app,
         bytes32 signal,
         bytes calldata proof
     )
         external
-        view
         returns (bool);
 }
