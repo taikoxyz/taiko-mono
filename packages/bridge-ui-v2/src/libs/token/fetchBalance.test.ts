@@ -1,122 +1,126 @@
-// import { fetchBalance, type WalletClient } from '@wagmi/core';
-// import { zeroAddress } from 'viem';
+import { getBalance, type GetBalanceReturnType } from '@wagmi/core';
+import { zeroAddress } from 'viem';
 
-// import { getBalance } from './fetchBalance';
-// import { getAddress } from './getAddress';
-// import { ETHToken } from './tokens';
-// import { type Token, TokenType } from './types';
+import { fetchBalance } from './fetchBalance';
+import { getAddress } from './getAddress';
+import { ETHToken } from './tokens';
+import { type Token, TokenType } from './types';
 
-// vi.mock('$env/static/public');
-// vi.mock('@wagmi/core');
-// vi.mock('$abi');
+vi.mock('$env/static/public');
+vi.mock('@wagmi/core');
+vi.mock('$abi');
 
-// // We don't want to test this function again, do we?
-// vi.mock('./getAddress');
+vi.mock('$libs/wagmi/client');
 
-// const PUBLIC_L1_CHAIN_ID = 11155111;
-// const PUBLIC_L2_CHAIN_ID = 1670005;
+// We don't want to test this function again, do we?
+vi.mock('./getAddress');
 
-// const L1_TOKEN_ADDRESS = '0x123456';
+const PUBLIC_L1_CHAIN_ID = 11155111;
+const PUBLIC_L2_CHAIN_ID = 1670005;
 
-// const BLLToken: Token = {
-//   name: 'MockToken',
-//   addresses: {
-//     [PUBLIC_L1_CHAIN_ID]: L1_TOKEN_ADDRESS,
-//     [PUBLIC_L2_CHAIN_ID]: zeroAddress,
-//   },
-//   symbol: 'MOCK',
-//   decimals: 18,
-//   type: TokenType.ERC20,
-// };
+const L1_TOKEN_ADDRESS = '0x123456';
 
-// const mockWalletClient = {
-//   account: { address: '0xasdf' },
-// } as unknown as WalletClient;
+const WALLET_ADDRESS = '0x1234567890';
 
-// const mockBalanceForETH = {
-//   decimals: 18,
-//   formatted: '1',
-//   symbol: 'ETH',
-//   value: BigInt(1e18),
-// };
+const BLLToken: Token = {
+  name: 'MockToken',
+  addresses: {
+    [PUBLIC_L1_CHAIN_ID]: L1_TOKEN_ADDRESS,
+    [PUBLIC_L2_CHAIN_ID]: zeroAddress,
+  },
+  symbol: 'MOCK',
+  decimals: 18,
+  type: TokenType.ERC20,
+};
 
-// const mockBalanceForBLL = {
-//   decimals: BLLToken.decimals,
-//   formatted: '1',
-//   symbol: BLLToken.symbol,
-//   value: BigInt(1e18),
-// };
+const mockBalanceForETH = {
+  decimals: 18,
+  formatted: '1',
+  symbol: 'ETH',
+  value: BigInt(1e18),
+};
 
-// describe('getBalance', () => {
-//   beforeEach(() => {
-//     vi.mocked(getAddress).mockReset();
-//     vi.mocked(fetchBalance).mockReset();
-//   });
+const mockBalanceForBLL = {
+  decimals: BLLToken.decimals,
+  formatted: '1',
+  symbol: BLLToken.symbol,
+  value: BigInt(1e18),
+} satisfies GetBalanceReturnType;
 
-//   it('should return the balance of ETH', async () => {
-//     vi.mocked(fetchBalance).mockResolvedValueOnce(mockBalanceForETH);
+const mockConfig = {
+  chains: [],
+};
 
-//     const balance = await getBalance({
-//       token: ETHToken,
-//       userAddress: mockWalletClient.account.address,
-//       srcChainId: Number(PUBLIC_L1_CHAIN_ID),
-//     });
+describe('fetchBalance', () => {
+  beforeEach(() => {
+    vi.mocked(getAddress).mockReset();
+    vi.mocked(getBalance).mockReset();
+  });
 
-//     expect(balance).toEqual(mockBalanceForETH);
-//     expect(getAddress).not.toHaveBeenCalled();
-//     expect(fetchBalance).toHaveBeenCalledWith({
-//       address: mockWalletClient.account.address,
-//       chainId: Number(PUBLIC_L1_CHAIN_ID),
-//     });
-//   });
+  it('should return the balance of ETH', async () => {
+    vi.mocked(getBalance).mockResolvedValueOnce(mockBalanceForETH);
 
-//   it('should return the balance of ERC20 token', async () => {
-//     vi.mocked(getAddress).mockResolvedValueOnce(BLLToken.addresses[PUBLIC_L1_CHAIN_ID]);
-//     vi.mocked(fetchBalance).mockResolvedValueOnce(mockBalanceForBLL);
+    const balance = await fetchBalance({
+      token: ETHToken,
+      userAddress: WALLET_ADDRESS,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
 
-//     const balance = await getBalance({
-//       token: BLLToken,
-//       userAddress: mockWalletClient.account.address,
-//       srcChainId: Number(PUBLIC_L1_CHAIN_ID),
-//     });
+    expect(balance).toEqual(mockBalanceForETH);
+    expect(getAddress).not.toHaveBeenCalled();
+    expect(getBalance).toHaveBeenCalledWith(mockConfig, {
+      address: WALLET_ADDRESS,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
+  });
 
-//     expect(balance).toEqual(mockBalanceForBLL);
-//     expect(getAddress).toHaveBeenCalledWith({
-//       token: BLLToken,
-//       srcChainId: Number(PUBLIC_L1_CHAIN_ID),
-//       destChainId: undefined,
-//     });
-//     expect(fetchBalance).toHaveBeenCalledWith({
-//       address: mockWalletClient.account.address,
-//       chainId: Number(PUBLIC_L1_CHAIN_ID),
-//       token: BLLToken.addresses[PUBLIC_L1_CHAIN_ID],
-//     });
-//   });
+  it('should return the balance of ERC20 token', async () => {
+    vi.mocked(getAddress).mockResolvedValueOnce(BLLToken.addresses[PUBLIC_L1_CHAIN_ID]);
+    vi.mocked(getBalance).mockResolvedValueOnce(mockBalanceForBLL);
 
-//   it('should return undefined if the token address is not found', async () => {
-//     vi.mocked(getAddress).mockResolvedValueOnce(zeroAddress);
+    const balance = await fetchBalance({
+      token: BLLToken,
+      userAddress: WALLET_ADDRESS,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
 
-//     const balance = await getBalance({
-//       token: BLLToken,
-//       userAddress: mockWalletClient.account.address,
-//       srcChainId: Number(PUBLIC_L1_CHAIN_ID),
-//     });
+    expect(balance).toEqual(mockBalanceForBLL);
+    expect(getAddress).toHaveBeenCalledWith({
+      token: BLLToken,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
+      destChainId: undefined,
+    });
+    expect(getBalance).toHaveBeenCalledWith(mockConfig, {
+      address: WALLET_ADDRESS,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+      token: BLLToken.addresses[PUBLIC_L1_CHAIN_ID],
+    });
+  });
 
-//     expect(balance).toBeUndefined();
-//     expect(getAddress).toHaveBeenCalledWith({
-//       token: BLLToken,
-//       srcChainId: Number(PUBLIC_L1_CHAIN_ID),
-//       destChainId: undefined,
-//     });
-//     expect(fetchBalance).not.toHaveBeenCalled();
-//   });
+  it('should return undefined if the token address is not found', async () => {
+    vi.mocked(getAddress).mockResolvedValueOnce(zeroAddress);
 
-//   it('should return undefined if ERC20 and no source chain is passed in', async () => {
-//     const balance = await getBalance({
-//       token: BLLToken,
-//       userAddress: mockWalletClient.account.address,
-//     });
+    const balance = await fetchBalance({
+      token: BLLToken,
+      userAddress: WALLET_ADDRESS,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
 
-//     expect(balance).toBeUndefined();
-//   });
-// });
+    expect(balance).toBeUndefined();
+    expect(getAddress).toHaveBeenCalledWith({
+      token: BLLToken,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
+      destChainId: undefined,
+    });
+    expect(getBalance).not.toHaveBeenCalled();
+  });
+
+  it('should return undefined if ERC20 and no source chain is passed in', async () => {
+    const balance = await fetchBalance({
+      token: BLLToken,
+      userAddress: WALLET_ADDRESS,
+    });
+
+    expect(balance).toBeUndefined();
+  });
+});

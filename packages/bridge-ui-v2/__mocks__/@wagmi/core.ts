@@ -8,7 +8,7 @@ export const getPublicClient = vi.fn();
 
 export const getContract = vi.fn();
 
-export const fetchBalance = vi.fn();
+export const getBalance = vi.fn();
 
 export const fetchToken = vi.fn();
 
@@ -43,3 +43,13 @@ export const configureChains = vi.fn().mockReturnValue({
 export const defaultWagmiConfig = vi.fn(() => {
   return 'mockWagmiConfig';
 });
+
+export const http = vi.fn();
+
+export const createConfig = vi.fn(() => {
+  return {
+    chains: mockChains,
+  };
+});
+
+export const reconnect = vi.fn();

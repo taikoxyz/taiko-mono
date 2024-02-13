@@ -10,12 +10,6 @@ export const publicClient = async (chainId: number) => {
   return await getPublicClient(config, { chainId });
 };
 
-// const transports = chains.reduce((acc, chain) => {
-//   //@ts-ignore
-//   acc[chain.id] = http();
-//   return acc;
-// });
-
 const transports = chains.reduce((acc, { id }) => ({ ...acc, [id]: http() }), {});
 
 export const config = createConfig({
