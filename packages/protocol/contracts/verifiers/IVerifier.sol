@@ -26,6 +26,7 @@ interface IVerifier {
         uint64 blockId;
         bool isContesting;
         bool blobUsed;
+        address msgSender;
     }
 
     function verifyProof(
