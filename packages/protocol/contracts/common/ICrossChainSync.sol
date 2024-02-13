@@ -33,7 +33,9 @@ interface ICrossChainSync {
     /// @param stateRoot The block's state root.
     event CrossChainSynced(uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot);
 
-    /// @notice Fetches the hash of a block from the opposite chain.
+       /// @notice Fetches the hash of a block from the opposite chain.
+    /// @param blockId The target block id. Specifying 0 retrieves the hash
+    /// of the latest block.
     /// @return snippet The block hash and signal root synced.
-    function getSyncedSnippet() external view returns (Snippet memory snippet);
+    function getSyncedSnippet(uint64 blockId) external view returns (Snippet memory snippet);
 }

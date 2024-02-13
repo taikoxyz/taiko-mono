@@ -45,15 +45,15 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes; // slot 1
+    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
+    mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash; // slot 2
-    uint64 public gasExcess; // slot 3
+    bytes32 public publicInputHash; // slot 3
+    uint64 public gasExcess; // slot 4
+    uint64 public latestSyncedL1Height;
 
-    Snippet private _l1Snippet; // slot 4, 5, 6
-
-    uint256[144] private __gap;
+    uint256[146] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -147,14 +147,12 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             ownerChainId, "state_root", l1StateRoot
         );
 
+        emit CrossChainSynced(l1Height, l1BlockHash, l1StateRoot);
+
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         publicInputHash = publicInputHashNew;
 
-        _l1Snippet.blockId = l1Height;
-        _l1Snippet.blockHash = l1BlockHash;
-        _l1Snippet.stateRoot = l1StateRoot;
-        emit CrossChainSynced(l1Height, l1BlockHash, l1StateRoot);
 
         emit Anchored(blockhash(parentId), gasExcess);
     }
@@ -263,10 +261,10 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
-            // Note that when _l1Snippet.blockId is zero, we skip this step.
+            // Note that when latestSyncedL1Height is zero, we skip this step.
             uint256 numL1Blocks;
-            if (_l1Snippet.blockId > 0 && l1Height > _l1Snippet.blockId) {
-                numL1Blocks = l1Height - _l1Snippet.blockId;
+            if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
+                numL1Blocks = l1Height - latestSyncedL1Height;
             }
 
             if (numL1Blocks > 0) {
