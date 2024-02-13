@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import { IVerifier } from "../../contracts/verifiers/IVerifier.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { MockPlonkVerifier } from "../mocks/MockPlonkVerifier.sol";

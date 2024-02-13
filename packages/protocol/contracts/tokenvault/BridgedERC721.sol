@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 

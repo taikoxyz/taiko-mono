@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -45,7 +45,7 @@ import "../test/DeployCapability.sol";
 // version. For mainnet, it is easier to go with either this:
 // https://github.com/daimo-eth/p256-verifier or this:
 // https://github.com/rdubois-crypto/FreshCryptoLib
-import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
+import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,

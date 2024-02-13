@@ -14,15 +14,14 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/governance/GovernorUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
 import
-    "lib/openzeppelin-contracts-upgradeable/contracts/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
+    "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import
-    "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorVotesUpgradeable.sol";
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
-    "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
-import
-    "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 import "../../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoGovernor is
