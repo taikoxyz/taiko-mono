@@ -85,7 +85,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         bytes32 instance = calcInstance({
             tran: tran,
-            prover: ctx.prover,
+            prover: proof.prover,
             metaHash: ctx.metaHash,
             txListHash: txListHash,
             pointValue: pointValue

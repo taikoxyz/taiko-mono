@@ -73,6 +73,7 @@ library TaikoData {
     }
 
     struct TierProof {
+        address prover;
         uint16 tier;
         bytes data;
     }

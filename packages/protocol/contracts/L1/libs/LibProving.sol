@@ -118,7 +118,10 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (
+            proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier
+                || proof.prover == address(0)
+        ) {
             revert L1_INVALID_TIER();
         }
 
@@ -128,7 +131,7 @@ library LibProving {
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
         // Check if this prover is allowed to submit a proof for this block
-        _checkProverPermission(state, blk, ts, tid, tier);
+        _checkProverPermission(state, blk, ts, tid, proof, tier);
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -153,13 +156,6 @@ library LibProving {
                 IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
-                    // TODO(Brecht): Quite limiting this is required to be the same address as
-                    // msg.sender,
-                    // less flexibility on the prover's side for proof generation/proof submission
-                    // using
-                    // multiple accounts.
-                    // Added msgSender to allow the prover to be any address in the future.
-                    prover: msg.sender,
                     msgSender: msg.sender,
                     blockId: blk.blockId,
                     isContesting: isContesting,
@@ -201,7 +197,7 @@ library LibProving {
             emit TransitionProved({
                 blockId: blk.blockId,
                 tran: tran,
-                prover: msg.sender,
+                prover: proof.prover,
                 validityBond: tier.validityBond,
                 tier: proof.tier
             });
@@ -215,14 +211,14 @@ library LibProving {
                 assert(tier.validityBond == 0);
                 assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
 
-                ts.prover = msg.sender;
+                ts.prover = proof.prover;
                 ts.blockHash = tran.blockHash;
                 ts.stateRoot = tran.stateRoot;
 
                 emit TransitionProved({
                     blockId: blk.blockId,
                     tran: tran,
-                    prover: msg.sender,
+                    prover: proof.prover,
                     validityBond: 0,
                     tier: proof.tier
                 });
@@ -230,7 +226,7 @@ library LibProving {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
-                // Burn the contest bond from the prover.
+                // Burn the contest bond from the sender.
                 tko.transferFrom(msg.sender, address(this), tier.contestBond);
 
                 // We retain the contest bond within the transition, just in
@@ -382,7 +378,7 @@ library LibProving {
         ts.validityBond = tier.validityBond;
         ts.contestBond = 1; // to save gas
         ts.contester = address(0);
-        ts.prover = msg.sender;
+        ts.prover = proof.prover;
         ts.tier = proof.tier;
 
         if (!sameTransition) {
@@ -397,6 +393,7 @@ library LibProving {
         TaikoData.Block storage blk,
         TaikoData.TransitionState storage ts,
         uint32 tid,
+        TaikoData.TierProof memory proof,
         ITierProvider.Tier memory tier
     )
         private
@@ -407,7 +404,7 @@ library LibProving {
 
         bool inProvingWindow = uint256(ts.timestamp).max(state.slotB.lastUnpausedAt)
             + tier.provingWindow >= block.timestamp;
-        bool isAssignedPover = msg.sender == blk.assignedProver;
+        bool isAssignedPover = proof.prover == blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.
         if (tid == 1 && ts.tier == 0 && inProvingWindow) {

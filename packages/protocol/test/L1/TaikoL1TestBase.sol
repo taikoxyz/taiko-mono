@@ -250,6 +250,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             pv.calcInstance(tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0);
 
         TaikoData.TierProof memory proof;
+        proof.prover = prover;
         proof.tier = tier;
         {
             PseZkVerifier.ZkEvmProof memory zkProof;

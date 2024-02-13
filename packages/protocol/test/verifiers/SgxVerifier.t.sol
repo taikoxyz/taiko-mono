@@ -184,7 +184,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: KNOWN_ADDRESS,
             msgSender: KNOWN_ADDRESS,
             blockId: 10,
             isContesting: false,
@@ -203,12 +202,13 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         // TierProof
         address newInstance = address(0x33);
 
-        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.prover, ctx.metaHash);
+        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.msgSender, ctx.metaHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(KNOWN_ADDRESS_PRIV_KEY, signedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 100, data: data });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 100, data: data });
 
         vm.warp(block.timestamp + 5);
 
@@ -234,7 +234,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: true, // skips all verification when true
@@ -251,7 +250,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: "" });
 
         // `verifyProof()`
         sv.verifyProof(ctx, transition, proof);
@@ -267,7 +267,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -285,6 +284,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // TierProof
         TaikoData.TierProof memory proof = TaikoData.TierProof({
+            prover: ctx.msgSender,
             tier: 0,
             data: new bytes(80) // invalid length
          });
@@ -302,7 +302,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -323,7 +322,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         address newInstance = address(0x33);
         bytes memory signature = new bytes(65); // invalid length
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: data });
 
         // `verifyProof()`
         vm.expectRevert("ECDSA: invalid signature");
@@ -342,7 +342,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -361,12 +360,13 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         // TierProof
         address newInstance = address(0x33);
 
-        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.prover, ctx.metaHash);
+        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.msgSender, ctx.metaHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(KNOWN_ADDRESS_PRIV_KEY, signedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: data });
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
@@ -383,7 +383,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -403,12 +402,13 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         uint32 id = 0;
         address newInstance = address(0x33);
 
-        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.prover, ctx.metaHash);
+        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.msgSender, ctx.metaHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(KNOWN_ADDRESS_PRIV_KEY, signedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 100, data: data });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 100, data: data });
 
         // `verifyProof()`
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);

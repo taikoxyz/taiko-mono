@@ -21,7 +21,6 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),
             blobHash: bytes32(0),
-            prover: address(gp),
             msgSender: address(gp),
             blockId: 10,
             isContesting: false,
@@ -38,7 +37,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ prover: Alice, tier: 0, data: "" });
 
         // `verifyProof()`
         gv.verifyProof(ctx, transition, proof);
@@ -50,7 +49,6 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),
             blobHash: bytes32(0),
-            prover: Alice, // invalid
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -67,7 +65,11 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({
+            prover: Alice, // invalid
+            tier: 0,
+            data: ""
+        });
 
         // `verifyProof()` with invalid ctx.prover
         vm.expectRevert(GuardianVerifier.PERMISSION_DENIED.selector);

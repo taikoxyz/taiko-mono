@@ -39,7 +39,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: true, // skips all verification when true
@@ -56,7 +55,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: "" });
 
         // `verifyProof()`
         pv.verifyProof(ctx, transition, proof);
@@ -68,7 +68,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -94,7 +93,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         bytes32 instance = pv.calcInstance(
-            transition, ctx.prover, ctx.metaHash, pointProof.txListHash, pointProof.pointValue
+            transition, ctx.msgSender, ctx.metaHash, pointProof.txListHash, pointProof.pointValue
         );
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
@@ -108,7 +107,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(Lib4844.EVAL_FAILED_2.selector);
@@ -121,7 +120,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -138,7 +136,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
         );
@@ -148,7 +146,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         pv.verifyProof(ctx, transition, proof);
@@ -160,7 +158,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -178,7 +175,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(uint256(0)) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(uint256(0)) });
 
         // `verifyProof()`
         vm.expectRevert();
@@ -191,7 +188,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -208,7 +204,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(0), bytes16(0), bytes16(uint128(uint256(instance)))
         );
@@ -218,7 +214,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
@@ -231,7 +227,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -248,7 +243,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords =
             abi.encodePacked(bytes16(0), bytes16(0), bytes16(instance), bytes16(0));
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
@@ -257,7 +252,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
@@ -270,7 +265,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -293,7 +287,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert("slice_outOfBounds");
@@ -306,7 +300,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -323,7 +316,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
         );
@@ -336,7 +329,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert();
@@ -349,7 +342,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -366,7 +358,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
         );
@@ -376,7 +368,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // Tell verifier to revert
         MockPlonkVerifier(mockPlonkVerifier).setShouldRevert(true);
@@ -392,7 +384,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -409,7 +400,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
         );
@@ -419,7 +410,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
@@ -432,7 +423,6 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
-            prover: Alice,
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
@@ -449,7 +439,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
+        bytes32 instance = pv.calcInstance(transition, ctx.msgSender, ctx.metaHash, ctx.blobHash, 0);
         bytes memory instanceWords = abi.encodePacked(
             bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
         );
@@ -459,7 +449,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
+            TaikoData.TierProof({ prover: ctx.msgSender, tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);

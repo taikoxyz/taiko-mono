@@ -22,11 +22,10 @@ interface IVerifier {
     struct Context {
         bytes32 metaHash;
         bytes32 blobHash;
-        address prover;
+        address msgSender;
         uint64 blockId;
         bool isContesting;
         bool blobUsed;
-        address msgSender;
     }
 
     function verifyProof(

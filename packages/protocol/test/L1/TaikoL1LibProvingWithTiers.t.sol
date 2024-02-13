@@ -794,9 +794,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     __reserved: [bytes32(0), bytes32(0)]
                 });
 
-                TaikoData.TierProof memory proof;
-                proof.tier = LibTiers.TIER_GUARDIAN;
-                proof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
+                TaikoData.TierProof memory proof = TaikoData.TierProof({
+                    prover: Carol,
+                    tier: LibTiers.TIER_GUARDIAN,
+                    data: bytes.concat(keccak256("RETURN_LIVENESS_BOND"))
+                });
 
                 uint256 balanceBeforeReimbursement = tko.balanceOf(Bob);
 
