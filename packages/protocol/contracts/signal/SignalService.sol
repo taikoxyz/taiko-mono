@@ -144,6 +144,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _signal = signal;
 
         for (uint256 i; i < _hopProofs.length; ++i) {
+            console2.log("\n-------------------------->");
             HopProof memory hop = _hopProofs[i];
             bool isLastHop = i == _hopProofs.length - 1;
 
@@ -170,6 +171,9 @@ contract SignalService is EssentialContract, ISignalService {
 
             bytes32 kind = isFullProof ? bytes32("state_root") : bytes32("signal_root");
             _signal = signalForChainData(_chainId, kind, hop.rootHash);
+            console2.log("hop.rootHash:", uint(hop.rootHash));
+            console2.log("hop.kind:", uint(kind));
+            console2.log("hop._chainId:", _chainId);
             _chainId = hop.chainId;
             _app = relay;
         }
