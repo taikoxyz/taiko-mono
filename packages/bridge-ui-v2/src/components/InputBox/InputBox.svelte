@@ -16,6 +16,7 @@
 
   // Public API
   export const setValue = (value: string) => (inputElement.value = value);
+  export const getValue = () => inputElement.value;
   export const clear = () => setValue('');
   export const focus = () => inputElement.focus();
 </script>
