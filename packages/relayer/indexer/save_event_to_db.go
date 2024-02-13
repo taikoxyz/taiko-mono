@@ -69,9 +69,6 @@ func (i *Indexer) saveEventToDB(
 		// otherwise, we can use the existing event ID for the body.
 		id = existingEvent.ID
 
-		// otherwise, we can use the existing event ID for the body.
-		id = existingEvent.ID
-
 		// if indexing message sent event, we want to check if we need to
 		// update status.
 		if i.eventName == relayer.EventNameMessageSent {
