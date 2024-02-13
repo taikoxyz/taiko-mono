@@ -232,15 +232,21 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
+
             verifyBlock(Carol, 1);
+
             // Querying written blockhash
             assertEq(L1.getSyncedSnippet(blockId).blockHash, blockHash);
+
             mine(5);
             parentHashes[blockId] = blockHash;
         }
+
         uint64 queriedBlockId = 1;
         bytes32 expectedSR = bytes32(1e9 + uint256(queriedBlockId));
+
         assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).stateRoot);
+
         // 2nd
         queriedBlockId = 2;
         expectedSR = bytes32(1e9 + uint256(queriedBlockId));
