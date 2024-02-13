@@ -21,6 +21,9 @@ contract MockSignalService is SignalService {
 }
 
 contract TestSignalService is TaikoTest {
+    bytes32 public constant STATE_ROOT = bytes32("state_root");
+    bytes32 public constant SIGNAL_ROOT = bytes32("signal_root");
+
     AddressManager addressManager;
     MockSignalService signalService;
     uint64 public destChainId = 7;
@@ -231,7 +234,7 @@ contract TestSignalService is TaikoTest {
 
         // relay the signal root
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, "signal_root", proofs[0].rootHash);
+        signalService.relayChainData(srcChainId, SIGNAL_ROOT, proofs[0].rootHash);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -262,7 +265,7 @@ contract TestSignalService is TaikoTest {
 
         // relay the state root
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, "state_root", proofs[0].rootHash);
+        signalService.relayChainData(srcChainId, STATE_ROOT, proofs[0].rootHash);
 
         // Should not revert
         signalService.proveSignalReceived({
@@ -273,7 +276,7 @@ contract TestSignalService is TaikoTest {
         });
 
         bytes32 signal =
-            signalService.signalForChainData(srcChainId, "signal_root", bytes32(uint256(789)));
+            signalService.signalForChainData(srcChainId, SIGNAL_ROOT, bytes32(uint256(789)));
         assertEq(signalService.isSignalSent(address(signalService), signal), false);
 
         // enable cache
@@ -329,18 +332,16 @@ contract TestSignalService is TaikoTest {
         );
         vm.stopPrank();
 
-        // vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
-        // signalService.proveSignalReceived({
-        //     chainId: srcChainId,
-        //     app: randAddress(),
-        //     signal: randBytes32(),
-        //     proof: abi.encode(proofs)
-        // });
+        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
 
         vm.prank(taiko);
-        console2.log("=====>>");
-        signalService.relayChainData(proofs[1].chainId, "state_root", proofs[2].rootHash);
-        console2.log("=====<<");
+        signalService.relayChainData(proofs[1].chainId, STATE_ROOT, proofs[2].rootHash);
 
         signalService.proveSignalReceived({
             chainId: srcChainId,

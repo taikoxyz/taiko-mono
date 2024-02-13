@@ -28,6 +28,9 @@ import "./ISignalService.sol";
 contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
+    bytes32 public constant STATE_ROOT = bytes32("state_root");
+    bytes32 public constant SIGNAL_ROOT = bytes32("signal_root");
+
     mapping(uint64 hopChainId => mapping(uint64 srcChainId => address signalService)) public
         trustedRelays;
 
@@ -47,7 +50,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
-    error SS_INVALID_STATE_ROOT();
+    error SS_INVALIDSTATE_ROOT();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
     error SS_UNSUPPORTED();
 
@@ -153,12 +156,12 @@ contract SignalService is EssentialContract, ISignalService {
             bool isFullProof = hop.accountProof.length > 0;
 
             if (hop.cacheChainData) {
-                if (isLastHop) _relayChainData(_chainId, "signal_root", signalRoot);
-                else if (isFullProof) _relayChainData(_chainId, "state_root", hop.rootHash);
-                else _relayChainData(_chainId, "signal_root", hop.rootHash);
+                if (isLastHop) _relayChainData(_chainId, SIGNAL_ROOT, signalRoot);
+                else if (isFullProof) _relayChainData(_chainId, STATE_ROOT, hop.rootHash);
+                else _relayChainData(_chainId, SIGNAL_ROOT, hop.rootHash);
             }
 
-            bytes32 kind = isFullProof ? bytes32("state_root") : bytes32("signal_root");
+            bytes32 kind = isFullProof ? bytes32(STATE_ROOT) : bytes32(SIGNAL_ROOT);
             _signal = signalForChainData(_chainId, kind, hop.rootHash);
             _chainId = hop.chainId;
             _app = relay;
