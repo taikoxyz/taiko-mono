@@ -185,6 +185,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: KNOWN_ADDRESS,
+            msgSender: KNOWN_ADDRESS,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -234,6 +235,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: true, // skips all verification when true
             blobUsed: false
@@ -266,6 +268,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -300,6 +303,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -339,6 +343,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -379,6 +384,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false

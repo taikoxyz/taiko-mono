@@ -24,7 +24,7 @@ interface ISignalService {
 
     /// @notice Verifies if a particular signal has already been sent.
     /// @param app The address that initiated the signal.
-    /// @param signal The signal (message) to send.
+    /// @param signal The signal (message) that was sent.
     /// @return True if the signal has been sent, otherwise false.
     function isSignalSent(address app, bytes32 signal) external view returns (bool);
 

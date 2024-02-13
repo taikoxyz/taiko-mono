@@ -49,7 +49,7 @@ jobs:
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
         run: |
-          anvil &
+          anvil --hardfork cancun &
           while ! nc -z localhost 8545; do
             sleep 1
           done
