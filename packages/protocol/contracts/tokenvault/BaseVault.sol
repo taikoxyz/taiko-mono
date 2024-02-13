@@ -52,8 +52,8 @@ abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgr
         returns (IBridge.Context memory ctx)
     {
         ctx = IBridge(msg.sender).context();
-        address sender = resolve(ctx.srcChainId, name(), false);
-        if (ctx.from != sender) revert VAULT_PERMISSION_DENIED();
+        address selfOnSourceChain = resolve(ctx.srcChainId, name(), false);
+        if (ctx.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 
     function checkRecallMessageContext()
