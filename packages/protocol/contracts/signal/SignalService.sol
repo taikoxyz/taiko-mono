@@ -28,8 +28,8 @@ import "./ISignalService.sol";
 contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
-    bytes32 public constant STATE_ROOT = bytes32("state_root");
-    bytes32 public constant SIGNAL_ROOT = bytes32("signal_root");
+    bytes32 internal constant _STATE_ROOT = bytes32("_STATE_ROOT");
+    bytes32 internal constant _SIGNAL_ROOT = bytes32("_SIGNAL_ROOT");
 
     mapping(uint64 hopChainId => mapping(uint64 srcChainId => address signalService)) public
         trustedRelays;
@@ -50,7 +50,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
-    error SS_INVALIDSTATE_ROOT();
+    error SS_INVALID_STATE_ROOT();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
     error SS_UNSUPPORTED();
 
@@ -148,6 +148,7 @@ contract SignalService is EssentialContract, ISignalService {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
+
                 relay = trustedRelays[hop.chainId][_chainId];
                 if (relay == address(0)) revert SS_INVALID_RELAY();
             }
@@ -156,19 +157,18 @@ contract SignalService is EssentialContract, ISignalService {
             bool isFullProof = hop.accountProof.length > 0;
 
             if (hop.cacheChainData) {
-                if (isLastHop) _relayChainData(_chainId, SIGNAL_ROOT, signalRoot);
-                else if (isFullProof) _relayChainData(_chainId, STATE_ROOT, hop.rootHash);
-                else _relayChainData(_chainId, SIGNAL_ROOT, hop.rootHash);
+                if (isLastHop) _relayChainData(_chainId, _SIGNAL_ROOT, signalRoot);
+                else if (isFullProof) _relayChainData(_chainId, _STATE_ROOT, hop.rootHash);
+                else _relayChainData(_chainId, _SIGNAL_ROOT, hop.rootHash);
             }
 
-            bytes32 kind = isFullProof ? bytes32(STATE_ROOT) : bytes32(SIGNAL_ROOT);
+            bytes32 kind = isFullProof ? _STATE_ROOT : _SIGNAL_ROOT;
             _signal = signalForChainData(_chainId, kind, hop.rootHash);
             _chainId = hop.chainId;
             _app = relay;
         }
 
         if (!isSignalSent(_app, _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
-
         return true;
     }
 
