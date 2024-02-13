@@ -79,6 +79,11 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
+    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
+        return _sendSignal(msg.sender, signal);
+    }
+
+    /// @inheritdoc ISignalService
     function relayChainData(
         uint64 chainId,
         bytes32 kind,
@@ -89,11 +94,6 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 slot)
     {
         return _relayChainData(chainId, kind, data);
-    }
-
-    /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
-        return _sendSignal(msg.sender, signal);
     }
 
     /// @inheritdoc ISignalService
@@ -149,10 +149,15 @@ contract SignalService is EssentialContract, ISignalService {
             address relay = trustedRelays[hop.chainId][_chainId];
             if (relay == address(0)) revert SS_INVALID_RELAY();
 
-            verifyHopProof(_chainId, _app, _signal, hop, relay);
+            _verifyHopProof(_chainId, _app, _signal, hop, relay);
 
-            bool isFullProof = hop.accountProof.length > 0;
-            bytes32 kind = isFullProof ? bytes32("state_root") : bytes32("signal_root");
+            bytes32 kind = hop.accountProof.length > 0 // this is a full merkle proof
+                ? bytes32("STATE_ROOT")
+                : bytes32("SIGNAL_ROOT");
+
+            if (hop.cacheChainData) {
+                _relayChainData(hop.chainId, kind, hop.rootHash);
+            }
 
             _signal = _signalForChainData(_chainId, kind, hop.rootHash);
             _chainId = hop.chainId;
@@ -162,24 +167,11 @@ contract SignalService is EssentialContract, ISignalService {
         hop = _hopProofs[lastIdx];
         if (hop.chainId != block.chainid) revert SS_INVALID_PROOF();
 
-        verifyHopProof(_chainId, _app, _signal, hop, address(this));
+        bytes32 singalRoot = _verifyHopProof(_chainId, _app, _signal, hop, address(this));
+        if (hop.cacheChainData) {
+            _relayChainData(hop.chainId, "SIGNAL_ROOT", singalRoot);
+        }
         return true;
-    }
-
-    function verifyHopProof(
-        uint64 chainId,
-        address app,
-        bytes32 signal,
-        HopProof memory hop,
-        address relay
-    )
-        public
-        virtual
-    {
-        bytes32 slot = getSignalSlot(chainId, app, signal);
-        bytes32 signalRoot = LibTrieProof.verifyMerkleProof(
-            hop.rootHash, relay, slot, hex"01", hop.accountProof, hop.storageProof
-        );
     }
 
     /// @notice Get the storage slot of the signal.
@@ -223,6 +215,27 @@ contract SignalService is EssentialContract, ISignalService {
         assembly {
             sstore(slot, 1)
         }
+    }
+
+    function _verifyHopProof(
+        uint64 chainId,
+        address app,
+        bytes32 signal,
+        HopProof memory hop,
+        address relay
+    )
+        internal
+        virtual
+        returns (bytes32 signalRoot)
+    {
+        return LibTrieProof.verifyMerkleProof(
+            hop.rootHash,
+            relay,
+            getSignalSlot(chainId, app, signal),
+            hex"01",
+            hop.accountProof,
+            hop.storageProof
+        );
     }
 
     function _signalForChainData(

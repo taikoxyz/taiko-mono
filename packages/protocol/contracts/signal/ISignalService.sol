@@ -16,6 +16,11 @@ pragma solidity 0.8.24;
 /// a merkle proof.
 
 interface ISignalService {
+    /// @notice Send a signal (message) by setting the storage slot to a value of 1.
+    /// @param signal The signal (message) to send.
+    /// @return slot The location in storage where this signal is stored.
+    function sendSignal(bytes32 signal) external returns (bytes32 slot);
+
     /// @notice Relay a data from a remote chain locally as a signal. The signal is calculated
     /// uniquely from chainId, kind, and data.
     /// @param chainId The remote chainId.
@@ -29,11 +34,6 @@ interface ISignalService {
     )
         external
         returns (bytes32 slot);
-
-    /// @notice Send a signal (message) by setting the storage slot to a value of 1.
-    /// @param signal The signal (message) to send.
-    /// @return slot The location in storage where this signal is stored.
-    function sendSignal(bytes32 signal) external returns (bytes32 slot);
 
     /// @notice Verifies if a signal has been received on the target chain.
     /// @param chainId The identifier for the source chain from which the
