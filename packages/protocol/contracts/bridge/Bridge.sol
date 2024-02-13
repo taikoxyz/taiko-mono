@@ -254,10 +254,6 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // TODO(Brecht): `message.owner`, but this is the `msg.sender` on the source chain.
-        // If the address is not owned by the same entity on the destination chain
-        // (e.g. can be the case for smart wallets/general contracts) this can give unexpected
-        // results (especially with refunding).
         bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
