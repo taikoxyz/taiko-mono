@@ -129,7 +129,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -166,7 +167,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -222,7 +224,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -273,7 +276,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
             value: 1000,
@@ -310,7 +314,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
             value: 1000,
@@ -586,12 +591,12 @@ contract BridgeTest is TaikoTest {
 
         vm.stopPrank();
 
-        vm.prank(message.owner);
+        vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, false);
         Bridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == Bridge.Status.RETRIABLE, true);
 
-        vm.prank(message.owner);
+        vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, true);
         postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == Bridge.Status.FAILED, true);
@@ -658,7 +663,8 @@ contract BridgeTest is TaikoTest {
             from: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             srcChainId: 1336,
             destChainId: dest,
-            owner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            srcOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            destOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
             refundTo: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             value: 1000,
@@ -687,7 +693,8 @@ contract BridgeTest is TaikoTest {
         returns (IBridge.Message memory)
     {
         return IBridge.Message({
-            owner: owner,
+            srcOwner: owner,
+            destOwner: owner,
             destChainId: destChain,
             to: to,
             value: value,

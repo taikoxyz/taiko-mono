@@ -36,7 +36,7 @@ abstract contract BaseNFTVault is BaseVault {
         // Destination chain ID.
         uint64 destChainId;
         // The owner of the bridge message on the destination chain.
-        address owner;
+        address destOwner;
         // Recipient address.
         address to;
         // Address of the token.
