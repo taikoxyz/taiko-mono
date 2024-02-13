@@ -210,8 +210,7 @@
     aria-expanded={menuOpen}
     class="f-between-center w-full h-full px-[20px] py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none
     {combined ? '!rounded-l-[0px] !rounded-r-[10px]' : '!rounded-[10px]'}"
-    on:click={openMenu}
-    on:focus={openMenu}>
+    on:click={openMenu}>
     <div class="space-x-2">
       {#if !value || disabled}
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
@@ -251,6 +250,7 @@
     <DialogView {id} bind:menuOpen {onlyMintable} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>
+
 <div data-modal-uuid={id} />
 
 <OnNetwork change={onNetworkChange} />
