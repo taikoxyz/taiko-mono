@@ -78,6 +78,10 @@ library LibProposing {
             revert L1_INVALID_PROVER();
         }
 
+        if (params.coinbase == address(0)) {
+            params.coinbase = msg.sender;
+        }
+
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         // However, if the "proposer" address is set to a non-zero value, we
         // ensure that only that specific address has the authority to propose
@@ -104,7 +108,7 @@ library LibProposing {
 
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
-        depositsProcessed = LibDepositing.processDeposits(state, config, msg.sender);
+        depositsProcessed = LibDepositing.processDeposits(state, config, params.coinbase);
 
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
@@ -117,12 +121,7 @@ library LibProposing {
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
                 depositsHash: keccak256(abi.encode(depositsProcessed)),
-                // TODO(Brecht): A bit limiting this is required to be the same address as
-                // msg.sender.
-                // And fees will be collected on L2 so if a smart contract is used as the proposer
-                // it requires the same contract to be deployed on L2 at the same address owned by
-                // the same entity.
-                coinbase: msg.sender,
+                coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),

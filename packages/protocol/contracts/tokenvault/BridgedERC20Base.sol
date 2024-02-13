@@ -85,10 +85,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         return super.owner();
     }
 
+    function _mintToken(address account, uint256 amount) internal virtual;
+    function _burnToken(address from, uint256 amount) internal virtual;
+
     function _isMigratingOut() internal view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;
     }
-
-    function _mintToken(address account, uint256 amount) internal virtual;
-    function _burnToken(address from, uint256 amount) internal virtual;
 }
