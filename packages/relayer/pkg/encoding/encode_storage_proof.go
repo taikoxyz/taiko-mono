@@ -5,15 +5,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-var bytesT, _ = abi.NewType("bytes", "", nil)
+var bytesArrayT, _ = abi.NewType("bytes[]", "", nil)
 
-func EncodeStorageProof(accountProof []byte, storageProof []byte) ([]byte, error) {
+func EncodeStorageProof(accountProof [][]byte, storageProof [][]byte) ([]byte, error) {
 	args := abi.Arguments{
 		{
-			Type: bytesT,
+			Type: bytesArrayT,
 		},
 		{
-			Type: bytesT,
+			Type: bytesArrayT,
 		},
 	}
 

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
 )
 
@@ -215,17 +214,7 @@ func (p *Prover) abiEncodedMerkleProof(
 		return nil, common.Hash{}, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
 
-	rlpEncodedAccountProof, err := rlp.EncodeToBytes(ethProof.AccountProof)
-	if err != nil {
-		return nil, common.Hash{}, errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
-	}
-
-	rlpEncodedStorageProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
-	if err != nil {
-		return nil, common.Hash{}, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
-	}
-
-	encodedStorageProof, err := encoding.EncodeStorageProof(rlpEncodedAccountProof, rlpEncodedStorageProof)
+	encodedStorageProof, err := encoding.EncodeStorageProof(ethProof.AccountProof, ethProof.StorageProof[0].Proof)
 	if err != nil {
 		return nil, common.Hash{}, errors.Wrap(err, "encoding.EncodeStorageProof")
 	}
