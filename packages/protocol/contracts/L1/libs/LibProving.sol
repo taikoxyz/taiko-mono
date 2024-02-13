@@ -154,10 +154,8 @@ library LibProving {
                     metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
                     // TODO(Brecht): Quite limiting this is required to be the same address as
-                    // msg.sender,
-                    // less flexibility on the prover's side for proof generation/proof submission
-                    // using
-                    // multiple accounts.
+                    // msg.sender, less flexibility on the prover's side for proof generation/proof
+                    // submission using multiple accounts.
                     // Added msgSender to allow the prover to be any address in the future.
                     prover: msg.sender,
                     msgSender: msg.sender,

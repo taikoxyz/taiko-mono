@@ -366,7 +366,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(
