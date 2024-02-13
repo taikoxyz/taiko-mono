@@ -192,11 +192,13 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev getCrossChainBlockHash tests
-    function test_L1_getCrossChainSnippet_Genesis() external {
-        ICrossChainSync.Snippet memory snippet = L1.getSyncedSnippet();
-        assertEq(snippet.blockId, 0);
-        assertEq(snippet.blockHash, GENESIS_BLOCK_HASH);
-        assertEq(snippet.stateRoot, 0);
+    function test_L1_getCrossChainBlockHash0() external {
+        bytes32 genHash = L1.getSyncedSnippet(0).blockHash;
+        assertEq(GENESIS_BLOCK_HASH, genHash);
+
+        // Reverts if block is not yet verified!
+        vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
+        L1.getSyncedSnippet(1);
     }
 
     /// @dev getSyncedSnippet tests
@@ -233,13 +235,26 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             verifyBlock(Carol, 1);
 
-            assertEq(L1.getSyncedSnippet().blockId, blockId);
-            assertEq(L1.getSyncedSnippet().blockHash, blockHash);
-            assertEq(L1.getSyncedSnippet().stateRoot, stateRoot);
+            // Querying written blockhash
+            assertEq(L1.getSyncedSnippet(blockId).blockHash, blockHash);
 
             mine(5);
             parentHashes[blockId] = blockHash;
         }
+
+        uint64 queriedBlockId = 1;
+        bytes32 expectedSR = bytes32(1e9 + uint256(queriedBlockId));
+
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).stateRoot);
+
+        // 2nd
+        queriedBlockId = 2;
+        expectedSR = bytes32(1e9 + uint256(queriedBlockId));
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).stateRoot);
+
+        // Not found -> reverts
+        vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
+        L1.getSyncedSnippet((count + 1));
     }
 
     function test_L1_deposit_hash_creation() external {
