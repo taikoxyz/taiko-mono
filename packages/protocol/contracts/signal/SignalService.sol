@@ -233,7 +233,7 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (bytes32 signalRoot)
     {
-        signalRoot = LibTrieProof.verifyMerkleProof(
+        return LibTrieProof.verifyMerkleProof(
             hop.rootHash,
             relay,
             getSignalSlot(chainId, app, signal),
