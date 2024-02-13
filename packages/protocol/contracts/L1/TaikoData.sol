@@ -84,6 +84,7 @@ library TaikoData {
 
     struct BlockParams {
         address assignedProver;
+        address coinbase;
         bytes32 extraData;
         bytes32 blobHash;
         uint24 txListByteOffset;
@@ -119,8 +120,9 @@ library TaikoData {
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
-        bytes32 signalRoot;
+        bytes32 stateRoot;
         bytes32 graffiti;
+        bytes32[2] __reserved;
     }
 
     /// @dev Struct representing state transition data.
@@ -128,7 +130,7 @@ library TaikoData {
     struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
-        bytes32 signalRoot; // slot 3
+        bytes32 stateRoot; // slot 3
         address prover; // slot 4
         uint96 validityBond;
         address contester; // slot 5

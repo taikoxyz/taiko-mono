@@ -43,7 +43,7 @@ abstract contract TaikoEvents {
     /// @param prover The prover whose transition is used for verifing the
     /// block.
     /// @param blockHash The hash of the verified block.
-    /// @param signalRoot The latest value of the signal service storage.
+    /// @param stateRoot The block's state root.
     /// @param tier The tier ID of the proof.
     /// @param contestations Number of total contestations.
     event BlockVerified(
@@ -51,7 +51,7 @@ abstract contract TaikoEvents {
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot,
+        bytes32 stateRoot,
         uint16 tier,
         uint8 contestations
     );
