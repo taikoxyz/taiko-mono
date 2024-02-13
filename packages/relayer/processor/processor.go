@@ -267,7 +267,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	prover, err := proof.New(srcEthClient, cfg.ProofEncodingType)
+	prover, err := proof.New(srcEthClient)
 	if err != nil {
 		return err
 	}

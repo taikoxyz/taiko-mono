@@ -103,11 +103,6 @@
             "name": "verifiedTransitionId",
             "type": "uint32",
             "internalType": "uint32"
-          },
-          {
-            "name": "__reserved",
-            "type": "bytes32[7]",
-            "internalType": "bytes32[7]"
           }
         ]
       }
@@ -322,12 +317,12 @@
         "internalType": "struct ICrossChainSync.Snippet",
         "components": [
           {
-            "name": "remoteBlockId",
+            "name": "syncedInBlock",
             "type": "uint64",
             "internalType": "uint64"
           },
           {
-            "name": "syncedInBlock",
+            "name": "blockId",
             "type": "uint64",
             "internalType": "uint64"
           },
@@ -337,7 +332,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "signalRoot",
+            "name": "stateRoot",
             "type": "bytes32",
             "internalType": "bytes32"
           }
@@ -442,7 +437,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "signalRoot",
+            "name": "stateRoot",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -480,11 +475,6 @@
             "name": "contestations",
             "type": "uint8",
             "internalType": "uint8"
-          },
-          {
-            "name": "__reserved",
-            "type": "bytes32[4]",
-            "internalType": "bytes32[4]"
           }
         ]
       }
@@ -1147,7 +1137,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "signalRoot",
+        "name": "stateRoot",
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
@@ -1196,7 +1186,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "signalRoot",
+        "name": "stateRoot",
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
@@ -1239,7 +1229,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "signalRoot",
+        "name": "stateRoot",
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
@@ -1270,7 +1260,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "signalRoot",
+        "name": "stateRoot",
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
@@ -1393,7 +1383,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "signalRoot",
+            "name": "stateRoot",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -1401,6 +1391,11 @@
             "name": "graffiti",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "__reserved",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
           }
         ]
       },
@@ -1452,7 +1447,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "signalRoot",
+            "name": "stateRoot",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -1460,6 +1455,11 @@
             "name": "graffiti",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "__reserved",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
           }
         ]
       },

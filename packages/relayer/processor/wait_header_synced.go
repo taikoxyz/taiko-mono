@@ -39,7 +39,7 @@ func (p *Processor) waitHeaderSynced(
 
 			slog.Info("latestSyncedSnippet",
 				"blockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
-				"signalRoot", common.Bytes2Hex(latestSyncedSnippet.SignalRoot[:]),
+				"stateRoot", common.Bytes2Hex(latestSyncedSnippet.StateRoot[:]),
 			)
 
 			header, err := ethClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)

@@ -31,15 +31,15 @@ var (
 
 // ICrossChainSyncSnippet is an auto generated low-level Go binding around an user-defined struct.
 type ICrossChainSyncSnippet struct {
-	RemoteBlockId uint64
 	SyncedInBlock uint64
+	BlockId       uint64
 	BlockHash     [32]byte
-	SignalRoot    [32]byte
+	StateRoot     [32]byte
 }
 
 // ICrossChainSyncMetaData contains all meta data concerning the ICrossChainSync contract.
 var ICrossChainSyncMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"getSyncedSnippet\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"snippet\",\"type\":\"tuple\",\"internalType\":\"structICrossChainSync.Snippet\",\"components\":[{\"name\":\"remoteBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"syncedInBlock\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"CrossChainSynced\",\"inputs\":[{\"name\":\"syncedInBlock\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"signalRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"getSyncedSnippet\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"snippet\",\"type\":\"tuple\",\"internalType\":\"structICrossChainSync.Snippet\",\"components\":[{\"name\":\"syncedInBlock\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"CrossChainSynced\",\"inputs\":[{\"name\":\"syncedInBlock\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false}]",
 }
 
 // ICrossChainSyncABI is the input ABI used to generate the binding from.
@@ -291,13 +291,13 @@ type ICrossChainSyncCrossChainSynced struct {
 	SyncedInBlock uint64
 	BlockId       uint64
 	BlockHash     [32]byte
-	SignalRoot    [32]byte
+	StateRoot     [32]byte
 	Raw           types.Log // Blockchain specific contextual infos
 }
 
 // FilterCrossChainSynced is a free log retrieval operation binding the contract event 0xf35ec3b262cf74881db1b8051c635496bccb1497a1e776dacb463d0e0e2b0f51.
 //
-// Solidity: event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot)
+// Solidity: event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot)
 func (_ICrossChainSync *ICrossChainSyncFilterer) FilterCrossChainSynced(opts *bind.FilterOpts, syncedInBlock []uint64, blockId []uint64) (*ICrossChainSyncCrossChainSyncedIterator, error) {
 
 	var syncedInBlockRule []interface{}
@@ -318,7 +318,7 @@ func (_ICrossChainSync *ICrossChainSyncFilterer) FilterCrossChainSynced(opts *bi
 
 // WatchCrossChainSynced is a free log subscription operation binding the contract event 0xf35ec3b262cf74881db1b8051c635496bccb1497a1e776dacb463d0e0e2b0f51.
 //
-// Solidity: event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot)
+// Solidity: event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot)
 func (_ICrossChainSync *ICrossChainSyncFilterer) WatchCrossChainSynced(opts *bind.WatchOpts, sink chan<- *ICrossChainSyncCrossChainSynced, syncedInBlock []uint64, blockId []uint64) (event.Subscription, error) {
 
 	var syncedInBlockRule []interface{}
@@ -364,7 +364,7 @@ func (_ICrossChainSync *ICrossChainSyncFilterer) WatchCrossChainSynced(opts *bin
 
 // ParseCrossChainSynced is a log parse operation binding the contract event 0xf35ec3b262cf74881db1b8051c635496bccb1497a1e776dacb463d0e0e2b0f51.
 //
-// Solidity: event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot)
+// Solidity: event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot)
 func (_ICrossChainSync *ICrossChainSyncFilterer) ParseCrossChainSynced(log types.Log) (*ICrossChainSyncCrossChainSynced, error) {
 	event := new(ICrossChainSyncCrossChainSynced)
 	if err := _ICrossChainSync.contract.UnpackLog(event, "CrossChainSynced", log); err != nil {

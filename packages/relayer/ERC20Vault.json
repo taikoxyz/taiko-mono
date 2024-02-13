@@ -803,6 +803,12 @@
         "internalType": "uint64"
       },
       {
+        "name": "ctoken",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
         "name": "token",
         "type": "address",
         "indexed": false,
@@ -831,6 +837,12 @@
         "name": "from",
         "type": "address",
         "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "ctoken",
+        "type": "address",
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -875,6 +887,12 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      },
+      {
+        "name": "ctoken",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       },
       {
         "name": "token",
@@ -986,6 +1004,11 @@
   {
     "type": "error",
     "name": "VAULT_INVALID_NEW_BTOKEN",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VAULT_INVALID_TO",
     "inputs": []
   },
   {

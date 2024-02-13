@@ -32,98 +32,50 @@ type BlockHeader struct {
 	WithdrawalsRoot  [32]byte       `abi:"withdrawalsRoot"`
 }
 
-type RLPSignalProof struct {
-	CrossChainSync common.Address `abi:"crossChainSync"`
-	Height         uint64         `abi:"height"`
-	StorageProof   []byte         `abi:"storageProof"`
-	Hops           []RLPHop       `abi:"hops"`
+type SignalProof struct {
+	Height      uint64 `abi:"height"`
+	MerkleProof []byte `abi:"merkleProof"`
+	Hops        []Hop  `abi:"hops"`
 }
 
-type RLPHop struct {
-	SignalRootRelay common.Address `abi:"signalRootRelay"`
-	SignalRoot      [32]byte       `abi:"signalRoot"`
-	StorageProof    []byte         `abi:"storageProof"`
-}
-
-type ABISignalProof struct {
-	CrossChainSync common.Address `abi:"crossChainSync"`
-	Height         uint64         `abi:"height"`
-	StorageProof   [][]byte       `abi:"storageProof"`
-	Hops           []ABIHop       `abi:"hops"`
-}
-
-type ABIHop struct {
-	SignalRootRelay common.Address `abi:"signalRootRelay"`
-	SignalRoot      [32]byte       `abi:"signalRoot"`
-	StorageProof    [][]byte       `abi:"storageProof"`
+type Hop struct {
+	ChainID     uint64         `abi:"chainId"`
+	Relay       common.Address `abi:"relay"`
+	StateRoot   [32]byte       `abi:"stateRoot"`
+	MerkleProof []byte         `abi:"merkleProof"`
 }
 
 var hopComponents = []abi.ArgumentMarshaling{
 	{
-		Name: "signalRootRelay",
+		Name: "chainId",
+		Type: "uint64",
+	},
+	{
+		Name: "relay",
 		Type: "address",
 	},
 	{
-		Name: "signalRoot",
+		Name: "stateRoot",
 		Type: "bytes32",
 	},
 	{
-		Name: "storageProof",
-		Type: "bytes[]",
-	},
-}
-
-var rlpHopComponents = []abi.ArgumentMarshaling{
-	{
-		Name: "signalRootRelay",
-		Type: "address",
-	},
-	{
-		Name: "signalRoot",
-		Type: "bytes32",
-	},
-	{
-		Name: "storageProof",
+		Name: "merkleProof",
 		Type: "bytes",
 	},
 }
 
-var abiSignalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-	{
-		Name: "crossChainSync",
-		Type: "address",
-	},
+var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 	{
 		Name: "height",
 		Type: "uint64",
 	},
 	{
-		Name: "storageProof",
-		Type: "bytes[]",
+		Name: "merkleProof",
+		Type: "bytes",
 	},
 	{
 		Name:       "hops",
 		Type:       "tuple[]",
 		Components: hopComponents,
-	},
-})
-
-var rlpSignalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-	{
-		Name: "crossChainSync",
-		Type: "address",
-	},
-	{
-		Name: "height",
-		Type: "uint64",
-	},
-	{
-		Name: "storageProof",
-		Type: "bytes",
-	},
-	{
-		Name:       "hops",
-		Type:       "tuple[]",
-		Components: rlpHopComponents,
 	},
 })

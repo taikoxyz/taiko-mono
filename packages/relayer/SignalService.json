@@ -14,43 +14,6 @@
   },
   {
     "type": "function",
-    "name": "authorize",
-    "inputs": [
-      {
-        "name": "addr",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "label",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "authorizedAddresses",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "label",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getSignalSlot",
     "inputs": [
       {
@@ -81,25 +44,20 @@
   {
     "type": "function",
     "name": "init",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "_addressManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "isAuthorizedAs",
-    "inputs": [
-      {
-        "name": "addr",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "label",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
+    "name": "isMultiHopEnabled",
+    "inputs": [],
     "outputs": [
       {
         "name": "",
@@ -294,19 +252,6 @@
   },
   {
     "type": "function",
-    "name": "skipProofCheck",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "pure"
-  },
-  {
-    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -357,6 +302,39 @@
     "stateMutability": "payable"
   },
   {
+    "type": "function",
+    "name": "verifyMerkleProof",
+    "inputs": [
+      {
+        "name": "stateRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "srcChainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "srcApp",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "srcSignal",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "merkleProof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
     "name": "AdminChanged",
     "inputs": [
@@ -371,31 +349,6 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "Authorized",
-    "inputs": [
-      {
-        "name": "addr",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "oldLabel",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "newLabel",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -486,17 +439,17 @@
   },
   {
     "type": "error",
-    "name": "INVALID_ADDRESS",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "INVALID_LABEL",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LTP_INVALID_ACCOUNT_PROOF",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LTP_INVALID_INCLUSION_PROOF",
     "inputs": []
   },
   {
@@ -542,7 +495,37 @@
   },
   {
     "type": "error",
+    "name": "SS_INVALID_HOP_PROOF",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SS_INVALID_PARAMS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SS_INVALID_PROOF",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SS_INVALID_RELAY",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "SS_INVALID_SIGNAL",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SS_INVALID_STATE_ROOT",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SS_MULTIHOP_DISABLED",
     "inputs": []
   },
   {

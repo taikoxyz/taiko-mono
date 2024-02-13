@@ -8,8 +8,8 @@ import (
 )
 
 var SuccessHeader = icrosschainsync.ICrossChainSyncSnippet{
-	BlockHash:  [32]byte{0x1},
-	SignalRoot: [32]byte{0x2},
+	BlockHash: [32]byte{0x1},
+	StateRoot: [32]byte{0x2},
 }
 
 type HeaderSyncer struct {

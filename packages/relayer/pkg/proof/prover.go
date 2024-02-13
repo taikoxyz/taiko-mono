@@ -19,21 +19,15 @@ type blocker interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
 type Prover struct {
-	blocker           blocker
-	proofEncodingType relayer.ProofEncodingType
+	blocker blocker
 }
 
-func New(blocker blocker, proofEncodingType relayer.ProofEncodingType) (*Prover, error) {
+func New(blocker blocker) (*Prover, error) {
 	if blocker == nil {
 		return nil, relayer.ErrNoEthClient
 	}
 
-	if !relayer.IsValidProofEncodingType(proofEncodingType) {
-		return nil, ErrInvalidProofType
-	}
-
 	return &Prover{
-		blocker:           blocker,
-		proofEncodingType: proofEncodingType,
+		blocker: blocker,
 	}, nil
 }

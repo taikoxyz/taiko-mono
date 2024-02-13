@@ -342,14 +342,3 @@ func (c CanonicalNFT) TokenDecimals() uint8 {
 func (c CanonicalNFT) ContractSymbol() string {
 	return c.Symbol
 }
-
-type ProofEncodingType string
-
-var (
-	RLPEncodingType ProofEncodingType = "rlp"
-	ABIEncodingType ProofEncodingType = "abi"
-)
-
-func IsValidProofEncodingType(t ProofEncodingType) bool {
-	return t == RLPEncodingType || t == ABIEncodingType
-}
