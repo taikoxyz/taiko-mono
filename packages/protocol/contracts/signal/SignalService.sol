@@ -22,19 +22,9 @@ import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
-import "forge-std/console2.sol";
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
-///
-/// @dev Authorization Guide for Multi-Hop Bridging:
-/// For facilitating multi-hop bridging, authorize all deployed TaikoL1 and
-/// TaikoL2 contracts involved in the bridging path.
-/// Use the respective chain IDs as labels for authorization.
-/// Note: SignalService should not authorize Bridges or other Bridgable
-/// applications.
-
 contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
@@ -144,7 +134,6 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _signal = signal;
 
         for (uint256 i; i < _hopProofs.length; ++i) {
-            console2.log("\n-------------------------->");
             HopProof memory hop = _hopProofs[i];
             bool isLastHop = i == _hopProofs.length - 1;
 
@@ -171,9 +160,6 @@ contract SignalService is EssentialContract, ISignalService {
 
             bytes32 kind = isFullProof ? bytes32("state_root") : bytes32("signal_root");
             _signal = signalForChainData(_chainId, kind, hop.rootHash);
-            console2.log("hop.rootHash:", uint(hop.rootHash));
-            console2.log("hop.kind:", uint(kind));
-            console2.log("hop._chainId:", _chainId);
             _chainId = hop.chainId;
             _app = relay;
         }
@@ -227,13 +213,6 @@ contract SignalService is EssentialContract, ISignalService {
     {
         bytes32 signal = signalForChainData(chainId, kind, data);
         emit ChainDataRelayed(chainId, kind, data, signal);
-
-        console2.log("--->_relayChainData");
-        console2.log("  chainId:", chainId);
-        console2.log("  kind:", (uint256(kind)));
-        console2.log("  data:", (uint256(data)));
-        console2.log("  signal:", (uint256(signal)));
-
         return _sendSignal(address(this), signal);
     }
 
@@ -264,7 +243,5 @@ contract SignalService is EssentialContract, ISignalService {
             hop.accountProof,
             hop.storageProof
         );
-
-        console2.log("---> returned from verify: ", uint256(signalRoot));
     }
 }
