@@ -19,7 +19,7 @@ import "forge-std/console2.sol";
 
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
 
-// @Keng, @Korbi
+// @KorbinianK , @2manslkh
 // As written also in the tests the workflow shall be the following (checklist):
 // 1. Is Vault - which will store the tokens - deployed ?
 // 2. Is (bridged) TKO token existing ?

@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
-import "./utils/SigUtil.sol";
+import "./LibDelegationSigUtil.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract MockERC20Airdrop is ERC20Airdrop {
@@ -64,9 +64,6 @@ contract SimpleERC20Vault is OwnableUpgradeable {
 contract TestERC20Airdrop is TaikoTest {
     address public owner = randAddress();
 
-    // Helper for getting back the hashed data which needs to be signed for delegation
-    SigUtil hashTypedDataV4;
-
     // Private Key: 0x1dc880d28041a41132437eae90c9e09c3b9e13438c2d0f6207804ceece623395
     address public Lily = 0x3447b15c1b0a27D339C812b98881eC64051068b3;
 
@@ -109,10 +106,6 @@ contract TestERC20Airdrop is TaikoTest {
                     )
             })
         );
-
-        // 4. Deploy helper -> this is for testing to create the hash (to be signed)! @Keng, @Korbi
-        // will need to be recreated on the UI!!
-        hashTypedDataV4 = new SigUtil(address(token));
 
         vm.stopPrank();
 
@@ -164,11 +157,11 @@ contract TestERC20Airdrop is TaikoTest {
         expiry = block.timestamp + 1_000_000;
         delegatee = Bob;
 
-        SigUtil.Delegate memory delegate;
+        LibDelegationSigUtil.Delegate memory delegate;
         delegate.delegatee = delegatee;
         delegate.nonce = nonce;
         delegate.expiry = expiry;
-        bytes32 hash = hashTypedDataV4.getTypedDataHash(delegate);
+        bytes32 hash = LibDelegationSigUtil.getTypedDataHash(delegate, address(token));
 
         // 0x2 is Alice's private key
         (v, r, s) = vm.sign(0x1, hash);

@@ -11,16 +11,20 @@ pragma solidity 0.8.24;
 // link:
 // https://medium.com/@javaidea/how-to-sign-and-verify-eip-712-signatures-with-solidity-and-typescript-part-1-5118fdda1fe7
 
-contract SigUtil {
+library LibDelegationSigUtil {
+    // EIP712 TYPES_HASH.
     bytes32 private constant _TYPE_HASH = keccak256(
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
-    bytes32 internal DOMAIN_SEPARATOR;
 
-    constructor(address verifierContract) {
+    // For delegation - this TYPES_HASH is fixed.
+    bytes32 private constant _DELEGATION_TYPEHASH =
+        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+
+    function getDomainSeparator(address verifierContract) public view returns (bytes32) {
         // This is how we create a contract level domain separator!
-        // todo (@Keng, @Korbi): Do it off-chain, in the UI
-        DOMAIN_SEPARATOR = keccak256(
+        // todo (@KorbinianK , @2manslkh): Do it off-chain, in the UI
+        return keccak256(
             abi.encode(
                 _TYPE_HASH,
                 keccak256(bytes("Taiko Token")),
@@ -30,10 +34,6 @@ contract SigUtil {
             )
         );
     }
-
-    // For delegation - this TYPES_HASH is fixed.
-    bytes32 private constant _DELEGATION_TYPEHASH =
-        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
 
     struct Delegate {
         address delegatee;
@@ -50,7 +50,18 @@ contract SigUtil {
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to
     // recover the signer
-    function getTypedDataHash(Delegate memory _permit) public view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, getStructHash(_permit)));
+    function getTypedDataHash(
+        Delegate memory _permit,
+        address verifierContract
+    )
+        public
+        view
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encodePacked(
+                "\x19\x01", getDomainSeparator(verifierContract), getStructHash(_permit)
+            )
+        );
     }
 }
