@@ -54,6 +54,11 @@ contract TestLibTrieProof is TaikoTest {
             stateRoot, randAddress(), slot, hex"01", accountProof, storageProof
         );
 
+        vm.expectRevert();
+        LibTrieProof.verifyMerkleProof(
+            stateRoot, address(0), slot, hex"01", accountProof, storageProof
+        );
+
         bytes32 storageRoot = LibTrieProof.verifyMerkleProof(
             stateRoot, addr, slot, hex"01", accountProof, storageProof
         );
