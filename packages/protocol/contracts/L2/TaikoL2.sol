@@ -151,9 +151,13 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
+        snippets[l1Height] = ICrossChainSync.Snippet({
+            blockId: l1Height,
+            blockHash: l1BlockHash,
+            stateRoot: l1StateRoot
+        });
         publicInputHash = publicInputHashNew;
-
-
+        latestSyncedL1Height = l1Height;
         emit Anchored(blockhash(parentId), gasExcess);
     }
 
@@ -168,8 +172,14 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     }
 
     /// @inheritdoc ICrossChainSync
-    function getSyncedSnippet() public view returns (ICrossChainSync.Snippet memory) {
-        return _l1Snippet;
+    function getSyncedSnippet(uint64 blockId)
+        public
+        view
+        override
+        returns (ICrossChainSync.Snippet memory)
+    {
+        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
+        return snippets[id];
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for

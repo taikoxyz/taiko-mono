@@ -61,7 +61,7 @@ contract DummyCrossChainSync is EssentialContract, ICrossChainSync {
         _snippet.stateRoot = stateRoot;
     }
 
-    function getSyncedSnippet() public view returns (Snippet memory) {
+    function getSyncedSnippet(uint64 /*blockId*/ ) public view returns (Snippet memory) {
         return _snippet;
     }
 }
