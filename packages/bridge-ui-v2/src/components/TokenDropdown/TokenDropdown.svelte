@@ -62,6 +62,7 @@
     const destChain = $destNetwork;
     $computingBalance = true;
     closeMenu();
+    log('selected token', token);
     if (token === value) {
       log('same token, nothing to do');
       // same token, nothing to do
@@ -90,30 +91,29 @@
       const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
       if (!tokenInfo) {
         $computingBalance = false;
-        return;
-      }
-      if (tokenInfo.bridged?.chainId && tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
-        token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
-        tokenService.updateToken(token, $account?.address as Address);
-      }
-      if (tokenInfo.canonical && tokenInfo.bridged) {
-        // double check we have the correct address for the destination chain and it is not 0x0
-        if (value?.addresses[destChain.id] !== tokenInfo.canonical?.address) {
-          log('selected token is bridged', value?.addresses[destChain.id]);
-          $selectedTokenIsBridged = true;
+      } else {
+        if (tokenInfo.bridged?.chainId && tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
+          token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
+          tokenService.updateToken(token, $account?.address as Address);
+        }
+        if (tokenInfo.canonical && tokenInfo.bridged) {
+          // double check we have the correct address for the destination chain and it is not 0x0
+          if (value?.addresses[destChain.id] !== tokenInfo.canonical?.address) {
+            log('selected token is bridged', value?.addresses[destChain.id]);
+            $selectedTokenIsBridged = true;
+          } else {
+            log('selected token is canonical');
+            $selectedTokenIsBridged = false;
+          }
         } else {
           log('selected token is canonical');
           $selectedTokenIsBridged = false;
         }
-      } else {
-        log('selected token is canonical');
-        $selectedTokenIsBridged = false;
       }
     } catch (error) {
       $computingBalance = false;
       console.error(error);
     }
-    // }
     value = token;
     await updateBalance($account?.address, srcChain.id, destChain.id);
     $computingBalance = false;
