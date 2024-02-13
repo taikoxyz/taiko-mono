@@ -1,4 +1,4 @@
-name: Lint PR
+name: Validate PR Title
 
 on:
   pull_request_target:
@@ -8,8 +8,7 @@ on:
       - synchronize
 
 jobs:
-  main:
-    name: Validate PR title
+  validate-pr-title:
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v5
@@ -20,7 +19,6 @@ jobs:
             repo
             branding
             bridge-ui-v2
-            deps
             eventindexer
             fork-diff
             guardian-prover-health-check
@@ -29,6 +27,9 @@ jobs:
             relayer
             starter-dapp
             status-page
-            tokenomics
-            deps-dev
           requireScope: true
+          subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
