@@ -53,7 +53,7 @@ jobs:
           while ! nc -z localhost 8545; do
             sleep 1
           done
-          pnpm deploy:foundry
+          pnpm test:deploy
 
       # - name: protocol - Upload coverage to Codecov
       #   uses: codecov/codecov-action@v3
