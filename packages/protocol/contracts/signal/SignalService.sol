@@ -26,8 +26,6 @@ import "./ISignalService.sol";
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is EssentialContract, ISignalService {
-    using SafeCast for uint256;
-
     struct HopProof {
         uint64 chainId;
         bool cacheChainData;
@@ -47,12 +45,9 @@ contract SignalService is EssentialContract, ISignalService {
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_APP();
-    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_PARAMS();
-    error SS_INVALID_PROOF();
-    error SS_INVALID_STATE_ROOT();
     error SS_INVALID_SIGNAL();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
     error SS_UNSUPPORTED();
