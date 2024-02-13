@@ -45,20 +45,20 @@ contract SignalService is EssentialContract, ISignalService {
     uint256[49] private __gap;
 
     event TrustedRelayUpdated(uint64 indexed hopChainId, uint64 indexed srcChainId, address hop);
-    event ChainDataRelayed(
+    event SnippetRelayed(
         uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
     );
 
-    error SS_INVALID_PARAMS();
-    error SS_INVALID_PROOF();
     error SS_EMPTY_PROOF();
     error SS_INVALID_APP();
     error SS_INVALID_HOP_PROOF();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
+    error SS_INVALID_PARAMS();
+    error SS_INVALID_PROOF();
     error SS_INVALID_RELAY();
-    error SS_INVALID_SIGNAL();
     error SS_INVALID_STATE_ROOT();
+    error SS_INVALID_SIGNAL();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
     error SS_UNSUPPORTED();
 
@@ -211,7 +211,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 slot)
     {
         bytes32 signal = signalForChainData(chainId, kind, data);
-        emit ChainDataRelayed(chainId, kind, data, signal);
+        emit SnippetRelayed(chainId, kind, data, signal);
         return _sendSignal(address(this), signal);
     }
 
