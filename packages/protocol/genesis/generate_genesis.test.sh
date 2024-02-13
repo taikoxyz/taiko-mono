@@ -101,6 +101,5 @@ forge test \
   --fork-url http://localhost:18545 \
   --fork-retry-backoff 120 \
   --no-storage-caching \
-  --evm-version cancun \
   --match-path genesis/*.g.sol \
   --block-gas-limit 1000000000

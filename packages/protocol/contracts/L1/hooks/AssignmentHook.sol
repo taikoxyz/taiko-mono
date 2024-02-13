@@ -44,9 +44,10 @@ contract AssignmentHook is EssentialContract, IHook {
     }
 
     // Max gas paying the prover. This should be large enough to prevent the
-    // worst cases, usually block proposer shall be aware the risks and only
-    // choose provers that cannot consume too much gas when receiving Ether.
-    uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
+    // worst cases for the prover. To assure a trustless relationship between
+    // the proposer and the prover it's the prover's job to make sure it can
+    // get paid within this limit.
+    uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
 
     event BlockAssigned(
         address indexed assignedProver, TaikoData.BlockMetadata meta, ProverAssignment assignment
@@ -108,26 +109,13 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        uint256 refund;
+        uint256 totalFeeETH = input.tip;
         if (assignment.feeToken == address(0)) {
-            uint256 totalFee = proverFee + input.tip;
-            if (msg.value < totalFee) {
-                revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
-            }
-
-            unchecked {
-                refund = msg.value - totalFee;
-            }
+            totalFeeETH += proverFee;
 
             // Paying Ether
             blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {
-            if (msg.value < input.tip) {
-                revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
-            }
-            unchecked {
-                refund = msg.value - input.tip;
-            }
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
                 meta.coinbase, blk.assignedProver, proverFee
@@ -139,9 +127,9 @@ contract AssignmentHook is EssentialContract, IHook {
             address(block.coinbase).sendEther(input.tip);
         }
 
-        if (refund != 0) {
-            // Send all remaininger Ether back to TaikoL1 contract
-            taikoL1Address.sendEther(refund);
+        // Send all remaining Ether back to TaikoL1 contract
+        if (address(this).balance > 0) {
+            taikoL1Address.sendEther(address(this).balance);
         }
 
         emit BlockAssigned(blk.assignedProver, meta, assignment);

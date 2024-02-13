@@ -20,8 +20,6 @@ import "./Guardians.sol";
 
 /// @title GuardianProver
 contract GuardianProver is Guardians {
-    error PROVING_FAILED();
-
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
@@ -45,10 +43,7 @@ contract GuardianProver is Guardians {
 
         if (approved) {
             deleteApproval(hash);
-            bytes memory data =
-                abi.encodeCall(ITaikoL1.proveBlock, (meta.id, abi.encode(meta, tran, proof)));
-            (bool success,) = resolve("taiko", false).call(data);
-            if (!success) revert PROVING_FAILED();
+            ITaikoL1(resolve("taiko", false)).proveBlock(meta.id, abi.encode(meta, tran, proof));
         }
     }
 }
