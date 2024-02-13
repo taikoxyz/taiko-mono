@@ -4,15 +4,21 @@ pragma solidity 0.8.24;
 import "../TaikoTest.sol";
 
 contract SignalServiceForTest is SignalService {
-    bool private _skipVerifyMerkleProof;
-    bool private _multiHopEnabled;
+    uint internal nonce;
 
-    function setSkipMerkleProofCheck(bool skip) external {
-        _skipVerifyMerkleProof = skip;
-    }
-
-    function setMultiHopEnabled(bool enabled) external {
-        _multiHopEnabled = enabled;
+    function _verifyHopProof(
+        uint64 chainId,
+        address app,
+        bytes32 signal,
+        HopProof memory hop,
+        address relay
+    )
+        internal
+        override
+        returns (bytes32 signalRoot)
+    {
+        // Skip verifying the merkle proof entirely
+        return bytes32(++nonce);
     }
 }
 
@@ -20,8 +26,6 @@ contract TestSignalService is TaikoTest {
     AddressManager addressManager;
     SignalServiceForTest signalService;
     SignalService destSignalService;
-    HopRelayRegistry hopRelayRegistry;
-    DummyCrossChainSync crossChainSync;
     uint64 public destChainId = 7;
 
     function setUp() public {
@@ -47,16 +51,6 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        hopRelayRegistry = HopRelayRegistry(
-            deployProxy({
-                name: "hop_relay_registry",
-                impl: address(new HopRelayRegistry()),
-                data: abi.encodeCall(HopRelayRegistry.init, ()),
-                registerTo: address(addressManager),
-                owner: address(0)
-            })
-        );
-
         destSignalService = SignalService(
             deployProxy({
                 name: "signal_service",
@@ -65,13 +59,7 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        crossChainSync = DummyCrossChainSync(
-            deployProxy({
-                name: "taiko", // must be named so
-                impl: address(new DummyCrossChainSync()),
-                data: ""
-            })
-        );
+
 
         vm.stopPrank();
     }
@@ -114,7 +102,6 @@ contract TestSignalService is TaikoTest {
     //     signalService.setMultiHopEnabled(false);
 
     //     bytes32 stateRoot = randBytes32();
-    //     crossChainSync.setSyncedData("", stateRoot);
 
     //     uint64 thisChainId = uint64(block.chainid);
 
@@ -129,8 +116,6 @@ contract TestSignalService is TaikoTest {
     //     vm.expectRevert(); // cannot resolve "taiko"
     //     signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
 
-    //     vm.startPrank(Alice);
-    //     register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
     //     assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)),
     // true);
 
@@ -145,7 +130,6 @@ contract TestSignalService is TaikoTest {
     //     signalService.setMultiHopEnabled(false);
 
     //     bytes32 stateRoot = randBytes32();
-    //     crossChainSync.setSyncedData("", stateRoot);
 
     //     uint64 thisChainId = uint64(block.chainid);
 
@@ -180,8 +164,6 @@ contract TestSignalService is TaikoTest {
     //         merkleProof: "dummy proof2"
     //     });
 
-    //     vm.startPrank(Alice);
-    //     register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
 
     //     // Multiple is disabled, shall revert
     //     vm.expectRevert(SignalService.SS_MULTIHOP_DISABLED.selector);

@@ -20,7 +20,6 @@ import "../common/ICrossChainSync.sol";
 import "../libs/LibTrieProof.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
-import "./IHopRelayRegistry.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -122,13 +121,13 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 chainId,
         address app,
         bytes32 signal,
-        bytes calldata proofs
+        bytes calldata proof
     )
         public
         virtual
         returns (bool)
     {
-        HopProof[] memory _hopProofs = abi.decode(proofs, (HopProof[]));
+        HopProof[] memory _hopProofs = abi.decode(proof, (HopProof[]));
         if (_hopProofs.length == 0) revert SS_INVALID_PROOF();
 
         uint64 _chainId = chainId;
