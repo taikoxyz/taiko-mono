@@ -61,17 +61,13 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         ZkEvmProof memory zkProof = abi.decode(proof.data, (ZkEvmProof));
 
-        bytes32 instance;
+        bytes32 txListHash;
+        uint256 pointValue;
         if (ctx.blobUsed) {
             PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
 
-            instance = calcInstance({
-                tran: tran,
-                prover: ctx.prover,
-                metaHash: ctx.metaHash,
-                txListHash: pf.txListHash,
-                pointValue: pf.pointValue
-            });
+            txListHash = pf.txListHash;
+            pointValue = pf.pointValue;
 
             Lib4844.evaluatePoint({
                 blobHash: ctx.blobHash,
@@ -82,14 +78,18 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             });
         } else {
             if (zkProof.pointProof.length != 0) revert L1_BLOB_NOT_USED();
-            instance = calcInstance({
-                tran: tran,
-                prover: ctx.prover,
-                metaHash: ctx.metaHash,
-                txListHash: ctx.blobHash,
-                pointValue: 0
-            });
+
+            txListHash = ctx.blobHash;
+            pointValue = 0;
         }
+
+        bytes32 instance = calcInstance({
+            tran: tran,
+            prover: ctx.prover,
+            metaHash: ctx.metaHash,
+            txListHash: txListHash,
+            pointValue: pointValue
+        });
 
         // Validate the instance using bytes utilities.
         bool verified = Bytes.equal(

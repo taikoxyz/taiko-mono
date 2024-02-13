@@ -44,6 +44,7 @@ contract TaikoGovernor is
     {
         __OwnerUUPSUpgradable_init();
         __Governor_init("TaikoGovernor");
+        __GovernorCompatibilityBravo_init();
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4);
         __GovernorTimelockControl_init(_timelock);

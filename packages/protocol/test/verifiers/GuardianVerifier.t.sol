@@ -22,6 +22,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             metaHash: bytes32(0),
             blobHash: bytes32(0),
             prover: address(gp),
+            msgSender: address(gp),
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -50,6 +51,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             metaHash: bytes32(0),
             blobHash: bytes32(0),
             prover: Alice, // invalid
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
