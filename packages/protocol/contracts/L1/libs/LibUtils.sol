@@ -53,12 +53,6 @@ library LibUtils {
         ts = state.transitions[slot][tid];
     }
 
-    struct Snippet {
-        uint64 blockId;
-        bytes32 blockHash;
-        bytes32 stateRoot;
-    }
-
     function getSyncedSnippet(
         TaikoData.State storage state,
         TaikoData.Config memory config

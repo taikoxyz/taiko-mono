@@ -12,6 +12,7 @@ contract MockSignalService is SignalService {
         address /*relay*/
     )
         internal
+        pure
         override
         returns (bytes32)
     {
