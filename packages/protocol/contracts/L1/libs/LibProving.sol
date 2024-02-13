@@ -127,6 +127,7 @@ library LibProving {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
+        // Check if this prover is allowed to submit a proof for this block
         _checkProverPermission(state, blk, ts, tid, tier);
 
         // We must verify the proof, and any failure in proof verification will
@@ -134,7 +135,7 @@ library LibProving {
         //
         // It's crucial to emphasize that the proof can be assessed in two
         // potential modes: "proving mode" and "contesting mode." However, the
-        // precise verification logic is defined within each tier'IVerifier
+        // precise verification logic is defined within each tier's IVerifier
         // contract implementation. We simply specify to the verifier contract
         // which mode it should utilize - if the new tier is higher than the
         // previous tier, we employ the proving mode; otherwise, we employ the
@@ -145,12 +146,6 @@ library LibProving {
         // Taiko's core protocol.
         {
             address verifier = resolver.resolve(tier.verifierName, true);
-            // The verifier can be address-zero, signifying that there are no
-            // proof checks for the tier. In practice, this only applies to
-            // optimistic proofs.
-            if (verifier == address(0) && tier.verifierName != TIER_OP) {
-                revert L1_MISSING_VERIFIER();
-            }
 
             if (verifier != address(0)) {
                 bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
@@ -158,13 +153,23 @@ library LibProving {
                 IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
+                    // TODO(Brecht): Quite limiting this is required to be the same address as
+                    // msg.sender, less flexibility on the prover's side for proof generation/proof
+                    // submission using multiple accounts.
+                    // Added msgSender to allow the prover to be any address in the future.
                     prover: msg.sender,
+                    msgSender: msg.sender,
                     blockId: blk.blockId,
                     isContesting: isContesting,
                     blobUsed: meta.blobUsed
                 });
 
                 IVerifier(verifier).verifyProof(ctx, tran, proof);
+            } else if (tier.verifierName != TIER_OP) {
+                // The verifier can be address-zero, signifying that there are no
+                // proof checks for the tier. In practice, this only applies to
+                // optimistic proofs.
+                revert L1_MISSING_VERIFIER();
             }
         }
 
@@ -314,6 +319,8 @@ library LibProving {
                 // In scenarios where this transition is not the first one, we
                 // straightforwardly reset the transition prover to address
                 // zero.
+                // TODO(Brecht): Is it sure that in all cases all the neccessary data is stored
+                // in the transition in this case after this code?
                 ts.prover = address(0);
 
                 // Furthermore, we index the transition for future retrieval.
@@ -322,6 +329,8 @@ library LibProving {
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
                 state.transitionIds[blk.blockId][tran.parentHash] = tid;
+
+                // There is no need to initialize ts.key here because it's only used when tid == 1
             }
         } else {
             // A transition with the provided parentHash has been located.
@@ -402,6 +411,8 @@ library LibProving {
         if (tid == 1 && ts.tier == 0 && inProvingWindow) {
             if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
+            // Disallow the same address to prove the block so that we can detect that the
+            // assigned prover should not receive his liveness bond back
             if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }

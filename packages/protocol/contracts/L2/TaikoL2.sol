@@ -150,8 +150,8 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         snippets[l1Height] = ICrossChainSync.Snippet({
-            remoteBlockId: l1Height,
             syncedInBlock: uint64(block.number),
+            blockId: l1Height,
             blockHash: l1BlockHash,
             stateRoot: l1StateRoot
         });
@@ -271,7 +271,10 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
-            // Note that when latestSyncedL1Height is zero, we skip this step.
+            // Note that when latestSyncedL1Height is zero, we skip this step
+            // because that means this is the first time calculating the basefee
+            // and the difference between the L1 height would be extremely big,
+            // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
             if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
                 numL1Blocks = l1Height - latestSyncedL1Height;
@@ -286,7 +289,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
             // The base fee per gas used by this block is the spot price at the
             // bonding curve, regardless the actual amount of gas used by this
-            // block, however, the this block's gas used will affect the next
+            // block, however, this block's gas used will affect the next
             // block's base fee.
             _basefee = Lib1559Math.basefee(
                 _gasExcess, uint256(config.basefeeAdjustmentQuotient) * config.gasTargetPerL1Block
