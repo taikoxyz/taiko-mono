@@ -35,12 +35,6 @@ interface ISignalService {
     /// @return slot The location in storage where this signal is stored.
     function sendSignal(bytes32 signal) external returns (bytes32 slot);
 
-    /// @notice Verifies if a particular signal has already been sent.
-    /// @param app The address that initiated the signal.
-    /// @param signal The signal (message) to send.
-    /// @return True if the signal has been sent, otherwise false.
-    function isSignalSent(address app, bytes32 signal) external view returns (bool);
-
     /// @notice Verifies if a signal has been received on the target chain.
     /// @param chainId The identifier for the source chain from which the
     /// signal originated.
@@ -57,4 +51,10 @@ interface ISignalService {
     )
         external
         returns (bool);
+
+    /// @notice Verifies if a particular signal has already been sent.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal (message) to send.
+    /// @return True if the signal has been sent, otherwise false.
+    function isSignalSent(address app, bytes32 signal) external view returns (bool);
 }
