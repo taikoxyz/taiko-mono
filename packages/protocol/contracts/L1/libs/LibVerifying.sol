@@ -33,13 +33,13 @@ library LibVerifying {
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot,
+        bytes32 stateRoot,
         uint16 tier,
         uint8 contestations
     );
 
     event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -78,7 +78,7 @@ library LibVerifying {
             assignedProver: address(0),
             prover: address(0),
             blockHash: genesisBlockHash,
-            signalRoot: 0,
+            stateRoot: 0,
             tier: 0,
             contestations: 0
         });
@@ -116,6 +116,10 @@ library LibVerifying {
     )
         internal
     {
+        if (maxBlocksToVerify == 0) {
+            return;
+        }
+
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
         TaikoData.SlotB memory b = state.slotB;
@@ -135,18 +139,18 @@ library LibVerifying {
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
-        bytes32 signalRoot;
-        uint64 processed;
+        bytes32 stateRoot;
+        uint64 numBlocksVerified;
         address tierProvider;
 
         // Unchecked is safe:
         // - assignment is within ranges
-        // - blockId and processed values incremented will still be OK in the
+        // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
         unchecked {
             ++blockId;
 
-            while (blockId < b.numBlocks && processed < maxBlocksToVerify) {
+            while (blockId < b.numBlocks && numBlocksVerified < maxBlocksToVerify) {
                 slot = blockId % config.blockRingBufferSize;
 
                 blk = state.blocks[slot];
@@ -185,7 +189,7 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
-                signalRoot = ts.signalRoot;
+                stateRoot = ts.stateRoot;
 
                 // We consistently return the liveness bond and the validity
                 // bond to the actual prover of the transition utilized for
@@ -222,27 +226,31 @@ library LibVerifying {
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: blockHash,
-                    signalRoot: signalRoot,
+                    stateRoot: stateRoot,
                     tier: ts.tier,
                     contestations: ts.contestations
                 });
 
                 ++blockId;
-                ++processed;
+                ++numBlocksVerified;
             }
 
-            if (processed > 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
+            if (numBlocksVerified > 0) {
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Store the L2's signal root as a signal to the local signal
+                // Store the L2's state root as a signal to the local signal
                 // service to allow for multi-hop bridging.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
+                //
+                // This also means if we verified more than one block, only the last one's stateRoot
+                // is sent as a signal and verifiable with merkle proofs, all other blocks'
+                // stateRoot are not.
+                ISignalService(resolver.resolve("signal_service", false)).sendSignal(stateRoot);
 
                 emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, signalRoot
+                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
                 );
             }
         }

@@ -74,10 +74,10 @@ library LibUtils {
             state.transitions[slot][blk.verifiedTransitionId];
 
         return ICrossChainSync.Snippet({
-            remoteBlockId: blockId,
             syncedInBlock: blk.proposedIn,
+            blockId: blockId,
             blockHash: transition.blockHash,
-            signalRoot: transition.signalRoot
+            stateRoot: transition.stateRoot
         });
     }
 

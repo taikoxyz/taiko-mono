@@ -3,10 +3,42 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
+contract SignalServiceForTest is SignalService {
+    bool private _skipVerifyMerkleProof;
+    bool private _multiHopEnabled;
+
+    function setSkipMerkleProofCheck(bool skip) external {
+        _skipVerifyMerkleProof = skip;
+    }
+
+    function setMultiHopEnabled(bool enabled) external {
+        _multiHopEnabled = enabled;
+    }
+
+    function verifyMerkleProof(
+        bytes32, /*stateRoot*/
+        uint64, /*srcChainId*/
+        address, /*srcApp*/
+        bytes32, /*srcSignal*/
+        bytes memory /*merkleProof*/
+    )
+        public
+        view
+        override
+    {
+        if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
+    }
+
+    function isMultiHopEnabled() public view override returns (bool) {
+        return _multiHopEnabled;
+    }
+}
+
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-    SignalService signalService;
+    SignalServiceForTest signalService;
     SignalService destSignalService;
+    HopRelayRegistry hopRelayRegistry;
     DummyCrossChainSync crossChainSync;
     uint64 public destChainId = 7;
 
@@ -25,33 +57,39 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        signalService = SignalService(
+        signalService = SignalServiceForTest(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ())
+                impl: address(new SignalServiceForTest()),
+                data: abi.encodeCall(SignalService.init, (address(addressManager)))
+            })
+        );
+
+        hopRelayRegistry = HopRelayRegistry(
+            deployProxy({
+                name: "hop_relay_registry",
+                impl: address(new HopRelayRegistry()),
+                data: abi.encodeCall(HopRelayRegistry.init, ()),
+                registerTo: address(addressManager),
+                owner: address(0)
             })
         );
 
         destSignalService = SignalService(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ())
+                impl: address(new SignalServiceForTest()),
+                data: abi.encodeCall(SignalService.init, (address(addressManager)))
             })
         );
 
         crossChainSync = DummyCrossChainSync(
             deployProxy({
-                name: "dummy_cross_chain_sync",
+                name: "taiko", // must be named so
                 impl: address(new DummyCrossChainSync()),
                 data: ""
             })
         );
-
-        register(address(addressManager), "signal_service", address(destSignalService), destChainId);
-
-        register(address(addressManager), "taiko", address(crossChainSync), destChainId);
 
         vm.stopPrank();
     }
@@ -90,95 +128,106 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_L1_L2() public {
-        uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
-            // contract, this is why this chainId.
-        address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
-            // actually it is an EOA, but it is ok for tests!
-        bytes32 signal = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
-        bytes[] memory inclusionProof = new bytes[](1);
+        signalService.setSkipMerkleProofCheck(true);
+        signalService.setMultiHopEnabled(false);
 
-        inclusionProof[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
+        bytes32 stateRoot = randBytes32();
+        crossChainSync.setSyncedData("", stateRoot);
 
-        bytes32 signalRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
+        uint64 thisChainId = uint64(block.chainid);
 
-        vm.startPrank(Alice);
-        signalService.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
-
-        crossChainSync.setSyncedData("", signalRoot);
+        uint64 srcChainId = thisChainId + 1;
+        address app = randAddress();
+        bytes32 signal = randBytes32();
 
         SignalService.Proof memory p;
-        SignalService.Hop[] memory h;
-        p.crossChainSync = address(crossChainSync);
         p.height = 10;
-        p.storageProof = inclusionProof;
-        p.hops = h;
+        // p.merkleProof = "doesn't matter";
 
-        bool isSignalReceived =
-            signalService.proveSignalReceived(chainId, app, signal, abi.encode(p));
-        assertEq(isSignalReceived, true);
+        vm.expectRevert(); // cannot resolve "taiko"
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+
+        vm.startPrank(Alice);
+        register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
+        assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
+
+        signalService.setSkipMerkleProofCheck(false);
+
+        vm.expectRevert(); // cannot decode the proof
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 
-    function test_SignalService_proveSignalReceived_L2_L2() public {
-        uint64 chainId = 11_155_111; // Created the proofs on a deployed
-            // Sepolia contract, this is why this chainId. This works as a
-            // static 'chainId' becuase i imitated 2 contracts (L2A and L1
-            // Signal Service contracts) on Sepolia.
-        address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
-            // actually it is an EOA, but it is ok for tests! Same applies here,
-            // i imitated everything with one 'app' (Bridge) with my same EOA
-            // wallet.
-        bytes[] memory inclusionProof_of_L2A_msgHash = new bytes[](1);
+    function test_SignalService_proveSignalReceived_multi_hop_L2_L2() public {
+        signalService.setSkipMerkleProofCheck(true);
+        signalService.setMultiHopEnabled(false);
 
-        //eth_getProof's result RLP encoded storage proof
-        inclusionProof_of_L2A_msgHash[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
-        bytes32 signalRoot_of_L2 =
-            0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
-        // result's storage hash
+        bytes32 stateRoot = randBytes32();
+        crossChainSync.setSyncedData("", stateRoot);
 
-        bytes32 signal_of_L2A_msgHash =
-            0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
-        bytes[] memory hop_inclusionProof_from_L1_SignalService = new bytes[](1);
+        uint64 thisChainId = uint64(block.chainid);
 
-        hop_inclusionProof_from_L1_SignalService[0] =
-            hex"e3a120bade38703a7b19341b10a4dd482698dc8ffdd861e83ce41de2980bed39b6a02501";
+        uint64 srcChainId = thisChainId + 1;
 
-        bytes32 l1_common_signalService_root =
-            0x5c5fd43df8bcd7ad44cfcae86ed73a11e0baa9a751f0b520d029358ea284833b;
+        uint64 hop1ChainId = thisChainId + 2;
+        address hop1Relay = randAddress();
+        bytes32 hop1StateRoot = randBytes32();
 
-        // Important to note, we need to have authorized the "relayers'
-        // addresses" on the source chain we are claiming.
-        // (TaikoL1 or TaikoL2 depending on where we are)
-        vm.startPrank(Alice);
-        signalService.authorize(address(crossChainSync), bytes32(block.chainid));
-        signalService.authorize(address(app), bytes32(uint256(chainId)));
+        uint64 hop2ChainId = thisChainId + 3;
+        address hop2Relay = randAddress();
+        bytes32 hop2StateRoot = randBytes32();
 
-        vm.startPrank(Alice);
-        addressManager.setAddress(chainId, "taiko", app);
-
-        crossChainSync.setSyncedData("", l1_common_signalService_root);
+        address app = randAddress();
+        bytes32 signal = randBytes32();
 
         SignalService.Proof memory p;
-        p.crossChainSync = address(crossChainSync);
         p.height = 10;
-        p.storageProof = inclusionProof_of_L2A_msgHash;
+        p.hops = new SignalService.Hop[](2);
 
-        // Imagine this scenario: L2A to L2B bridging.
-        // The 'hop' proof is the one that proves to L2B, that L1 Signal service
-        // contains the signalRoot (as storage slot / leaf) with value 0x1.
-        // The 'normal' proof is the one which proves that the resolving
-        // hop.signalRoot is the one which belongs to L2A, and the proof is
-        // accordingly.
-        SignalService.Hop[] memory h = new SignalService.Hop[](1);
-        h[0].signalRootRelay = app;
-        h[0].signalRoot = signalRoot_of_L2;
-        h[0].storageProof = hop_inclusionProof_from_L1_SignalService;
+        p.hops[0] = SignalService.Hop({
+            chainId: hop1ChainId,
+            relay: hop1Relay,
+            stateRoot: hop1StateRoot,
+            merkleProof: "dummy proof1"
+        });
 
-        p.hops = h;
+        p.hops[1] = SignalService.Hop({
+            chainId: hop2ChainId,
+            relay: hop2Relay,
+            stateRoot: hop2StateRoot,
+            merkleProof: "dummy proof2"
+        });
 
-        bool isSignalReceived =
-            signalService.proveSignalReceived(chainId, app, signal_of_L2A_msgHash, abi.encode(p));
-        assertEq(isSignalReceived, true);
+        vm.startPrank(Alice);
+        register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
+
+        // Multiple is disabled, shall revert
+        vm.expectRevert(SignalService.SS_MULTIHOP_DISABLED.selector);
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+
+        // Enable multi-hop
+        vm.startPrank(Alice);
+        signalService.setMultiHopEnabled(true);
+
+        // Neither relay is registered
+        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+
+        // Register both relays
+        vm.startPrank(Alice);
+        hopRelayRegistry.registerRelay(srcChainId, hop1ChainId, hop1Relay);
+        hopRelayRegistry.registerRelay(hop1ChainId, hop2ChainId, hop2Relay);
+        vm.stopPrank();
+
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+
+        // Deregister the first relay and register it again with incorrect chainIds
+        vm.startPrank(Alice);
+        hopRelayRegistry.deregisterRelay(srcChainId, hop1ChainId, hop1Relay);
+        hopRelayRegistry.registerRelay(999, 888, hop1Relay);
+        vm.stopPrank();
+
+        // Still revert
+        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 }

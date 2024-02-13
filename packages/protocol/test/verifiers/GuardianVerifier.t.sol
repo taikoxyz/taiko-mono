@@ -22,6 +22,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             metaHash: bytes32(0),
             blobHash: bytes32(0),
             prover: address(gp),
+            msgSender: address(gp),
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -31,8 +32,9 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
             blockHash: bytes32(0),
-            signalRoot: bytes32(0),
-            graffiti: bytes32(0)
+            stateRoot: bytes32(0),
+            graffiti: bytes32(0),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof
@@ -49,6 +51,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             metaHash: bytes32(0),
             blobHash: bytes32(0),
             prover: Alice, // invalid
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -58,8 +61,9 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
             blockHash: bytes32(0),
-            signalRoot: bytes32(0),
-            graffiti: bytes32(0)
+            stateRoot: bytes32(0),
+            graffiti: bytes32(0),
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         // TierProof

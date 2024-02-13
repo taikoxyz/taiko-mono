@@ -31,7 +31,7 @@ contract TestTaikoL2 is TaikoTest {
         deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, ()),
+            data: abi.encodeCall(SignalService.init, (addressManager)),
             registerTo: addressManager,
             owner: address(0)
         });
@@ -244,14 +244,14 @@ contract TestTaikoL2 is TaikoTest {
 
     function _anchor(uint32 parentGasLimit) private {
         bytes32 l1Hash = randBytes32();
-        bytes32 l1SignalRoot = randBytes32();
-        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
+        bytes32 l1StateRoot = randBytes32();
+        L2.anchor(l1Hash, l1StateRoot, 12_345, parentGasLimit);
     }
 
     function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
         bytes32 l1Hash = randBytes32();
-        bytes32 l1SignalRoot = randBytes32();
-        L2skip.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
+        bytes32 l1StateRoot = randBytes32();
+        L2skip.anchor(l1Hash, l1StateRoot, l1Height, parentGasLimit);
     }
 
     // Semi-random number generator

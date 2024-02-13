@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -67,6 +68,28 @@ func (i *Indexer) saveEventToDB(
 	} else {
 		// otherwise, we can use the existing event ID for the body.
 		id = existingEvent.ID
+
+		// otherwise, we can use the existing event ID for the body.
+		id = existingEvent.ID
+
+		// if indexing message sent event, we want to check if we need to
+		// update status.
+		if i.eventName == relayer.EventNameMessageSent {
+			if i.watchMode == CrawlPastBlocks && eventStatus == existingEvent.Status {
+				// If the status from contract matches the existing event status,
+				// we can return early as this message has been processed as expected.
+				return id, nil
+			}
+
+			// If the status from contract is done, update the database
+			if i.watchMode == CrawlPastBlocks && eventStatus == relayer.EventStatusDone {
+				if err := i.eventRepo.UpdateStatus(ctx, id, relayer.EventStatusDone); err != nil {
+					return 0, errors.Wrap(err, fmt.Sprintf("i.eventRepo.UpdateStatus, id: %v", id))
+				}
+
+				return id, nil
+			}
+		}
 	}
 
 	return id, nil

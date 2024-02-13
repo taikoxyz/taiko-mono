@@ -78,13 +78,6 @@ func (i *Indexer) handleMessageSentEvent(
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
-	// if the message is not status new, and we are iterating crawling past blocks,
-	// we also dont want to handle this event. it has already been handled.
-	if i.watchMode == CrawlPastBlocks && eventStatus != relayer.EventStatusNew {
-		// we can return early, this message has been processed as expected.
-		return nil
-	}
-
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")

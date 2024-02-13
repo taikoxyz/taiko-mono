@@ -126,7 +126,7 @@ pnpm hardhat node
 4. **Deploy Contracts Using Foundry:** Once your network is running, open a new terminal window and execute the deployment scripts using Foundry:
 
 ```sh
-pnpm deploy:foundry
+pnpm test:deploy
 ```
 
 This command will deploy the L1 contracts using the settings and addresses you’ve provided in the `test_deploy_on_l1.sh` script.

@@ -70,7 +70,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_DELETE_NOT_AUTHORIZED();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
-    error SGX_INVALID_INSTANCES();
     error SGX_INVALID_PROOF();
     error SGX_MISSING_ATTESTATION();
     error SGX_RA_NOT_SUPPORTED();
@@ -89,7 +88,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         onlyOwner
         returns (uint256[] memory ids)
     {
-        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
         ids = _addInstances(_instances, true);
     }
 
@@ -99,13 +97,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         onlyFromOwnerOrNamed("rollup_watchdog")
     {
-        if (_ids.length == 0) revert SGX_INVALID_INSTANCES();
         for (uint256 i; i < _ids.length; ++i) {
-            if (instances[_ids[i]].addr == address(0)) revert SGX_INVALID_INSTANCE();
+            uint256 idx = _ids[i];
 
-            emit InstanceDeleted(_ids[i], instances[_ids[i]].addr);
+            if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
 
-            delete instances[_ids[i]];
+            emit InstanceDeleted(idx, instances[idx].addr);
+
+            delete instances[idx];
         }
     }
 

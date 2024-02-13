@@ -14,7 +14,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
 
     function setUp() public {
         // Call the AttestationBase init setup
-        super.intialSetup();
+        super.initialSetup();
     }
 
     function testAttestation() public {
