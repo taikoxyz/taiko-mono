@@ -293,21 +293,21 @@ contract TestSignalService is TaikoTest {
 
         // first hop with full merkle proof
         proofs[0].chainId = uint64(block.chainid + 2);
-        proofs[0].rootHash = bytes32(uint(1001));
+        proofs[0].rootHash = bytes32(uint256(1001));
         proofs[0].cacheChainData = false;
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
 
         // second hop with storage merkle proof
         proofs[1].chainId = uint64(block.chainid + 3);
-        proofs[1].rootHash = bytes32(uint(1002));
+        proofs[1].rootHash = bytes32(uint256(1002));
         proofs[1].cacheChainData = false;
         proofs[1].accountProof = new bytes[](0);
         proofs[1].storageProof = new bytes[](10);
 
         // third/last hop with full merkle proof
         proofs[2].chainId = uint64(block.chainid);
-        proofs[2].rootHash = bytes32(uint(1003));
+        proofs[2].rootHash = bytes32(uint256(1003));
         proofs[2].cacheChainData = false;
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
