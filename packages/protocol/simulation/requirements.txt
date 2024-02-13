@@ -1,7 +1,7 @@
 contourpy==1.0.7
 cycler==0.11.0
 docutils==0.19
-fonttools==4.39.3
+fonttools==4.43.0
 kiwisolver==1.4.4
 matplotlib==3.7.1
 numpy==1.24.3
