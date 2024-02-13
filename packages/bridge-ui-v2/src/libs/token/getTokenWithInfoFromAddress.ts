@@ -74,10 +74,18 @@ const getERC1155Info = async (
   type: TokenType,
 ) => {
   log(`getting token info for ERC1155`);
+
   const name = await safeReadContract({
     address: contractAddress,
     abi: erc1155ABI,
     functionName: 'name',
+    chainId: srcChainId,
+  });
+
+  const symbol = await safeReadContract({
+    address: contractAddress,
+    abi: erc1155ABI,
+    functionName: 'symbol',
     chainId: srcChainId,
   });
 
@@ -113,13 +121,14 @@ const getERC1155Info = async (
   try {
     token = {
       type,
-      name: name ? name : 'No collection name',
-      uri: uri ? uri.toString() : undefined,
+      symbol,
+      name,
+      uri,
       addresses: {
         [srcChainId]: contractAddress,
       },
-      tokenId,
-      balance: balance ? balance : 0,
+      tokenId: tokenId ?? -1,
+      balance: balance ? balance : 0n,
     } as NFT;
     try {
       if (token?.uri) {

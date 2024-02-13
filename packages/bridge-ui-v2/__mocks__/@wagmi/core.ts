@@ -10,7 +10,7 @@ export const getContract = vi.fn();
 
 export const getBalance = vi.fn();
 
-export const fetchToken = vi.fn();
+export const getToken = vi.fn();
 
 export const readContract = vi.fn();
 
