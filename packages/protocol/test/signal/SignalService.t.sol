@@ -121,13 +121,38 @@ contract TestSignalService is TaikoTest {
         });
     }
 
+    function test_SignalService_proveSignalReceived_revert_src_signal_service_not_registered()
+        public
+    {
+        uint64 srcChainId = uint64(block.chainid - 1);
+
+        // Did not call the following, so revert with RESOLVER_ZERO_ADDR
+        //   vm.prank(Alice);
+        //   addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
+
+        vm.expectRevert();
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
     function test_SignalService_proveSignalReceived_revert_zero_size_proof() public {
+        uint64 srcChainId = uint64(block.chainid - 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         // proofs.length must > 0 in order not to revert
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
 
         vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
         signalService.proveSignalReceived({
-            chainId: uint64(block.chainid - 1),
+            chainId: srcChainId,
             app: randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
@@ -135,6 +160,11 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_last_hop_incorrect_chainid() public {
+        uint64 srcChainId = uint64(block.chainid - 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         // proofs[0].chainId must be block.chainid in order not to revert
@@ -142,7 +172,7 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
-            chainId: uint64(block.chainid - 1),
+            chainId: srcChainId,
             app: randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
@@ -150,6 +180,11 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_incorrect_chainid() public {
+        uint64 srcChainId = uint64(block.chainid - 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
         // proofs[0].chainId must NOT be block.chainid in order not to revert
@@ -157,7 +192,7 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
-            chainId: uint64(block.chainid - 1),
+            chainId: srcChainId,
             app: randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
@@ -166,6 +201,10 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_not_registered() public {
         uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
         // proofs[0].chainId must NOT be block.chainid in order not to revert
@@ -182,6 +221,10 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_proveSignalReceived_local_chaindata_not_found() public {
         uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
@@ -212,6 +255,10 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
         uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
@@ -243,6 +290,10 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_proveSignalReceived_one_hop_state_root() public {
         uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
@@ -290,6 +341,10 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_proveSignalReceived_multiple_hops() public {
         uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
         // first hop with full merkle proof

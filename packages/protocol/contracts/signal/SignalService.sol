@@ -123,25 +123,26 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 _chainId = chainId;
         address _app = app;
         bytes32 _signal = signal;
+        address _signalService = resolve(_chainId, "signal_service", false);
 
         for (uint256 i; i < _hopProofs.length; ++i) {
             HopProof memory hop = _hopProofs[i];
-            bool isLastHop = i == _hopProofs.length - 1;
 
-            address relay;
+            bytes32 signalRoot = _verifyHopProof(_chainId, _app, _signal, hop, _signalService);
+
+            bool isLastHop = i == _hopProofs.length - 1;
             if (isLastHop) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
-                relay = address(this);
+                _signalService = address(this);
             } else {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
 
-                relay = trustedRelays[hop.chainId][_chainId];
-                if (relay == address(0)) revert SS_INVALID_RELAY();
+                _signalService = trustedRelays[hop.chainId][_chainId];
+                if (_signalService == address(0)) revert SS_INVALID_RELAY();
             }
 
-            bytes32 signalRoot = _verifyHopProof(_chainId, _app, _signal, hop, relay);
             bool isFullProof = hop.accountProof.length > 0;
 
             if (hop.cacheChainData) {
@@ -153,7 +154,7 @@ contract SignalService is EssentialContract, ISignalService {
             bytes32 kind = isFullProof ? _STATE_ROOT : _SIGNAL_ROOT;
             _signal = signalForChainData(_chainId, kind, hop.rootHash);
             _chainId = hop.chainId;
-            _app = relay;
+            _app = _signalService;
         }
 
         if (!isSignalSent(_app, _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
