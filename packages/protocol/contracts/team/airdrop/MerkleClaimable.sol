@@ -35,8 +35,8 @@ abstract contract MerkleClaimable is EssentialContract {
 
     modifier ongoingClaim() {
         if (
-            merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
-                || claimEnd < block.timestamp
+            merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart < block.timestamp
+                || claimEnd > block.timestamp
         ) revert CLAIM_NOT_ONGOING();
         _;
     }
