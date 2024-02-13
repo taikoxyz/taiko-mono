@@ -53,7 +53,12 @@ contract SignalService is EssentialContract, ISignalService {
         Hop[] hops;
     }
 
-    uint256[50] private __gap;
+    mapping(uint64 hopChainId => mapping(uint64 srcChainId => address hop)) public trustedHops;
+
+    uint256[49] private __gap;
+
+    event TrustedHopUpdated(uint64 indexed hopChainId, uint64 indexed srcChainId, address hop);
+    event ChainDataRelayed(uint64 indexed chainid, bytes32 indexed kind, bytes32 data);
 
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
@@ -70,13 +75,37 @@ contract SignalService is EssentialContract, ISignalService {
         __Essential_init(_addressManager);
     }
 
+    function updateTrustedHops(
+        uint64 hopChainId,
+        uint64 srcChainId,
+        address hop
+    )
+        external
+        onlyOwner
+    {
+        if (hopChainId == 0 || srcChainId == 0 || hopChainId == srcChainId) {
+            revert SS_INVALID_PARAMS();
+        }
+        hops[hopChainId][srcChainId] = hop;
+        emit TrustedHopUpdated(hopChainId, srcChainId, hop);
+    }
+
+    function relayChainData(
+        uint64 chainId,
+        bytes32 kind,
+        bytes32 data
+    )
+        external
+        onlyFromNamed("taiko")
+    {
+        bytes32 signal = keccak256(abi.encode(chainId, kind, data));
+        _sendSignal(address(this), signal);
+        emit ChainDataRelayed(chainId, kind, data);
+    }
+
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal) public returns (bytes32 slot) {
-        if (signal == 0) revert SS_INVALID_SIGNAL();
-        slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
-        assembly {
-            sstore(slot, 1)
-        }
+        return _sendSignal(msg.sender, signal);
     }
 
     /// @inheritdoc ISignalService
@@ -200,5 +229,19 @@ contract SignalService is EssentialContract, ISignalService {
 
     function _authorizePause(address) internal pure override {
         revert SS_UNSUPPORTED();
+    }
+
+    function _relayChainData(uint64 chainId, bytes32 kind, bytes32 data) internal {
+        bytes32 signal = keccak256(abi.encode(chainId, kind, data));
+        _sendSignal(address(this), signal);
+        emit ChainDataRelayed(chainId, kind, data);
+    }
+
+    function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
+        if (signal == 0) revert SS_INVALID_SIGNAL();
+        slot = getSignalSlot(uint64(block.chainid), sender, signal);
+        assembly {
+            sstore(slot, 1)
+        }
     }
 }
