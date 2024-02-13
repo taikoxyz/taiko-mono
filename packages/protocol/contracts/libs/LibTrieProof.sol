@@ -30,7 +30,7 @@ library LibTrieProof {
     /// @param value The value to be verified.
     /// @param accountProof The account proof
     /// @param storageProof The storage proof
-    /// @return storageRoot The account's storageRoot
+    /// @return storageRoot The account's storage root
     function verifyMerkleProof(
         bytes32 rootHash,
         address addr,
