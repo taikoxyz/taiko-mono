@@ -27,7 +27,7 @@ interface IBridge {
         uint64 srcChainId;
         // Destination chain ID where the `to` address lives.
         uint64 destChainId;
-        // The owner of the message.
+        // The owner of the message on the destination chain.
         address owner;
         // The destination address on the destination chain.
         address to;

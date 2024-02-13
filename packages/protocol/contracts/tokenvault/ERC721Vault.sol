@@ -62,7 +62,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
         message.data = data;
-        message.owner = msg.sender;
+        message.owner = op.owner != address(0) ? op.owner : msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;

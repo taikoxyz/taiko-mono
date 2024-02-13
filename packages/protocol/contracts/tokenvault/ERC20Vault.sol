@@ -40,6 +40,7 @@ contract ERC20Vault is BaseVault {
 
     struct BridgeTransferOp {
         uint64 destChainId;
+        address owner;
         address to;
         address token;
         uint256 amount;
@@ -185,7 +186,7 @@ contract ERC20Vault is BaseVault {
             _handleMessage({ user: msg.sender, token: op.token, amount: op.amount, to: op.to });
 
         message.destChainId = op.destChainId;
-        message.owner = msg.sender;
+        message.owner = op.owner != address(0) ? op.owner : msg.sender;
         message.to = resolve(op.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
