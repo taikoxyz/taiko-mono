@@ -1,0 +1,43 @@
+name: Validate PR Title
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+jobs:
+  validate-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Non-package scopes explained:
+          # - repo: The repository itself (not a specific package)
+          # - main: For release-please PRs
+          # - deps: For dependabot dependency update PRs
+          # - deps-dev: For dependabot devDependency update PRs
+          scopes: |
+            repo
+            main
+            deps
+            deps-dev
+            branding
+            bridge-ui-v2
+            eventindexer
+            fork-diff
+            guardian-prover-health-check
+            guardian-prover-health-check-ui
+            protocol
+            relayer
+            starter-dapp
+            status-page
+          requireScope: true
+          subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.

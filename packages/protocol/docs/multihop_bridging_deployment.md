@@ -6,7 +6,7 @@ First of all, we need to ensures some contracts are shared by multiple Taiko dep
 
 ## Shared contracts
 
-On L2 or any laer, then following contracts shall be deployed as sigletonsshared by multiple TaikoL1 deployments.
+On L2 or any layer, then following contracts shall be deployed as sigletons shared by multiple TaikoL1 deployments.
 
 - SignalService
 - Bridge
@@ -24,18 +24,18 @@ These 1-to-1 dependency relations are acheived by AddressResolver with a name-ba
 
 SignalService also uses AuthorizableContract to authorize multiple TaikoL1 and TaikoL2 contracts deployed **on each chain** that is part of the path of multi-hop bridging.
 
-For each TaikoL1/TaikoL2 contractswe need to perform:
+For each TaikoL1/TaikoL2 contracts, we need to perform the following:
 
 ```solidity
 // 1 is Ethereum's chainID
-SignalService(ss).authorize(address(TaikoL1A), 1);
-SignalService(ss).authorize(address(TaikoL1B), 1);
+SignalService(sharedSignalServiceAddr).authorize(address(TaikoL1A), 1);
+SignalService(sharedSignalServiceAddr).authorize(address(TaikoL1B), 1);
 
 // 10001 is the L2A's chainId
-SignalService(ss).authorize(address(TaikoL2A, 10001);
+SignalService(sharedSignalServiceAddr).authorize(address(TaikoL2A), 10001);
 
 // 10002 is the L2B's chainId
-SignalService(ss).authorize(address(TaikoL2B, 10002);
+SignalService(sharedSignalServiceAddr).authorize(address(TaikoL2B), 10002);
 ...
 ```
 
@@ -51,7 +51,7 @@ Bridge depends on a local SignalService .Therefore, we need to registered the se
 addManager.setAddress(block.chainId, "signal_service", localSignalService);
 ```
 
-Bridge also need to know each and every conterparty bridge deployed **on each chain** that is part of the path of multi-hop bridging.
+Bridge also need to know each and every conterparty bridge deployed **on each chain** that is part of the multi-hop bridging.
 
 ```solidity
 addManager.setAddress(remoteChainId1, "bridge", remoteBridge1);

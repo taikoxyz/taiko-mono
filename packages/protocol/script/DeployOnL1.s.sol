@@ -18,7 +18,6 @@ import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/tiers/OptimisticTierProvider.sol";
@@ -102,8 +101,6 @@ contract DeployOnL1 is DeployCapability {
         console2.log("------------------------------------------");
 
         if (signalService.owner() == address(this)) {
-            signalService.authorize(taikoL1Addr, bytes32(block.chainid));
-            signalService.authorize(vm.envAddress("TAIKO_L2_ADDRESS"), bytes32(uint256(l2ChainId)));
             signalService.transferOwnership(timelock);
         } else {
             console2.log("------------------------------------------");
@@ -221,7 +218,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, ()),
+            data: abi.encodeCall(SignalService.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: address(0)
         });
@@ -369,7 +366,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(

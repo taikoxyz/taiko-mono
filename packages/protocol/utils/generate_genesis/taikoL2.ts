@@ -296,7 +296,6 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -331,7 +330,6 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -366,7 +364,6 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -401,7 +398,6 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -460,16 +456,9 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
-                authorizedAddresses: {
-                    [addressMap.TaikoL2]: ethers.utils.hexZeroPad(
-                        ethers.utils.hexlify(chainId),
-                        32,
-                    ),
-                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,

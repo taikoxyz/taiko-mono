@@ -15,10 +15,12 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
-import "../common/AuthorizableContract.sol";
+import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
+import "../libs/LibTrieProof.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
+import "./IHopRelayRegistry.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -31,31 +33,41 @@ import "./ISignalService.sol";
 /// Use the respective chain IDs as labels for authorization.
 /// Note: SignalService should not authorize Bridges or other Bridgable
 /// applications.
-contract SignalService is AuthorizableContract, ISignalService {
+contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
-    // storageProof represents ABI-encoded tuple of (key, value, and proof)
+    // merkleProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address signalRootRelay;
-        bytes32 signalRoot;
-        bytes storageProof;
+        uint64 chainId;
+        address relay;
+        bytes32 stateRoot;
+        bytes merkleProof;
     }
 
     struct Proof {
-        address crossChainSync;
         uint64 height;
-        bytes storageProof;
+        bytes merkleProof;
+        // Ensure that hops are ordered such that those closer to the signal's source chain come
+        // before others.
         Hop[] hops;
     }
 
+    uint256[50] private __gap;
+
+    error SS_INVALID_PARAMS();
+    error SS_INVALID_PROOF();
     error SS_INVALID_APP();
+    error SS_INVALID_HOP_PROOF();
+    error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
+    error SS_INVALID_STATE_ROOT();
+    error SS_MULTIHOP_DISABLED();
     error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
-    function init() external initializer {
-        __OwnerUUPSUpgradable_init();
+    function init(address _addressManager) external initializer {
+        __Essential_init(_addressManager);
     }
 
     /// @inheritdoc ISignalService
@@ -92,62 +104,80 @@ contract SignalService is AuthorizableContract, ISignalService {
         virtual
         returns (bool)
     {
-        if (skipProofCheck()) return true;
-
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
-            return false;
+            revert SS_INVALID_PARAMS();
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.crossChainSync == address(0) || p.storageProof.length == 0) {
-            return false;
+        if (!isMultiHopEnabled() && p.hops.length > 0) {
+            revert SS_MULTIHOP_DISABLED();
         }
 
-        for (uint256 i; i < p.hops.length; ++i) {
-            if (p.hops[i].signalRoot == 0) return false;
-            if (p.hops[i].storageProof.length == 0) return false;
+        uint64 _srcChainId = srcChainId;
+        address _srcApp = app;
+        bytes32 _srcSignal = signal;
+
+        // Verify hop proofs
+        IHopRelayRegistry hrr;
+        if (p.hops.length > 0) {
+            hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
 
-        // Check a chain of inclusion proofs. If this chain is chainA, and the
-        // message is sent on chainC, and we have chainB in the middle, we
-        // verify that chainB's signalRoot has been sent as a signal by chainB's
-        // "taiko" contract, then using chainB's signalRoot, we further check
-        // the signal is sent by chainC's "bridge" contract.
-        if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
-            return false;
-        }
+        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
+        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
 
-        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).signalRoot;
-
-        if (signalRoot == 0) return false;
-
+        // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
+        // the following order:
+        // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2
+        // contract has sent a given hop stateRoot on chainB using its own signal service.
+        // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
+        // signal using its own signal service.
+        // We always verify the proofs in the reversed order (top to bottom).
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label = authorizedAddresses[hop.signalRootRelay];
-            if (label == 0) return false;
-            uint64 chainId = uint256(label).toUint64();
+            if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
+                revert SS_INVALID_RELAY();
+            }
 
-            bytes32 slot = getSignalSlot(
-                chainId, // use label as chainId
-                hop.signalRootRelay,
-                hop.signalRoot // as a signal
-            );
+            verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
 
-            bool verified = SecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", _transcode(hop.storageProof), signalRoot
-            );
-            if (!verified) return false;
-
-            signalRoot = hop.signalRoot;
+            _srcChainId = hop.chainId;
+            _srcApp = hop.relay;
+            _srcSignal = hop.stateRoot;
         }
 
-        return SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(srcChainId, app, signal)),
-            hex"01",
-            _transcode(p.storageProof),
-            signalRoot
-        );
+        verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
+        return true;
+    }
+
+    function verifyMerkleProof(
+        bytes32 stateRoot,
+        uint64 srcChainId,
+        address srcApp,
+        bytes32 srcSignal,
+        bytes memory merkleProof
+    )
+        public
+        view
+        virtual
+    {
+        if (stateRoot == 0) revert SS_INVALID_STATE_ROOT();
+        if (merkleProof.length == 0) revert SS_INVALID_PROOF();
+
+        address signalService = resolve(srcChainId, "signal_service", false);
+
+        bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
+
+        // verifyFullMerkleProof() will revert in case if something is not valid
+        LibTrieProof.verifyFullMerkleProof(stateRoot, signalService, slot, hex"01", merkleProof);
+    }
+
+    /// @notice Checks if multi-hop is enabled.
+    /// @return Returns true if multi-hop bridging is enabled.
+    function isMultiHopEnabled() public view virtual returns (bool) {
+        return false;
     }
 
     /// @notice Get the storage slot of the signal.
@@ -166,23 +196,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
-    }
-
-    /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) {
-        return false;
-    }
-
-    /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
-    /// TrieNodes.
-    function _transcode(bytes memory proof) internal pure returns (bytes[] memory proofs) {
-        RLPReader.RLPItem[] memory nodes = RLPReader.readList(proof);
-        proofs = new bytes[](nodes.length);
-
-        for (uint256 i; i < nodes.length; ++i) {
-            proofs[i] = RLPReader.readBytes(nodes[i]);
-        }
     }
 
     function _authorizePause(address) internal pure override {

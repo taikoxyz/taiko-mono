@@ -74,8 +74,8 @@ contract TestERC20Vault is TaikoTest {
     ERC20Vault erc20Vault;
     ERC20Vault destChainIdERC20Vault;
     PrankDestBridge destChainIdBridge;
+    SkipProofCheckSignal mockProofSignalService;
     FreeMintERC20 erc20;
-    SignalService signalService;
     uint64 destChainId = 7;
     uint64 srcChainId = uint64(block.chainid);
 
@@ -137,19 +137,23 @@ contract TestERC20Vault is TaikoTest {
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalService = SignalService(
+        mockProofSignalService = SkipProofCheckSignal(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ()),
+                impl: address(new SkipProofCheckSignal()),
+                data: abi.encodeCall(SignalService.init, (address(addressManager))),
                 registerTo: address(0),
                 owner: address(0)
             })
         );
 
-        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
+        addressManager.setAddress(
+            uint64(block.chainid), "signal_service", address(mockProofSignalService)
+        );
 
-        addressManager.setAddress(uint64(block.chainid), "signal_service", address(signalService));
+        addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+
+        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
 
         addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
 
@@ -430,5 +434,37 @@ contract TestERC20Vault is TaikoTest {
         } catch {
             fail();
         }
+    }
+
+    function test_20Vault_onMessageRecalled_20() public {
+        vm.startPrank(Alice);
+
+        uint256 amount = 2 wei;
+        erc20.approve(address(erc20Vault), amount);
+
+        uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
+
+        IBridge.Message memory _messageToSimulateFail = erc20Vault.sendToken(
+            ERC20Vault.BridgeTransferOp(
+                destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+            )
+        );
+
+        uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceAfter = erc20.balanceOf(address(erc20Vault));
+
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
+        assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
+
+        // No need to imitate that it is failed because we have a mock SignalService
+        bridge.recallMessage(_messageToSimulateFail, bytes(""));
+
+        uint256 aliceBalanceAfterRecall = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceAfterRecall = erc20.balanceOf(address(erc20Vault));
+
+        // Release -> original balance
+        assertEq(aliceBalanceAfterRecall, aliceBalanceBefore);
+        assertEq(erc20VaultBalanceAfterRecall, erc20VaultBalanceBefore);
     }
 }

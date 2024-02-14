@@ -10,6 +10,7 @@ import "../contracts/thirdparty/LibFixedPointMath.sol";
 
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
+import "../contracts/signal/HopRelayRegistry.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
 import "../contracts/tokenvault/BridgedERC1155.sol";

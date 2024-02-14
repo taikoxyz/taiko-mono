@@ -39,7 +39,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         external
         view
     {
-        if (ctx.prover != resolve("guardian_prover", false)) {
+        if (ctx.msgSender != resolve("guardian_prover", false)) {
             revert PERMISSION_DENIED();
         }
     }
