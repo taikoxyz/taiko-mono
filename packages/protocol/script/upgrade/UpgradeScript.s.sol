@@ -15,10 +15,10 @@
 pragma solidity 0.8.24;
 
 import "../../contracts/L1/gov/TaikoTimelockController.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import "forge-std/console2.sol";
-import "forge-std/Script.sol";
+import "forge-std/src/console2.sol";
+import "forge-std/src/Script.sol";
 
 contract UpgradeScript is Script {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

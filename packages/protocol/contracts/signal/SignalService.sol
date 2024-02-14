@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../libs/LibTrieProof.sol";

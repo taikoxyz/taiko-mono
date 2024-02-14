@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop

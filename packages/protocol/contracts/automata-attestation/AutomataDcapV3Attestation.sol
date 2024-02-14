@@ -10,15 +10,15 @@ import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
 import { IAttestation } from "./interfaces/IAttestation.sol";
 
 // Internal Libraries
-import { Base64 } from "../../lib/solady/src/utils/Base64.sol";
-import { LibString } from "../../lib/solady/src/utils/LibString.sol";
+import { Base64 } from "solady/src/utils/Base64.sol";
+import { LibString } from "solady/src/utils/LibString.sol";
 import { BytesUtils } from "./utils/BytesUtils.sol";
 
 // External Libraries
 import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
 // import "hardhat/console.sol";
-// import "forge-std/console.sol";
+// import "forge-std/src/console.sol";
 
 contract AutomataDcapV3Attestation is IAttestation {
     using BytesUtils for bytes;

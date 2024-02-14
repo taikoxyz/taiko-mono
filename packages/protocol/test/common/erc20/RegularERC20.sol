@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract RegularERC20 is ERC20 {
     constructor(uint256 initialSupply) ERC20("RegularERC20", "RGL") {
