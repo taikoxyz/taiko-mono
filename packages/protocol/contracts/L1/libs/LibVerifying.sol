@@ -99,9 +99,9 @@ library LibVerifying {
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
+                || config.ethDepositMaxAmount > type(uint96).max || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositMaxFee > type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;
