@@ -46,8 +46,7 @@ contract SkipProofCheckSignal is SignalService {
         public
         pure
         override
-    {
-    }
+    { }
 }
 
 contract DummyCrossChainSync is EssentialContract, ICrossChainSync {

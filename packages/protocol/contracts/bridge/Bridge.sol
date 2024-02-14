@@ -590,6 +590,6 @@ contract Bridge is EssentialContract, IBridge {
             ISignalService.proveSignalReceived,
             (chainId, resolve(chainId, "bridge", false), signal, proof)
         );
-        ( success,  ) = signalService.staticcall(data);
+        (success,) = signalService.staticcall(data);
     }
 }
