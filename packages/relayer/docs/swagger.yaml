@@ -12,15 +12,11 @@ definitions:
     properties:
       data:
         items:
-          $ref: "#/definitions/http.blockInfo"
+          $ref: '#/definitions/http.blockInfo'
         type: array
     type: object
   paginate.Page:
     properties:
-      error:
-        type: boolean
-      error_message:
-        type: string
       first:
         type: boolean
       items: {}
@@ -54,49 +50,49 @@ paths:
   /blockInfo:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-block-info
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/http.getBlockInfoResponse"
+            $ref: '#/definitions/http.getBlockInfoResponse'
       summary: Get block info
   /events:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-events-by-address
       parameters:
-        - description: address to query
-          in: query
-          name: address
-          required: true
-          type: string
-        - description: msgHash to query
-          in: query
-          name: msgHash
-          type: string
-        - description: chainID to query
-          in: query
-          name: chainID
-          type: string
-        - description: eventType to query
-          in: query
-          name: eventType
-          type: string
-        - description: event to query
-          in: query
-          name: event
-          type: string
+      - description: address to query
+        in: query
+        name: address
+        required: true
+        type: string
+      - description: msgHash to query
+        in: query
+        name: msgHash
+        type: string
+      - description: chainID to query
+        in: query
+        name: chainID
+        type: string
+      - description: eventType to query
+        in: query
+        name: eventType
+        type: string
+      - description: event to query
+        in: query
+        name: event
+        type: string
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/paginate.Page"
+            $ref: '#/definitions/paginate.Page'
       summary: Get events by address
 swagger: "2.0"
