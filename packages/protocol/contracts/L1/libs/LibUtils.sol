@@ -74,6 +74,7 @@ library LibUtils {
             state.transitions[slot][blk.verifiedTransitionId];
 
         return ICrossChainSync.Snippet({
+            syncedInBlock: blk.proposedIn,
             blockId: blockId,
             blockHash: transition.blockHash,
             stateRoot: transition.stateRoot
