@@ -22,8 +22,8 @@ import "../bridge/IBridge.sol";
 /// @title CrossChainOwned
 /// @notice This contract's owner can be a local address or one that lives on another chain and uses
 /// signals for transaction approval.
-/// @dev Notice that when send the message on the owner chain, the gas limit of the message must not
-/// be zero, so on this chain, some EOA can help execute this transaction.
+/// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
+/// not be zero, so on this chain, some EOA can help execute this transaction.
 abstract contract CrossChainOwned is EssentialContract {
     uint64 public ownerChainId; // slot 1
     uint64 public nextTxId;

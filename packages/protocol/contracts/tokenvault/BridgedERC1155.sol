@@ -38,7 +38,6 @@ contract BridgedERC1155 is
     uint256[46] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
-    error BTOKEN_INVALID_PARAMS();
 
     /// @dev Initializer function to be called after deployment.
     /// @param _addressManager The address of the address manager.
@@ -56,11 +55,14 @@ contract BridgedERC1155 is
         external
         initializer
     {
-        if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
-            revert BTOKEN_INVALID_PARAMS();
-        }
+        // Check if provided parameters are valid.
+        // The symbol and the name can be empty for ERC1155 tokens so we use some placeholder data
+        // for them instead.
+        LibBridgedToken.validateInputs(_srcToken, _srcChainId, "foo", "foo");
+
         __Essential_init(_addressManager);
-        __ERC1155_init("");
+        __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
+
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         symbol_ = _symbol;

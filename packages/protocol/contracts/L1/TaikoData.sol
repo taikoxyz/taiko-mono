@@ -138,7 +138,6 @@ library TaikoData {
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
         uint8 contestations;
-        bytes32[4] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
@@ -152,7 +151,6 @@ library TaikoData {
         uint64 proposedIn; // L1 block number
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing an Ethereum deposit.

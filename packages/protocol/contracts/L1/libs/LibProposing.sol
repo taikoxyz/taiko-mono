@@ -73,6 +73,7 @@ library LibProposing {
     {
         TaikoData.BlockParams memory params = abi.decode(data, (TaikoData.BlockParams));
 
+        // We need a prover that will submit proofs after the block has been submitted
         if (params.assignedProver == address(0)) {
             revert L1_INVALID_PROVER();
         }
@@ -99,6 +100,8 @@ library LibProposing {
             state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize].metaHash;
 
         // Check if parent block has the right meta hash
+        // This is to allow the proposer to make sure the block builds on the expected latest chain
+        // state
         if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
@@ -159,12 +162,9 @@ library LibProposing {
                 }
             }
 
+            // Check that the txList data range is within the max size of a blob
             if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
                 revert L1_TXLIST_OFFSET();
-            }
-
-            if (params.txListByteSize == 0 || params.txListByteSize > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_SIZE();
             }
 
             meta.txListByteOffset = params.txListByteOffset;
@@ -176,13 +176,9 @@ library LibProposing {
             // Taiko node software.
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
-            if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
+            // The txList is the full byte array without any offset
+            if (params.txListByteOffset != 0) {
                 revert L1_INVALID_PARAM();
-            }
-
-            // blockMaxTxListBytes is a uint24
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_SIZE();
             }
 
             meta.blobHash = keccak256(txList);
@@ -190,10 +186,15 @@ library LibProposing {
             meta.txListByteSize = uint24(txList.length);
         }
 
+        // Check that the tx length is non-zero and within the supported range
+        if (meta.txListByteSize == 0 || meta.txListByteSize > config.blockMaxTxListBytes) {
+            revert L1_TXLIST_SIZE();
+        }
+
         // Following the Merge, the L1 mixHash incorporates the
         // prevrandao value from the beacon chain. Given the possibility
         // of multiple Taiko blocks being proposed within a single
-        // Ethereum block, we must introduce a salt to this random
+        // Ethereum block, we choose to introduce a salt to this random
         // number as the L2 mixHash.
         meta.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
@@ -202,38 +203,25 @@ library LibProposing {
             uint256(meta.difficulty)
         );
 
-        // Now, it's essential to initialize the block that will be stored
-        // on L1. We should aim to utilize as few storage slots as possible,
-        // alghouth using a ring buffer can minimize storage writes once
-        // the buffer reaches its capacity.
-        TaikoData.Block storage blk = state.blocks[b.numBlocks % config.blockRingBufferSize];
+        // Create the block that will be stored onchain
+        TaikoData.Block memory blk = TaikoData.Block({
+            metaHash: keccak256(abi.encode(meta)),
+            // Safeguard the liveness bond to ensure its preservation,
+            // particularly in scenarios where it might be altered after the
+            // block's proposal but before it has been proven or verified.
+            livenessBond: config.livenessBond,
+            blockId: b.numBlocks,
+            proposedAt: meta.timestamp,
+            proposedIn: uint64(block.number),
+            // For a new block, the next transition ID is always 1, not 0.
+            nextTransitionId: 1,
+            // For unverified block, its verifiedTransitionId is always 0.
+            verifiedTransitionId: 0,
+            assignedProver: params.assignedProver
+        });
 
-        // Please note that all fields must be re-initialized since we are
-        // utilizing an existing ring buffer slot, not creating a new storage
-        // slot.
-        blk.metaHash = keccak256(abi.encode(meta));
-
-        // Safeguard the liveness bond to ensure its preservation,
-        // particularly in scenarios where it might be altered after the
-        // block's proposal but before it has been proven or verified.
-        blk.livenessBond = config.livenessBond;
-        blk.blockId = b.numBlocks;
-
-        blk.proposedAt = meta.timestamp;
-        blk.proposedIn = uint64(block.number);
-
-        // For a new block, the next transition ID is always 1, not 0.
-        blk.nextTransitionId = 1;
-
-        // For unverified block, its verifiedTransitionId is always 0.
-        blk.verifiedTransitionId = 0;
-
-        // Verify assignment authorization; if prover's address is an IProver
-        // contract, transfer Ether and call "validateAssignment" for
-        // verification.
-        // Prover can charge ERC20/NFT as fees; msg.value can be zero. Taiko
-        // doesn't mandate Ether as the only proofing fee.
-        blk.assignedProver = params.assignedProver;
+        // Store the block in the ring buffer
+        state.blocks[b.numBlocks % config.blockRingBufferSize] = blk;
 
         // Increment the counter (cursor) by 1.
         unchecked {

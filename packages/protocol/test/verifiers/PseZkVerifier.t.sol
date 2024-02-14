@@ -40,6 +40,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: true, // skips all verification when true
             blobUsed: false
@@ -68,6 +69,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: true
@@ -120,6 +122,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -158,6 +161,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -188,6 +192,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -227,6 +232,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -265,6 +271,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -300,6 +307,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -342,6 +350,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -384,6 +393,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
@@ -423,6 +433,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             metaHash: bytes32("ab"),
             blobHash: bytes32("cd"),
             prover: Alice,
+            msgSender: Alice,
             blockId: 10,
             isContesting: false,
             blobUsed: false
