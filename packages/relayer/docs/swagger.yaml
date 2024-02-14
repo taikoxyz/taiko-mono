@@ -17,10 +17,6 @@ definitions:
     type: object
   paginate.Page:
     properties:
-      error:
-        type: boolean
-      error_message:
-        type: string
       first:
         type: boolean
       items: {}

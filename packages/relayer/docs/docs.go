@@ -126,12 +126,6 @@ const docTemplate = `{
         "paginate.Page": {
             "type": "object",
             "properties": {
-                "error": {
-                    "type": "boolean"
-                },
-                "error_message": {
-                    "type": "string"
-                },
                 "first": {
                     "type": "boolean"
                 },

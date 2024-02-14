@@ -108,12 +108,12 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_USER();
-    error VAULT_INVALID_SRC_CHAIN_ID();
+    error VAULT_INVALID_TO();
     error VAULT_INTERFACE_NOT_SUPPORTED();
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
-    modifier withValidOperation(BridgeTransferOp calldata op) {
+    modifier withValidOperation(BridgeTransferOp memory op) {
         if (op.tokenIds.length != op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
         }

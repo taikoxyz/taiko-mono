@@ -24,8 +24,7 @@ import "./BridgedERC1155.sol";
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
-/// used by
-/// some contracts.
+/// used by some contracts.
 interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
@@ -45,7 +44,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// the destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
     /// @param op Option for sending the ERC1155 token.
-    function sendToken(BridgeTransferOp calldata op)
+    function sendToken(BridgeTransferOp memory op)
         external
         payable
         nonReentrant
@@ -62,11 +61,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         }
 
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(msg.sender, op);
-
-        // Store variables in memory to avoid stack-too-deep error
-        uint256[] memory _amounts = op.amounts;
-        address _token = op.token;
-        uint256[] memory _tokenIds = op.tokenIds;
 
         // Create a message to send to the destination chain
         IBridge.Message memory message;
@@ -92,9 +86,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             to: op.to,
             destChainId: _message.destChainId,
             ctoken: ctoken.addr,
-            token: _token,
-            tokenIds: _tokenIds,
-            amounts: _amounts
+            token: op.token,
+            tokenIds: op.tokenIds,
+            amounts: op.amounts
         });
     }
 
@@ -122,11 +116,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Check context validity
         IBridge.Context memory ctx = checkProcessMessageContext();
 
-        address _to = to == address(0) || to == address(this) ? from : to;
+        // Don't allow sending to disallowed addresses.
+        // Don't send the tokens back to `from` because `from` is on the source chain.
+        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
         // Transfer the ETH and the tokens to the `to` address
-        address token = _transferTokens(ctoken, _to, tokenIds, amounts);
-        _to.sendEther(msg.value);
+        address token = _transferTokens(ctoken, to, tokenIds, amounts);
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -155,8 +151,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
             abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[], uint256[]));
-
-        if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.owner, tokenIds, amounts);
