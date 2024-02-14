@@ -27,9 +27,16 @@ import "./LibSignals.sol";
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is EssentialContract, ISignalService {
+    enum CacheOption {
+        CACHE_NOTHING,
+        CACHE_SIGNAL_ROOT,
+        CACHE_STATE_ROOT,
+        CACHE_BOTH
+    }
+
     struct HopProof {
         uint64 chainId;
-        bool cacheChainData;
+        CacheOption cacheOption;
         bytes32 rootHash;
         bytes[] accountProof;
         bytes[] storageProof;
@@ -220,14 +227,20 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
     {
-        if (hop.cacheChainData) {
-            if (isLastHop) {
-                _relayChainData(chainId, LibSignals.SIGNAL_ROOT, signalRoot);
-            } else if (isFullProof) {
-                _relayChainData(chainId, LibSignals.STATE_ROOT, hop.rootHash);
-            } else {
-                _relayChainData(chainId, LibSignals.SIGNAL_ROOT, hop.rootHash);
-            }
+        // cache state root
+        bool cacheStateRoot = hop.cacheOption == CacheOption.CACHE_BOTH
+            || hop.cacheOption == CacheOption.CACHE_STATE_ROOT;
+
+        if (cacheStateRoot && isFullProof && !isLastHop) {
+            _relayChainData(chainId, LibSignals.STATE_ROOT, hop.rootHash);
+        }
+
+        // cache signal root
+        bool cacheSignalRoot = hop.cacheOption == CacheOption.CACHE_BOTH
+            || hop.cacheOption == CacheOption.CACHE_SIGNAL_ROOT;
+
+        if (cacheSignalRoot && (!isLastHop || isFullProof)) {
+            _relayChainData(chainId, LibSignals.SIGNAL_ROOT, signalRoot);
         }
     }
 }
