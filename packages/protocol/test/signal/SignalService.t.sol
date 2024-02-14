@@ -335,10 +335,12 @@ contract TestSignalService is TaikoTest {
             proof: abi.encode(proofs)
         });
 
-        bytes32 signal = signalService.signalForChainData(
-            srcChainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+        assertEq(
+            signalService.isChainDataRelayed(
+                srcChainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+            ),
+            false
         );
-        assertEq(signalService.isSignalSent(address(signalService), signal), false);
     }
 
     function test_SignalService_proveSignalReceived_multiple_hops() public {
@@ -532,20 +534,12 @@ contract TestSignalService is TaikoTest {
         private
     {
         assertEq(
-            signalService.isSignalSent(
-                address(signalService),
-                signalService.signalForChainData(chainId, LibSignals.STATE_ROOT, stateRoot)
-            ),
+            signalService.isChainDataRelayed(chainId, LibSignals.STATE_ROOT, stateRoot),
             stateRootCached
         );
 
         assertEq(
-            signalService.isSignalSent(
-                address(signalService),
-                signalService.signalForChainData(
-                    chainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
-                )
-            ),
+            signalService.isChainDataRelayed(chainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))),
             signalRootCached
         );
     }

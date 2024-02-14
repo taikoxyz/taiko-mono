@@ -50,6 +50,21 @@ interface ISignalService {
     )
         external;
 
+    /// @notice Checks if a chain data has been relayed.
+    /// uniquely from chainId, kind, and data.
+    /// @param chainId The remote chainId.
+    /// @param kind A value to mark the data type.
+    /// @param data The remote data.
+    /// @return True if the data has been relayed, otherwise false.
+    function isChainDataRelayed(
+        uint64 chainId,
+        bytes32 kind,
+        bytes32 data
+    )
+        external
+        view
+        returns (bool);
+
     /// @notice Verifies if a particular signal has already been sent.
     /// @param app The address that initiated the signal.
     /// @param signal The signal (message) that was sent.

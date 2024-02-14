@@ -124,7 +124,20 @@ contract SignalService is EssentialContract, ISignalService {
             _app = _signalService;
         }
 
-        if (!isSignalSent(_app, _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
+        if (!isSignalSent(address(this), _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
+    }
+
+    /// @inheritdoc ISignalService
+    function isChainDataRelayed(
+        uint64 chainId,
+        bytes32 kind,
+        bytes32 data
+    )
+        public
+        view
+        returns (bool)
+    {
+        return isSignalSent(address(this), signalForChainData(chainId, kind, data));
     }
 
     /// @inheritdoc ISignalService

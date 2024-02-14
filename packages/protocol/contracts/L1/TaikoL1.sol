@@ -175,7 +175,7 @@ contract TaikoL1 is
         override
         returns (ICrossChainSync.Snippet memory)
     {
-        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
+        return LibUtils.getSyncedSnippet(state, getConfig(), AddressResolver(this), blockId);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
