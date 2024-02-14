@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts-upgradeable": "4.8.2",
-    "@openzeppelin/contracts": "4.8.2",
+    "@openzeppelin/contracts": "4.9.3",
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "solady": "github:Vectorized/solady#v0.0.167",
