@@ -232,16 +232,16 @@ s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
 m_processed_deposits -.->|keccak| dot4;
 
-bSIGNAL_ROOT --- a_l1SIGNAL_ROOT;
+b_signal_root --- a_l1_signal_root;
 h_gas_used --- e_gas_used;
 
 BlockMetadata -.-> dot4((" ")) --- |keccak| e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
-e_parent_hash & e_block_hash & eSIGNAL_ROOT & e_graffiti & e_prover & e_parent_gas_used & e_gas_used -.-> dot3;
+e_parent_hash & e_block_hash & e_signal_root & e_graffiti & e_prover & e_parent_gas_used & e_gas_used -.-> dot3;
 b_l1_signal_service_addr -.-> dot3;
 b_l2_signal_service_addr -.-> dot3;
 b_l1_taiko_addr -.-> dot3;
 
-eSIGNAL_ROOT --- sSIGNAL_ROOT
+e_signal_root --- s_signal_root
 e_parent_gas_used --- a_parent_gas_used
 
 h_gas_limit ---|>=| h_gas_used
@@ -280,7 +280,7 @@ h_mix_hash(mixHash)
 h_proposer(proposer)
 h_parent_hash(parentHash)
 h_ommers_hash("ommersHash = keccak([])")
-hSTATE_ROOT(stateRoot)
+h_state_root(stateRoot)
 h_transactions_root(transactionsRoot)
 h_receipts_root(receiptsRoot)
 h_logs_bloom("logsBloom = []")
@@ -312,7 +312,7 @@ subgraph Anchor [Anchor Tx]
 a_l1_height(l1Height)
 a_l1_hash(l1Hash)
 a_parent_gas_used(parentGasUsed)
-a_l1SIGNAL_ROOT(l1SignalRoot)
+a_l1_signal_root(l1SignalRoot)
 end
 
 Anchor:::group
@@ -321,7 +321,7 @@ subgraph L1Storage[L1 Storage]
 b_l1_taiko_addr[/taikoL1Address/]
 b_l1_signal_service_addr[/L1 signalServiceAddress/]
 b_l2_signal_service_addr[/L2 signalServiceAddress/]
-bSIGNAL_ROOT[/stateRoot/]
+b_signal_root[/stateRoot/]
 end
 
 L1Storage:::group
@@ -331,7 +331,7 @@ subgraph L2Storage[L2 Storage]
 s_public_input_hash[/publicInputHash/]
 s_parent_timestamp[/parentTimestamp/]
 s_gas_excess[/gasExcess/]
-sSIGNAL_ROOT[/stateRoot/]
+s_signal_root[/stateRoot/]
 end
 
 L2Storage:::group
@@ -340,7 +340,7 @@ subgraph BlockEvidence
 e_meta_hash(metaHash)
 e_parent_hash(parentHash):::transition
 e_block_hash(blockHash)
-eSIGNAL_ROOT(stateRoot)
+e_signal_root(stateRoot)
 e_graffiti(graffiti)
 e_prover(prover)
 e_parent_gas_used(parentGasUsed):::transition
