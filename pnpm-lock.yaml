@@ -262,7 +262,7 @@ importers:
         specifier: 4.8.2
         version: 4.8.2
       ds-test:
-        specifier: github:dapphub/ds-test
+        specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
