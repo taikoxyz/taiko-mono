@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
+import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../contracts/thirdparty/LibFixedPointMath.sol";
