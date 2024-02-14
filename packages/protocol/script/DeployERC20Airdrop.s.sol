@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
-import "forge-std/console2.sol";
+import "forge-std/src/console2.sol";
 
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
 
