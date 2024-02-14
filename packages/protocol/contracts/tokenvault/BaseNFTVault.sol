@@ -35,6 +35,8 @@ abstract contract BaseNFTVault is BaseVault {
     struct BridgeTransferOp {
         // Destination chain ID.
         uint64 destChainId;
+        // The owner of the bridge message on the destination chain.
+        address destOwner;
         // Recipient address.
         address to;
         // Address of the token.

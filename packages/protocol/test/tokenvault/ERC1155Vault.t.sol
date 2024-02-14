@@ -237,7 +237,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -260,7 +269,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(0), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(0),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
@@ -281,7 +299,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
@@ -305,7 +332,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -360,7 +396,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -404,7 +449,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 1;
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -449,7 +503,16 @@ contract ERC1155VaultTest is TaikoTest {
         uint256 etherValue = 0.1 ether;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, David, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            David,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: etherValue }(sendOpts);
@@ -503,7 +566,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
 
         vm.prank(Alice, Alice);
@@ -538,7 +610,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[1] = 5;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -594,7 +675,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -644,7 +734,16 @@ contract ERC1155VaultTest is TaikoTest {
         ERC1155(deployedContract).setApprovalForAll(address(destChainErc1155Vault), true);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId, Bob, address(deployedContract), tokenIds, amounts, 140_000, 140_000, Bob, ""
+            chainId,
+            address(0),
+            Bob,
+            address(deployedContract),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Bob,
+            ""
         );
 
         vm.prank(Bob, Bob);
@@ -690,7 +789,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
@@ -740,7 +848,16 @@ contract ERC1155VaultTest is TaikoTest {
         ERC1155(deployedContract).setApprovalForAll(address(destChainErc1155Vault), true);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId, Alice, address(deployedContract), tokenIds, amounts, 140_000, 140_000, Bob, ""
+            chainId,
+            address(0),
+            Alice,
+            address(deployedContract),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Bob,
+            ""
         );
 
         vm.prank(Alice, Alice);
@@ -762,7 +879,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(ctoken1155), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
