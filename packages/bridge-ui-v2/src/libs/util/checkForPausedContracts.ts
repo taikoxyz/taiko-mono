@@ -1,6 +1,4 @@
-import { getPublicClient } from '@wagmi/core';
-import { get } from 'svelte/store';
-import { getContract } from 'viem';
+import { readContract } from '@wagmi/core';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -12,11 +10,7 @@ import { getLogger } from './logger';
 const log = getLogger('bridge:checkForPausedContracts');
 
 export const isBridgePaused = async () => {
-  await checkForPausedContracts();
-  if (get(bridgePausedModal)) {
-    return true;
-  }
-  return false;
+  return await checkForPausedContracts();
 };
 
 export const checkForPausedContracts = async () => {
@@ -25,34 +19,30 @@ export const checkForPausedContracts = async () => {
   const pausedContracts = await Promise.all(
     bridgeContractInfo.map(async (bridgeInfo) => {
       const { srcChainId, bridgeAddress } = bridgeInfo;
-
-      const client = getPublicClient(config, {
-        chainId: srcChainId,
-      });
-      if (!client) return;
+      log(`Checking if bridge ${bridgeAddress} is paused on chain ${srcChainId}`);
       try {
-        const contract = getContract({
-          client,
+        return await readContract(config, {
           abi: bridgeABI,
           address: bridgeAddress,
+          chainId: srcChainId,
+          functionName: 'paused',
         });
-
-        const paused = await contract.read.paused();
-
-        if (paused) {
-          return true;
-        }
-      } catch {
+      } catch (error) {
         //todo: will this ever happen and if so what do we do?
-        log('Error checking for paused contracts');
+        // Right now we assume something is very off and we should stop the user from doing anything
+        console.error('Error checking for paused contracts', error);
+
+        return true;
       }
     }),
   );
 
   if (pausedContracts.some((isPaused) => isPaused)) {
     bridgePausedModal.set(true);
+    return true;
   } else {
     bridgePausedModal.set(false);
+    return false;
   }
 };
 
