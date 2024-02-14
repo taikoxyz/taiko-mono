@@ -254,7 +254,7 @@ contract TestSignalService is TaikoTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
+    function test_SignalService_proveSignalReceived_one_hop_cacheSIGNAL_ROOT() public {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
@@ -280,7 +280,7 @@ contract TestSignalService is TaikoTest {
 
         // relay the signal root
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, "signal_root", proofs[0].rootHash);
+        signalService.relayChainData(srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -289,7 +289,7 @@ contract TestSignalService is TaikoTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_one_hop_state_root() public {
+    function test_SignalService_proveSignalReceived_one_hopSTATE_ROOT() public {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
@@ -315,7 +315,7 @@ contract TestSignalService is TaikoTest {
 
         // relay the state root
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, "state_root", proofs[0].rootHash);
+        signalService.relayChainData(srcChainId, LibSignals.STATE_ROOT, proofs[0].rootHash);
 
         // Should not revert
         signalService.proveSignalReceived({
@@ -325,8 +325,9 @@ contract TestSignalService is TaikoTest {
             proof: abi.encode(proofs)
         });
 
-        bytes32 signal =
-            signalService.signalForChainData(srcChainId, "signal_root", bytes32(uint256(789)));
+        bytes32 signal = signalService.signalForChainData(
+            srcChainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+        );
         assertEq(signalService.isSignalSent(address(signalService), signal), false);
 
         // enable cache
@@ -393,7 +394,7 @@ contract TestSignalService is TaikoTest {
         });
 
         vm.prank(taiko);
-        signalService.relayChainData(proofs[1].chainId, "state_root", proofs[2].rootHash);
+        signalService.relayChainData(proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].rootHash);
 
         signalService.proveSignalReceived({
             chainId: srcChainId,

@@ -21,6 +21,7 @@ import "../libs/LibTrieProof.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
+import "./LibSignals.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -33,9 +34,6 @@ contract SignalService is EssentialContract, ISignalService {
         bytes[] accountProof;
         bytes[] storageProof;
     }
-
-    bytes32 private constant _STATE_ROOT = bytes32("state_root");
-    bytes32 private constant _SIGNAL_ROOT = bytes32("signal_root");
 
     uint256[50] private __gap;
 
@@ -115,13 +113,9 @@ contract SignalService is EssentialContract, ISignalService {
 
             bool isFullProof = hop.accountProof.length > 0;
 
-            if (hop.cacheChainData) {
-                if (isLastHop) _relayChainData(_chainId, _SIGNAL_ROOT, signalRoot);
-                else if (isFullProof) _relayChainData(_chainId, _STATE_ROOT, hop.rootHash);
-                else _relayChainData(_chainId, _SIGNAL_ROOT, hop.rootHash);
-            }
+            _cacheChainData(hop, _chainId, signalRoot, isFullProof, isLastHop);
 
-            bytes32 kind = isFullProof ? _STATE_ROOT : _SIGNAL_ROOT;
+            bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
             _signal = signalForChainData(_chainId, kind, hop.rootHash);
             _chainId = hop.chainId;
             _app = _signalService;
@@ -217,5 +211,25 @@ contract SignalService is EssentialContract, ISignalService {
 
     function _authorizePause(address) internal pure override {
         revert SS_UNSUPPORTED();
+    }
+
+    function _cacheChainData(
+        HopProof memory hop,
+        uint64 chainId,
+        bytes32 signalRoot,
+        bool isFullProof,
+        bool isLastHop
+    )
+        private
+    {
+        if (hop.cacheChainData) {
+            if (isLastHop) {
+                _relayChainData(chainId, LibSignals.SIGNAL_ROOT, signalRoot);
+            } else if (isFullProof) {
+                _relayChainData(chainId, LibSignals.STATE_ROOT, hop.rootHash);
+            } else {
+                _relayChainData(chainId, LibSignals.SIGNAL_ROOT, hop.rootHash);
+            }
+        }
     }
 }
