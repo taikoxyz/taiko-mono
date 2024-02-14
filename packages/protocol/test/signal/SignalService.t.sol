@@ -132,9 +132,12 @@ contract TestSignalService is TaikoTest {
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-
         vm.expectRevert(
-            abi.encodeWithSelector(AddressResolver.RESOLVER_ZERO_ADDR.selector, srcChainId, strToBytes32("signal_service"))
+            abi.encodeWithSelector(
+                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                srcChainId,
+                strToBytes32("signal_service")
+            )
         );
         signalService.proveSignalReceived({
             chainId: srcChainId,
@@ -214,9 +217,12 @@ contract TestSignalService is TaikoTest {
         proofs[0].chainId = srcChainId + 1;
 
         vm.expectRevert(
-            abi.encodeWithSelector(AddressResolver.RESOLVER_ZERO_ADDR.selector, proofs[0].chainId, strToBytes32("signal_service"))
+            abi.encodeWithSelector(
+                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                proofs[0].chainId,
+                strToBytes32("signal_service")
+            )
         );
-
 
         signalService.proveSignalReceived({
             chainId: srcChainId,
@@ -362,8 +368,12 @@ contract TestSignalService is TaikoTest {
         proofs[2].storageProof = new bytes[](10);
 
         // expect RESOLVER_ZERO_ADDR
-           vm.expectRevert(
-            abi.encodeWithSelector(AddressResolver.RESOLVER_ZERO_ADDR.selector, proofs[0].chainId, strToBytes32("signal_service"))
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                proofs[0].chainId,
+                strToBytes32("signal_service")
+            )
         );
 
         signalService.proveSignalReceived({
