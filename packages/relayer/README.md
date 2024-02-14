@@ -3,7 +3,7 @@
 
 # Relayer
 
-A relayer for the Bridge to watch and sync event between Layer 1 and Taiko Layer 2.
+A relayer for the Bridge to watch and sync events between Layer 1 and Taiko Layer 2.
 
 ## Build the Source
 
@@ -102,19 +102,19 @@ To review each sub-command's command line flags, use:
 
 ## Project structure
 
-| Path          | Description                                                                                                                              |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `bindings/`   | [Go contract bindings](https://geth.ethereum.org/docs/dapp/native-bindings) for Taiko smart contracts, and few related utility functions |
-| `cmd/`        | Main executable for this project                                                                                                         |
-| `db/`         | Database interfaces and connection methods.                                                                                              |
-| `encoding/`   | Encoding helper utility functions for interacting with smart contract functions                                                          |
-| `indexer/`    | Indexer sub-command                                                                                                                      |
-| `metrics/`    | Metrics related                                                                                                                          |
-| `migrations/` | Database migrations                                                                                                                      |
-| `mock/`       | Mocks for testing                                                                                                                        |
-| `proof/`      | Merkle proof generation service                                                                                                          |
-| `queue/`      | Queue related interfaces and types, with implementations in subfolders                                                                   |
-| `repo/`       | Database repository interaction layer                                                                                                    |
+| Path          | Description                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `bindings/`   | [Go contract bindings](https://geth.ethereum.org/docs/dapp/native-bindings) for Taiko smart contracts and a few related utility functions |
+| `cmd/`        | Main executable for this project                                                                                                          |
+| `db/`         | Database interfaces and connection methods.                                                                                               |
+| `encoding/`   | Encoding helper utility functions for interacting with smart contract functions                                                           |
+| `indexer/`    | Indexer sub-command                                                                                                                       |
+| `metrics/`    | Metrics related                                                                                                                           |
+| `migrations/` | Database migrations                                                                                                                       |
+| `mock/`       | Mocks for testing                                                                                                                         |
+| `proof/`      | Merkle proof generation service                                                                                                           |
+| `queue/`      | Queue related interfaces and types, with implementations in subfolders                                                                    |
+| `repo/`       | Database repository interaction layer                                                                                                     |
 
 ## API Doc
 
@@ -123,7 +123,7 @@ To review each sub-command's command line flags, use:
 Filter params:
 
 Mandatory:  
-`address`: user's ethereum address who sent the message.
+`address`: the user's Ethereum address that sent the message.
 
 Optional:
 `chainID`: chain ID of the source chain. Default: all chains. Options: any integer.
