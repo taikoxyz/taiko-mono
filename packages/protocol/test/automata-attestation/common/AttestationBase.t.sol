@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
-import "forge-std/StdJson.sol";
+import "forge-std/src/Test.sol";
+import "forge-std/src/console.sol";
+import "forge-std/src/StdJson.sol";
 import "../../../contracts/verifiers/SgxVerifier.sol";
 import { AutomataDcapV3Attestation } from
     "../../../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
-import { P256Verifier } from "../../../lib/p256-verifier/src/P256Verifier.sol";
+import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 import { SigVerifyLib } from "../../../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import { PEMCertChainLib } from "../../../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import { V3Struct } from "../../../contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import { BytesUtils } from "../../../contracts/automata-attestation/utils/BytesUtils.sol";
-import { Base64 } from "../../../lib/solady/src/utils/Base64.sol";
+import { Base64 } from "solady/src/utils/Base64.sol";
 import "../utils/DcapTestUtils.t.sol";
 import "../utils/V3QuoteParseUtils.t.sol";
 
