@@ -42,15 +42,13 @@ interface ISignalService {
     /// @param signal The signal (message) to send.
     /// @param proof Merkle proof that the signal was persisted on the
     /// source chain.
-    /// @return True if the signal has been received, otherwise false.
     function proveSignalReceived(
         uint64 chainId,
         address app,
         bytes32 signal,
         bytes calldata proof
     )
-        external
-        returns (bool);
+        external;
 
     /// @notice Verifies if a particular signal has already been sent.
     /// @param app The address that initiated the signal.

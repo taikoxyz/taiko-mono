@@ -90,7 +90,6 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         virtual
-        returns (bool)
     {
         if (app == address(0) || signal == 0) revert SS_INVALID_PARAMS();
 
@@ -129,7 +128,6 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         if (!isSignalSent(_app, _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
-        return true;
     }
 
     /// @inheritdoc ISignalService
