@@ -254,7 +254,7 @@ contract TestSignalService is TaikoTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_one_hop_cacheSIGNAL_ROOT() public {
+    function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
@@ -288,7 +288,7 @@ contract TestSignalService is TaikoTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_one_hopSTATE_ROOT() public {
+    function test_SignalService_proveSignalReceived_one_hop_state_root() public {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
