@@ -78,7 +78,7 @@ contract TestSignalService is TaikoTest {
         assertTrue(signalService.isSignalSent(Alice, signal));
     }
 
-    function test_SignalService_SignalService_getSignalSlot() public {
+    function test_SignalService_getSignalSlot() public {
         vm.startPrank(Alice);
         for (uint8 i = 1; i < 100; ++i) {
             bytes32 signal = bytes32(block.prevrandao + i);
