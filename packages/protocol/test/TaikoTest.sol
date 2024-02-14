@@ -80,4 +80,12 @@ abstract contract TaikoTest is Test, DeployCapability {
     function randBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
     }
+
+    function strToBytes32(string memory input) internal returns (bytes32 result) {
+        require(bytes(input).length <= 32, "String too long");
+        // Copy the string's bytes directly into the bytes32 variable
+        assembly {
+            result := mload(add(input, 32))
+        }
+    }
 }
