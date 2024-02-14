@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
+import "forge-std/src/Test.sol";
+import "forge-std/src/console2.sol";
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../contracts/thirdparty/LibFixedPointMath.sol";
 

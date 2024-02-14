@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
@@ -99,9 +99,9 @@ library LibVerifying {
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
+                || config.ethDepositMaxAmount > type(uint96).max || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositMaxFee > type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;

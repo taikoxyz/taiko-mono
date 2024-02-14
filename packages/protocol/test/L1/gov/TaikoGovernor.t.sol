@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import "../TaikoL1TestBase.sol";
 import "../../../contracts/L1/gov/TaikoGovernor.sol";
 import "../../../contracts/L1/gov/TaikoTimelockController.sol";
-import "lib/openzeppelin-contracts/contracts/governance/IGovernor.sol";
-import "lib/openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import "@openzeppelin/contracts/governance/IGovernor.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestTaikoGovernor is TaikoL1TestBase {

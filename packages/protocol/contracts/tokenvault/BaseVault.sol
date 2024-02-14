@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
