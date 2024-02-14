@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/console2.sol";
-import "forge-std/StdJson.sol";
-import "forge-std/Test.sol";
+import "forge-std/src/console2.sol";
+import "forge-std/src/StdJson.sol";
+import "forge-std/src/Test.sol";
 import "../contracts/common/EssentialContract.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";

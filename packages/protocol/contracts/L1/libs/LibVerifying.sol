@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";

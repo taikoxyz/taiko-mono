@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "forge-std/console2.sol";
-import "forge-std/Script.sol";
+import "forge-std/src/console2.sol";
+import "forge-std/src/Script.sol";
 
 import "../contracts/common/AddressManager.sol";
 import "../contracts/libs/LibDeploy.sol";

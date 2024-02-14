@@ -255,9 +255,27 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@openzeppelin/contracts':
+        specifier: 4.8.2
+        version: 4.8.2
+      '@openzeppelin/contracts-upgradeable':
+        specifier: 4.8.2
+        version: 4.8.2
+      ds-test:
+        specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
+      forge-std:
+        specifier: github:foundry-rs/forge-std#v1.7.5
+        version: github.com/foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.3.11
         version: 0.3.11
+      p256-verifier:
+        specifier: github:taikoxyz/p256-verifier#v0.1.0
+        version: github.com/taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
+      solady:
+        specifier: github:Vectorized/solady#v0.0.167
+        version: github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
     devDependencies:
       '@typechain/ethers-v5':
         specifier: ^11.1.2
@@ -3701,6 +3719,14 @@ packages:
       mkdirp: 1.0.4
       rimraf: 3.0.2
     dev: true
+
+  /@openzeppelin/contracts-upgradeable@4.8.2:
+    resolution: {integrity: sha512-zIggnBwemUmmt9IS73qxi+tumALxCY4QEs3zLCII78k0Gfse2hAOdAkuAeLUzvWUpneMUfFE5sGHzEUSTvn4Ag==}
+    dev: false
+
+  /@openzeppelin/contracts@4.8.2:
+    resolution: {integrity: sha512-kEUOgPQszC0fSYWpbh2kT94ltOJwj1qfT2DWo+zVttmGmf97JZ99LspePNaeeaLhCImaHVeBbjaQFZQn7+Zc5g==}
+    dev: false
 
   /@parcel/watcher-android-arm64@2.3.0:
     resolution: {integrity: sha512-f4o9eA3dgk0XRT3XhB0UWpWpLnKgrh1IwNJKJ7UJek7eTYccQ8LR7XUWFKqw6aEq5KUNlCcGvSzKqSX/vtWVVA==}
@@ -18092,6 +18118,30 @@ packages:
     dependencies:
       react: 18.2.0
       use-sync-external-store: 1.2.0(react@18.2.0)
+
+  github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d:
+    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d}
+    name: solady
+    version: 0.0.167
+    dev: false
+
+  github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0:
+    resolution: {tarball: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0}
+    name: ds-test
+    version: 1.0.0
+    dev: false
+
+  github.com/foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3}
+    name: forge-std
+    version: 1.7.5
+    dev: false
+
+  github.com/taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da:
+    resolution: {tarball: https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da}
+    name: p256-verifier#v0.1.0
+    version: 0.0.0
+    dev: false
 
   github.com/taikoxyz/solidity-coverage/ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5(hardhat@2.19.2):
     resolution: {tarball: https://codeload.github.com/taikoxyz/solidity-coverage/tar.gz/ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5}
