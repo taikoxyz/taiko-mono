@@ -193,8 +193,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev getCrossChainBlockHash tests
     function test_L1_getCrossChainBlockHash0() external {
-        bytes32 genHash = L1.getSyncedSnippet(0).blockHash;
-        assertEq(GENESIS_BLOCK_HASH, genHash);
+        vm.expectRevert(TaikoErrors.L1_CHAIN_DATA_NOT_RELAYED.selector);
+        L1.getSyncedSnippet(0).blockHash;
 
         // Reverts if block is not yet verified!
         vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);

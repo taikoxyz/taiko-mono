@@ -77,11 +77,10 @@ library LibUtils {
 
         TaikoData.TransitionState storage ts = state.transitions[slot][blk.verifiedTransitionId];
 
-        // bool relayed = ISignalService(resolver.resolve("signal_service",
-        // false)).isChainDataRelayed(
-        //     config.chainId, LibSignals.STATE_ROOT, ts.stateRoot
-        // );
-        // if (!relayed) revert L1_CHAIN_DATA_NOT_RELAYED();
+        bool relayed = ISignalService(resolver.resolve("signal_service", false)).isChainDataRelayed(
+            config.chainId, LibSignals.STATE_ROOT, ts.stateRoot
+        );
+        if (!relayed) revert L1_CHAIN_DATA_NOT_RELAYED();
 
         return ICrossChainSync.Snippet({
             syncedInBlock: blk.proposedIn,
