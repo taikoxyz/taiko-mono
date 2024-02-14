@@ -1,3 +1,4 @@
+```yaml
 name: Bridge UI v2
 
 on:
@@ -56,3 +57,4 @@ jobs:
         run: pnpm test:unit
 
       # TODO: Playwright tests?
+```  
