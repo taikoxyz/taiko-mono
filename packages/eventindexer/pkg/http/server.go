@@ -24,7 +24,7 @@ import (
 
 // @license.name MIT
 
-// @host eventindexer.jolnir.taiko.xyz
+// @host eventindexer.katla.taiko.xyz
 // Server represents an eventindexer http server instance.
 type Server struct {
 	echo           *echo.Echo
