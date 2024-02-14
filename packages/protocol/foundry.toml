@@ -25,6 +25,8 @@ fs_permissions = [
   { access = "read", path = "./genesis" },
 ]
 
+ignored_error_codes = [5574, 2394]
+
 fuzz = { runs = 256 }
 
 # Workaround as a fixed fuzz seed.

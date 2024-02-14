@@ -10,18 +10,18 @@ contract LibFixedPointMathTest is TaikoTest {
         assertEq(LibFixedPointMath.exp(-1e18), 367_879_441_171_442_321);
     }
 
-    function testExpSmallest() pure view {
+    function testExpSmallest() public view {
         int256 y = LibFixedPointMath.exp(-42_139_678_854_452_767_550);
 
         console2.log("LibFixedPointMath.exp(-42139678854452767550)=", uint256(y));
     }
 
-    function testExpLargest() public pure {
+    function testExpLargest() public view {
         int256 y = LibFixedPointMath.exp(int256(uint256(LibFixedPointMath.MAX_EXP_INPUT)));
         console2.log("LibFixedPointMath.exp(135305999368893231588)=", uint256(y));
     }
 
-    function testExpSome() public pure {
+    function testExpSome() public view {
         int256 y = LibFixedPointMath.exp(5e18);
         console2.log("LibFixedPointMath.exp(5e18)=", uint256(y));
     }
