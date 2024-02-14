@@ -1,20 +1,34 @@
 definitions:
+  eventindexer.ChartItem:
+    properties:
+      date:
+        type: string
+      value:
+        type: string
+    type: object
+  eventindexer.ChartResponse:
+    properties:
+      chart:
+        items:
+          $ref: '#/definitions/eventindexer.ChartItem'
+        type: array
+    type: object
   eventindexer.Stat:
     properties:
       averageProofReward:
         type: string
       averageProofTime:
         type: string
-      averageProposerReward:
+      feeTokenAddress:
         type: string
       id:
         type: integer
+      numBlocksAssigned:
+        type: integer
       numProofs:
         type: integer
-      numProposerRewards:
-        type: integer
-      numVerifiedBlocks:
-        type: integer
+      statType:
+        type: string
     type: object
   eventindexer.UniqueProposersResponse:
     properties:
@@ -34,7 +48,7 @@ definitions:
     properties:
       proposers:
         items:
-          $ref: "#/definitions/eventindexer.UniqueProposersResponse"
+          $ref: '#/definitions/eventindexer.UniqueProposersResponse'
         type: array
       uniqueProposers:
         type: integer
@@ -43,7 +57,7 @@ definitions:
     properties:
       provers:
         items:
-          $ref: "#/definitions/eventindexer.UniqueProversResponse"
+          $ref: '#/definitions/eventindexer.UniqueProversResponse'
         type: array
       uniqueProvers:
         type: integer
@@ -68,7 +82,7 @@ definitions:
       visible:
         type: integer
     type: object
-host: eventindexer.jolnir.taiko.xyz
+host: eventindexer.katla.taiko.xyz
 info:
   contact:
     email: info@taiko.xyz
@@ -83,107 +97,126 @@ paths:
   /assignedBlocks:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-assigned-blocks-by-prover-address
       parameters:
-        - description: address to query
-          in: query
-          name: address
-          required: true
-          type: string
+      - description: address to query
+        in: query
+        name: address
+        required: true
+        type: string
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/paginate.Page"
+            $ref: '#/definitions/paginate.Page'
       summary: Get assigned blocks by prover address
+  /chartByTask:
+    get:
+      consumes:
+      - application/json
+      operationId: get-charts-by-task
+      parameters:
+      - description: task to query
+        in: query
+        name: task
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/eventindexer.ChartResponse'
+      summary: Get time series data for displaying charts
   /events:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-events-by-address-and-event-name
       parameters:
-        - description: address to query
-          in: query
-          name: address
-          required: true
-          type: string
-        - description: event name to query
-          in: query
-          name: event
-          required: true
-          type: string
+      - description: address to query
+        in: query
+        name: address
+        required: true
+        type: string
+      - description: event name to query
+        in: query
+        name: event
+        required: true
+        type: string
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/paginate.Page"
+            $ref: '#/definitions/paginate.Page'
       summary: Get events by address and event name
   /nftsByAddress:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-nft-balances-by-address-and-chain-id
       parameters:
-        - description: address to query
-          in: query
-          name: address
-          required: true
-          type: string
-        - description: chainID to query
-          in: query
-          name: chainID
-          required: true
-          type: string
+      - description: address to query
+        in: query
+        name: address
+        required: true
+        type: string
+      - description: chainID to query
+        in: query
+        name: chainID
+        required: true
+        type: string
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/paginate.Page"
+            $ref: '#/definitions/paginate.Page'
       summary: Get nft balances by address and chain ID
   /stats:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-stats
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/eventindexer.Stat"
+            $ref: '#/definitions/eventindexer.Stat'
       summary: Get stats
   /uniqueProposers:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-unique-proposers
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/http.uniqueProposersResp"
+            $ref: '#/definitions/http.uniqueProposersResp'
       summary: Get unique proposers
   /uniqueProvers:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: get-unique-provers
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/http.uniqueProversResp"
+            $ref: '#/definitions/http.uniqueProversResp'
       summary: Get unique provers
 swagger: "2.0"

@@ -31,6 +31,7 @@ func (indxr *Indexer) indexRawBlockData(
 				slog.Info("processing block data", "blockNum", id)
 
 				block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(id)))
+
 				if err != nil {
 					return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
 				}
@@ -44,6 +45,7 @@ func (indxr *Indexer) indexRawBlockData(
 				for _, tx := range txs {
 					slog.Info("transaction found", "hash", tx.Hash())
 					receipt, err := indxr.ethClient.TransactionReceipt(ctx, tx.Hash())
+
 					if err != nil {
 						return err
 					}
@@ -90,6 +92,7 @@ func (indxr *Indexer) indexRawBlockData(
 			if err := indxr.indexNFTTransfers(ctx, chainID, logs); err != nil {
 				return errors.Wrap(err, "svc.indexNFTTransfers")
 			}
+
 			return nil
 		})
 	}

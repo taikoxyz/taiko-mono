@@ -1,264 +1,339 @@
 {
-  "swagger": "2.0",
-  "info": {
-    "title": "Taiko Eventindexer API",
-    "termsOfService": "http://swagger.io/terms/",
-    "contact": {
-      "name": "API Support",
-      "url": "https://community.taiko.xyz/",
-      "email": "info@taiko.xyz"
+    "swagger": "2.0",
+    "info": {
+        "title": "Taiko Eventindexer API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "https://community.taiko.xyz/",
+            "email": "info@taiko.xyz"
+        },
+        "license": {
+            "name": "MIT"
+        },
+        "version": "1.0"
     },
-    "license": {
-      "name": "MIT"
-    },
-    "version": "1.0"
-  },
-  "host": "eventindexer.jolnir.taiko.xyz",
-  "paths": {
-    "/assignedBlocks": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get assigned blocks by prover address",
-        "operationId": "get-assigned-blocks-by-prover-address",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "address to query",
-            "name": "address",
-            "in": "query",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/paginate.Page"
+    "host": "eventindexer.katla.taiko.xyz",
+    "paths": {
+        "/assignedBlocks": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get assigned blocks by prover address",
+                "operationId": "get-assigned-blocks-by-prover-address",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "address to query",
+                        "name": "address",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginate.Page"
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    },
-    "/events": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get events by address and event name",
-        "operationId": "get-events-by-address-and-event-name",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "address to query",
-            "name": "address",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "description": "event name to query",
-            "name": "event",
-            "in": "query",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/paginate.Page"
+        },
+        "/chartByTask": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get time series data for displaying charts",
+                "operationId": "get-charts-by-task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task to query",
+                        "name": "task",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/eventindexer.ChartResponse"
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    },
-    "/nftsByAddress": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get nft balances by address and chain ID",
-        "operationId": "get-nft-balances-by-address-and-chain-id",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "address to query",
-            "name": "address",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "description": "chainID to query",
-            "name": "chainID",
-            "in": "query",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/paginate.Page"
+        },
+        "/events": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get events by address and event name",
+                "operationId": "get-events-by-address-and-event-name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "address to query",
+                        "name": "address",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "event name to query",
+                        "name": "event",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginate.Page"
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    },
-    "/stats": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get stats",
-        "operationId": "get-stats",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/eventindexer.Stat"
+        },
+        "/nftsByAddress": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get nft balances by address and chain ID",
+                "operationId": "get-nft-balances-by-address-and-chain-id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "address to query",
+                        "name": "address",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "chainID to query",
+                        "name": "chainID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginate.Page"
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    },
-    "/uniqueProposers": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get unique proposers",
-        "operationId": "get-unique-proposers",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/http.uniqueProposersResp"
+        },
+        "/stats": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get stats",
+                "operationId": "get-stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/eventindexer.Stat"
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    },
-    "/uniqueProvers": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get unique provers",
-        "operationId": "get-unique-provers",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/http.uniqueProversResp"
+        },
+        "/uniqueProposers": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get unique proposers",
+                "operationId": "get-unique-proposers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.uniqueProposersResp"
+                        }
+                    }
+                }
             }
-          }
+        },
+        "/uniqueProvers": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get unique provers",
+                "operationId": "get-unique-provers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.uniqueProversResp"
+                        }
+                    }
+                }
+            }
         }
-      }
+    },
+    "definitions": {
+        "eventindexer.ChartItem": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "eventindexer.ChartResponse": {
+            "type": "object",
+            "properties": {
+                "chart": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/eventindexer.ChartItem"
+                    }
+                }
+            }
+        },
+        "eventindexer.Stat": {
+            "type": "object",
+            "properties": {
+                "averageProofReward": {
+                    "type": "string"
+                },
+                "averageProofTime": {
+                    "type": "string"
+                },
+                "feeTokenAddress": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "numBlocksAssigned": {
+                    "type": "integer"
+                },
+                "numProofs": {
+                    "type": "integer"
+                },
+                "statType": {
+                    "type": "string"
+                }
+            }
+        },
+        "eventindexer.UniqueProposersResponse": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "eventindexer.UniqueProversResponse": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "http.uniqueProposersResp": {
+            "type": "object",
+            "properties": {
+                "proposers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/eventindexer.UniqueProposersResponse"
+                    }
+                },
+                "uniqueProposers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "http.uniqueProversResp": {
+            "type": "object",
+            "properties": {
+                "provers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/eventindexer.UniqueProversResponse"
+                    }
+                },
+                "uniqueProvers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "paginate.Page": {
+            "type": "object",
+            "properties": {
+                "first": {
+                    "type": "boolean"
+                },
+                "items": {},
+                "last": {
+                    "type": "boolean"
+                },
+                "max_page": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                },
+                "visible": {
+                    "type": "integer"
+                }
+            }
+        }
     }
-  },
-  "definitions": {
-    "eventindexer.Stat": {
-      "type": "object",
-      "properties": {
-        "averageProofReward": {
-          "type": "string"
-        },
-        "averageProofTime": {
-          "type": "string"
-        },
-        "averageProposerReward": {
-          "type": "string"
-        },
-        "id": {
-          "type": "integer"
-        },
-        "numProofs": {
-          "type": "integer"
-        },
-        "numProposerRewards": {
-          "type": "integer"
-        },
-        "numVerifiedBlocks": {
-          "type": "integer"
-        }
-      }
-    },
-    "eventindexer.UniqueProposersResponse": {
-      "type": "object",
-      "properties": {
-        "address": {
-          "type": "string"
-        },
-        "count": {
-          "type": "integer"
-        }
-      }
-    },
-    "eventindexer.UniqueProversResponse": {
-      "type": "object",
-      "properties": {
-        "address": {
-          "type": "string"
-        },
-        "count": {
-          "type": "integer"
-        }
-      }
-    },
-    "http.uniqueProposersResp": {
-      "type": "object",
-      "properties": {
-        "proposers": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/eventindexer.UniqueProposersResponse"
-          }
-        },
-        "uniqueProposers": {
-          "type": "integer"
-        }
-      }
-    },
-    "http.uniqueProversResp": {
-      "type": "object",
-      "properties": {
-        "provers": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/eventindexer.UniqueProversResponse"
-          }
-        },
-        "uniqueProvers": {
-          "type": "integer"
-        }
-      }
-    },
-    "paginate.Page": {
-      "type": "object",
-      "properties": {
-        "first": {
-          "type": "boolean"
-        },
-        "items": {},
-        "last": {
-          "type": "boolean"
-        },
-        "max_page": {
-          "type": "integer"
-        },
-        "page": {
-          "type": "integer"
-        },
-        "size": {
-          "type": "integer"
-        },
-        "total": {
-          "type": "integer"
-        },
-        "total_pages": {
-          "type": "integer"
-        },
-        "visible": {
-          "type": "integer"
-        }
-      }
-    }
-  }
 }
