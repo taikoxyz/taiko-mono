@@ -243,9 +243,6 @@ async function generateContractConfigs(
                 addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("taiko"),
-                        )]: addressMap.TaikoL2,
-                        [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
                         )]: addressMap.Bridge,
                         [ethers.utils.hexlify(
