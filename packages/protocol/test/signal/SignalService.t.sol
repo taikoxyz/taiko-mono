@@ -51,9 +51,7 @@ contract TestSignalService is TaikoTest {
         );
 
         taiko = randAddress();
-
         signalService.authorizeRelayer(taiko, true);
-
         vm.stopPrank();
     }
 
