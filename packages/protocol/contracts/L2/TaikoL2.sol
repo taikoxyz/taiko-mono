@@ -50,7 +50,7 @@ contract TaikoL2 is CrossChainOwned {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 2
     uint64 public gasExcess; // slot 3
-    uint64 public latestSyncedL1Height;
+    uint64 public latestRelayedL1BlockId;
 
     uint256[147] private __gap;
 
@@ -140,16 +140,18 @@ contract TaikoL2 is CrossChainOwned {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        // Store the L1's state root as a signal to the local signal service to
-        // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).relayChainData(
-            ownerChainId, l1BlockId, LibSignals.STATE_ROOT, l1StateRoot
-        );
-
+        if (l1BlockId != latestRelayedL1BlockId) {
+            // Store the L1's state root as a signal to the local signal service to
+            // allow for multi-hop bridging.
+            ISignalService(resolve("signal_service", false)).relayChainData(
+                ownerChainId, l1BlockId, LibSignals.STATE_ROOT, l1StateRoot
+            );
+            latestRelayedL1BlockId = l1BlockId;
+        }
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         publicInputHash = publicInputHashNew;
-        latestSyncedL1Height = l1BlockId;
+
         emit Anchored(blockhash(parentId), gasExcess);
     }
 
@@ -252,13 +254,13 @@ contract TaikoL2 is CrossChainOwned {
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
-            // Note that when latestSyncedL1Height is zero, we skip this step
+            // Note that when latestRelayedL1BlockId is zero, we skip this step
             // because that means this is the first time calculating the basefee
             // and the difference between the L1 height would be extremely big,
             // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
-            if (latestSyncedL1Height > 0 && l1BlockId > latestSyncedL1Height) {
-                numL1Blocks = l1BlockId - latestSyncedL1Height;
+            if (latestRelayedL1BlockId > 0 && l1BlockId > latestRelayedL1BlockId) {
+                numL1Blocks = l1BlockId - latestRelayedL1BlockId;
             }
 
             if (numL1Blocks > 0) {
