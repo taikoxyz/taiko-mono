@@ -45,7 +45,11 @@ contract SignalService is EssentialContract, ISignalService {
     /// @notice Emitted when a remote chain's state root or signal root is relayed locally as a
     /// signal.
     event ChainDataRelayed(
-        uint64 indexed chainid, uint64 blockId, bytes32 indexed kind, bytes32 data, bytes32 signal
+        uint64 indexed chainid,
+        uint64 indexed blockId,
+        bytes32 indexed kind,
+        bytes32 data,
+        bytes32 signal
     );
 
     error SS_EMPTY_PROOF();
