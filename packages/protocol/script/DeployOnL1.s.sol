@@ -116,7 +116,6 @@ contract DeployOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
         copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
-        copyRegister(sharedAddressManager, rollupAddressManager, "taiko");
 
         address proposer = vm.envAddress("PROPOSER");
         if (proposer != address(0)) {
