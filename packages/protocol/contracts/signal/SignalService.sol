@@ -69,7 +69,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         onlyFromNamed("taiko")
-        returns (bytes32 slot)
+        returns (bytes32 signal)
     {
         return _relayChainData(chainId, kind, data);
     }
@@ -193,8 +193,8 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 signal)
     {
         signal = signalForChainData(chainId, kind, data);
-        emit ChainDataRelayed(chainId, kind, data, signal);
         _sendSignal(address(this), signal);
+        emit ChainDataRelayed(chainId, kind, data, signal);
     }
 
     function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
