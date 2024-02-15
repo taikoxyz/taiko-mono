@@ -11,6 +11,8 @@ optimizer_runs = 200
 ffi = true
 gas_limit = '18446744073709551615'
 memory_limit = 2073741824
+
+# David C: do we need to remove this as well?
 evm_version = 'cancun'
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
