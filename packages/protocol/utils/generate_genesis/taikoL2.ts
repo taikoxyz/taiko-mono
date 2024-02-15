@@ -243,6 +243,9 @@ async function generateContractConfigs(
                 addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("taiko"),
+                        )]: addressMap.TaikoL2,
+                        [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
                         )]: addressMap.Bridge,
                         [ethers.utils.hexlify(
@@ -459,6 +462,8 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
+                // AddressResolver
+                addressManager: addressMap.SharedAddressManager,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,
