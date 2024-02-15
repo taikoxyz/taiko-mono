@@ -18,10 +18,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/ICrossChainSync.sol";
-import "../signal/ISignalService.sol";
-import "../signal/LibSignals.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../signal/ISignalService.sol";
+import "../signal/LibSignals.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
@@ -102,19 +102,19 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     /// @param l1BlockHash The latest L1 block hash when this block was
     /// proposed.
     /// @param l1StateRoot The latest L1 block's state root.
-    /// @param l1Height The latest L1 block height when this block was proposed.
+    /// @param l1BlockId The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1BlockHash,
         bytes32 l1StateRoot,
-        uint64 l1Height,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         external
         nonReentrant
     {
         if (
-            l1BlockHash == 0 || l1StateRoot == 0 || l1Height == 0
+            l1BlockHash == 0 || l1StateRoot == 0 || l1BlockId == 0
                 || (block.number != 1 && parentGasUsed == 0)
         ) {
             revert L2_INVALID_PARAM();
@@ -137,7 +137,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
+        (basefee, gasExcess) = _calc1559BaseFee(config, l1BlockId, parentGasUsed);
         if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
@@ -145,21 +145,19 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
         ISignalService(resolve("signal_service", false)).relayChainData(
-            ownerChainId, LibSignals.STATE_ROOT, l1StateRoot
+            ownerChainId, l1BlockId, LibSignals.STATE_ROOT, l1StateRoot
         );
-
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] = ICrossChainSync.Snippet({
+        snippets[l1BlockId] = ICrossChainSync.Snippet({
             syncedInBlock: uint64(block.number),
-            blockId: l1Height,
+            blockId: l1BlockId,
             blockHash: l1BlockHash,
             stateRoot: l1StateRoot
         });
         publicInputHash = publicInputHashNew;
-        latestSyncedL1Height = l1Height;
+        latestSyncedL1Height = l1BlockId;
         emit Anchored(blockhash(parentId), gasExcess);
     }
 
@@ -186,18 +184,18 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param l1Height The synced L1 height in the next Taiko block
+    /// @param l1BlockId The synced L1 height in the next Taiko block
     /// @param parentGasUsed Gas used in the parent block.
     /// @return basefee The calculated EIP-1559 base fee per gas.
     function getBasefee(
-        uint64 l1Height,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         public
         view
         returns (uint256 basefee)
     {
-        (basefee,) = _calc1559BaseFee(getConfig(), l1Height, parentGasUsed);
+        (basefee,) = _calc1559BaseFee(getConfig(), l1BlockId, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -257,7 +255,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
     function _calc1559BaseFee(
         Config memory config,
-        uint64 l1Height,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         private
@@ -278,8 +276,8 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             // and the difference between the L1 height would be extremely big,
             // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
-            if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
-                numL1Blocks = l1Height - latestSyncedL1Height;
+            if (latestSyncedL1Height > 0 && l1BlockId > latestSyncedL1Height) {
+                numL1Blocks = l1BlockId - latestSyncedL1Height;
             }
 
             if (numL1Blocks > 0) {

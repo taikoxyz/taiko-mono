@@ -175,6 +175,7 @@ contract TestSignalService is TaikoTest {
 
         // proofs[0].chainId must be block.chainid in order not to revert
         proofs[0].chainId = uint64(block.chainid + 1);
+        proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
@@ -195,6 +196,7 @@ contract TestSignalService is TaikoTest {
 
         // proofs[0].chainId must NOT be block.chainid in order not to revert
         proofs[0].chainId = uint64(block.chainid);
+        proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
@@ -215,6 +217,7 @@ contract TestSignalService is TaikoTest {
 
         // proofs[0].chainId must NOT be block.chainid in order not to revert
         proofs[0].chainId = srcChainId + 1;
+        proofs[0].blockId = 1;
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -241,6 +244,7 @@ contract TestSignalService is TaikoTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
+        proofs[0].blockId = 1;
 
         // the proof is a storage proof
         proofs[0].accountProof = new bytes[](0);
@@ -275,6 +279,7 @@ contract TestSignalService is TaikoTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
+        proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
 
         // the proof is a storage proof
@@ -291,7 +296,9 @@ contract TestSignalService is TaikoTest {
 
         // relay the signal root
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash);
+        signalService.relayChainData(
+            srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash
+        );
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -309,6 +316,7 @@ contract TestSignalService is TaikoTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
+        proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
 
         // the proof is a full merkle proof
@@ -325,7 +333,9 @@ contract TestSignalService is TaikoTest {
 
         // relay the state root
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, LibSignals.STATE_ROOT, proofs[0].rootHash);
+        signalService.relayChainData(
+            srcChainId, proofs[0].blockId, LibSignals.STATE_ROOT, proofs[0].rootHash
+        );
 
         // Should not revert
         signalService.proveSignalReceived({
@@ -337,13 +347,13 @@ contract TestSignalService is TaikoTest {
 
         assertEq(
             signalService.isChainDataRelayed(
-                srcChainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+                srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
             ),
             false
         );
     }
 
-    function test_SignalService_proveSignalReceived_multiple_hops() public {
+    function test_SignalService_proveSignalReceived_multiple_hops_no_caching() public {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
@@ -353,18 +363,21 @@ contract TestSignalService is TaikoTest {
 
         // first hop with full merkle proof
         proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
 
         // second hop with storage merkle proof
         proofs[1].chainId = uint64(block.chainid + 3);
+        proofs[1].blockId = 2;
         proofs[1].rootHash = randBytes32();
         proofs[1].accountProof = new bytes[](0);
         proofs[1].storageProof = new bytes[](10);
 
         // third/last hop with full merkle proof
         proofs[2].chainId = uint64(block.chainid);
+        proofs[2].blockId = 3;
         proofs[2].rootHash = randBytes32();
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
@@ -377,7 +390,6 @@ contract TestSignalService is TaikoTest {
                 strToBytes32("signal_service")
             )
         );
-
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -400,7 +412,9 @@ contract TestSignalService is TaikoTest {
         });
 
         vm.prank(taiko);
-        signalService.relayChainData(proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].rootHash);
+        signalService.relayChainData(
+            proofs[1].chainId, proofs[2].blockId, LibSignals.STATE_ROOT, proofs[2].rootHash
+        );
 
         signalService.proveSignalReceived({
             chainId: srcChainId,
@@ -418,6 +432,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 1:  full merkle proof, CACHE_NOTHING
         proofs[0].chainId = nextChainId++;
+        proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
@@ -425,6 +440,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 2:  full merkle proof, CACHE_STATE_ROOT
         proofs[1].chainId = nextChainId++;
+        proofs[1].blockId = 2;
         proofs[1].rootHash = randBytes32();
         proofs[1].accountProof = new bytes[](1);
         proofs[1].storageProof = new bytes[](10);
@@ -432,6 +448,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 3:  full merkle proof, CACHE_SIGNAL_ROOT
         proofs[2].chainId = nextChainId++;
+        proofs[2].blockId = 3;
         proofs[2].rootHash = randBytes32();
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
@@ -439,6 +456,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 4:  full merkle proof, CACHE_BOTH
         proofs[3].chainId = nextChainId++;
+        proofs[3].blockId = 4;
         proofs[3].rootHash = randBytes32();
         proofs[3].accountProof = new bytes[](1);
         proofs[3].storageProof = new bytes[](10);
@@ -446,6 +464,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 5:  storage merkle proof, CACHE_NOTHING
         proofs[4].chainId = nextChainId++;
+        proofs[4].blockId = 5;
         proofs[4].rootHash = randBytes32();
         proofs[4].accountProof = new bytes[](0);
         proofs[4].storageProof = new bytes[](10);
@@ -453,6 +472,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 6:  storage merkle proof, CACHE_STATE_ROOT
         proofs[5].chainId = nextChainId++;
+        proofs[5].blockId = 6;
         proofs[5].rootHash = randBytes32();
         proofs[5].accountProof = new bytes[](0);
         proofs[5].storageProof = new bytes[](10);
@@ -460,6 +480,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 7:  storage merkle proof, CACHE_SIGNAL_ROOT
         proofs[6].chainId = nextChainId++;
+        proofs[6].blockId = 7;
         proofs[6].rootHash = randBytes32();
         proofs[6].accountProof = new bytes[](0);
         proofs[6].storageProof = new bytes[](10);
@@ -467,6 +488,7 @@ contract TestSignalService is TaikoTest {
 
         // hop 8:  storage merkle proof, CACHE_BOTH
         proofs[7].chainId = nextChainId++;
+        proofs[7].blockId = 8;
         proofs[7].rootHash = randBytes32();
         proofs[7].accountProof = new bytes[](0);
         proofs[7].storageProof = new bytes[](10);
@@ -474,6 +496,7 @@ contract TestSignalService is TaikoTest {
 
         // last hop, 9:  full merkle proof, CACHE_BOTH
         proofs[8].chainId = uint64(block.chainid);
+        proofs[8].blockId = 9;
         proofs[8].rootHash = randBytes32();
         proofs[8].accountProof = new bytes[](1);
         proofs[8].storageProof = new bytes[](10);
@@ -490,7 +513,9 @@ contract TestSignalService is TaikoTest {
         vm.stopPrank();
 
         vm.prank(taiko);
-        signalService.relayChainData(proofs[7].chainId, LibSignals.STATE_ROOT, proofs[8].rootHash);
+        signalService.relayChainData(
+            proofs[7].chainId, proofs[8].blockId, LibSignals.STATE_ROOT, proofs[8].rootHash
+        );
 
         signalService.proveSignalReceived({
             chainId: srcChainId,
@@ -500,33 +525,29 @@ contract TestSignalService is TaikoTest {
         });
 
         // hop 1:  full merkle proof, CACHE_NOTHING
-        _verifyCache(srcChainId, proofs[0].rootHash, false, false);
+        _verifyCache(srcChainId, proofs[0].blockId, proofs[0].rootHash, false, false);
         // hop 2:  full merkle proof, CACHE_STATE_ROOT
-        _verifyCache(proofs[0].chainId, proofs[1].rootHash, true, false);
+        _verifyCache(proofs[0].chainId, proofs[1].blockId, proofs[1].rootHash, true, false);
         // hop 3:  full merkle proof, CACHE_SIGNAL_ROOT
-        _verifyCache(proofs[1].chainId, proofs[2].rootHash, false, true);
+        _verifyCache(proofs[1].chainId, proofs[2].blockId, proofs[2].rootHash, false, true);
         // hop 4:  full merkle proof, CACHE_BOTH
-        _verifyCache(proofs[2].chainId, proofs[3].rootHash, true, true);
-
+        _verifyCache(proofs[2].chainId, proofs[3].blockId, proofs[3].rootHash, true, true);
         // hop 5:  storage merkle proof, CACHE_NOTHING
-        _verifyCache(proofs[3].chainId, proofs[4].rootHash, false, false);
-
+        _verifyCache(proofs[3].chainId, proofs[4].blockId, proofs[4].rootHash, false, false);
         // hop 6:  storage merkle proof, CACHE_STATE_ROOT
-        _verifyCache(proofs[4].chainId, proofs[5].rootHash, false, false);
-
+        _verifyCache(proofs[4].chainId, proofs[5].blockId, proofs[5].rootHash, false, false);
         // hop 7:  storage merkle proof, CACHE_SIGNAL_ROOT
-        _verifyCache(proofs[5].chainId, proofs[6].rootHash, false, true);
-
+        _verifyCache(proofs[5].chainId, proofs[6].blockId, proofs[6].rootHash, false, true);
         // hop 8:  storage merkle proof, CACHE_BOTH
-        _verifyCache(proofs[6].chainId, proofs[7].rootHash, false, true);
-
+        _verifyCache(proofs[6].chainId, proofs[7].blockId, proofs[7].rootHash, false, true);
         // last hop, 9:  full merkle proof, CACHE_BOTH
         // last hop's state root is already cached even before the proveSignalReceived call.
-        _verifyCache(proofs[7].chainId, proofs[8].rootHash, true, true);
+        _verifyCache(proofs[7].chainId, proofs[8].blockId, proofs[8].rootHash, true, true);
     }
 
     function _verifyCache(
         uint64 chainId,
+        uint64 blockId,
         bytes32 stateRoot,
         bool stateRootCached,
         bool signalRootCached
@@ -534,12 +555,14 @@ contract TestSignalService is TaikoTest {
         private
     {
         assertEq(
-            signalService.isChainDataRelayed(chainId, LibSignals.STATE_ROOT, stateRoot),
+            signalService.isChainDataRelayed(chainId, blockId, LibSignals.STATE_ROOT, stateRoot),
             stateRootCached
         );
 
         assertEq(
-            signalService.isChainDataRelayed(chainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))),
+            signalService.isChainDataRelayed(
+                chainId, blockId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+            ),
             signalRootCached
         );
     }
