@@ -17,7 +17,6 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
-import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
@@ -37,14 +36,6 @@ library LibVerifying {
         bytes32 stateRoot,
         uint16 tier,
         uint8 contestations
-    );
-
-    event StateRootRelayed(
-        uint64 indexed chainid,
-        uint64 indexed blockId,
-        address signalService,
-        bytes32 stateRoot,
-        bytes32 signal
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -244,30 +235,13 @@ library LibVerifying {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                _relayStateRoot(config, resolver, lastVerifiedBlockId, stateRoot);
+                LibSignals.relayStateRoot(
+                    resolver.resolve("signal_service", false),
+                    config.chainId,
+                    lastVerifiedBlockId,
+                    stateRoot
+                );
             }
         }
-    }
-
-    function _relayStateRoot(
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint64 lastVerifiedBlockId,
-        bytes32 stateRoot
-    )
-        private
-    {
-        // Store the L2's state root as a signal to the local signal
-        // service to allow for multi-hop bridging.
-        //
-        // This also means if we verified more than one block, only the last one's stateRoot
-        // is sent as a signal and verifiable with merkle proofs, all other blocks'
-        // stateRoot are not.
-        address signalService = resolver.resolve("signal_service", false);
-        bytes32 signal = ISignalService(signalService).relayChainData(
-            config.chainId, LibSignals.STATE_ROOT, stateRoot
-        );
-
-        emit StateRootRelayed(config.chainId, lastVerifiedBlockId, signalService, stateRoot, signal);
     }
 }

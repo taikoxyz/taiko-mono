@@ -17,10 +17,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../signal/ISignalService.sol";
-import "../signal/LibSignals.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../signal/LibSignals.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
@@ -40,15 +39,6 @@ contract TaikoL2 is CrossChainOwned {
         uint8 basefeeAdjustmentQuotient;
     }
 
-    /// @dev Emitted when a L1 state root is relayted locally by the signal service.
-    event StateRootRelayed(
-        uint64 indexed chainid,
-        uint64 indexed blockId,
-        address signalService,
-        bytes32 stateRoot,
-        bytes32 signal
-    );
-
     // Golden touch address
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
@@ -62,6 +52,15 @@ contract TaikoL2 is CrossChainOwned {
     uint64 public latestSyncedL1Height;
 
     uint256[147] private __gap;
+
+    /// @dev Emitted when a L1 state root is relayted locally by the signal service.
+    event StateRootRelayed(
+        uint64 indexed chainid,
+        uint64 indexed blockId,
+        address signalService,
+        bytes32 stateRoot,
+        bytes32 signal
+    );
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -151,11 +150,9 @@ contract TaikoL2 is CrossChainOwned {
 
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        address signalService = resolve("signal_service", false);
-        bytes32 signal = ISignalService(signalService).relayChainData(
-            ownerChainId, LibSignals.STATE_ROOT, l1StateRoot
+        LibSignals.relayStateRoot(
+            resolve("signal_service", false), ownerChainId, l1Height, l1StateRoot
         );
-        emit StateRootRelayed(ownerChainId, l1Height, signalService, l1StateRoot, signal);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
