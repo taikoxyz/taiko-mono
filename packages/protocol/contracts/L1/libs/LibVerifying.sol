@@ -39,6 +39,14 @@ library LibVerifying {
         uint8 contestations
     );
 
+    event StateRootRelayed(
+        uint64 indexed chainid,
+        uint64 indexed blockId,
+        address signalService,
+        bytes32 stateRoot,
+        bytes32 signal
+    );
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -234,20 +242,37 @@ library LibVerifying {
 
             if (numBlocksVerified > 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
-
-                // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Store the L2's state root as a signal to the local signal
-                // service to allow for multi-hop bridging.
-                //
-                // This also means if we verified more than one block, only the last one's stateRoot
-                // is sent as a signal and verifiable with merkle proofs, all other blocks'
-                // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).relayChainData(
-                    config.chainId, LibSignals.STATE_ROOT, stateRoot
-                );
+                _relayStateRoot(config, resolver, lastVerifiedBlockId, stateRoot);
             }
         }
+    }
+
+    function _relayStateRoot(
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint64 lastVerifiedBlockId,
+        bytes32 stateRoot
+    )
+        private
+    {
+        // Store the L2's state root as a signal to the local signal
+        // service to allow for multi-hop bridging.
+        //
+        // This also means if we verified more than one block, only the last one's stateRoot
+        // is sent as a signal and verifiable with merkle proofs, all other blocks'
+        // stateRoot are not.
+        address signalService = resolver.resolve("signal_service", false);
+
+        emit StateRootRelayed(
+            config.chainId,
+            lastVerifiedBlockId,
+            signalService,
+            stateRoot,
+            ISignalService(signalService).relayChainData(
+                config.chainId, LibSignals.STATE_ROOT, stateRoot
+            )
+        );
     }
 }

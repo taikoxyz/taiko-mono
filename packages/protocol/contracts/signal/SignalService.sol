@@ -41,7 +41,9 @@ contract SignalService is EssentialContract, ISignalService {
 
     uint256[50] private __gap;
 
-    event SnippetRelayed(
+    /// @notice Emitted when a remote chain's state root or signal root is relayed locally as a
+    /// signal.
+    event ChainDataRelayed(
         uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
     );
 
@@ -188,11 +190,11 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 data
     )
         internal
-        returns (bytes32 slot)
+        returns (bytes32 signal)
     {
-        bytes32 signal = signalForChainData(chainId, kind, data);
-        emit SnippetRelayed(chainId, kind, data, signal);
-        return _sendSignal(address(this), signal);
+        signal = signalForChainData(chainId, kind, data);
+        emit ChainDataRelayed(chainId, kind, data, signal);
+        _sendSignal(address(this), signal);
     }
 
     function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
