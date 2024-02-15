@@ -243,9 +243,6 @@ async function generateContractConfigs(
                 addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("taiko"),
-                        )]: addressMap.TaikoL2,
-                        [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
                         )]: addressMap.Bridge,
                         [ethers.utils.hexlify(
@@ -299,6 +296,7 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -333,6 +331,7 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -367,6 +366,7 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -401,6 +401,7 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
@@ -459,11 +460,15 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
                 addressManager: addressMap.SharedAddressManager,
+                isRelayerAuthorized: {
+                    [addressMap.TaikoL2]: true,
+                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,
