@@ -65,7 +65,7 @@ library TaikoData {
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
         // The max number of L2 blocks that can stay unsyned on L1
-        uint8 maxUnsyncedL2Blocks;
+        uint8 maxUnrelayedL2Blocks;
     }
 
     /// @dev Struct representing prover assignment
@@ -181,7 +181,7 @@ library TaikoData {
         bool provingPaused;
         uint8 __reserved1;
         uint16 __reserved2;
-        uint32 unsyncedL2Blocks;
+        uint32 unrelayedL2Blocks;
         uint64 lastUnpausedAt;
     }
 

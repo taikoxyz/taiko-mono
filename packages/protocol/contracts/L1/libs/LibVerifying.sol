@@ -243,15 +243,15 @@ library LibVerifying {
                 // is sent as a signal and verifiable with merkle proofs, all other blocks'
                 // stateRoot are not.
 
-                uint256 unsyncedL2Blocks = numBlocksVerified + b.unsyncedL2Blocks;
-                if (unsyncedL2Blocks < config.maxUnsyncedL2Blocks) {
-                    // config.maxUnsyncedL2Blocks is uint8
-                    state.slotB.unsyncedL2Blocks = uint8(unsyncedL2Blocks);
+                uint256 unrelayedL2Blocks = numBlocksVerified + b.unrelayedL2Blocks;
+                if (unrelayedL2Blocks < config.maxUnrelayedL2Blocks) {
+                    // config.maxUnrelayedL2Blocks is uint8
+                    state.slotB.unrelayedL2Blocks = uint8(unrelayedL2Blocks);
                 } else {
                     ISignalService(resolver.resolve("signal_service", false)).relayChainData(
                         config.chainId, lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
                     );
-                    state.slotB.unsyncedL2Blocks = 0;
+                    state.slotB.unrelayedL2Blocks = 0;
                 }
             }
         }

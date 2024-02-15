@@ -42,8 +42,8 @@ contract TaikoL2 is CrossChainOwned {
 
     // Golden touch address
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint8 public constant MAX_UNSYNCED_L1_BLOCKS = 5;
-    
+    uint8 public constant MAX_UNRELAYED_L1_BLOCKS = 5;
+
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
@@ -141,7 +141,7 @@ contract TaikoL2 is CrossChainOwned {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        if (l1BlockId > latestRelayedL1BlockId + MAX_UNSYNCED_L1_BLOCKS) {
+        if (l1BlockId > latestRelayedL1BlockId + MAX_UNRELAYED_L1_BLOCKS) {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
             ISignalService(resolve("signal_service", false)).relayChainData(
