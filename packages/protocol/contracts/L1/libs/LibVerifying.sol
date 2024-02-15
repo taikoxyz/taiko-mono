@@ -39,9 +39,7 @@ library LibVerifying {
         uint8 contestations
     );
 
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
-    );
+
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
@@ -139,8 +137,8 @@ library LibVerifying {
 
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
+        ISignalService signalService = ISignalService(resolver.resolve("signal_service", false));
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
-        bytes32 stateRoot;
         uint64 numBlocksVerified;
         address tierProvider;
 
@@ -190,7 +188,6 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
-                stateRoot = ts.stateRoot;
 
                 // We consistently return the liveness bond and the validity
                 // bond to the actual prover of the transition utilized for
@@ -215,6 +212,8 @@ library LibVerifying {
                 IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
                 tko.transfer(ts.prover, bondToReturn);
 
+                signalService.relayChainData(config.chainId, LibSignals.STATE_ROOT, ts.stateRoot);
+
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
                 // other transitions for this block, we disregard them entirely.
@@ -227,35 +226,19 @@ library LibVerifying {
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: blockHash,
-                    stateRoot: stateRoot,
+                    stateRoot: ts.stateRoot,
                     tier: ts.tier,
                     contestations: ts.contestations
                 });
-
-                ++blockId;
-                ++numBlocksVerified;
             }
 
-            if (numBlocksVerified > 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+            ++blockId;
+            ++numBlocksVerified;
+        }
 
-                // Update protocol level state variables
-                state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-
-                // Store the L2's state root as a signal to the local signal
-                // service to allow for multi-hop bridging.
-                //
-                // This also means if we verified more than one block, only the last one's stateRoot
-                // is sent as a signal and verifiable with merkle proofs, all other blocks'
-                // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).relayChainData(
-                    config.chainId, LibSignals.STATE_ROOT, stateRoot
-                );
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
-                );
-            }
+        if (numBlocksVerified > 0) {
+            // Update protocol level state variables
+            state.slotB.lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
         }
     }
 }

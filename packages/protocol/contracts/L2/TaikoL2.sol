@@ -148,7 +148,6 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             ownerChainId, LibSignals.STATE_ROOT, l1StateRoot
         );
 
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
