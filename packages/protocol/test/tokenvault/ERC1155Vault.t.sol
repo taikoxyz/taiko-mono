@@ -99,7 +99,6 @@ contract ERC1155VaultTest is TaikoTest {
     ERC1155Vault destChainErc1155Vault;
     TestTokenERC1155 ctoken1155;
     SignalService signalService;
-    DummyCrossChainSync crossChainSync;
     uint64 destChainId = 19_389;
 
     function setUp() public {
@@ -174,7 +173,6 @@ contract ERC1155VaultTest is TaikoTest {
             })
         );
 
-        crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
             uint64(block.chainid), "signal_service", address(mockProofSignalService)

@@ -39,10 +39,6 @@ library LibVerifying {
         uint8 contestations
     );
 
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
-    );
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -250,10 +246,6 @@ library LibVerifying {
                 // stateRoot are not.
                 ISignalService(resolver.resolve("signal_service", false)).relayChainData(
                     config.chainId, LibSignals.STATE_ROOT, stateRoot
-                );
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
                 );
             }
         }
