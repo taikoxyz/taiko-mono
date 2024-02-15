@@ -55,8 +55,8 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_SIGNAL();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
-    error SS_UNSUPPORTED();
     error SS_UNAUTHORIZED();
+    error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
