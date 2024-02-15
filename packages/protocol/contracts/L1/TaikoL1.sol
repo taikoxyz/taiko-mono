@@ -226,7 +226,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10
+            ethDepositMaxFee: 1 ether / 10,
+            maxUnsyncedL2Blocks: 16
         });
     }
 

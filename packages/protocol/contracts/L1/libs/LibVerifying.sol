@@ -242,9 +242,17 @@ library LibVerifying {
                 // This also means if we verified more than one block, only the last one's stateRoot
                 // is sent as a signal and verifiable with merkle proofs, all other blocks'
                 // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).relayChainData(
-                    config.chainId, lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
-                );
+
+                uint256 unsyncedL2Blocks = numBlocksVerified + b.unsyncedL2Blocks;
+                if (unsyncedL2Blocks < config.maxUnsyncedL2Blocks) {
+                    // config.maxUnsyncedL2Blocks is uint8
+                    state.slotB.unsyncedL2Blocks = uint8(unsyncedL2Blocks);
+                } else {
+                    ISignalService(resolver.resolve("signal_service", false)).relayChainData(
+                        config.chainId, lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
+                    );
+                    state.slotB.unsyncedL2Blocks = 0;
+                }
             }
         }
     }
