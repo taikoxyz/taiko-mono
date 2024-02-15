@@ -137,7 +137,9 @@ contract Bridge is EssentialContract, IBridge {
         returns (bytes32 msgHash, Message memory _message)
     {
         // Ensure the message owner is not null.
-        if (message.owner == address(0)) revert B_INVALID_USER();
+        if (message.srcOwner == address(0) || message.destOwner == address(0)) {
+            revert B_INVALID_USER();
+        }
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
@@ -227,7 +229,7 @@ contract Bridge is EssentialContract, IBridge {
                 // Reset the context after the message call
                 _resetContext();
             } else {
-                message.owner.sendEther(message.value);
+                message.srcOwner.sendEther(message.value);
             }
             emit MessageRecalled(msgHash);
         } else if (!isMessageProven) {
@@ -238,7 +240,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Processes a bridge message on the destination chain. This
-    /// function is callable by any address, including the `message.owner`.
+    /// function is callable by any address, including the `message.destOwner`.
     /// @dev The process begins by hashing the message and checking the message
     /// status in the bridge  If the status is "NEW", the message is invoked. The
     /// status is updated accordingly, and processing fees are refunded as
@@ -254,10 +256,6 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // TODO(Brecht): `message.owner`, but this is the `msg.sender` on the source chain.
-        // If the address is not owned by the same entity on the destination chain
-        // (e.g. can be the case for smart wallets/general contracts) this can give unexpected
-        // results (especially with refunding).
         bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
@@ -277,7 +275,7 @@ contract Bridge is EssentialContract, IBridge {
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = ProofReceipt({
                     receivedAt: receivedAt,
-                    preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
+                    preferredExecutor: message.gasLimit == 0 ? message.destOwner : msg.sender
                 });
             }
         }
@@ -292,7 +290,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (block.timestamp >= invocationDelay + receivedAt) {
             // If the gas limit is set to zero, only the owner can process the message.
-            if (message.gasLimit == 0 && msg.sender != message.owner) {
+            if (message.gasLimit == 0 && msg.sender != message.destOwner) {
                 revert B_PERMISSION_DENIED();
             }
 
@@ -312,7 +310,7 @@ contract Bridge is EssentialContract, IBridge {
             } else {
                 // Use the specified message gas limit if called by the owner, else
                 // use remaining gas
-                uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
+                uint256 gasLimit = msg.sender == message.destOwner ? gasleft() : message.gasLimit;
 
                 if (_invokeMessageCall(message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
@@ -322,7 +320,7 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             // Determine the refund recipient
-            address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+            address refundTo = message.refundTo == address(0) ? message.destOwner : message.refundTo;
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
@@ -343,7 +341,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Retries to invoke the messageCall after releasing associated
     /// Ether and tokens.
     /// @dev This function can be called by any address, including the
-    /// `message.owner`.
+    /// `message.destOwner`.
     /// It attempts to invoke the messageCall and updates the message status
     /// accordingly.
     /// @param message The message to retry.
@@ -359,9 +357,9 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
-        // be the message.owner.
+        // be the message.destOwner.
         if (message.gasLimit == 0 || isLastAttempt) {
-            if (msg.sender != message.owner) revert B_PERMISSION_DENIED();
+            if (msg.sender != message.destOwner) revert B_PERMISSION_DENIED();
         }
 
         bytes32 msgHash = hashMessage(message);
