@@ -189,7 +189,6 @@ contract ERC721VaultTest is TaikoTest {
             })
         );
 
-
         addressManager.setAddress(
             uint64(block.chainid), "signal_service", address(mockProofSignalService)
         );

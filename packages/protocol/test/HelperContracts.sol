@@ -47,4 +47,3 @@ contract SkipProofCheckSignal is SignalService {
         override
     { }
 }
-

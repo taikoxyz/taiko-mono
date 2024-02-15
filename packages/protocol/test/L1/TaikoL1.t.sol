@@ -191,8 +191,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("ethDepositMaxCountPerBlock:", count);
     }
 
-  
-
     function test_L1_deposit_hash_creation() external {
         giveEthAndTko(Bob, 1e6 ether, 100 ether);
         giveEthAndTko(Zachary, 1e6 ether, 0);

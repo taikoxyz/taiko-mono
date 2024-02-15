@@ -30,7 +30,7 @@ import "./CrossChainOwned.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is CrossChainOwned  {
+contract TaikoL2 is CrossChainOwned {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -163,7 +163,6 @@ contract TaikoL2 is CrossChainOwned  {
         }
     }
 
- 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
     /// @param l1Height The synced L1 height in the next Taiko block

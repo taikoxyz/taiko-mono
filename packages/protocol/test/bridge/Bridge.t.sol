@@ -107,7 +107,6 @@ contract BridgeTest is TaikoTest {
         vm.deal(address(destChainBridge), 100 ether);
         vm.deal(address(dest2StepBridge), 100 ether);
 
-
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
 
@@ -643,8 +642,6 @@ contract BridgeTest is TaikoTest {
         vm.deal(address(bridge), 100 ether);
 
         addressManager.setAddress(dest, "signal_service", address(mockProofSignalService));
-
-    
 
         vm.deal(address(destChainBridge), 1 ether);
 

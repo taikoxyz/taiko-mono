@@ -56,8 +56,6 @@ library LibUtils {
         ts = state.transitions[slot][tid];
     }
 
-   
-
     /// @dev Retrieves a block based on its ID.
     function getBlock(
         TaikoData.State storage state,
