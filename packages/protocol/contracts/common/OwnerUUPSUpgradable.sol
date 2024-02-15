@@ -97,7 +97,7 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
     }
 
     // Loads the reentry lock
-    function _loadReentryLock() internal view virtual returns (uint8 reentry) {
+    function _loadReentryLock() internal view virtual returns (uint8 /*reentry*/ ) {
         return _reentry;
         // assembly {
         //     reentry := tload(_REENTRY_SLOT)
