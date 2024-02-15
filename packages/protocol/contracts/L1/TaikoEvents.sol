@@ -74,15 +74,6 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    /// @dev Emitted when a L2 state root is relayted locally by the signal service.
-    event StateRootRelayed(
-        uint64 indexed chainid,
-        uint64 indexed blockId,
-        address signalService,
-        bytes32 stateRoot,
-        bytes32 signal
-    );
-
     /// @dev Emitted when a blob is cached for reuse.
     event BlobCached(bytes32 blobHash);
 

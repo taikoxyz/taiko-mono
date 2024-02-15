@@ -19,6 +19,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../signal/ISignalService.sol";
 import "../signal/LibSignals.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
@@ -52,15 +53,6 @@ contract TaikoL2 is CrossChainOwned {
     uint64 public latestSyncedL1Height;
 
     uint256[147] private __gap;
-
-    /// @dev Emitted when a L1 state root is relayted locally by the signal service.
-    event StateRootRelayed(
-        uint64 indexed chainid,
-        uint64 indexed blockId,
-        address signalService,
-        bytes32 stateRoot,
-        bytes32 signal
-    );
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -150,8 +142,8 @@ contract TaikoL2 is CrossChainOwned {
 
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        LibSignals.relayStateRoot(
-            resolve("signal_service", false), ownerChainId, l1Height, l1StateRoot
+        ISignalService(resolve("signal_service", false)).relayChainData(
+            ownerChainId, l1Height, LibSignals.STATE_ROOT, l1StateRoot
         );
 
         // Update state variables

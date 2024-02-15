@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
+import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
@@ -235,11 +236,8 @@ library LibVerifying {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                LibSignals.relayStateRoot(
-                    resolver.resolve("signal_service", false),
-                    config.chainId,
-                    lastVerifiedBlockId,
-                    stateRoot
+                ISignalService(resolver.resolve("signal_service", false)).relayChainData(
+                    config.chainId, lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
                 );
             }
         }

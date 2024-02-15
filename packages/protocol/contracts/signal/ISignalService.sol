@@ -24,11 +24,13 @@ interface ISignalService {
     /// @notice Relay a data from a remote chain locally as a signal. The signal is calculated
     /// uniquely from chainId, kind, and data.
     /// @param chainId The remote chainId.
+    /// @param blockId The chain data's corresponding blockId
     /// @param kind A value to mark the data type.
     /// @param data The remote data.
     /// @return signal The signal for this chain data.
     function relayChainData(
         uint64 chainId,
+        uint64 blockId,
         bytes32 kind,
         bytes32 data
     )
@@ -53,11 +55,13 @@ interface ISignalService {
     /// @notice Checks if a chain data has been relayed.
     /// uniquely from chainId, kind, and data.
     /// @param chainId The remote chainId.
+    /// @param blockId The chain data's corresponding blockId
     /// @param kind A value to mark the data type.
     /// @param data The remote data.
     /// @return True if the data has been relayed, otherwise false.
     function isChainDataRelayed(
         uint64 chainId,
+        uint64 blockId,
         bytes32 kind,
         bytes32 data
     )
