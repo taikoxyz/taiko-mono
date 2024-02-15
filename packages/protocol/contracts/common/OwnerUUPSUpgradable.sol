@@ -105,6 +105,6 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
     }
 
     function _inNonReentrant() internal view returns (bool) {
-        return _loadReentryLock() == _TRUE;
+        return _loadReentryLock() != _TRUE;
     }
 }
