@@ -461,6 +461,9 @@ async function generateContractConfigs(
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
                 addressManager: addressMap.SharedAddressManager,
+                isRelayerAuthorized: {
+                    [addressMap.TaikoL2]: true,
+                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,
