@@ -264,15 +264,10 @@ library LibVerifying {
         // is sent as a signal and verifiable with merkle proofs, all other blocks'
         // stateRoot are not.
         address signalService = resolver.resolve("signal_service", false);
-
-        emit StateRootRelayed(
-            config.chainId,
-            lastVerifiedBlockId,
-            signalService,
-            stateRoot,
-            ISignalService(signalService).relayChainData(
-                config.chainId, LibSignals.STATE_ROOT, stateRoot
-            )
+        bytes32 signal = ISignalService(signalService).relayChainData(
+            config.chainId, LibSignals.STATE_ROOT, stateRoot
         );
+
+        emit StateRootRelayed(config.chainId, lastVerifiedBlockId, signalService, stateRoot, signal);
     }
 }

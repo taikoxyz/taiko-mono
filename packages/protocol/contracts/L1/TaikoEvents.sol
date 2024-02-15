@@ -74,7 +74,7 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    /// @dev Emitted when a state root of a remoate chain is relayted locally by the signal service.
+    /// @dev Emitted when a L2 state root is relayted locally by the signal service.
     event StateRootRelayed(
         uint64 indexed chainid,
         uint64 indexed blockId,
