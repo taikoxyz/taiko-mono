@@ -30,7 +30,7 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
     bytes32 private constant _REENTRY_SLOT =
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721a;
 
-    uint8 private _reentryDeprecated; // slot 1
+    uint8 private _reentry; // slot 1
     uint8 private _paused;
     uint256[49] private __gap;
 
@@ -94,15 +94,17 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
 
     // Stores the reentry lock
     function _storeReentryLock(uint8 reentry) private {
-        assembly {
-            tstore(_REENTRY_SLOT, reentry)
-        }
+         _reentry = reentry;
+        // assembly {
+        //     tstore(_REENTRY_SLOT, reentry)
+        // }
     }
 
     // Loads the reentry lock
     function _loadReentryLock() private view returns (uint8 reentry) {
-        assembly {
-            reentry := tload(_REENTRY_SLOT)
-        }
+        reentry = reentry;
+        // assembly {
+        //     reentry := tload(_REENTRY_SLOT)
+        // }
     }
 }
