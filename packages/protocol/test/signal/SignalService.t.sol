@@ -175,6 +175,7 @@ contract TestSignalService is TaikoTest {
 
         // proofs[0].chainId must be block.chainid in order not to revert
         proofs[0].chainId = uint64(block.chainid + 1);
+        proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
@@ -195,6 +196,7 @@ contract TestSignalService is TaikoTest {
 
         // proofs[0].chainId must NOT be block.chainid in order not to revert
         proofs[0].chainId = uint64(block.chainid);
+        proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
@@ -215,6 +217,7 @@ contract TestSignalService is TaikoTest {
 
         // proofs[0].chainId must NOT be block.chainid in order not to revert
         proofs[0].chainId = srcChainId + 1;
+        proofs[0].blockId = 1;
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -241,6 +244,7 @@ contract TestSignalService is TaikoTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         proofs[0].chainId = uint64(block.chainid);
+        proofs[0].blockId = 1;
 
         // the proof is a storage proof
         proofs[0].accountProof = new bytes[](0);
