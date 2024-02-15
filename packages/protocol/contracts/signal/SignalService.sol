@@ -39,11 +39,14 @@ contract SignalService is EssentialContract, ISignalService {
         bytes[] storageProof;
     }
 
-    uint256[50] private __gap;
+    mapping(address => bool) public isRelayerAuthorized;
+    uint256[49] private __gap;
 
     event SnippetRelayed(
         uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
     );
+
+    event RelayerAuthorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_APP();
@@ -52,11 +55,21 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_SIGNAL();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
+    error SS_UNAUTHORIZED();
     error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         __Essential_init(_addressManager);
+    }
+
+    /// @dev Authorize or deautohrize an address for calling relayChainData
+    /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
+    function authorizeRelayer(address addr, bool toAuthorize) external onlyOwner {
+        if (isRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_PARAMS();
+        isRelayerAuthorized[addr] = toAuthorize;
+
+        emit RelayerAuthorized(addr, toAuthorize);
     }
 
     /// @inheritdoc ISignalService
@@ -66,9 +79,9 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 data
     )
         external
-        onlyFromNamed("taiko")
         returns (bytes32 slot)
     {
+        if (!isRelayerAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
         return _relayChainData(chainId, kind, data);
     }
 
