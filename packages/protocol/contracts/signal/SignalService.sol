@@ -39,7 +39,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes[] storageProof;
     }
 
-    mapping(address => bool) public isChainDataRelayerAuthorized;
+    mapping(address => bool) public isRelayerAuthorized;
     uint256[49] private __gap;
 
     event SnippetRelayed(
@@ -65,9 +65,9 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Authorize or deautohrize an address for calling relayChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
-    function authorizeChainDataRelayer(address addr, bool toAuthorize) external onlyOwner {
-        if (isChainDataRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_PARAMS();
-        isChainDataRelayerAuthorized[addr] = toAuthorize;
+    function authorizeRelayer(address addr, bool toAuthorize) external onlyOwner {
+        if (isRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_PARAMS();
+        isRelayerAuthorized[addr] = toAuthorize;
 
         emit RelayerAuthorized(addr, toAuthorize);
     }
@@ -81,7 +81,7 @@ contract SignalService is EssentialContract, ISignalService {
         external
         returns (bytes32 slot)
     {
-        if (!isChainDataRelayerAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
+        if (!isRelayerAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
         return _relayChainData(chainId, kind, data);
     }
 
