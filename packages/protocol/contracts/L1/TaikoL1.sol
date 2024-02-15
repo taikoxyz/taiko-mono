@@ -73,7 +73,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         (meta, depositsProcessed) =
             LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
 
-        _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        if (!state.slotB.provingPaused) {
+            _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        }
     }
 
     /// @inheritdoc ITaikoL1
