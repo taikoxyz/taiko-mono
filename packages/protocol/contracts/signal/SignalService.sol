@@ -41,7 +41,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     uint256[50] private __gap;
 
-    event SnippetRelayed(
+    event ChainDataRelayed(
         uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
     );
 
@@ -67,7 +67,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         onlyFromNamed("taiko")
-        returns (bytes32 slot)
+        returns (bytes32 signal)
     {
         return _relayChainData(chainId, kind, data);
     }
@@ -188,11 +188,11 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 data
     )
         internal
-        returns (bytes32 slot)
+        returns (bytes32 signal)
     {
-        bytes32 signal = signalForChainData(chainId, kind, data);
-        emit SnippetRelayed(chainId, kind, data, signal);
-        return _sendSignal(address(this), signal);
+        signal = signalForChainData(chainId, kind, data);
+        _sendSignal(address(this), signal);
+        emit ChainDataRelayed(chainId, kind, data, signal);
     }
 
     function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
