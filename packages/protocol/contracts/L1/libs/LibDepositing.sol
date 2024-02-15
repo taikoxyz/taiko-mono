@@ -153,7 +153,7 @@ library LibDepositing {
     /// @param amount The amount of the deposit.
     /// @return The encoded deposit.
     function _encodeEthDeposit(address addr, uint256 amount) private pure returns (uint256) {
-        if (amount >= type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+        if (amount > type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
         return (uint256(uint160(addr)) << 96) | amount;
     }
 }

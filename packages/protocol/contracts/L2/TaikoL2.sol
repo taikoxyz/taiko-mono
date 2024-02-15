@@ -79,7 +79,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     {
         __CrossChainOwned_init(_addressManager, _l1ChainId);
 
-        if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
+        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
 
