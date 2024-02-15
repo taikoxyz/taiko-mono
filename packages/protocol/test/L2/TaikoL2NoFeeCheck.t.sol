@@ -27,13 +27,15 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
             data: abi.encodeCall(AddressManager.init, ())
         });
 
-        deployProxy({
-            name: "signal_service",
-            impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, (addressManager)),
-            registerTo: addressManager,
-            owner: address(0)
-        });
+        SignalService ss = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: abi.encodeCall(SignalService.init, (addressManager)),
+                registerTo: addressManager,
+                owner: address(0)
+            })
+        );
 
         uint64 gasExcess = 0;
         uint8 quotient = 8;
@@ -54,6 +56,8 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
         );
 
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
+
+        ss.authorizeRelayer(address(L2), true);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);

@@ -50,6 +50,8 @@ contract Bridge is EssentialContract, IBridge {
     // This is the keccak256 hash of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
+    // Place holder value when not using transient storage
+    uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
@@ -443,7 +445,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function context() public view returns (Context memory ctx) {
         ctx = _loadContext();
-        if (ctx.msgHash == 0) {
+        if (ctx.msgHash == 0 || ctx.msgHash == bytes32(PLACEHOLDER)) {
             revert B_INVALID_CONTEXT();
         }
     }
@@ -543,29 +545,41 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Resets the call context
     function _resetContext() private {
-        _storeContext(bytes32(0), address(0), uint64(0));
+        if (block.chainid == 1) {
+            _storeContext(bytes32(0), address(0), uint64(0));
+        } else {
+            _storeContext(bytes32(PLACEHOLDER), address(uint160(PLACEHOLDER)), uint64(PLACEHOLDER));
+        }
     }
 
     /// @notice Stores the call context
     function _storeContext(bytes32 msgHash, address from, uint64 srcChainId) private {
-        assembly {
-            tstore(_CTX_SLOT, msgHash)
-            tstore(add(_CTX_SLOT, 1), from)
-            tstore(add(_CTX_SLOT, 2), srcChainId)
+        if (block.chainid == 1) {
+            assembly {
+                tstore(_CTX_SLOT, msgHash)
+                tstore(add(_CTX_SLOT, 1), from)
+                tstore(add(_CTX_SLOT, 2), srcChainId)
+            }
+        } else {
+            _ctx = Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
         }
     }
 
     /// @notice Loads the call context
     function _loadContext() private view returns (Context memory) {
-        bytes32 msgHash;
-        address from;
-        uint64 srcChainId;
-        assembly {
-            msgHash := tload(_CTX_SLOT)
-            from := tload(add(_CTX_SLOT, 1))
-            srcChainId := tload(add(_CTX_SLOT, 2))
+        if (block.chainid == 1) {
+            bytes32 msgHash;
+            address from;
+            uint64 srcChainId;
+            assembly {
+                msgHash := tload(_CTX_SLOT)
+                from := tload(add(_CTX_SLOT, 1))
+                srcChainId := tload(add(_CTX_SLOT, 2))
+            }
+            return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
+        } else {
+            return _ctx;
         }
-        return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
     }
 
     /// @notice Checks if the signal was received.

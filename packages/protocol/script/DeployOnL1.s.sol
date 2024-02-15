@@ -91,6 +91,10 @@ contract DeployOnL1 is DeployCapability {
         addressNotNull(taikoL1Addr, "taikoL1Addr");
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
 
+        if (vm.envAddress("SHARED_ADDRESS_MANAGER") == address(0)) {
+            SignalService(signalServiceAddr).authorizeRelayer(taikoL1Addr, true);
+        }
+
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
@@ -116,7 +120,6 @@ contract DeployOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
         copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
-        copyRegister(sharedAddressManager, rollupAddressManager, "taiko");
 
         address proposer = vm.envAddress("PROPOSER");
         if (proposer != address(0)) {

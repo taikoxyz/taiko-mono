@@ -51,7 +51,7 @@ contract TestSignalService is TaikoTest {
         );
 
         taiko = randAddress();
-        addressManager.setAddress(uint64(block.chainid), "taiko", taiko);
+        signalService.authorizeRelayer(taiko, true);
         vm.stopPrank();
     }
 
@@ -305,6 +305,13 @@ contract TestSignalService is TaikoTest {
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
+
+        vm.prank(Alice);
+        signalService.authorizeRelayer(taiko, false);
+
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        vm.prank(taiko);
+        signalService.relayChainData(srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash);
     }
 
     function test_SignalService_proveSignalReceived_one_hop_state_root() public {
