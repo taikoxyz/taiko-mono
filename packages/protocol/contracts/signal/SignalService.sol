@@ -56,6 +56,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_APP();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
+    error SS_INVALID_HOP_BLOCK_ID();
     error SS_INVALID_PARAMS();
     error SS_INVALID_SIGNAL();
     error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
@@ -108,10 +109,11 @@ contract SignalService is EssentialContract, ISignalService {
 
         for (uint256 i; i < _hopProofs.length; ++i) {
             HopProof memory hop = _hopProofs[i];
+            if (hop.blockId == 0) revert SS_INVALID_HOP_BLOCK_ID();
 
             bytes32 signalRoot = _verifyHopProof(_chainId, _app, _signal, hop, _signalService);
-
             bool isLastHop = i == _hopProofs.length - 1;
+
             if (isLastHop) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
                 _signalService = address(this);
