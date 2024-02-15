@@ -236,6 +236,12 @@ library LibVerifying {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
+                // Store the L2's state root as a signal to the local signal
+                // service to allow for multi-hop bridging.
+                //
+                // This also means if we verified more than one block, only the last one's stateRoot
+                // is sent as a signal and verifiable with merkle proofs, all other blocks'
+                // stateRoot are not.
                 ISignalService(resolver.resolve("signal_service", false)).relayChainData(
                     config.chainId, lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
                 );
