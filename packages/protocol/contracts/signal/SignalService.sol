@@ -160,7 +160,7 @@ contract SignalService is EssentialContract, ISignalService {
             _app = _signalService;
         }
 
-        if (_loadSignalValue(address(this), _signal) != _value) {
+        if (_value == 0 || _value!=_loadSignalValue(address(this), _signal)  ) {
             revert SS_SIGNAL_NOT_FOUND();
         }
     }
@@ -198,6 +198,7 @@ contract SignalService is EssentialContract, ISignalService {
         blockId = topBlockId[chainId][kind];
         bytes32 signal = signalForChainData(chainId, blockId, kind);
         blockData = _loadSignalValue(address(this), signal);
+        if (blockData == 0) revert SS_SIGNAL_NOT_FOUND();
     }
 
     function signalForChainData(
@@ -329,6 +330,6 @@ contract SignalService is EssentialContract, ISignalService {
         assembly {
             value := sload(slot)
         }
-        if (value == 0) revert SS_SIGNAL_NOT_FOUND();
+       
     }
 }
