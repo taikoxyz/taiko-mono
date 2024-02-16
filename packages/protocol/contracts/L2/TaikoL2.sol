@@ -157,7 +157,15 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Withdraw token or Ether from this address
-    function withdraw(address token, address to) external onlyOwner nonReentrant whenNotPaused {
+    function withdraw(
+        address token,
+        address to
+    )
+        external
+        onlyFromOwnerOrNamed("withdrawer")
+        nonReentrant
+        whenNotPaused
+    {
         if (to == address(0)) revert L2_INVALID_PARAM();
         if (token == address(0)) {
             to.sendEther(address(this).balance);
