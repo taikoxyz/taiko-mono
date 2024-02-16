@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/governance/IGovernor.sol";
 import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
-contract TestTkoGovernor is TaikoL1TestBase {
-    TaikoGovernor public tkoGovernor;
+contract TestTaikoGovernor is TaikoL1TestBase {
+    TaikoGovernor public taikoGovernor;
     TaikoTimelockController public taikoTimelockController;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
@@ -37,7 +37,7 @@ contract TestTkoGovernor is TaikoL1TestBase {
         taikoTimelockController.init(minDelay);
 
         // deploy TaikoGovernor
-        tkoGovernor = TaikoGovernor(
+        taikoGovernor = TaikoGovernor(
             payable(
                 LibDeploy.deployERC1967Proxy({
                     impl: address(new TaikoGovernor()),
@@ -48,7 +48,7 @@ contract TestTkoGovernor is TaikoL1TestBase {
         );
 
         // init TaikoGovernor
-        tkoGovernor.init(tko, taikoTimelockController);
+        taikoGovernor.init(tko, taikoTimelockController);
         // Alice delegate voting power to self
         vm.startPrank(Alice);
         tko.delegate(Alice);
@@ -58,20 +58,20 @@ contract TestTkoGovernor is TaikoL1TestBase {
         vm.startPrank(owner);
         // Owner set access controls for timelock controller
         taikoTimelockController.grantRole(
-            taikoTimelockController.PROPOSER_ROLE(), address(tkoGovernor)
+            taikoTimelockController.PROPOSER_ROLE(), address(taikoGovernor)
         );
         taikoTimelockController.grantRole(
-            taikoTimelockController.EXECUTOR_ROLE(), address(tkoGovernor)
+            taikoTimelockController.EXECUTOR_ROLE(), address(taikoGovernor)
         );
         taikoTimelockController.grantRole(
-            taikoTimelockController.CANCELLER_ROLE(), address(tkoGovernor)
+            taikoTimelockController.CANCELLER_ROLE(), address(taikoGovernor)
         );
 
         // Owner delegate voting power to self
         tko.delegate(owner);
 
         // Transfer Alice double the proposal threshold worth of tokens
-        uint256 proposalThreshold = tkoGovernor.proposalThreshold();
+        uint256 proposalThreshold = taikoGovernor.proposalThreshold();
         tko.transfer(Alice, proposalThreshold * 2);
         tko.transfer(Bob, proposalThreshold * 5);
         vm.roll(block.number + 1); // increase block number to help facilitate snapshots in
@@ -82,53 +82,55 @@ contract TestTkoGovernor is TaikoL1TestBase {
 
     function test_init() public {
         // GovernorVotesQuorumFractionUpgradeable
-        assertEq(tkoGovernor.quorumNumerator(), 4, "Incorrect initial quorum numerator");
+        assertEq(taikoGovernor.quorumNumerator(), 4, "Incorrect initial quorum numerator");
         assertEq(
-            tkoGovernor.quorumNumerator(block.number), 4, "Incorrect initial block quorum numerator"
+            taikoGovernor.quorumNumerator(block.number),
+            4,
+            "Incorrect initial block quorum numerator"
         );
-        assertEq(tkoGovernor.quorumDenominator(), 100, "Incorrect quorum denominator");
+        assertEq(taikoGovernor.quorumDenominator(), 100, "Incorrect quorum denominator");
 
         // GovernorUpgradeable
-        assertEq(tkoGovernor.name(), "Taiko", "Incorrect name");
-        assertEq(tkoGovernor.version(), "1", "Incorrect version");
+        assertEq(taikoGovernor.name(), "Taiko", "Incorrect name");
+        assertEq(taikoGovernor.version(), "1", "Incorrect version");
 
         // GovernorVotesUpgradeable
-        assertEq(address(tkoGovernor.token()), address(tko), "Incorrect token");
+        assertEq(address(taikoGovernor.token()), address(tko), "Incorrect token");
 
         // GovernorCompatibilityBravoUpgradeable
         assertEq(
-            tkoGovernor.COUNTING_MODE(), "support=bravo&quorum=bravo", "Incorrect counting mode"
+            taikoGovernor.COUNTING_MODE(), "support=bravo&quorum=bravo", "Incorrect counting mode"
         );
 
         // GovernorTimelockControlUpgradeable
-        assertEq(tkoGovernor.timelock(), address(taikoTimelockController), "Incorrect timelock");
+        assertEq(taikoGovernor.timelock(), address(taikoTimelockController), "Incorrect timelock");
 
         // Interfaces
         assertEq(
-            tkoGovernor.supportsInterface(type(IGovernorTimelockUpgradeable).interfaceId),
+            taikoGovernor.supportsInterface(type(IGovernorTimelockUpgradeable).interfaceId),
             true,
             "Incorrect supports interface"
         );
         assertEq(
-            tkoGovernor.supportsInterface(type(IGovernorUpgradeable).interfaceId),
+            taikoGovernor.supportsInterface(type(IGovernorUpgradeable).interfaceId),
             true,
             "Incorrect supports interface"
         );
         assertEq(
-            tkoGovernor.supportsInterface(type(IERC1155ReceiverUpgradeable).interfaceId),
+            taikoGovernor.supportsInterface(type(IERC1155ReceiverUpgradeable).interfaceId),
             true,
             "Incorrect supports interface"
         );
 
         // TaikoGovernor
-        assertEq(tkoGovernor.votingDelay(), 7200, "Incorrect voting delay");
-        assertEq(tkoGovernor.votingPeriod(), 50_400, "Incorrect voting period");
-        assertEq(tkoGovernor.proposalThreshold(), 100_000 ether, "Incorrect proposal threshold");
+        assertEq(taikoGovernor.votingDelay(), 7200, "Incorrect voting delay");
+        assertEq(taikoGovernor.votingPeriod(), 50_400, "Incorrect voting period");
+        assertEq(taikoGovernor.proposalThreshold(), 100_000 ether, "Incorrect proposal threshold");
     }
 
     // Tests `propose()`
     function test_propose() public {
-        // Parameters for `tkoGovernor.propose()`
+        // Parameters for `taikoGovernor.propose()`
         address[] memory targets = new address[](1);
         targets[0] = Alice;
 
@@ -143,10 +145,10 @@ contract TestTkoGovernor is TaikoL1TestBase {
         vm.startPrank(proposer);
 
         // Prepare for event emission
-        uint256 startBlock = block.number + tkoGovernor.votingDelay();
-        uint256 endBlock = startBlock + tkoGovernor.votingPeriod();
+        uint256 startBlock = block.number + taikoGovernor.votingDelay();
+        uint256 endBlock = startBlock + taikoGovernor.votingPeriod();
         uint256 calculatedProposalId =
-            tkoGovernor.hashProposal(targets, values, calldatas, keccak256(bytes(description)));
+            taikoGovernor.hashProposal(targets, values, calldatas, keccak256(bytes(description)));
 
         vm.expectEmit(true, true, true, true);
         emit IGovernor.ProposalCreated(
@@ -162,20 +164,22 @@ contract TestTkoGovernor is TaikoL1TestBase {
         );
 
         // `propose()`
-        uint256 proposalId = tkoGovernor.propose(targets, values, calldatas, description);
+        uint256 proposalId = taikoGovernor.propose(targets, values, calldatas, description);
         vm.stopPrank();
 
         // Validate proposal
         assertEq(proposalId, calculatedProposalId, "Proposal does not have the correct ID");
         assertEq(
-            tkoGovernor.state(proposalId) == IGovernorUpgradeable.ProposalState.Pending,
+            taikoGovernor.state(proposalId) == IGovernorUpgradeable.ProposalState.Pending,
             true,
             "Incorrect proposal state"
         );
         assertEq(
-            tkoGovernor.proposalSnapshot(proposalId), startBlock, "Incorrect proposal snapshot"
+            taikoGovernor.proposalSnapshot(proposalId), startBlock, "Incorrect proposal snapshot"
         );
-        assertEq(tkoGovernor.proposalDeadline(proposalId), endBlock, "Incorrect proposal deadline");
+        assertEq(
+            taikoGovernor.proposalDeadline(proposalId), endBlock, "Incorrect proposal deadline"
+        );
     }
 
     // Tests `castVote()`, `queue()` and `execute()`
@@ -197,26 +201,26 @@ contract TestTkoGovernor is TaikoL1TestBase {
 
         // `propose()`
         vm.startPrank(proposer);
-        uint256 proposalId = tkoGovernor.propose(targets, values, calldatas, description);
+        uint256 proposalId = taikoGovernor.propose(targets, values, calldatas, description);
         vm.stopPrank();
 
         // Skip to voting start
-        uint256 startBlock = tkoGovernor.proposalSnapshot(proposalId);
+        uint256 startBlock = taikoGovernor.proposalSnapshot(proposalId);
         vm.roll(startBlock + 1);
 
         // `castVote()`
         vm.startPrank(tko.owner());
-        tkoGovernor.castVote(proposalId, 1); // 1 = for
+        taikoGovernor.castVote(proposalId, 1); // 1 = for
 
         // Skip to voting end
-        uint256 endBlock = tkoGovernor.proposalDeadline(proposalId);
+        uint256 endBlock = taikoGovernor.proposalDeadline(proposalId);
         vm.roll(endBlock + 1);
 
         // `queue()` successful proposal
-        tkoGovernor.queue(proposalId);
+        taikoGovernor.queue(proposalId);
 
         // Skip delay amount of time
-        uint256 eta = tkoGovernor.proposalEta(proposalId);
+        uint256 eta = taikoGovernor.proposalEta(proposalId);
         vm.warp(eta + 1);
 
         // Prepare execute event
@@ -227,8 +231,8 @@ contract TestTkoGovernor is TaikoL1TestBase {
         emit TimelockController.CallExecuted(timelockId, 0, targets[0], values[0], calldatas[0]);
 
         // `execute()`
-        // tkoGovernor.execute(targets, values, calldatas, descriptionHash);
-        tkoGovernor.execute(proposalId);
+        // taikoGovernor.execute(targets, values, calldatas, descriptionHash);
+        taikoGovernor.execute(proposalId);
 
         vm.stopPrank();
     }
