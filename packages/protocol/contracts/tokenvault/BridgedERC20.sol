@@ -33,11 +33,19 @@ contract BridgedERC20 is
     address public srcToken; // slot 1
     uint8 private srcDecimals;
     uint256 public srcChainId; // slot 2
+    address public snapshooter; // slot 3
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_UNAUTHORIZED();
 
+    modifier onlyOwnerOrSnapshooter() {
+        if (msg.sender != owner() && msg.sender != snapshooter) {
+            revert BTOKEN_UNAUTHORIZED();
+        }
+        _;
+    }
     /// @notice Initializes the contract.
     /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
     /// (e.g., one for USDC, one for USDT, etc.).
@@ -75,8 +83,13 @@ contract BridgedERC20 is
         srcDecimals = _decimals;
     }
 
+    /// @notice Set the snapshoter address.
+    function setSnapshoter(address _snapshooter) external onlyOwner {
+        snapshooter = _snapshooter;
+    }
+
     /// @notice Creates a new token snapshot.
-    function snapshot() external onlyFromOwnerOrNamed("snapshooter") {
+    function snapshot() external onlyOwnerOrSnapshooter {
         _snapshot();
     }
 
