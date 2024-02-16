@@ -9,7 +9,7 @@ packaging==23.1
 Pillow==9.5.0
 py-solc==3.2.0
 pycparser==2.21
-pyparsing==3.0.9
+pyparsing==3.1.1
 python-dateutil==2.8.2
 semantic-version==2.10.0
 six==1.16.0
