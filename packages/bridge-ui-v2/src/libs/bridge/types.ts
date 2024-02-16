@@ -1,5 +1,4 @@
-import type { Hash, WalletClient } from '@wagmi/core';
-import type { Address, Hex, TransactionReceipt } from 'viem';
+import type { Address, Hash, Hex, TransactionReceipt, WalletClient } from 'viem';
 
 import type { ChainID } from '$libs/chain';
 import type { TokenType } from '$libs/token';
@@ -78,7 +77,6 @@ export type BridgeTransaction = {
 };
 
 export type BridgeTransferOp = {
-  srcChainId: bigint;
   destChainId: bigint;
   to: Address;
   token: Address;
@@ -90,7 +88,6 @@ export type BridgeTransferOp = {
 };
 
 export type NFTBridgeTransferOp = {
-  srcChainId: bigint;
   destChainId: bigint;
   to: Address;
   token: Address;

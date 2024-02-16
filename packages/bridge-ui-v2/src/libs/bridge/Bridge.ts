@@ -1,13 +1,14 @@
-import { getContract, type GetContractResult, type WalletClient } from '@wagmi/core';
-import { type Hash, UserRejectedRequestError } from 'viem';
+import { readContract } from '@wagmi/core';
+import type { Hash } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { MessageStatusError, RetryError, WrongChainError, WrongOwnerError } from '$libs/error';
+import { MessageStatusError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
-import { type BridgeArgs, type ClaimArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
+import { type BridgeArgs, type ClaimArgs, MessageStatus, type ReleaseArgs } from './types';
 
 const log = getLogger('bridge:Bridge');
 
@@ -37,6 +38,8 @@ export abstract class Bridge {
     }
 
     const { owner } = message;
+    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
+
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
     if (owner.toLowerCase() !== userAddress.toLowerCase()) {
@@ -45,16 +48,13 @@ export abstract class Bridge {
 
     const destBridgeAddress = routingContractsMap[connectedChainId][srcChainId].bridgeAddress;
 
-    const destBridgeContract = getContract({
+    const messageStatus = await readContract(config, {
       address: destBridgeAddress,
       abi: bridgeABI,
-
-      // We are gonna resuse this contract to actually process the message
-      // so we'll need to sign the transaction
-      walletClient: wallet,
+      functionName: 'messageStatus',
+      args: [msgHash],
+      chainId: connectedChainId,
     });
-
-    const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
     log(`Claiming message with status ${messageStatus}`);
 
@@ -68,7 +68,7 @@ export abstract class Bridge {
       throw new MessageStatusError('user can not process this as message has failed');
     }
 
-    return { messageStatus, destBridgeContract };
+    return { messageStatus, destBridgeAddress };
   }
 
   /**
@@ -86,6 +86,8 @@ export abstract class Bridge {
     }
 
     const { owner } = message;
+    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
+
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
     if (owner.toLowerCase() !== userAddress.toLowerCase()) {
@@ -96,13 +98,13 @@ export abstract class Bridge {
     const destChainId = Number(message.destChainId);
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
-    const destBridgeContract = getContract({
+    const messageStatus = await readContract(config, {
       address: destBridgeAddress,
       abi: bridgeABI,
-      chainId: destChainId,
+      functionName: 'messageStatus',
+      args: [msgHash],
+      chainId: connectedChainId,
     });
-
-    const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
     log(`Releasing message with status ${messageStatus}`);
 
@@ -116,24 +118,24 @@ export abstract class Bridge {
   abstract claim(args: ClaimArgs): Promise<Hash>;
   abstract release(args: ReleaseArgs): Promise<Hash>;
 
-  protected async retryClaim(message: Message, bridgeContract: GetContractResult<typeof bridgeABI, WalletClient>) {
-    log('Retrying message', message);
+  // protected async retryClaim(message: Message, bridgeContract: GetContractResult<typeof bridgeABI, WalletClient>) {
+  //   log('Retrying message', message);
 
-    try {
-      // Last attempt to send the message: isLastAttempt = true
-      const txHash = await bridgeContract.write.retryMessage([message, true]);
+  //   try {
+  //     // Last attempt to send the message: isLastAttempt = true
+  //     const txHash = await bridgeContract.write.retryMessage([message, true]);
 
-      log('Transaction hash for retryMessage call', txHash);
+  //     log('Transaction hash for retryMessage call', txHash);
 
-      return txHash;
-    } catch (err) {
-      console.error(err);
+  //     return txHash;
+  //   } catch (err) {
+  //     console.error(err);
 
-      if (`${err}`.includes('denied transaction signature')) {
-        throw new UserRejectedRequestError(err as Error);
-      }
+  //     if (`${err}`.includes('denied transaction signature')) {
+  //       throw new UserRejectedRequestError(err as Error);
+  //     }
 
-      throw new RetryError('failed to retry message', { cause: err });
-    }
-  }
+  //     throw new RetryError('failed to retry message', { cause: err });
+  //   }
+  // }
 }
