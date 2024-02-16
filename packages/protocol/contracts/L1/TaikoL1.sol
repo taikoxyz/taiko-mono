@@ -264,4 +264,12 @@ contract TaikoL1 is
     {
         LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
     }
+
+    function _authorizePause(address)
+        internal
+        view
+        virtual
+        override
+        onlyFromOwnerOrNamed("chain_pauser")
+    { }
 }
