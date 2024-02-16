@@ -76,9 +76,9 @@ func (r *RabbitMQ) connect() error {
 	r.conn = conn
 	r.ch = ch
 
-	r.connErrCh = r.conn.NotifyClose(make(chan *amqp.Error, 1))
+	r.connErrCh = r.conn.NotifyClose(make(chan *amqp.Error))
 
-	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error, 1))
+	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error))
 
 	r.subscriptionCtx, r.subscriptionCancel = context.WithCancel(context.Background())
 
@@ -208,10 +208,20 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return nil
 		case err := <-r.connErrCh:
-			slog.Error("rabbitmq notify close connection", "err", err.Error())
+			if err != nil {
+				slog.Error("rabbitmq notify close connection", "err", err.Error())
+			} else {
+				slog.Error("rabbitmq notify close connection")
+			}
+
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			slog.Error("rabbitmq notify close channel", "err", err.Error())
+			if err != nil {
+				slog.Error("rabbitmq notify close channel", "err", err.Error())
+			} else {
+				slog.Error("rabbitmq notify close channel")
+			}
+
 			return queue.ErrClosed
 		case returnMsg := <-r.notifyReturnCh:
 			slog.Error("rabbitmq notify return", "id", returnMsg.MessageId, "err", returnMsg.ReplyText)
