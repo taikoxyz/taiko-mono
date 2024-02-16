@@ -75,11 +75,11 @@ interface ISignalService {
         view
         returns (bool);
 
-    /// @notice Returns the latest synced chain data.
+    /// @notice Returns the latest relayed chain data.
     /// @param blockId The chain data's corresponding blockId
     /// @param kind A value to mark the data type.
     /// @return blockId The block id.
-    /// @return chainData The synced data.
+    /// @return chainData The relayed chain data.
     function getLatestBlockData(
         uint64 chainId,
         bytes32 kind
