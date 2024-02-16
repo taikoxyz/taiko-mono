@@ -40,4 +40,12 @@ abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     function __Essential_init() internal virtual {
         __Essential_init(address(0));
     }
+
+    function _authorizePause(address)
+        internal
+        view
+        virtual
+        override
+        onlyFromOwnerOrNamed("pauser")
+    { }
 }
