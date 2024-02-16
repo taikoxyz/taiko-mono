@@ -235,18 +235,18 @@ library LibVerifying {
             if (numBlocksVerified > 0) {
                 b.lastVerifiedBlockId += numBlocksVerified;
 
-                if (config.maxUnrelayedBlocks > 0) {
-                    uint256 unrelayedBlocks = numBlocksVerified + b.unrelayedBlocks;
-                    if (unrelayedBlocks < config.maxUnrelayedBlocks) {
-                        // config.maxUnrelayedBlocks is uint8
-                        b.unrelayedBlocks = uint8(unrelayedBlocks);
+                if (config.relayBlockThreshold > 0) {
+                    uint256 numBlocksNotRelayed = numBlocksVerified + b.numBlocksNotRelayed;
+                    if (numBlocksNotRelayed < config.relayBlockThreshold) {
+                        // config.relayBlockThreshold is uint8
+                        b.numBlocksNotRelayed = uint8(numBlocksNotRelayed);
                     } else {
                         // Store the L2's state root as a signal to the local signal
                         // service to allow for multi-hop bridging.
                         ISignalService(resolver.resolve("signal_service", false)).relayChainData(
                             config.chainId, b.lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
                         );
-                        b.unrelayedBlocks = 0;
+                        b.numBlocksNotRelayed = 0;
                     }
                 }
 

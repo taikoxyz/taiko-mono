@@ -92,16 +92,18 @@ interface ISignalService {
         view
         returns (bool);
 
-    /// @notice Returns the latest relayed chain data.
-    /// @param blockId The chain data's corresponding blockId
+    /// @notice Returns the given block's  chain data.
+    /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
+    /// block id.
     /// @param kind A value to mark the data type.
-    /// @return blockId The block id.
-    /// @return chainData The relayed chain data.
-    function getLatestChainData(
+    /// @return _blockId The actual block id.
+    /// @return _chainData The relayed chain data.
+    function getChainData(
         uint64 chainId,
+        uint64 blockId,
         bytes32 kind
     )
         external
         view
-        returns (uint64 blockId, bytes32 chainData);
+        returns (uint64 _blockId, bytes32 _chainData);
 }

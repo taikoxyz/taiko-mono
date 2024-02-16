@@ -176,18 +176,19 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function getLatestChainData(
+    function getChainData(
         uint64 chainId,
+        uint64 blockId,
         bytes32 kind
     )
         public
         view
-        returns (uint64 blockId, bytes32 chainData)
+        returns (uint64 _blockId, bytes32 _chainData)
     {
-        blockId = topBlockId[chainId][kind];
-        bytes32 signal = signalForChainData(chainId, blockId, kind);
-        chainData = _loadSignalValue(address(this), signal);
-        if (chainData == 0) revert SS_SIGNAL_NOT_FOUND();
+        _blockId = blockId != 0 ? blockId : topBlockId[chainId][kind];
+        bytes32 signal = signalForChainData(chainId, _blockId, kind);
+        _chainData = _loadSignalValue(address(this), signal);
+        if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
     }
 
     function signalForChainData(
