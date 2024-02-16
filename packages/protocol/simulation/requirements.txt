@@ -1,4 +1,4 @@
-contourpy==1.0.7
+contourpy==1.2.0
 cycler==0.11.0
 docutils==0.19
 fonttools==4.39.3
