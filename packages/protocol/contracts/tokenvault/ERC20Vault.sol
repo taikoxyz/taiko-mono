@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
@@ -40,6 +40,7 @@ contract ERC20Vault is BaseVault {
 
     struct BridgeTransferOp {
         uint64 destChainId;
+        address destOwner;
         address to;
         address token;
         uint256 amount;
@@ -186,7 +187,8 @@ contract ERC20Vault is BaseVault {
             _handleMessage({ user: msg.sender, token: op.token, amount: op.amount, to: op.to });
 
         message.destChainId = op.destChainId;
-        message.owner = msg.sender;
+        message.srcOwner = msg.sender;
+        message.destOwner = op.destOwner != address(0) ? op.destOwner : msg.sender;
         message.to = resolve(op.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
@@ -200,7 +202,7 @@ contract ERC20Vault is BaseVault {
 
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.owner,
+            from: _message.srcOwner,
             to: op.to,
             destChainId: op.destChainId,
             ctoken: ctoken.addr,
@@ -262,12 +264,12 @@ contract ERC20Vault is BaseVault {
             abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
 
         // Transfer the ETH and tokens back to the owner
-        address token = _transferTokens(ctoken, message.owner, amount);
-        message.owner.sendEther(message.value);
+        address token = _transferTokens(ctoken, message.srcOwner, amount);
+        message.srcOwner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.srcOwner,
             ctoken: ctoken.addr,
             token: token,
             amount: amount

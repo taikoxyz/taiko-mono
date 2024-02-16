@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /// @title OwnerUUPSUpgradable
 /// @notice This contract serves as the base contract for many core components.
@@ -30,7 +30,7 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
     bytes32 private constant _REENTRY_SLOT =
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721a;
 
-    uint8 private _reentryDeprecated; // slot 1
+    uint8 private _reentry; // slot 1
     uint8 private _paused;
     uint256[49] private __gap;
 
@@ -88,21 +88,29 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         _paused = _FALSE;
     }
 
-    function _inNonReentrant() internal view returns (bool) {
-        return _loadReentryLock() == _TRUE;
-    }
-
     // Stores the reentry lock
-    function _storeReentryLock(uint8 reentry) private {
-        assembly {
-            tstore(_REENTRY_SLOT, reentry)
+    function _storeReentryLock(uint8 reentry) internal virtual {
+        if (block.chainid == 1) {
+            assembly {
+                tstore(_REENTRY_SLOT, reentry)
+            }
+        } else {
+            _reentry = reentry;
         }
     }
 
     // Loads the reentry lock
-    function _loadReentryLock() private view returns (uint8 reentry) {
-        assembly {
-            reentry := tload(_REENTRY_SLOT)
+    function _loadReentryLock() internal view virtual returns (uint8 reentry) {
+        if (block.chainid == 1) {
+            assembly {
+                reentry := tload(_REENTRY_SLOT)
+            }
+        } else {
+            reentry = _reentry;
         }
+    }
+
+    function _inNonReentrant() internal view returns (bool) {
+        return _loadReentryLock() == _TRUE;
     }
 }

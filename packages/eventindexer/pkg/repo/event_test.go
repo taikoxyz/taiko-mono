@@ -107,6 +107,7 @@ func TestIntegration_Event_FindUniqueProvers(t *testing.T) {
 			resp, err := eventRepo.FindUniqueProvers(context.Background())
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, len(tt.wantResp), len(resp))
+
 			for k, v := range resp {
 				assert.Equal(t, tt.wantResp[k].Address, v.Address)
 				assert.Equal(t, tt.wantResp[k].Count, v.Count)
@@ -155,6 +156,7 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 			spew.Dump(resp)
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, len(tt.wantResp), len(resp))
+
 			for k, v := range resp {
 				assert.Equal(t, tt.wantResp[k].Address, v.Address)
 				assert.Equal(t, tt.wantResp[k].Count, v.Count)
@@ -306,6 +308,7 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 				tt.event,
 			)
 			assert.Equal(t, tt.wantErr, err)
+
 			if tt.wantEventID != 0 {
 				assert.Equal(t, tt.wantEventID, found.ID)
 			}

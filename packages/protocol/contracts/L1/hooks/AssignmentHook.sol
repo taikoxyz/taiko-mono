@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
 import "../ITaikoL1.sol";
@@ -109,10 +109,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        uint256 totalFeeETH = input.tip;
         if (assignment.feeToken == address(0)) {
-            totalFeeETH += proverFee;
-
             // Paying Ether
             blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {

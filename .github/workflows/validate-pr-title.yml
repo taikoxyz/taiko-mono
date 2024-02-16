@@ -15,8 +15,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # Non-package scopes explained:
+          # - repo: The repository itself (not a specific package)
+          # - main: For release-please PRs
+          # - deps: For dependabot dependency update PRs
+          # - deps-dev: For dependabot devDependency update PRs
           scopes: |
             repo
+            main
+            deps
+            deps-dev
             branding
             bridge-ui-v2
             eventindexer

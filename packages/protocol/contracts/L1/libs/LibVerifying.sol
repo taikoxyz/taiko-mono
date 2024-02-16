@@ -14,10 +14,11 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
+import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
 import "./LibUtils.sol";
@@ -99,9 +100,9 @@ library LibVerifying {
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
+                || config.ethDepositMaxAmount > type(uint96).max || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositMaxFee > type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;
@@ -247,7 +248,9 @@ library LibVerifying {
                 // This also means if we verified more than one block, only the last one's stateRoot
                 // is sent as a signal and verifiable with merkle proofs, all other blocks'
                 // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(stateRoot);
+                ISignalService(resolver.resolve("signal_service", false)).relayChainData(
+                    config.chainId, LibSignals.STATE_ROOT, stateRoot
+                );
 
                 emit CrossChainSynced(
                     uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot

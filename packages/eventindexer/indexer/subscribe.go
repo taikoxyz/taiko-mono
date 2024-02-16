@@ -76,6 +76,7 @@ func (indxr *Indexer) subscribeRawBlockData(
 			if err != nil {
 				slog.Error("indxr.SubscribeNewHead", "error", err)
 			}
+
 			slog.Info("resubscribing to NewHead events for block data")
 
 			return indxr.ethClient.SubscribeNewHead(ctx, headers)
@@ -110,6 +111,7 @@ func (indxr *Indexer) subscribeTransitionProved(ctx context.Context, chainID *bi
 			if err != nil {
 				log.Error("indxr.taikoL1.WatchTransitionProved", "error", err)
 			}
+
 			log.Info("resubscribing to TransitionProved events")
 
 			return indxr.taikol1.WatchTransitionProved(&bind.WatchOpts{
@@ -159,6 +161,7 @@ func (indxr *Indexer) subscribeTransitionContested(ctx context.Context, chainID 
 			if err != nil {
 				log.Error("indxr.taikoL1.WatchTransitionContested", "error", err)
 			}
+
 			log.Info("resubscribing to TransitionContested events")
 
 			return indxr.taikol1.WatchTransitionContested(&bind.WatchOpts{
@@ -210,6 +213,7 @@ func (indxr *Indexer) subscribeBlockProposed(ctx context.Context, chainID *big.I
 			if err != nil {
 				log.Error("indxr.taikoL1.WatchBlockProposed", "error", err)
 			}
+
 			log.Info("resubscribing to BlockProposed events")
 
 			return indxr.taikol1.WatchBlockProposed(&bind.WatchOpts{
@@ -365,6 +369,7 @@ func (indxr *Indexer) subscribeSwap(ctx context.Context, s *swap.Swap, chainID *
 			if err != nil {
 				slog.Error("s.WatchSwap", "error", err)
 			}
+
 			slog.Info("resubscribing to Swap events")
 
 			return s.WatchSwap(&bind.WatchOpts{
@@ -409,6 +414,7 @@ func (indxr *Indexer) subscribeLiquidityAdded(ctx context.Context, s *swap.Swap,
 			if err != nil {
 				slog.Error("s.WatchMint", "error", err)
 			}
+
 			slog.Info("resubscribing to Swap events")
 
 			return s.WatchMint(&bind.WatchOpts{
@@ -453,6 +459,7 @@ func (indxr *Indexer) subscribeBlockAssigned(ctx context.Context, chainID *big.I
 			if err != nil {
 				log.Error("assignmenthook.AssignmentHookBlockAssignedd", "error", err)
 			}
+
 			log.Info("resubscribing to TransitionProved events")
 
 			return indxr.assignmentHook.WatchBlockAssigned(&bind.WatchOpts{

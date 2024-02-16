@@ -14,9 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "../bridge/IBridge.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
@@ -66,7 +65,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
         message.data = data;
-        message.owner = msg.sender;
+        message.srcOwner = msg.sender;
+        message.destOwner = op.destOwner != address(0) ? op.destOwner : msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
@@ -82,7 +82,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Emit TokenSent event
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.owner,
+            from: _message.srcOwner,
             to: op.to,
             destChainId: _message.destChainId,
             ctoken: ctoken.addr,
@@ -153,13 +153,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[], uint256[]));
 
         // Transfer the ETH and tokens back to the owner
-        address token = _transferTokens(ctoken, message.owner, tokenIds, amounts);
-        message.owner.sendEther(message.value);
+        address token = _transferTokens(ctoken, message.srcOwner, tokenIds, amounts);
+        message.srcOwner.sendEther(message.value);
 
         // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.srcOwner,
             ctoken: ctoken.addr,
             token: token,
             tokenIds: tokenIds,

@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../verifiers/IVerifier.sol";
@@ -153,10 +153,7 @@ library LibProving {
                 IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
-                    // TODO(Brecht): Quite limiting this is required to be the same address as
-                    // msg.sender, less flexibility on the prover's side for proof generation/proof
-                    // submission using multiple accounts.
-                    // Added msgSender to allow the prover to be any address in the future.
+                    // Separate msgSender to allow the prover to be any address in the future.
                     prover: msg.sender,
                     msgSender: msg.sender,
                     blockId: blk.blockId,
@@ -319,8 +316,6 @@ library LibProving {
                 // In scenarios where this transition is not the first one, we
                 // straightforwardly reset the transition prover to address
                 // zero.
-                // TODO(Brecht): Is it sure that in all cases all the neccessary data is stored
-                // in the transition in this case after this code?
                 ts.prover = address(0);
 
                 // Furthermore, we index the transition for future retrieval.
