@@ -118,7 +118,8 @@ contract TaikoL1 is
 
     /// @notice Pause block proving.
     /// @param pause True if paused.
-    function pauseProving(bool pause) external onlyOwner {
+    function pauseProving(bool pause) external {
+        _authorizePause(msg.sender);
         LibProving.pauseProving(state, pause);
     }
 
@@ -130,7 +131,7 @@ contract TaikoL1 is
     }
 
     function unpause() public override {
-        OwnerUUPSUpgradable.unpause();
+        OwnerUUPSUpgradable.unpause(); // permisison checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
@@ -264,10 +265,5 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
     }
 
-    function _authorizePause(address)
-        internal
-        view
-        override
-        onlyFromOwnerOrNamed("rollup_watchdog")
-    { }
+    function _authorizePause(address) internal view override onlyFromOwnerOrNamed("pauser") { }
 }
