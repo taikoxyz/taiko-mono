@@ -12,7 +12,7 @@ require (
 	github.com/ethereum/go-ethereum v1.13.1
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/gomarkdown/markdown v0.0.0-20230322041520-c84983bdbf2a
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.4.0
 	github.com/labstack/echo-contrib v0.13.0
 	github.com/labstack/echo/v4 v4.9.1
