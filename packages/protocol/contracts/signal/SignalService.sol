@@ -169,11 +169,11 @@ contract SignalService is EssentialContract, ISignalService {
         if (signal == 0) revert SS_INVALID_SIGNAL();
         if (app == address(0)) revert SS_INVALID_APP();
         bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
-        uint256 value;
+        bytes32 value;
         assembly {
             value := sload(slot)
         }
-        return value == 1;
+        return value == signal;
     }
 
     /// @notice Get the storage slot of the signal.
@@ -225,7 +225,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (signal == 0) revert SS_INVALID_SIGNAL();
         slot = getSignalSlot(uint64(block.chainid), sender, signal);
         assembly {
-            sstore(slot, 1)
+            sstore(slot, signal)
         }
     }
 
@@ -244,7 +244,7 @@ contract SignalService is EssentialContract, ISignalService {
             hop.rootHash,
             relay,
             getSignalSlot(chainId, app, signal),
-            hex"01",
+            bytes.concat(signal),
             hop.accountProof,
             hop.storageProof
         );
