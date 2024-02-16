@@ -80,7 +80,7 @@ interface ISignalService {
     /// @param kind A value to mark the data type.
     /// @return blockId The block id.
     /// @return chainData The synced data.
-    function getLatestSyncedBlockData(
+    function getLatestBlockData(
         uint64 chainId,
         bytes32 kind
     )

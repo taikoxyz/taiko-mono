@@ -56,7 +56,6 @@ contract SignalService is EssentialContract, ISignalService {
 
     event RelayerAuthorized(address indexed addr, bool authrized);
 
-    error SS_CHAIN_DATA_NOT_FOUND();
     error SS_EMPTY_PROOF();
     error SS_INVALID_APP();
     error SS_INVALID_LAST_HOP_CHAINID();
@@ -156,7 +155,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         if (_loadSignalValue(address(this), _signal) != _value) {
-            revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
+            revert SS_SIGNAL_NOT_FOUND();
         }
     }
 
@@ -181,7 +180,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function getLatestSyncedBlockData(
+    function getLatestBlockData(
         uint64 chainId,
         bytes32 kind
     )
@@ -190,7 +189,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint64 blockId, bytes32 blockData)
     {
         blockId = topBlockId[chainId][kind];
-        if (blockId == 0) revert SS_CHAIN_DATA_NOT_FOUND();
+        if (blockId == 0) revert SS_SIGNAL_NOT_FOUND();
         blockData = signalForChainData(chainId, blockId, kind);
     }
 

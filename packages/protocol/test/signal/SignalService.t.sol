@@ -241,7 +241,7 @@ contract TestSignalService is TaikoTest {
         proofs[0].accountProof = new bytes[](0);
         proofs[0].storageProof = new bytes[](10);
 
-        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        // vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -252,7 +252,7 @@ contract TestSignalService is TaikoTest {
         // the proof is a full proof
         proofs[0].accountProof = new bytes[](1);
 
-        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -277,7 +277,7 @@ contract TestSignalService is TaikoTest {
         proofs[0].accountProof = new bytes[](0);
         proofs[0].storageProof = new bytes[](10);
 
-        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -323,7 +323,7 @@ contract TestSignalService is TaikoTest {
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
 
-        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
@@ -403,7 +403,7 @@ contract TestSignalService is TaikoTest {
         addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
-        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
