@@ -117,7 +117,7 @@ contract ERC20Vault is BaseVault {
         external
         nonReentrant
         whenNotPaused
-        onlyFromOwnerOrNamed("native_token_manager")
+        onlyOwner
         returns (address btokenOld)
     {
         if (btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)) {
