@@ -20,6 +20,10 @@ import "./Guardians.sol";
 
 /// @title GuardianProver
 contract GuardianProver is Guardians {
+    event GuardianApproval(
+        address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
+    );
+
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
@@ -45,5 +49,7 @@ contract GuardianProver is Guardians {
             deleteApproval(hash);
             ITaikoL1(resolve("taiko", false)).proveBlock(meta.id, abi.encode(meta, tran, proof));
         }
+
+        emit GuardianApproval(msg.sender, meta.id, tran.blockHash, approved);
     }
 }
