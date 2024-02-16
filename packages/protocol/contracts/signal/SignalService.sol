@@ -87,15 +87,15 @@ contract SignalService is EssentialContract, ISignalService {
     /// @inheritdoc ISignalService
     function syncChainData(
         uint64 chainId,
-        uint64 blockId,
         bytes32 kind,
+        uint64 blockId,
         bytes32 chainData
     )
         external
         returns (bytes32 signal)
     {
         if (!isAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
-        return _syncChainData(chainId, blockId, kind, chainData);
+        return _syncChainData(chainId, kind, blockId, chainData);
     }
 
     /// @inheritdoc ISignalService
@@ -157,8 +157,8 @@ contract SignalService is EssentialContract, ISignalService {
     /// @inheritdoc ISignalService
     function isChainDataSynced(
         uint64 chainId,
-        uint64 blockId,
         bytes32 kind,
+        uint64 blockId,
         bytes32 chainData
     )
         public
@@ -176,7 +176,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function getChainData(
+    function getSyncedChainData(
         uint64 chainId,
         bytes32 kind,
         uint64 blockId
@@ -186,10 +186,12 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint64 _blockId, bytes32 _chainData)
     {
         _blockId = blockId != 0 ? blockId : topBlockId[chainId][kind];
-        bytes32 signal = signalForChainData(chainId, kind, _blockId);
 
-        _chainData = _loadSignalValue(address(this), signal);
-        if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
+        if (_blockId != 0) {
+            bytes32 signal = signalForChainData(chainId, kind, _blockId);
+            _chainData = _loadSignalValue(address(this), signal);
+            if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
+        }
     }
 
     function signalForChainData(
@@ -201,7 +203,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(chainId,kind, blockId));
+        return keccak256(abi.encode(chainId, kind, blockId));
     }
 
     function getSignalSlot(
@@ -222,7 +224,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 signal,
         bytes32 value,
         HopProof memory hop,
-        address relay
+        address signalService
     )
         internal
         virtual
@@ -233,7 +235,7 @@ contract SignalService is EssentialContract, ISignalService {
     {
         return LibTrieProof.verifyMerkleProof(
             hop.rootHash,
-            relay,
+            signalService,
             getSignalSlot(chainId, app, signal),
             bytes.concat(value),
             hop.accountProof,
@@ -247,8 +249,8 @@ contract SignalService is EssentialContract, ISignalService {
 
     function _syncChainData(
         uint64 chainId,
-        uint64 blockId,
         bytes32 kind,
+        uint64 blockId,
         bytes32 chainData
     )
         private
@@ -295,7 +297,7 @@ contract SignalService is EssentialContract, ISignalService {
             || hop.cacheOption == CacheOption.CACHE_STATE_ROOT;
 
         if (cacheStateRoot && isFullProof && !isLastHop) {
-            _syncChainData(chainId, blockId, LibSignals.STATE_ROOT, hop.rootHash);
+            _syncChainData(chainId, LibSignals.STATE_ROOT, blockId, hop.rootHash);
         }
 
         // cache signal root
@@ -303,7 +305,7 @@ contract SignalService is EssentialContract, ISignalService {
             || hop.cacheOption == CacheOption.CACHE_SIGNAL_ROOT;
 
         if (cacheSignalRoot && (!isLastHop || isFullProof)) {
-            _syncChainData(chainId, blockId, LibSignals.SIGNAL_ROOT, signalRoot);
+            _syncChainData(chainId, LibSignals.SIGNAL_ROOT, blockId, signalRoot);
         }
     }
 

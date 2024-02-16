@@ -42,7 +42,7 @@ contract TaikoL2 is CrossChainOwned {
 
     // Golden touch address
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint8 public constant RELAY_BLOCK_THRESHOLD = 5;
+    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
@@ -51,7 +51,7 @@ contract TaikoL2 is CrossChainOwned {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 2
     uint64 public gasExcess; // slot 3
-    uint64 public lastBlockRelayed;
+    uint64 public lastSyncedBlock;
 
     uint256[147] private __gap;
 
@@ -141,13 +141,13 @@ contract TaikoL2 is CrossChainOwned {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        if (l1BlockId > lastBlockRelayed + RELAY_BLOCK_THRESHOLD) {
+        if (l1BlockId > lastSyncedBlock + BLOCK_SYNC_THRESHOLD) {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
             ISignalService(resolve("signal_service", false)).syncChainData(
-                ownerChainId, l1BlockId, LibSignals.STATE_ROOT, l1StateRoot
+                ownerChainId, LibSignals.STATE_ROOT, l1BlockId, l1StateRoot
             );
-            lastBlockRelayed = l1BlockId;
+            lastSyncedBlock = l1BlockId;
         }
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
@@ -255,13 +255,13 @@ contract TaikoL2 is CrossChainOwned {
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
-            // Note that when lastBlockRelayed is zero, we skip this step
+            // Note that when lastSyncedBlock is zero, we skip this step
             // because that means this is the first time calculating the basefee
             // and the difference between the L1 height would be extremely big,
             // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
-            if (lastBlockRelayed > 0 && l1BlockId > lastBlockRelayed) {
-                numL1Blocks = l1BlockId - lastBlockRelayed;
+            if (lastSyncedBlock > 0 && l1BlockId > lastSyncedBlock) {
+                numL1Blocks = l1BlockId - lastSyncedBlock;
             }
 
             if (numL1Blocks > 0) {

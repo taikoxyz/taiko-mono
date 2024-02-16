@@ -66,7 +66,7 @@ library TaikoData {
         uint256 ethDepositMaxFee;
         // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
         // syncing)
-        uint8 relayBlockThreshold;
+        uint8 blockSyncThreshold;
     }
 
     /// @dev Struct representing prover assignment
@@ -182,7 +182,7 @@ library TaikoData {
         bool provingPaused;
         uint8 __reserved1;
         uint16 __reserved2;
-        uint32 numBlocksNotRelayed;
+        uint32 __reserved3;
         uint64 lastUnpausedAt;
     }
 

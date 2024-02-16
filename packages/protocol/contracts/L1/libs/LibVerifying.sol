@@ -233,25 +233,35 @@ library LibVerifying {
             }
 
             if (numBlocksVerified > 0) {
-                b.lastVerifiedBlockId += numBlocksVerified;
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
-                if (config.relayBlockThreshold > 0) {
-                    uint256 numBlocksNotRelayed = numBlocksVerified + b.numBlocksNotRelayed;
-                    if (numBlocksNotRelayed < config.relayBlockThreshold) {
-                        // config.relayBlockThreshold is uint8
-                        b.numBlocksNotRelayed = uint8(numBlocksNotRelayed);
-                    } else {
-                        // Store the L2's state root as a signal to the local signal
-                        // service to allow for multi-hop bridging.
-                        ISignalService(resolver.resolve("signal_service", false)).syncChainData(
-                            config.chainId, b.lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
-                        );
-                        b.numBlocksNotRelayed = 0;
-                    }
-                }
+                // Update protocol level state variables
+                state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                state.slotB = b;
+                // sync chain data
+                _syncChainData(config, resolver, lastVerifiedBlockId, stateRoot);
             }
+        }
+    }
+
+    function _syncChainData(
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint64 lastVerifiedBlockId,
+        bytes32 stateRoot
+    )
+        private
+    {
+        ISignalService signalService = ISignalService(resolver.resolve("signal_service", false));
+
+        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
+            config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+        );
+
+        if (lastVerifiedBlockId > lastSyncedBlock + config.blockSyncThreshold) {
+            signalService.syncChainData(
+                config.chainId, LibSignals.STATE_ROOT, lastVerifiedBlockId, stateRoot
+            );
         }
     }
 }

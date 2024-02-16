@@ -38,17 +38,17 @@ interface ISignalService {
     /// @return slot The location in storage where this signal is stored.
     function sendSignal(bytes32 signal) external returns (bytes32 slot);
 
-    /// @notice Relay a data from a remote chain locally as a signal. The signal is calculated
+    /// @notice Sync a data from a remote chain locally as a signal. The signal is calculated
     /// uniquely from chainId, kind, and data.
     /// @param chainId The remote chainId.
-    /// @param blockId The chain data's corresponding blockId
     /// @param kind A value to mark the data type.
+    /// @param blockId The chain data's corresponding blockId
     /// @param chainData The remote data.
     /// @return signal The signal for this chain data.
     function syncChainData(
         uint64 chainId,
-        uint64 blockId,
         bytes32 kind,
+        uint64 blockId,
         bytes32 chainData
     )
         external
@@ -75,17 +75,17 @@ interface ISignalService {
     /// @return True if the signal has been sent, otherwise false.
     function isSignalSent(address app, bytes32 signal) external view returns (bool);
 
-    /// @notice Checks if a chain data has been relayed.
+    /// @notice Checks if a chain data has been synced.
     /// uniquely from chainId, kind, and data.
     /// @param chainId The remote chainId.
-    /// @param blockId The chain data's corresponding blockId
     /// @param kind A value to mark the data type.
+    /// @param blockId The chain data's corresponding blockId
     /// @param chainData The remote data.
-    /// @return True if the data has been relayed, otherwise false.
+    /// @return True if the data has been synced, otherwise false.
     function isChainDataSynced(
         uint64 chainId,
-        uint64 blockId,
         bytes32 kind,
+        uint64 blockId,
         bytes32 chainData
     )
         external
@@ -94,11 +94,11 @@ interface ISignalService {
 
     /// @notice Returns the given block's  chain data.
     /// @param kind A value to mark the data type.
-      /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
+    /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
     /// @return _blockId The actual block id.
     /// @return _chainData The synced chain data.
-    function getChainData(
+    function getSyncedChainData(
         uint64 chainId,
         bytes32 kind,
         uint64 blockId

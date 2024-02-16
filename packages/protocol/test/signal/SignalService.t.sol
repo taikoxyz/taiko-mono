@@ -288,7 +288,7 @@ contract TestSignalService is TaikoTest {
         // relay the signal root
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash
+            srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
         signalService.proveSignalReceived({
             chainId: srcChainId,
@@ -303,7 +303,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash
+            srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
     }
 
@@ -334,7 +334,7 @@ contract TestSignalService is TaikoTest {
         // relay the state root
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, proofs[0].blockId, LibSignals.STATE_ROOT, proofs[0].rootHash
+            srcChainId, LibSignals.STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
 
         // Should not revert
@@ -347,7 +347,7 @@ contract TestSignalService is TaikoTest {
 
         assertEq(
             signalService.isChainDataSynced(
-                srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+                srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
             ),
             false
         );
@@ -413,7 +413,7 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[1].chainId, proofs[2].blockId, LibSignals.STATE_ROOT, proofs[2].rootHash
+            proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
         signalService.proveSignalReceived({
@@ -514,7 +514,7 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[7].chainId, proofs[8].blockId, LibSignals.STATE_ROOT, proofs[8].rootHash
+            proofs[7].chainId, LibSignals.STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
         );
 
         signalService.proveSignalReceived({
@@ -555,13 +555,13 @@ contract TestSignalService is TaikoTest {
         private
     {
         assertEq(
-            signalService.isChainDataSynced(chainId, blockId, LibSignals.STATE_ROOT, stateRoot),
+            signalService.isChainDataSynced(chainId, LibSignals.STATE_ROOT, blockId, stateRoot),
             stateRootCached
         );
 
         assertEq(
             signalService.isChainDataSynced(
-                chainId, blockId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+                chainId, LibSignals.SIGNAL_ROOT, blockId, bytes32(uint256(789))
             ),
             signalRootCached
         );
