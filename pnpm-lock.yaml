@@ -406,8 +406,8 @@ importers:
         specifier: ^3.5.1
         version: 3.7.4(svelte@3.59.2)
       svelte-spa-router:
-        specifier: ^3.2.0
-        version: 3.3.0
+        specifier: ^4.0.1
+        version: 4.0.1
     devDependencies:
       '@babel/preset-env':
         specifier: ^7.16.0
@@ -560,8 +560,8 @@ importers:
         specifier: ^3.5.1
         version: 3.7.4(svelte@3.59.2)
       svelte-spa-router:
-        specifier: ^3.2.0
-        version: 3.3.0
+        specifier: ^4.0.1
+        version: 4.0.1
     devDependencies:
       '@babel/preset-env':
         specifier: ^7.16.0
@@ -7297,13 +7297,6 @@ packages:
   /@web3modal/siwe@4.0.5(typescript@5.3.3):
     resolution: {integrity: sha512-JxYoM0rvgekpvd2Wyw1mtq7mbv8JBsbP22K5Evf4ZUupVAgoeNHDGCBKK8nKwdwMuc2AfsAcdNqx+rwS6N9WLQ==}
     requiresBuild: true
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      vue:
-        optional: true
     dependencies:
       '@web3modal/core': 4.0.5(react@18.2.0)
       '@web3modal/scaffold-utils': 4.0.5(react@18.2.0)
@@ -7351,15 +7344,6 @@ packages:
       '@wagmi/connectors': '>=4.0.0'
       '@wagmi/core': '>=2.0.0'
       viem: '>=2.0.0'
-    peerDependenciesMeta:
-      '@web3modal/siwe':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      vue:
-        optional: true
     dependencies:
       '@wagmi/connectors': 4.1.14(@wagmi/core@2.6.5)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.3.3)(viem@2.7.9)
       '@wagmi/core': 2.6.5(react@18.2.0)(typescript@5.3.3)(viem@2.7.9)
@@ -16888,8 +16872,8 @@ packages:
       set-function-name: 2.0.1
     dev: true
 
-  /regexparam@2.0.1:
-    resolution: {integrity: sha512-zRgSaYemnNYxUv+/5SeoHI0eJIgTL/A2pUtXUPLHQxUldagouJ9p+K6IbIZ/JiQuCEv2E2B1O11SjVQy3aMCkw==}
+  /regexparam@2.0.2:
+    resolution: {integrity: sha512-A1PeDEYMrkLrfyOwv2jwihXbo9qxdGD3atBYQA9JJgreAx8/7rC6IUkWOw2NQlOxLp2wL0ifQbh1HuidDfYA6w==}
     engines: {node: '>=8'}
     dev: false
 
@@ -18414,10 +18398,10 @@ packages:
       typescript: 5.3.3
     dev: true
 
-  /svelte-spa-router@3.3.0:
-    resolution: {integrity: sha512-cwRNe7cxD43sCvSfEeaKiNZg3FCizGxeMcf7CPiWRP3jKXjEma3vxyyuDtPOam6nWbVxl9TNM3hlE/i87ZlqcQ==}
+  /svelte-spa-router@4.0.1:
+    resolution: {integrity: sha512-2JkmUQ2f9jRluijL58LtdQBIpynSbem2eBGp4zXdi7aDY1znbR6yjw0KsonD0aq2QLwf4Yx4tBJQjxIjgjXHKg==}
     dependencies:
-      regexparam: 2.0.1
+      regexparam: 2.0.2
     dev: false
 
   /svelte@3.59.2:
