@@ -1,6 +1,6 @@
-import type { GetAccountResult, PublicClient } from '@wagmi/core';
+import type { GetAccountReturnType } from '@wagmi/core';
 import { writable } from 'svelte/store';
 
-export type Account = GetAccountResult<PublicClient>;
+export type Account = GetAccountReturnType;
 
-export const account = writable<Account>();
+export const account = writable<GetAccountReturnType>();

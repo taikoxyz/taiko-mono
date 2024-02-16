@@ -1,4 +1,4 @@
-import type { Address } from '@wagmi/core';
+import type { Address } from 'viem';
 
 import type { BridgeTransaction, RelayerMessage } from '$libs/bridge';
 

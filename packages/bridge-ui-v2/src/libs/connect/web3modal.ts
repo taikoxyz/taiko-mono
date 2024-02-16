@@ -1,16 +1,16 @@
 import { createWeb3Modal } from '@web3modal/wagmi';
 
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
-import { chains, getChainImages } from '$libs/chain';
-import { wagmiConfig } from '$libs/wagmi';
+import { getChainImages } from '$libs/chain';
+import { config } from '$libs/wagmi';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 const chainImages = getChainImages();
 
 export const web3modal = createWeb3Modal({
-  wagmiConfig,
+  wagmiConfig: config,
   projectId,
-  chains,
+  // chains,
   chainImages,
   themeVariables: {
     '--w3m-color-mix': 'var(--neutral-background)',

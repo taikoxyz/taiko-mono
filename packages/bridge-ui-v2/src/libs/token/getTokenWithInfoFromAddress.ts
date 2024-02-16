@@ -1,15 +1,16 @@
-import { erc721ABI, fetchToken, readContract } from '@wagmi/core';
+import { getToken, readContract } from '@wagmi/core';
 import type { Address } from 'viem';
 
-import { erc1155ABI } from '$abi';
-import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
+import { erc721ABI, erc1155ABI } from '$abi';
+import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
 import { safeReadContract } from '$libs/util/safeReadContract';
+import { config } from '$libs/wagmi';
 
 import { detectContractType } from './detectContractType';
-import { type NFT, type Token, TokenType } from './types';
+import { type NFT, type NFTMetadata, type Token, TokenType } from './types';
 
-const log = getLogger('libs:token:getTokenInfo');
+const log = getLogger('libs:token:getTokenAddresses');
 
 type GetTokenWithInfoFromAddressParams = {
   contractAddress: Address;
@@ -28,7 +29,7 @@ export const getTokenWithInfoFromAddress = async ({
 }: GetTokenWithInfoFromAddressParams): Promise<Token | NFT> => {
   log(`getting token info for ${contractAddress} id: ${tokenId}`);
   try {
-    const tokenType: TokenType = type ?? (await detectContractType(contractAddress));
+    const tokenType: TokenType = type ?? (await detectContractType(contractAddress, srcChainId));
     if (tokenType === TokenType.ERC20) {
       return getERC20Info(contractAddress, srcChainId, tokenType);
     } else if (tokenType === TokenType.ERC1155) {
@@ -45,7 +46,10 @@ export const getTokenWithInfoFromAddress = async ({
 };
 
 const getERC20Info = async (contractAddress: Address, srcChainId: number, type: TokenType) => {
-  const fetchResult = await fetchToken({
+  log(`getting token info for ERC20`);
+
+  // TODO: check deprecation
+  const fetchResult = await getToken(config, {
     address: contractAddress,
     chainId: srcChainId,
   });
@@ -69,10 +73,19 @@ const getERC1155Info = async (
   tokenId: number | undefined,
   type: TokenType,
 ) => {
-  let name = await safeReadContract({
+  log(`getting token info for ERC1155`);
+
+  const name = await safeReadContract({
     address: contractAddress,
     abi: erc1155ABI,
     functionName: 'name',
+    chainId: srcChainId,
+  });
+
+  const symbol = await safeReadContract({
+    address: contractAddress,
+    abi: erc1155ABI,
+    functionName: 'symbol',
     chainId: srcChainId,
   });
 
@@ -95,7 +108,7 @@ const getERC1155Info = async (
 
   let balance;
   if (tokenId !== null && tokenId !== undefined && owner) {
-    balance = await readContract({
+    balance = await readContract(config, {
       address: contractAddress,
       abi: erc1155ABI,
       functionName: 'balanceOf',
@@ -108,24 +121,28 @@ const getERC1155Info = async (
   try {
     token = {
       type,
-      name: name ? name : 'No collection name',
-      uri: uri ? uri.toString() : undefined,
+      symbol,
+      name,
+      uri,
       addresses: {
         [srcChainId]: contractAddress,
       },
-      tokenId,
-      balance: balance ? balance : 0,
+      tokenId: tokenId ?? -1,
+      balance: balance ? balance : 0n,
     } as NFT;
     try {
-      const tokenWithMetadata = await fetchNFTMetadata(token);
-      if (tokenWithMetadata?.metadata?.name !== '') name = tokenWithMetadata?.metadata?.name;
-
-      if (!tokenWithMetadata) return token;
-      return tokenWithMetadata;
+      if (token?.uri) {
+        if (!token.metadata) {
+          const metadata: NFTMetadata | null = await fetchNFTMetadata(token);
+          if (metadata) {
+            token.metadata = metadata;
+          }
+        }
+      }
+      return token;
     } catch {
       return token;
     }
-    return token;
   } catch (error) {
     log(`error fetching metadata for ${contractAddress} id: ${tokenId}`, error);
   }
@@ -138,14 +155,17 @@ const getERC721Info = async (
   tokenId: number | undefined,
   type: TokenType,
 ) => {
-  const name = await readContract({
+  log(`getting token info for ERC721`);
+
+  log(`getting name, symbol and uri for ERC721 token ${contractAddress} id: ${tokenId} on chain ${srcChainId}`);
+  const name = await safeReadContract({
     address: contractAddress,
     abi: erc721ABI,
     functionName: 'name',
     chainId: srcChainId,
   });
 
-  const symbol = await readContract({
+  const symbol = await safeReadContract({
     address: contractAddress,
     abi: erc721ABI,
     functionName: 'symbol',
@@ -175,9 +195,15 @@ const getERC721Info = async (
     uri: uri ? uri.toString() : undefined,
   } as NFT;
   try {
-    const tokenWithMetadata = await fetchNFTMetadata(token);
-    if (!tokenWithMetadata) return token;
-    return tokenWithMetadata;
+    if (token?.uri) {
+      if (!token.metadata) {
+        const metadata: NFTMetadata | null = await fetchNFTMetadata(token);
+        if (metadata) {
+          token.metadata = metadata;
+        }
+      }
+    }
+    return token;
   } catch {
     return token;
   }
