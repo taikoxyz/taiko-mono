@@ -54,7 +54,7 @@
     "ts-loader": "^9.2.6",
     "tslib": "^2.4.0",
     "typescript": "^4.6.4",
-    "vite": "^3.2.7",
+    "vite": "^3.2.8",
     "vite-plugin-static-copy": "^0.12.0"
   },
   "dependencies": {
