@@ -40,7 +40,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes[] storageProof;
     }
 
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 topBlockId)) public topBlockId;
+    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
     mapping(address => bool) public isAuthorized;
     uint256[49] private __gap;
 
