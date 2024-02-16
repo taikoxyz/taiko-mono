@@ -243,7 +243,7 @@ library LibVerifying {
                     } else {
                         // Store the L2's state root as a signal to the local signal
                         // service to allow for multi-hop bridging.
-                        ISignalService(resolver.resolve("signal_service", false)).relayChainData(
+                        ISignalService(resolver.resolve("signal_service", false)).syncChainData(
                             config.chainId, b.lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
                         );
                         b.numBlocksNotRelayed = 0;

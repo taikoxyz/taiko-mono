@@ -144,7 +144,7 @@ contract TaikoL2 is CrossChainOwned {
         if (l1BlockId > lastBlockRelayed + RELAY_BLOCK_THRESHOLD) {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
-            ISignalService(resolve("signal_service", false)).relayChainData(
+            ISignalService(resolve("signal_service", false)).syncChainData(
                 ownerChainId, l1BlockId, LibSignals.STATE_ROOT, l1StateRoot
             );
             lastBlockRelayed = l1BlockId;

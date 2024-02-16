@@ -71,7 +71,7 @@ contract SignalService is EssentialContract, ISignalService {
         __Essential_init(_addressManager);
     }
 
-    /// @dev Authorize or deautohrize an address for calling relayChainData
+    /// @dev Authorize or deautohrize an address for calling syncChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
     function authorize(address addr, bool toAuthorize) external onlyOwner {
         if (isAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
@@ -85,7 +85,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function relayChainData(
+    function syncChainData(
         uint64 chainId,
         uint64 blockId,
         bytes32 kind,
@@ -95,7 +95,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 signal)
     {
         if (!isAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
-        return _relayChainData(chainId, blockId, kind, chainData);
+        return _syncChainData(chainId, blockId, kind, chainData);
     }
 
     /// @inheritdoc ISignalService
@@ -155,7 +155,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function isChainDataRelayed(
+    function isChainDataSynced(
         uint64 chainId,
         uint64 blockId,
         bytes32 kind,
@@ -244,7 +244,7 @@ contract SignalService is EssentialContract, ISignalService {
         revert SS_UNSUPPORTED();
     }
 
-    function _relayChainData(
+    function _syncChainData(
         uint64 chainId,
         uint64 blockId,
         bytes32 kind,
@@ -259,7 +259,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (topBlockId[chainId][kind] < blockId) {
             topBlockId[chainId][kind] = blockId;
         }
-        emit ChainDataRelayed(chainId, blockId, kind, chainData, signal);
+        emit ChainDataSynced(chainId, blockId, kind, chainData, signal);
     }
 
     function _sendSignal(
@@ -294,7 +294,7 @@ contract SignalService is EssentialContract, ISignalService {
             || hop.cacheOption == CacheOption.CACHE_STATE_ROOT;
 
         if (cacheStateRoot && isFullProof && !isLastHop) {
-            _relayChainData(chainId, blockId, LibSignals.STATE_ROOT, hop.rootHash);
+            _syncChainData(chainId, blockId, LibSignals.STATE_ROOT, hop.rootHash);
         }
 
         // cache signal root
@@ -302,7 +302,7 @@ contract SignalService is EssentialContract, ISignalService {
             || hop.cacheOption == CacheOption.CACHE_SIGNAL_ROOT;
 
         if (cacheSignalRoot && (!isLastHop || isFullProof)) {
-            _relayChainData(chainId, blockId, LibSignals.SIGNAL_ROOT, signalRoot);
+            _syncChainData(chainId, blockId, LibSignals.SIGNAL_ROOT, signalRoot);
         }
     }
 

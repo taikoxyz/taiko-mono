@@ -287,7 +287,7 @@ contract TestSignalService is TaikoTest {
 
         // relay the signal root
         vm.prank(taiko);
-        signalService.relayChainData(
+        signalService.syncChainData(
             srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash
         );
         signalService.proveSignalReceived({
@@ -302,7 +302,7 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
-        signalService.relayChainData(
+        signalService.syncChainData(
             srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash
         );
     }
@@ -333,7 +333,7 @@ contract TestSignalService is TaikoTest {
 
         // relay the state root
         vm.prank(taiko);
-        signalService.relayChainData(
+        signalService.syncChainData(
             srcChainId, proofs[0].blockId, LibSignals.STATE_ROOT, proofs[0].rootHash
         );
 
@@ -346,7 +346,7 @@ contract TestSignalService is TaikoTest {
         });
 
         assertEq(
-            signalService.isChainDataRelayed(
+            signalService.isChainDataSynced(
                 srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
             ),
             false
@@ -412,7 +412,7 @@ contract TestSignalService is TaikoTest {
         });
 
         vm.prank(taiko);
-        signalService.relayChainData(
+        signalService.syncChainData(
             proofs[1].chainId, proofs[2].blockId, LibSignals.STATE_ROOT, proofs[2].rootHash
         );
 
@@ -513,7 +513,7 @@ contract TestSignalService is TaikoTest {
         vm.stopPrank();
 
         vm.prank(taiko);
-        signalService.relayChainData(
+        signalService.syncChainData(
             proofs[7].chainId, proofs[8].blockId, LibSignals.STATE_ROOT, proofs[8].rootHash
         );
 
@@ -555,12 +555,12 @@ contract TestSignalService is TaikoTest {
         private
     {
         assertEq(
-            signalService.isChainDataRelayed(chainId, blockId, LibSignals.STATE_ROOT, stateRoot),
+            signalService.isChainDataSynced(chainId, blockId, LibSignals.STATE_ROOT, stateRoot),
             stateRootCached
         );
 
         assertEq(
-            signalService.isChainDataRelayed(
+            signalService.isChainDataSynced(
                 chainId, blockId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
             ),
             signalRootCached

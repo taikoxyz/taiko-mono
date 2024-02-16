@@ -24,8 +24,8 @@ pragma solidity 0.8.24;
 
 interface ISignalService {
     /// @notice Emitted when a remote chain's state root or signal root is
-    /// relayed locally as a signal.
-    event ChainDataRelayed(
+    /// synced locally as a signal.
+    event ChainDataSynced(
         uint64 indexed chainid,
         uint64 indexed blockId,
         bytes32 indexed kind,
@@ -45,7 +45,7 @@ interface ISignalService {
     /// @param kind A value to mark the data type.
     /// @param chainData The remote data.
     /// @return signal The signal for this chain data.
-    function relayChainData(
+    function syncChainData(
         uint64 chainId,
         uint64 blockId,
         bytes32 kind,
@@ -82,7 +82,7 @@ interface ISignalService {
     /// @param kind A value to mark the data type.
     /// @param chainData The remote data.
     /// @return True if the data has been relayed, otherwise false.
-    function isChainDataRelayed(
+    function isChainDataSynced(
         uint64 chainId,
         uint64 blockId,
         bytes32 kind,
@@ -97,7 +97,7 @@ interface ISignalService {
     /// block id.
     /// @param kind A value to mark the data type.
     /// @return _blockId The actual block id.
-    /// @return _chainData The relayed chain data.
+    /// @return _chainData The synced chain data.
     function getChainData(
         uint64 chainId,
         uint64 blockId,
