@@ -131,7 +131,7 @@ contract TaikoL1 is
     }
 
     function unpause() public override {
-        OwnerUUPSUpgradable.unpause(); // permisison checked inside
+        OwnerUUPSUpgradable.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
