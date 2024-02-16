@@ -16,15 +16,15 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
-import "../../contracts/L1/gov/TaikoGovernor.sol";
+import "../../contracts/L1/gov/TkoGv.sol";
 import "./UpgradeScript.s.sol";
 
-contract UpgradeTaikoGovernor is UpgradeScript {
+contract UpgradeTkoGovernor is UpgradeScript {
     function run() external setUp {
-        console2.log("upgrading TaikoGovernor");
-        TaikoGovernor newTaikoGovernor = new TaikoGovernor();
-        upgrade(address(newTaikoGovernor));
+        console2.log("upgrading TkoGv");
+        TkoGv newTkoGovernor = new TkoGv();
+        upgrade(address(newTkoGovernor));
 
-        console2.log("upgraded TaikoGovernor to", address(newTaikoGovernor));
+        console2.log("upgraded TkoGv to", address(newTkoGovernor));
     }
 }

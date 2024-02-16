@@ -23,7 +23,7 @@ import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/tiers/OptimisticTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
-import "../contracts/L1/gov/TaikoGovernor.sol";
+import "../contracts/L1/gov/TkoGv.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -190,9 +190,9 @@ contract DeployOnL1 is DeployCapability {
 
         address governor = deployProxy({
             name: "taiko_governor",
-            impl: address(new TaikoGovernor()),
+            impl: address(new TkoGv()),
             data: abi.encodeCall(
-                TaikoGovernor.init,
+                TkoGv.init,
                 (IVotesUpgradeable(taikoToken), TimelockControllerUpgradeable(payable(timelock)))
                 ),
             registerTo: address(0),
