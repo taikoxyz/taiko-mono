@@ -143,7 +143,7 @@ contract SignalService is EssentialContract, ISignalService {
             _cacheChainData(hop, _chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
 
             bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
-            _signal = signalForChainData(_chainId, hop.blockId, kind);
+            _signal = signalForChainData(_chainId, kind, hop.blockId);
             _value = hop.rootHash;
             _chainId = hop.chainId;
             _app = _signalService;
@@ -166,7 +166,7 @@ contract SignalService is EssentialContract, ISignalService {
         nonZeroValue(chainData)
         returns (bool)
     {
-        bytes32 signal = signalForChainData(chainId, blockId, kind);
+        bytes32 signal = signalForChainData(chainId, kind, blockId);
         return _loadSignalValue(address(this), signal) == chainData;
     }
 
@@ -178,29 +178,30 @@ contract SignalService is EssentialContract, ISignalService {
     /// @inheritdoc ISignalService
     function getChainData(
         uint64 chainId,
-        uint64 blockId,
-        bytes32 kind
+        bytes32 kind,
+        uint64 blockId
     )
         public
         view
         returns (uint64 _blockId, bytes32 _chainData)
     {
         _blockId = blockId != 0 ? blockId : topBlockId[chainId][kind];
-        bytes32 signal = signalForChainData(chainId, _blockId, kind);
+        bytes32 signal = signalForChainData(chainId, kind, _blockId);
+
         _chainData = _loadSignalValue(address(this), signal);
         if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
     }
 
     function signalForChainData(
         uint64 chainId,
-        uint64 blockId,
-        bytes32 kind
+        bytes32 kind,
+        uint64 blockId
     )
         public
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(chainId, blockId, kind));
+        return keccak256(abi.encode(chainId,kind, blockId));
     }
 
     function getSignalSlot(
@@ -253,7 +254,7 @@ contract SignalService is EssentialContract, ISignalService {
         private
         returns (bytes32 signal)
     {
-        signal = signalForChainData(chainId, blockId, kind);
+        signal = signalForChainData(chainId, kind, blockId);
         _sendSignal(address(this), signal, chainData);
 
         if (topBlockId[chainId][kind] < blockId) {

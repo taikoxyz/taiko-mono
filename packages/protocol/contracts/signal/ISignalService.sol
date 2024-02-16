@@ -93,15 +93,15 @@ interface ISignalService {
         returns (bool);
 
     /// @notice Returns the given block's  chain data.
-    /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
-    /// block id.
     /// @param kind A value to mark the data type.
+      /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
+    /// block id.
     /// @return _blockId The actual block id.
     /// @return _chainData The synced chain data.
     function getChainData(
         uint64 chainId,
-        uint64 blockId,
-        bytes32 kind
+        bytes32 kind,
+        uint64 blockId
     )
         external
         view
