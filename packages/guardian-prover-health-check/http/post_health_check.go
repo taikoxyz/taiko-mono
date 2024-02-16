@@ -73,7 +73,12 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		}
 	}
 
-	slog.Info("successful health check", "guardianProver", recoveredGuardianProver.Address.Hex())
+	slog.Info("successful health check",
+		"id", recoveredGuardianProver.ID.Uint64(),
+		"guardianProver", recoveredGuardianProver.Address.Hex(),
+		"latestL1Block", req.LatestL1Block,
+		"latestL2Block", req.LatestL2Block,
+	)
 
 	return c.JSON(http.StatusOK, nil)
 }
