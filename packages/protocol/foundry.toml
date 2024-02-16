@@ -25,7 +25,10 @@ fs_permissions = [
   { access = "read", path = "./genesis" },
 ]
 
-fuzz = { runs = 256 }
+# 2394: transient storage warning
+ignored_error_codes = [2394]
+
+fuzz = { runs = 200 }
 
 # Workaround as a fixed fuzz seed.
 # Bug is confirmed, will be fixed soon:

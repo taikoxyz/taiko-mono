@@ -4,13 +4,13 @@ pragma solidity 0.8.24;
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../contracts/thirdparty/LibFixedPointMath.sol";
 
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/signal/HopRelayRegistry.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
 import "../contracts/tokenvault/BridgedERC1155.sol";
@@ -80,5 +80,13 @@ abstract contract TaikoTest is Test, DeployCapability {
 
     function randBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
+    }
+
+    function strToBytes32(string memory input) internal pure returns (bytes32 result) {
+        require(bytes(input).length <= 32, "String too long");
+        // Copy the string's bytes directly into the bytes32 variable
+        assembly {
+            result := mload(add(input, 32))
+        }
     }
 }

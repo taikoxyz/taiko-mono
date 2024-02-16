@@ -80,7 +80,9 @@ contract TaikoL1 is
         (meta, depositsProcessed) =
             LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
 
-        _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        if (!state.slotB.provingPaused) {
+            _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        }
     }
 
     /// @inheritdoc ITaikoL1
@@ -175,7 +177,7 @@ contract TaikoL1 is
         override
         returns (ICrossChainSync.Snippet memory)
     {
-        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
+        return LibUtils.getSyncedSnippet(state, getConfig(), AddressResolver(this), blockId);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.

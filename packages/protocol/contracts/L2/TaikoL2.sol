@@ -19,6 +19,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/ICrossChainSync.sol";
 import "../signal/ISignalService.sol";
+import "../signal/LibSignals.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "./Lib1559Math.sol";
@@ -78,7 +79,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     {
         __CrossChainOwned_init(_addressManager, _l1ChainId);
 
-        if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
+        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
 
@@ -143,7 +144,9 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Store the L1's state root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).sendSignal(l1StateRoot);
+        ISignalService(resolve("signal_service", false)).relayChainData(
+            ownerChainId, LibSignals.STATE_ROOT, l1StateRoot
+        );
 
         emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
 
@@ -157,7 +160,6 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         });
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
-
         emit Anchored(blockhash(parentId), gasExcess);
     }
 
