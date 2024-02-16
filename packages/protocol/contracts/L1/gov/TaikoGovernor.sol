@@ -68,7 +68,8 @@ contract TaikoGovernor is
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable, IERC165Upgradeable)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return interfaceId == type(IGovernorUpgradeable).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     function state(uint256 proposalId)
@@ -94,6 +95,23 @@ contract TaikoGovernor is
     // The number of votes required in order for a voter to become a proposer
     function proposalThreshold() public pure override returns (uint256) {
         return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
+    }
+
+    /**
+     * @dev See {IGovernor-cancel}.
+     */
+    function cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    )
+        public
+        virtual
+        override(IGovernorUpgradeable, GovernorUpgradeable, GovernorCompatibilityBravoUpgradeable)
+        returns (uint256)
+    {
+        return super.cancel(targets, values, calldatas, descriptionHash);
     }
 
     function _execute(
