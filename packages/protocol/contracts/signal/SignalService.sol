@@ -160,7 +160,7 @@ contract SignalService is EssentialContract, ISignalService {
             _app = _signalService;
         }
 
-        if (_value == 0 || _value!=_loadSignalValue(address(this), _signal)  ) {
+        if (_value == 0 || _value != _loadSignalValue(address(this), _signal)) {
             revert SS_SIGNAL_NOT_FOUND();
         }
     }
@@ -330,6 +330,5 @@ contract SignalService is EssentialContract, ISignalService {
         assembly {
             value := sload(slot)
         }
-       
     }
 }
