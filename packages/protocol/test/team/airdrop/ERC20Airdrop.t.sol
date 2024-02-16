@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
 import "./LibDelegationSigUtil.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract MockERC20Airdrop is ERC20Airdrop {
     function _verifyMerkleProof(

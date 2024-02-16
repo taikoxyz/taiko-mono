@@ -1,3 +1,3 @@
 #/bin/sh
 
-swag init -g http/server.go --parseDependency
+swag init -g server.go -d pkg/http --parseDependency

@@ -3,44 +3,29 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract SignalServiceForTest is SignalService {
-    bool private _skipVerifyMerkleProof;
-    bool private _multiHopEnabled;
-
-    function setSkipMerkleProofCheck(bool skip) external {
-        _skipVerifyMerkleProof = skip;
-    }
-
-    function setMultiHopEnabled(bool enabled) external {
-        _multiHopEnabled = enabled;
-    }
-
-    function verifyMerkleProof(
-        bytes32, /*stateRoot*/
-        uint64, /*srcChainId*/
-        address, /*srcApp*/
-        bytes32, /*srcSignal*/
-        bytes memory /*merkleProof*/
+contract MockSignalService is SignalService {
+    function _verifyHopProof(
+        uint64, /*chainId*/
+        address, /*app*/
+        bytes32, /*signal*/
+        HopProof memory, /*hop*/
+        address /*relay*/
     )
-        public
-        view
+        internal
+        pure
         override
+        returns (bytes32)
     {
-        if (!_skipVerifyMerkleProof) revert("verifyMerkleProof failed");
-    }
-
-    function isMultiHopEnabled() public view override returns (bool) {
-        return _multiHopEnabled;
+        // Skip verifying the merkle proof entirely
+        return bytes32(uint256(789));
     }
 }
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-    SignalServiceForTest signalService;
-    SignalService destSignalService;
-    HopRelayRegistry hopRelayRegistry;
-    DummyCrossChainSync crossChainSync;
+    MockSignalService signalService;
     uint64 public destChainId = 7;
+    address taiko;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -57,40 +42,16 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        signalService = SignalServiceForTest(
+        signalService = MockSignalService(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalServiceForTest()),
+                impl: address(new MockSignalService()),
                 data: abi.encodeCall(SignalService.init, (address(addressManager)))
             })
         );
 
-        hopRelayRegistry = HopRelayRegistry(
-            deployProxy({
-                name: "hop_relay_registry",
-                impl: address(new HopRelayRegistry()),
-                data: abi.encodeCall(HopRelayRegistry.init, ()),
-                registerTo: address(addressManager),
-                owner: address(0)
-            })
-        );
-
-        destSignalService = SignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalServiceForTest()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager)))
-            })
-        );
-
-        crossChainSync = DummyCrossChainSync(
-            deployProxy({
-                name: "taiko", // must be named so
-                impl: address(new DummyCrossChainSync()),
-                data: ""
-            })
-        );
-
+        taiko = randAddress();
+        signalService.authorizeRelayer(taiko, true);
         vm.stopPrank();
     }
 
@@ -127,107 +88,466 @@ contract TestSignalService is TaikoTest {
         }
     }
 
-    function test_SignalService_proveSignalReceived_L1_L2() public {
-        signalService.setSkipMerkleProofCheck(true);
-        signalService.setMultiHopEnabled(false);
+    function test_SignalService_proveSignalReceived_revert_invalid_chainid_or_signal() public {
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        bytes32 stateRoot = randBytes32();
-        crossChainSync.setSyncedData("", stateRoot);
+        // app being address(0) will revert
+        vm.expectRevert(SignalService.SS_INVALID_PARAMS.selector);
+        signalService.proveSignalReceived({
+            chainId: 1,
+            app: address(0),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
 
-        uint64 thisChainId = uint64(block.chainid);
-
-        uint64 srcChainId = thisChainId + 1;
-        address app = randAddress();
-        bytes32 signal = randBytes32();
-
-        SignalService.Proof memory p;
-        p.height = 10;
-        // p.merkleProof = "doesn't matter";
-
-        vm.expectRevert(); // cannot resolve "taiko"
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
-
-        vm.startPrank(Alice);
-        register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
-        assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
-
-        signalService.setSkipMerkleProofCheck(false);
-
-        vm.expectRevert(); // cannot decode the proof
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        // signal being 0 will revert
+        vm.expectRevert(SignalService.SS_INVALID_PARAMS.selector);
+        signalService.proveSignalReceived({
+            chainId: uint64(block.chainid),
+            app: randAddress(),
+            signal: 0,
+            proof: abi.encode(proofs)
+        });
     }
 
-    function test_SignalService_proveSignalReceived_multi_hop_L2_L2() public {
-        signalService.setSkipMerkleProofCheck(true);
-        signalService.setMultiHopEnabled(false);
+    function test_SignalService_proveSignalReceived_revert_malformat_proof() public {
+        // "undecodable proof" is not decodeable into SignalService.HopProof[] memory
+        vm.expectRevert();
+        signalService.proveSignalReceived({
+            chainId: 0,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: "undecodable proof"
+        });
+    }
 
-        bytes32 stateRoot = randBytes32();
-        crossChainSync.setSyncedData("", stateRoot);
+    function test_SignalService_proveSignalReceived_revert_src_signal_service_not_registered()
+        public
+    {
+        uint64 srcChainId = uint64(block.chainid - 1);
 
-        uint64 thisChainId = uint64(block.chainid);
+        // Did not call the following, so revert with RESOLVER_ZERO_ADDR
+        //   vm.prank(Alice);
+        //   addressManager.setAddress(srcChainId, "signal_service", randAddress());
 
-        uint64 srcChainId = thisChainId + 1;
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        uint64 hop1ChainId = thisChainId + 2;
-        address hop1Relay = randAddress();
-        bytes32 hop1StateRoot = randBytes32();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                srcChainId,
+                strToBytes32("signal_service")
+            )
+        );
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
 
-        uint64 hop2ChainId = thisChainId + 3;
-        address hop2Relay = randAddress();
-        bytes32 hop2StateRoot = randBytes32();
+    function test_SignalService_proveSignalReceived_revert_zero_size_proof() public {
+        uint64 srcChainId = uint64(block.chainid - 1);
 
-        address app = randAddress();
-        bytes32 signal = randBytes32();
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
 
-        SignalService.Proof memory p;
-        p.height = 10;
-        p.hops = new SignalService.Hop[](2);
+        // proofs.length must > 0 in order not to revert
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
 
-        p.hops[0] = SignalService.Hop({
-            chainId: hop1ChainId,
-            relay: hop1Relay,
-            stateRoot: hop1StateRoot,
-            merkleProof: "dummy proof1"
+        vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_revert_last_hop_incorrect_chainid() public {
+        uint64 srcChainId = uint64(block.chainid - 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
+
+        // proofs[0].chainId must be block.chainid in order not to revert
+        proofs[0].chainId = uint64(block.chainid + 1);
+
+        vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_revert_mid_hop_incorrect_chainid() public {
+        uint64 srcChainId = uint64(block.chainid - 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
+
+        // proofs[0].chainId must NOT be block.chainid in order not to revert
+        proofs[0].chainId = uint64(block.chainid);
+
+        vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_revert_mid_hop_not_registered() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
+
+        // proofs[0].chainId must NOT be block.chainid in order not to revert
+        proofs[0].chainId = srcChainId + 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                proofs[0].chainId,
+                strToBytes32("signal_service")
+            )
+        );
+
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_local_chaindata_not_found() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
+
+        proofs[0].chainId = uint64(block.chainid);
+
+        // the proof is a storage proof
+        proofs[0].accountProof = new bytes[](0);
+        proofs[0].storageProof = new bytes[](10);
+
+        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
         });
 
-        p.hops[1] = SignalService.Hop({
-            chainId: hop2ChainId,
-            relay: hop2Relay,
-            stateRoot: hop2StateRoot,
-            merkleProof: "dummy proof2"
+        // the proof is a full proof
+        proofs[0].accountProof = new bytes[](1);
+
+        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
+
+        proofs[0].chainId = uint64(block.chainid);
+        proofs[0].rootHash = randBytes32();
+
+        // the proof is a storage proof
+        proofs[0].accountProof = new bytes[](0);
+        proofs[0].storageProof = new bytes[](10);
+
+        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
         });
 
+        // relay the signal root
+        vm.prank(taiko);
+        signalService.relayChainData(srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+
+        vm.prank(Alice);
+        signalService.authorizeRelayer(taiko, false);
+
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        vm.prank(taiko);
+        signalService.relayChainData(srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash);
+    }
+
+    function test_SignalService_proveSignalReceived_one_hop_state_root() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
+
+        proofs[0].chainId = uint64(block.chainid);
+        proofs[0].rootHash = randBytes32();
+
+        // the proof is a full merkle proof
+        proofs[0].accountProof = new bytes[](1);
+        proofs[0].storageProof = new bytes[](10);
+
+        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+
+        // relay the state root
+        vm.prank(taiko);
+        signalService.relayChainData(srcChainId, LibSignals.STATE_ROOT, proofs[0].rootHash);
+
+        // Should not revert
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+
+        assertEq(
+            signalService.isChainDataRelayed(
+                srcChainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))
+            ),
+            false
+        );
+    }
+
+    function test_SignalService_proveSignalReceived_multiple_hops() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
+
+        // first hop with full merkle proof
+        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].rootHash = randBytes32();
+        proofs[0].accountProof = new bytes[](1);
+        proofs[0].storageProof = new bytes[](10);
+
+        // second hop with storage merkle proof
+        proofs[1].chainId = uint64(block.chainid + 3);
+        proofs[1].rootHash = randBytes32();
+        proofs[1].accountProof = new bytes[](0);
+        proofs[1].storageProof = new bytes[](10);
+
+        // third/last hop with full merkle proof
+        proofs[2].chainId = uint64(block.chainid);
+        proofs[2].rootHash = randBytes32();
+        proofs[2].accountProof = new bytes[](1);
+        proofs[2].storageProof = new bytes[](10);
+
+        // expect RESOLVER_ZERO_ADDR
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                proofs[0].chainId,
+                strToBytes32("signal_service")
+            )
+        );
+
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+
+        // Add two trusted hop relayers
         vm.startPrank(Alice);
-        register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
-
-        // Multiple is disabled, shall revert
-        vm.expectRevert(SignalService.SS_MULTIHOP_DISABLED.selector);
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
-
-        // Enable multi-hop
-        vm.startPrank(Alice);
-        signalService.setMultiHopEnabled(true);
-
-        // Neither relay is registered
-        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
-
-        // Register both relays
-        vm.startPrank(Alice);
-        hopRelayRegistry.registerRelay(srcChainId, hop1ChainId, hop1Relay);
-        hopRelayRegistry.registerRelay(hop1ChainId, hop2ChainId, hop2Relay);
+        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        vm.expectRevert(SignalService.SS_LOCAL_CHAIN_DATA_NOT_FOUND.selector);
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
 
-        // Deregister the first relay and register it again with incorrect chainIds
+        vm.prank(taiko);
+        signalService.relayChainData(proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].rootHash);
+
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_multiple_hops_caching() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+        uint64 nextChainId = srcChainId + 100;
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](9);
+
+        // hop 1:  full merkle proof, CACHE_NOTHING
+        proofs[0].chainId = nextChainId++;
+        proofs[0].rootHash = randBytes32();
+        proofs[0].accountProof = new bytes[](1);
+        proofs[0].storageProof = new bytes[](10);
+        proofs[0].cacheOption = SignalService.CacheOption.CACHE_NOTHING;
+
+        // hop 2:  full merkle proof, CACHE_STATE_ROOT
+        proofs[1].chainId = nextChainId++;
+        proofs[1].rootHash = randBytes32();
+        proofs[1].accountProof = new bytes[](1);
+        proofs[1].storageProof = new bytes[](10);
+        proofs[1].cacheOption = SignalService.CacheOption.CACHE_STATE_ROOT;
+
+        // hop 3:  full merkle proof, CACHE_SIGNAL_ROOT
+        proofs[2].chainId = nextChainId++;
+        proofs[2].rootHash = randBytes32();
+        proofs[2].accountProof = new bytes[](1);
+        proofs[2].storageProof = new bytes[](10);
+        proofs[2].cacheOption = SignalService.CacheOption.CACHE_SIGNAL_ROOT;
+
+        // hop 4:  full merkle proof, CACHE_BOTH
+        proofs[3].chainId = nextChainId++;
+        proofs[3].rootHash = randBytes32();
+        proofs[3].accountProof = new bytes[](1);
+        proofs[3].storageProof = new bytes[](10);
+        proofs[3].cacheOption = SignalService.CacheOption.CACHE_BOTH;
+
+        // hop 5:  storage merkle proof, CACHE_NOTHING
+        proofs[4].chainId = nextChainId++;
+        proofs[4].rootHash = randBytes32();
+        proofs[4].accountProof = new bytes[](0);
+        proofs[4].storageProof = new bytes[](10);
+        proofs[4].cacheOption = SignalService.CacheOption.CACHE_NOTHING;
+
+        // hop 6:  storage merkle proof, CACHE_STATE_ROOT
+        proofs[5].chainId = nextChainId++;
+        proofs[5].rootHash = randBytes32();
+        proofs[5].accountProof = new bytes[](0);
+        proofs[5].storageProof = new bytes[](10);
+        proofs[5].cacheOption = SignalService.CacheOption.CACHE_STATE_ROOT;
+
+        // hop 7:  storage merkle proof, CACHE_SIGNAL_ROOT
+        proofs[6].chainId = nextChainId++;
+        proofs[6].rootHash = randBytes32();
+        proofs[6].accountProof = new bytes[](0);
+        proofs[6].storageProof = new bytes[](10);
+        proofs[6].cacheOption = SignalService.CacheOption.CACHE_SIGNAL_ROOT;
+
+        // hop 8:  storage merkle proof, CACHE_BOTH
+        proofs[7].chainId = nextChainId++;
+        proofs[7].rootHash = randBytes32();
+        proofs[7].accountProof = new bytes[](0);
+        proofs[7].storageProof = new bytes[](10);
+        proofs[7].cacheOption = SignalService.CacheOption.CACHE_BOTH;
+
+        // last hop, 9:  full merkle proof, CACHE_BOTH
+        proofs[8].chainId = uint64(block.chainid);
+        proofs[8].rootHash = randBytes32();
+        proofs[8].accountProof = new bytes[](1);
+        proofs[8].storageProof = new bytes[](10);
+        proofs[8].cacheOption = SignalService.CacheOption.CACHE_BOTH;
+
+        // Add two trusted hop relayers
         vm.startPrank(Alice);
-        hopRelayRegistry.deregisterRelay(srcChainId, hop1ChainId, hop1Relay);
-        hopRelayRegistry.registerRelay(999, 888, hop1Relay);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        for (uint256 i; i < proofs.length; ++i) {
+            addressManager.setAddress(
+                proofs[i].chainId, "signal_service", randAddress() /*relay1*/
+            );
+        }
         vm.stopPrank();
 
-        // Still revert
-        vm.expectRevert(SignalService.SS_INVALID_RELAY.selector);
-        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        vm.prank(taiko);
+        signalService.relayChainData(proofs[7].chainId, LibSignals.STATE_ROOT, proofs[8].rootHash);
+
+        signalService.proveSignalReceived({
+            chainId: srcChainId,
+            app: randAddress(),
+            signal: randBytes32(),
+            proof: abi.encode(proofs)
+        });
+
+        // hop 1:  full merkle proof, CACHE_NOTHING
+        _verifyCache(srcChainId, proofs[0].rootHash, false, false);
+        // hop 2:  full merkle proof, CACHE_STATE_ROOT
+        _verifyCache(proofs[0].chainId, proofs[1].rootHash, true, false);
+        // hop 3:  full merkle proof, CACHE_SIGNAL_ROOT
+        _verifyCache(proofs[1].chainId, proofs[2].rootHash, false, true);
+        // hop 4:  full merkle proof, CACHE_BOTH
+        _verifyCache(proofs[2].chainId, proofs[3].rootHash, true, true);
+
+        // hop 5:  storage merkle proof, CACHE_NOTHING
+        _verifyCache(proofs[3].chainId, proofs[4].rootHash, false, false);
+
+        // hop 6:  storage merkle proof, CACHE_STATE_ROOT
+        _verifyCache(proofs[4].chainId, proofs[5].rootHash, false, false);
+
+        // hop 7:  storage merkle proof, CACHE_SIGNAL_ROOT
+        _verifyCache(proofs[5].chainId, proofs[6].rootHash, false, true);
+
+        // hop 8:  storage merkle proof, CACHE_BOTH
+        _verifyCache(proofs[6].chainId, proofs[7].rootHash, false, true);
+
+        // last hop, 9:  full merkle proof, CACHE_BOTH
+        // last hop's state root is already cached even before the proveSignalReceived call.
+        _verifyCache(proofs[7].chainId, proofs[8].rootHash, true, true);
+    }
+
+    function _verifyCache(
+        uint64 chainId,
+        bytes32 stateRoot,
+        bool stateRootCached,
+        bool signalRootCached
+    )
+        private
+    {
+        assertEq(
+            signalService.isChainDataRelayed(chainId, LibSignals.STATE_ROOT, stateRoot),
+            stateRootCached
+        );
+
+        assertEq(
+            signalService.isChainDataRelayed(chainId, LibSignals.SIGNAL_ROOT, bytes32(uint256(789))),
+            signalRootCached
+        );
     }
 }
