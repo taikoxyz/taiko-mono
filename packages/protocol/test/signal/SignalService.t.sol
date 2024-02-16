@@ -241,7 +241,7 @@ contract TestSignalService is TaikoTest {
         proofs[0].accountProof = new bytes[](0);
         proofs[0].storageProof = new bytes[](10);
 
-        // vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),
