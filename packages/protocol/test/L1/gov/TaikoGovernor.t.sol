@@ -130,7 +130,7 @@ contract TestTaikoGovernor is TaikoL1TestBase {
 
     // Tests `propose()`
     function test_propose() public {
-        // Parameters for `taikoGovernor.propose()`
+        // Parameters for `TaikoGovernor.propose()`
         address[] memory targets = new address[](1);
         targets[0] = Alice;
 
