@@ -62,20 +62,20 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function pause() public virtual whenNotPaused {
+    function paused() public view returns (bool) {
+        return _paused == _TRUE;
+    }
+
+    function _pause() internal virtual whenNotPaused {
         _paused = _TRUE;
         emit Paused(msg.sender);
         _authorizePause(msg.sender);
     }
 
-    function unpause() public virtual whenPaused {
+    function _unpause() internal virtual whenPaused {
         _paused = _FALSE;
         emit Unpaused(msg.sender);
         _authorizePause(msg.sender);
-    }
-
-    function paused() public view returns (bool) {
-        return _paused == _TRUE;
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }

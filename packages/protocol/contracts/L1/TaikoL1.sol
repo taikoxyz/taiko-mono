@@ -117,9 +117,18 @@ contract TaikoL1 is
     }
 
     /// @notice Pause block proving.
-    /// @param pause True if paused.
-    function pauseProving(bool pause) external onlyOwner {
-        LibProving.pauseProving(state, pause);
+    /// @param toPause True if to pause the contract.
+    function pauseProving(bool toPause) external onlyFromOwnerOrNamed("pauser") {
+        LibProving.pauseProving(state, toPause);
+    }
+
+    function pause(bool toPause) external whenNotPaused onlyFromOwnerOrNamed("pauser") {
+        if (toPause) {
+            super._pause();
+        } else {
+            super._unpause();
+            state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        }
     }
 
     /// @notice Deposits Ether to Layer 2.
@@ -127,11 +136,6 @@ contract TaikoL1 is
     /// Layer 2.
     function depositEtherToL2(address recipient) external payable nonReentrant whenNotPaused {
         LibDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this), recipient);
-    }
-
-    function unpause() public override {
-        OwnerUUPSUpgradable.unpause();
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
     /// @notice Checks if Ether deposit is allowed for Layer 2.
