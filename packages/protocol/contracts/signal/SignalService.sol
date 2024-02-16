@@ -58,10 +58,8 @@ contract SignalService is EssentialContract, ISignalService {
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_SENDER();
-    error SS_INVALID_CHAIN_DATA();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
-    error SS_INVALID_HOP();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_STATE();
     error SS_INVALID_VALUE();
@@ -69,6 +67,16 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
     error SS_UNSUPPORTED();
+
+    modifier validSender(address sender) {
+        if (sender == address(0)) revert SS_INVALID_SENDER();
+        _;
+    }
+
+    modifier nonZeroValue(bytes32 input) {
+        if (input == 0) revert SS_INVALID_VALUE();
+        _;
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
@@ -80,12 +88,11 @@ contract SignalService is EssentialContract, ISignalService {
     function authorizeRelayer(address addr, bool toAuthorize) external onlyOwner {
         if (isRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
         isRelayerAuthorized[addr] = toAuthorize;
-
         emit RelayerAuthorized(addr, toAuthorize);
     }
 
     /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
+    function sendSignal(bytes32 signal) external returns (bytes32 slot) {
         return _sendSignal(msg.sender, signal, signal);
     }
 
@@ -113,11 +120,9 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         virtual
+        validSender(sender)
+        nonZeroValue(signal)
     {
-         if (sender == address(0) ) revert SS_INVALID_SENDER();
-        if ( signal == 0) revert SS_INVALID_SIGNAL();
-
-
         HopProof[] memory _hopProofs = abi.decode(proof, (HopProof[]));
         if (_hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
@@ -130,7 +135,6 @@ contract SignalService is EssentialContract, ISignalService {
         HopProof memory hop;
         for (uint256 i; i < _hopProofs.length; ++i) {
             hop = _hopProofs[i];
-            if (hop.blockId == 0 || hop.rootHash==0) revert SS_INVALID_HOP();
 
             bytes32 signalRoot =
                 _verifyHopProof(_chainId, _sender, _signal, _value, hop, _signalService);
@@ -171,9 +175,9 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         view
+        nonZeroValue(chainData)
         returns (bool)
     {
-         if (chainData == 0) revert SS_INVALID_CHAIN_DATA();
         bytes32 signal = signalForChainData(chainId, blockId, kind);
         return _loadSignalValue(address(this), signal) == chainData;
     }
@@ -193,8 +197,8 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint64 blockId, bytes32 blockData)
     {
         blockId = topBlockId[chainId][kind];
-        if (blockId == 0) revert SS_SIGNAL_NOT_FOUND();
-        blockData = signalForChainData(chainId, blockId, kind);
+        bytes32 signal = signalForChainData(chainId, blockId, kind);
+        blockData = _loadSignalValue(address(this), signal);
     }
 
     function signalForChainData(
@@ -231,6 +235,9 @@ contract SignalService is EssentialContract, ISignalService {
     )
         internal
         virtual
+        validSender(sender)
+        nonZeroValue(signal)
+        nonZeroValue(value)
         returns (bytes32 signalRoot)
     {
         return LibTrieProof.verifyMerkleProof(
@@ -271,12 +278,11 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 value
     )
         private
+        validSender(sender)
+        nonZeroValue(signal)
+        nonZeroValue(value)
         returns (bytes32 slot)
     {
-          if (sender == address(0) ) revert SS_INVALID_SENDER();
-        if ( signal == 0) revert SS_INVALID_SIGNAL();
-        if ( value == 0) revert SS_INVALID_VALUE();
-
         slot = getSignalSlot(uint64(block.chainid), sender, signal);
         assembly {
             sstore(slot, value)
@@ -310,12 +316,20 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    function _loadSignalValue(address sender, bytes32 signal) private view returns (bytes32 value) {
-        if (sender == address(0) ) revert SS_INVALID_SENDER();
-        if ( signal == 0) revert SS_INVALID_SIGNAL();
+    function _loadSignalValue(
+        address sender,
+        bytes32 signal
+    )
+        private
+        view
+        validSender(sender)
+        nonZeroValue(signal)
+        returns (bytes32 value)
+    {
         bytes32 slot = getSignalSlot(uint64(block.chainid), sender, signal);
         assembly {
             value := sload(slot)
         }
+        if (value == 0) revert SS_SIGNAL_NOT_FOUND();
     }
 }
