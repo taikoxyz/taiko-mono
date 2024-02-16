@@ -41,10 +41,10 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     mapping(uint64 chainId => mapping(bytes32 kind => uint64 topBlockId)) public topBlockId;
-    mapping(address => bool) public isRelayerAuthorized;
+    mapping(address => bool) public isAuthorized;
     uint256[49] private __gap;
 
-    event RelayerAuthorized(address indexed addr, bool authrized);
+    event Authorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_SENDER();
@@ -74,9 +74,9 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorize or deautohrize an address for calling relayChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
     function authorize(address addr, bool toAuthorize) external onlyOwner {
-        if (isRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
-        isRelayerAuthorized[addr] = toAuthorize;
-        emit RelayerAuthorized(addr, toAuthorize);
+        if (isAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
+        isAuthorized[addr] = toAuthorize;
+        emit Authorized(addr, toAuthorize);
     }
 
     /// @inheritdoc ISignalService
@@ -94,7 +94,7 @@ contract SignalService is EssentialContract, ISignalService {
         external
         returns (bytes32 signal)
     {
-        if (!isRelayerAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
+        if (!isAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
         return _relayChainData(chainId, blockId, kind, chainData);
     }
 
