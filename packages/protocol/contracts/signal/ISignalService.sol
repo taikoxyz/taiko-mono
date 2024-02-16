@@ -16,6 +16,16 @@ pragma solidity 0.8.24;
 /// a merkle proof.
 
 interface ISignalService {
+    /// @notice Emitted when a remote chain's state root or signal root is
+    /// relayed locally as a signal.
+    event ChainDataRelayed(
+        uint64 indexed chainid,
+        uint64 indexed blockId,
+        bytes32 indexed kind,
+        bytes32 data,
+        bytes32 signal
+    );
+
     /// @notice Send a signal (message) by setting the storage slot to a value of 1.
     /// @param signal The signal (message) to send.
     /// @return slot The location in storage where this signal is stored.
@@ -80,7 +90,7 @@ interface ISignalService {
     /// @param kind A value to mark the data type.
     /// @return blockId The block id.
     /// @return chainData The relayed chain data.
-    function getLatestBlockData(
+    function getLatestChainData(
         uint64 chainId,
         bytes32 kind
     )

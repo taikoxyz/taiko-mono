@@ -44,16 +44,6 @@ contract SignalService is EssentialContract, ISignalService {
     mapping(address => bool) public isRelayerAuthorized;
     uint256[49] private __gap;
 
-    /// @notice Emitted when a remote chain's state root or signal root is relayed locally as a
-    /// signal.
-    event ChainDataRelayed(
-        uint64 indexed chainid,
-        uint64 indexed blockId,
-        bytes32 indexed kind,
-        bytes32 data,
-        bytes32 signal
-    );
-
     event RelayerAuthorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
@@ -187,18 +177,18 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function getLatestBlockData(
+    function getLatestChainData(
         uint64 chainId,
         bytes32 kind
     )
         public
         view
-        returns (uint64 blockId, bytes32 blockData)
+        returns (uint64 blockId, bytes32 chainData)
     {
         blockId = topBlockId[chainId][kind];
         bytes32 signal = signalForChainData(chainId, blockId, kind);
-        blockData = _loadSignalValue(address(this), signal);
-        if (blockData == 0) revert SS_SIGNAL_NOT_FOUND();
+        chainData = _loadSignalValue(address(this), signal);
+        if (chainData == 0) revert SS_SIGNAL_NOT_FOUND();
     }
 
     function signalForChainData(
