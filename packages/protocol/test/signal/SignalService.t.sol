@@ -8,6 +8,7 @@ contract MockSignalService is SignalService {
         uint64, /*chainId*/
         address, /*app*/
         bytes32, /*signal*/
+        bytes32, /*value*/
         HopProof memory, /*hop*/
         address /*relay*/
     )
@@ -76,16 +77,6 @@ contract TestSignalService is TaikoTest {
         signalService.sendSignal(signal);
 
         assertTrue(signalService.isSignalSent(Alice, signal));
-    }
-
-    function test_SignalService_getSignalSlot() public {
-        vm.startPrank(Alice);
-        for (uint8 i = 1; i < 100; ++i) {
-            bytes32 signal = bytes32(block.prevrandao + i);
-            signalService.sendSignal(signal);
-
-            assertTrue(signalService.isSignalSent(Alice, signal));
-        }
     }
 
     function test_SignalService_proveSignalReceived_revert_invalid_chainid_or_signal() public {

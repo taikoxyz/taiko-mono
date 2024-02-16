@@ -26,13 +26,13 @@ interface ISignalService {
     /// @param chainId The remote chainId.
     /// @param blockId The chain data's corresponding blockId
     /// @param kind A value to mark the data type.
-    /// @param data The remote data.
+    /// @param chainData The remote data.
     /// @return signal The signal for this chain data.
     function relayChainData(
         uint64 chainId,
         uint64 blockId,
         bytes32 kind,
-        bytes32 data
+        bytes32 chainData
     )
         external
         returns (bytes32 signal);
@@ -52,26 +52,39 @@ interface ISignalService {
     )
         external;
 
-    /// @notice Checks if a chain data has been relayed.
-    /// uniquely from chainId, kind, and data.
-    /// @param chainId The remote chainId.
-    /// @param blockId The chain data's corresponding blockId
-    /// @param kind A value to mark the data type.
-    /// @param data The remote data.
-    /// @return True if the data has been relayed, otherwise false.
-    function isChainDataRelayed(
-        uint64 chainId,
-        uint64 blockId,
-        bytes32 kind,
-        bytes32 data
-    )
-        external
-        view
-        returns (bool);
-
     /// @notice Verifies if a particular signal has already been sent.
     /// @param app The address that initiated the signal.
     /// @param signal The signal (message) that was sent.
     /// @return True if the signal has been sent, otherwise false.
     function isSignalSent(address app, bytes32 signal) external view returns (bool);
+
+    /// @notice Checks if a chain data has been relayed.
+    /// uniquely from chainId, kind, and data.
+    /// @param chainId The remote chainId.
+    /// @param blockId The chain data's corresponding blockId
+    /// @param kind A value to mark the data type.
+    /// @param chainData The remote data.
+    /// @return True if the data has been relayed, otherwise false.
+    function isChainDataRelayed(
+        uint64 chainId,
+        uint64 blockId,
+        bytes32 kind,
+        bytes32 chainData
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Returns the latest synced chain data.
+    /// @param blockId The chain data's corresponding blockId
+    /// @param kind A value to mark the data type.
+    /// @return blockId The block id.
+    /// @return chainData The synced data.
+    function getLatestSyncedBlockData(
+        uint64 chainId,
+        bytes32 kind
+    )
+        external
+        view
+        returns (uint64 blockId, bytes32 chainData);
 }
