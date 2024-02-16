@@ -52,7 +52,7 @@ contract TestSignalService is TaikoTest {
         );
 
         taiko = randAddress();
-        signalService.authorizeRelayer(taiko, true);
+        signalService.authorize(taiko, true);
         vm.stopPrank();
     }
 
@@ -298,7 +298,7 @@ contract TestSignalService is TaikoTest {
         });
 
         vm.prank(Alice);
-        signalService.authorizeRelayer(taiko, false);
+        signalService.authorize(taiko, false);
 
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);

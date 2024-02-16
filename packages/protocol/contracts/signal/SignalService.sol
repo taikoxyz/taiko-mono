@@ -73,7 +73,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Authorize or deautohrize an address for calling relayChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
-    function authorizeRelayer(address addr, bool toAuthorize) external onlyOwner {
+    function authorize(address addr, bool toAuthorize) external onlyOwner {
         if (isRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
         isRelayerAuthorized[addr] = toAuthorize;
         emit RelayerAuthorized(addr, toAuthorize);
