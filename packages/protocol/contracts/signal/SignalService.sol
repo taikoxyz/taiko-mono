@@ -52,7 +52,6 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_STATE();
     error SS_INVALID_VALUE();
-    error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
     error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
     error SS_UNSUPPORTED();
