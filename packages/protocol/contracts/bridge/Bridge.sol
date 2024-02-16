@@ -383,7 +383,7 @@ contract Bridge is EssentialContract, IBridge {
     function isMessageSent(Message calldata message) public view returns (bool) {
         if (message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
-            app: address(this),
+            sender: address(this),
             signal: hashMessage(message)
         });
     }

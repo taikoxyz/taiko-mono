@@ -40,23 +40,23 @@ interface ISignalService {
     /// @notice Verifies if a signal has been received on the target chain.
     /// @param chainId The identifier for the source chain from which the
     /// signal originated.
-    /// @param app The address that initiated the signal.
+    /// @param sender The address that initiated the signal.
     /// @param signal The signal (message) to send.
     /// @param proof Merkle proof that the signal was persisted on the
     /// source chain.
     function proveSignalReceived(
         uint64 chainId,
-        address app,
+        address sender,
         bytes32 signal,
         bytes calldata proof
     )
         external;
 
     /// @notice Verifies if a particular signal has already been sent.
-    /// @param app The address that initiated the signal.
+    /// @param sender The address that initiated the signal.
     /// @param signal The signal (message) that was sent.
     /// @return True if the signal has been sent, otherwise false.
-    function isSignalSent(address app, bytes32 signal) external view returns (bool);
+    function isSignalSent(address sender, bytes32 signal) external view returns (bool);
 
     /// @notice Checks if a chain data has been relayed.
     /// uniquely from chainId, kind, and data.

@@ -63,7 +63,7 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
-        vm.expectRevert(SignalService.SS_INVALID_APP.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SENDER.selector);
         signalService.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
@@ -83,19 +83,19 @@ contract TestSignalService is TaikoTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         // app being address(0) will revert
-        vm.expectRevert(SignalService.SS_INVALID_PARAMS.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SENDER.selector);
         signalService.proveSignalReceived({
             chainId: 1,
-            app: address(0),
+            sender:  address(0),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
 
         // signal being 0 will revert
-        vm.expectRevert(SignalService.SS_INVALID_PARAMS.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
         signalService.proveSignalReceived({
             chainId: uint64(block.chainid),
-            app: randAddress(),
+            sender:  randAddress(),
             signal: 0,
             proof: abi.encode(proofs)
         });
@@ -106,7 +106,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert();
         signalService.proveSignalReceived({
             chainId: 0,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: "undecodable proof"
         });
@@ -132,7 +132,7 @@ contract TestSignalService is TaikoTest {
         );
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -150,7 +150,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -171,7 +171,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -192,7 +192,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -220,7 +220,7 @@ contract TestSignalService is TaikoTest {
 
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -244,7 +244,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -255,7 +255,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -280,7 +280,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -292,7 +292,7 @@ contract TestSignalService is TaikoTest {
         );
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -326,7 +326,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -340,7 +340,7 @@ contract TestSignalService is TaikoTest {
         // Should not revert
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -392,7 +392,7 @@ contract TestSignalService is TaikoTest {
         );
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -406,7 +406,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -418,7 +418,7 @@ contract TestSignalService is TaikoTest {
 
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
@@ -519,7 +519,7 @@ contract TestSignalService is TaikoTest {
 
         signalService.proveSignalReceived({
             chainId: srcChainId,
-            app: randAddress(),
+            sender:  randAddress(),
             signal: randBytes32(),
             proof: abi.encode(proofs)
         });
