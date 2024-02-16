@@ -11,7 +11,7 @@ When a signal is sent by the Signal Service, a unique slot in its storage is upd
 
 ```solidity
 function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
-    if (signal == 0) revert SS_INVALID_SIGNAL();
+    if (signal == 0) revert SS_INVALID_VALUE();
     slot = getSignalSlot(uint64(block.chainid), sender, signal);
     assembly {
         sstore(slot, 1)

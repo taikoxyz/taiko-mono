@@ -57,7 +57,7 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_sendSignal_revert() public {
-        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_VALUE.selector);
         signalService.sendSignal(0);
     }
 
@@ -67,7 +67,7 @@ contract TestSignalService is TaikoTest {
         signalService.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
-        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_VALUE.selector);
         signalService.isSignalSent(Alice, signal);
     }
 
@@ -92,7 +92,7 @@ contract TestSignalService is TaikoTest {
         });
 
         // signal being 0 will revert
-        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_VALUE.selector);
         signalService.proveSignalReceived({
             chainId: uint64(block.chainid),
             app: randAddress(),
