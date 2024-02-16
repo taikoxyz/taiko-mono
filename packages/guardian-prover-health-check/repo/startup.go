@@ -64,7 +64,9 @@ func (r *StartupRepository) Save(opts guardianproverhealthcheck.SaveStartupOpts)
 		GuardianProverAddress: opts.GuardianProverAddress,
 		GuardianProverID:      opts.GuardianProverID,
 		Revision:              opts.Revision,
-		Version:               opts.Version,
+		GuardianVersion:       opts.GuardianVersion,
+		L1NodeVersion:         opts.L1NodeVersion,
+		L2NodeVersion:         opts.L2NodeVersion,
 	}
 	if err := r.startQuery().Create(b).Error; err != nil {
 		return err
