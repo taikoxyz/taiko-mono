@@ -233,26 +233,24 @@ library LibVerifying {
             }
 
             if (numBlocksVerified > 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
-                state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
+                b.lastVerifiedBlockId += numBlocksVerified;
 
-                // Store the L2's state root as a signal to the local signal
-                // service to allow for multi-hop bridging.
-                //
-                // This also means if we verified more than one block, only the last one's stateRoot
-                // is sent as a signal and verifiable with merkle proofs, all other blocks'
-                // stateRoot are not.
-
-                uint256 unrelayedL2Blocks = numBlocksVerified + b.unrelayedL2Blocks;
-                if (unrelayedL2Blocks < config.maxUnrelayedL2Blocks) {
-                    // config.maxUnrelayedL2Blocks is uint8
-                    state.slotB.unrelayedL2Blocks = uint8(unrelayedL2Blocks);
-                } else {
-                    ISignalService(resolver.resolve("signal_service", false)).relayChainData(
-                        config.chainId, lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
-                    );
-                    state.slotB.unrelayedL2Blocks = 0;
+                if (config.maxUnrelayedBlocks > 0) {
+                    uint256 unrelayedBlocks = numBlocksVerified + b.unrelayedBlocks;
+                    if (unrelayedBlocks < config.maxUnrelayedBlocks) {
+                        // config.maxUnrelayedBlocks is uint8
+                        b.unrelayedBlocks = uint8(unrelayedBlocks);
+                    } else {
+                        // Store the L2's state root as a signal to the local signal
+                        // service to allow for multi-hop bridging.
+                        ISignalService(resolver.resolve("signal_service", false)).relayChainData(
+                            config.chainId, b.lastVerifiedBlockId, LibSignals.STATE_ROOT, stateRoot
+                        );
+                        b.unrelayedBlocks = 0;
+                    }
                 }
+
+                state.slotB = b;
             }
         }
     }
