@@ -91,7 +91,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 signal)
     {
         if (!isRelayerAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
-        return _relayChainData(chainId, kind, data);
+        return _relayChainData(chainId, blockId, kind, data);
     }
 
     /// @inheritdoc ISignalService

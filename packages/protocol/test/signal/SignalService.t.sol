@@ -311,7 +311,9 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
-        signalService.relayChainData(srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash);
+        signalService.relayChainData(
+            srcChainId, proofs[0].blockId, LibSignals.SIGNAL_ROOT, proofs[0].rootHash
+        );
     }
 
     function test_SignalService_proveSignalReceived_one_hop_state_root() public {
