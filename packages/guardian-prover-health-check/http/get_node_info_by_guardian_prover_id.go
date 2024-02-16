@@ -38,10 +38,15 @@ func (srv *Server) GetNodeInfoByGuardianProverID(
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
+	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverID(c.Request().Context(), c.Request(), id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
+
 	nodeInfo := guardianproverhealthcheck.NodeInfo{
 		Startup:             *startup,
-		LatestL1BlockNumber: 0,
-		LatestL2BlockNumber: 0,
+		LatestL1BlockNumber: healthCheck.LatestL1Block,
+		LatestL2BlockNumber: healthCheck.LatestL2Block,
 	}
 
 	return c.JSON(http.StatusOK, nodeInfo)
