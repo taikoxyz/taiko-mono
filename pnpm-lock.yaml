@@ -431,8 +431,8 @@ importers:
         specifier: ^2.14.3
         version: 2.14.8
       '@types/sanitize-html':
-        specifier: ^2.6.2
-        version: 2.9.5
+        specifier: ^2.11.0
+        version: 2.11.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.6.0
         version: 6.13.2(@typescript-eslint/parser@5.62.0)(eslint@8.55.0)(typescript@4.9.5)
@@ -585,8 +585,8 @@ importers:
         specifier: ^2.14.3
         version: 2.14.8
       '@types/sanitize-html':
-        specifier: ^2.6.2
-        version: 2.9.5
+        specifier: ^2.11.0
+        version: 2.11.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.6.0
         version: 6.13.2(@typescript-eslint/parser@5.62.0)(eslint@8.55.0)(typescript@4.9.5)
@@ -5627,8 +5627,8 @@ packages:
       safe-buffer: 5.1.2
     dev: true
 
-  /@types/sanitize-html@2.9.5:
-    resolution: {integrity: sha512-2Sr1vd8Dw+ypsg/oDDfZ57OMSG2Befs+l2CMyCC5bVSK3CpE7lTB2aNlbbWzazgVA+Qqfuholwom6x/mWd1qmw==}
+  /@types/sanitize-html@2.11.0:
+    resolution: {integrity: sha512-7oxPGNQHXLHE48r/r/qjn7q0hlrs3kL7oZnGj0Wf/h9tj/6ibFyRkNbsDxaBBZ4XUZ0Dx5LGCyDJ04ytSofacQ==}
     dependencies:
       htmlparser2: 8.0.2
     dev: true
@@ -7297,13 +7297,6 @@ packages:
   /@web3modal/siwe@4.0.5(typescript@5.3.3):
     resolution: {integrity: sha512-JxYoM0rvgekpvd2Wyw1mtq7mbv8JBsbP22K5Evf4ZUupVAgoeNHDGCBKK8nKwdwMuc2AfsAcdNqx+rwS6N9WLQ==}
     requiresBuild: true
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      vue:
-        optional: true
     dependencies:
       '@web3modal/core': 4.0.5(react@18.2.0)
       '@web3modal/scaffold-utils': 4.0.5(react@18.2.0)
@@ -7351,15 +7344,6 @@ packages:
       '@wagmi/connectors': '>=4.0.0'
       '@wagmi/core': '>=2.0.0'
       viem: '>=2.0.0'
-    peerDependenciesMeta:
-      '@web3modal/siwe':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      vue:
-        optional: true
     dependencies:
       '@wagmi/connectors': 4.1.14(@wagmi/core@2.6.5)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.3.3)(viem@2.7.9)
       '@wagmi/core': 2.6.5(react@18.2.0)(typescript@5.3.3)(viem@2.7.9)
