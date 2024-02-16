@@ -22,7 +22,7 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 import "../../common/OwnerUUPSUpgradable.sol";
 
-contract TkoGv is
+contract TaikoGovernor is
     OwnerUUPSUpgradable,
     GovernorCompatibilityBravoUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
@@ -38,7 +38,7 @@ contract TkoGv is
         initializer
     {
         __OwnerUUPSUpgradable_init();
-        __Governor_init("TkoGv");
+        __Governor_init("Taiko");
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4);
         __GovernorTimelockControl_init(_timelock);

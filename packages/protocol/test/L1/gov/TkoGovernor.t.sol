@@ -2,14 +2,14 @@
 pragma solidity 0.8.24;
 
 import "../TaikoL1TestBase.sol";
-import "../../../contracts/L1/gov/TkoGv.sol";
+import "../../../contracts/L1/gov/TaikoGovernor.sol";
 import "../../../contracts/L1/gov/TaikoTimelockController.sol";
 import "@openzeppelin/contracts/governance/IGovernor.sol";
 import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestTkoGovernor is TaikoL1TestBase {
-    TkoGv public tkoGovernor;
+    TaikoGovernor public tkoGovernor;
     TaikoTimelockController public taikoTimelockController;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
@@ -36,18 +36,18 @@ contract TestTkoGovernor is TaikoL1TestBase {
         uint256 minDelay = 0.5 days;
         taikoTimelockController.init(minDelay);
 
-        // deploy TkoGv
-        tkoGovernor = TkoGv(
+        // deploy TaikoGovernor
+        tkoGovernor = TaikoGovernor(
             payable(
                 LibDeploy.deployERC1967Proxy({
-                    impl: address(new TkoGv()),
+                    impl: address(new TaikoGovernor()),
                     owner: address(0),
                     data: ""
                 })
             )
         );
 
-        // init TkoGv
+        // init TaikoGovernor
         tkoGovernor.init(tko, taikoTimelockController);
         // Alice delegate voting power to self
         vm.startPrank(Alice);
@@ -89,7 +89,7 @@ contract TestTkoGovernor is TaikoL1TestBase {
         assertEq(tkoGovernor.quorumDenominator(), 100, "Incorrect quorum denominator");
 
         // GovernorUpgradeable
-        assertEq(tkoGovernor.name(), "TkoGv", "Incorrect name");
+        assertEq(tkoGovernor.name(), "Taiko", "Incorrect name");
         assertEq(tkoGovernor.version(), "1", "Incorrect version");
 
         // GovernorVotesUpgradeable
@@ -120,7 +120,7 @@ contract TestTkoGovernor is TaikoL1TestBase {
             "Incorrect supports interface"
         );
 
-        // TkoGv
+        // TaikoGovernor
         assertEq(tkoGovernor.votingDelay(), 7200, "Incorrect voting delay");
         assertEq(tkoGovernor.votingPeriod(), 50_400, "Incorrect voting period");
         assertEq(tkoGovernor.proposalThreshold(), 100_000 ether, "Incorrect proposal threshold");
