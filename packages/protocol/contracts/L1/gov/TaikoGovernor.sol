@@ -16,7 +16,6 @@ pragma solidity 0.8.24;
 
 import
     "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
@@ -26,7 +25,6 @@ import "../../common/OwnerUUPSUpgradable.sol";
 contract TaikoGovernor is
     OwnerUUPSUpgradable,
     GovernorCompatibilityBravoUpgradeable,
-    GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
     GovernorTimelockControlUpgradeable
 {
