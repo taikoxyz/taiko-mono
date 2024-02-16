@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS health_checks (
     expected_address VARCHAR(42) NOT NULL,
     recovered_address VARCHAR(42) NOT NULL DEFAULT "",
     signed_response VARCHAR(5000) NOT NULL DEFAULT "",
-    latest_l1_block NUMBER NOT NULL,
-    latest_l2_block NUMBER NOT NULL,
+    latest_l1_block BIGINT NOT NULL,
+    latest_l2_block BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
