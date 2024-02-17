@@ -20,7 +20,6 @@ import "../contracts/signal/SignalService.sol";
 
 contract AuthorizeRelayer is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public timelockAddress = vm.envAddress("TIMELOCK_ADDRESS");
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
     address[] public relayers = vm.envAddress("RELAYERS", ",");
 
@@ -29,26 +28,12 @@ contract AuthorizeRelayer is DeployCapability {
 
         vm.startBroadcast(privateKey);
 
-        authorizeRelayerByTimelock(timelockAddress);
-
-        vm.stopBroadcast();
-    }
-
-    function authorizeRelayerByTimelock(address timelock) internal {
-        TaikoTimelockController timelockController = TaikoTimelockController(payable(timelock));
-        bytes32 salt = bytes32(block.timestamp);
+        SignalService signalService = SignalService(sharedSignalService);
 
         for (uint256 i; i < relayers.length; ++i) {
-            bytes memory payload =
-                abi.encodeCall(SignalService.authorizeRelayer, (relayers[i], true));
-
-            timelockController.schedule(sharedSignalService, 0, payload, bytes32(0), salt, 0);
-
-            timelockController.execute(sharedSignalService, 0, payload, bytes32(0), salt);
-
-            console2.log("New relayer authorized:");
-            console2.log("index: ", i);
-            console2.log("relayer: ", relayers[i]);
+            signalService.authorizeRelayer(relayers[i], true);
         }
+
+        vm.stopBroadcast();
     }
 }
