@@ -18,20 +18,20 @@ import "../test/DeployCapability.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/signal/SignalService.sol";
 
-contract AuthorizeRelayer is DeployCapability {
+contract AuthorizeTaikoForMultihop is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
-    address[] public relayers = vm.envAddress("RELAYERS", ",");
+    address[] public taikoContracts = vm.envAddress("TAIKO_CONTRACTS", ",");
 
     function run() external {
-        require(relayers.length != 0, "invalid relayers");
+        require(taikoContracts.length != 0, "invalid taiko contrats");
 
         vm.startBroadcast(privateKey);
 
         SignalService signalService = SignalService(sharedSignalService);
 
-        for (uint256 i; i < relayers.length; ++i) {
-            signalService.authorizeRelayer(relayers[i], true);
+        for (uint256 i; i < taikoContracts.length; ++i) {
+            signalService.authorizeRelayer(taikoContracts[i], true);
         }
 
         vm.stopBroadcast();
