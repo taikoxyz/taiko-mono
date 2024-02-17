@@ -20,7 +20,7 @@
   id={dialogId}
   class="modal"
   class:modal-open={modalOpen}
-  use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false) }}>
+  use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false), uuid: dialogId }}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
     <CloseButton onClick={closeModal} />
     <div class="w-full space-y-6">
@@ -41,4 +41,5 @@
       </div>
     </div>
   </div>
+  <button class="overlay-backdrop" data-modal-uuid={dialogId} />
 </dialog>

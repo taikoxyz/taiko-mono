@@ -38,9 +38,7 @@ taiko-mono/
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
 │   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork <a href="https://geth.taiko.xyz">diff page</a> (currently, for Geth).
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
-│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
-│   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
-│   └── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
+│   └── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
 ...
 </pre>
 

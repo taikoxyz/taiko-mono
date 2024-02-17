@@ -26,7 +26,6 @@ function deduplicateNFTs(nftArrays: NFT[][]): NFT[] {
 export async function fetchNFTs(
   userAddress: Address,
   srcChainId: number,
-  destChainId: number,
 ): Promise<{ nfts: NFT[]; error: Error | null }> {
   let error: Error | null = null;
 
@@ -70,7 +69,7 @@ export async function fetchNFTs(
   // Fetch image for each NFT
   const promises = Promise.all(
     deduplicatedNfts.map(async (nft) => {
-      const nftWithImage = await fetchNFTImageUrl(nft, srcChainId, destChainId);
+      const nftWithImage = await fetchNFTImageUrl(nft);
       return nftWithImage;
     }),
   );

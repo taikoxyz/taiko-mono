@@ -1,11 +1,13 @@
-import { waitForTransaction } from '@wagmi/core';
+import { waitForTransactionReceipt } from '@wagmi/core';
 import { writable } from 'svelte/store';
 import type { Hex, TransactionReceipt } from 'viem';
 
 import { pendingTransaction } from '$config';
 import { FailedTransactionError } from '$libs/error';
+import { refreshUserBalance } from '$libs/util/balance';
 import { Deferred } from '$libs/util/Deferred';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 const log = getLogger('store:pendingTransactions');
 
@@ -41,7 +43,7 @@ export const pendingTransactions = {
        * the transaction has confirms blocks mined on top of the block in which
        * is was mined.
        */
-      waitForTransaction({
+      waitForTransactionReceipt(config, {
         hash,
         chainId,
         timeout: pendingTransaction.waitTimeout,
@@ -66,6 +68,9 @@ export const pendingTransactions = {
         .catch((err) => {
           console.error(err);
           deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: err }));
+        })
+        .finally(() => {
+          refreshUserBalance();
         });
 
       return newPendingTransactions;

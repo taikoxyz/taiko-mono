@@ -1,5 +1,5 @@
-import { getContract, type Hash } from '@wagmi/core';
-import { UserRejectedRequestError } from 'viem';
+import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
+import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -8,6 +8,7 @@ import { BridgePausedError, ProcessMessageError, ReleaseError, SendMessageError 
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { type ClaimArgs, type ETHBridgeArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
@@ -18,8 +19,10 @@ export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee, memo = '' } = args;
 
+    if (!wallet || !wallet.account) throw new Error('No wallet found');
+
     const bridgeContract = getContract({
-      walletClient: wallet,
+      client: wallet,
       abi: bridgeABI,
       address: bridgeAddress,
     });
@@ -96,8 +99,26 @@ export class ETHBridge extends Bridge {
     try {
       log('Calling sendMessage with value', value);
 
-      const txHash = await bridgeContract.write.sendMessage([message], { value });
+      const chainId = (await getWalletClient(config)).chain.id;
 
+      const { request } = await simulateContract(config, {
+        address: bridgeContract.address,
+        abi: bridgeABI,
+        functionName: 'sendMessage',
+        args: [message],
+        chainId,
+        value,
+      });
+      log('Simulate contract', request);
+
+      const txHash = await writeContract(config, {
+        address: bridgeContract.address,
+        abi: bridgeABI,
+        functionName: 'sendMessage',
+        args: [message],
+        chainId,
+        value,
+      });
       log('Transaction hash for sendMessage call', txHash);
 
       return txHash;
@@ -113,7 +134,7 @@ export class ETHBridge extends Bridge {
   }
 
   async claim(args: ClaimArgs) {
-    const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
+    const { messageStatus, destBridgeAddress } = await super.beforeClaiming(args);
 
     let txHash: Hash;
     const { msgHash, message } = args;
@@ -124,8 +145,23 @@ export class ETHBridge extends Bridge {
       const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
 
       try {
-        txHash = await destBridgeContract.write.processMessage([message, proof]);
+        const { request } = await simulateContract(config, {
+          address: destBridgeAddress,
+          abi: bridgeABI,
+          functionName: 'processMessage',
+          args: [message, proof],
+          gas: message.gasLimit,
+        });
+        log('Simulate contract', request);
 
+        txHash = await writeContract(config, {
+          address: destBridgeAddress,
+          abi: bridgeABI,
+          functionName: 'processMessage',
+          args: [message, proof],
+          gas: message.gasLimit,
+        });
+        return txHash;
         log('Transaction hash for processMessage call', txHash);
       } catch (err) {
         console.error(err);
@@ -143,10 +179,10 @@ export class ETHBridge extends Bridge {
       }
     } else {
       // MessageStatus.RETRIABLE
-      txHash = await super.retryClaim(message, destBridgeContract);
+      //TODO IMPLEMENT RETRY
+      throw new Error('Not implemented');
+      // txHash = await super.retryClaim(message, destBridgeContract);
     }
-
-    return txHash;
   }
 
   async release(args: ReleaseArgs) {
@@ -160,14 +196,25 @@ export class ETHBridge extends Bridge {
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
     const srcBridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
-    const srcBridgeContract = getContract({
-      walletClient: wallet,
-      abi: bridgeABI,
-      address: srcBridgeAddress,
-    });
+    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     try {
-      const txHash = await srcBridgeContract.write.recallMessage([message, proof]);
+      const { request } = await simulateContract(config, {
+        address: srcBridgeAddress,
+        abi: bridgeABI,
+        functionName: 'recallMessage',
+        args: [message, proof],
+        chainId: wallet.chain.id,
+      });
+      log('Simulate contract', request);
+
+      const txHash = await writeContract(config, {
+        address: srcBridgeAddress,
+        abi: bridgeABI,
+        functionName: 'recallMessage',
+        args: [message, proof],
+        chainId: wallet.chain.id,
+      });
 
       log('Transaction hash for releaseEther call', txHash);
 

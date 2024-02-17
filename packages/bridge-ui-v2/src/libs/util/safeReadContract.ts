@@ -1,6 +1,8 @@
 import { readContract } from '@wagmi/core';
 import type { Abi, Address } from 'viem';
 
+import { config } from '$libs/wagmi';
+
 import { getLogger } from './logger';
 
 const log = getLogger('libs:util:safeReadContract');
@@ -19,9 +21,9 @@ type ReadContractParams = {
  */
 export async function safeReadContract(params: ReadContractParams): Promise<unknown | null> {
   try {
-    return await readContract(params);
+    return await readContract(config, params);
   } catch (error) {
-    log(`Failed to read contract: ${error}`);
+    log(`Safely failed to read contract: ${error}`);
     return null;
   }
 }

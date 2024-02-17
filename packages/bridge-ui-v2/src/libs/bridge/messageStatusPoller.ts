@@ -1,9 +1,10 @@
-import { getContract, type Hash } from '@wagmi/core';
 import { EventEmitter } from 'events';
+import { createPublicClient, getContract, type Hash, http } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { bridgeTransactionPoller } from '$config';
+import { chains } from '$libs/chain';
 import { BridgeTxPollingError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
@@ -63,12 +64,17 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
   let emitter = hashEmitterMap[hash];
   let interval = hashIntervalMap[hash];
 
+  const destChainClient = createPublicClient({
+    chain: chains.find((chain) => chain.id === Number(destChainId)),
+    transport: http(),
+  });
+
   // We are gonna be polling the destination bridge contract
   const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
   const destBridgeContract = getContract({
     address: destBridgeAddress,
     abi: bridgeABI,
-    chainId: Number(destChainId),
+    client: destChainClient,
   });
 
   const stopPolling = () => {

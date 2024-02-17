@@ -1,7 +1,8 @@
-import { erc721ABI, readContract } from '@wagmi/core';
+import { readContract } from '@wagmi/core';
 import type { Address } from 'viem';
 
-import { erc1155ABI } from '$abi';
+import { erc721ABI, erc1155ABI } from '$abi';
+import { config } from '$libs/wagmi';
 
 import { detectContractType } from './detectContractType';
 import { type NFT, TokenType } from './types';
@@ -38,7 +39,7 @@ export const checkOwnership = async (
   accountAddress: Address,
   chainId: number,
 ): Promise<{ tokenId: number; isOwner: boolean }[]> => {
-  if (!tokenType) tokenType = await detectContractType(tokenAddress);
+  if (!tokenType) tokenType = await detectContractType(tokenAddress, chainId);
   if (
     !tokenType ||
     tokenIds === undefined ||
@@ -87,7 +88,7 @@ const isOwnerERC1155 = async (
   chainId: number,
 ): Promise<boolean> => {
   try {
-    const balance = await readContract({
+    const balance = await readContract(config, {
       address: tokenAddress,
       abi: erc1155ABI,
       functionName: 'balanceOf',
@@ -108,7 +109,7 @@ const isOwnerERC721 = async (
   chainId: number,
 ): Promise<boolean> => {
   try {
-    const owner = await readContract({
+    const owner = await readContract(config, {
       address: tokenAddress,
       abi: erc721ABI,
       functionName: 'ownerOf',

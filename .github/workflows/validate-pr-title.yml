@@ -6,9 +6,11 @@ on:
       - opened
       - edited
       - synchronize
+  merge_group:
 
 jobs:
   validate-pr-title:
+    if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v5
@@ -33,8 +35,6 @@ jobs:
             guardian-prover-health-check-ui
             protocol
             relayer
-            starter-dapp
-            status-page
           requireScope: true
           subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
           subjectPatternError: |
