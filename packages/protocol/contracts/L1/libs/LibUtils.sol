@@ -15,7 +15,6 @@
 pragma solidity 0.8.24;
 
 import "../../common/AddressResolver.sol";
-import "../../common/ICrossChainSync.sol";
 import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
 import "../TaikoData.sol";
@@ -55,40 +54,6 @@ library LibUtils {
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         ts = state.transitions[slot][tid];
-    }
-
-    function getSyncedSnippet(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint64 blockId
-    )
-        external
-        view
-        returns (ICrossChainSync.Snippet memory)
-    {
-        uint64 _blockId = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
-        uint64 slot = _blockId % config.blockRingBufferSize;
-
-        TaikoData.Block storage blk = state.blocks[slot];
-
-        if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
-        if (blk.verifiedTransitionId == 0) revert L1_TRANSITION_NOT_FOUND();
-
-        TaikoData.TransitionState storage ts = state.transitions[slot][blk.verifiedTransitionId];
-
-        // bool relayed = ISignalService(resolver.resolve("signal_service",
-        // false)).isChainDataRelayed(
-        //     config.chainId, LibSignals.STATE_ROOT, ts.stateRoot
-        // );
-        // if (!relayed) revert L1_CHAIN_DATA_NOT_RELAYED();
-
-        return ICrossChainSync.Snippet({
-            syncedInBlock: blk.proposedIn,
-            blockId: blockId,
-            blockHash: ts.blockHash,
-            stateRoot: ts.stateRoot
-        });
     }
 
     /// @dev Retrieves a block based on its ID.
