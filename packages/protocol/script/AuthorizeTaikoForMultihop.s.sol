@@ -21,7 +21,8 @@ import "../contracts/signal/SignalService.sol";
 contract AuthorizeTaikoForMultihop is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
-    address[] public taikoContracts = vm.envAddress("TAIKO_CONTRACTS", ",");
+    address[] public taikoContracts = vm.envAddress("TAIKO_CONTRACTS", ","); // TaikoL1 and TaikoL2
+        // contracts
 
     function run() external {
         require(taikoContracts.length != 0, "invalid taiko contrats");
@@ -31,7 +32,7 @@ contract AuthorizeTaikoForMultihop is DeployCapability {
         SignalService signalService = SignalService(sharedSignalService);
 
         for (uint256 i; i < taikoContracts.length; ++i) {
-            signalService.authorizeRelayer(taikoContracts[i], true);
+            signalService.authorize(taikoContracts[i], true);
         }
 
         vm.stopBroadcast();
