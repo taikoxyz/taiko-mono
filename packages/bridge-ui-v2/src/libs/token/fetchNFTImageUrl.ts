@@ -1,41 +1,76 @@
-import { getContract } from '@wagmi/core';
-import type { Abi, Address } from 'viem';
+import { get } from 'svelte/store';
 
-import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
-import { ContractType } from '$libs/bridge';
-import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
-// import { checkForAdblocker } from '$libs/util/checkForAdblock';
-import { extractIPFSCidFromUrl } from '$libs/util/extractIPFSCidFromUrl';
-import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
-import { getFileExtension } from '$libs/util/getFileExtension';
+import { destNetwork } from '$components/Bridge/state';
+import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
-import { safeParseUrl } from '$libs/util/safeParseUrl';
+import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
+import { metadataCache } from '$stores/metadata';
+import { connectedSourceChain } from '$stores/network';
 
-import { getCrossChainAddress } from './getCrossChainAddress';
-import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
-import { type NFT, TokenType } from './types';
+import { getTokenAddresses } from './getTokenAddresses';
+import type { NFT, NFTMetadata } from './types';
 
 const log = getLogger('libs:token:fetchNFTImageUrl');
 
-const useGateway = (url: string, tokenId: number): string | null => {
-  const { cid } = extractIPFSCidFromUrl(url);
-  const extension = getFileExtension(url);
-  if (tokenId !== undefined && tokenId !== null && cid) {
-    return `https://ipfs.io/ipfs/${cid}/${tokenId}.${extension}`;
-  } else {
-    log(`No valid CID found in ${url}`);
-    return null;
+export const fetchNFTImageUrl = async (token: NFT): Promise<NFT> => {
+  const srcChainId = get(connectedSourceChain)?.id;
+  const destChainId = get(destNetwork)?.id;
+  if (!srcChainId || !destChainId) return token;
+
+  try {
+    let metadata: NFTMetadata | null = token?.metadata || null;
+
+    if (!token.metadata) {
+      const fetchedMetadata = await fetchNFTMetadata(token);
+      if (!fetchedMetadata) throw new Error('No cross chain data found');
+      token.metadata = fetchedMetadata;
+      metadata = fetchedMetadata;
+    }
+    if (!metadata) throw new Error('No metadata found');
+    if (!metadata?.image) throw new Error('No image found');
+
+    const imageUrlPromise = fetchImageUrl(metadata.image);
+    const tokenInfoPromise = getTokenAddresses({ token, srcChainId, destChainId });
+
+    const [imageUrl, tokenInfo] = await Promise.all([imageUrlPromise, tokenInfoPromise]);
+
+    token.metadata = {
+      ...metadata,
+      image: imageUrl,
+    };
+
+    if (!tokenInfo || !tokenInfo.canonical?.address) return token;
+
+    // check cache for existing metadata
+    const cache = get(metadataCache);
+    if (cache.has(tokenInfo.canonical?.address)) {
+      log('found cached metadata for', tokenInfo.canonical?.address, token.metadata);
+      // Update cache
+      metadataCache.update((cache) => {
+        const key = tokenInfo.canonical?.address;
+        if (key && token.metadata) {
+          log('updating cache for', key, token.metadata);
+          cache.set(key, token.metadata);
+        }
+        return cache;
+      });
+    }
+
+    return token;
+  } catch (error) {
+    log(`Error fetching image for ${token.name} id: ${token.tokenId}`, error);
+    return token;
   }
 };
 
-const fetchImageUrl = async (url: string, tokenId: number): Promise<string> => {
+const fetchImageUrl = async (url: string): Promise<string> => {
   const imageLoaded = await testImageLoad(url);
 
   if (imageLoaded) {
     return url;
   } else {
     log('fetchImageUrl failed to load image');
-    const newUrl = useGateway(url, tokenId);
+    const newUrl = await resolveIPFSUri(url);
     if (newUrl) {
       const gatewayImageLoaded = await testImageLoad(newUrl);
       if (gatewayImageLoaded) {
@@ -54,91 +89,3 @@ const testImageLoad = (url: string): Promise<boolean> => {
     img.src = url;
   });
 };
-
-export const fetchNFTImageUrl = async (token: NFT, srcChainId: number, destChainId: number): Promise<NFT> => {
-  try {
-    let tokenWithMetadata: NFT | null = token;
-
-    if (!tokenWithMetadata.metadata) {
-      tokenWithMetadata = await crossChainFetchNFTMetadata(token, srcChainId, destChainId);
-      if (!tokenWithMetadata) throw new Error('No cross chain data found');
-    }
-
-    if (!tokenWithMetadata.metadata?.image) throw new Error('No image found');
-
-    const url = safeParseUrl(tokenWithMetadata.metadata.image);
-    if (!url) throw new Error(`Invalid image URL: ${tokenWithMetadata.metadata.image}`);
-
-    const imageUrl = await fetchImageUrl(url, token.tokenId);
-
-    token.name = tokenWithMetadata.name; // TODO: discuss if we want to overwrite the name with the canonical one
-    token.metadata = {
-      ...tokenWithMetadata.metadata,
-      image: imageUrl,
-    };
-
-    return token;
-  } catch (error) {
-    log(`Error fetching image for ${token.name} id: ${token.tokenId}`, error);
-    return token;
-  }
-};
-
-const crossChainFetchNFTMetadata = async (token: NFT, srcChainId: number, destChainId: number): Promise<NFT | null> => {
-  let canonicalAddress = null;
-  try {
-    return await fetchNFTMetadata(token);
-  } catch (error) {
-    log(`Error fetching metadata for ${token.name} id: ${token.tokenId}`, error);
-
-    const vaultAddress = getContractAddressByType({
-      srcChainId,
-      destChainId,
-      tokenType: token.type,
-      contractType: ContractType.VAULT,
-    });
-
-    const vaultABI =
-      token.type === TokenType.ERC721
-        ? erc721VaultABI
-        : token.type === TokenType.ERC1155
-          ? erc1155VaultABI
-          : erc20VaultABI;
-
-    const srcChainTokenVault = getContract({
-      abi: vaultABI as Abi,
-      chainId: srcChainId,
-      address: vaultAddress,
-    });
-
-    const tokenAddress = token.addresses[srcChainId];
-
-    const bridgedAddress = (await srcChainTokenVault.read.canonicalToBridged([
-      BigInt(srcChainId),
-      tokenAddress,
-    ])) as Address;
-
-    // if the token has no metadata but is also not bridged, we do not need to continue searching
-    if (!bridgedAddress) throw new Error('Token is not bridged');
-
-    canonicalAddress = await findCanonicalTokenAddress(token, srcChainId, destChainId);
-    if (!canonicalAddress) return null;
-    const cToken = (await getTokenWithInfoFromAddress({
-      contractAddress: canonicalAddress,
-      srcChainId: destChainId,
-      tokenId: token.tokenId,
-      type: token.type,
-    })) as NFT;
-    cToken.addresses = { ...token.addresses, [destChainId]: canonicalAddress };
-
-    return await fetchNFTMetadata(cToken);
-  }
-};
-
-async function findCanonicalTokenAddress(token: NFT, srcChainId: number, destChainId: number): Promise<Address | null> {
-  // If we have a crosschain address, odds are high it is the canonical address
-  const crossChainAddress = await getCrossChainAddress({ token, srcChainId, destChainId });
-  if (crossChainAddress) return crossChainAddress;
-  // TODO: go deeper
-  return null;
-}

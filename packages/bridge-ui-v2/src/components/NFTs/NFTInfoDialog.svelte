@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Address } from 'viem';
+  import { type Address, zeroAddress } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
@@ -9,27 +9,31 @@
   import { Icon } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
   import type { NFT } from '$libs/token';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   const dialogId = `dialog-${uid()}`;
 
   const placeholderUrl = '/placeholder.svg';
 
-  export let modalOpen = false;
+  export let modalOpen: boolean;
   export let viewOnly = false;
   export let nft: NFT;
 
-  export let srcChainId = Number($network?.id);
+  export let srcChainId = Number($connectedSourceChain?.id);
   export let destChainId = Number($destNetwork?.id);
 
   const dispatch = createEventDispatcher();
 
   let bridgedAddress: Address | null;
+  let bridgedChain: number | null;
 
-  let fetchingBridgedAddress: boolean = false;
+  let fetchingAddress: boolean = false;
+
+  let canonicalAddress: Address | null;
+  let canonicalChain: number | null;
 
   const selectNFT = () => {
     dispatch('selected', nft);
@@ -40,25 +44,44 @@
     modalOpen = false;
   };
 
-  const crossChainAddress = async () => {
+  const fetchTokenAddresses = async () => {
+    fetchingAddress = true;
+
     if (!srcChainId || !destChainId) return;
-    fetchingBridgedAddress = true;
-    bridgedAddress = await getCrossChainAddress({ token: nft, srcChainId, destChainId });
-    if (nft.addresses[srcChainId] === bridgedAddress) {
-      bridgedAddress = await getCrossChainAddress({ token: nft, srcChainId: destChainId, destChainId: srcChainId });
+
+    try {
+      const tokenInfo = await getTokenAddresses({ token: nft, srcChainId, destChainId });
+
+      if (!tokenInfo) return;
+
+      if (tokenInfo.canonical?.address && tokenInfo.canonical?.address !== zeroAddress) {
+        canonicalAddress = tokenInfo.canonical?.address;
+        canonicalChain = tokenInfo.canonical?.chainId;
+      }
+
+      if (tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
+        bridgedAddress = tokenInfo.bridged?.address;
+        bridgedChain = tokenInfo.bridged?.chainId;
+      }
+    } catch (error) {
+      console.error(error);
     }
-    fetchingBridgedAddress = false;
+    fetchingAddress = false;
   };
 
-  $: if (modalOpen) {
-    crossChainAddress();
+  let imageLoaded = false;
+
+  function handleImageLoad() {
+    imageLoaded = true;
   }
 
-  $: currentChain = Number(srcChainId) || $network?.id;
+  $: imageUrl = nft.metadata?.image || placeholderUrl;
 
-  $: imgUrl = nft.metadata?.image || placeholderUrl;
+  $: showBridgedAddress = destChainId && bridgedAddress && !fetchingAddress;
 
-  $: showBridgedAddress = destChainId && bridgedAddress && !fetchingBridgedAddress;
+  onMount(async () => {
+    await fetchTokenAddresses();
+  });
 </script>
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
@@ -66,43 +89,59 @@
     <CloseButton onClick={closeModal} />
     <div class="f-col w-full space-y-[30px]">
       <h3 class="title-body-bold">{$t('bridge.nft.step.import.nft_card.title')}</h3>
-      <img alt="nft" src={imgUrl} class="rounded-[20px] self-center bg-white" />
+      {#if !imageLoaded}
+        <img alt="placeholder" src={placeholderUrl} class="rounded-[20px] self-center bg-white" />
+      {/if}
+      <img
+        alt="nft"
+        src={imageUrl || ''}
+        class="rounded-[20px] self-center bg-white {!imageLoaded || imageUrl === '' ? 'hidden' : ''}"
+        on:load={handleImageLoad} />
       <div id="metadata">
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.collection')}</div>
           <div class="text-primary-content">{nft.name}</div>
         </div>
-
+        <!--  CANONICAL INFO -->
         <div class="f-between-center">
-          <div class="text-secondary-content">{$t('common.contract_address')}</div>
-          <div class="text-primary-content">
-            {#if currentChain}
+          <div class="f-row min-w-1/2 self-end gap-2 items-center text-secondary-content">
+            {$t('common.canonical_address')}
+            <img alt="source chain icon" src={chainConfig[Number(canonicalChain)]?.icon} class="w-4 h-4" />
+          </div>
+          <div class="f-row min-w-1/2 text-primary-content">
+            {#if canonicalChain && canonicalAddress}
               <a
                 class="flex justify-start link"
-                href={`${chainConfig[currentChain].urls.explorer}/token/${nft.addresses[currentChain]}`}
+                href={`${chainConfig[canonicalChain].urls.explorer}/token/${canonicalAddress}`}
                 target="_blank">
-                {shortenAddress(nft.addresses[currentChain], 10, 13)}
-                <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+                {shortenAddress(canonicalAddress, 6, 8)}
               </a>
             {/if}
           </div>
         </div>
-
+        <!-- BRIDGED INFO -->
         <div class="f-between-center">
-          <div class="text-secondary-content">{$t('common.bridged_address')}</div>
-          <div class="text-primary-content">
-            {#if showBridgedAddress && bridgedAddress}
-              <a
-                class="flex justify-start link"
-                href={`${chainConfig[destChainId].urls.explorer}/token/${bridgedAddress}`}
-                target="_blank">
-                {shortenAddress(bridgedAddress, 10, 13)}
-                <Icon type="arrow-top-right" fillClass="fill-primary-link" />
-              </a>
-            {:else}
-              <Spinner class="h-2 w-2" />
-            {/if}
-          </div>
+          {#if showBridgedAddress && bridgedAddress}
+            <div class="f-row min-w-1/2 gap-2 items-center text-secondary-content">
+              {$t('common.bridged_address')}
+              <img alt="destination chain icon" src={chainConfig[Number(bridgedChain)]?.icon} class="w-4 h-4" />
+            </div>
+            <div class="f-row min-w-1/2 text-primary-content">
+              {#if bridgedChain && bridgedAddress}
+                <a
+                  class="flex justify-start link"
+                  href={`${chainConfig[bridgedChain].urls.explorer}/token/${bridgedAddress}`}
+                  target="_blank">
+                  {shortenAddress(bridgedAddress, 6, 8)}
+                  <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+                </a>
+              {/if}
+              {#if fetchingAddress}
+                <Spinner class="h-[10px] w-[10px] " />
+                {$t('common.loading')}
+              {/if}
+            </div>
+          {/if}
         </div>
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.token_id')}</div>

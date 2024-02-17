@@ -497,7 +497,7 @@ export default [
   },
   {
     inputs: [],
-    name: "latestSyncedL1Height",
+    name: "latestRelayedL1BlockId",
     outputs: [
       {
         internalType: "uint64",

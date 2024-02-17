@@ -31,12 +31,6 @@ export type NFT = Token & {
   metadata?: NFTMetadata;
 };
 
-export type GetTokenInfo = {
-  token: Token;
-  srcChainId: number;
-  destChainId: number;
-};
-
 // Based on https://docs.opensea.io/docs/metadata-standards
 export type NFTMetadata = {
   description: string;
@@ -46,7 +40,7 @@ export type NFTMetadata = {
   //todo: more metadata?
 };
 
-export type GetCrossChainAddressArgs = {
+export type GetTokenInfo = {
   token: Token;
   srcChainId: number;
   destChainId: number;

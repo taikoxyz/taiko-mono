@@ -6,6 +6,7 @@ This package contains the Bridge UI built with svelte and wagmi
   - [Development setup](#development-setup)
     - [Set up environment variables](#set-up-environment-variables)
     - [Set up configurations](#set-up-configurations)
+      - [Optional flags](#optional-flags)
     - [Start a development server:](#start-a-development-server)
   - [Building](#building)
 
@@ -48,6 +49,7 @@ These are the additional configuration files that have to be filled in:
 | **/config/configuredBridges.json**      | Defines the chains that are connected via taiko bridges and lists the contract addresses |
 | **/config/configuredChains.json**       | Defines some metadata for the chains, such as name, icons, explorer URL, etc.            |
 | **/config/configuredRelayer.json**      | If chains have a relayer, the URL and the chain IDs it covers are entered here           |
+| **/config/configuredEventIndexer.json** | NFT Indexer we can query to help with importing NFTs                                     |
 | **/config/configuredCustomTokens.json** | Defines a list of tokens that should be available in the token dropdowns                 |
 
 ---
@@ -81,6 +83,30 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
 **Beware**, that if you make changes to the json files, you need to export them to the .env again via script.
 <br>
 
+#### Optional flags
+
+```bash
+pnpm export:config --<env> --<version>
+```
+
+You can store multiple configs in subfolders, currently the script accepts:
+`--a5`, `--a6` for version and `--dev`, `--prod` for env
+
+The folder structure should look like this then:
+
+```
+config/
+|-- dev/
+|   |-- a5/
+|   |-- a6/
+|-- prod/
+|   |-- a5/
+|   |-- a6/
+```
+
+More could be configured manually in `scripts/exportJsonToEnv.js`
+<br>
+
 ### Start a development server:
 
 ```bash
@@ -88,6 +114,10 @@ pnpm dev
 
 # or start the server and open the app in a new browser tab
 pnpm dev -- --open
+
+# if you want to expose the IP to your network you can use this flag
+pnpm dev --host
+
 ```
 
 ## Building
@@ -95,9 +125,9 @@ pnpm dev -- --open
 To create a production version of your app:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
-You can preview the production build with `npm run preview`.
+You can preview the production build with `pnpm run preview`.
 
 To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
