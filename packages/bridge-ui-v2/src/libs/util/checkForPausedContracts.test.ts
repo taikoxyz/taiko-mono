@@ -1,4 +1,4 @@
-import { getContract, type GetContractResult } from '@wagmi/core';
+import { readContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 
 import { bridgePausedModal } from '$stores/modal';
@@ -6,12 +6,7 @@ import { bridgePausedModal } from '$stores/modal';
 import { checkForPausedContracts } from './checkForPausedContracts';
 
 vi.mock('@wagmi/core');
-
-const mockTokenContract = {
-  read: {
-    paused: vi.fn(),
-  },
-} as unknown as GetContractResult<readonly unknown[], unknown>;
+vi.mock('viem');
 
 vi.mock('$bridgeConfig', () => ({
   routingContractsMap: {
@@ -51,7 +46,6 @@ vi.mock('$bridgeConfig', () => ({
 describe('checkForPausedContracts', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(getContract).mockReturnValue(mockTokenContract);
   });
 
   test('should return false if no contracts are paused', async () => {
@@ -59,30 +53,31 @@ describe('checkForPausedContracts', () => {
     await checkForPausedContracts();
 
     // then
+    expect(readContract).toHaveBeenCalledTimes(3);
     expect(get(bridgePausedModal)).toBe(false);
   });
 
   test('should return true if at least one contract is paused', async () => {
     // given
-    vi.mocked(mockTokenContract.read.paused).mockResolvedValueOnce(true);
+    vi.mocked(readContract).mockResolvedValueOnce(true);
 
     // when
     await checkForPausedContracts();
 
     // then
+    expect(readContract).toHaveBeenCalledTimes(3);
     expect(get(bridgePausedModal)).toBe(true);
-    expect(mockTokenContract.read.paused).toHaveBeenCalledTimes(3);
   });
 
-  test.skip('should handle errors', async () => {
+  test('should handle errors', async () => {
     // given
-    vi.mocked(mockTokenContract.read.paused).mockRejectedValueOnce(new Error('some error'));
+    vi.mocked(readContract).mockRejectedValueOnce(new Error('some error'));
 
     // when
     await checkForPausedContracts();
 
     // then
     expect(get(bridgePausedModal)).toBe(true);
-    expect(mockTokenContract.read.paused).toHaveBeenCalledTimes(3);
+    expect(readContract).toHaveBeenCalledTimes(3);
   });
 });

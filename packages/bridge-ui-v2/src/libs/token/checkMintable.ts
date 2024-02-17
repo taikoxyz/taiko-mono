@@ -1,8 +1,10 @@
-import { getContract, getPublicClient } from '@wagmi/core';
+import { getPublicClient } from '@wagmi/core';
+import { getContract } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
 import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { config } from '$libs/wagmi';
 
 import type { Token } from './types';
 
@@ -13,7 +15,7 @@ export async function checkMintable(token: Token, chainId: number) {
   const walletClient = await getConnectedWallet();
 
   const tokenContract = getContract({
-    walletClient,
+    client: walletClient,
     abi: freeMintErc20ABI,
     address: token.addresses[chainId],
   });
@@ -28,7 +30,8 @@ export async function checkMintable(token: Token, chainId: number) {
 
   // Check whether the user has enough balance to mint.
   // Compute the cost of the transaction:
-  const publicClient = getPublicClient();
+  const publicClient = getPublicClient(config);
+  if (!publicClient) throw new Error('Could not get public client');
 
   const estimatedGas = await tokenContract.estimateGas.mint([userAddress]);
   const gasPrice = await publicClient.getGasPrice();

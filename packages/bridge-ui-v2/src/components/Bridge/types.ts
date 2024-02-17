@@ -1,9 +1,14 @@
-export enum BridgeTypes {
-  FUNGIBLE = 'FUNGIBLE',
-  NFT = 'NFT',
+export enum BridgingStatus {
+  PENDING,
+  DONE,
 }
 
-export enum NFTSteps {
+export enum BridgeTypes {
+  FUNGIBLE,
+  NFT,
+}
+
+export enum BridgeSteps {
   IMPORT,
   REVIEW,
   RECIPIENT,
@@ -11,6 +16,7 @@ export enum NFTSteps {
 }
 
 export enum ImportMethod {
+  NONE,
   MANUAL,
   SCAN,
 }

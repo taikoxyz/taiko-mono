@@ -32,14 +32,7 @@ import "./TaikoEvents.sol";
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
 /// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
-contract TaikoL1 is
-    EssentialContract,
-    ITaikoL1,
-    ICrossChainSync,
-    ITierProvider,
-    TaikoEvents,
-    TaikoErrors
-{
+contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
@@ -168,19 +161,6 @@ contract TaikoL1 is
         return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
     }
 
-    /// @inheritdoc ICrossChainSync
-    /// @notice Important: as this contract doesn't send each block's state root as a signal when
-    /// the block is verified, bridging developers should subscribe to CrossChainSynced events
-    /// to ensure all synced state roots are verifiable using merkle proofs.
-    function getSyncedSnippet(uint64 blockId)
-        public
-        view
-        override
-        returns (ICrossChainSync.Snippet memory)
-    {
-        return LibUtils.getSyncedSnippet(state, getConfig(), AddressResolver(this), blockId);
-    }
-
     /// @notice Gets the state variables of the TaikoL1 contract.
     function getStateVariables()
         public
@@ -247,7 +227,8 @@ contract TaikoL1 is
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10
+            ethDepositMaxFee: 1 ether / 10,
+            blockSyncThreshold: 16
         });
     }
 

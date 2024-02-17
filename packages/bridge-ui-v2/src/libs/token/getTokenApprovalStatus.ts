@@ -7,7 +7,6 @@ import {
   enteredAmount,
   insufficientAllowance,
   selectedToken,
-  validatingAmount,
 } from '$components/Bridge/state';
 import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
 import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
@@ -23,10 +22,10 @@ import {
 } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
-import { account, network } from '$stores';
+import { account, connectedSourceChain } from '$stores';
 
 import { checkOwnershipOfNFT } from './checkOwnership';
-import { getCanonicalInfoForToken } from './getCanonicalInfo';
+import { getTokenAddresses } from './getTokenAddresses';
 import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:getTokenApprovalStatus');
@@ -49,7 +48,7 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     log('token is ETH');
     return ApprovalStatus.ETH_NO_APPROVAL_REQUIRED;
   }
-  const currentChainId = get(network)?.id;
+  const currentChainId = get(connectedSourceChain)?.id;
   const destinationChainId = get(destNetwork)?.id;
   if (!currentChainId || !destinationChainId) {
     log('no currentChainId or destinationChainId');
@@ -60,18 +59,19 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   const tokenAddress = get(selectedToken)?.addresses[currentChainId];
   log('selectedToken', get(selectedToken));
 
-  const canonicalTokenInfo = await getCanonicalInfoForToken({
-    token,
-    srcChainId: currentChainId,
-    destChainId: destinationChainId,
-  });
-  if (!canonicalTokenInfo) throw new NoCanonicalInfoFoundError();
-  const { address: canonicalTokenAddress } = canonicalTokenInfo;
-  if (canonicalTokenAddress !== tokenAddress) {
-    // we have a bridged token, no need for allowance check as we will burn the token
-    log('token is bridged, no need for allowance check');
-    allApproved.set(true);
-    return ApprovalStatus.BRIDGED_NO_APPROVAL_REQUIRED;
+  const tokenInfo = await getTokenAddresses({ token, srcChainId: currentChainId, destChainId: destinationChainId });
+  if (!tokenInfo) {
+    log('no token info found');
+    throw new NoCanonicalInfoFoundError();
+  }
+  if (tokenInfo.bridged && tokenInfo.bridged.address) {
+    const { address: bridgedTokenAddress } = tokenInfo.bridged;
+    if (bridgedTokenAddress === tokenAddress) {
+      // we have a bridged token, no need for allowance check as we will burn the token
+      log('token is bridged, no need for allowance check');
+      allApproved.set(true);
+      return ApprovalStatus.BRIDGED_NO_APPROVAL_REQUIRED;
+    }
   }
 
   if (!ownerAddress || !tokenAddress) {
@@ -85,16 +85,16 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     const bridge = bridges[TokenType.ERC20] as ERC20Bridge;
 
     try {
-      const requiresApproval = await bridge.requireAllowance({
+      const requireAllowance = await bridge.requireAllowance({
         amount: get(enteredAmount),
         tokenAddress,
         ownerAddress,
         spenderAddress: tokenVaultAddress,
       });
-      log('erc20 requiresApproval', requiresApproval);
-      insufficientAllowance.set(requiresApproval);
-      allApproved.set(!requiresApproval);
-      if (requiresApproval) {
+      log('erc20 requiresApproval', requireAllowance);
+      insufficientAllowance.set(requireAllowance);
+      allApproved.set(!requireAllowance);
+      if (requireAllowance) {
         return ApprovalStatus.APPROVAL_REQUIRED;
       }
       return ApprovalStatus.NO_APPROVAL_REQUIRED;
@@ -155,8 +155,6 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
         return ApprovalStatus.NO_APPROVAL_REQUIRED;
       } catch (error) {
         console.error('isApprovedForAll error');
-      } finally {
-        validatingAmount.set(false);
       }
     }
   } else {

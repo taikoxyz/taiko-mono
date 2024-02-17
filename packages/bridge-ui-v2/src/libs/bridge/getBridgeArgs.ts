@@ -2,7 +2,9 @@ import { get } from 'svelte/store';
 
 import { routingContractsMap } from '$bridgeConfig';
 import { selectedNFTs } from '$components/Bridge/state';
-import { getAddress, isDeployedCrossChain, type NFT, type Token, TokenType } from '$libs/token';
+import { NoCanonicalInfoFoundError } from '$libs/error';
+import { getAddress, type NFT, type Token, TokenType } from '$libs/token';
+import { getTokenAddresses } from '$libs/token/getTokenAddresses';
 
 import type { BridgeArgs, BridgeArgsMap, ERC20BridgeArgs, ETHBridgeArgs } from './types';
 
@@ -28,11 +30,23 @@ export const getBridgeArgs = async (
         destChainId: commonArgs.destChainId,
       });
       const tokenVaultAddress = routingContractsMap[commonArgs.srcChainId][commonArgs.destChainId].erc20VaultAddress;
-      const isTokenAlreadyDeployed = await isDeployedCrossChain({
+
+      const tokenInfo = await getTokenAddresses({
         token,
         srcChainId: commonArgs.srcChainId,
         destChainId: commonArgs.destChainId,
       });
+      if (!tokenInfo) throw new NoCanonicalInfoFoundError();
+
+      let isTokenAlreadyDeployed = false;
+
+      if (tokenInfo.bridged) {
+        const { address } = tokenInfo.bridged;
+        if (address) {
+          isTokenAlreadyDeployed = true;
+        }
+      }
+
       return {
         ...commonArgs,
         token: tokenAddress,
@@ -52,11 +66,23 @@ export const getBridgeArgs = async (
           token.type === TokenType.ERC721 ? 'erc721VaultAddress' : 'erc1155VaultAddress'
         ];
       const tokenIds = nftIdArray ? nftIdArray.map((num) => BigInt(num)) : nfts.map((nft) => BigInt(nft.tokenId));
-      const isTokenAlreadyDeployed = await isDeployedCrossChain({
+
+      const tokenInfo = await getTokenAddresses({
         token,
         srcChainId: commonArgs.srcChainId,
         destChainId: commonArgs.destChainId,
       });
+      if (!tokenInfo) throw new NoCanonicalInfoFoundError();
+
+      let isTokenAlreadyDeployed = false;
+
+      if (tokenInfo.bridged) {
+        const { address } = tokenInfo.bridged;
+        if (address) {
+          isTokenAlreadyDeployed = true;
+        }
+      }
+
       const args = {
         ...commonArgs,
         token: tokenAddress,

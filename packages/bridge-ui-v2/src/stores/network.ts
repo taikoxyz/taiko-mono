@@ -1,6 +1,6 @@
-import type { GetNetworkResult } from '@wagmi/core';
 import { writable } from 'svelte/store';
+import type { Chain } from 'viem';
 
-export type Network = GetNetworkResult['chain'];
+export const connectedSourceChain = writable<Chain>();
 
-export const network = writable<Network>();
+export const switchingNetwork = writable<boolean>(false);

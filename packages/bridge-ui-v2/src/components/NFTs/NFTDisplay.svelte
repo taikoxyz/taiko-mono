@@ -3,7 +3,7 @@
 
   import { LoadingMask } from '$components/LoadingMask';
   import type { NFT } from '$libs/token';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   import { NFTCardGrid } from './NFTCards';
   import { NFTList } from './NFTList';
@@ -28,7 +28,7 @@
     {#if loading}
       <LoadingMask spinnerClass="border-white" text={$t('messages.bridge.nft_scanning')} />
     {:else if nftView === NFTView.LIST && nfts}
-      <NFTList bind:nfts chainId={$network?.id} {viewOnly} />
+      <NFTList bind:nfts chainId={$connectedSourceChain?.id} {viewOnly} />
     {:else if nftView === NFTView.CARDS && nfts}
       <NFTCardGrid bind:nfts {viewOnly} />
     {/if}

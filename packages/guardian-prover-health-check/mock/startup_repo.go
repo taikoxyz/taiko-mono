@@ -56,7 +56,9 @@ func (h *StartupRepo) Save(opts guardianproverhealthcheck.SaveStartupOpts) error
 		GuardianProverID:      opts.GuardianProverID,
 		GuardianProverAddress: opts.GuardianProverAddress,
 		Revision:              opts.Revision,
-		Version:               opts.Version,
+		GuardianVersion:       opts.GuardianVersion,
+		L1NodeVersion:         opts.L1NodeVersion,
+		L2NodeVersion:         opts.L2NodeVersion,
 	},
 	)
 
