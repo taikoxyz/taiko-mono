@@ -25,7 +25,7 @@ contract AuthorizeTaikoForMultihop is DeployCapability {
         // contracts
 
     function run() external {
-        require(taikoContracts.length != 0, "invalid taiko contrats");
+        require(taikoContracts.length != 0, "invalid taiko contracts");
 
         vm.startBroadcast(privateKey);
 
