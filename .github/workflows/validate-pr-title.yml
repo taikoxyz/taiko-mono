@@ -35,8 +35,6 @@ jobs:
             guardian-prover-health-check-ui
             protocol
             relayer
-            starter-dapp
-            status-page
           requireScope: true
           subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
           subjectPatternError: |
