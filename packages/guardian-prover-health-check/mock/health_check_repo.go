@@ -51,6 +51,8 @@ func (h *HealthCheckRepo) Save(opts guardianproverhealthcheck.SaveHealthCheckOpt
 		ExpectedAddress:  opts.ExpectedAddress,
 		RecoveredAddress: opts.RecoveredAddress,
 		SignedResponse:   opts.SignedResponse,
+		LatestL1Block:    opts.LatestL1Block,
+		LatestL2Block:    opts.LatestL2Block,
 	},
 	)
 

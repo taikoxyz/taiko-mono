@@ -92,7 +92,7 @@ contract DeployOnL1 is DeployCapability {
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
 
         if (vm.envAddress("SHARED_ADDRESS_MANAGER") == address(0)) {
-            SignalService(signalServiceAddr).authorizeRelayer(taikoL1Addr, true);
+            SignalService(signalServiceAddr).authorize(taikoL1Addr, true);
         }
 
         uint64 l2ChainId = taikoL1.getConfig().chainId;

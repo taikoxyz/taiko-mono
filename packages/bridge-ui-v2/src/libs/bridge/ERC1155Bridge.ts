@@ -1,7 +1,7 @@
-import { getContract } from '@wagmi/core';
-import { type Hash, UserRejectedRequestError } from 'viem';
+import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
+import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
-import { erc1155ABI, erc1155VaultABI } from '$abi';
+import { bridgeABI, erc1155ABI, erc1155VaultABI } from '$abi';
 import { bridgeService } from '$config';
 import {
   ApproveError,
@@ -12,8 +12,10 @@ import {
   SendERC1155Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfo';
+import { TokenType } from '$libs/token';
+import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import {
@@ -36,10 +38,14 @@ export class ERC1155Bridge extends Bridge {
     if (!owner) {
       throw new Error('Owner is required for ERC1155 approval check');
     }
+
+    const client = await getPublicClient(config, { chainId: chainId });
+    if (!client) throw new Error('Could not get public client');
+
     const tokenContract = getContract({
       abi: erc1155ABI,
       address: tokenAddress,
-      chainId,
+      client,
     });
 
     log('Checking approval');
@@ -56,6 +62,7 @@ export class ERC1155Bridge extends Bridge {
     log('Estimating gas for sendERC1155 call with value', value);
 
     log('Estimating gas for sendERC1155 call with args', sendERC1155Args);
+
     const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value });
 
     log('Gas estimated', estimatedGas);
@@ -66,15 +73,16 @@ export class ERC1155Bridge extends Bridge {
   async bridge(args: ERC1155BridgeArgs) {
     const { token, tokenVaultAddress, tokenIds, wallet, srcChainId, destChainId } = args;
     const { tokenVaultContract, sendERC1155Args } = await ERC1155Bridge._prepareTransaction(args);
-    const { fee: value } = sendERC1155Args;
+    const { fee } = sendERC1155Args;
 
     // const tokenIdsWithoutApproval: bigint[] = [];
 
     const tokenId = tokenIds[0]; // TODO: support multiple tokenIds
 
-    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
+    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId, type: TokenType.ERC1155 });
     if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
     const { address: canonicalTokenAddress } = info;
+    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     if (canonicalTokenAddress === token) {
       // Token is native, we need to check if we have approval
@@ -93,10 +101,31 @@ export class ERC1155Bridge extends Bridge {
     }
 
     try {
-      log('Sending ERC1155 with fee', value);
+      log('Sending ERC1155 with fee', fee);
       log('Sending ERC1155 with args', sendERC1155Args);
 
-      const tx = await tokenVaultContract.write.sendToken([sendERC1155Args], { value });
+      try {
+        const { request } = await simulateContract(config, {
+          address: tokenVaultContract.address,
+          abi: erc1155VaultABI,
+          functionName: 'sendToken',
+          args: [sendERC1155Args],
+          value: fee,
+        });
+        log('Simulate contract', request);
+      } catch (err) {
+        // TODO: Handle error
+        console.error(err);
+      }
+
+      const tx = await writeContract(config, {
+        address: tokenVaultContract.address,
+        abi: erc1155VaultABI,
+        functionName: 'sendToken',
+        args: [sendERC1155Args],
+        chainId: wallet.chain.id,
+        value: fee,
+      });
 
       log('ERC1155 sent', tx);
 
@@ -111,7 +140,7 @@ export class ERC1155Bridge extends Bridge {
   }
 
   async claim(args: ClaimArgs) {
-    const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
+    const { messageStatus, destBridgeAddress } = await super.beforeClaiming(args);
     const { msgHash, message } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
@@ -123,14 +152,27 @@ export class ERC1155Bridge extends Bridge {
 
       try {
         if (message.gasLimit > bridgeService.erc1155GasLimitThreshold) {
-          txHash = await destBridgeContract.write.processMessage([message, proof], {
+          const { request } = await simulateContract(config, {
+            address: destBridgeAddress,
+            abi: bridgeABI,
+            functionName: 'processMessage',
+            args: [message, proof],
             gas: message.gasLimit,
           });
-        } else {
-          txHash = await destBridgeContract.write.processMessage([message, proof]);
-        }
+          log('Simulate contract', request);
 
-        log('Transaction hash for processMessage call', txHash);
+          txHash = await writeContract(config, {
+            address: destBridgeAddress,
+            abi: bridgeABI,
+            functionName: 'processMessage',
+            args: [message, proof],
+            gas: message.gasLimit,
+          });
+          log('Transaction hash for processMessage call', txHash);
+        } else {
+          //TODO!!!!
+          console.error('message.gaslimit  smaller than threshold');
+        }
       } catch (err) {
         console.error(err);
         if (`${err}`.includes('denied transaction signature')) {
@@ -141,17 +183,20 @@ export class ERC1155Bridge extends Bridge {
       }
     } else {
       // MessageStatus.RETRIABLE
-      txHash = await super.retryClaim(message, destBridgeContract);
+      //TODO IMPLEMENT RETRY
+      // txHash = await super.retryClaim(message, destBridgeContract);
     }
     return Promise.resolve('0x' as Hash);
   }
 
   async release() {
+    //TODO!!!!
     return Promise.resolve('0x' as Hash);
   }
 
   async approve(args: NFTApproveArgs) {
     const { tokenAddress, spenderAddress, wallet, tokenIds } = args;
+    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const tokenId = tokenIds[0]; // TODO: support multiple tokenIds
 
@@ -170,16 +215,30 @@ export class ERC1155Bridge extends Bridge {
       throw new NoApprovalRequiredError(`No approval required for the token ${tokenId}`);
     }
 
-    const tokenContract = getContract({
-      walletClient: wallet,
-      abi: erc1155ABI,
-      address: tokenAddress,
-    });
-
     try {
       log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
 
-      const txHash = await tokenContract.write.setApprovalForAll([spenderAddress, true]);
+      try {
+        const { request } = await simulateContract(config, {
+          address: tokenAddress,
+          abi: erc1155ABI,
+          functionName: 'setApprovalForAll',
+          args: [spenderAddress, true],
+          chainId: wallet.chain.id,
+        });
+        log('Simulate contract', request);
+      } catch (err) {
+        // TODO: Handle error
+        console.error(err);
+      }
+
+      const txHash = await writeContract(config, {
+        address: tokenAddress,
+        abi: erc1155ABI,
+        functionName: 'setApprovalForAll',
+        args: [spenderAddress, true],
+        chainId: wallet.chain.id,
+      });
 
       log('Transaction hash for approve call', txHash);
 
@@ -199,7 +258,6 @@ export class ERC1155Bridge extends Bridge {
     const {
       to,
       wallet,
-      srcChainId,
       destChainId,
       token,
       fee,
@@ -210,8 +268,10 @@ export class ERC1155Bridge extends Bridge {
       amounts,
     } = args;
 
+    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
+
     const tokenVaultContract = getContract({
-      walletClient: wallet,
+      client: wallet,
       abi: erc1155VaultABI,
       address: tokenVaultAddress,
     });
@@ -225,7 +285,6 @@ export class ERC1155Bridge extends Bridge {
         : BigInt(0);
 
     const sendERC1155Args: NFTBridgeTransferOp = {
-      srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
       to,
       token,

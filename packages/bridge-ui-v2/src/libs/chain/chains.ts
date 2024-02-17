@@ -1,4 +1,4 @@
-import type { Chain } from '@wagmi/core';
+import type { Chain } from 'viem';
 
 import { chainConfig } from '$chainConfig';
 import type { ChainConfigMap } from '$libs/chain';
@@ -7,7 +7,6 @@ function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[numb
   return {
     id: Number(chainId),
     name: chainConfig.name,
-    network: chainConfig.name,
     nativeCurrency: {
       name: 'ETH',
       symbol: 'ETH',
@@ -17,7 +16,7 @@ function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[numb
       public: { http: [chainConfig.urls.rpc] },
       default: { http: [chainConfig.urls.rpc] },
     },
-  };
+  } as const satisfies Chain;
 }
 
 export const chainIdToChain = (chainId: number): Chain => {
@@ -42,6 +41,14 @@ export const isSupportedChain = (chainId: number) => {
 
 export const getChainImages = (): Record<number, string> => {
   return Object.fromEntries(Object.entries(chainConfig).map(([chainId, config]) => [Number(chainId), config.icon]));
+};
+
+export const getChainImage = (chainId: number) => {
+  const chain = chains.find((chain) => chain.id === chainId);
+  if (!chain) {
+    throw new Error(`Chain with id ${chainId} not found`);
+  }
+  return chainConfig[chainId].icon;
 };
 
 export const getChainName = (chainId: number) => {

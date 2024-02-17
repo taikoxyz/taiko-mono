@@ -39,10 +39,6 @@ library LibVerifying {
         uint8 contestations
     );
 
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
-    );
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -242,20 +238,30 @@ library LibVerifying {
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Store the L2's state root as a signal to the local signal
-                // service to allow for multi-hop bridging.
-                //
-                // This also means if we verified more than one block, only the last one's stateRoot
-                // is sent as a signal and verifiable with merkle proofs, all other blocks'
-                // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).relayChainData(
-                    config.chainId, LibSignals.STATE_ROOT, stateRoot
-                );
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
-                );
+                // sync chain data
+                _syncChainData(config, resolver, lastVerifiedBlockId, stateRoot);
             }
+        }
+    }
+
+    function _syncChainData(
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint64 lastVerifiedBlockId,
+        bytes32 stateRoot
+    )
+        private
+    {
+        ISignalService signalService = ISignalService(resolver.resolve("signal_service", false));
+
+        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
+            config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+        );
+
+        if (lastVerifiedBlockId > lastSyncedBlock + config.blockSyncThreshold) {
+            signalService.syncChainData(
+                config.chainId, LibSignals.STATE_ROOT, lastVerifiedBlockId, stateRoot
+            );
         }
     }
 }

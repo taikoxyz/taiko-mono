@@ -153,6 +153,7 @@ export default {
           icon: 'var(--secondary-icon)',
           interactive: {
             accent: 'var(--primary-interactive-accent)',
+            hover: 'var(--secondary-interactive-hover)',
           },
         },
 
@@ -232,7 +233,7 @@ export default {
           '--secondary-icon': '#2B303B', // grey-700
 
           '--secondary-interactive-accent': '#2B303B', // grey-700
-          '--secondary-interactive-hover': '#E81899', //pink-400
+          '--secondary-interactive-hover': '#ADB1B8', // grey-200
 
           '--tertiary-content': '#5D636F', // grey-500
           '--tertiary-interactive-accent': '#5D636F', // grey-500
@@ -309,7 +310,7 @@ export default {
           '--secondary-content': '#444A55', // grey-600
           '--secondary-icon': '#2B303B', // grey-700
           '--secondary-interactive-accent': '#E3E3E3', // grey-50
-          '--secondary-interactive-hover': '#E3E3E3', // grey-50
+          '--secondary-interactive-hover': '##F3F3F3', // grey-10
 
           '--tertiary-content': '#91969F', // grey-300
 
