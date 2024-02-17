@@ -57,7 +57,7 @@ contract TestTaikoL2 is TaikoTest {
 
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
-        ss.authorizeRelayer(address(L2), true);
+        ss.authorize(address(L2), true);
 
         gasExcess = 195_420_300_100;
 

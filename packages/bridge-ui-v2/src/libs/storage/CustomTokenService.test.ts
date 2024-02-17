@@ -7,6 +7,8 @@ import { CustomTokenService } from './CustomTokenService';
 
 const STORAGE_PREFIX = 'custom-tokens';
 
+vi.mock('@wagmi/core');
+
 function setupMocks() {
   vi.mock('$customToken', () => {
     return {

@@ -2,21 +2,23 @@
   import { classNames } from '$libs/util/classNames';
 
   export let error = false;
+  let inputElement: HTMLInputElement;
 
-  let input: HTMLInputElement;
+  export let value: string | number | number[] = '';
+
+  $: disabled = $$props.disabled || false;
 
   let classes = classNames(
-    'w-full input-box placeholder:text-tertiary-content bg-neutral-background shadow-none font-bold text-2xl',
+    'w-full input-box bg-neutral-background shadow-none placeholder:text-tertiary-content font-bold shadow-none outline-none ',
+    disabled ? 'cursor-not-allowed ' : 'cursor-pointer',
     $$props.class,
   );
 
   // Public API
-  export const getValue = () => {
-    return input.value;
-  };
-  export const setValue = (value: string) => (input.value = value);
+  export const setValue = (value: string) => (inputElement.value = value);
+  export const getValue = () => inputElement.value;
   export const clear = () => setValue('');
-  export const focus = () => input.focus();
+  export const focus = () => inputElement.focus();
 </script>
 
-<input bind:this={input} {...$$restProps} class={classes} class:error on:input on:blur />
+<input bind:value bind:this={inputElement} {...$$restProps} class={classes} class:error on:input on:blur />

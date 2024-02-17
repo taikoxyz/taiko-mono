@@ -64,6 +64,9 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
+        // syncing)
+        uint8 blockSyncThreshold;
     }
 
     /// @dev Struct representing prover assignment

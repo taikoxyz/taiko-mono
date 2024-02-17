@@ -20,3 +20,18 @@ export const bridges: Record<TokenType, Bridge> = {
 export const hasBridge = (srcChainId: number, destChainId: number): boolean => {
   return !!routingContractsMap[srcChainId] && !!routingContractsMap[srcChainId][destChainId];
 };
+
+export const getValidBridges = (chainId: number): number[] | undefined => {
+  const validBridges: number[] = [];
+
+  const bridgeMap = routingContractsMap[chainId];
+  if (bridgeMap) {
+    for (const key in bridgeMap) {
+      if (key !== chainId.toString()) {
+        validBridges.push(Number(key));
+      }
+    }
+  }
+
+  return validBridges.length > 0 ? validBridges : undefined;
+};

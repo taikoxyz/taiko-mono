@@ -22,18 +22,19 @@
 
   const placeholderUrl = '/placeholder.svg';
 
-  $: imageUrl = nft.metadata?.image || placeholderUrl;
-  let imageLoaded = false;
-
   const handleDialogSelection = () => {
     selectNFT(nft);
     selected = true;
     modalOpen = false;
   };
 
+  let imageLoaded = false;
+
   function handleImageLoad() {
     imageLoaded = true;
   }
+
+  $: imageUrl = nft.metadata?.image || placeholderUrl;
 
   $: {
     selected = $selectedNFTs ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId) : false;
@@ -59,9 +60,9 @@
     <div class="avatar h-[56px] w-[56px]">
       <div class="rounded-[10px] bg-primary-background">
         {#if !imageLoaded}
-          <img alt="placeholder" src={placeholderUrl} class="rounded animate-pulse" />
+          <img alt="placeholder" src={placeholderUrl} class="rounded bg-white" />
         {/if}
-        <img alt="placeholder nft" src={imageUrl || ''} class=" rounded" on:load={handleImageLoad} />
+        <img alt={nft.name} src={imageUrl || ''} class=" rounded bg-white" on:load={handleImageLoad} />
       </div>
     </div>
     <div class="f-col grow">
@@ -78,20 +79,3 @@
 </div>
 
 <NftInfoDialog {nft} bind:modalOpen on:selected={() => handleDialogSelection()} bind:viewOnly />
-
-<style>
-  /* Todo: temporary test, remove or move */
-  .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-</style>

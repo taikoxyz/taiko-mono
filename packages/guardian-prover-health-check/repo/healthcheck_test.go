@@ -57,6 +57,8 @@ func TestIntegration_HealthCheck_Save(t *testing.T) {
 				ExpectedAddress:  "0x123",
 				RecoveredAddress: "0x123",
 				SignedResponse:   "0x123456",
+				LatestL1Block:    5,
+				LatestL2Block:    7,
 			},
 			nil,
 		},
@@ -94,6 +96,8 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 		ExpectedAddress:  "0x123",
 		RecoveredAddress: "0x123",
 		SignedResponse:   "0x123456",
+		LatestL1Block:    5,
+		LatestL2Block:    7,
 	})
 
 	assert.Equal(t, err, nil)
@@ -104,6 +108,8 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 		ExpectedAddress:  "0x123",
 		RecoveredAddress: "0x123",
 		SignedResponse:   "0x123456",
+		LatestL1Block:    5,
+		LatestL2Block:    7,
 	})
 
 	assert.Equal(t, err, nil)

@@ -86,6 +86,8 @@ func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCh
 		RecoveredAddress: opts.RecoveredAddress,
 		SignedResponse:   opts.SignedResponse,
 		GuardianProverID: opts.GuardianProverID,
+		LatestL1Block:    opts.LatestL1Block,
+		LatestL2Block:    opts.LatestL2Block,
 	}
 	if err := r.startQuery().Create(b).Error; err != nil {
 		return err

@@ -1,5 +1,7 @@
 import { renderBalance, renderEthBalance } from './balance';
 
+vi.mock('@wagmi/core');
+
 test('renderBalance lib', () => {
   expect(renderBalance(null)).toBe('0.00');
   expect(

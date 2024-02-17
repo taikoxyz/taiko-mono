@@ -1,4 +1,4 @@
-import { watchAccount, watchNetwork } from '@wagmi/core';
+import { watchAccount } from '@wagmi/core';
 
 import { isSupportedChain } from '$libs/chain';
 import { refreshUserBalance } from '$libs/util/balance';
@@ -6,48 +6,38 @@ import { checkForPausedContracts } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 import { account } from '$stores/account';
 import { switchChainModal } from '$stores/modal';
-import { network } from '$stores/network';
+import { connectedSourceChain } from '$stores/network';
 
+import { config } from './client';
 const log = getLogger('wagmi:watcher');
 
 let isWatching = false;
-let unWatchNetwork: () => void;
 let unWatchAccount: () => void;
 
 export async function startWatching() {
   checkForPausedContracts();
 
   if (!isWatching) {
-    // Action for subscribing to network changes.
-    // See https://wagmi.sh/core/actions/watchNetwork
-    unWatchNetwork = watchNetwork((data) => {
-      checkForPausedContracts();
+    unWatchAccount = watchAccount(config, {
+      onChange(data) {
+        checkForPausedContracts();
+        log('Account changed', data);
+        account.set(data);
+        refreshUserBalance();
+        const { chain } = data;
 
-      log('Network changed', data);
-      const { chain } = data;
-
-      // We need to check if the chain is supported, and if not
-      // we present the user with a modal to switch networks.
-      if (chain && !isSupportedChain(Number(chain.id))) {
-        log('Unsupported chain', chain);
-        switchChainModal.set(true);
-        return;
-      }
-
-      // When we switch networks, we are actually selecting
-      // the source chain.
-      network.set(chain);
-      refreshUserBalance();
-    });
-
-    // Action for subscribing to account changes.
-    // See https://wagmi.sh/core/actions/watchAccount
-    unWatchAccount = watchAccount((data) => {
-      checkForPausedContracts();
-
-      log('Account changed', data);
-      account.set(data);
-      refreshUserBalance();
+        // We need to check if the chain is supported, and if not
+        // we present the user with a modal to switch networks.
+        if (chain && !isSupportedChain(Number(chain.id))) {
+          log('Unsupported chain', chain);
+          switchChainModal.set(true);
+          return;
+        } else if (chain) {
+          // When we switch networks, we are actually selecting
+          // the source chain.
+          connectedSourceChain.set(chain);
+        }
+      },
     });
 
     isWatching = true;
@@ -55,7 +45,6 @@ export async function startWatching() {
 }
 
 export function stopWatching() {
-  unWatchNetwork();
   unWatchAccount();
   isWatching = false;
 }

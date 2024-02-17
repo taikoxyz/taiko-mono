@@ -1,12 +1,22 @@
-import { configureChains } from '@wagmi/core';
-import { publicProvider } from '@wagmi/core/providers/public';
-import { defaultWagmiConfig, walletConnectProvider } from '@web3modal/wagmi';
+import { walletConnect } from '@wagmi/connectors';
+import { createConfig, getPublicClient, http, reconnect } from '@wagmi/core';
 
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 import { chains } from '$libs/chain';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
-export const { publicClient } = configureChains(chains, [walletConnectProvider({ projectId }), publicProvider()]);
+export const publicClient = async (chainId: number) => {
+  return await getPublicClient(config, { chainId });
+};
 
-export const wagmiConfig = defaultWagmiConfig({ chains, projectId });
+const transports = chains.reduce((acc, { id }) => ({ ...acc, [id]: http() }), {});
+
+export const config = createConfig({
+  //@ts-ignore
+  chains: [...chains],
+  connectors: [walletConnect({ projectId })],
+  transports,
+});
+
+reconnect(config);

@@ -1,5 +1,6 @@
-import type { Address, Chain, FetchBalanceResult } from '@wagmi/core';
+import type { GetBalanceReturnType } from '@wagmi/core';
 import { derived, writable } from 'svelte/store';
+import type { Address, Chain } from 'viem';
 
 import { bridges } from '$libs/bridge';
 import { chains } from '$libs/chain';
@@ -20,7 +21,7 @@ import { type BridgeType, BridgeTypes } from './types';
 export const activeBridge = writable<BridgeType>(BridgeTypes.FUNGIBLE);
 export const selectedToken = writable<Maybe<Token | NFT>>(null);
 export const selectedNFTs = writable<Maybe<NFT[]>>(null);
-export const tokenBalance = writable<Maybe<FetchBalanceResult | bigint>>(null);
+export const tokenBalance = writable<Maybe<GetBalanceReturnType>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
 export const destOptions = writable<Chain[]>(chains);
@@ -51,3 +52,5 @@ export const selectedTokenIsBridged = writable(<boolean>false);
 
 // Derived state
 export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));
+
+export const importDone = writable<boolean>(false);
