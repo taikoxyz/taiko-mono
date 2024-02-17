@@ -5,8 +5,7 @@
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/protocol": {},
-    "packages/relayer": {},
-    "packages/status-page": {}
+    "packages/relayer": {}
   },
   "separate-pull-requests": true
 }
