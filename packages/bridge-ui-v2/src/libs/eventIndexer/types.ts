@@ -1,4 +1,4 @@
-import type { Address } from '@wagmi/core';
+import type { Address } from 'viem';
 
 import type { ChainID } from '$libs/chain';
 import type { Token } from '$libs/token';

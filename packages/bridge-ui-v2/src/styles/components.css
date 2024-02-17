@@ -168,7 +168,7 @@
 
   /* Other components */
   .overlay-backdrop {
-    @apply modal-backdrop bg-overlay-background rounded-xl;
+    @apply modal-backdrop bg-overlay-background rounded-xl z-30;
   }
 
   .overlay-dialog {

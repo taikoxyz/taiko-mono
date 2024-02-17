@@ -111,7 +111,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
 
     /// @notice Pause block proving.
     /// @param pause True if paused.
-    function pauseProving(bool pause) external onlyOwner {
+    function pauseProving(bool pause) external {
+        _authorizePause(msg.sender);
         LibProving.pauseProving(state, pause);
     }
 
@@ -123,7 +124,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     }
 
     function unpause() public override {
-        OwnerUUPSUpgradable.unpause();
+        OwnerUUPSUpgradable.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
@@ -248,7 +249,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     function _authorizePause(address)
         internal
         view
+        virtual
         override
-        onlyFromOwnerOrNamed("rollup_watchdog")
+        onlyFromOwnerOrNamed("chain_pauser")
     { }
 }

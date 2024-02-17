@@ -1,12 +1,14 @@
 <script lang="ts">
+  import type { Chain } from 'viem';
+
   import { noop } from '$libs/util/noop';
-  import { type Network, network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
-  export let change: (newNetwork: Network, oldNetwork: Network) => void = noop;
+  export let change: (newNetwork: Chain, oldNetwork: Chain) => void = noop;
 
-  let prevNetwork = $network;
+  let prevNetwork = $connectedSourceChain;
 
-  network.subscribe((newNetwork) => {
+  connectedSourceChain.subscribe((newNetwork) => {
     // only update if the network has actually changed
     if (newNetwork?.id === prevNetwork?.id) return;
     change(newNetwork, prevNetwork);

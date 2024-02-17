@@ -1,24 +1,26 @@
 <script lang="ts">
-  import { erc20ABI, getNetwork, readContract } from '@wagmi/core';
+  import { readContract } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { type Address, formatUnits } from 'viem';
 
+  import { erc20ABI } from '$abi';
   import { FlatAlert } from '$components/Alert';
-  import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
-  import { AddressInputState } from '$components/Bridge/AddressInput/state';
+  import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
+  import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
-  import { detectContractType, type GetCrossChainAddressArgs, type Token, TokenType } from '$libs/token';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
+  import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
+  import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   import { destNetwork } from '../Bridge/state';
 
@@ -45,24 +47,28 @@
       tokenService.storeToken(customToken, $account?.address as Address);
       customTokens = tokenService.getTokens($account?.address as Address);
 
-      const srcChain = $network;
+      const srcChain = $connectedSourceChain;
       const destChain = $destNetwork;
 
       if (!srcChain || !destChain) return;
 
-      // let's check if this token has already been bridged
-      const bridgedAddress = await getCrossChainAddress({
+      // let's check if this token has already been bridged and store the info
+      const tokenInfo = await getTokenAddresses({
         token: customToken,
         srcChainId: srcChain.id,
         destChainId: destChain.id,
-      } as GetCrossChainAddressArgs);
+      } as GetTokenInfo);
 
-      // only update the token if we actually have a bridged address
-      if (bridgedAddress && bridgedAddress !== customToken.addresses[destChain.id]) {
-        customToken.addresses[destChain.id] = bridgedAddress as Address;
-        tokenService.updateToken(customToken, $account?.address as Address);
+      if (tokenInfo && tokenInfo.bridged) {
+        const { address: bridgedAddress, chainId: bridgedChainId } = tokenInfo.bridged;
+        // only update the token if we actually have a bridged address
+        if (bridgedAddress) {
+          customToken.addresses[bridgedChainId] = bridgedAddress as Address;
+          tokenService.updateToken(customToken, $account?.address as Address);
+        }
       }
     }
+
     tokenAddress = '';
     customTokenWithDetails = null;
     resetForm();
@@ -106,7 +112,7 @@
 
     let type: TokenType;
     try {
-      type = await detectContractType(tokenAddress);
+      type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
     } catch (error) {
       log('Failed to detect contract type: ', error);
       loadingTokenDetails = false;
@@ -120,7 +126,7 @@
       return;
     }
 
-    const srcChain = $network;
+    const srcChain = $connectedSourceChain;
     if (!srcChain) return;
     try {
       const token = await getTokenWithInfoFromAddress({
@@ -128,15 +134,14 @@
         srcChainId: srcChain.id,
       });
       if (!token) return;
-      const balance = await readContract({
+      const balance = await readContract(config, {
         address: tokenAddress as Address,
         abi: erc20ABI,
         functionName: 'balanceOf',
         args: [$account?.address as Address],
       });
       customTokenWithDetails = { ...token, balance };
-      const { chain } = getNetwork();
-      if (!chain) throw new Error('Chain not found');
+
       customToken = customTokenWithDetails;
     } catch (error) {
       state = AddressInputState.INVALID;
@@ -186,9 +191,7 @@
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
           <span>{$t('common.balance')}: {formattedBalance}</span>
         {:else if state === AddressInputState.INVALID && tokenAddress !== '' && isValidEthereumAddress && !loadingTokenDetails}
-          <FlatAlert
-            type="error"
-            message={$t('bridge.errors.custom_token.not_found') + ' ' + $t('bridge.errors.custom_token.description')} />
+          <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} />
         {:else if loadingTokenDetails}
           <Spinner />
         {:else}

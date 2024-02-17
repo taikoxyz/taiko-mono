@@ -15,6 +15,8 @@ type HealthCheck struct {
 	ExpectedAddress  string    `json:"expectedAddress"`
 	RecoveredAddress string    `json:"recoveredAddress"`
 	SignedResponse   string    `json:"signedResponse"`
+	LatestL1Block    uint64    `json:"latestL1Block"`
+	LatestL2Block    uint64    `json:"latestL2Block"`
 	CreatedAt        time.Time `json:"createdAt"`
 }
 
@@ -24,6 +26,8 @@ type SaveHealthCheckOpts struct {
 	ExpectedAddress  string
 	RecoveredAddress string
 	SignedResponse   string
+	LatestL1Block    uint64
+	LatestL2Block    uint64
 }
 
 type HealthCheckRepository interface {

@@ -55,3 +55,8 @@ export const toastConfig = {
 export const apiService = {
   timeout: 5000,
 };
+
+export const ipfsConfig = {
+  gatewayTimeout: 200,
+  overallTimeout: 5000,
+};
