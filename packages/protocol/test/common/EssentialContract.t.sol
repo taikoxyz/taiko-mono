@@ -27,11 +27,6 @@ contract Target2 is Target1 {
 }
 
 contract TestOwnerUUPSUpgradable is TaikoTest {
-    /// @dev This is how we can query the admin - because from v.4.9.5 external admin() function
-    /// does not exist anymore.
-    bytes32 internal constant _ADMIN_SLOT =
-        0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-
     function test_essential_behind_1967_proxy() external {
         bytes memory data = abi.encodeCall(Target1.init, ());
         vm.startPrank(Alice);
@@ -85,10 +80,18 @@ contract TestOwnerUUPSUpgradable is TaikoTest {
         vm.prank(Carol);
         assertEq(target.owner(), Alice);
 
-        // Admin can be queried via storage slot only - no other way.
-        bytes32 adminSlotValue = vm.load(address(proxy), _ADMIN_SLOT);
-        address admin = address(uint160(uint256(adminSlotValue)));
-        assertEq(admin, Bob);
+        // Only Bob can call admin()
+        vm.prank(Bob);
+        assertEq(proxy.admin(), Bob);
+
+        // Other people, including Alice, cannot call admin()
+        vm.prank(Alice);
+        vm.expectRevert();
+        proxy.admin();
+
+        vm.prank(Carol);
+        vm.expectRevert();
+        proxy.admin();
 
         // Alice can adjust();
         vm.prank(Alice);

@@ -91,7 +91,7 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         assertEq(taikoGovernor.quorumDenominator(), 100, "Incorrect quorum denominator");
 
         // GovernorUpgradeable
-        assertEq(taikoGovernor.name(), "Taiko", "Incorrect name");
+        assertEq(taikoGovernor.name(), "TaikoGovernor", "Incorrect name");
         assertEq(taikoGovernor.version(), "1", "Incorrect version");
 
         // GovernorVotesUpgradeable
