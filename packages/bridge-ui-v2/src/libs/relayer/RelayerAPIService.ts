@@ -1,7 +1,7 @@
-import type { Address, Hash } from '@wagmi/core';
 import { readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
+import type { Address, Hash } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -11,6 +11,7 @@ import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { getLogger } from '$libs/util/logger';
+import { config } from '$libs/wagmi';
 
 import type {
   APIRequestParams,
@@ -93,7 +94,8 @@ export class RelayerAPIService {
     destChainId: number;
   }) {
     const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)];
-    const result = await readContract({
+
+    const result = await readContract(config, {
       address: bridgeAddress,
       abi: bridgeABI,
       chainId: Number(destChainId),

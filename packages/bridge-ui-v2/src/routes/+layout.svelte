@@ -13,8 +13,22 @@
   import { WelcomeModal } from '$components/WelcomeModal';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
-  onMount(startWatching);
-  onDestroy(stopWatching);
+  const syncPointer = ({ x, y }: { x: number; y: number }) => {
+    document.documentElement.style.setProperty('--x', x.toFixed(2));
+    document.documentElement.style.setProperty('--xp', (x / window.innerWidth).toFixed(2));
+    document.documentElement.style.setProperty('--y', y.toFixed(2));
+    document.documentElement.style.setProperty('--yp', (y / window.innerHeight).toFixed(2));
+  };
+
+  onMount(async () => {
+    await startWatching();
+    document.body.addEventListener('pointermove', syncPointer);
+  });
+
+  onDestroy(() => {
+    stopWatching();
+    document.body.removeEventListener('pointermove', syncPointer);
+  });
 </script>
 
 <!-- App components -->

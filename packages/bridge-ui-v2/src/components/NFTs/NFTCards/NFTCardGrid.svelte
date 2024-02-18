@@ -5,13 +5,13 @@
   import { NFTCard } from '$components/NFTs/NFTCards';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
-  import { network } from '$stores/network';
+  import { connectedSourceChain } from '$stores/network';
 
   export let nfts: NFT[] = [];
   export let viewOnly = false;
 
   const selectNFT = (nft: NFT) => {
-    const currentChainId = get(network)?.id;
+    const currentChainId = get(connectedSourceChain)?.id;
 
     if (!currentChainId || !nft) return;
     const address = nft.addresses[currentChainId];
@@ -30,7 +30,7 @@
 </script>
 
 {#each Object.entries(collections) as [address, nftsGroup] (address)}
-  {@const chainId = $network?.id}
+  {@const chainId = $connectedSourceChain?.id}
   <div class="">
     {#if nftsGroup.length > 0 && chainId}
       <div class="collection-header">

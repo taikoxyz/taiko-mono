@@ -32,14 +32,7 @@ import "./TaikoEvents.sol";
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
 /// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
-contract TaikoL1 is
-    EssentialContract,
-    ITaikoL1,
-    ICrossChainSync,
-    ITierProvider,
-    TaikoEvents,
-    TaikoErrors
-{
+contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
@@ -80,7 +73,9 @@ contract TaikoL1 is
         (meta, depositsProcessed) =
             LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
 
-        _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        if (!state.slotB.provingPaused) {
+            _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        }
     }
 
     /// @inheritdoc ITaikoL1
@@ -116,7 +111,8 @@ contract TaikoL1 is
 
     /// @notice Pause block proving.
     /// @param pause True if paused.
-    function pauseProving(bool pause) external onlyOwner {
+    function pauseProving(bool pause) external {
+        _authorizePause(msg.sender);
         LibProving.pauseProving(state, pause);
     }
 
@@ -128,7 +124,7 @@ contract TaikoL1 is
     }
 
     function unpause() public override {
-        OwnerUUPSUpgradable.unpause();
+        OwnerUUPSUpgradable.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
@@ -163,19 +159,6 @@ contract TaikoL1 is
         returns (TaikoData.TransitionState memory)
     {
         return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
-    }
-
-    /// @inheritdoc ICrossChainSync
-    /// @notice Important: as this contract doesn't send each block's state root as a signal when
-    /// the block is verified, bridging developers should subscribe to CrossChainSynced events
-    /// to ensure all synced state roots are verifiable using merkle proofs.
-    function getSyncedSnippet(uint64 blockId)
-        public
-        view
-        override
-        returns (ICrossChainSync.Snippet memory)
-    {
-        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
@@ -244,7 +227,8 @@ contract TaikoL1 is
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10
+            ethDepositMaxFee: 1 ether / 10,
+            blockSyncThreshold: 16
         });
     }
 
@@ -265,7 +249,8 @@ contract TaikoL1 is
     function _authorizePause(address)
         internal
         view
+        virtual
         override
-        onlyFromOwnerOrNamed("rollup_watchdog")
+        onlyFromOwnerOrNamed("chain_pauser")
     { }
 }

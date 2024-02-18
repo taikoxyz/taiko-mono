@@ -1,9 +1,9 @@
 import { type Address, zeroAddress } from 'viem';
 
-import { NoTokenAddressError } from '$libs/error';
+import { NoTokenAddressError, NoTokenInfoFoundError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import { getCrossChainAddress } from './getCrossChainAddress';
+import { getTokenAddresses } from './getTokenAddresses';
 import { type Token, TokenType } from './types';
 
 type GetAddressArgs = {
@@ -21,21 +21,24 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
   let address: Maybe<Address> = token.addresses[srcChainId];
 
   if (!address || address === zeroAddress) {
+    // If we don't have the address yet, let's try to get it from the destination chain
+    log('No src address found, fetching bridged one', token, srcChainId, destChainId);
+
     // We need destination chain to find the address, otherwise
     // there is nothing we can do here.
     if (!destChainId) return;
 
-    address = await getCrossChainAddress({
-      token,
-      srcChainId: srcChainId,
-      destChainId: destChainId,
-    });
+    const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
+    if (!tokenInfo || !tokenInfo.bridged) {
+      log('No token info found for', token, srcChainId, destChainId);
+      throw new NoTokenInfoFoundError(`Could not find any token info`);
+    }
+    const { address: bridgedAddress } = tokenInfo.bridged;
+    address = bridgedAddress;
 
     if (!address || address === zeroAddress) {
       throw new NoTokenAddressError(`no address found for ${token.symbol} on chain ${srcChainId}`);
     }
-
-    log(`Bridged address for ${token.symbol} is "${address}"`);
   }
 
   return address;

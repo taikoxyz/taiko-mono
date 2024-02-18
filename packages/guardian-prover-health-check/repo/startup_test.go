@@ -55,7 +55,7 @@ func TestIntegration_Startup_Save(t *testing.T) {
 				GuardianProverID:      1,
 				GuardianProverAddress: "0x123",
 				Revision:              "asdf",
-				Version:               "v1.0.0",
+				GuardianVersion:       "v1.0.0",
 			},
 			nil,
 		},
@@ -82,7 +82,9 @@ func TestIntegration_Startup_GetByGuardianProverID(t *testing.T) {
 		GuardianProverID:      1,
 		GuardianProverAddress: "0x123",
 		Revision:              "asdf",
-		Version:               "v1.0.0",
+		GuardianVersion:       "v1.0.0",
+		L1NodeVersion:         "v0.1.0",
+		L2NodeVersion:         "v0.0.1",
 	})
 
 	assert.Equal(t, nil, err)
@@ -91,7 +93,9 @@ func TestIntegration_Startup_GetByGuardianProverID(t *testing.T) {
 		GuardianProverID:      1,
 		GuardianProverAddress: "0x123",
 		Revision:              "zxxc",
-		Version:               "v1.0.1",
+		GuardianVersion:       "v1.0.1",
+		L1NodeVersion:         "v0.1.0",
+		L2NodeVersion:         "v0.0.1",
 	})
 
 	assert.Equal(t, nil, err)

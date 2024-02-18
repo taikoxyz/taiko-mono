@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
+import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
 import "./LibUtils.sol";
@@ -36,10 +37,6 @@ library LibVerifying {
         bytes32 stateRoot,
         uint16 tier,
         uint8 contestations
-    );
-
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -99,9 +96,9 @@ library LibVerifying {
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
+                || config.ethDepositMaxAmount > type(uint96).max || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositMaxFee > type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;
@@ -241,18 +238,30 @@ library LibVerifying {
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Store the L2's state root as a signal to the local signal
-                // service to allow for multi-hop bridging.
-                //
-                // This also means if we verified more than one block, only the last one's stateRoot
-                // is sent as a signal and verifiable with merkle proofs, all other blocks'
-                // stateRoot are not.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(stateRoot);
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, stateRoot
-                );
+                // sync chain data
+                _syncChainData(config, resolver, lastVerifiedBlockId, stateRoot);
             }
+        }
+    }
+
+    function _syncChainData(
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint64 lastVerifiedBlockId,
+        bytes32 stateRoot
+    )
+        private
+    {
+        ISignalService signalService = ISignalService(resolver.resolve("signal_service", false));
+
+        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
+            config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+        );
+
+        if (lastVerifiedBlockId > lastSyncedBlock + config.blockSyncThreshold) {
+            signalService.syncChainData(
+                config.chainId, LibSignals.STATE_ROOT, lastVerifiedBlockId, stateRoot
+            );
         }
     }
 }

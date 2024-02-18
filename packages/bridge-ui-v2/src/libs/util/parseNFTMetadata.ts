@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosResponse } from 'axios';
 
+import { apiService } from '$config';
 import { type NFT, type NFTMetadata, TokenType } from '$libs/token';
 import { safeParseUrl } from '$libs/util/safeParseUrl';
 
@@ -26,7 +27,7 @@ export const parseNFTMetadata = async (token: NFT): Promise<NFTMetadata | null> 
   let json;
 
   try {
-    json = await axios.get(url);
+    json = await axios.get(url, { timeout: apiService.timeout });
   } catch (err) {
     const error = err as AxiosError;
     log(`error fetching metadata for ${token.name} id: ${token.tokenId}`, error);

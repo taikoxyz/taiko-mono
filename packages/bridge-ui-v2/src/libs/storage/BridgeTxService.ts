@@ -1,5 +1,5 @@
-import { getContract, waitForTransaction } from '@wagmi/core';
-import type { Address, Hash, TransactionReceipt } from 'viem';
+import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
+import { type Address, getContract, type Hash, type TransactionReceipt } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -10,7 +10,7 @@ import { FilterLogsError } from '$libs/error';
 import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
-import { publicClient } from '$libs/wagmi';
+import { config } from '$libs/wagmi';
 
 const log = getLogger('storage:BridgeTxService');
 
@@ -49,7 +49,9 @@ export class BridgeTxService {
     // our event MessageSent whose owner is the address passed in
 
     const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
-    const client = publicClient({ chainId: srcChainId });
+    const client = await getPublicClient(config, { chainId: srcChainId });
+
+    if (!client) throw new Error('Could not get public client');
 
     const filter = await client.createContractEventFilter({
       abi: bridgeABI,
@@ -85,12 +87,14 @@ export class BridgeTxService {
     }
   }
 
-  private static _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
+  private static async _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
     // Gets the status of the message from the destination bridge contract
     const bridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
+    const client = await getPublicClient(config, { chainId: destChainId });
 
+    if (!client) throw new Error('Could not get public client');
     const bridgeContract = getContract({
-      chainId: destChainId,
+      client,
       abi: bridgeABI,
       address: bridgeAddress,
     });
@@ -123,7 +127,7 @@ export class BridgeTxService {
 
     if (waitForTx) {
       // We might want to wait for the transaction to be mined
-      receipt = await waitForTransaction({
+      receipt = await waitForTransactionReceipt(config, {
         hash,
         chainId: Number(srcChainId),
         timeout: pendingTransaction.waitTimeout,
