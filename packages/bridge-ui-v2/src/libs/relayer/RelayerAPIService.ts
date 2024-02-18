@@ -26,6 +26,8 @@ import type {
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService {
+  private readonly baseUrl: string;
+
   constructor(baseUrl: string) {
     log('relayer service instantiated');
     // There is a chance that by accident the env var
@@ -105,17 +107,19 @@ export class RelayerAPIService {
     return result as MessageStatus;
   }
 
-  private readonly baseUrl: string;
+  private get baseAxios() {
+    return axios.create({
+      baseURL: this.baseUrl,
+      timeout: apiService.timeout,
+    });
+  }
 
   async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
-    const requestURL = `${this.baseUrl}/events`;
-
     try {
       log('Fetching events from API with params', params);
 
-      const response = await axios.get<APIResponse>(requestURL, {
+      const response = await this.baseAxios.get<APIResponse>('/events', {
         params,
-        timeout: apiService.timeout,
       });
 
       if (!response || response.status >= 400) throw response;
@@ -178,7 +182,7 @@ export class RelayerAPIService {
         status: tx.status,
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
-        decimals: tx.canonicalTokenDecimals,
+        decimals: tx.canonicalTokenDecimals || 18,
         hash: tx.data.Raw.transactionHash,
         from: tx.messageOwner,
         srcChainId: tx.data.Message.SrcChainId,
@@ -243,28 +247,30 @@ export class RelayerAPIService {
     return { txs: bridgeTxs, paginationInfo };
   }
 
-  async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
-    const requestURL = `${this.baseUrl}/blockInfo`;
-
-    // TODO: why to use a Map here?
-    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
-
+  async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {
     try {
-      const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL);
+      const response = await this.baseAxios.get<{ data: RelayerBlockInfo[] }>('/blockInfo');
 
       if (response.status >= 400) throw response;
 
       const { data } = response;
-
-      if (data?.data.length > 0) {
-        data.data.forEach((blockInfo: RelayerBlockInfo) => blockInfoMap.set(blockInfo.chainID, blockInfo));
+      if (!data.data.length) {
+        return {};
       }
+
+      // Mapping block info with chain ID
+      const blockInfoMap = data.data.reduce(
+        (acc, blockInfo) => ({
+          ...acc,
+          [blockInfo.chainID]: blockInfo,
+        }),
+        {} as Record<number, RelayerBlockInfo>,
+      );
+      return blockInfoMap;
     } catch (error) {
       console.error(error);
       throw new Error('failed to fetch block info', { cause: error });
     }
-
-    return blockInfoMap;
   }
 }
 

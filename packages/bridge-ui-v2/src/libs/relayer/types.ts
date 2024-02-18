@@ -26,7 +26,7 @@ export interface RelayerAPI {
     paginationParams: PaginationParams,
     chainID?: number,
   ): Promise<GetAllByAddressResponse>;
-  getBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
+  getBlockInfo(): Promise<Record<number, RelayerBlockInfo>>;
 }
 
 export type TransactionData = {
