@@ -1,7 +1,9 @@
 import argparse
-import matplotlib.pyplot as plt
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import matplotlib.pyplot as plt
+
 
 HIGH_TRAFFIC_STARTS = "HIGH TRAFFIC STARTS"
 HIGH_TRAFFIC_ENDS = "HIGH TRAFFIC ENDS"
@@ -24,17 +26,16 @@ AVG_BASEFEE_PER_L2_BLOCK = 0
 AVG_GAS_USED_PER_L1_BLOCK = 0
 
 
-def percentage_deviation(initial, final):
+def percentage_deviation(initial: int, final: int) -> int:
     deviation = final - initial
-    percentage_deviation = (deviation / initial) * 100
-    return round(percentage_deviation, 1)
+    _percentage_deviation = (deviation / initial) * 100
+    return round(_percentage_deviation, 1)
 
 
-def label_text():
+def label_text() -> str:
     global AVG_BASEFEE_PER_L2_BLOCK, AVG_GAS_USED_PER_L1_BLOCK
     return "Avg basefee / L2 block:{:.2f} gwei    Avg. gas per L1 block (12s):{:.2f} million".format(
-        AVG_BASEFEE_PER_L2_BLOCK, AVG_GAS_USED_PER_L1_BLOCK
-    )
+        AVG_BASEFEE_PER_L2_BLOCK, AVG_GAS_USED_PER_L1_BLOCK)
 
 
 def save_plots(
@@ -47,7 +48,7 @@ def save_plots(
     y_signal_label,
     y2_signal_label=None,
     y2_axis=None,
-):
+) -> None:
     fig = plt.figure(figsize=(10, 6))
     fig.text(
         0.1,
@@ -72,7 +73,7 @@ def save_plots(
     plt.savefig(filename)
 
 
-def parse_and_plot(filename):
+def parse_and_plot(filename: str) -> None:
     global PARSER_MODE, AVG_BASEFEE_PER_L2_BLOCK, AVG_GAS_USED_PER_L1_BLOCK, AVERAGE_GAS_USED_PER_L1, AVERAGE_GAS_PRICE_IN_L2
 
     only_stem = Path(filename).stem
@@ -91,14 +92,19 @@ def parse_and_plot(filename):
                 # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_base_fee
-                filename = "out/{}_above_average_traffic.png".format(timestamp)
+                filename = f"out/{timestamp}_above_average_traffic.png"
                 title = "Basefee chart per L2 block (if gas used above target)"
                 y_label = "baseFee"
                 x_label = "L2 block count"
                 y_signal_label = "basefee in gwei"
                 save_plots(
-                    x_axis, y_axis, filename, title, x_label, y_label, y_signal_label
-                )
+                    x_axis,
+                    y_axis,
+                    filename,
+                    title,
+                    x_label,
+                    y_label,
+                    y_signal_label)
                 x_ax_block_nr = []
                 y_ax_base_fee = []
                 PARSER_MODE = 0
@@ -112,14 +118,19 @@ def parse_and_plot(filename):
                 # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_base_fee
-                filename = "out/{}_below_average_traffic.png".format(timestamp)
+                filename = f"out/{timestamp}_below_average_traffic.png"
                 title = "Basefee chart per L2 block (if gas used below target)"
                 y_label = "baseFee"
                 x_label = "L2 block count"
                 y_signal_label = "basefee in gwei"
                 save_plots(
-                    x_axis, y_axis, filename, title, x_label, y_label, y_signal_label
-                )
+                    x_axis,
+                    y_axis,
+                    filename,
+                    title,
+                    x_label,
+                    y_label,
+                    y_signal_label)
                 x_ax_block_nr = []
                 y_ax_base_fee = []
                 PARSER_MODE = 0
@@ -133,14 +144,19 @@ def parse_and_plot(filename):
                 # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_base_fee
-                filename = "out/{}_target_traffic.png".format(timestamp)
+                filename = f"out/{timestamp}_target_traffic.png"
                 title = "Basefee chart per L2 block (if gas used around target)"
                 y_label = "baseFee"
                 x_label = "L2 block count"
                 y_signal_label = "basefee in gwei"
                 save_plots(
-                    x_axis, y_axis, filename, title, x_label, y_label, y_signal_label
-                )
+                    x_axis,
+                    y_axis,
+                    filename,
+                    title,
+                    x_label,
+                    y_label,
+                    y_signal_label)
                 x_ax_block_nr = []
                 y_ax_base_fee = []
                 PARSER_MODE = 0
@@ -149,28 +165,28 @@ def parse_and_plot(filename):
             if INFO in line and PARSER_MODE != 0:
                 data = line.rstrip().split(":")
                 x_ax_block_nr.append(float(data[1]))
-                y_ax_base_fee.append(float(data[2]) / 1000000000)
+                y_ax_base_fee.append(float(data[2]) / 1_000_000_000)
                 continue
 
             if AVERAGE_GAS_USED_PER_L1 in line:
                 data = line.rstrip().split(":")
-                AVG_GAS_USED_PER_L1_BLOCK = float(data[1]) / 1000000
+                AVG_GAS_USED_PER_L1_BLOCK = float(data[1]) / 1_000_000
                 continue
 
             if AVERAGE_GAS_PRICE_IN_L2 in line:
                 data = line.rstrip().split(":")
-                AVG_BASEFEE_PER_L2_BLOCK = float(data[1]) / 1000000000
+                AVG_BASEFEE_PER_L2_BLOCK = float(data[1]) / 1_000_000_000
                 continue
 
 
-def parse_args():
+def parse_args() -> list[str]:
     parser = argparse.ArgumentParser(description="Parsed filename")
     parser.add_argument("file", type=str)
     args = parser.parse_args()
     return args
 
 
-def main():
+def main() -> None:
     inputs = parse_args()
     parse_and_plot(inputs.file)
 
