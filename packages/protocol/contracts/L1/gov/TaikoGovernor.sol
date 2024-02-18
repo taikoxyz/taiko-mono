@@ -14,10 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
@@ -26,9 +24,7 @@ import "../../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoGovernor is
     OwnerUUPSUpgradable,
-    GovernorUpgradeable,
     GovernorCompatibilityBravoUpgradeable,
-    GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
     GovernorTimelockControlUpgradeable
 {
@@ -42,8 +38,7 @@ contract TaikoGovernor is
         initializer
     {
         __OwnerUUPSUpgradable_init();
-        __Governor_init("TaikoGovernor");
-        __GovernorCompatibilityBravo_init();
+        __Governor_init("Taiko");
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4);
         __GovernorTimelockControl_init(_timelock);
@@ -68,7 +63,8 @@ contract TaikoGovernor is
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable, IERC165Upgradeable)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return interfaceId == type(IGovernorUpgradeable).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     function state(uint256 proposalId)
@@ -94,6 +90,23 @@ contract TaikoGovernor is
     // The number of votes required in order for a voter to become a proposer
     function proposalThreshold() public pure override returns (uint256) {
         return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
+    }
+
+    /**
+     * @dev See {IGovernor-cancel}.
+     */
+    function cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    )
+        public
+        virtual
+        override(IGovernorUpgradeable, GovernorUpgradeable, GovernorCompatibilityBravoUpgradeable)
+        returns (uint256)
+    {
+        return super.cancel(targets, values, calldatas, descriptionHash);
     }
 
     function _execute(

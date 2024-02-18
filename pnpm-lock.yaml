@@ -262,11 +262,11 @@ importers:
   packages/protocol:
     dependencies:
       '@openzeppelin/contracts':
-        specifier: 4.8.2
-        version: 4.8.2
+        specifier: 4.9.5
+        version: 4.9.5
       '@openzeppelin/contracts-upgradeable':
-        specifier: 4.8.2
-        version: 4.8.2
+        specifier: 4.9.5
+        version: 4.9.5
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
@@ -4127,12 +4127,12 @@ packages:
       rimraf: 3.0.2
     dev: true
 
-  /@openzeppelin/contracts-upgradeable@4.8.2:
-    resolution: {integrity: sha512-zIggnBwemUmmt9IS73qxi+tumALxCY4QEs3zLCII78k0Gfse2hAOdAkuAeLUzvWUpneMUfFE5sGHzEUSTvn4Ag==}
+  /@openzeppelin/contracts-upgradeable@4.9.5:
+    resolution: {integrity: sha512-f7L1//4sLlflAN7fVzJLoRedrf5Na3Oal5PZfIq55NFcVZ90EpV1q5xOvL4lFvg3MNICSDr2hH0JUBxwlxcoPg==}
     dev: false
 
-  /@openzeppelin/contracts@4.8.2:
-    resolution: {integrity: sha512-kEUOgPQszC0fSYWpbh2kT94ltOJwj1qfT2DWo+zVttmGmf97JZ99LspePNaeeaLhCImaHVeBbjaQFZQn7+Zc5g==}
+  /@openzeppelin/contracts@4.9.5:
+    resolution: {integrity: sha512-ZK+W5mVhRppff9BE6YdR8CC52C8zAvsVAiWhEtQ5+oNxFE6h1WdeWo+FJSF8KKvtxxVYZ7MTP/5KoVpAU3aSWg==}
     dev: false
 
   /@parcel/watcher-android-arm64@2.3.0:
