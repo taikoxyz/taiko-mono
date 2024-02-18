@@ -55,7 +55,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
         message.data = data;
-        message.owner = msg.sender;
+        message.srcOwner = msg.sender;
+        message.destOwner = op.destOwner != address(0) ? op.destOwner : msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
@@ -69,7 +70,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
 
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.owner,
+            from: _message.srcOwner,
             to: op.to,
             destChainId: _message.destChainId,
             ctoken: ctoken.addr,
@@ -133,12 +134,12 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[]));
 
         // Transfer the ETH and tokens back to the owner
-        address token = _transferTokens(ctoken, message.owner, tokenIds);
-        message.owner.sendEther(message.value);
+        address token = _transferTokens(ctoken, message.srcOwner, tokenIds);
+        message.srcOwner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.srcOwner,
             ctoken: ctoken.addr,
             token: token,
             tokenIds: tokenIds,

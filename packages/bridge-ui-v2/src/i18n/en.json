@@ -48,6 +48,12 @@
     },
     "description": {
       "default": "Send your assets across chains.",
+      "fungible": {
+        "confirm": "Bridge your assets",
+        "import": "Send your assets across chains",
+        "recipient": "Set up information on the recipient blockchain.",
+        "review": "Verify your transaction details"
+      },
       "nft": {
         "confirm": "Bridge your NFTs",
         "import": "Transfer your NFTs across chains",
@@ -65,8 +71,9 @@
       },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "custom_token": {
-        "description": "Are you on the right network?",
-        "not_found": "Token not found!"
+        "not_found": {
+          "message": "Token not found. Are you on the right network?"
+        }
       },
       "insufficient_allowance": {
         "message": "Please increase your allowance to proceed with bridging.",
@@ -103,27 +110,6 @@
     },
     "nft": {
       "step": {
-        "confirm": {
-          "approve": {
-            "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
-            "pending": "Please wait for your transaction to be picked up",
-            "title": "Approval required"
-          },
-          "approved": {
-            "description": "All token are approved, you can now bridge your NFTs",
-            "title": "Proceed to bridge"
-          },
-          "bridge": {
-            "success": {
-              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-            }
-          },
-          "button": {
-            "back": "Back to bridge"
-          },
-          "processing": "Processing...",
-          "title": "Confirm"
-        },
         "import": {
           "nft_card": {
             "select": "Select NFT",
@@ -134,18 +120,58 @@
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
           },
-          "title": "Import"
+          "select_all": "Select all"
         },
         "review": {
           "recipient_details": "Recipient details",
-          "title": "Review",
           "transfer_details": "Transfer details",
           "your_tokens": "Your tokens on"
         }
       }
     },
+    "step": {
+      "confirm": {
+        "analyzing": "Please wait",
+        "approve": {
+          "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
+          "pending": "Please wait for your transaction to be picked up",
+          "success": {
+            "message": "Your approve transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+          },
+          "title": "Approval required"
+        },
+        "approved": {
+          "description_eth": "You can now continue to bridge your funds",
+          "description_token": "All tokens are approved, you can now bridge your assets",
+          "title": "Proceed to bridge"
+        },
+        "bridge": {
+          "success": {
+            "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+          }
+        },
+        "button": {
+          "back": "Back to bridge"
+        },
+        "checking_status": "Checking the approval status",
+        "processing": "Processing...",
+        "title": "Confirm"
+      },
+      "import": {
+        "title": "Import"
+      },
+      "review": {
+        "title": "Review"
+      }
+    },
     "title": {
       "default": "Bridge Token",
+      "fungible": {
+        "confirm": "Confirm",
+        "import": "Bridge Token",
+        "recipient": "Recipient",
+        "review": "Review"
+      },
       "nft": {
         "confirm": "Confirm",
         "import": "Import NFT",
@@ -178,6 +204,7 @@
     "balance": "Balance",
     "bridged_address": "Bridged address",
     "cancel": "Cancel",
+    "canonical_address": "Canonical address",
     "close": "Close",
     "collection": "Collection",
     "confirm": "Confirm",
@@ -192,9 +219,11 @@
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
+    "not_available_short": "N/A",
     "ok": "Okay",
     "status": "Status",
     "success": "Success",
+    "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"
@@ -290,6 +319,10 @@
       },
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",
+      "success": {
+        "message": "Successfully switched to {chainName}",
+        "title": "Connected"
+      },
       "switching": "Switching network"
     }
   },
@@ -316,6 +349,7 @@
       "label": "Custom",
       "text": "Customize your processing fee"
     },
+    "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "link": "Customize fee",
     "none": {
@@ -334,6 +368,7 @@
   },
   "recipient": {
     "description": "You can set a custom address as the recipient of your funds, instead of your current wallet address.",
+    "label": "incl. fees ~",
     "link": "Change recipient",
     "placeholder": "Add custom recipient 0x…",
     "title": "Recipient address",
@@ -393,6 +428,9 @@
       "retry": "Retry"
     },
     "description": "Track your bridge transactions here.",
+    "details_dialog": {
+      "title": "Transaction details"
+    },
     "errors": {
       "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
@@ -414,7 +452,7 @@
       "to": "To"
     },
     "link": {
-      "explorer": "Details",
+      "explorer": "View details",
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",
