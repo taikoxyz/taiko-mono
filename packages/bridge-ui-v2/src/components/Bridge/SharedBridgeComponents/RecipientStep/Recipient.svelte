@@ -36,6 +36,14 @@
     addressInput.focus();
     addEscKeyListener();
   }
+  
+  function confirmModal() {
+    if(!ethereumAddressBinding){
+        $recipientAddress = null;
+    }
+    closeModal()
+  }
+
 
   function cancelModal() {
     // Revert change of recipient address
@@ -144,8 +152,8 @@
             </ActionButton>
             <ActionButton
               priority="primary"
-              disabled={invalidAddress || !ethereumAddressBinding}
-              on:click={closeModal}
+              disabled={invalidAddress}
+              on:click={confirmModal}
               onPopup>
               <span class="body-bold">{$t('common.confirm')}</span>
             </ActionButton>
