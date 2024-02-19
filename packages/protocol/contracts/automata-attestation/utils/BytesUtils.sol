@@ -270,7 +270,13 @@ library BytesUtils {
 
     function memcpy(uint256 dest, uint256 src, uint256 len) private pure {
         assembly {
-            mcopy(dest, src, len)
+            for {
+                let i := 0
+            } lt(i, len) {
+                i := add(i, 32)
+            } { 
+                mstore(add(dest, i), mload(add(src, i)))
+            }
         }
     }
 
