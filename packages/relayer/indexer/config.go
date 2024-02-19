@@ -40,6 +40,7 @@ type Config struct {
 	SyncMode                            SyncMode
 	WatchMode                           WatchMode
 	NumLatestBlocksToIgnoreWhenCrawling uint64
+	TargetBlock                         *uint64
 	OpenQueueFunc                       func() (queue.Queue, error)
 	OpenDBFunc                          func() (DB, error)
 }
@@ -70,6 +71,14 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SyncMode:                            SyncMode(c.String(flags.SyncMode.Name)),
 		ETHClientTimeout:                    c.Uint64(flags.ETHClientTimeout.Name),
 		NumLatestBlocksToIgnoreWhenCrawling: c.Uint64(flags.NumLatestBlocksToIgnoreWhenCrawling.Name),
+		TargetBlock: func() *uint64 {
+			if c.IsSet(flags.TargetBlock.Name) {
+				value := c.Uint64(flags.TargetBlock.Name)
+				return &value
+			} else {
+				return nil
+			}
+		}(),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
