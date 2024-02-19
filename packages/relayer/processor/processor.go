@@ -367,6 +367,7 @@ func (p *Processor) Start() error {
 		if err != nil {
 			slog.Error(err.Error())
 		}
+
 		os.Exit(0)
 	}
 
@@ -421,8 +422,9 @@ func (p *Processor) eventLoop(ctx context.Context) {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					} else {
-						slog.Error("err processing message", "err", err.Error())
-						if err := p.queue.Nack(ctx, msg); err != nil {
+						slog.Error("process message failed", "err", err.Error())
+
+						if err = p.queue.Nack(ctx, msg); err != nil {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
