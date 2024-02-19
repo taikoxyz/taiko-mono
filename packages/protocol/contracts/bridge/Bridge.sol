@@ -494,7 +494,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         virtual
         override
-        onlyFromOwnerOrNamed("bridge_watchdog")
+        onlyFromOwnerOrNamed("bridge_pauser")
     { }
 
     /// @notice Invokes a call message on the Bridge.

@@ -16,6 +16,8 @@ var (
 type healthCheckReq struct {
 	ProverAddress      string `json:"prover"`
 	HeartBeatSignature string `json:"heartBeatSignature"`
+	LatestL1Block      uint64 `json:"latestL1Block"`
+	LatestL2Block      uint64 `json:"latestL2Block"`
 }
 
 // PostHealthCheck
@@ -58,6 +60,8 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		ExpectedAddress:  recoveredGuardianProver.Address.Hex(),
 		RecoveredAddress: recoveredGuardianProver.Address.Hex(),
 		SignedResponse:   req.HeartBeatSignature,
+		LatestL1Block:    req.LatestL1Block,
+		LatestL2Block:    req.LatestL2Block,
 	}); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -69,7 +73,12 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		}
 	}
 
-	slog.Info("successful health check", "guardianProver", recoveredGuardianProver.Address.Hex())
+	slog.Info("successful health check",
+		"id", recoveredGuardianProver.ID.Uint64(),
+		"guardianProver", recoveredGuardianProver.Address.Hex(),
+		"latestL1Block", req.LatestL1Block,
+		"latestL2Block", req.LatestL2Block,
+	)
 
 	return c.JSON(http.StatusOK, nil)
 }

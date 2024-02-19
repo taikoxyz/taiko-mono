@@ -11,10 +11,12 @@ import (
 )
 
 type startupReq struct {
-	ProverAddress string `json:"prover"`
-	Version       string `json:"version"`
-	Revision      string `json:"revision"`
-	Signature     string `json:"signature"`
+	ProverAddress   string `json:"prover"`
+	GuardianVersion string `json:"guardianVersion"`
+	L1NodeVersion   string `json:"l1NodeVersion"`
+	L2NodeVersion   string `json:"l2NodeVersion"`
+	Revision        string `json:"revision"`
+	Signature       string `json:"signature"`
 }
 
 // PostStartup
@@ -39,7 +41,9 @@ func (srv *Server) PostStartup(c echo.Context) error {
 	msg := crypto.Keccak256Hash(
 		common.HexToAddress(req.ProverAddress).Bytes(),
 		[]byte(req.Revision),
-		[]byte(req.Version),
+		[]byte(req.GuardianVersion),
+		[]byte(req.L1NodeVersion),
+		[]byte(req.L2NodeVersion),
 	).Bytes()
 
 	recoveredGuardianProver, err := guardianproverhealthcheck.SignatureToGuardianProver(
@@ -59,7 +63,9 @@ func (srv *Server) PostStartup(c echo.Context) error {
 	// address.
 	if err := srv.startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
 		GuardianProverID:      recoveredGuardianProver.ID.Uint64(),
-		Version:               req.Version,
+		GuardianVersion:       req.GuardianVersion,
+		L1NodeVersion:         req.L1NodeVersion,
+		L2NodeVersion:         req.L2NodeVersion,
 		Revision:              req.Revision,
 		GuardianProverAddress: req.ProverAddress,
 	}); err != nil {
@@ -69,7 +75,9 @@ func (srv *Server) PostStartup(c echo.Context) error {
 	slog.Info("successful startup",
 		"guardianProver", recoveredGuardianProver.Address.Hex(),
 		"revision", req.Revision,
-		"version", req.Version,
+		"guardianVersion", req.GuardianVersion,
+		"l1NodeVersion", req.L1NodeVersion,
+		"l2NodeVersion", req.L2NodeVersion,
 	)
 
 	return c.JSON(http.StatusOK, nil)

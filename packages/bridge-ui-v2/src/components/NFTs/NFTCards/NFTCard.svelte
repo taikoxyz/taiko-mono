@@ -10,8 +10,6 @@
 
   const placeholderUrl = '/placeholder.svg';
 
-  $: imageUrl = nft.metadata?.image || placeholderUrl;
-
   let isChecked = false;
 
   let modalOpen = false;
@@ -22,8 +20,17 @@
   };
 
   const handleImageClick = () => {
+    if (viewOnly) return;
     selectNFT(nft);
   };
+
+  let imageLoaded = false;
+
+  function handleImageLoad() {
+    imageLoaded = true;
+  }
+
+  $: imageUrl = nft.metadata?.image || placeholderUrl;
 
   $: {
     isChecked = $selectedNFTs ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId) : false;
@@ -31,10 +38,9 @@
 </script>
 
 <div class="rounded-[10px] w-[120px] bg-white max-h-[160px] min-h-[160px] relative">
-  {#if !viewOnly}
-    <label for="nft-radio" class="cursor-pointer">
+  <label for="nft-radio" class="cursor-pointer">
+    {#if !viewOnly}
       <input type="radio" class="hidden" name="nft-radio" checked={isChecked} on:change={() => selectNFT(nft)} />
-
       {#if isChecked}
         <div
           class="selected-overlay rounded-[10px]"
@@ -45,14 +51,14 @@
           <Icon type="check-circle" class="f-center " fillClass="fill-primary-brand" width={40} height={40} />
         </div>
       {/if}
-      <div role="button" tabindex="0" class="h-[124px]" on:click={handleImageClick} on:keydown={handleImageClick}>
-        <img alt={nft.name} src={imageUrl} class="rounded-t-[10px] h-[125px]" />
-      </div>
-    </label>
-  {:else}
-    <img alt={nft.name} src={imageUrl} class="rounded-t-[10px] h-[125px]" />
-  {/if}
-
+    {/if}
+    <div role="button" tabindex="0" class="h-[124px]" on:click={handleImageClick} on:keydown={handleImageClick}>
+      {#if !imageLoaded}
+        <img alt="placeholder" src={placeholderUrl} class="rounded" />
+      {/if}
+      <img alt={nft.name} src={imageUrl || ''} class=" rounded-t-[10px] h-[125px]" on:load={handleImageLoad} />
+    </div>
+  </label>
   <button
     name="nftInfoDialog"
     class="px-[10px] py-[8px] h-[36px] f-between-center w-full"

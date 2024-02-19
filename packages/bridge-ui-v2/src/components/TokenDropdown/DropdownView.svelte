@@ -6,6 +6,7 @@
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
@@ -17,6 +18,8 @@
 
   export let id: string;
   export let menuOpen = false;
+  export let closeMenu: () => void = noop;
+
   export let tokens: Token[] = [];
   export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
@@ -60,7 +63,11 @@
 </script>
 
 <!-- Desktop (or larger) view -->
-<ul role="listbox" {id} class={menuClasses}>
+<ul
+  role="listbox"
+  {id}
+  class={menuClasses}
+  use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: closeMenu, uuid: id }}>
   {#each tokens as t (t.symbol)}
     <li
       role="option"
