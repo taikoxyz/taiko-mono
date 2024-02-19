@@ -64,9 +64,10 @@ library LibUtils {
     )
         external
         view
-        returns (TaikoData.Block storage blk)
+        returns (TaikoData.Block storage blk, uint64 slot)
     {
-        blk = state.blocks[blockId % config.blockRingBufferSize];
+        slot = blockId % config.blockRingBufferSize;
+        blk = state.blocks[slot];
         if (blk.blockId != blockId) {
             revert L1_INVALID_BLOCK_ID();
         }
