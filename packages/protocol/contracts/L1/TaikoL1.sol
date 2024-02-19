@@ -142,8 +142,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return blk The block.
-    function getBlock(uint64 blockId) public view returns (TaikoData.Block memory blk) {
-        return LibUtils.getBlock(state, getConfig(), blockId);
+    /// @return ts The transition used to verify this block.
+    function getBlock(uint64 blockId)
+        public
+        view
+        returns (TaikoData.Block memory blk, TaikoData.TransitionState memory ts)
+    {
+        uint64 slot;
+        (blk, slot) = LibUtils.getBlock(state, getConfig(), blockId);
+
+        if (blk.verifiedTransitionId != 0) {
+            ts = state.transitions[slot][blk.verifiedTransitionId];
+        }
     }
 
     /// @notice Gets the state transition for a specific block.
