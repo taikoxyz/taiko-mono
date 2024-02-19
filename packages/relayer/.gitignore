@@ -10,8 +10,10 @@
 .l1l3processor.env
 .l2l1processor.env
 .l1processor.env
+.l1indexer.env
 .l2indexer.env
 main
+relayer
 coverage.txt
 
 # Local .terraform directories

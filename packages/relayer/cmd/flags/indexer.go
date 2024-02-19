@@ -57,6 +57,7 @@ var (
 		filter: only filter the chain, when caught up, exit
 		subscribe: do not filter the chain, only subscribe to new events
 		filter-and-subscribe: the default behavior, filter the chain and subscribe when caught up
+		crawl-past-blocks: crawl past blocks
 		`,
 		Value:    "filter-and-subscribe",
 		Category: indexerCategory,
@@ -85,6 +86,7 @@ var (
 
 var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	SrcBridgeAddress,
+	DestBridgeAddress,
 	// optional
 	SrcTaikoAddress,
 	BlockBatchSize,
@@ -92,7 +94,6 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
-	DestBridgeAddress,
 	NumLatestBlocksToIgnoreWhenCrawling,
 	EventName,
 })

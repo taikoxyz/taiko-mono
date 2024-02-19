@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"os"
 	"sync"
 	"time"
 
@@ -362,7 +363,12 @@ func (p *Processor) Start() error {
 
 	// if a targetTxHash is set, we only want to process that specific one.
 	if p.targetTxHash != nil {
-		return p.processSingle(ctx)
+		err := p.processSingle(ctx)
+		if err != nil {
+			slog.Error(err.Error())
+		}
+
+		os.Exit(0)
 	}
 
 	// otherwise, we can start the queue, and process messages from it
@@ -411,14 +417,14 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				err := p.processMessage(ctx, msg)
 
 				if err != nil {
-					slog.Error("err processing message", "err", err.Error())
-
 					if errors.Is(err, errUnprocessable) {
 						if err := p.queue.Ack(ctx, msg); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					} else {
-						if err := p.queue.Nack(ctx, msg); err != nil {
+						slog.Error("process message failed", "err", err.Error())
+
+						if err = p.queue.Nack(ctx, msg); err != nil {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
