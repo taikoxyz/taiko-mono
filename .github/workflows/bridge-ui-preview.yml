@@ -8,7 +8,7 @@ on:
       - main
       - release-please-*
     paths:
-      - "packages/bridge-ui-v2/**"
+      - "packages/bridge-ui/**"
 
 jobs:
   Deploy-Preview:
