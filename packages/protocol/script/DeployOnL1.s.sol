@@ -401,9 +401,9 @@ contract DeployOnL1 is DeployCapability {
         AutomataDcapV3Attestation automateDcapV3Attestation =
             new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
 
-        // log addresses for the user to register sgx instance
-        console2.log("sigVerifyLib", address(sigVerifyLib));
-        console2.log("pemCertChainLib", address(pemCertChainLib));
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
         register(
             rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
         );
