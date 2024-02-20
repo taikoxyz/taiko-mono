@@ -1,7 +1,7 @@
 import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
 import { BridgePausedError, ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
@@ -23,7 +23,7 @@ export class ETHBridge extends Bridge {
 
     const bridgeContract = getContract({
       client: wallet,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       address: bridgeAddress,
     });
 
@@ -46,9 +46,11 @@ export class ETHBridge extends Bridge {
 
     const message: Message = {
       to,
-      owner,
+      srcOwner: owner,
       from: owner,
       refundTo: owner,
+
+      destOwner: to,
 
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
@@ -103,7 +105,7 @@ export class ETHBridge extends Bridge {
 
       const { request } = await simulateContract(config, {
         address: bridgeContract.address,
-        abi: bridgeABI,
+        abi: bridgeAbi,
         functionName: 'sendMessage',
         args: [message],
         chainId,
@@ -113,7 +115,7 @@ export class ETHBridge extends Bridge {
 
       const txHash = await writeContract(config, {
         address: bridgeContract.address,
-        abi: bridgeABI,
+        abi: bridgeAbi,
         functionName: 'sendMessage',
         args: [message],
         chainId,
@@ -147,7 +149,7 @@ export class ETHBridge extends Bridge {
       try {
         const { request } = await simulateContract(config, {
           address: destBridgeAddress,
-          abi: bridgeABI,
+          abi: bridgeAbi,
           functionName: 'processMessage',
           args: [message, proof],
           gas: message.gasLimit,
@@ -156,7 +158,7 @@ export class ETHBridge extends Bridge {
 
         txHash = await writeContract(config, {
           address: destBridgeAddress,
-          abi: bridgeABI,
+          abi: bridgeAbi,
           functionName: 'processMessage',
           args: [message, proof],
           gas: message.gasLimit,
@@ -201,7 +203,7 @@ export class ETHBridge extends Bridge {
     try {
       const { request } = await simulateContract(config, {
         address: srcBridgeAddress,
-        abi: bridgeABI,
+        abi: bridgeAbi,
         functionName: 'recallMessage',
         args: [message, proof],
         chainId: wallet.chain.id,
@@ -210,7 +212,7 @@ export class ETHBridge extends Bridge {
 
       const txHash = await writeContract(config, {
         address: srcBridgeAddress,
-        abi: bridgeABI,
+        abi: bridgeAbi,
         functionName: 'recallMessage',
         args: [message, proof],
         chainId: wallet.chain.id,

@@ -1,7 +1,7 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
-import { bridgeABI, erc20ABI, erc20VaultABI } from '$abi';
+import { bridgeAbi, erc20Abi, erc20VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
 import {
@@ -42,7 +42,7 @@ export class ERC20Bridge extends Bridge {
 
     const tokenVaultContract = getContract({
       client: wallet,
-      abi: erc20VaultABI,
+      abi: erc20VaultAbi,
       address: tokenVaultAddress,
     });
 
@@ -56,6 +56,7 @@ export class ERC20Bridge extends Bridge {
 
     const sendERC20Args: BridgeTransferOp = {
       destChainId: BigInt(destChainId),
+      destOwner: to,
       to,
       token,
       amount,
@@ -100,7 +101,7 @@ export class ERC20Bridge extends Bridge {
 
     log('Checking allowance for the amount', amount);
     const allowance = await readContract(config, {
-      abi: erc20ABI,
+      abi: erc20Abi,
       address: tokenAddress,
       functionName: 'allowance',
       args: [ownerAddress, spenderAddress],
@@ -133,7 +134,7 @@ export class ERC20Bridge extends Bridge {
 
       const { request } = await simulateContract(config, {
         address: tokenAddress,
-        abi: erc20ABI,
+        abi: erc20Abi,
         functionName: 'approve',
         args: [spenderAddress, amount],
       });
@@ -143,7 +144,7 @@ export class ERC20Bridge extends Bridge {
 
       const txHash = await writeContract(config, {
         address: tokenAddress,
-        abi: erc20ABI,
+        abi: erc20Abi,
         functionName: 'approve',
         args: [spenderAddress, amount],
         chainId: wallet.chain.id,
@@ -196,18 +197,18 @@ export class ERC20Bridge extends Bridge {
     try {
       log('Calling sendERC20 with value', fee);
 
-      const { request } = await simulateContract(config, {
-        address: tokenVaultContract.address,
-        abi: erc20VaultABI,
-        functionName: 'sendToken',
-        args: [sendERC20Args],
-        value: fee,
-      });
-      log('Simulate contract', request);
+      // const { request } = await simulateContract(config, {
+      //   address: tokenVaultContract.address,
+      //   abi: erc20VaultAbi,
+      //   functionName: 'sendToken',
+      //   args: [sendERC20Args],
+      //   value: fee,
+      // });
+      // log('Simulate contract', request);
 
       const txHash = await writeContract(config, {
         address: tokenVaultContract.address,
-        abi: erc20VaultABI,
+        abi: erc20VaultAbi,
         functionName: 'sendToken',
         args: [sendERC20Args],
         chainId: wallet.chain.id,
@@ -243,7 +244,7 @@ export class ERC20Bridge extends Bridge {
         if (message.gasLimit > bridgeService.erc20GasLimitThreshold) {
           const { request } = await simulateContract(config, {
             address: destBridgeAddress,
-            abi: bridgeABI,
+            abi: bridgeAbi,
             functionName: 'processMessage',
             args: [message, proof],
             gas: message.gasLimit,
@@ -252,7 +253,7 @@ export class ERC20Bridge extends Bridge {
 
           txHash = await writeContract(config, {
             address: destBridgeAddress,
-            abi: bridgeABI,
+            abi: bridgeAbi,
             functionName: 'processMessage',
             args: [message, proof],
             gas: message.gasLimit,
@@ -260,7 +261,7 @@ export class ERC20Bridge extends Bridge {
         } else {
           const { request } = await simulateContract(config, {
             address: destBridgeAddress,
-            abi: bridgeABI,
+            abi: bridgeAbi,
             functionName: 'processMessage',
             args: [message, proof],
           });
@@ -268,7 +269,7 @@ export class ERC20Bridge extends Bridge {
 
           txHash = await writeContract(config, {
             address: destBridgeAddress,
-            abi: bridgeABI,
+            abi: bridgeAbi,
             functionName: 'processMessage',
             args: [message, proof],
           });
@@ -315,7 +316,7 @@ export class ERC20Bridge extends Bridge {
     try {
       const { request } = await simulateContract(config, {
         address: bridgeAddress,
-        abi: bridgeABI,
+        abi: bridgeAbi,
         functionName: 'recallMessage',
         args: [message, proof],
       });
@@ -323,7 +324,7 @@ export class ERC20Bridge extends Bridge {
 
       const txHash = await writeContract(config, {
         address: bridgeAddress,
-        abi: bridgeABI,
+        abi: bridgeAbi,
         functionName: 'recallMessage',
         args: [message, proof],
         chainId: wallet.chain.id,

@@ -1,7 +1,7 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
 import { type Address, getContract, type Hash, type TransactionReceipt } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
@@ -54,7 +54,7 @@ export class BridgeTxService {
     if (!client) throw new Error('Could not get public client');
 
     const filter = await client.createContractEventFilter({
-      abi: bridgeABI,
+      abi: bridgeAbi,
       address: bridgeAddress,
       eventName: 'MessageSent',
       fromBlock: BigInt(blockNumber),
@@ -64,14 +64,14 @@ export class BridgeTxService {
     try {
       const messageSentEvents = await client.getFilterLogs({ filter });
       // Filter out those events that are not from the current address
-      return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+      return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
     } catch (error) {
       log('Error getting logs via filter, retrying...', error);
 
       // we try again, often recreating the filter fixes the issue
       try {
         const filter = await client.createContractEventFilter({
-          abi: bridgeABI,
+          abi: bridgeAbi,
           address: bridgeAddress,
           eventName: 'MessageSent',
           fromBlock: BigInt(blockNumber),
@@ -79,7 +79,7 @@ export class BridgeTxService {
         });
         const messageSentEvents = await client.getFilterLogs({ filter });
         // Filter out those events that are not from the current address
-        return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+        return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
       } catch (error) {
         console.error('Error filtering logs', error);
         throw new FilterLogsError('Error getting logs via filter');
@@ -95,7 +95,7 @@ export class BridgeTxService {
     if (!client) throw new Error('Could not get public client');
     const bridgeContract = getContract({
       client,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       address: bridgeAddress,
     });
 

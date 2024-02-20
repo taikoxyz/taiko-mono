@@ -1,20 +1,22 @@
 import { getPublicClient, readContract } from '@wagmi/core';
 import {
   type Address,
+  BlockNotFoundError,
   encodeAbiParameters,
   encodePacked,
   type Hash,
   type Hex,
   keccak256,
   numberToHex,
+  toBytes,
   toHex,
   toRlp,
 } from 'viem';
 
-import { crossChainSyncABI } from '$abi';
+import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
-import { InvalidProofError, PendingBlockError, WrongBridgeConfigError } from '$libs/error';
+import { InvalidProofError, WrongBridgeConfigError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -30,24 +32,30 @@ export class BridgeProver {
   }
 
   protected async getBlockNumber(srcChainId: number, destChainId: number, crossChainSyncAddress: Address) {
-    const syncedSnippet = await readContract(config, {
+    const syncedChainData = await readContract(config, {
       address: crossChainSyncAddress,
-      abi: crossChainSyncABI,
-      functionName: 'getSyncedSnippet',
-      args: [BigInt(0)],
+      abi: signalServiceAbi,
+      functionName: 'getSyncedChainData',
+      args: [BigInt(srcChainId), keccak256(toBytes('STATE_ROOT')), BigInt(0)],
       chainId: destChainId,
     });
 
-    const client = getPublicClient(config, { chainId: srcChainId });
-    if (!client) throw new Error('Could not get public client');
-
-    const latestBlockHash = syncedSnippet['blockHash'];
-
-    const block = await client.getBlock({ blockHash: latestBlockHash });
-    if (block.hash === null || block.number === null) {
-      throw new PendingBlockError('block is pending');
+    const blockNumber = syncedChainData[0];
+    if (blockNumber === null) {
+      throw new BlockNotFoundError({
+        blockNumber: blockNumber,
+      });
     }
-    return block.number;
+    // const client = getPublicClient(config, { chainId: srcChainId });
+    // if (!client) throw new Error('Could not get public client');
+
+    // const latestBlockHash = syncedSnippet['blockHash'];
+
+    // const block = await client.getBlock({ blockHash: latestBlockHash });
+    // if (block.hash === null || block.number === null) {
+    //   throw new PendingBlockError('block is pending');
+    // }
+    return blockNumber;
   }
 
   async encodedStorageProof(args: GenerateProofArgs) {

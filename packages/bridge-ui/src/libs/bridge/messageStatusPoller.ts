@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { createPublicClient, getContract, type Hash, http } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { bridgeTransactionPoller } from '$config';
 import { chains } from '$libs/chain';
@@ -73,7 +73,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
   const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
   const destBridgeContract = getContract({
     address: destBridgeAddress,
-    abi: bridgeABI,
+    abi: bridgeAbi,
     client: destChainClient,
   });
 

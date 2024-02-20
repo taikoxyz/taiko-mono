@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 import type { Address, Hash } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
 import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
@@ -97,7 +97,7 @@ export class RelayerAPIService {
 
     const result = await readContract(config, {
       address: bridgeAddress,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       chainId: Number(destChainId),
       functionName: 'messageStatus',
       args: [msgHash],
@@ -189,7 +189,7 @@ export class RelayerAPIService {
           to: tx.data.Message.To,
           data,
           memo: tx.data.Message.Memo,
-          owner: tx.data.Message.Owner,
+          srcOwner: tx.data.Message.Owner,
           from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
           value: BigInt(tx.data.Message.Value),

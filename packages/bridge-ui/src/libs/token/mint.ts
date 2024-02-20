@@ -1,6 +1,6 @@
 import { getContract, UserRejectedRequestError } from 'viem';
 
-import { freeMintErc20ABI } from '$abi';
+import { freeMintErc20Abi } from '$abi';
 import { MintError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
@@ -17,7 +17,7 @@ export async function mint(token: Token, chainId: number) {
 
   const tokenContract = getContract({
     client: walletClient,
-    abi: freeMintErc20ABI,
+    abi: freeMintErc20Abi,
     address: token.addresses[chainId],
   });
 

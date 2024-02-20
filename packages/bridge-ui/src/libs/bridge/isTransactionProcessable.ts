@@ -1,6 +1,7 @@
-import { getBlock, readContract } from '@wagmi/core';
+import { readContract } from '@wagmi/core';
+import { keccak256, toBytes } from 'viem';
 
-import { crossChainSyncABI } from '$abi';
+import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { chains } from '$libs/chain';
 import { config } from '$libs/wagmi';
@@ -15,9 +16,6 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   // the block number with the cross chain block number.
   if (!receipt || !message) return false;
 
-  // Any other status that's not NEW we assume this bridge tx
-  // has already been processed (was processable)
-  // TODO: do better job here as this is to make the UI happy
   if (status !== MessageStatus.NEW) return true;
 
   const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].crossChainSyncAddress;
@@ -26,20 +24,16 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   if (!srcChain) return false;
 
   try {
-    const { blockHash } = await readContract(config, {
+    const syncedChainData = await readContract(config, {
       address: destCrossChainSyncAddress,
-      abi: crossChainSyncABI,
-      functionName: 'getSyncedSnippet',
-      args: [BigInt(0)],
+      abi: signalServiceAbi,
+      functionName: 'getSyncedChainData',
+      args: [destChainId, keccak256(toBytes('STATE_ROOT')), 0n],
       chainId: Number(srcChainId),
     });
 
-    const srcBlock = await getBlock(config, {
-      blockHash,
-      chainId: Number(srcChainId),
-    });
-
-    return srcBlock.number !== null && receipt.blockNumber <= srcBlock.number;
+    const blockHeight = syncedChainData[0];
+    return blockHeight !== null && receipt.blockNumber <= blockHeight;
   } catch (error) {
     return false;
   }

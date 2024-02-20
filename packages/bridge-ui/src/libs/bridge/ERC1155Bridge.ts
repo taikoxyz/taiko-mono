@@ -1,7 +1,7 @@
 import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
-import { bridgeABI, erc1155ABI, erc1155VaultABI } from '$abi';
+import { bridgeAbi, erc1155Abi, erc1155VaultAbi } from '$abi';
 import { bridgeService } from '$config';
 import {
   ApproveError,
@@ -43,7 +43,7 @@ export class ERC1155Bridge extends Bridge {
     if (!client) throw new Error('Could not get public client');
 
     const tokenContract = getContract({
-      abi: erc1155ABI,
+      abi: erc1155Abi,
       address: tokenAddress,
       client,
     });
@@ -104,23 +104,23 @@ export class ERC1155Bridge extends Bridge {
       log('Sending ERC1155 with fee', fee);
       log('Sending ERC1155 with args', sendERC1155Args);
 
-      try {
-        const { request } = await simulateContract(config, {
-          address: tokenVaultContract.address,
-          abi: erc1155VaultABI,
-          functionName: 'sendToken',
-          args: [sendERC1155Args],
-          value: fee,
-        });
-        log('Simulate contract', request);
-      } catch (err) {
-        // TODO: Handle error
-        console.error(err);
-      }
+      // try {
+      //   const { request } = await simulateContract(config, {
+      //     address: tokenVaultContract.address,
+      //     abi: erc1155VaultAbi,
+      //     functionName: 'sendToken',
+      //     args: [sendERC1155Args],
+      //     value: fee,
+      //   });
+      //   log('Simulate contract', request);
+      // } catch (err) {
+      //   // TODO: Handle error
+      //   console.error(err);
+      // }
 
       const tx = await writeContract(config, {
         address: tokenVaultContract.address,
-        abi: erc1155VaultABI,
+        abi: erc1155VaultAbi,
         functionName: 'sendToken',
         args: [sendERC1155Args],
         chainId: wallet.chain.id,
@@ -154,7 +154,7 @@ export class ERC1155Bridge extends Bridge {
         if (message.gasLimit > bridgeService.erc1155GasLimitThreshold) {
           const { request } = await simulateContract(config, {
             address: destBridgeAddress,
-            abi: bridgeABI,
+            abi: bridgeAbi,
             functionName: 'processMessage',
             args: [message, proof],
             gas: message.gasLimit,
@@ -163,7 +163,7 @@ export class ERC1155Bridge extends Bridge {
 
           txHash = await writeContract(config, {
             address: destBridgeAddress,
-            abi: bridgeABI,
+            abi: bridgeAbi,
             functionName: 'processMessage',
             args: [message, proof],
             gas: message.gasLimit,
@@ -221,7 +221,7 @@ export class ERC1155Bridge extends Bridge {
       try {
         const { request } = await simulateContract(config, {
           address: tokenAddress,
-          abi: erc1155ABI,
+          abi: erc1155Abi,
           functionName: 'setApprovalForAll',
           args: [spenderAddress, true],
           chainId: wallet.chain.id,
@@ -234,7 +234,7 @@ export class ERC1155Bridge extends Bridge {
 
       const txHash = await writeContract(config, {
         address: tokenAddress,
-        abi: erc1155ABI,
+        abi: erc1155Abi,
         functionName: 'setApprovalForAll',
         args: [spenderAddress, true],
         chainId: wallet.chain.id,
@@ -272,7 +272,7 @@ export class ERC1155Bridge extends Bridge {
 
     const tokenVaultContract = getContract({
       client: wallet,
-      abi: erc1155VaultABI,
+      abi: erc1155VaultAbi,
       address: tokenVaultAddress,
     });
 
@@ -287,6 +287,7 @@ export class ERC1155Bridge extends Bridge {
     const sendERC1155Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
       to,
+      destOwner: to,
       token,
       gasLimit,
       fee,

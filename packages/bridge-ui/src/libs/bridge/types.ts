@@ -16,14 +16,16 @@ export enum MessageStatus {
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
-  // Message from address (auto filled)
+  // The address, EOA or contract, that interacts with this bridge.
   from: Address;
   // Source chain ID (auto filled)
   srcChainId: bigint;
   // Destination chain ID where the `to` address lives (auto filled)
   destChainId: bigint;
-  // User address of the bridged asset.
-  owner: Address;
+  // User address of the bridged asset on the source chain.
+  srcOwner: Address;
+  // The owner of the message on the destination chain.
+  destOwner: Address;
   // Destination owner address
   to: Address;
   // Alternate address to send any refund. If blank, defaults to owner.
@@ -36,7 +38,7 @@ export type Message = {
   gasLimit: bigint;
   // callData to invoke on the destination chain, for ERC20 transfers.
   data: Hex;
-  // Optional memo.
+  // Optional memo / unused at the moment
   memo: string;
 };
 
@@ -76,19 +78,24 @@ export type BridgeTransaction = {
   message?: Message;
 };
 
-export type BridgeTransferOp = {
+interface BaseBridgeTransferOp {
   destChainId: bigint;
+  destOwner: Address;
   to: Address;
   token: Address;
-  amount: bigint;
   gasLimit: bigint;
   fee: bigint;
   refundTo: Address;
   memo: string;
-};
+}
 
-export type NFTBridgeTransferOp = {
+export interface BridgeTransferOp extends BaseBridgeTransferOp {
+  amount: bigint;
+}
+
+export interface NFTBridgeTransferOp {
   destChainId: bigint;
+  destOwner: Address;
   to: Address;
   token: Address;
   gasLimit: bigint;
@@ -97,7 +104,7 @@ export type NFTBridgeTransferOp = {
   memo: string;
   tokenIds: bigint[];
   amounts: bigint[];
-};
+}
 
 export type ApproveArgs = {
   amount: bigint;

@@ -1,7 +1,7 @@
 import { readContract } from '@wagmi/core';
 import type { Hash } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatusError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
@@ -37,12 +37,12 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
-    const { owner } = message;
+    const { srcOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -50,7 +50,7 @@ export abstract class Bridge {
 
     const messageStatus = await readContract(config, {
       address: destBridgeAddress,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       functionName: 'messageStatus',
       args: [msgHash],
       chainId: connectedChainId,
@@ -85,12 +85,12 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 
-    const { owner } = message;
+    const { srcOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -100,7 +100,7 @@ export abstract class Bridge {
 
     const messageStatus = await readContract(config, {
       address: destBridgeAddress,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       functionName: 'messageStatus',
       args: [msgHash],
       chainId: connectedChainId,
