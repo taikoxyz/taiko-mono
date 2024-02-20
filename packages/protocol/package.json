@@ -54,7 +54,7 @@
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^3.0.3",
     "rlp": "^3.0.0",
-    "solhint": "^3.6.2",
+    "solhint": "^4.1.1",
     "solidity-coverage": "github:taikoxyz/solidity-coverage",
     "solidity-docgen": "0.6.0-beta.36",
     "ts-node": "^10.9.1",
