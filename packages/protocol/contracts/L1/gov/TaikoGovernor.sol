@@ -26,7 +26,6 @@ import "../../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoGovernor is
     OwnerUUPSUpgradable,
-    GovernorUpgradeable,
     GovernorCompatibilityBravoUpgradeable,
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
