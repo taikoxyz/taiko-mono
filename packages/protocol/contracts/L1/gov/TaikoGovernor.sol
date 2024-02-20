@@ -62,6 +62,30 @@ contract TaikoGovernor is
         return super.propose(targets, values, calldatas, description);
     }
 
+    /// @notice An overwrite of GovernorCompatibilityBravoUpgradeable's propose() as that one does
+    /// not checks the length of signatures equal to calldatas.
+    /// See vulnerability description here:
+    /// https://github.com/taikoxyz/taiko-mono/security/dependabot/114
+    /// See fix in OZ 4.8.3 here:
+    /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        string[] memory signatures,
+        bytes[] memory calldatas,
+        string memory description
+    )
+        public
+        virtual
+        override(GovernorCompatibilityBravoUpgradeable)
+        returns (uint256)
+    {
+        require(signatures.length == calldatas.length, "GovernorBravo: invalid signatures length");
+        return GovernorCompatibilityBravoUpgradeable.propose(
+            targets, values, signatures, calldatas, description
+        );
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
