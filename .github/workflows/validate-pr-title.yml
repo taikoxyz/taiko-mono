@@ -31,7 +31,7 @@ jobs:
             deps
             deps-dev
             branding
-            bridge-ui-v2
+            bridge-ui
             eventindexer
             fork-diff
             guardian-prover-health-check
