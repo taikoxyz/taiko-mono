@@ -46,6 +46,7 @@ library LibProposing {
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
+    error L1_BLOB_REUSE_DISALBED();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
@@ -139,6 +140,8 @@ library LibProposing {
             if (!config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
 
             if (params.blobHash != 0) {
+                if (!config.blobReuseEnabled) revert L1_BLOB_REUSE_DISALBED();
+
                 // We try to reuse an old blob
                 if (!isBlobReusable(state, config, params.blobHash)) {
                     revert L1_BLOB_NOT_REUSEABLE();
@@ -156,7 +159,7 @@ library LibProposing {
                 // Depends on the blob data price, it may not make sense to
                 // cache the blob which costs 20,000 (sstore) + 631 (event)
                 // extra gas.
-                if (params.cacheBlobForReuse) {
+                if (config.blobReuseEnabled && params.cacheBlobForReuse) {
                     state.reusableBlobs[meta.blobHash] = block.timestamp;
                     emit BlobCached(meta.blobHash);
                 }
