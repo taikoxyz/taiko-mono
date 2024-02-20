@@ -1,6 +1,6 @@
 {
   "packages/branding": "0.3.0",
-  "packages/bridge-ui-v2": "2.9.0",
+  "packages/bridge-ui-v2": "3.0.0",
   "packages/eventindexer": "0.13.0",
   "packages/fork-diff": "0.4.0",
   "packages/protocol": "0.15.2",
