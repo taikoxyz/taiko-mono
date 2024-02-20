@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -44,7 +44,7 @@ import "../test/DeployCapability.sol";
 // version. For mainnet, it is easier to go with either this:
 // https://github.com/daimo-eth/p256-verifier or this:
 // https://github.com/rdubois-crypto/FreshCryptoLib
-import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
+import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -90,6 +90,10 @@ contract DeployOnL1 is DeployCapability {
             AddressManager(rollupAddressManager).getAddress(uint64(block.chainid), "taiko");
         addressNotNull(taikoL1Addr, "taikoL1Addr");
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
+
+        if (vm.envAddress("SHARED_ADDRESS_MANAGER") == address(0)) {
+            SignalService(signalServiceAddr).authorize(taikoL1Addr, true);
+        }
 
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
@@ -397,6 +401,9 @@ contract DeployOnL1 is DeployCapability {
         AutomataDcapV3Attestation automateDcapV3Attestation =
             new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
 
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
         register(
             rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
         );

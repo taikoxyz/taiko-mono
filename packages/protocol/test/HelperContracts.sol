@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/common/ICrossChainSync.sol";
 
 contract BadReceiver {
     receive() external payable {
@@ -46,21 +45,5 @@ contract SkipProofCheckSignal is SignalService {
         public
         pure
         override
-        returns (bool)
-    {
-        return true;
-    }
-}
-
-contract DummyCrossChainSync is EssentialContract, ICrossChainSync {
-    Snippet private _snippet;
-
-    function setSyncedData(bytes32 blockHash, bytes32 stateRoot) external {
-        _snippet.blockHash = blockHash;
-        _snippet.stateRoot = stateRoot;
-    }
-
-    function getSyncedSnippet(uint64) external view returns (Snippet memory) {
-        return _snippet;
-    }
+    { }
 }

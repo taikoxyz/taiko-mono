@@ -5,7 +5,7 @@ import "../TaikoTest.sol";
 import "../../contracts/libs/LibTrieProof.sol";
 
 contract TestLibTrieProof is TaikoTest {
-    function test_verifyFullMerkleProof() public pure {
+    function test_verifyMerkleProof() public {
         // Not needed for now, but leave it as is.
         //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
         // contract, this is why this chainId.
@@ -15,16 +15,15 @@ contract TestLibTrieProof is TaikoTest {
         // //Actually a messageHash
         // This one is the "sender app" aka the source bridge but i mocked it for now to be an EOA
         // (for slot calculation)
-        address contractWhichStoresValue1AtSlot = 0x17DF3c450D1dC61558ecA7B10e4bBC8ddcdB1f28;
+        address addr = 0x17DF3c450D1dC61558ecA7B10e4bBC8ddcdB1f28;
         // This is the slot i queried the eth_getProof on Sepolia for blockheight: 0x5000B5
-        bytes32 slotStoredAtTheApp =
-            0xfa2ef1bab164a0522c2c110bbea1a54ac6399d3ba24437480c29947143a5402e;
-        // This is the worldStateRoot at blockheight: 0x5000B5 (Sepolia!)
-        bytes32 worldStateRoot = 0x90c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe;
-        // This is the worldStateRoot just RLP encoded with
+        bytes32 slot = 0xfa2ef1bab164a0522c2c110bbea1a54ac6399d3ba24437480c29947143a5402e;
+        // This is the stateRoot at blockheight: 0x5000B5 (Sepolia!)
+        bytes32 stateRoot = 0x90c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe;
+        // This is the stateRoot just RLP encoded with
         // https://toolkit.abdk.consulting/ethereum#key-to-address,rlp
         // Not needed for now but leave it as is
-        //bytes memory worldStateRootRLPEncoded =
+        //bytes memory stateRootRLPEncoded =
         // hex"e1a090c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe";
 
         bytes[] memory accountProof = new bytes[](8);
@@ -49,14 +48,87 @@ contract TestLibTrieProof is TaikoTest {
         bytes[] memory storageProof = new bytes[](1);
         storageProof[0] =
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
-        bytes memory merkleProof = abi.encode(accountProof, storageProof);
 
-        LibTrieProof.verifyFullMerkleProof(
-            worldStateRoot,
-            contractWhichStoresValue1AtSlot,
-            slotStoredAtTheApp,
-            hex"01",
-            merkleProof
+        vm.expectRevert();
+        LibTrieProof.verifyMerkleProof(
+            stateRoot, randAddress(), slot, hex"01", accountProof, storageProof
         );
+
+        vm.expectRevert();
+        LibTrieProof.verifyMerkleProof(
+            stateRoot, address(0), slot, hex"01", accountProof, storageProof
+        );
+
+        bytes32 storageRoot = LibTrieProof.verifyMerkleProof(
+            stateRoot, addr, slot, hex"01", accountProof, storageProof
+        );
+
+        accountProof = new bytes[](0);
+        bytes32 storageRoot2 = LibTrieProof.verifyMerkleProof(
+            storageRoot, addr, slot, hex"01", accountProof, storageProof
+        );
+
+        assertEq(storageRoot2, storageRoot);
+    }
+
+    function test_verifyMerkleProof_w_multi_array_StorageProof() public {
+        // This one is the "sender app" aka the source bridge but i mocked it for now to be an EOA
+        // (for slot calculation)
+        address addr = 0x17DF3c450D1dC61558ecA7B10e4bBC8ddcdB1f28;
+        // This is the slot i queried the eth_getProof on Sepolia for blockheight: 0x5000B5
+        bytes32 slot = 0xfa2ef1bab164a0522c2c110bbea1a54ac6399d3ba24437480c29947143a5402e;
+        // This is the stateRoot at blockheight: 0x5000B5 (Sepolia!)
+        bytes32 stateRoot = 0x90c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe;
+        // This is the stateRoot just RLP encoded with
+        // https://toolkit.abdk.consulting/ethereum#key-to-address,rlp
+        // Not needed for now but leave it as is
+        //bytes memory stateRootRLPEncoded =
+        // hex"e1a090c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe";
+
+        bytes[] memory accountProof = new bytes[](8);
+        // eth_getProof responds some bytes
+        accountProof[0] =
+            hex"f90211a0a70172b1a602df14e9a59accd22c3b4edfd7b07c42a29437cc70b39938aba4f7a0333ef9d97000e693dd837c3f0720339f9ca0b6cf190b6107a829a5b4e8cffff8a0ef0c84a2a1d5fcbc04ba69dcf078ba3c257ceea69b5180e1a726529eb17dd61ea0d8a96be91d581f326bfaf127d61d641e2bccc4b22f499d420d7f523d3972ef20a0a3d95c18014ae2787b0290b5e9c19b940287443f35d524859331a493e06541dba0f88565aa3b2dd84c6fdc8024255ca7b4033b87f4126558aebb6000ffbf8de6c9a09abceeb595694d4392ac2b8975ee28dedc5ca6d1abf3346986e196f55e4ae95aa0786363274f216b1fbe91e3c200cda761ddf60047f27175878d159cdb81d41cf8a048a4f3e38df4378bd22a0611bdae08de45003965249240cea55d106fb5d8f52ea0c5b7f4fa33410b702bd8a2a19f5b11809884b511fac62a088f827728b4fc2f10a08f5a48f15a6da94c781e82353e4e09c5874e7eb0fec40aadf3fc4ae183f7353ea0620bb2748e058d5bacfc8ab973ff16436812f0e9ddcf1014453f7453e39ec999a09449c8fb7f7ab693914d33de0ffe68eca1f3246ee302d2ded2d81187b9f771fca0a9b857c2a91e783de01d592541bcabad5b6f1c413bc2696721005817b6b81c41a0dc33a565b46adc8a118d1ef4bc4792cfc765d9e80a12898b90d1b4a20b7a237aa0d3fa721cfad6c1110722b9af2cf64c668dd112c90dcdacbc7139aa537b7424c980";
+        accountProof[1] =
+            hex"f90211a065ae21b2ed2f789cbf5985c1ddd3efa02ba0b67c28e7deb905c042147d30203ea0cc71953c6bdfacdc66d7ab3253cbf75fb8540838859a89e64944a96783906fa2a0b45366933ff3706f5304d662099ee64f4e213013b0fe2f9bec919c3a465357a9a064f8969dea1939290409337e00ce629a58748bfef548c254d4be294753bce933a0abf92173aef826e79e690f6650641675c97ca34f38be8744fdb4343209533147a0c93dbd512193b21db9f6bc864cbf8319a4b5bd4c4f480385efdd4071ca5007bfa074b760bb755e6f89d7f35133510cb88dc960f703bec73465826fe11c330f98b3a02bf60a5b521916d405c7a0fc9b0cf3eb809c4301834728bc44273bf523b0739ba0a002f06c33375985db480db372d2f9e382b00c2c9eb63da295ea817e27062191a04de0681b114afd03eb1e5f765acbec72d396379698e43c5fe2de83e3d4da4c99a05ea94ab372ed10d89d65b06a1f8b7929b3012921f483d0528e9ddae4dc69af5fa0bb5abc40652861a9cd91afd74e2992edb8674017c0106d656481fc28897b776ca0dbd44eca134c817d3c9c4096711a30cef9bdcda03f7e468f668ea3f2b3e884d6a025d919a318995d7354dc1a553f0efcf5816d723065237588338b21c0e636794ea094f1c40840d3d48836e89c982d5b20ac9f8af7de66c51fa2f996866f8452788ba00e9ec0ca98d74c83369af35da745e3d75d33b4c2b20a96fcc51a2b05b9b4c49080";
+        accountProof[2] =
+            hex"f90211a0dbb6cd2c1c1fdebab5ad0466881e92d92bdda543ee15e84e34b1a55b3a3165a3a0d8fd492a914c453f3ff0a1915d794962bbedaa3fb4a87d6811c9d2e9ab46a51ea01d8ed7a46f0bfa3f7dae4a12ba7772ee9dc5a1c10bb25c7a73703f659bdb6cc6a04c0862d3d971c83a44fdbbfda77593f84a3726fd10b7c9bc0ae7f7fdb963fb9da0c0bd81ebce33e634c8d4ba2415fc122c2906656309a591e57ceddf87d0af4f6ea097e8b78f38dd97bb6cece4c9c446c8861db17c3b5a375a95139ca64d9212173da0dd8af000c0a79c1f4a69add0f0d6ce42fe541c15523e908d222a9f8846c01e04a00e8d1f18175e1426fca888687cd9d73b652e7633c3b945e7a35aedf56a11823fa0c00fb7590b0a11d4ad5ea70768cf4538a0f471e7cfd6fe2bc8f2fa066301e437a089ddfe0c6fcef71a8ae461469f052e6565389bbfbb0840d7ec991bf36d07f1ada06f910708bedb0aa9a593e0c2dfad9bbe1416460451ad2b6bb6b4003c1180d4f7a049bfa959b149084d1e3682f504abe369baa704a48b18c27a6533a4d01c8f6fd0a0e5c1cadca28c1deb270e157465a483e7869c976dbe57ed9df4b67f311494f05ca0f2d3e4af760d0991880537068d331dfc8bac07021b537adc08a7d776963b798ea0cab31688afdff6bdddd88fdbe3e64ff49882d3ee9c4c278915cd9506fd2bae6fa0ef8343de3e3680331774f1156144e179442ef3be7a8f7028240f660bd562b98080";
+        accountProof[3] =
+            hex"f90211a01510196c2f890bb60eef86a65642598709572c206c6decac65bb6918f1b62cefa0b581e10f79f49e6348f076f20285ed5142d94c3cc140f3e321060ae3faac2a7fa01efd015a8aa5b476e7e772d02e838fd9a212ac1292fe1c9ebbb6dc7982800bf5a05f8f5369390832bebd4e2831eff5edf139a6692bfbfb78815587219ea17d543ea0a0a9fa1979793b984569bb9c39e902fc9cdc768e4b2650b139888ca07105dd62a050c6831d1018f7202d02d233e7f5a7b7faa1cce150223c56f5c260c6539c11d2a091a58d1b5e1670d7d0b294b1f485a9a32a23cc54b08352536f68274121bb6220a0d0b03210469648276152e9b9314389c04d7c0c875aa7dda864dafc28826624b1a036ae04ac68f2e5567c508f4c7c0dee1dde1c866f076cd94bf9486f240ea16f2aa04f9b7975b6dc0250faa2af1748651e70027a9a39760df2ef313a22539144e77ba0a02bc5425da8eeaa4f9f735b1d88ca96b740d842b6ba705228f8904520f7f4aba0654d1a89866c3a42135a29b6c406ccc8964848e36566fef44db7cf570617d9c0a024f77846786885eec88de1b344e90db8828b3c989aefdbe0c2580dc42f1b10a4a0838ad9f2185694bef086711990f4475e848fa0f3652ce57124f60e4100f0992ea0e4becdc5a08dd5e95021fc2e694a32701d2d7e1730f5ab388cfd220842763596a01505d1b994a72b8bae77c9c8741b1988e8ce7f98dc938ee5944161273a21cd7d80";
+        accountProof[4] =
+            hex"f90211a0f69c09b524b3e7a97fe238809583b7b68f41443a76c0f5d689b371c1df513fc1a0d0f0bcbbd6dae7bd8dd9ba196a34e81c7cc9fea6ac4894a69ec2b5b7bdae2f01a081975fbe995c9a7a55b8e846a70be0d6695c8529b7f564448bf64f2ef25d8c5ca02cd43f9e6fafbe13cc8e845d8c19b51ddc62610119948c635c7e1c9c9998dc22a036edd90e3adb3e83bbb132a4ed0cd364d06966798773991c20498a1c8a0d0737a0fff1f0dd8fabbe879604701d27411cd58958b77383f36db238d003be119fdf99a0aa9e800a54d21e2a349dba4c36a4ca1dcc0ef9e7fe566edcf9ae241c23cf1783a0600d0b0566a09e75bbf3ea2ef219412ebce5eefa744704aae00773fc852a01a9a066a5629e0906e97b6cfbbf24f69a9e166d523d764c7aa85755c7000ed3185f12a019aa0208717ed5314a832809c1e670796fed87a7aaf4fe0a324da4e6a0006108a0570e44ef6fd1385ef65bca7525a9b81b01dab94e81ec3b15fabb5502aeffe6aca05f53ef2c41b598b01722719124e504e98c0af2616e3392be8e1ea7d7ac23188ba03b1c43a7d59e4c565af8d403bf60f284f359bda98c44c967f4555d7e2763a21ba05c86e58c113f61d4c44bbe0d6c45ee4d4cdf1ecf308d1f0d43f2a284e0bd1300a04572fedcc1eb4bdad4f0ae14b8107bb1616f8569dd73563c8b123e66fb0ed477a09443a305d314cb793443eb0465d04dfc70651ca59ace7ab2174f2a2440f5db0980";
+        accountProof[5] =
+            hex"f901f1a0605770c9b68c1b4e33579a35850c1c44731852d55172ec379b2377e54c359d9ca0d704783a3e1d333129d0305964be5f1af602b860253deddb80c0b36bb71f697ca0b4c43f62e620af02dbeaf9d0e79b62d30041ef97ceb70190e3a1bfa0711ddd21a0ffc993b4e33b8a39b84563804f7439299ca8cc0ce747625fb160baccaac0ae56a073146beddea840ed57473fa066835ba3f5b4a7a950965aa8b97b55604ad328e280a0461d8ad7f395cfca01b2b5173ac2cbc81f0343061a4cad2d93593b29d91ba9baa067a777686549c4b2408aa78e935a777bc447b5055a778faf62a5dda63f5c274ea0903c36605f0616a74dcbb4730437ffefea698cbef452e19a08072830f25c581fa06ff86e3168eb6b77472acb077d925fd36000139a924531125a1cd469152712d2a05a9debb435e78f914a63118005f59a9f925ed75600f16afbb41769c64fc91157a02358f5f4c8b91b0b865a8f70f22f9f082aefeccd53776ba835ead842ff9d74a0a03f7d16b8024d3f8cd006b4e6cc69ce07c520178254ebafe68ada722871342257a08e1bf934b22c0a817fb470fb0e8c792fd1987f062a1af318de783df5a9c71081a063d0b5247f4a977839a12223db8c2e6f120ea6f0db673f0fb056415745e8015ba0cca532f0172104741733687ad1b87337f554def14726f29fabc556b070d077cf80";
+        accountProof[6] =
+            hex"f8518080808080808080808080a04fc082a60fe2f12e75c8d6dddca59133c0e855e7d412ffbaba8c2117d37aa35780a030d8b8d79376659472fbdff458a6dd86de90fe0d1b87322ff08c6904572a3b09808080";
+        accountProof[7] =
+            hex"f8669d3a74f1d0cadee872fd4b113921a69b6f137711ffc6bc55289ddac192dcb846f8440180a00e66f063210888ebc0e788b44e3cccd9e8d5545dd1e067b11646f027a352a455a040ed175bbf1e21348615151831ea7a1164fb6d1bd4e1fa03290f0d97bd122021";
+
+        bytes[] memory storageProof = new bytes[](2);
+        storageProof[0] =
+            hex"f851808080808080808080a0975a3f014f4327c4888214faf0188d7b80bbf53eab9e5d48268203a6d34dece180808080a0f4866524e70f0a9821f3dfe7662a9ddd69ab2da3484d0295836be53c2fd34c078080";
+        storageProof[1] =
+            hex"e2a03a8bfe0ed27165791e835ec7589f879ea653f4041176e376a0ae8a0b98accda101";
+
+        vm.expectRevert();
+        LibTrieProof.verifyMerkleProof(
+            stateRoot, randAddress(), slot, hex"01", accountProof, storageProof
+        );
+
+        vm.expectRevert();
+        LibTrieProof.verifyMerkleProof(
+            stateRoot, address(0), slot, hex"01", accountProof, storageProof
+        );
+
+        bytes32 storageRoot = LibTrieProof.verifyMerkleProof(
+            stateRoot, addr, slot, hex"01", accountProof, storageProof
+        );
+
+        accountProof = new bytes[](0);
+        bytes32 storageRoot2 = LibTrieProof.verifyMerkleProof(
+            storageRoot, addr, slot, hex"01", accountProof, storageProof
+        );
+
+        assertEq(storageRoot2, storageRoot);
     }
 }

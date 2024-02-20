@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "../TaikoTest.sol";
 
 contract TestTokenERC721 is ERC721 {
@@ -114,7 +114,6 @@ contract ERC721VaultTest is TaikoTest {
     ERC721Vault destChainErc721Vault;
     TestTokenERC721 canonicalToken721;
     SignalService signalService;
-    DummyCrossChainSync crossChainSync;
     uint64 destChainId = 19_389;
 
     function setUp() public {
@@ -190,8 +189,6 @@ contract ERC721VaultTest is TaikoTest {
             })
         );
 
-        crossChainSync = new DummyCrossChainSync();
-
         addressManager.setAddress(
             uint64(block.chainid), "signal_service", address(mockProofSignalService)
         );
@@ -245,6 +242,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -273,7 +271,16 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, Alice, address(0), tokenIds, amounts, 140_000, 140_000, Alice, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(0),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
@@ -293,6 +300,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 1;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -324,6 +332,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -376,6 +385,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -423,6 +433,7 @@ contract ERC721VaultTest is TaikoTest {
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -465,6 +476,7 @@ contract ERC721VaultTest is TaikoTest {
         uint256 etherValue = 0.1 ether;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             David,
             address(canonicalToken721),
             tokenIds,
@@ -523,6 +535,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -563,6 +576,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -617,6 +631,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -666,7 +681,16 @@ contract ERC721VaultTest is TaikoTest {
         ERC721(deployedContract).approve(address(destChainErc721Vault), 1);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId, Bob, address(deployedContract), tokenIds, amounts, 140_000, 140_000, Bob, ""
+            chainId,
+            address(0),
+            Bob,
+            address(deployedContract),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Bob,
+            ""
         );
 
         vm.prank(Bob, Bob);
@@ -706,6 +730,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,
@@ -756,7 +781,16 @@ contract ERC721VaultTest is TaikoTest {
 
         // Alice puts together a malicious bridging back message
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId, Alice, address(deployedContract), tokenIds, amounts, 140_000, 140_000, Bob, ""
+            chainId,
+            address(0),
+            Alice,
+            address(deployedContract),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Bob,
+            ""
         );
 
         vm.prank(Alice, Alice);
@@ -780,6 +814,7 @@ contract ERC721VaultTest is TaikoTest {
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
+            address(0),
             Alice,
             address(canonicalToken721),
             tokenIds,

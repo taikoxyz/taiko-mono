@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/console2.sol";
-import "forge-std/StdJson.sol";
-import "forge-std/Test.sol";
+import "forge-std/src/console2.sol";
+import "forge-std/src/StdJson.sol";
+import "forge-std/src/Test.sol";
 import "../contracts/common/EssentialContract.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -160,7 +160,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 from: address(0),
                 srcChainId: 1,
                 destChainId: 167,
-                owner: address(0),
+                srcOwner: address(0),
+                destOwner: address(0),
                 to: address(0),
                 refundTo: address(0),
                 value: 0,
@@ -185,7 +186,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 from: address(0),
                 srcChainId: 1,
                 destChainId: 167,
-                owner: address(0),
+                srcOwner: address(0),
+                destOwner: address(0),
                 to: address(0),
                 refundTo: address(0),
                 value: 0,
@@ -264,8 +266,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "erc1155_vault", erc1155VaultProxyAddress);
         vm.stopPrank();
 
-        address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
-
+        // address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
 
         vm.startPrank(erc1155VaultProxy.owner());
 
@@ -284,8 +285,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(ownerSecurityCouncil);
 
-        SignalService signalService =
-            SignalService(payable(getPredeployedContractAddress("SignalServiceImpl")));
+        // SignalService signalService =
+        //     SignalService(payable(getPredeployedContractAddress("SignalServiceImpl")));
 
         signalServiceProxy.upgradeTo(address(new SignalService()));
 
@@ -299,7 +300,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(regularERC20.symbol(), "RGL");
     }
 
-    function getPredeployedContractAddress(string memory contractName) private returns (address) {
+    function getPredeployedContractAddress(string memory contractName) private view returns (address) {
         return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
     }
 
@@ -328,7 +329,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         private
     {
         vm.startPrank(owner);
-        address contractAddress = getPredeployedContractAddress(contractName);
+        // address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
         OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(payable(proxyAddress));

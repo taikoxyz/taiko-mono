@@ -21,6 +21,8 @@ func Test_GetHealthChecksByGuardianProverID(t *testing.T) {
 		ExpectedAddress:  "0x123",
 		RecoveredAddress: "0x123",
 		SignedResponse:   "0x123",
+		LatestL1Block:    5,
+		LatestL2Block:    7,
 	})
 
 	assert.Nil(t, err)

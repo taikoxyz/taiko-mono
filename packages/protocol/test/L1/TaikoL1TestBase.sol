@@ -54,6 +54,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 data: abi.encodeCall(SignalService.init, address(addressManager))
             })
         );
+        ss.authorize(address(L1), true);
 
         pv = PseZkVerifier(
             deployProxy({
