@@ -22,8 +22,8 @@ interface IUSDC {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
-/// @title USDCAdaptor
-contract USDCAdaptor is BridgedERC20Base {
+/// @title USDCAdapter
+contract USDCAdapter is BridgedERC20Base {
     IUSDC public usdc; // slot 1
     uint256[49] private __gap;
 
