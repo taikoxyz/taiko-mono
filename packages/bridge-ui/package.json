@@ -41,7 +41,7 @@
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "eslint-plugin-svelte": "^2.35.0",
     "ethereum-address": "^0.0.4",
-    "jsdom": "^22.1.0",
+    "jsdom": "^24.0.0",
     "lokijs": "^1.5.12",
     "postcss": "^8.4.31",
     "prettier": "^3.0.3",
