@@ -34,7 +34,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.0.7
 	gorm.io/driver/mysql v1.4.3
-	gorm.io/gorm v1.24.6
+	gorm.io/gorm v1.25.7
 	gotest.tools v2.2.0+incompatible
 )
 

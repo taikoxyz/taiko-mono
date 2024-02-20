@@ -14,13 +14,13 @@
 
 pragma solidity 0.8.24;
 
-import "../contracts/tokenvault/adaptors/USDCAdaptor.sol";
+import "../contracts/tokenvault/adapters/USDCAdapter.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../test/DeployCapability.sol";
 
-/// @title DeployUSDCAdaptor
-/// @notice This script deploys the adaptor contract for USDC.
-contract DeployUSDCAdaptor is DeployCapability {
+/// @title DeployUSDCAdapter
+/// @notice This script deploys the adapter contract for USDC.
+contract DeployUSDCAdapter is DeployCapability {
     address public usdcProxyL2 = vm.envAddress("NATIVE_USDC_PROXY_ON_L2");
     address public usdcProxyL1 = vm.envAddress("NATIVE_USDC_PROXY_ON_L1");
     address public l2SharedAddressManager = vm.envAddress("L2_SHARED_ADDRESS_MANAGER");
@@ -46,20 +46,20 @@ contract DeployUSDCAdaptor is DeployCapability {
         require(masterMinterPrivKey != 0, "invalid master minter priv key");
         vm.startBroadcast(deployerPrivKey);
         // Verify this contract after deployment (!)
-        address adaptorProxy = deployProxy({
-            name: "usdc_adaptor",
-            impl: address(new USDCAdaptor()),
-            data: abi.encodeCall(USDCAdaptor.init, (l2SharedAddressManager, IUSDC(usdcProxyL2)))
+        address adapterProxy = deployProxy({
+            name: "usdc_adapter",
+            impl: address(new USDCAdapter()),
+            data: abi.encodeCall(USDCAdapter.init, (l2SharedAddressManager, IUSDC(usdcProxyL2)))
         });
 
-        USDCAdaptor(adaptorProxy).transferOwnership(erc20VaultOwner);
+        USDCAdapter(adapterProxy).transferOwnership(erc20VaultOwner);
 
         vm.stopBroadcast();
 
-        // Grant the adaptor the minter role by master minter
+        // Grant the adapter the minter role by master minter
         vm.startBroadcast(masterMinterPrivKey);
         (bool success, bytes memory retVal) = address(usdcProxyL2).call(
-            abi.encodeWithSelector(configureMinterSelector, adaptorProxy, type(uint256).max)
+            abi.encodeWithSelector(configureMinterSelector, adapterProxy, type(uint256).max)
         );
 
         if (!success) {
@@ -80,7 +80,7 @@ contract DeployUSDCAdaptor is DeployCapability {
         });
 
         (success, retVal) = erc20Vault.call(
-            abi.encodeCall(ERC20Vault.changeBridgedToken, (canonicalToken, adaptorProxy))
+            abi.encodeCall(ERC20Vault.changeBridgedToken, (canonicalToken, adapterProxy))
         );
 
         if (!success) {
