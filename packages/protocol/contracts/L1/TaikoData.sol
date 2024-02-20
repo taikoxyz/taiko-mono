@@ -42,6 +42,8 @@ library TaikoData {
         uint24 blobExpiry;
         // True if EIP-4844 is enabled for DA
         bool blobAllowedForDA;
+        // True if blob can be reused
+        bool blobReuseEnabled;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -64,6 +66,9 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
+        // syncing)
+        uint8 blockSyncThreshold;
     }
 
     /// @dev Struct representing prover assignment
