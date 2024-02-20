@@ -334,7 +334,8 @@
     "nft": "NFT",
     "theme": "Theme",
     "token": "Token",
-    "transactions": "Transactions"
+    "transactions": "Transactions",
+    "swap": "Swap"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communcation channels for more information. ",
