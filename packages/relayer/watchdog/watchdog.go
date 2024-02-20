@@ -321,7 +321,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 			MessageID:    int(msgBody.Event.Message.Id.Int64()),
 			SrcChainID:   int(msgBody.Event.Message.SrcChainId),
 			DestChainID:  int(msgBody.Event.Message.DestChainId),
-			MessageOwner: msgBody.Event.Message.Owner.Hex(),
+			MessageOwner: msgBody.Event.Message.From.Hex(),
 			Suspended:    true,
 			MsgHash:      common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
 		}); err != nil {

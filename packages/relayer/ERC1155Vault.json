@@ -243,7 +243,12 @@
             "internalType": "uint64"
           },
           {
-            "name": "owner",
+            "name": "srcOwner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "destOwner",
             "type": "address",
             "internalType": "address"
           },
@@ -469,6 +474,11 @@
             "internalType": "uint64"
           },
           {
+            "name": "destOwner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "to",
             "type": "address",
             "internalType": "address"
@@ -538,7 +548,12 @@
             "internalType": "uint64"
           },
           {
-            "name": "owner",
+            "name": "srcOwner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "destOwner",
             "type": "address",
             "internalType": "address"
           },

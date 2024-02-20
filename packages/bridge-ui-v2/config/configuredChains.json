@@ -1,0 +1,37 @@
+{
+  "configuredChains": [
+    {
+      "31336": {
+        "name": "L1 Internal",
+        "icon": "chains/ethereum.svg",
+        "type": "L1",
+        "urls": {
+          "rpc": "https://l1rpc.internal.taiko.xyz",
+          "explorer": "https://l1explorer.internal.taiko.xyz"
+        }
+      }
+    },
+    {
+      "167001": {
+        "name": "L2 Internal",
+        "type": "L2",
+        "icon": "chains/taiko.svg",
+        "urls": {
+          "rpc": "https://rpc.internal.taiko.xyz",
+          "explorer": "https://internal.taikoscan.io"
+        }
+      }
+    },
+    {
+      "167002": {
+        "name": "L3 Internal",
+        "type": "L3",
+        "icon": "chains/eldfell.svg",
+        "urls": {
+          "rpc": "https://l3rpc.internal.taiko.xyz",
+          "explorer": "https://l3blockscoutapi.internal.taiko.xyz"
+        }
+      }
+    }
+  ]
+}

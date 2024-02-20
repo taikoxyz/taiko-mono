@@ -92,7 +92,7 @@ func (i *Indexer) handleMessageReceivedEvent(
 		common.Hash(event.MsgHash).Hex(),
 		chainID,
 		eventStatus,
-		event.Message.Owner.Hex(),
+		event.Message.SrcOwner.Hex(),
 		event.Message.Data,
 		event.Message.Value,
 	)

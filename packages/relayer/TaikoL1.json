@@ -105,6 +105,63 @@
             "internalType": "uint32"
           }
         ]
+      },
+      {
+        "name": "ts",
+        "type": "tuple",
+        "internalType": "struct TaikoData.TransitionState",
+        "components": [
+          {
+            "name": "key",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "blockHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "stateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "prover",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "validityBond",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "contester",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "contestBond",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "tier",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "contestations",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -160,6 +217,11 @@
             "internalType": "bool"
           },
           {
+            "name": "blobReuseEnabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
             "name": "livenessBond",
             "type": "uint96",
             "internalType": "uint96"
@@ -198,6 +260,11 @@
             "name": "ethDepositMaxFee",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "blockSyncThreshold",
+            "type": "uint8",
+            "internalType": "uint8"
           }
         ]
       }
@@ -294,47 +361,6 @@
             "name": "lastUnpausedAt",
             "type": "uint64",
             "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getSyncedSnippet",
-    "inputs": [
-      {
-        "name": "blockId",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct ICrossChainSync.Snippet",
-        "components": [
-          {
-            "name": "syncedInBlock",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "blockId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "blockHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "stateRoot",
-            "type": "bytes32",
-            "internalType": "bytes32"
           }
         ]
       }
@@ -1208,68 +1234,6 @@
   },
   {
     "type": "event",
-    "name": "CrossChainSynced",
-    "inputs": [
-      {
-        "name": "syncedInBlock",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blockId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blockHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "stateRoot",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "CrossChainSynced",
-    "inputs": [
-      {
-        "name": "syncedInBlock",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blockId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blockHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "stateRoot",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "EthDeposited",
     "inputs": [
       {
@@ -1552,12 +1516,22 @@
   },
   {
     "type": "error",
+    "name": "L1_BLOB_REUSE_DISALBED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "L1_BLOCK_MISMATCH",
     "inputs": []
   },
   {
     "type": "error",
     "name": "L1_BLOCK_MISMATCH",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_CHAIN_DATA_NOT_RELAYED",
     "inputs": []
   },
   {

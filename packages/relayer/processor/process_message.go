@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -82,7 +81,7 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
 
-	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.Owner, p.relayerAddr) {
+	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.SrcOwner, p.relayerAddr) {
 		return errUnprocessable
 	}
 
@@ -326,6 +325,8 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		}
 	}
 
+	hops := []proof.HopParams{}
+
 	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
 		event.Message.SrcChainId,
 		event.Raw.Address,
@@ -336,9 +337,34 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
 	}
 
-	hops := []proof.HopParams{}
+	if len(p.hops) == 0 {
+		// get latest synced header since not every header is synced from L1 => L2,
+		// and later blocks still have the storage trie proof from previous blocks.
+		latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+		if err != nil {
+			return nil, errors.Wrap(err, "taiko.GetSyncedSnippet")
+		}
 
-	var latestSyncedSnippet icrosschainsync.ICrossChainSyncSnippet
+		hops = append(hops, proof.HopParams{
+			ChainID:              p.srcChainId,
+			SignalServiceAddress: p.srcSignalServiceAddress,
+			Blocker:              p.srcEthClient,
+			Caller:               p.srcCaller,
+			SignalService:        p.srcSignalService,
+			Key:                  key,
+			BlockNumber:          latestSyncedSnippet.BlockId,
+		})
+	} else {
+		hops = append(hops, proof.HopParams{
+			ChainID:              p.srcChainId,
+			SignalServiceAddress: p.srcSignalServiceAddress,
+			Blocker:              p.srcEthClient,
+			Caller:               p.srcCaller,
+			SignalService:        p.srcSignalService,
+			Key:                  key,
+			BlockNumber:          blockNum,
+		})
+	}
 
 	// if a hop is set, the proof service needs to generate an additional proof
 	// for the signal service intermediary chain in between the source chain
@@ -350,45 +376,38 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
 		)
 
+		block, err := hop.ethClient.BlockByNumber(
+			ctx,
+			new(big.Int).SetUint64(blockNum),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.blockHeader")
+		}
+
+		hopStorageSlotKey, err := hop.signalService.GetSignalSlot(&bind.CallOpts{},
+			hop.chainID.Uint64(),
+			hop.taikoAddress,
+			block.Root(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "hopSignalService.GetSignalSlot")
+		}
+
 		hops = append(hops, proof.HopParams{
 			ChainID:              hop.chainID,
 			SignalServiceAddress: hop.signalServiceAddress,
 			Blocker:              hop.ethClient,
 			Caller:               hop.caller,
 			SignalService:        hop.signalService,
-			TaikoAddress:         hop.taikoAddress,
+			Key:                  hopStorageSlotKey,
 			BlockNumber:          blockNum,
 		})
 	}
 
-	if len(hops) != 0 {
-		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
-			ctx,
-			p.srcCaller,
-			p.srcSignalServiceAddress,
-			p.destHeaderSyncAddress,
-			hops,
-			common.Bytes2Hex(key[:]),
-			event.Raw.BlockHash,
-			blockNum,
-		)
-	} else {
-		// get latest synced header since not every header is synced from L1 => L2,
-		// and later blocks still have the storage trie proof from previous blocks.
-		latestSyncedSnippet, err = p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
-		if err != nil {
-			return nil, errors.Wrap(err, "taiko.GetSyncedSnippet")
-		}
-
-		encodedSignalProof, err = p.prover.EncodedSignalProof(
-			ctx,
-			p.srcCaller,
-			p.srcSignalServiceAddress,
-			p.destHeaderSyncAddress,
-			common.Bytes2Hex(key[:]),
-			latestSyncedSnippet.BlockHash,
-		)
-	}
+	encodedSignalProof, err = p.prover.EncodedSignalProofWithHops(
+		ctx,
+		hops,
+	)
 
 	if err != nil {
 		slog.Error("error encoding signal proof",
@@ -397,7 +416,8 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"txHash", event.Raw.TxHash.Hex(),
 			"msgHash", common.Hash(event.MsgHash).Hex(),
 			"from", event.Message.From.Hex(),
-			"owner", event.Message.Owner.Hex(),
+			"srcOwner", event.Message.SrcOwner.Hex(),
+			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
 			"hopsLength", len(hops),
 		)
@@ -667,7 +687,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			ChainID:      new(big.Int).SetUint64(event.Message.DestChainId),
 			Status:       relayer.EventStatus(m["status"].(uint8)),
 			MsgHash:      common.Hash(event.MsgHash).Hex(),
-			MessageOwner: event.Message.Owner.Hex(),
+			MessageOwner: event.Message.SrcOwner.Hex(),
 			Event:        relayer.EventNameMessageStatusChanged,
 		})
 		if err != nil {

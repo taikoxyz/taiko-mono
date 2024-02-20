@@ -7,6 +7,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+var hopProofsT abi.Type
+var err error
+
+func init() {
+	hopProofsT, err = abi.NewType("tuple[]", "tuple[]", hopComponents)
+	if err != nil {
+		panic(err)
+	}
+}
+
 type Proof struct {
 	AccountProof []byte `abi:"accountProof"`
 	StorageProof []byte `abi:"storageProof"`
@@ -32,17 +42,13 @@ type BlockHeader struct {
 	WithdrawalsRoot  [32]byte       `abi:"withdrawalsRoot"`
 }
 
-type SignalProof struct {
-	Height      uint64 `abi:"height"`
-	MerkleProof []byte `abi:"merkleProof"`
-	Hops        []Hop  `abi:"hops"`
-}
-
-type Hop struct {
-	ChainID     uint64         `abi:"chainId"`
-	Relay       common.Address `abi:"relay"`
-	StateRoot   [32]byte       `abi:"stateRoot"`
-	MerkleProof []byte         `abi:"merkleProof"`
+type HopProof struct {
+	ChainID      uint64   `abi:"chainId"`
+	BlockID      uint64   `abi:"blockId"`
+	RootHash     [32]byte `abi:"rootHash"`
+	CacheOption  *big.Int `abi:"cacheOption"`
+	AccountProof [][]byte `abi:"accountProof"`
+	StorageProof [][]byte `abi:"storageProof"`
 }
 
 var hopComponents = []abi.ArgumentMarshaling{
@@ -51,31 +57,23 @@ var hopComponents = []abi.ArgumentMarshaling{
 		Type: "uint64",
 	},
 	{
-		Name: "relay",
-		Type: "address",
-	},
-	{
-		Name: "stateRoot",
-		Type: "bytes32",
-	},
-	{
-		Name: "merkleProof",
-		Type: "bytes",
-	},
-}
-
-var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-	{
-		Name: "height",
+		Name: "blockId",
 		Type: "uint64",
 	},
 	{
-		Name: "merkleProof",
-		Type: "bytes",
+		Name: "rootHash",
+		Type: "bytes32",
 	},
 	{
-		Name:       "hops",
-		Type:       "tuple[]",
-		Components: hopComponents,
+		Name: "cacheOption",
+		Type: "uint256",
 	},
-})
+	{
+		Name: "accountProof",
+		Type: "bytes[]",
+	},
+	{
+		Name: "storageProof",
+		Type: "bytes[]",
+	},
+}

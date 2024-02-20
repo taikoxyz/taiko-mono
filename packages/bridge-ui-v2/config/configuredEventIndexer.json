@@ -1,0 +1,8 @@
+{
+  "configuredEventIndexer": [
+    {
+      "chainIds": [11155111, 167007],
+      "url": "https://eventindexer.jolnir.taiko.xyz"
+    }
+  ]
+}
