@@ -1,0 +1,58 @@
+\documentclass[twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{multicol} % Add this package
+
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ top=20mm,
+ bottom=10mm,
+ left=20mm
+}
+\title{\huge Taiko's one-page tokenomics whitepaper}
+\date{Dec 6, 2023}
+\author{Taiko Labs (info@taiko.xyz)}
+
+\begin{document}
+
+\maketitle
+
+\section*{Abstract}
+In the blockchain technology arena, Taiko stands out with its innovative Based Rollup architecture, spearheaded by the Taiko Token, an ERC20 token. This whitepaper explores the Taiko Token's crucial role in enhancing the decentralized, permissionless nature of Taiko's Rollup solutions, acting as a fundamental component for governance and operational efficacy.
+
+\section*{Technical Overview}
+Taiko's rollup solution unfolds in a two-pronged approach, starting with the Based Contestable Rollup (BCR) and advancing to the Based Booster Rollup (BBR).
+
+\subsection*{Based Contestable Rollup}
+The Based Contestable Rollup, Taiko's first milestone, initiates Taiko's journey with a permissionless and sequencer-free Layer 2 (L2) network. It innovatively uses a system of Liveness, Validity, and Contestation Bonds in Taiko tokens to ensure timely and accurate proof submissions. This empowers network participants to engage as provers, enhancing the network's decentralization and security. The BCR's ground-breaking design lays a strong foundation for Taiko's L2 infrastructure, facilitating a trust-minimized environment.
+
+Provers in the BCR system are responsible for submitting validity proofs for block transitions. These include the parent block's hash (\textbf{parentHash}), the current block's hash (\textbf{blockHash}), and bonds related to these transitions. The architecture, which includes SGX and ZK proofs, maintains a balance between cost-effectiveness and trustworthiness. The strategic contestation mechanism ensures the network's integrity and optimizes proving costs by leveraging higher-tier proofs against lower-tier proofs.
+
+\subsection*{Based Booster Rollup}
+The Based Booster Rollup (BBR) represents a significant evolution, enabling transactions to be executed as if they were on L1, with access to all L1 state, while also maintaining their own storage on L2. This dual-layer structure effectively scales both execution and storage. BBR creates a seamless experience for users and developers, with smart contracts maintaining consistent addresses across L1 and all BBRs, simplifying deployment and interaction processes. The indiscriminate nature of Booster Rollups means that any rollup, be it optimistic or ZK, can be enhanced with BBR functionality, directly bolstering Ethereum's scalability.
+
+\section*{Taiko Token}
+
+\subsection*{Utility in Contestable Rollup Design}
+The Taiko token is instrumental in the contestable rollup design, underpinning critical bond systems in both BCR and BBR. These bonds, in Taiko token, essential for the integrity and timeliness of network operations, are posted on L1. Forfeited bonds are not lost but are redirected to Taiko's Treasury on L1, ensuring their value is conserved and utilized as per community consensus.
+
+\subsection*{Governance Role}
+Taiko token's governance role is vital in the decentralized management of the network. Being a multichain token, initially minted on L1 and extending its utility to L2s, it allows token holders to democratically influence network upgrades and manage the Taiko treasury on both L1 and L2s, upholding the network's permissionless nature.
+
+\subsection*{Supply and Management}
+The total supply of Taiko Tokens, "TKO", is fixed at 1 billion, with 18 decimals. The minting or burning of TKO tokens is strictly governed, ensuring changes in the token supply are transparent and reflective of the token holders' consensus. This approach solidifies Taiko's commitment to decentralized governance and the long-term integrity of the token.
+
+\section*{References}
+\begin{enumerate}
+    \item \href{https://github.com/taikoxyz/taiko-mono/blob/based_contestable_zkrollup/packages/protocol/docs/contestable_validity_rollup.md}{Taiko BCR Design Doc}
+    \item \href{https://ethresear.ch/t/booster-rollups-scaling-l1-directly/17125}{Ethereum Research on Booster Rollups}
+    \item \href{https://taiko.mirror.xyz/anPjF35Mrc_xzYgOTbUmfjr_MlhE3L8ZBZIxqmz9GZ8}{Taiko BBR Design Overview}
+    \item \href{https://ethereum.org/en/developers/docs/layer-2-scaling/}{Ethereum Layer 1 and Layer 2 Integration}
+    \item \href{https://ethereum.org/en/governance/}{Ethereum Governance Documentation}
+    \item \href{https://ethereum.org/en/whitepaper/}{Ethereum Whitepaper}
+    \item \href{https://docs.soliditylang.org/en/v0.8.3/}{Solidity Documentation}
+    \item \href{https://consensys.net/blog/blockchain-explained/what-is-a-dao-and-how-do-they-work/}{Understanding DAOs in Ethereum}
+\end{enumerate}
+\end{document}
