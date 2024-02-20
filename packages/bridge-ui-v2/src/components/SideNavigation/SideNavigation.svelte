@@ -12,7 +12,7 @@
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
   import { ThemeButton } from '$components/ThemeButton';
-  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_DEFAULT_SWAP_URL, PUBLIC_GUIDE_URL } from '$env/static/public';
   import { connectedSourceChain } from '$stores/network';
 
   let drawerToggleElem: HTMLInputElement;
@@ -97,6 +97,12 @@
               </LinkButton>
             </li>
             <li class="border-t border-t-divider-border pt-2">
+              <LinkButton href={PUBLIC_DEFAULT_SWAP_URL} external>
+                <Icon type="swap" />
+                <span>{$t('nav.swap')}</span>
+              </LinkButton>
+            </li>
+            <li>
               <LinkButton
                 href={$connectedSourceChain
                   ? chainConfig[$connectedSourceChain.id].urls.explorer
