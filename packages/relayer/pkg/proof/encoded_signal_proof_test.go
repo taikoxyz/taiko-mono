@@ -29,10 +29,13 @@ func Test_EncodedSignalProof(t *testing.T) {
 			BlockNumber:          uint64(mock.BlockNum),
 		},
 	}
+
 	encoded, err := p.EncodedSignalProofWithHops(
 		context.Background(),
 		hops,
 	)
+
 	assert.Nil(t, err)
+
 	assert.Equal(t, wantEncoded, hexutil.Encode(encoded))
 }
