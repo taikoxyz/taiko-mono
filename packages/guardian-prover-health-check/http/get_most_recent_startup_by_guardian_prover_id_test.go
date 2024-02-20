@@ -20,7 +20,9 @@ func Test_GetMostRecentStartupByGuardianProverID(t *testing.T) {
 			GuardianProverID:      1,
 			GuardianProverAddress: "0x123",
 			Revision:              "asdf",
-			Version:               "v1.0.0",
+			GuardianVersion:       "v1.0.0",
+			L1NodeVersion:         "v1.0.0",
+			L2NodeVersion:         "v1.0.0",
 		})
 
 		assert.Nil(t, err)
@@ -37,7 +39,7 @@ func Test_GetMostRecentStartupByGuardianProverID(t *testing.T) {
 			"1",
 			http.StatusOK,
 			// nolint: lll
-			[]string{`{"guardianProverID":1,"guardianProverAddress":"0x123","revision":"asdf","version":"v1.0.0","createdAt":"0001-01-01T00:00:00Z"}`},
+			[]string{`{"guardianProverID":1,"guardianProverAddress":"0x123","l1NodeVersion":"v1.0.0","l2NodeVersion":"v1.0.0","revision":"asdf","guardianVersion":"v1.0.0","createdAt":"0001-01-01T00:00:00Z"}`},
 		},
 		{
 			"doesntExist",

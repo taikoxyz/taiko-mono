@@ -28,6 +28,7 @@ abstract contract TaikoErrors {
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
     error L1_BLOB_NOT_USED();
+    error L1_BLOB_REUSE_DISALBED();
     error L1_BLOCK_MISMATCH();
     error L1_CHAIN_DATA_NOT_RELAYED();
     error L1_INVALID_BLOCK_ID();
