@@ -57,7 +57,7 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
 
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
-        ss.authorizeRelayer(address(L2), true);
+        ss.authorize(address(L2), true);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);

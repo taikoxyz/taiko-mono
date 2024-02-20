@@ -33,61 +33,69 @@ contract SignalService is EssentialContract, ISignalService {
 
     struct HopProof {
         uint64 chainId;
-        CacheOption cacheOption;
+        uint64 blockId;
         bytes32 rootHash;
+        CacheOption cacheOption;
         bytes[] accountProof;
         bytes[] storageProof;
     }
 
-    mapping(address => bool) public isRelayerAuthorized;
+    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
+    mapping(address => bool) public isAuthorized;
     uint256[49] private __gap;
 
-    event SnippetRelayed(
-        uint64 indexed chainid, bytes32 indexed kind, bytes32 data, bytes32 signal
-    );
-
-    event RelayerAuthorized(address indexed addr, bool authrized);
+    event Authorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
-    error SS_INVALID_APP();
+    error SS_INVALID_SENDER();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
-    error SS_INVALID_PARAMS();
-    error SS_INVALID_SIGNAL();
-    error SS_LOCAL_CHAIN_DATA_NOT_FOUND();
+    error SS_INVALID_STATE();
+    error SS_INVALID_VALUE();
+    error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
     error SS_UNSUPPORTED();
+
+    modifier validSender(address app) {
+        if (app == address(0)) revert SS_INVALID_SENDER();
+        _;
+    }
+
+    modifier nonZeroValue(bytes32 input) {
+        if (input == 0) revert SS_INVALID_VALUE();
+        _;
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         __Essential_init(_addressManager);
     }
 
-    /// @dev Authorize or deautohrize an address for calling relayChainData
+    /// @dev Authorize or deautohrize an address for calling syncChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
-    function authorizeRelayer(address addr, bool toAuthorize) external onlyOwner {
-        if (isRelayerAuthorized[addr] == toAuthorize) revert SS_INVALID_PARAMS();
-        isRelayerAuthorized[addr] = toAuthorize;
-
-        emit RelayerAuthorized(addr, toAuthorize);
+    function authorize(address addr, bool toAuthorize) external onlyOwner {
+        if (isAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
+        isAuthorized[addr] = toAuthorize;
+        emit Authorized(addr, toAuthorize);
     }
 
     /// @inheritdoc ISignalService
-    function relayChainData(
+    function sendSignal(bytes32 signal) external returns (bytes32 slot) {
+        return _sendSignal(msg.sender, signal, signal);
+    }
+
+    /// @inheritdoc ISignalService
+    function syncChainData(
         uint64 chainId,
         bytes32 kind,
-        bytes32 data
+        uint64 blockId,
+        bytes32 chainData
     )
         external
-        returns (bytes32 slot)
+        returns (bytes32 signal)
     {
-        if (!isRelayerAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
-        return _relayChainData(chainId, kind, data);
-    }
-
-    /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
-        return _sendSignal(msg.sender, signal);
+        if (!isAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
+        return _syncChainData(chainId, kind, blockId, chainData);
     }
 
     /// @inheritdoc ISignalService
@@ -100,23 +108,26 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         virtual
+        validSender(app)
+        nonZeroValue(signal)
     {
-        if (app == address(0) || signal == 0) revert SS_INVALID_PARAMS();
-
         HopProof[] memory _hopProofs = abi.decode(proof, (HopProof[]));
         if (_hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
         uint64 _chainId = chainId;
         address _app = app;
         bytes32 _signal = signal;
+        bytes32 _value = signal;
         address _signalService = resolve(_chainId, "signal_service", false);
 
+        HopProof memory hop;
         for (uint256 i; i < _hopProofs.length; ++i) {
-            HopProof memory hop = _hopProofs[i];
+            hop = _hopProofs[i];
 
-            bytes32 signalRoot = _verifyHopProof(_chainId, _app, _signal, hop, _signalService);
-
+            bytes32 signalRoot =
+                _verifyHopProof(_chainId, _app, _signal, _value, hop, _signalService);
             bool isLastHop = i == _hopProofs.length - 1;
+
             if (isLastHop) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
                 _signalService = address(this);
@@ -129,48 +140,72 @@ contract SignalService is EssentialContract, ISignalService {
 
             bool isFullProof = hop.accountProof.length > 0;
 
-            _cacheChainData(hop, _chainId, signalRoot, isFullProof, isLastHop);
+            _cacheChainData(hop, _chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
 
             bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
-            _signal = signalForChainData(_chainId, kind, hop.rootHash);
+            _signal = signalForChainData(_chainId, kind, hop.blockId);
+            _value = hop.rootHash;
             _chainId = hop.chainId;
             _app = _signalService;
         }
 
-        if (!isSignalSent(address(this), _signal)) revert SS_LOCAL_CHAIN_DATA_NOT_FOUND();
+        if (_value == 0 || _value != _loadSignalValue(address(this), _signal)) {
+            revert SS_SIGNAL_NOT_FOUND();
+        }
     }
 
     /// @inheritdoc ISignalService
-    function isChainDataRelayed(
+    function isChainDataSynced(
         uint64 chainId,
         bytes32 kind,
-        bytes32 data
+        uint64 blockId,
+        bytes32 chainData
     )
         public
         view
+        nonZeroValue(chainData)
         returns (bool)
     {
-        return isSignalSent(address(this), signalForChainData(chainId, kind, data));
+        bytes32 signal = signalForChainData(chainId, kind, blockId);
+        return _loadSignalValue(address(this), signal) == chainData;
     }
 
     /// @inheritdoc ISignalService
     function isSignalSent(address app, bytes32 signal) public view returns (bool) {
-        if (signal == 0) revert SS_INVALID_SIGNAL();
-        if (app == address(0)) revert SS_INVALID_APP();
-        bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
-        uint256 value;
-        assembly {
-            value := sload(slot)
-        }
-        return value == 1;
+        return _loadSignalValue(app, signal) == signal;
     }
 
-    /// @notice Get the storage slot of the signal.
-    /// @param chainId The address's chainId.
-    /// @param app The address that initiated the signal.
-    /// @param signal The signal to get the storage slot of.
-    /// @return The unique storage slot of the signal which is
-    /// created by encoding the sender address with the signal (message).
+    /// @inheritdoc ISignalService
+    function getSyncedChainData(
+        uint64 chainId,
+        bytes32 kind,
+        uint64 blockId
+    )
+        public
+        view
+        returns (uint64 _blockId, bytes32 _chainData)
+    {
+        _blockId = blockId != 0 ? blockId : topBlockId[chainId][kind];
+
+        if (_blockId != 0) {
+            bytes32 signal = signalForChainData(chainId, kind, _blockId);
+            _chainData = _loadSignalValue(address(this), signal);
+            if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
+        }
+    }
+
+    function signalForChainData(
+        uint64 chainId,
+        bytes32 kind,
+        uint64 blockId
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(chainId, kind, blockId));
+    }
+
     function getSignalSlot(
         uint64 chainId,
         address app,
@@ -183,55 +218,26 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-    function signalForChainData(
-        uint64 chainId,
-        bytes32 kind,
-        bytes32 data
-    )
-        public
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(chainId, kind, data));
-    }
-
-    function _relayChainData(
-        uint64 chainId,
-        bytes32 kind,
-        bytes32 data
-    )
-        internal
-        returns (bytes32 slot)
-    {
-        bytes32 signal = signalForChainData(chainId, kind, data);
-        emit SnippetRelayed(chainId, kind, data, signal);
-        return _sendSignal(address(this), signal);
-    }
-
-    function _sendSignal(address sender, bytes32 signal) internal returns (bytes32 slot) {
-        if (signal == 0) revert SS_INVALID_SIGNAL();
-        slot = getSignalSlot(uint64(block.chainid), sender, signal);
-        assembly {
-            sstore(slot, 1)
-        }
-    }
-
     function _verifyHopProof(
         uint64 chainId,
         address app,
         bytes32 signal,
+        bytes32 value,
         HopProof memory hop,
-        address relay
+        address signalService
     )
         internal
         virtual
+        validSender(app)
+        nonZeroValue(signal)
+        nonZeroValue(value)
         returns (bytes32 signalRoot)
     {
         return LibTrieProof.verifyMerkleProof(
             hop.rootHash,
-            relay,
+            signalService,
             getSignalSlot(chainId, app, signal),
-            hex"01",
+            bytes.concat(value),
             hop.accountProof,
             hop.storageProof
         );
@@ -241,9 +247,45 @@ contract SignalService is EssentialContract, ISignalService {
         revert SS_UNSUPPORTED();
     }
 
+    function _syncChainData(
+        uint64 chainId,
+        bytes32 kind,
+        uint64 blockId,
+        bytes32 chainData
+    )
+        private
+        returns (bytes32 signal)
+    {
+        signal = signalForChainData(chainId, kind, blockId);
+        _sendSignal(address(this), signal, chainData);
+
+        if (topBlockId[chainId][kind] < blockId) {
+            topBlockId[chainId][kind] = blockId;
+        }
+        emit ChainDataSynced(chainId, blockId, kind, chainData, signal);
+    }
+
+    function _sendSignal(
+        address app,
+        bytes32 signal,
+        bytes32 value
+    )
+        private
+        validSender(app)
+        nonZeroValue(signal)
+        nonZeroValue(value)
+        returns (bytes32 slot)
+    {
+        slot = getSignalSlot(uint64(block.chainid), app, signal);
+        assembly {
+            sstore(slot, value)
+        }
+    }
+
     function _cacheChainData(
         HopProof memory hop,
         uint64 chainId,
+        uint64 blockId,
         bytes32 signalRoot,
         bool isFullProof,
         bool isLastHop
@@ -255,7 +297,7 @@ contract SignalService is EssentialContract, ISignalService {
             || hop.cacheOption == CacheOption.CACHE_STATE_ROOT;
 
         if (cacheStateRoot && isFullProof && !isLastHop) {
-            _relayChainData(chainId, LibSignals.STATE_ROOT, hop.rootHash);
+            _syncChainData(chainId, LibSignals.STATE_ROOT, blockId, hop.rootHash);
         }
 
         // cache signal root
@@ -263,7 +305,23 @@ contract SignalService is EssentialContract, ISignalService {
             || hop.cacheOption == CacheOption.CACHE_SIGNAL_ROOT;
 
         if (cacheSignalRoot && (!isLastHop || isFullProof)) {
-            _relayChainData(chainId, LibSignals.SIGNAL_ROOT, signalRoot);
+            _syncChainData(chainId, LibSignals.SIGNAL_ROOT, blockId, signalRoot);
+        }
+    }
+
+    function _loadSignalValue(
+        address app,
+        bytes32 signal
+    )
+        private
+        view
+        validSender(app)
+        nonZeroValue(signal)
+        returns (bytes32 value)
+    {
+        bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
+        assembly {
+            value := sload(slot)
         }
     }
 }
