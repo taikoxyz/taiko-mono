@@ -52,7 +52,7 @@
     "ethers": "^5.7.2",
     "glob": "^10.3.10",
     "merkle-patricia-tree": "^4.2.4",
-    "prettier": "^3.0.3",
+    "prettier": "^3.2.5",
     "rlp": "^3.0.0",
     "solhint": "^3.6.2",
     "solidity-coverage": "github:taikoxyz/solidity-coverage",
