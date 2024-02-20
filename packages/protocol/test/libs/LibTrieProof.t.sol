@@ -16,10 +16,10 @@ contract TestLibTrieProof is TaikoTest {
         // This one is the "sender app" aka the source bridge but i mocked it for now to be an EOA
         // (for slot calculation)
         address addr = 0x17DF3c450D1dC61558ecA7B10e4bBC8ddcdB1f28;
-        // This is the slot i queried the eth_getProof on Sepolia for blockheight: 0x508C51
-        bytes32 slot = 0xbbca9c03e8caddfe897998306b5421c55530a878285807c931de52c4f58a2be7;
-        // This is the stateRoot at blockheight: 0x508C51 (Sepolia!)
-        bytes32 stateRoot = 0x9b0f9c36f886064c4e7658e9777d89beac4f44c2a5d68c3a70c55c822d8166ea;
+        // This is the slot i queried the eth_getProof on Sepolia for blockheight: 0x5000B5
+        bytes32 slot = 0xfa2ef1bab164a0522c2c110bbea1a54ac6399d3ba24437480c29947143a5402e;
+        // This is the stateRoot at blockheight: 0x5000B5 (Sepolia!)
+        bytes32 stateRoot = 0x90c5f343ed98545ad5ad4e840492e1008218c0ea92f8fd74a826aaf4c477a3fe;
         // This is the stateRoot just RLP encoded with
         // https://toolkit.abdk.consulting/ethereum#key-to-address,rlp
         // Not needed for now but leave it as is
