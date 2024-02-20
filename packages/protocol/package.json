@@ -37,7 +37,7 @@
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.2",
     "@types/node": "^20.8.6",
-    "@typescript-eslint/eslint-plugin": "^6.7.5",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "chai": "^4.3.10",
     "chalk": "5.3.0",
