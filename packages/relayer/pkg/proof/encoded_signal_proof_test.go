@@ -19,7 +19,7 @@ func Test_EncodedSignalProof(t *testing.T) {
 	p := newTestProver()
 
 	hops := []HopParams{
-		HopParams{
+		{
 			ChainID:              mock.MockChainID,
 			SignalServiceAddress: common.Address{},
 			SignalService:        &mock.SignalService{},
