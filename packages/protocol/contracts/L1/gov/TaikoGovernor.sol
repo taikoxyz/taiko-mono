@@ -33,6 +33,8 @@ contract TaikoGovernor is
 {
     uint256[50] private __gap;
 
+    error TG_INVALID_SIGNATURES_LENGTH();
+
     function init(
         IVotesUpgradeable _token,
         TimelockControllerUpgradeable _timelock
@@ -79,7 +81,8 @@ contract TaikoGovernor is
         override(GovernorCompatibilityBravoUpgradeable)
         returns (uint256)
     {
-        require(signatures.length == calldatas.length, "GovernorBravo: invalid signatures length");
+        if (signatures.length != calldatas.length) revert TG_INVALID_SIGNATURES_LENGTH();
+
         return GovernorCompatibilityBravoUpgradeable.propose(
             targets, values, signatures, calldatas, description
         );
