@@ -92,7 +92,7 @@ contract DeployOnL1 is DeployCapability {
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
 
         if (vm.envAddress("SHARED_ADDRESS_MANAGER") == address(0)) {
-            SignalService(signalServiceAddr).authorizeRelayer(taikoL1Addr, true);
+            SignalService(signalServiceAddr).authorize(taikoL1Addr, true);
         }
 
         uint64 l2ChainId = taikoL1.getConfig().chainId;
@@ -401,6 +401,9 @@ contract DeployOnL1 is DeployCapability {
         AutomataDcapV3Attestation automateDcapV3Attestation =
             new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
 
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
         register(
             rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
         );
