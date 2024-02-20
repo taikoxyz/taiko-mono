@@ -1,8 +1,8 @@
-# Bridge UI v2
+# Bridge UI
 
 This package contains the Bridge UI built with svelte and wagmi
 
-- [Bridge UI v2](#bridge-ui-v2)
+- [Bridge UI](#bridge-ui)
   - [Development setup](#development-setup)
     - [Set up environment variables](#set-up-environment-variables)
     - [Set up configurations](#set-up-configurations)
@@ -56,7 +56,7 @@ These are the additional configuration files that have to be filled in:
 
 <br>
 
-To get started, open your terminal in `/packages/bridge-ui-v2/`
+To get started, open your terminal in `/packages/bridge-ui/`
 
 1. Copy the config examples
    ```bash
