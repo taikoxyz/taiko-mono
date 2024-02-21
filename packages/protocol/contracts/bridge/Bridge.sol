@@ -52,7 +52,6 @@ contract Bridge is EssentialContract, IBridge {
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
     // Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
-    uint256 internal constant EPOCH = 384 seconds;
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
