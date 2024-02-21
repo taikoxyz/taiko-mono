@@ -120,7 +120,7 @@ interface ISignalService {
         uint64 blockId
     )
         external
-        view
+        pure
         returns (bytes32 signal);
 
     /// @notice Returns true if a signal root is ached. If storage slot value is not bytes32(0),
