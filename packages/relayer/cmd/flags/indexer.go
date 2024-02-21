@@ -76,12 +76,12 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"NUM_LATEST_BLOCKS_TO_IGNORE_WHEN_CRAWLING"},
 	}
-	TargetBlock = &cli.Uint64Flag{
-		Name:     "targetBlock",
-		Usage:    "Specify the target block to process transactions in",
+	TargetBlockNumber = &cli.Uint64Flag{
+		Name:     "targetBlockNumber",
+		Usage:    "Specify the target block number to process transactions in",
 		Required: false,
 		Category: indexerCategory,
-		EnvVars:  []string{"TARGET_BLOCK"},
+		EnvVars:  []string{"TARGET_BLOCK_NUMBER"},
 	}
 )
 
@@ -96,5 +96,5 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	SyncMode,
 	WatchMode,
 	NumLatestBlocksToIgnoreWhenCrawling,
-	TargetBlock,
+	TargetBlockNumber,
 })

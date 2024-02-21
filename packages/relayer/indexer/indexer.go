@@ -95,7 +95,7 @@ type Indexer struct {
 
 	numLatestBlocksToIgnoreWhenCrawling uint64
 
-	targetBlock *uint64
+	targetBlockNumber *uint64
 
 	ctx context.Context
 
@@ -196,7 +196,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
 
-	i.targetBlock = cfg.TargetBlock
+	i.targetBlockNumber = cfg.TargetBlockNumber
 
 	i.mu = &sync.Mutex{}
 
@@ -282,9 +282,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 	// ignore latest N blocks, they are probably in queue already
 	// and are not "missed".
 	if i.watchMode == CrawlPastBlocks {
-		if i.targetBlock != nil {
-			slog.Info("targetBlock is set", "targetBlock", *i.targetBlock)
-			i.processingBlockHeight = *i.targetBlock
+		if i.targetBlockNumber != nil {
+			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
+			i.processingBlockHeight = *i.targetBlockNumber
 			endBlockID = i.processingBlockHeight + 1
 		} else {
 			endBlockID = i.numLatestBlocksToIgnoreWhenCrawling
@@ -293,7 +293,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	slog.Info("fetching batch block events",
 		"chainID", i.srcChainId.Uint64(),
-		"startblock", i.processingBlockHeight,
+		"processingBlockHeight", i.processingBlockHeight,
 		"endblock", endBlockID,
 		"batchsize", i.blockBatchSize,
 		"watchMode", i.watchMode,
