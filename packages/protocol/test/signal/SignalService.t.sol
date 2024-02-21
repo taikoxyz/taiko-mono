@@ -517,6 +517,17 @@ contract TestSignalService is TaikoTest {
             proofs[7].chainId, LibSignals.STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
         );
 
+        // proofs[0] we do need full proof
+        (uint64 blockId, bool cached) =
+            signalService.isSignalRootCached(proofs[0].chainId, proofs[0].blockId);
+        assertEq(blockId, proofs[0].blockId);
+        assertEq(cached, false);
+
+        // proofs[7] we do not need full proof (only signal service storage proof) bc. it is cached
+        (blockId, cached) = signalService.isSignalRootCached(proofs[7].chainId, 0);
+        assertEq(blockId, proofs[8].blockId);
+        assertEq(cached, true);
+
         signalService.proveSignalReceived({
             chainId: srcChainId,
             app: randAddress(),

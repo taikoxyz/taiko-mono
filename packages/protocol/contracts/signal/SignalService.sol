@@ -194,6 +194,24 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
+    /// @inheritdoc ISignalService
+    function isSignalRootCached(
+        uint64 chainId,
+        uint64 blockId
+    )
+        public
+        view
+        returns (uint64 _blockId, bool _cached)
+    {
+        _blockId = blockId != 0 ? blockId : topBlockId[chainId][LibSignals.SIGNAL_ROOT];
+
+        bytes32 signal = signalForChainData(chainId, LibSignals.SIGNAL_ROOT, _blockId);
+        if (_loadSignalValue(address(this), signal) != 0) {
+            _cached = true;
+        }
+    }
+
+    /// @inheritdoc ISignalService
     function signalForChainData(
         uint64 chainId,
         bytes32 kind,

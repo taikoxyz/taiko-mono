@@ -93,6 +93,7 @@ interface ISignalService {
         returns (bool);
 
     /// @notice Returns the given block's  chain data.
+    /// @param chainId Indenitifer of the chainId.
     /// @param kind A value to mark the data type.
     /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
@@ -106,4 +107,34 @@ interface ISignalService {
         external
         view
         returns (uint64 _blockId, bytes32 _chainData);
+
+    /// @notice Returns the data to be used for caching slot generation.
+    /// @param chainId Indenitifer of the chainId.
+    /// @param kind A value to mark the data type.
+    /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
+    /// block id.
+    /// @return signal The signal used for caching slot creation.
+    function signalForChainData(
+        uint64 chainId,
+        bytes32 kind,
+        uint64 blockId
+    )
+        external
+        view
+        returns (bytes32 signal);
+
+    /// @notice Returns true if a signal root is ached. If storage slot value is not bytes32(0),
+    /// than signal root is cached, so no need for account proof.
+    /// @param chainId Indenitifer of the chain for we are quering it's cached signal service root.
+    /// @param blockId The block id in question. If 0, indicates the query is targetting the latest
+    /// synced height.
+    /// @return _blockId blockId or highest syned block id.
+    /// @return _cached True if cached, false if not.
+    function isSignalRootCached(
+        uint64 chainId,
+        uint64 blockId
+    )
+        external
+        view
+        returns (uint64 _blockId, bool _cached);
 }
