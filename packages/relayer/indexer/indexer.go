@@ -398,7 +398,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	if i.processingBlockHeight < latestBlockIDToCompare {
 		slog.Info("header has advanced",
-			"startBlockID", i.processingBlockHeight,
+			"processingBlockHeight", i.processingBlockHeight,
 			"latestBlock", latestBlockIDToCompare,
 		)
 
