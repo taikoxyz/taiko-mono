@@ -81,7 +81,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal) external returns (bytes32 slot) {
-        return _sendSignal(msg.sender, signal, signal);
+        return _sendSignal(msg.sender, signal, 1);
     }
 
     /// @inheritdoc ISignalService
