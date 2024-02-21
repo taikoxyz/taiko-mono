@@ -14,9 +14,10 @@ import (
 
 type Config struct {
 	// address configs
-	SrcBridgeAddress  common.Address
-	SrcTaikoAddress   common.Address
-	DestBridgeAddress common.Address
+	SrcBridgeAddress        common.Address
+	SrcSignalServiceAddress common.Address
+	SrcTaikoAddress         common.Address
+	DestBridgeAddress       common.Address
 	// db configs
 	DatabaseUsername        string
 	DatabasePassword        string
@@ -50,6 +51,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
 		SrcBridgeAddress:                    common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
 		SrcTaikoAddress:                     common.HexToAddress(c.String(flags.SrcTaikoAddress.Name)),
+		SrcSignalServiceAddress:             common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
 		DestBridgeAddress:                   common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DatabaseUsername:                    c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                    c.String(flags.DatabasePassword.Name),

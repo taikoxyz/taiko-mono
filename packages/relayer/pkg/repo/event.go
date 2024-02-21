@@ -42,6 +42,9 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		MsgHash:                opts.MsgHash,
 		MessageOwner:           opts.MessageOwner,
 		Event:                  opts.Event,
+		SyncedChainID:          opts.SyncedChainID,
+		SyncData:               opts.SyncData,
+		Kind:                   opts.Kind,
 	}
 
 	if err := r.db.GormDB().Create(e).Error; err != nil {

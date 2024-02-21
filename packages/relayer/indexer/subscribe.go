@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 )
 
 // subscribe subscribes to latest events
@@ -24,6 +25,8 @@ func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 		go i.subscribeMessageSent(ctx, chainID, errChan)
 
 		go i.subscribeMessageStatusChanged(ctx, chainID, errChan)
+
+		go i.subscribeChainDataSynced(ctx, chainID, errChan)
 	} else if i.eventName == relayer.EventNameMessageReceived {
 		go i.subscribeMessageReceived(ctx, chainID, errChan)
 	}
@@ -174,6 +177,43 @@ func (i *Indexer) subscribeMessageStatusChanged(ctx context.Context, chainID *bi
 	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
 			slog.Error("i.bridge.WatchMessageStatusChanged", "error", err)
+		}
+
+		slog.Info("resubscribing to WatchMessageStatusChanged events")
+
+		return i.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context finished")
+			return
+		case err := <-sub.Err():
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			slog.Info("new message status changed event",
+				"msgHash", common.Hash(event.MsgHash).Hex(),
+				"chainID", chainID.String(),
+			)
+
+			if err := i.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
+				slog.Error("i.subscribe, i.saveMessageStatusChangedEvent", "error", err)
+			}
+		}
+	}
+}
+
+func (i *Indexer) subscribeChainDataSynced(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *signalservice.SignalServiceChainDataSynced)
+
+	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			slog.Error("i.signalService.WatchMessageStatusChanged", "error", err)
 		}
 
 		slog.Info("resubscribing to WatchMessageStatusChanged events")

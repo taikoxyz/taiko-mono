@@ -99,6 +99,12 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.destBridge.ProofReceipt")
 	}
 
+	slog.Info("proofReceipt",
+		"receivedAt", proofReceipt.ReceivedAt,
+		"preferredExecutor", proofReceipt.PreferredExecutor.Hex(),
+		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+	)
+
 	var encodedSignalProof []byte
 
 	// proof has not been submitted, we need to generate it
@@ -291,9 +297,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 				return nil, errors.Wrap(err, "p.waitHeaderSynced")
 			}
 
-			// todo: instead of latest, need way to find out which block num on the hop chain
-			// the previous blockHash was synced in, and then wait for that header to be synced
-			// on the next hop chain.
 			snippet, err := hop.headerSyncer.GetSyncedSnippet(&bind.CallOpts{
 				Context: ctx,
 			},

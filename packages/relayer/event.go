@@ -14,6 +14,7 @@ var (
 	EventNameMessageSent          = "MessageSent"
 	EventNameMessageStatusChanged = "MessageStatusChanged"
 	EventNameMessageReceived      = "MessageReceived"
+	EventNameChainDataSynced      = "ChainDataSynced"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -56,6 +57,10 @@ type Event struct {
 	Status                 EventStatus    `json:"status"`
 	EventType              EventType      `json:"eventType"`
 	ChainID                int64          `json:"chainID"`
+	SyncedChainID          uint64         `json:"syncedChainID"`
+	BlockID                uint64         `json:"blockID"`
+	SyncData               string         `json:"syncData"`
+	Kind                   string         `json:"kind"`
 	CanonicalTokenAddress  string         `json:"canonicalTokenAddress"`
 	CanonicalTokenSymbol   string         `json:"canonicalTokenSymbol"`
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
@@ -81,6 +86,10 @@ type SaveEventOpts struct {
 	MsgHash                string
 	MessageOwner           string
 	Event                  string
+	SyncedChainID          uint64
+	BlockID                uint64
+	SyncData               string
+	Kind                   string
 }
 
 type FindAllByAddressOpts struct {

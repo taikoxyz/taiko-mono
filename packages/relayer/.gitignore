@@ -12,6 +12,9 @@
 .l1processor.env
 .l1indexer.env
 .l2indexer.env
+.l2al2bindexer.env
+.l2al2bprocessor.env
+
 main
 relayer
 coverage.txt

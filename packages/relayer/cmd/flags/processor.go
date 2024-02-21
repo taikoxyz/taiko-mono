@@ -12,13 +12,6 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"PROCESSOR_PRIVATE_KEY"},
 	}
-	SrcSignalServiceAddress = &cli.StringFlag{
-		Name:     "srcSignalServiceAddress",
-		Usage:    "SignalService address for the source chain",
-		Required: true,
-		Category: processorCategory,
-		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
-	}
 	DestTaikoAddress = &cli.StringFlag{
 		Name:     "destTaikoAddress",
 		Usage:    "Taiko address for the destination chain",
@@ -136,7 +129,6 @@ var (
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
-	SrcSignalServiceAddress,
 	DestERC721VaultAddress,
 	DestERC1155VaultAddress,
 	DestERC20VaultAddress,

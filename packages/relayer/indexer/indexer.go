@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -70,6 +71,8 @@ type Indexer struct {
 
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
+
+	signalService relayer.SignalService
 
 	blockBatchSize      uint64
 	numGoroutines       int
@@ -156,6 +159,14 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		}
 	}
 
+	var signalService relayer.SignalService
+	if cfg.SrcSignalServiceAddress != ZeroAddress {
+		signalService, err = signalservice.NewSignalService(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "signalservice.NewSignalService")
+		}
+	}
+
 	srcChainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "srcEthClient.ChainID")
@@ -172,6 +183,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.bridge = srcBridge
 	i.destBridge = destBridge
+	i.signalService = signalService
 	i.taikol1 = taikoL1
 
 	i.blockBatchSize = cfg.BlockBatchSize
@@ -309,13 +321,18 @@ func (i *Indexer) filter(ctx context.Context) error {
 			Context: ctx,
 		}
 
-		if i.eventName == relayer.EventNameMessageSent {
+		switch i.eventName {
+		case relayer.EventNameMessageSent:
 			if err := i.indexMessageSentEvents(ctx, filterOpts); err != nil {
 				return errors.Wrap(err, "i.indexMessageSentEvents")
 			}
-		} else if i.eventName == relayer.EventNameMessageReceived {
+		case relayer.EventNameMessageReceived:
 			if err := i.indexMessageReceivedEvents(ctx, filterOpts); err != nil {
 				return errors.Wrap(err, "i.indexMessageReceivedEvents")
+			}
+		case relayer.EventNameChainDataSynced:
+			if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
+				return errors.Wrap(err, "i.indexChainDataSyncedEvents")
 			}
 		}
 
@@ -385,6 +402,11 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 		if err != nil {
 			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
 		}
+
+		// we also want to index chain data synced events.
+		if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
+			return errors.Wrap(err, "i.indexChainDataSyncedEvents")
+		}
 	}
 
 	messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
@@ -436,6 +458,42 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 
 		group.Go(func() error {
 			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+			} else {
+				slog.Info("handled event successfully")
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(filterOpts, nil, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for chainDataSyncedEvents.Next() {
+		event := chainDataSyncedEvents.Event
+
+		group.Go(func() error {
+			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event)
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active
