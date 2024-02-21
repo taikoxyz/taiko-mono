@@ -473,6 +473,7 @@ contract Bridge is EssentialContract, IBridge {
                 || block.chainid == 4 // Rinkeby
                 || block.chainid == 5 // Goerli
                 || block.chainid == 42 // Kovan
+                || block.chainid == 17_000 // Holesky
                 || block.chainid == 11_155_111 // Sepolia
         ) {
             return (30 minutes, 384 seconds);
