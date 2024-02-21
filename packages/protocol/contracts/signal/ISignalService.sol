@@ -122,21 +122,4 @@ interface ISignalService {
         external
         pure
         returns (bytes32 signal);
-
-    /// @notice Returns true if a signal root is ached. If storage slot value is not bytes32(0),
-    /// than signal root is cached, so no need for account proof.
-    /// @dev If return values _cahced false and _blockId 0, it means there is no cached signal
-    /// service root with give chainId).
-    /// @param chainId Indenitifer of the chain for we are quering it's cached signal service root.
-    /// @param blockId The block id in question. If 0, indicates the query is targetting the latest
-    /// synced height.
-    /// @return _blockId blockId or highest synced block id.
-    /// @return _cached True if cached, false if not.
-    function isSignalRootCached(
-        uint64 chainId,
-        uint64 blockId
-    )
-        external
-        view
-        returns (uint64 _blockId, bool _cached);
 }
