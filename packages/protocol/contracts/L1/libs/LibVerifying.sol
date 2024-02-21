@@ -81,7 +81,7 @@ library LibVerifying {
         });
     }
 
-    function isConfigValid(TaikoData.Config memory config) public pure returns (bool isValid) {
+    function isConfigValid(TaikoData.Config memory config) public view returns (bool isValid) {
         if (
             config.chainId <= 1 || config.chainId == block.chainid //
                 || config.blockMaxProposals == 1
