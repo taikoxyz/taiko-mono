@@ -477,13 +477,13 @@ contract Bridge is EssentialContract, IBridge {
                 || block.chainid == 17_000 // Holesky
                 || block.chainid == 11_155_111 // Sepolia
         ) {
-            // For all public testnets
+            // For all Taiko public testnets
             return (30 minutes, 384 seconds);
         } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
-            // For all internal devnets
+            // For all Taiko internal devnets
             return (5 minutes, 384 seconds);
         } else {
-            // This is a L2 chain where there is no delay in message executation.
+            // This is a Taiko L2 chain where no deleys are applied.
             return (0, 0);
         }
     }
