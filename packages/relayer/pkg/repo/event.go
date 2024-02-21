@@ -45,6 +45,8 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		SyncedChainID:          opts.SyncedChainID,
 		SyncData:               opts.SyncData,
 		Kind:                   opts.Kind,
+		SyncedInBlockID:        opts.SyncedInBlockID,
+		BlockID:                opts.BlockID,
 	}
 
 	if err := r.db.GormDB().Create(e).Error; err != nil {
@@ -146,4 +148,51 @@ func (r *EventRepository) Delete(
 	id int,
 ) error {
 	return r.db.GormDB().Delete(relayer.Event{}, id).Error
+}
+
+func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
+	ctx context.Context,
+	srcChainId uint64,
+	syncedChainId uint64,
+	blockNumber uint64,
+) (*relayer.Event, error) {
+	e := &relayer.Event{}
+	// find all message sent events
+	if err := r.db.GormDB().Where("name = ?", relayer.EventNameChainDataSynced).
+		Where("chain_id = ?", srcChainId).
+		Where("synced_chain_id = ?", syncedChainId).
+		Where("block_id >= ?", blockNumber).
+		Order("block_id ASC").
+		Limit(1).
+		First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "r.db.First")
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) LatestChainDataSyncedEvent(
+	ctx context.Context,
+	srcChainId uint64,
+	syncedChainId uint64,
+) (uint64, error) {
+	blockID := 0
+	// find all message sent events
+	if err := r.db.GormDB().Table("events").
+		Where("chain_id = ?", srcChainId).
+		Where("synced_chain_id = ?", syncedChainId).
+		Select("max(block_id)").
+		Scan(&blockID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return 0, nil
+		}
+
+		return 0, errors.Wrap(err, "r.db.First")
+	}
+
+	return uint64(blockID), nil
 }

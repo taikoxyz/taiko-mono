@@ -161,7 +161,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var signalService relayer.SignalService
 	if cfg.SrcSignalServiceAddress != ZeroAddress {
-		signalService, err = signalservice.NewSignalService(cfg.SrcTaikoAddress, srcEthClient)
+		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
 		}
@@ -427,7 +427,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
 			} else {
-				slog.Info("handled event successfully")
+				slog.Info("handled messagesent event successfully")
 			}
 
 			return nil
@@ -463,7 +463,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
 			} else {
-				slog.Info("handled event successfully")
+				slog.Info("handled message received event successfully")
 			}
 
 			return nil
@@ -499,7 +499,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
 			} else {
-				slog.Info("handled event successfully")
+				slog.Info("handled chaindatasync event successfully")
 			}
 
 			return nil
@@ -510,6 +510,8 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}
+
+	slog.Info("done indexing chain data synced events")
 
 	return nil
 }

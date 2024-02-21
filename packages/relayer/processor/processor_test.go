@@ -27,7 +27,6 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		srcSignalService:          &mock.SignalService{},
 		mu:                        &sync.Mutex{},
 		ecdsaKey:                  privateKey,
-		destHeaderSyncer:          &mock.HeaderSyncer{},
 		prover:                    prover,
 		srcCaller:                 &mock.Caller{},
 		profitableOnly:            profitableOnly,

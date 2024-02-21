@@ -218,9 +218,9 @@ func (i *Indexer) subscribeChainDataSynced(ctx context.Context, chainID *big.Int
 
 		slog.Info("resubscribing to WatchMessageStatusChanged events")
 
-		return i.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
+		return i.signalService.WatchChainDataSynced(&bind.WatchOpts{
 			Context: ctx,
-		}, sink, nil)
+		}, sink, nil, nil, nil)
 	})
 
 	defer sub.Unsubscribe()
@@ -233,14 +233,19 @@ func (i *Indexer) subscribeChainDataSynced(ctx context.Context, chainID *big.Int
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			slog.Info("new message status changed event",
-				"msgHash", common.Hash(event.MsgHash).Hex(),
-				"chainID", chainID.String(),
+			slog.Info("new chain data synced event",
+				"signal", common.Hash(event.Signal).Hex(),
+				"chainID", event.Chainid,
+				"blockID", event.BlockId,
+				"syncedInBlock", event.Raw.BlockNumber,
 			)
 
-			if err := i.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
-				slog.Error("i.subscribe, i.saveMessageStatusChangedEvent", "error", err)
+			if err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event); err != nil {
+				slog.Error("error handling chain data synced event", "error", err)
+				continue
 			}
+
+			slog.Info("chainDataSynced event saved")
 		}
 	}
 }

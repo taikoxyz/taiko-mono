@@ -59,6 +59,7 @@ type Event struct {
 	ChainID                int64          `json:"chainID"`
 	SyncedChainID          uint64         `json:"syncedChainID"`
 	BlockID                uint64         `json:"blockID"`
+	SyncedInBlockID        uint64         `json:"syncedInBlockID"`
 	SyncData               string         `json:"syncData"`
 	Kind                   string         `json:"kind"`
 	CanonicalTokenAddress  string         `json:"canonicalTokenAddress"`
@@ -90,6 +91,7 @@ type SaveEventOpts struct {
 	BlockID                uint64
 	SyncData               string
 	Kind                   string
+	SyncedInBlockID        uint64
 }
 
 type FindAllByAddressOpts struct {
@@ -119,4 +121,15 @@ type EventRepository interface {
 		msgHash string,
 	) (*Event, error)
 	Delete(ctx context.Context, id int) error
+	ChainDataSyncedEventByBlockNumberOrGreater(
+		ctx context.Context,
+		srcChainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*Event, error)
+	LatestChainDataSyncedEvent(
+		ctx context.Context,
+		srcChainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
 }
