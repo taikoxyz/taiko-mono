@@ -52,6 +52,7 @@ contract Bridge is EssentialContract, IBridge {
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
     // Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
+    uint256 internal constant EPOCH = 384 seconds;
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
@@ -466,16 +467,20 @@ contract Bridge is EssentialContract, IBridge {
         // Only on the base layer (L1) should the returned values be non-zero.
         if (
             block.chainid == 1 // Ethereum mainnet
-                || block.chainid == 2 // Ropsten
+        ) {
+            // 384 seconds = 6.4 minutes = one ethereum epoch
+            return (6 hours, 384 seconds);
+        } else if (
+            block.chainid == 2 // Ropsten
                 || block.chainid == 4 // Rinkeby
                 || block.chainid == 5 // Goerli
                 || block.chainid == 42 // Kovan
                 || block.chainid == 11_155_111 // Sepolia
         ) {
-            return (1 hours, 15 minutes);
+            return (30 minutes, 384 seconds);
+        } else {
+            return (0, 0);
         }
-
-        return (0, 0);
     }
 
     /// @notice Hash the message
