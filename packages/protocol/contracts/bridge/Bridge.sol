@@ -466,6 +466,7 @@ contract Bridge is EssentialContract, IBridge {
         if (
             block.chainid == 1 // Ethereum mainnet
         ) {
+            // For Taiko mainnet
             // 384 seconds = 6.4 minutes = one ethereum epoch
             return (6 hours, 384 seconds);
         } else if (
@@ -475,9 +476,12 @@ contract Bridge is EssentialContract, IBridge {
                 || block.chainid == 42 // Kovan
                 || block.chainid == 17_000 // Holesky
                 || block.chainid == 11_155_111 // Sepolia
-                || block.chainid == 32_382 // Chain ID for all Taiko devnet L1s
         ) {
+            // For all public testnets
             return (30 minutes, 384 seconds);
+        } else if (block.chainid == 32_382) {
+            // For all internal devnets
+            return (5 minutes, 384 seconds);
         } else {
             // This is a L2 chain where there is no delay in message executation.
             return (0, 0);
