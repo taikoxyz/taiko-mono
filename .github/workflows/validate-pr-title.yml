@@ -6,7 +6,10 @@ on:
       - opened
       - edited
       - synchronize
-  merge_group:
+  push:
+    branches:
+      - release-please-* # Trigger for release-please PRs, but skip the job
+  merge_group: # Trigger in the merge queue, but skip the job
 
 jobs:
   validate-pr-title:
@@ -28,7 +31,7 @@ jobs:
             deps
             deps-dev
             branding
-            bridge-ui-v2
+            bridge-ui
             eventindexer
             fork-diff
             guardian-prover-health-check

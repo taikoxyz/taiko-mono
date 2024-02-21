@@ -463,19 +463,29 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        // Only on the base layer (L1) should the returned values be non-zero.
-        // if (
-        //     block.chainid == 1 // Ethereum mainnet
-        //         || block.chainid == 2 // Ropsten
-        //         || block.chainid == 4 // Rinkeby
-        //         || block.chainid == 5 // Goerli
-        //         || block.chainid == 42 // Kovan
-        //         || block.chainid == 11_155_111 // Sepolia
-        // ) {
-        //     return (6 hours, 15 minutes);
-        // }
-
-        return (0, 0);
+        if (
+            block.chainid == 1 // Ethereum mainnet
+        ) {
+            // For Taiko mainnet
+            // 384 seconds = 6.4 minutes = one ethereum epoch
+            return (6 hours, 384 seconds);
+        } else if (
+            block.chainid == 2 // Ropsten
+                || block.chainid == 4 // Rinkeby
+                || block.chainid == 5 // Goerli
+                || block.chainid == 42 // Kovan
+                || block.chainid == 17_000 // Holesky
+                || block.chainid == 11_155_111 // Sepolia
+        ) {
+            // For all Taiko public testnets
+            return (30 minutes, 384 seconds);
+        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
+            // For all Taiko internal devnets
+            return (5 minutes, 384 seconds);
+        } else {
+            // This is a Taiko L2 chain where no deleys are applied.
+            return (0, 0);
+        }
     }
 
     /// @notice Hash the message
