@@ -91,7 +91,7 @@ contract TestERC20Airdrop is TaikoTest {
 
         // 2. Need to add it to the AddressManager (below here i'm just mocking it) so that we can
         // mint TKO. Basically this step only required in this test. Only thing we need to be sure
-        // on testnet/mainnet. Vault (which Aridrop transfers from) HAVE tokens.
+        // on testnet/mainnet. Vault (which Airdrop transfers from) HAVE tokens.
         addressManager = new MockAddressManager(address(vault));
 
         // 3. Deploy a bridged TKO token (but on mainnet it will be just a bridged token from L1 to

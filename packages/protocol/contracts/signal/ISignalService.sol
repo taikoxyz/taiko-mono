@@ -93,6 +93,7 @@ interface ISignalService {
         returns (bool);
 
     /// @notice Returns the given block's  chain data.
+    /// @param chainId Indenitifer of the chainId.
     /// @param kind A value to mark the data type.
     /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
@@ -106,4 +107,19 @@ interface ISignalService {
         external
         view
         returns (uint64 _blockId, bytes32 _chainData);
+
+    /// @notice Returns the data to be used for caching slot generation.
+    /// @param chainId Indenitifer of the chainId.
+    /// @param kind A value to mark the data type.
+    /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
+    /// block id.
+    /// @return signal The signal used for caching slot creation.
+    function signalForChainData(
+        uint64 chainId,
+        bytes32 kind,
+        uint64 blockId
+    )
+        external
+        pure
+        returns (bytes32 signal);
 }
