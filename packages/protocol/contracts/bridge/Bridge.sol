@@ -479,7 +479,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             // For all public testnets
             return (30 minutes, 384 seconds);
-        } else if (block.chainid == 32_382) {
+        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
             // For all internal devnets
             return (5 minutes, 384 seconds);
         } else {
