@@ -40,10 +40,11 @@ contract SignalService is EssentialContract, ISignalService {
         bytes[] storageProof;
     }
 
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
-    mapping(address => bool) public isAuthorized;
-    uint256[49] private __gap;
+    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId; // slot 1
+    mapping(address => bool) public isAuthorized; // slot 2
+    uint256[48] private __gap;
 
+    event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
     event Authorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
@@ -172,7 +173,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function isSignalSent(address app, bytes32 signal) public view returns (bool) {
-        return _loadSignalValue(app, signal) == signal;
+        return _loadSignalValue(app, signal) != 0;
     }
 
     /// @inheritdoc ISignalService
@@ -194,6 +195,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
+    /// @inheritdoc ISignalService
     function signalForChainData(
         uint64 chainId,
         bytes32 kind,
@@ -280,6 +282,7 @@ contract SignalService is EssentialContract, ISignalService {
         assembly {
             sstore(slot, value)
         }
+        emit SignalSent(app, signal, slot, value);
     }
 
     function _cacheChainData(
