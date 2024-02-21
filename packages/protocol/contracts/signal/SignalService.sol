@@ -194,6 +194,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
+    /// @inheritdoc ISignalService
     function signalForChainData(
         uint64 chainId,
         bytes32 kind,
