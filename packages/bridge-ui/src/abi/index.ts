@@ -729,6 +729,63 @@ export const bridgeAbi = [
 ] as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CrossChainSync
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const crossChainSyncAbi = [
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [{ name: 'blockId', internalType: 'uint64', type: 'uint64' }],
+    name: 'getSyncedSnippet',
+    outputs: [
+      {
+        name: 'snippet',
+        internalType: 'struct ICrossChainSync.Snippet',
+        type: 'tuple',
+        components: [
+          { name: 'remoteBlockId', internalType: 'uint64', type: 'uint64' },
+          { name: 'syncedInBlock', internalType: 'uint64', type: 'uint64' },
+          { name: 'blockHash', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'stateRoot', internalType: 'bytes32', type: 'bytes32' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'syncedInBlock',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: true,
+      },
+      {
+        name: 'blockId',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: true,
+      },
+      {
+        name: 'blockHash',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: false,
+      },
+      {
+        name: 'stateRoot',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: false,
+      },
+    ],
+    name: 'CrossChainSynced',
+  },
+] as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ERC1155Vault
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4309,6 +4366,17 @@ export const signalServiceAbi = [
     inputs: [{ name: 'signal', internalType: 'bytes32', type: 'bytes32' }],
     name: 'sendSignal',
     outputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
+  },
+  {
+    stateMutability: 'pure',
+    type: 'function',
+    inputs: [
+      { name: 'chainId', internalType: 'uint64', type: 'uint64' },
+      { name: 'kind', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'blockId', internalType: 'uint64', type: 'uint64' },
+    ],
+    name: 'signalForChainData',
+    outputs: [{ name: 'signal', internalType: 'bytes32', type: 'bytes32' }],
   },
   {
     stateMutability: 'nonpayable',
