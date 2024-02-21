@@ -463,7 +463,6 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        // Only on the base layer (L1) should the returned values be non-zero.
         if (
             block.chainid == 1 // Ethereum mainnet
         ) {
@@ -478,6 +477,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             return (30 minutes, 384 seconds);
         } else {
+            // This is a L2 chain where there is no delay in message executation.
             return (0, 0);
         }
     }
