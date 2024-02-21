@@ -12,6 +12,7 @@ import ERC721Vault from '../protocol/out/ERC721Vault.sol/ERC721Vault.json';
 import ERC1155Vault from '../protocol/out/ERC1155Vault.sol/ERC1155Vault.json';
 import FreeMintERC20 from '../protocol/out/FreeMintERC20.sol/FreeMintERC20.json';
 import ICrossChainSync from '../protocol/out/ICrossChainSync.sol/ICrossChainSync.json';
+import ISignalService from '../protocol/out/ISignalService.sol/ISignalService.json';
 
 export default defineConfig({
   out: 'src/abi/index.ts',
@@ -35,6 +36,10 @@ export default defineConfig({
     {
       name: 'CrossChainSync',
       abi: ICrossChainSync.abi as Abi,
+    },
+    {
+      name: 'SignalService',
+      abi: ISignalService.abi as Abi,
     },
     {
       name: 'FreeMintERC20',
