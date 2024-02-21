@@ -83,7 +83,7 @@ library LibVerifying {
 
     function isConfigValid(TaikoData.Config memory config) public pure returns (bool isValid) {
         if (
-            config.chainId <= 1 //
+            config.chainId <= 1 || config.chainId == block.chainid //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
