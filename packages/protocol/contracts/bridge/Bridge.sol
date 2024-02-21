@@ -464,16 +464,16 @@ contract Bridge is EssentialContract, IBridge {
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
         // Only on the base layer (L1) should the returned values be non-zero.
-        // if (
-        //     block.chainid == 1 // Ethereum mainnet
-        //         || block.chainid == 2 // Ropsten
-        //         || block.chainid == 4 // Rinkeby
-        //         || block.chainid == 5 // Goerli
-        //         || block.chainid == 42 // Kovan
-        //         || block.chainid == 11_155_111 // Sepolia
-        // ) {
-        //     return (6 hours, 15 minutes);
-        // }
+        if (
+            block.chainid == 1 // Ethereum mainnet
+                || block.chainid == 2 // Ropsten
+                || block.chainid == 4 // Rinkeby
+                || block.chainid == 5 // Goerli
+                || block.chainid == 42 // Kovan
+                || block.chainid == 11_155_111 // Sepolia
+        ) {
+            return (1 hours, 15 minutes);
+        }
 
         return (0, 0);
     }
