@@ -83,10 +83,7 @@ library LibVerifying {
 
     function isConfigValid(TaikoData.Config memory config) public pure returns (bool isValid) {
         if (
-            config.chainId <= 1
-            // [32_300 - 32_400] is the ID range for Taiko's internal devnets
-            || (config.chainId >= 32_300 && config.chainId <= 32_400)
-                || config.blockMaxProposals == 1
+            config.chainId <= 1 || config.chainId == block.chainid || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
