@@ -475,7 +475,7 @@ contract Bridge is EssentialContract, IBridge {
                 || block.chainid == 42 // Kovan
                 || block.chainid == 17_000 // Holesky
                 || block.chainid == 11_155_111 // Sepolia
-                || block.chainid == 32_382 // Chain ID for all Taiko devnet L1
+                || block.chainid == 32_382 // Chain ID for all Taiko devnet L1s
         ) {
             return (30 minutes, 384 seconds);
         } else {
