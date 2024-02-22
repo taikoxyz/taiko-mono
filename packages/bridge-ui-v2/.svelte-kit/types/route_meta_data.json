@@ -1,5 +1,0 @@
-{
-  "/": ["src/routes/+layout.ts", "src/routes/+layout.ts"],
-  "/faucet": ["src/routes/+layout.ts"],
-  "/transactions": ["src/routes/+layout.ts"]
-}
