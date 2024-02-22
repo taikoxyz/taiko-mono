@@ -59,7 +59,7 @@
 {:else}
   <ActionButton
     priority="primary"
-    class="!max-w-[215px] !min-h-[32px] !f-items-center !py-0"
+    class="!max-w-[215px] !min-h-[32px] !max-h-[48px] !f-items-center !py-0"
     loading={web3modalOpen}
     on:click={connectWallet}>
     <div class="flex items-center body-regular space-x-2">
