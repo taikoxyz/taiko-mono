@@ -1,0 +1,509 @@
+{
+  "amount": {
+    "errors": {
+      "failed_max": "無法使用最大金額"
+    }
+  },
+  "bridge": {
+    "actions": {
+      "approve": {
+        "rejected": {
+          "title": "批准請求被拒絕"
+        },
+        "success": {
+          "message": "您現在可以進行跨鏈 {token}。",
+          "title": "已批准的代幣"
+        },
+        "tx": {
+          "message": "在瀏覽器上追踪 {token} 代幣批准狀態 <a href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。",
+          "title": "批准已發送"
+        }
+      },
+      "bridge": {
+        "success": {
+          "message": "您正在為 Taiko 上領取資金做準備。",
+          "title": "交易完成"
+        },
+        "tx": {
+          "message": "您的跨鏈交易已確認。該交易可能需要幾分鐘完成，追蹤 <a href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。",
+          "title": "交易已發送"
+        }
+      },
+      "nft_manual": "手動添加",
+      "nft_scan": "掃描 NFT",
+      "nft_scan_again": "再次掃描"
+    },
+    "alerts": {
+      "slow_bridging": "請注意：跨鏈到 L1 將花費約 24 小時！"
+    },
+    "button": {
+      "approve": "批准",
+      "approved": "已批准",
+      "approving": "正在批准",
+      "bridge": "跨鏈",
+      "bridging": "正在跨鏈",
+      "fetch": "獲取 NFT 數據",
+      "import": "導入",
+      "validating": "正在驗證..."
+    },
+    "description": {
+      "default": "將您的資產跨鏈轉移。",
+      "fungible": {
+        "confirm": "跨鏈您的資產",
+        "import": "將您的資產跨鏈轉移",
+        "recipient": "設定接收方區塊鏈的資訊。",
+        "review": "驗證您的交易細節"
+      },
+      "nft": {
+        "confirm": "跨鏈您的 NFT",
+        "import": "將您的 NFT 跨鏈轉移",
+        "recipient": "設定接收方區塊鏈的資訊。",
+        "review": "驗證您的交易細節"
+      }
+    },
+    "errors": {
+      "approve_error": {
+        "message": "嘗試批准此代幣時遇到問題。",
+        "title": "批准失敗"
+      },
+      "approve_rejected": {
+        "title": "用戶拒絕批准請求"
+      },
+      "cannot_fetch_balance": "獲取餘額時出錯。是否選錯鏈？",
+      "custom_token": {
+        "not_found": {
+          "message": "找不到代幣。您是否在正確的網絡上？"
+        }
+      },
+      "insufficient_allowance": {
+        "message": "請增加您的額度以繼續跨鏈操作。",
+        "title": "額度不足"
+      },
+      "insufficient_balance": {
+        "message": "抱歉，您的錢包餘額不足以支付這個代幣。",
+        "title": "錢包餘額不足"
+      },
+      "invalid_proof_provided": "提供了無效的證明。",
+      "no_allowance_required": {
+        "message": "您已經有足夠的額度進行此請求。",
+        "title": "已設定額度"
+      },
+      "no_decimals_allowed": "此代幣不支持小數。",
+      "not_the_owner_of_all": "您必須是所有代幣的擁有者。",
+      "process_message_error": "無法處理消息。",
+      "release_error": {
+        "message": "無法釋放資金。"
+      },
+      "retry_error": "重試領取失敗",
+      "send_erc20_error": {
+        "message": "嘗試發送 ERC20 代幣時出現問題。",
+        "title": "發送失敗"
+      },
+      "send_message_error": {
+        "message": "請再試一次",
+        "title": "發送失敗"
+      },
+      "unknown_error": {
+        "message": "發生未知錯誤。請再試一次。",
+        "title": "未知錯誤"
+      }
+    },
+    "nft": {
+      "step": {
+        "import": {
+          "nft_card": {
+            "select": "選擇 NFT",
+            "title": "NFT 詳細資料"
+          },
+          "no_nft_found": "我們找不到任何 NFT。請再試一次，或考慮手動添加。",
+          "scan_screen": {
+            "description": "沒有看到您的 NFT？嘗試手動添加！",
+            "title": "您的 NFT ({number} 項)"
+          },
+          "select_all": "全選"
+        },
+        "review": {
+          "recipient_details": "接收者詳情",
+          "transfer_details": "轉移詳情",
+          "your_tokens": "您的代幣位於"
+        }
+      }
+    },
+    "step": {
+      "confirm": {
+        "analyzing": "請稍候",
+        "approve": {
+          "description": "在啟動跨鏈之前，首先需要批准轉移。",
+          "pending": "請等待您的交易被接受",
+          "success": {
+            "message": "您的批准交易已確認。交易可能需要幾分鐘完成，追踪它 <a class='link' href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。"
+          },
+          "title": "需要批准"
+        },
+        "approved": {
+          "description_eth": "您現在可以繼續進行跨鏈操作",
+          "description_token": "所有代幣都已批准，您現在可以進行資產跨鏈",
+          "title": "繼續跨鏈"
+        },
+        "bridge": {
+          "success": {
+            "message": "您的跨鏈交易已確認。交易可能需要幾分鐘完成，追踪它 <a class='link' href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。"
+          }
+        },
+        "button": {
+          "back": "返回跨鏈"
+        },
+        "checking_status": "正在檢查批准狀態",
+        "processing": "處理中...",
+        "title": "確認"
+      },
+      "import": {
+        "title": "導入"
+      },
+      "review": {
+        "title": "審核"
+      }
+    },
+    "title": {
+      "default": "跨鏈代幣",
+      "fungible": {
+        "confirm": "確認",
+        "import": "跨鏈代幣",
+        "recipient": "接收者",
+        "review": "審核"
+      },
+      "nft": {
+        "confirm": "確認",
+        "import": "導入 NFT",
+        "recipient": "接收者",
+        "review": "審核"
+      }
+    },
+    "welcome_modal": {
+      "body": "歡迎來到 <span class='font-bold text-primary-brand'>Katla，我們的最終測試網</span>。<br/>加強安全可能會導致 L2→L1 跨鏈有些延遲，在測試網約 <span class='font-bold text-primary-brand'>24 小時</span>。我們正在努力在主網上縮短延遲時間。",
+      "confirm": "我已了解",
+      "link": "了解更多",
+      "title": "重要更新"
+      }
+    },
+    "chain_selector": {
+      "currently_on": "您目前位於",
+      "disabled_options": {
+        "description": "由於沒有有效的跨鏈配置",
+        "title": "禁用選項？"
+      },
+      "from_placeholder": "選擇源鏈",
+      "placeholder": "選擇鏈",
+      "to_placeholder": "選擇目標鏈"
+    },
+    "common": {
+      "add": "添加",
+      "address": "地址",
+      "amount": "數量",
+      "back": "返回",
+      "balance": "餘額",
+      "bridged_address": "跨鏈地址",
+      "cancel": "取消",
+      "canonical_address": "標準地址",
+      "close": "關閉",
+      "collection": "集合",
+      "confirm": "確認",
+      "continue": "繼續",
+      "contract_address": "合約地址",
+      "customized": "自定義",
+      "destination": "目的地",
+      "edit": "編輯",
+      "error": "錯誤",
+      "fetching_balance": "正在獲取餘額...",
+      "from": "從",
+      "id": "ID",
+      "loading": "加載中",
+      "name": "名稱",
+      "not_available_short": "不可用",
+      "ok": "確定",
+      "status": "狀態",
+      "success": "成功",
+      "symbol": "符號",
+      "to": "至",
+      "token_id": "代幣 ID",
+      "token_standard": "代幣標準"
+    },
+    "custom_recipient": {
+      "placeholder": "添加自定義接收者"
+    },
+    "faucet": {
+      "button": {
+        "checking": "檢查可鑄造性",
+        "mint": "鑄造",
+        "minting": "正在鑄造"
+      },
+      "description": "鑄造測試代幣。",
+      "mint": {
+        "error": "您已經鑄造了您的代幣。",
+        "rejected": {
+          "message": "嘗試鑄造代幣時發生錯誤。",
+          "title": "鑄造代幣錯誤"
+        },
+        "success": {
+          "message": "檢查您在跨鏈頁面上的更新後餘額。",
+          "title": "代幣成功鑄造"
+        },
+        "tx": {
+          "message": "在瀏覽器中追踪進度 <a href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。",
+          "title": "交易已發送"
+        },
+        "unknown_error": "出了些問題，請重試。"
+      },
+      "title": "水龍頭",
+      "warning": {
+        "insufficient_balance": "您的 ETH 不足以完成交易。請向您的錢包添加一些 ETH。",
+        "no_connected": "請連接您的錢包以鑄造代幣。",
+        "not_mintable": "這個代幣在此網絡上無法鑄造",
+        "token_minted": "您已經鑄造了這個代幣。",
+        "unknown": "有些事情沒有按計劃進行"
+      },
+      "wrong_chain": {
+        "button": "切換至 {network}",
+        "message": "您似乎在錯誤的網絡上。切換到 {network} 以鑄造代幣。"
+      }
+    },
+    "inputs": {
+      "address_input": {
+        "errors": {
+          "invalid": "無效的地址格式",
+          "not_erc20": "這不是當前網絡上的有效 ERC20 地址",
+          "not_nft": "這不是當前網絡上的有效 NFT 地址",
+          "too_short": "地址太短"
+        },
+        "label": {
+          "contract": "合約地址",
+          "default": "地址",
+          "recipient": "接收者地址"
+        },
+        "placeholder": "輸入有效的以太坊地址",
+        "success": "有效的地址格式"
+      },
+      "amount": {
+        "balance": "餘額",
+        "button": {
+          "max": "最大"
+        },
+        "errors.failed_max": "無法估算最大跨鏈金額。",
+        "label": "金額"
+      },
+      "token_id_input": {
+        "errors": {
+          "invalid": "不是有效的數字值"
+        },
+        "label": "代幣 ID",
+        "placeholder": "例如 1（僅數字）"
+      }
+    },
+    "messages": {
+      "account": {
+        "connected": "賬戶已連接",
+        "disconnected": "賬戶已斷開",
+        "required": "請連接您的錢包。"
+      },
+      "bridge": {
+        "nft_scanning": "掃描 NFT"
+      },
+      "network": {
+        "pending": {
+          "message": "請打開您的錢包檢查當前狀態。",
+          "title": "網絡切換待定"
+        },
+        "rejected": {
+          "message": "用戶拒絕了切換網絡的請求。",
+          "title": "網絡切換被拒絕"
+        },
+        "required": "必須選擇源鏈。",
+        "required_dest": "必須選擇目的鏈。",
+        "success": {
+          "message": "成功切換到 {chainName}",
+          "title": "已連接"
+        },
+        "switching": "正在切換網絡"
+      }
+    },
+    "nav": {
+      "bridge": "跨鏈",
+      "explorer": "瀏覽器",
+      "faucet": "水龍頭",
+      "guide": "指南",
+      "nft": "NFT",
+      "theme": "主題",
+      "token": "代幣",
+      "transactions": "交易",
+      "swap": "交換"
+    },
+    "paused_modal": {
+      "description": "跨鏈目前不可用。關注我們的官方通訊頻道以獲取更多信息。",
+      "title": "跨鏈維護中！"
+    },
+    "processing_fee": {
+      "button": {
+        "cancel": "取消",
+        "confirm": "確認"
+      },
+      "custom": {
+        "label": "自定義",
+        "text": "自定義您的處理費"
+      },
+      "customized": "已自定義",
+      "description": "您提供給處理者以在目的鏈上處理您的跨鏈信息的支付。",
+      "link": "自定義費用",
+      "none": {
+        "label": "無",
+        "text": "使用 ETH 稍後手動領取您的跨鏈代幣",
+        "warning": "ETH 不足以支付領取的燃氣費。"
+      },
+      "recommended": {
+        "calculating": "正在計算",
+        "error": "計算錯誤",
+        "label": "推薦"
+      },
+      "title": "處理費",
+      "tooltip": "您提供給目的鏈上的處理者所支付用作處理您的跨鏈信息的費用。",
+      "tooltip_title": "什麼是處理費？"
+    },
+    "recipient": {
+      "description": "您可以設置一個自定義地址作為您的資金接收者，而不是您當前的錢包地址。",
+      "label": "含費用約 ~",
+      "link": "更改接收者",
+      "placeholder": "添加自定義接收者 0x…",
+      "title": "接收者地址",
+      "tooltip": "默認為您的地址。您可以添加一個自定義接收者地址。",
+      "tooltip_title": "什麼是自定義接收者？"
+    },
+    "switch_modal": {
+      "description": "您當前的網絡不受支持。請選擇以下鏈之一以繼續：",
+      "title": "檢測到錯誤網絡"
+    },
+    "token_dropdown": {
+      "add_custom": "添加自定義",
+      "custom_token": {
+        "button": "添加代幣",
+        "description": "您可以通過在下面輸入合約地址來添加您自己的代幣。請確保您在代幣部署的鏈上。",
+        "title": "添加您自己的代幣"
+      },
+      "label": "選擇代幣"
+    },
+    "transactions": {
+      "actions": {
+        "claim": {
+          "dialog": {
+            "description": "餘額不足以自行領取。請等待處理者自動為您領取。參閱我們的指南以獲取更多信息。",
+            "link": "前往指南",
+            "title": "請稍候"
+          },
+          "rejected": {
+            "title": "拒絕領取請求。"
+          },
+          "success": {
+            "message": "您的資金已在 {network} 上成功領取。",
+            "title": "交易完成"
+          },
+          "tx": {
+            "message": "在瀏覽器中追踪進度 <a href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。",
+            "title": "交易已發送"
+          }
+        },
+        "release": {
+          "rejected": {
+            "title": "拒絕釋放請求。"
+          },
+          "success": {
+            "message": "您的資金已在 {network} 上釋放",
+            "title": "交易完成"
+          },
+          "tx": {
+            "message": "在瀏覽器中追踪進度 <a href=\"{url}\" target=\"_blank\"><b>這裡</b></a>。",
+            "title": "交易已發送"
+          }
+        }
+      },
+      "button": {
+        "claim": "領取",
+        "release": "釋放",
+        "retry": "重試"
+      },
+      "description": "在此處追踪您的跨鏈交易。",
+      "details_dialog": {
+        "title": "交易詳情"
+      },
+      "errors": {
+        "insufficient_balance": "餘額不足以自行領取。請等待處理者自動為您領取。參閱我們的指南以獲取更多信息。",
+        "relayer_offline": "處理者沒有回應。您的交易可能只加載了部分。"
+      },
+      "filter": {
+        "all": "全部",
+        "claimed": "已領取",
+        "failed": "失敗",
+        "processing": "處理中",
+        "retry": "可重試",
+        "title": "過濾器"
+      },
+      "header": {
+        "amount": "金額",
+        "explorer": "瀏覽器",
+        "from": "來自",
+        "item": "項目",
+        "status": "狀態",
+        "to": "至"
+      },
+      "link": {
+        "explorer": "查看詳情",
+        "explorer_short": "查看"
+      },
+      "no_transactions": "沒有找到交易",
+      "status": {
+        "claim": {
+          "description": "您的資產現在已準備好在目的鏈上領取，需要一筆交易。如果您已設置處理費，處理者將代表您自動處理領取過程。",
+          "name": "領取"
+        },
+        "claimed": {
+          "description": "您的資產已成功完成跨鏈過程，現在可以在目的鏈上使用。",
+          "name": "已領取"
+        },
+        "claiming": "正在領取",
+        "dialog": {
+          "description": "跨鏈信息經歷不同階段：",
+          "title": "信息狀態"
+        },
+        "error": {
+          "name": "失敗"
+        },
+        "failed": {
+          "description": "您的跨鏈交易未成功。",
+          "name": "失敗"
+        },
+        "pending": {
+          "description": "您的資產尚未準備好領取。從 Taiko 到 Sepolia 的跨鏈過程可能需要幾個小時才能變得可領取。從 Sepolia 到 Taiko 的跨鏈應在幾分鐘內可以領取。",
+          "name": "待定"
+        },
+        "processing": {
+          "description": "交易正在處理中。根據待驗證的待處理區塊，這可能需要幾分鐘的時間。",
+          "name": "處理中"
+        },
+        "release": {
+          "description": "您的跨鏈資產無法處理，現在可以在源鏈上使用。",
+          "name": "釋放"
+        },
+        "releasing": "正在釋放",
+        "retry": {
+          "description": "處理者無法處理此消息，您將需要自己重試處理。",
+          "name": "重試"
+        }
+      },
+      "title": "交易"
+    },
+    "wallet": {
+      "connect": "連接錢包",
+      "status": {
+        "connected": "已連接",
+        "connecting": "正在連接",
+        "disconnected": "已斷開"
+      }
+    }
+  }
