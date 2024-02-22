@@ -31,14 +31,12 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
 
     event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector);
 
-    error XCO_INVALID_MSG_VALUE();
     error XCO_INVALID_OWNER_CHAINID();
     error XCO_INVALID_TX_ID();
     error XCO_PERMISSION_DENIED();
     error XCO_TX_REVERTED();
 
     function onMessageInvocation(bytes calldata data) external payable nonReentrant {
-        if (msg.value != 0) revert XCO_INVALID_MSG_VALUE();
         if (msg.sender != resolve("bridge", false)) revert XCO_PERMISSION_DENIED();
 
         (uint64 txId, bytes memory txdata) = abi.decode(data, (uint64, bytes));
