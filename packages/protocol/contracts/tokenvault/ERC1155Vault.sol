@@ -92,8 +92,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
-    /// @inheritdoc IMessageReceiver
-    function onReceive(bytes calldata data) external payable nonReentrant whenNotPaused {
+    /// @inheritdoc IMessageInvocable
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
         (
             CanonicalNFT memory ctoken,
             address from,
@@ -277,8 +277,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             }
         }
-        msgData =
-            abi.encodeCall(this.onReceive, abi.encode(ctoken, user, op.to, op.tokenIds, op.amounts));
+        msgData = abi.encodeCall(
+            this.onMessageInvocation, abi.encode(ctoken, user, op.to, op.tokenIds, op.amounts)
+        );
     }
 
     /// @dev Retrieve or deploy a bridged ERC1155 token contract.

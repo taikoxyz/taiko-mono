@@ -14,6 +14,7 @@
 
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
@@ -24,6 +25,7 @@ import "./IBridge.sol";
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
+    using Address for address;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -146,13 +148,6 @@ contract Bridge is EssentialContract, IBridge {
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
-
-        if (
-            message.data.length >= 4 // msg can be empty
-                && bytes4(message.data) != IMessageReceiver.onReceive.selector
-        ) {
-            revert B_INVALID_SELECTOR();
-        }
 
         // Verify destination chain and to address.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
@@ -322,7 +317,7 @@ contract Bridge is EssentialContract, IBridge {
                 // use remaining gas
                 uint256 gasLimit = msg.sender == message.destOwner ? gasleft() : message.gasLimit;
 
-                if (_invokeMessageCall(message, msgHash, gasLimit)) {
+                if (_onMessageInvocationCall(message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
                 } else {
                     _updateMessageStatus(msgHash, Status.RETRIABLE);
@@ -378,7 +373,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(message, msgHash, gasleft())) {
+        if (_onMessageInvocationCall(message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -523,7 +518,7 @@ contract Bridge is EssentialContract, IBridge {
     /// successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
-    function _invokeMessageCall(
+    function _onMessageInvocationCall(
         Message calldata message,
         bytes32 msgHash,
         uint256 gasLimit
@@ -535,6 +530,16 @@ contract Bridge is EssentialContract, IBridge {
         assert(message.from != address(this));
 
         _storeContext({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
+
+        if (
+            message.data.length >= 4 // msg can be empty
+                && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
+                && message.to.isContract()
+        ) {
+            // We do not mark the message as permanently failed as message.to may be a future
+            // contract.
+            revert B_INVALID_SELECTOR();
+        }
 
         // Perform the message call and capture the success value
         (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);

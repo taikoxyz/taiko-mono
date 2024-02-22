@@ -23,7 +23,7 @@ import "../libs/LibDeploy.sol";
 abstract contract BaseVault is
     EssentialContract,
     IRecallableSender,
-    IMessageReceiver,
+    IMessageInvocable,
     IERC165Upgradeable
 {
     error VAULT_PERMISSION_DENIED();

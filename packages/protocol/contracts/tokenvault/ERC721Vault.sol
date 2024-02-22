@@ -80,8 +80,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         });
     }
 
-    /// @inheritdoc IMessageReceiver
-    function onReceive(bytes calldata data) external payable nonReentrant whenNotPaused {
+    /// @inheritdoc IMessageInvocable
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(data, (CanonicalNFT, address, address, uint256[]));
 
@@ -215,7 +215,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        msgData = abi.encodeCall(this.onReceive, abi.encode(ctoken, user, op.to, op.tokenIds));
+        msgData =
+            abi.encodeCall(this.onMessageInvocation, abi.encode(ctoken, user, op.to, op.tokenIds));
     }
 
     /// @dev Retrieve or deploy a bridged ERC721 token contract.

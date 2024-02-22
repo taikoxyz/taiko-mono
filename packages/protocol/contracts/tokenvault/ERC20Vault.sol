@@ -211,8 +211,8 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    /// @inheritdoc IMessageReceiver
-    function onReceive(bytes calldata data) external payable nonReentrant whenNotPaused {
+    /// @inheritdoc IMessageInvocable
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
 
@@ -332,7 +332,8 @@ contract ERC20Vault is BaseVault {
             balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
-        msgData = abi.encodeCall(this.onReceive, abi.encode(ctoken, user, to, balanceChange));
+        msgData =
+            abi.encodeCall(this.onMessageInvocation, abi.encode(ctoken, user, to, balanceChange));
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.

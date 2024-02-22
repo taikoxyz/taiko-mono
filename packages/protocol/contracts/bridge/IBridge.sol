@@ -81,8 +81,8 @@ interface IRecallableSender {
         payable;
 }
 
-/// @title IMessageReceiver
+/// @title IMessageInvocable
 /// @notice An interface that all bridge message receiver shall implement
-interface IMessageReceiver {
-    function onReceive(bytes calldata data) external payable;
+interface IMessageInvocable {
+    function onMessageInvocation(bytes calldata data) external payable;
 }
