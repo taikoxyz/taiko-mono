@@ -23,7 +23,7 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
-  import { account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
   import DialogView from './DialogView.svelte';
@@ -174,10 +174,11 @@
     if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
   };
 
-  const onAccountChange = () => {
+  const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
-    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
+    if (destChain && srcChain && (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount))
+      updateBalance($account?.address, srcChain.id, destChain.id);
   };
 
   $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
