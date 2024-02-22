@@ -790,8 +790,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash: parentHash,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    graffiti: 0x0,
-                    __reserved: [bytes32(0), bytes32(0)]
+                    graffiti: 0x0
                 });
 
                 TaikoData.TierProof memory proof;
