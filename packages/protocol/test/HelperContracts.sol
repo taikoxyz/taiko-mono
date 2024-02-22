@@ -25,11 +25,6 @@ contract GoodReceiver is IMessageInvocable {
         address addr = abi.decode(data, (address));
         payable(addr).transfer(address(this).balance / 2);
     }
-
-    function onMessageInvocation2(bytes calldata data) public payable {
-        address addr = abi.decode(data, (address));
-        payable(addr).transfer(address(this).balance / 2);
-    }
 }
 
 // NonNftContract
