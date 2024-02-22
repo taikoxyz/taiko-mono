@@ -36,6 +36,7 @@ abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     }
 
     /// @notice Initializes the contract without an address manager.
+    // solhint-disable-next-line func-name-mixedcase
     function __Essential_init() internal virtual {
         __Essential_init(address(0));
     }

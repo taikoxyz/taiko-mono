@@ -339,13 +339,6 @@ contract BridgeTest is TaikoTest {
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
         assertEq(Carol.balance, 500);
-
-        // Cannot call onMessageInvocation2
-        message.data = abi.encodeCall(GoodReceiver.onMessageInvocation2, abi.encode(Carol));
-
-        vm.prank(Bob, Bob);
-        vm.expectRevert(Bridge.B_INVALID_SELECTOR.selector);
-        destChainBridge.processMessage(message, proof);
     }
 
     function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {

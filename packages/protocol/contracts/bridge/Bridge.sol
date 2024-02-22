@@ -74,7 +74,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_SELECTOR();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
@@ -536,11 +535,10 @@ contract Bridge is EssentialContract, IBridge {
                 && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
                 && message.to.isContract()
         ) {
-            revert B_INVALID_SELECTOR();
+            success = false;
+        } else {
+            (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
         }
-
-        // Perform the message call and capture the success value
-        (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
 
         // Reset the context after the message call
         _resetContext();
