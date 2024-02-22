@@ -211,22 +211,11 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    /// @notice Receive bridged ERC20 tokens and Ether.
-    /// @param ctoken Canonical ERC20 data for the token being received.
-    /// @param from Source address.
-    /// @param to Destination address.
-    /// @param amount Amount of tokens being received.
-    function receiveToken(
-        CanonicalERC20 calldata ctoken,
-        address from,
-        address to,
-        uint256 amount
-    )
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-    {
+    /// @inheritdoc IMessageReceiver
+    function onReceive(bytes calldata data) external payable nonReentrant whenNotPaused {
+        (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
+            abi.decode(data, (CanonicalERC20, address, address, uint256));
+
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         // Don't allow sending to disallowed addresses.
@@ -260,8 +249,9 @@ contract ERC20Vault is BaseVault {
     {
         checkRecallMessageContext();
 
+        (bytes memory _data) = abi.decode(message.data[4:], (bytes));
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
-            abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
+            abi.decode(_data, (CanonicalERC20, address, address, uint256));
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.srcOwner, amount);
@@ -342,7 +332,7 @@ contract ERC20Vault is BaseVault {
             balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
-        msgData = abi.encodeCall(this.receiveToken, (ctoken, user, to, balanceChange));
+        msgData = abi.encodeCall(this.onReceive, abi.encode(ctoken, user, to, balanceChange));
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.

@@ -80,22 +80,11 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         });
     }
 
-    /// @notice Receive bridged ERC721 tokens and handle them accordingly.
-    /// @param ctoken Canonical NFT data for the token being received.
-    /// @param from Source address.
-    /// @param to Destination address.
-    /// @param tokenIds Array of token IDs being received.
-    function receiveToken(
-        CanonicalNFT calldata ctoken,
-        address from,
-        address to,
-        uint256[] memory tokenIds
-    )
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-    {
+    /// @inheritdoc IMessageReceiver
+    function onReceive(bytes calldata data) external payable nonReentrant whenNotPaused {
+        (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
+            abi.decode(data, (CanonicalNFT, address, address, uint256[]));
+
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         // Don't allow sending to disallowed addresses.
@@ -130,8 +119,9 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     {
         checkRecallMessageContext();
 
+        (bytes memory _data) = abi.decode(message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds) =
-            abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[]));
+            abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.srcOwner, tokenIds);
@@ -225,7 +215,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        msgData = abi.encodeCall(this.receiveToken, (ctoken, user, op.to, op.tokenIds));
+        msgData = abi.encodeCall(this.onReceive, abi.encode(ctoken, user, op.to, op.tokenIds));
     }
 
     /// @dev Retrieve or deploy a bridged ERC721 token contract.

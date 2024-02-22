@@ -72,6 +72,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
+    error B_INVALID_SELECTOR();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
@@ -145,6 +146,13 @@ contract Bridge is EssentialContract, IBridge {
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
+
+        if (
+            message.data.length >= 4 // msg can be empty
+                && bytes4(message.data) != IMessageReceiver.onReceive.selector
+        ) {
+            revert B_INVALID_SELECTOR();
+        }
 
         // Verify destination chain and to address.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
