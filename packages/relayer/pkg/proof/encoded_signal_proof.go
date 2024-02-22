@@ -2,7 +2,6 @@ package proof
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"log/slog"
@@ -23,7 +22,6 @@ type HopParams struct {
 	Blocker              blocker
 	Caller               relayer.Caller
 	BlockNumber          uint64
-	MsgHash              string
 }
 
 func (p *Prover) EncodedSignalProofWithHops(
@@ -57,24 +55,22 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 			hop.SignalServiceAddress,
 			common.Bytes2Hex(hop.Key[:]),
 			int64(hop.BlockNumber),
-			hop.MsgHash,
 		)
 		if err != nil {
-			slog.Error("error getting proof",
-				"signalServiceAddress", hop.SignalServiceAddress,
-				"key", common.Bytes2Hex(hop.Key[:]),
-				"blockNum", hop.BlockNumber,
-			)
 			return nil, errors.Wrap(err, "hop p.getEncodedMerkleProof")
 		}
 
-		slog.Info("generated hop proof")
+		slog.Info("generated hop proof",
+			"chainID", hop.ChainID.Uint64(),
+			"blockID", block.NumberU64(),
+			"rootHash", block.Root(),
+		)
 
 		hopProofs = append(hopProofs, encoding.HopProof{
 			BlockID:      block.NumberU64(),
 			ChainID:      hop.ChainID.Uint64(),
 			RootHash:     block.Root(),
-			CacheOption:  common.Big0,
+			CacheOption:  uint8(0),
 			AccountProof: ethProof.AccountProof,
 			StorageProof: ethProof.StorageProof[0].Proof,
 		},
@@ -98,7 +94,6 @@ func (p *Prover) getProof(
 	signalServiceAddress common.Address,
 	key string,
 	blockNumber int64,
-	msgHash string,
 ) (*StorageProof, error) {
 	var ethProof StorageProof
 
@@ -119,14 +114,12 @@ func (p *Prover) getProof(
 		return nil, errors.Wrap(err, "c.CallContext")
 	}
 
-	slog.Info("proof generated", "value", common.Bytes2Hex(ethProof.StorageProof[0].Value))
+	slog.Info("proof generated",
+		"value", common.Bytes2Hex(ethProof.StorageProof[0].Value),
+	)
 
-	if common.Bytes2Hex(ethProof.StorageProof[0].Value) != msgHash[2:] {
-		return nil, fmt.Errorf(
-			"proof will not be valid, expected storageProof to be %v ,got %v",
-			msgHash,
-			common.Bytes2Hex(ethProof.StorageProof[0].Value),
-		)
+	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() == int64(0) {
+		return nil, errors.New("proof will not be valid, expected storageProof to not be 0 but was not")
 	}
 
 	return &ethProof, nil

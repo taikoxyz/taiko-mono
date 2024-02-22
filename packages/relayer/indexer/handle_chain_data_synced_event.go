@@ -18,6 +18,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *signalservice.SignalServiceChainDataSynced,
+	waitForConfirmations bool,
 ) error {
 	slog.Info("chainDataSynced event found for msgHash",
 		"signal", common.Hash(event.Signal).Hex(),
@@ -36,14 +37,15 @@ func (i *Indexer) handleChainDataSyncedEvent(
 	confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
 
 	defer confCtxCancel()
-
-	if err := relayer.WaitConfirmations(
-		confCtx,
-		i.srcEthClient,
-		uint64(defaultConfirmations),
-		event.Raw.TxHash,
-	); err != nil {
-		return err
+	if waitForConfirmations {
+		if err := relayer.WaitConfirmations(
+			confCtx,
+			i.srcEthClient,
+			uint64(defaultConfirmations),
+			event.Raw.TxHash,
+		); err != nil {
+			return err
+		}
 	}
 
 	marshaled, err := json.Marshal(event)

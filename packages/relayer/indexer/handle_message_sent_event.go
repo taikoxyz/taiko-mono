@@ -26,6 +26,7 @@ func (i *Indexer) handleMessageSentEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
+	waitForConfirmations bool,
 ) error {
 	slog.Info("MessageSent event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 
@@ -57,19 +58,21 @@ func (i *Indexer) handleMessageSentEvent(
 		return nil
 	}
 
-	// we need to wait for confirmations to confirm this event is not being reverted,
-	// removed, or reorged now.
-	confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
+	if waitForConfirmations {
+		// we need to wait for confirmations to confirm this event is not being reverted,
+		// removed, or reorged now.
+		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
 
-	defer confCtxCancel()
+		defer confCtxCancel()
 
-	if err := relayer.WaitConfirmations(
-		confCtx,
-		i.srcEthClient,
-		uint64(defaultConfirmations),
-		event.Raw.TxHash,
-	); err != nil {
-		return err
+		if err := relayer.WaitConfirmations(
+			confCtx,
+			i.srcEthClient,
+			uint64(defaultConfirmations),
+			event.Raw.TxHash,
+		); err != nil {
+			return err
+		}
 	}
 
 	// get event status from msgHash on chain

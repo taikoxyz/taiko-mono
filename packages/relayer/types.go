@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"log/slog"
@@ -12,10 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
+	"github.com/umbracle/ethgo/abi"
 )
 
 var (
@@ -58,6 +62,30 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			}
 
 			if receipt.Status != types.ReceiptStatusSuccessful {
+				ssabi, err := signalservice.SignalServiceMetaData.GetAbi()
+				if err != nil {
+					log.Crit("Get AssignmentHook ABI error", "error", err)
+				}
+
+				var customErrorMaps = []map[string]abi.Error{
+					ssabi.Errors,
+				}
+
+				errData := getErrorData(originalError)
+
+				// if errData is unparsable and returns 0x, we should not match any errors.
+				if errData == "0x" {
+					return originalError
+				}
+
+				for _, customErrors := range customErrorMaps {
+					for _, customError := range customErrors {
+						if strings.HasPrefix(customError.ID.Hex(), errData) {
+							return errors.New(customError.Name)
+						}
+					}
+				}
+
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
@@ -66,6 +94,25 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			return receipt, nil
 		}
 	}
+}
+
+// getErrorData tries to parse the actual custom error data from the given error.
+func getErrorData(err error) string {
+	// Geth node custom errors, the actual struct of this error is go-ethereum's <rpc.jsonError Value>.
+	gethJSONError, ok := err.(interface{ ErrorData() interface{} }) // nolint: errorlint
+	if ok {
+		if errData, ok := gethJSONError.ErrorData().(string); ok {
+			return errData
+		}
+	}
+
+	// Hardhat node custom errors, example:
+	// "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0xb6d363fd)"
+	if strings.Contains(err.Error(), "reverted with an unrecognized custom error") {
+		return err.Error()[len(err.Error())-11 : len(err.Error())-1]
+	}
+
+	return err.Error()
 }
 
 // WaitConfirmations won't return before N blocks confirmations have been seen

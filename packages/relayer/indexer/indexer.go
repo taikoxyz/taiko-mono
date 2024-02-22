@@ -421,7 +421,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 		event := messageSentEvents.Event
 
 		group.Go(func() error {
-			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event)
+			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event, false)
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active
@@ -457,7 +457,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 		event := messageSentEvents.Event
 
 		group.Go(func() error {
-			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event)
+			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event, false)
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active
@@ -493,7 +493,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		event := chainDataSyncedEvents.Event
 
 		group.Go(func() error {
-			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event)
+			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event, false)
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active

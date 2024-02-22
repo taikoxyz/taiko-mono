@@ -17,4 +17,8 @@ type SignalService interface {
 		blockId []uint64,
 		kind [][32]byte,
 	) (event.Subscription, error)
+	GetSyncedChainData(opts *bind.CallOpts, chainId uint64, kind [32]byte, blockId uint64) (struct {
+		BlockId   uint64
+		ChainData [32]byte
+	}, error)
 }

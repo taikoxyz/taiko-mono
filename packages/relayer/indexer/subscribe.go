@@ -72,7 +72,7 @@ func (i *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int, er
 		case event := <-sink:
 			go func() {
 				slog.Info("new message sent event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
-				err := i.handleMessageSentEvent(ctx, chainID, event)
+				err := i.handleMessageSentEvent(ctx, chainID, event, true)
 
 				if err != nil {
 					slog.Error("i.subscribe, i.handleMessageSentEvent", "error", err)
@@ -135,7 +135,7 @@ func (i *Indexer) subscribeMessageReceived(ctx context.Context, chainID *big.Int
 		case event := <-sink:
 			go func() {
 				slog.Info("new message received event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
-				err := i.handleMessageReceivedEvent(ctx, chainID, event)
+				err := i.handleMessageReceivedEvent(ctx, chainID, event, true)
 
 				if err != nil {
 					slog.Error("i.subscribe, i.handleMessageReceived", "error", err)
@@ -240,7 +240,7 @@ func (i *Indexer) subscribeChainDataSynced(ctx context.Context, chainID *big.Int
 				"syncedInBlock", event.Raw.BlockNumber,
 			)
 
-			if err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event); err != nil {
+			if err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event, true); err != nil {
 				slog.Error("error handling chain data synced event", "error", err)
 				continue
 			}

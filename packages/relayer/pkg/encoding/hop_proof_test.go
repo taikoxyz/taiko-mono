@@ -1,7 +1,6 @@
 package encoding
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,7 +14,7 @@ func Test_EncodeABISignalProof(t *testing.T) {
 			ChainID:      1,
 			BlockID:      1,
 			RootHash:     common.BigToHash(common.Big256),
-			CacheOption:  big.NewInt(0),
+			CacheOption:  0,
 			AccountProof: [][]byte{{}},
 			StorageProof: [][]byte{},
 		},

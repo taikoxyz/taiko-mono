@@ -162,7 +162,7 @@ func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 		Where("chain_id = ?", srcChainId).
 		Where("synced_chain_id = ?", syncedChainId).
 		Where("block_id >= ?", blockNumber).
-		Order("block_id ASC").
+		Order("block_id DESC").
 		Limit(1).
 		First(&e).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

@@ -25,6 +25,19 @@ func (s *SignalService) GetSignalSlot(
 	return [32]byte{0xff}, nil
 }
 
+func (s *SignalService) GetSyncedChainData(opts *bind.CallOpts, chainId uint64, kind [32]byte, blockId uint64) (struct {
+	BlockId   uint64
+	ChainData [32]byte
+}, error) {
+	return struct {
+		BlockId   uint64
+		ChainData [32]byte
+	}{
+		BlockId:   1,
+		ChainData: [32]byte{},
+	}, nil
+}
+
 func (s *SignalService) FilterChainDataSynced(opts *bind.FilterOpts, chainid []uint64, blockId []uint64, kind [][32]byte) (*signalservice.SignalServiceChainDataSyncedIterator, error) {
 	return &signalservice.SignalServiceChainDataSyncedIterator{}, nil
 }
