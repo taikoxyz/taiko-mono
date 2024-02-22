@@ -317,7 +317,7 @@ contract Bridge is EssentialContract, IBridge {
                 // use remaining gas
                 uint256 gasLimit = msg.sender == message.destOwner ? gasleft() : message.gasLimit;
 
-                if (_onMessageInvocationCall(message, msgHash, gasLimit)) {
+                if (_invokeMessageCall(message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
                 } else {
                     _updateMessageStatus(msgHash, Status.RETRIABLE);
@@ -373,7 +373,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        if (_onMessageInvocationCall(message, msgHash, gasleft())) {
+        if (_invokeMessageCall(message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -518,7 +518,7 @@ contract Bridge is EssentialContract, IBridge {
     /// successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
-    function _onMessageInvocationCall(
+    function _invokeMessageCall(
         Message calldata message,
         bytes32 msgHash,
         uint256 gasLimit
