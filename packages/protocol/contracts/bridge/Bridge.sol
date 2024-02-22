@@ -536,8 +536,6 @@ contract Bridge is EssentialContract, IBridge {
                 && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
                 && message.to.isContract()
         ) {
-            // We do not mark the message as permanently failed as message.to may be a future
-            // contract.
             revert B_INVALID_SELECTOR();
         }
 
