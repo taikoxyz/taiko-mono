@@ -196,8 +196,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78"),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32("78")
         });
 
         // TierProof
@@ -246,8 +245,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78"),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32("78")
         });
 
         // TierProof
@@ -279,8 +277,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78"),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32("78")
         });
 
         // TierProof
@@ -314,8 +311,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78"),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32("78")
         });
 
         // TierProof
@@ -354,8 +350,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78"),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32("78")
         });
 
         // TierProof
@@ -395,8 +390,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             parentHash: bytes32("12"),
             blockHash: bytes32("34"),
             stateRoot: bytes32("56"),
-            graffiti: bytes32("78"),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32("78")
         });
 
         // TierProof
