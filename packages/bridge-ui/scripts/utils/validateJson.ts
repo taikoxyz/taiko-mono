@@ -17,7 +17,7 @@ export const validateJsonAgainstSchema = (json: JSON, schema: SchmaWithId): bool
 
   if (!valid) {
     logger.error('Validation failed.');
-    console.error('Error details:', ajv.errors);
+    console.error('Error details:', validate.errors);
     return false;
   }
   logger.info(`Validation of ${schema.$id} succeeded.`);

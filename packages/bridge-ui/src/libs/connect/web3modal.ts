@@ -12,6 +12,7 @@ export const web3modal = createWeb3Modal({
   projectId,
   // chains,
   chainImages,
+  featuredWalletIds: [],
   themeVariables: {
     '--w3m-color-mix': 'var(--neutral-background)',
     '--w3m-color-mix-strength': 20,
