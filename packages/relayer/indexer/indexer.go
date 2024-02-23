@@ -95,6 +95,8 @@ type Indexer struct {
 
 	numLatestBlocksToIgnoreWhenCrawling uint64
 
+	targetBlockNumber *uint64
+
 	ctx context.Context
 
 	mu *sync.Mutex
@@ -194,6 +196,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
 
+	i.targetBlockNumber = cfg.TargetBlockNumber
+
 	i.mu = &sync.Mutex{}
 
 	return nil
@@ -273,20 +277,27 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return i.subscribe(ctx, i.srcChainId)
 	}
 
-	slog.Info("fetching batch block events",
-		"chainID", i.srcChainId.Uint64(),
-		"startblock", i.processingBlockHeight,
-		"endblock", header.Number.Int64(),
-		"batchsize", i.blockBatchSize,
-	)
-
 	endBlockID := header.Number.Uint64()
 
 	// ignore latest N blocks, they are probably in queue already
 	// and are not "missed".
 	if i.watchMode == CrawlPastBlocks {
-		endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
+		if i.targetBlockNumber != nil {
+			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
+			i.processingBlockHeight = *i.targetBlockNumber
+			endBlockID = i.processingBlockHeight + 1
+		} else {
+			endBlockID = i.numLatestBlocksToIgnoreWhenCrawling
+		}
 	}
+
+	slog.Info("fetching batch block events",
+		"chainID", i.srcChainId.Uint64(),
+		"processingBlockHeight", i.processingBlockHeight,
+		"endblock", endBlockID,
+		"batchsize", i.blockBatchSize,
+		"watchMode", i.watchMode,
+	)
 
 	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
 		end := i.processingBlockHeight + i.blockBatchSize
