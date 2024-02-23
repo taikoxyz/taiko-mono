@@ -42,8 +42,6 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
         whenNotPaused
         onlyFromNamed("bridge")
     {
-        if (msg.sender != resolve("bridge", false)) revert XCO_PERMISSION_DENIED();
-
         (uint64 txId, bytes memory txdata) = abi.decode(data, (uint64, bytes));
         if (txId != nextTxId) revert XCO_INVALID_TX_ID();
 
