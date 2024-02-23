@@ -18,41 +18,11 @@ library RLPWriter {
         }
     }
 
-    /// @notice RLP encodes a list of RLP encoded byte byte strings.
-    /// @param _in The list of RLP encoded byte strings.
-    /// @return list_ The RLP encoded list of items in bytes.
-    function writeList(bytes[] memory _in) internal pure returns (bytes memory list_) {
-        list_ = _flatten(_in);
-        list_ = abi.encodePacked(_writeLength(list_.length, 192), list_);
-    }
-
-    /// @notice RLP encodes a string.
-    /// @param _in The string to encode.
-    /// @return out_ The RLP encoded string in bytes.
-    function writeString(string memory _in) internal pure returns (bytes memory out_) {
-        out_ = writeBytes(bytes(_in));
-    }
-
-    /// @notice RLP encodes an address.
-    /// @param _in The address to encode.
-    /// @return out_ The RLP encoded address in bytes.
-    function writeAddress(address _in) internal pure returns (bytes memory out_) {
-        out_ = writeBytes(abi.encodePacked(_in));
-    }
-
     /// @notice RLP encodes a uint.
     /// @param _in The uint256 to encode.
     /// @return out_ The RLP encoded uint256 in bytes.
     function writeUint(uint256 _in) internal pure returns (bytes memory out_) {
         out_ = writeBytes(_toBinary(_in));
-    }
-
-    /// @notice RLP encodes a bool.
-    /// @param _in The bool to encode.
-    /// @return out_ The RLP encoded bool in bytes.
-    function writeBool(bool _in) internal pure returns (bytes memory out_) {
-        out_ = new bytes(1);
-        out_[0] = (_in ? bytes1(0x01) : bytes1(0x80));
     }
 
     /// @notice Encode the first byte and then the `len` in binary form if `length` is more than 55.
@@ -95,69 +65,6 @@ library RLPWriter {
         out_ = new bytes(32 - i);
         for (uint256 j = 0; j < out_.length; j++) {
             out_[j] = b[i++];
-        }
-    }
-
-    /// @custom:attribution https://github.com/Arachnid/solidity-stringutils
-    /// @notice Copies a piece of memory to another location.
-    /// @param _dest Destination location.
-    /// @param _src  Source location.
-    /// @param _len  Length of memory to copy.
-    function _memcpy(uint256 _dest, uint256 _src, uint256 _len) private pure {
-        uint256 dest = _dest;
-        uint256 src = _src;
-        uint256 len = _len;
-
-        for (; len >= 32; len -= 32) {
-            assembly {
-                mstore(dest, mload(src))
-            }
-            dest += 32;
-            src += 32;
-        }
-
-        uint256 mask;
-        unchecked {
-            mask = 256 ** (32 - len) - 1;
-        }
-        assembly {
-            let srcpart := and(mload(src), not(mask))
-            let destpart := and(mload(dest), mask)
-            mstore(dest, or(destpart, srcpart))
-        }
-    }
-
-    /// @custom:attribution https://github.com/sammayo/solidity-rlp-encoder
-    /// @notice Flattens a list of byte strings into one byte string.
-    /// @param _list List of byte strings to flatten.
-    /// @return out_ The flattened byte string.
-    function _flatten(bytes[] memory _list) private pure returns (bytes memory out_) {
-        if (_list.length == 0) {
-            return new bytes(0);
-        }
-
-        uint256 len;
-        uint256 i = 0;
-        for (; i < _list.length; i++) {
-            len += _list[i].length;
-        }
-
-        out_ = new bytes(len);
-        uint256 flattenedPtr;
-        assembly {
-            flattenedPtr := add(out_, 0x20)
-        }
-
-        for (i = 0; i < _list.length; i++) {
-            bytes memory item = _list[i];
-
-            uint256 listPtr;
-            assembly {
-                listPtr := add(item, 0x20)
-            }
-
-            _memcpy(flattenedPtr, listPtr, item.length);
-            flattenedPtr += _list[i].length;
         }
     }
 }
