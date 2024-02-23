@@ -37,6 +37,7 @@ import "../contracts/L2/TaikoL2.sol";
 import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
 import "../contracts/team/airdrop/ERC20Airdrop2.sol";
+import "../contracts/team/airdrop/ERC1155Airdrop.sol";
 
 import "../test/common/erc20/FreeMintERC20.sol";
 
