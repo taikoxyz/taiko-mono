@@ -1,4 +1,4 @@
-import { walletConnect } from '@wagmi/connectors';
+import { injected, walletConnect } from '@wagmi/connectors';
 import { createConfig, getPublicClient, http, reconnect } from '@wagmi/core';
 
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
@@ -15,7 +15,7 @@ const transports = chains.reduce((acc, { id }) => ({ ...acc, [id]: http() }), {}
 export const config = createConfig({
   //@ts-ignore
   chains: [...chains],
-  connectors: [walletConnect({ projectId })],
+  connectors: [walletConnect({ projectId, showQrModal: false }), injected()],
   transports,
 });
 
