@@ -16,7 +16,6 @@ pragma solidity 0.8.24;
 
 import "../../test/DeployCapability.sol";
 import "../../contracts/L1/gov/TaikoTimelockController.sol";
-import "../../contracts/L1/gov/TaikoTimelockController.sol";
 import "../../contracts/L1/tiers/ITierProvider.sol";
 import "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
 
