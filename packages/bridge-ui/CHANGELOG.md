@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.1...bridge-ui-v2.9.2) (2024-02-23)
+
+
+### Bug Fixes
+
+* **bridge-ui:** add injected provider to connectors ([#16008](https://github.com/taikoxyz/taiko-mono/issues/16008)) ([0496ff4](https://github.com/taikoxyz/taiko-mono/commit/0496ff40e374354b83d17121e4760391fed90a31))
+* **bridge-ui:** renamed configuredCustomToken to configuredCustomTokens ([#15905](https://github.com/taikoxyz/taiko-mono/issues/15905)) ([a9f60b8](https://github.com/taikoxyz/taiko-mono/commit/a9f60b8c114dfd277e8dc227e7fbbe8716698d53))
+
 ## [2.9.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.0...bridge-ui-v2.9.1) (2024-02-22)
 
 
