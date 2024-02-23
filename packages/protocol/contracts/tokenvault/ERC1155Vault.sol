@@ -93,12 +93,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data)
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-        onlyFromNamed("bridge")
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused 
+    // onlyFromBridge
     {
         (
             CanonicalNFT memory ctoken,
@@ -109,6 +105,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         ) = abi.decode(data, (CanonicalNFT, address, address, uint256[], uint256[]));
 
         // Check context validity
+        // `onlyFromBridge` checked in checkProcessMessageContext
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         // Don't allow sending to disallowed addresses.
@@ -141,7 +138,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         override
         nonReentrant
         whenNotPaused
+    // onlyFromBridge
     {
+        // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
 
         (bytes memory _data) = abi.decode(message.data[4:], (bytes));

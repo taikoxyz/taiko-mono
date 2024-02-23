@@ -212,16 +212,13 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data)
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-        onlyFromNamed("bridge")
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused 
+    // onlyFromBridge
     {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
 
+        // `onlyFromBridge` checked in checkProcessMessageContext
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         // Don't allow sending to disallowed addresses.
@@ -252,7 +249,9 @@ contract ERC20Vault is BaseVault {
         override
         nonReentrant
         whenNotPaused
+    // onlyFromBridge
     {
+        // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
 
         (bytes memory _data) = abi.decode(message.data[4:], (bytes));
