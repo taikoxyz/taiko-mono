@@ -132,7 +132,7 @@ contract TestLibTrieProof is TaikoTest {
         assertEq(storageRoot2, storageRoot);
     }
 
-    function test_jeff_slot_value_not_1() public {
+    function test_jeff_slot_value_not_1() public pure {
         // signal service address on internal testnet l1
         address addr = 0x83e383dec6E3C2CD167E3bF6aA8c36F0e55Ad910;
         // signalService.getStorageSlot(event.srcchainid, event.Raw.Address [the bridge address on
