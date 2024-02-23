@@ -239,7 +239,7 @@ contract SignalService is EssentialContract, ISignalService {
             hop.rootHash,
             signalService,
             getSignalSlot(chainId, app, signal),
-            bytes.concat(value),
+            value,
             hop.accountProof,
             hop.storageProof
         );
