@@ -47,7 +47,7 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
             revert XCO_PERMISSION_DENIED();
         }
 
-        (bool success,) = address(this).call(txdata);
+        (bool success,) = address(this).call{ value: msg.value }(txdata);
         if (!success) revert XCO_TX_REVERTED();
 
         emit TransactionExecuted(nextTxId++, bytes4(txdata));

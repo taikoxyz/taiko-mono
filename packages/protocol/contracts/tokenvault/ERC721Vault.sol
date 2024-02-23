@@ -81,7 +81,13 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
+    function onMessageInvocation(bytes calldata data)
+        external
+        payable
+        zeroCallValue
+        nonReentrant
+        whenNotPaused
+    {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(data, (CanonicalNFT, address, address, uint256[]));
 

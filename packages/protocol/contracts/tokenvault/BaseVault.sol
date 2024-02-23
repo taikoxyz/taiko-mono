@@ -27,11 +27,17 @@ abstract contract BaseVault is
     IERC165Upgradeable
 {
     error VAULT_PERMISSION_DENIED();
+    error VAULT_NON_ZERO_VALUE();
 
     modifier onlyFromBridge() {
         if (msg.sender != resolve("bridge", false)) {
             revert VAULT_PERMISSION_DENIED();
         }
+        _;
+    }
+
+    modifier zeroCallValue() {
+        if (msg.value != 0) revert VAULT_NON_ZERO_VALUE();
         _;
     }
     /// @notice Initializes the contract with the address manager.
