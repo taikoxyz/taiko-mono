@@ -6,8 +6,9 @@
 
 pragma solidity ^0.8.24;
 
-import { RLPReader } from "../thirdparty/optimism/rlp/RLPReader.sol";
-import { SecureMerkleTrie } from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import "../thirdparty/optimism/rlp/RLPReader.sol";
+import "../thirdparty/optimism/rlp/RLPWriter.sol";
+import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
 /**
  * @title LibTrieProof
@@ -35,7 +36,7 @@ library LibTrieProof {
         bytes32 rootHash,
         address addr,
         bytes32 slot,
-        bytes memory value,
+        bytes32 value,
         bytes[] memory accountProof,
         bytes[] memory storageProof
     )
@@ -58,7 +59,10 @@ library LibTrieProof {
         }
 
         bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), value, storageProof, bytes32(storageRoot)
+            bytes.concat(slot),
+            RLPWriter.writeUint(uint256(value)),
+            storageProof,
+            bytes32(storageRoot)
         );
 
         if (!verified) revert LTP_INVALID_INCLUSION_PROOF();
