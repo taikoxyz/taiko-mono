@@ -93,7 +93,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
+    function onMessageInvocation(bytes calldata data)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("bridge")
+    {
         (
             CanonicalNFT memory ctoken,
             address from,
