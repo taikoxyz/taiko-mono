@@ -1,6 +1,6 @@
 {
   "name": "bridge-ui",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "private": true,
   "scripts": {
     "dev": "vite dev",
@@ -61,8 +61,9 @@
   "dependencies": {
     "@wagmi/connectors": "^4.1.14",
     "@wagmi/core": "^2.6.5",
-    "@walletconnect/ethereum-provider": "^2.11.1",
-    "@web3modal/wagmi": "^4.0.5",
+    "@walletconnect/ethereum-provider": "^2.11.2",
+    "@walletconnect/modal": "^2.6.2",
+    "@web3modal/wagmi": "^4.0.9",
     "@zerodevx/svelte-toast": "^0.9.5",
     "axios": "^1.6.7",
     "buffer": "^6.0.3",

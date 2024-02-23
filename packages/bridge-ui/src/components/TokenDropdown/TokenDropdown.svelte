@@ -23,7 +23,7 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
-  import { account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
   import DialogView from './DialogView.svelte';
@@ -98,7 +98,10 @@
         }
         if (tokenInfo.canonical && tokenInfo.bridged) {
           // double check we have the correct address for the destination chain and it is not 0x0
-          if (value?.addresses[destChain.id] !== tokenInfo.canonical?.address) {
+          if (
+            value?.addresses[destChain.id] !== tokenInfo.canonical?.address &&
+            value?.addresses[destChain.id] !== zeroAddress
+          ) {
             log('selected token is bridged', value?.addresses[destChain.id]);
             $selectedTokenIsBridged = true;
           } else {
@@ -174,10 +177,11 @@
     if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
   };
 
-  const onAccountChange = () => {
+  const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
-    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
+    if (destChain && srcChain && (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount))
+      updateBalance($account?.address, srcChain.id, destChain.id);
   };
 
   $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
