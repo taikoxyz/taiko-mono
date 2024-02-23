@@ -210,7 +210,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     function getConfig() public view virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
-        // - blockMaxTxs: 80 (limited by the PSE zkEVM circuits)
+        // - blockMaxTxs: 80
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
@@ -221,7 +221,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
             blockRingBufferSize: 864_100,
             // Can be overridden by the tier config.
             maxBlocksToVerifyPerProposal: 10,
-            // Limited by the PSE zkEVM circuits.
             blockMaxGasLimit: 15_000_000,
             // Each go-ethereum transaction has a size limit of 128KB,
             // and right now txList is still saved in calldata, so we set it

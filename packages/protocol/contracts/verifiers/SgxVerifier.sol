@@ -138,7 +138,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata proof
     )
         external
-        onlyFromNamed2("taiko", "tier_sgx_and_pse_zkevm")
+        onlyFromNamed("taiko")
     {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;

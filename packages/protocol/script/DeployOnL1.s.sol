@@ -32,9 +32,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import "../contracts/verifiers/PseZkVerifier.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
-import "../contracts/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/verifiers/GuardianVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
@@ -353,33 +351,6 @@ contract DeployOnL1 is DeployCapability {
             owner: timelock
         });
 
-        deployProxy({
-            name: "tier_sgx_and_pse_zkevm",
-            impl: address(new SgxAndZkVerifier()),
-            data: abi.encodeCall(SgxAndZkVerifier.init, (rollupAddressManager)),
-            registerTo: rollupAddressManager,
-            owner: timelock
-        });
-
-        address pseZkVerifier = deployProxy({
-            name: "tier_pse_zkevm",
-            impl: address(new PseZkVerifier()),
-            data: abi.encodeCall(PseZkVerifier.init, (rollupAddressManager)),
-            registerTo: rollupAddressManager,
-            owner: timelock
-        });
-
-        address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/verifiers/PlonkVerifier.yulp");
-
-        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            register(
-                rollupAddressManager,
-                string(abi.encodePacked(PseZkVerifier(pseZkVerifier).getVerifierName(i))),
-                plonkVerifiers[i]
-            );
-        }
-
         address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: address(new GuardianProver()),
@@ -415,32 +386,6 @@ contract DeployOnL1 is DeployCapability {
 
         address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
-    }
-
-    // Since the auto-generated solidity PlonkVerifier is too big for foundry
-    // to compile, so we still keep the file name as `PlonkVerifier.yulp` and
-    // use this function to compile it manually.
-    function deployPseZkEvmVerifier(string memory verifierContractPath)
-        private
-        returns (address addr)
-    {
-        string[] memory cmds = new string[](3);
-        cmds[0] = "bash";
-        cmds[1] = "-c";
-        cmds[2] = string.concat(
-            vm.projectRoot(),
-            "/bin/solc --bin ",
-            string.concat(vm.projectRoot(), "/", verifierContractPath),
-            " | grep -A1 Binary | tail -1"
-        );
-
-        bytes memory bytecode = vm.ffi(cmds);
-        assembly {
-            addr := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-
-        addressNotNull(addr, "failed yul deployment");
-        console2.log(verifierContractPath, addr);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
