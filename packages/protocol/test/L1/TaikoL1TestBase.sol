@@ -214,9 +214,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
             graffiti: 0x0
         });
 
-        // bytes32 instance =
-        //     pv.calcInstance(tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0);
-
         TaikoData.TierProof memory proof;
         proof.tier = tier;
         address newInstance;
