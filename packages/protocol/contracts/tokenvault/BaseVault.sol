@@ -21,7 +21,7 @@ import "../libs/LibAddress.sol";
 import "../libs/LibDeploy.sol";
 
 abstract contract BaseVault is
-    EssentialContract,
+    Essential1StepContract,
     IRecallableSender,
     IMessageInvocable,
     IERC165Upgradeable
