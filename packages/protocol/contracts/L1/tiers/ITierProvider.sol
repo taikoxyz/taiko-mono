@@ -42,7 +42,5 @@ interface ITierProvider {
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
     uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_PSE_ZKEVM = 300;
-    uint16 public constant TIER_SGX_AND_PSE_ZKEVM = 400;
     uint16 public constant TIER_GUARDIAN = 1000;
 }

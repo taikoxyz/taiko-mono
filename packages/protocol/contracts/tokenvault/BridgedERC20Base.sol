@@ -18,7 +18,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "./IBridgedERC20.sol";
 
-abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
+abstract contract BridgedERC20Base is Essential1StepContract, IBridgedERC20 {
     address public migratingAddress; // slot 1
     bool public migratingInbound;
     uint256[49] private __gap;
