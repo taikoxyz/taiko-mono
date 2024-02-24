@@ -44,7 +44,7 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@wagmi/core": "^1.4.13",
+		"@wagmi/core": "^2.6.5",
 		"axios": "^1.6.7",
 		"svelte-i18n": "^4.0.0",
 		"viem": "^1.21.4"
