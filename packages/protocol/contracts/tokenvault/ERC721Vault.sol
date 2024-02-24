@@ -181,7 +181,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         } else {
             token = _getOrDeployBridgedToken(ctoken);
             for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC721(token).mint(to, tokenIds[i]);
+                BridgedERC721(token).safeMint(to, tokenIds[i]);
             }
         }
     }

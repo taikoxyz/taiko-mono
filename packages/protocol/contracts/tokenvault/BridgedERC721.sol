@@ -59,7 +59,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @dev Mints tokens.
     /// @param account Address to receive the minted token.
     /// @param tokenId ID of the token to mint.
-    function mint(
+    function safeMint(
         address account,
         uint256 tokenId
     )
