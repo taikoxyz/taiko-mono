@@ -48,14 +48,14 @@ abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgra
 
     function transferOwnership(address newOwner)
         public
-        override(Ownable2StepUpgradeable, OwnableUpgradeable)
+        override(OwnableUpgradeable, Ownable2StepUpgradeable)
     {
         Ownable2StepUpgradeable.transferOwnership(newOwner);
     }
 
     function _transferOwnership(address newOwner)
         internal
-        override(Ownable2StepUpgradeable, OwnableUpgradeable)
+        override(OwnableUpgradeable, Ownable2StepUpgradeable)
     {
         Ownable2StepUpgradeable._transferOwnership(newOwner);
     }
