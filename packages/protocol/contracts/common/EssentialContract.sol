@@ -48,7 +48,6 @@ abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgra
 
     function transferOwnership(address newOwner)
         public
-        virtual
         override(Ownable2StepUpgradeable, OwnableUpgradeable)
     {
         Ownable2StepUpgradeable.transferOwnership(newOwner);
@@ -56,7 +55,6 @@ abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgra
 
     function _transferOwnership(address newOwner)
         internal
-        virtual
         override(Ownable2StepUpgradeable, OwnableUpgradeable)
     {
         Ownable2StepUpgradeable._transferOwnership(newOwner);
