@@ -25,7 +25,7 @@ import "./LibBridgedToken.sol";
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 contract BridgedERC1155 is
-    EssentialContract,
+    Essential1StepContract,
     IERC1155Upgradeable,
     IERC1155MetadataURIUpgradeable,
     ERC1155Upgradeable
