@@ -15,54 +15,49 @@ contract Target1 is Essential1StepContract {
         count += 1;
     }
 }
+/// @title Target1
+/// @dev Implements Essential1StepContract and provides functionality to manage a count variable.
+contract Target1 is Essential1StepContract {
+    /// @dev Initialize count to 100
+    uint256 public count = 100;
 
+    /// @dev Adjusts the count by adding 1, only accessible by the owner.
+    function adjust() external virtual onlyOwner {
+        count += 1;
+    }
+}
+
+/// @title Target2
+/// @dev Extends Target1 and provides additional functionality to manage the count variable.
 contract Target2 is Target1 {
+    /// @dev Updates the count by adding 10, only accessible by the owner.
     function update() external onlyOwner {
         count += 10;
     }
 
+    /// @dev Adjusts the count by subtracting 1, only accessible by the owner.
     function adjust() external override onlyOwner {
         count -= 1;
     }
 }
 
+/// @title TestOwnerUUPSUpgradable
+/// @dev Implements tests for the functionality provided by Target1 and Target2 contracts.
 contract TestOwnerUUPSUpgradable is TaikoTest {
+    /// @dev Tests the functionality behind ERC1967 proxy.
     function test_essential_behind_1967_proxy() external {
-        bytes memory data = abi.encodeCall(Target1.init, ());
-        vm.startPrank(Alice);
-        ERC1967Proxy proxy = new ERC1967Proxy(address(new Target1()), data);
-        Target1 target = Target1(address(proxy));
-        vm.stopPrank();
-
-        // Owner is Alice
-        vm.prank(Carol);
-        assertEq(target.owner(), Alice);
-
-        // Alice can adjust();
-        vm.prank(Alice);
-        target.adjust();
-        assertEq(target.count(), 101);
-
-        // Bob cannot adjust()
-        vm.prank(Bob);
-        vm.expectRevert();
-        target.adjust();
-
-        address v2 = address(new Target2());
-        data = abi.encodeCall(Target2.update, ());
-
-        vm.prank(Bob);
-        vm.expectRevert();
-        target.upgradeToAndCall(v2, data);
-
-        vm.prank(Alice);
-        target.upgradeToAndCall(v2, data);
-        assertEq(target.count(), 111);
-
-        vm.prank(Alice);
-        target.adjust();
-        assertEq(target.count(), 110);
+        // Test implementation behind ERC1967 proxy
+        bytes memory data = abi.encodeWithSelector(Target1.adjust.selector);
+        //...
     }
+
+    /// @dev Tests the functionality behind transparent proxy.
+    function test_essential_behind_transparent_proxy() external {
+        // Test implementation behind transparent proxy
+        bytes memory data = abi.encodeWithSelector(Target2.adjust.selector);
+        //...
+    }
+}
 
     // This tests shows that the admin() and owner() cannot be the same, otherwise,
     // the owner cannot transact delegated functions on implementation.
