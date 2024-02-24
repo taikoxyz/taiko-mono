@@ -2,8 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
-import "./LibDelegationSigUtil.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../../../contracts/common/OwnerUUPSUpgradable.sol";
 
 contract MockERC721Airdrop is ERC721Airdrop {
     function _verifyMerkleProof(
@@ -40,10 +39,10 @@ contract MockAddressManager {
 // it acts on
 // behalf
 // - funds can later be withdrawn by the user
-contract SimpleERC721Vault is OwnableUpgradeable {
+contract SimpleERC721Vault is OwnerUUPSUpgradable {
     /// @notice Initializes the vault.
     function init() external initializer {
-        __Ownable_init();
+        __OwnerUUPSUpgradable_init();
     }
 
     function approveAirdropContract(address token, address approvedActor) public onlyOwner {
