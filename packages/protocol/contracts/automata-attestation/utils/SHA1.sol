@@ -6,7 +6,6 @@ pragma solidity 0.8.24;
 // https://github.com/ensdomains/solsha1/blob/master/contracts/SHA1.sol
 
 library SHA1 {
-    event Debug(bytes32 x);
 
     function sha1(bytes memory data) internal pure returns (bytes20 ret) {
         assembly {
