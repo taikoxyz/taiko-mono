@@ -14,7 +14,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     SgxVerifier public sv;
     GuardianVerifier public gv;
     GuardianProver public gp;
-    KatlaTierProvider public cp;
+    TestnetTierProvider public cp;
     Bridge public bridge;
 
     bytes32 public GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -78,11 +78,11 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         setupGuardianProverMultisig();
 
-        cp = KatlaTierProvider(
+        cp = TestnetTierProvider(
             deployProxy({
                 name: "tier_provider",
-                impl: address(new KatlaTierProvider()),
-                data: abi.encodeCall(KatlaTierProvider.init, ())
+                impl: address(new TestnetTierProvider()),
+                data: abi.encodeCall(TestnetTierProvider.init, ())
             })
         );
 

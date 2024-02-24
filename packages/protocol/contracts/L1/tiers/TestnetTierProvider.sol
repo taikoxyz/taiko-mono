@@ -17,7 +17,7 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
-/// @title KatlaTierProvider
+/// @title TestnetTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
 /// @dev Assuming liveness bound is 250TKO.
 // Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
@@ -25,7 +25,7 @@ import "./ITierProvider.sol";
 // blocks. Assuming 10% tokens are used in bonds, then each block may use up to
 // these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
 // about 722 USD.
-contract KatlaTierProvider is EssentialContract, ITierProvider {
+contract TestnetTierProvider is EssentialContract, ITierProvider {
     error TIER_NOT_FOUND();
 
     /// @notice Initializes the contract with the provided address manager.
