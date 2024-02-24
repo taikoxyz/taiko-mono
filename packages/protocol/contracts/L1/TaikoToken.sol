@@ -25,6 +25,8 @@ import "../common/EssentialContract.sol";
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
+    uint256[50] private __gap;
+
     error TKO_INVALID_ADDR();
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens.
