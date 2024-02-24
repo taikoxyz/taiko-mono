@@ -70,11 +70,11 @@ contract BridgedERC1155 is
     }
 
     /// @dev Mints tokens.
-    /// @param account Address to receive the minted tokens.
+    /// @param to Address to receive the minted tokens.
     /// @param tokenId ID of the token to mint.
     /// @param amount Amount of tokens to mint.
     function mint(
-        address account,
+        address to,
         uint256 tokenId,
         uint256 amount
     )
@@ -83,7 +83,24 @@ contract BridgedERC1155 is
         whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
-        _mint(account, tokenId, amount, "");
+        _mint(to, tokenId, amount, "");
+    }
+
+    /// @dev Mints tokens.
+    /// @param to Address to receive the minted tokens.
+    /// @param tokenIds ID of the token to mint.
+    /// @param amounts Amount of tokens to mint.
+    function mintBatch(
+        address to,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts
+    )
+        public
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("erc1155_vault")
+    {
+        _mintBatch(to, tokenIds, amounts, "");
     }
 
     /// @dev Burns tokens.
