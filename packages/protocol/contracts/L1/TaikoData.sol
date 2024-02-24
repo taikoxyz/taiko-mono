@@ -204,6 +204,6 @@ library TaikoData {
         mapping(bytes32 blobHash => uint256 since) reusableBlobs;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
-        uint256[143] __gap;
+        uint256[43] __gap;
     }
 }

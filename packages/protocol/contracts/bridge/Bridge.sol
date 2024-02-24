@@ -67,6 +67,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
+    event MessageRetried(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event MessageSuspended(bytes32 msgHash, bool suspended);
     event AddressBanned(address indexed addr, bool banned);
@@ -377,6 +378,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
         }
+        emit MessageRetried(msgHash);
     }
 
     /// @notice Checks if the message was sent.

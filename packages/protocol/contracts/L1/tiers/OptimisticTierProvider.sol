@@ -18,6 +18,8 @@ import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
 contract OptimisticTierProvider is EssentialContract, ITierProvider {
+    uint256[50] private __gap;
+
     error TIER_NOT_FOUND();
 
     /// @notice Initializes the contract with the provided address manager.

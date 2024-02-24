@@ -218,21 +218,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (ctoken.chainId == block.chainid) {
             // Token lives on this chain
             token = ctoken.addr;
-            for (uint256 i; i < tokenIds.length; ++i) {
-                ERC1155(token).safeTransferFrom({
-                    from: address(this),
-                    to: to,
-                    id: tokenIds[i],
-                    amount: amounts[i],
-                    data: ""
-                });
-            }
+            ERC1155(token).safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
         } else {
             // Token does not live on this chain
             token = _getOrDeployBridgedToken(ctoken);
-            for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
-            }
+            BridgedERC1155(token).mintBatch(to, tokenIds, amounts);
         }
     }
 

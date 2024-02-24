@@ -26,6 +26,8 @@ abstract contract BaseVault is
     IMessageInvocable,
     IERC165Upgradeable
 {
+    uint256[50] private __gap;
+
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {

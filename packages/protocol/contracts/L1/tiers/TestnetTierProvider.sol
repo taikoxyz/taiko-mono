@@ -26,6 +26,8 @@ import "./ITierProvider.sol";
 // these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
 // about 722 USD.
 contract TestnetTierProvider is EssentialContract, ITierProvider {
+    uint256[50] private __gap;
+
     error TIER_NOT_FOUND();
 
     /// @notice Initializes the contract with the provided address manager.

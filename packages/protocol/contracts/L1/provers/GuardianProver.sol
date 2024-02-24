@@ -20,6 +20,8 @@ import "./Guardians.sol";
 
 /// @title GuardianProver
 contract GuardianProver is Guardians {
+    uint256[50] private __gap;
+
     event GuardianApproval(
         address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
     );
