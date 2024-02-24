@@ -17,7 +17,7 @@ pragma solidity 0.8.24;
 import "../../test/DeployCapability.sol";
 import "../../contracts/L1/gov/TaikoTimelockController.sol";
 import "../../contracts/L1/tiers/ITierProvider.sol";
-import "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../../contracts/L1/tiers/TestnetTierProvider.sol";
 
 contract UpgradeTierProvider is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -27,7 +27,7 @@ contract UpgradeTierProvider is DeployCapability {
     function run() external {
         vm.startBroadcast(privateKey);
 
-        ITierProvider newTierProvider = new TaikoA6TierProvider();
+        ITierProvider newTierProvider = new TestnetTierProvider();
 
         registerByTimelock(
             addressManagerAddress, "tier_provider", address(newTierProvider), uint64(block.chainid)

@@ -17,7 +17,7 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
-/// @title TaikoA6TierProvider
+/// @title TestnetTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
 /// @dev Assuming liveness bound is 250TKO.
 // Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
@@ -25,7 +25,7 @@ import "./ITierProvider.sol";
 // blocks. Assuming 10% tokens are used in bonds, then each block may use up to
 // these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
 // about 722 USD.
-contract TaikoA6TierProvider is EssentialContract, ITierProvider {
+contract TestnetTierProvider is EssentialContract, ITierProvider {
     error TIER_NOT_FOUND();
 
     /// @notice Initializes the contract with the provided address manager.
@@ -56,17 +56,6 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
             });
         }
 
-        if (tierId == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-            return ITierProvider.Tier({
-                verifierName: "tier_sgx_and_pse_zkevm",
-                validityBond: 1000 ether, // TKO
-                contestBond: 2000 ether, // TKO
-                cooldownWindow: 24 hours,
-                provingWindow: 6 hours,
-                maxBlocksToVerifyPerProof: 6
-            });
-        }
-
         if (tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: "tier_guardian",
@@ -82,16 +71,13 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
     }
 
     function getTierIds() public pure override returns (uint16[] memory tiers) {
-        tiers = new uint16[](4);
+        tiers = new uint16[](3);
         tiers[0] = LibTiers.TIER_OPTIMISTIC;
         tiers[1] = LibTiers.TIER_SGX;
-        tiers[2] = LibTiers.TIER_SGX_AND_PSE_ZKEVM;
-        tiers[3] = LibTiers.TIER_GUARDIAN;
+        tiers[2] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        // 0.2% will be selected to require PSE zkEVM + SGX proofs.
-        if (rand % 500 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
         // 10% will be selected to require SGX proofs.
         if (rand % 10 == 0) return LibTiers.TIER_SGX;
         // Other blocks are optimisitc, without validity proofs.
