@@ -22,7 +22,7 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/GuardianVerifier.sol";
-import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/tiers/KatlaTierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";

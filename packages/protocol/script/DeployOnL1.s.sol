@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/tiers/KatlaTierProvider.sol";
 import "../contracts/L1/tiers/OptimisticTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
@@ -324,13 +324,13 @@ contract DeployOnL1 is DeployCapability {
         if (vm.envBool("OPTIMISTIC_TIER_PROVIDER")) {
             tierProvider = address(new OptimisticTierProvider());
         } else {
-            tierProvider = address(new TaikoA6TierProvider());
+            tierProvider = address(new KatlaTierProvider());
         }
 
         deployProxy({
             name: "tier_provider",
             impl: tierProvider,
-            data: abi.encodeCall(TaikoA6TierProvider.init, ()),
+            data: abi.encodeCall(KatlaTierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock
         });
