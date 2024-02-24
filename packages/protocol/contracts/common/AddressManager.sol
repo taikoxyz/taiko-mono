@@ -39,7 +39,7 @@ contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
-error AM_INVALID_PARAMS();
+    error AM_INVALID_PARAMS();
     error AM_UNSUPPORTED();
     /// @notice Initializes the owner for the upgradable contract.
 
