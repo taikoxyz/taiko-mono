@@ -153,8 +153,6 @@ contract TestERC20Vault is TaikoTest {
 
         addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
 
-        // addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
-
         addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
 
         addressManager.setAddress(destChainId, "erc20_vault", address(destChainIdERC20Vault));
