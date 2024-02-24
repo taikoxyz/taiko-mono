@@ -44,6 +44,8 @@ abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver
 }
 
 abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgradeable {
+    uint256[50] private __gap;
+
     function transferOwnership(address newOwner)
         public
         virtual
