@@ -53,7 +53,7 @@ contract TaikoL2 is CrossChainOwned {
     uint64 public gasExcess; // slot 3
     uint64 public lastSyncedBlock;
 
-    uint256[147] private __gap;
+    uint256[47] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
