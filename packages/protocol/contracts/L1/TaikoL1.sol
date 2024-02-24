@@ -34,7 +34,7 @@ import "./TaikoEvents.sol";
 /// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
 contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
-    uint256[100] private __gap;
+    uint256[50] private __gap;
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();

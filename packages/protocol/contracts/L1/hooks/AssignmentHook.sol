@@ -49,6 +49,8 @@ contract AssignmentHook is EssentialContract, IHook {
     // get paid within this limit.
     uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
 
+    uint256[50] private __gap;
+
     event BlockAssigned(
         address indexed assignedProver, TaikoData.BlockMetadata meta, ProverAssignment assignment
     );
