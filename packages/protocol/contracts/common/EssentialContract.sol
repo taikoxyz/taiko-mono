@@ -32,7 +32,7 @@ abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver
     /// @param _addressManager The address of the address manager.
     // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _addressManager) internal virtual onlyInitializing {
-        __OwnerUUPSUpgradable_init();
+        _transferOwnership(msg.sender);
         __AddressResolver_init(_addressManager);
     }
 
