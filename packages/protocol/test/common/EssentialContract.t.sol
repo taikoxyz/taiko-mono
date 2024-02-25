@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract Target1 is Essential1StepContract {
+contract Target1 is EssentialContract {
     uint256 public count;
 
     function init() external initializer {
