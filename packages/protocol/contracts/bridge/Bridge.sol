@@ -14,6 +14,7 @@
 
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
@@ -24,6 +25,7 @@ import "./IBridge.sol";
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
+    using Address for address;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -65,6 +67,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
+    event MessageRetried(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event MessageSuspended(bytes32 msgHash, bool suspended);
     event AddressBanned(address indexed addr, bool banned);
@@ -375,6 +378,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
         }
+        emit MessageRetried(msgHash);
     }
 
     /// @notice Checks if the message was sent.
@@ -463,19 +467,29 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        // Only on the base layer (L1) should the returned values be non-zero.
-        // if (
-        //     block.chainid == 1 // Ethereum mainnet
-        //         || block.chainid == 2 // Ropsten
-        //         || block.chainid == 4 // Rinkeby
-        //         || block.chainid == 5 // Goerli
-        //         || block.chainid == 42 // Kovan
-        //         || block.chainid == 11_155_111 // Sepolia
-        // ) {
-        //     return (6 hours, 15 minutes);
-        // }
-
-        return (0, 0);
+        if (
+            block.chainid == 1 // Ethereum mainnet
+        ) {
+            // For Taiko mainnet
+            // 384 seconds = 6.4 minutes = one ethereum epoch
+            return (6 hours, 384 seconds);
+        } else if (
+            block.chainid == 2 // Ropsten
+                || block.chainid == 4 // Rinkeby
+                || block.chainid == 5 // Goerli
+                || block.chainid == 42 // Kovan
+                || block.chainid == 17_000 // Holesky
+                || block.chainid == 11_155_111 // Sepolia
+        ) {
+            // For all Taiko public testnets
+            return (30 minutes, 384 seconds);
+        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
+            // For all Taiko internal devnets
+            return (5 minutes, 384 seconds);
+        } else {
+            // This is a Taiko L2 chain where no deleys are applied.
+            return (0, 0);
+        }
     }
 
     /// @notice Hash the message
@@ -518,8 +532,15 @@ contract Bridge is EssentialContract, IBridge {
 
         _storeContext({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
 
-        // Perform the message call and capture the success value
-        (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        if (
+            message.data.length >= 4 // msg can be empty
+                && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
+                && message.to.isContract()
+        ) {
+            success = false;
+        } else {
+            (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        }
 
         // Reset the context after the message call
         _resetContext();

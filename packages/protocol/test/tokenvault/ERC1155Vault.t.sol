@@ -72,8 +72,8 @@ contract PrankDestBridge {
         // a contract
         // most probably due to some deployment address nonce issue. (Seems a
         // known issue).
-        destERC1155Vault.receiveToken{ value: mockLibInvokeMsgValue }(
-            ctoken, from, to, tokenIds, amounts
+        destERC1155Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+            abi.encode(ctoken, from, to, tokenIds, amounts)
         );
 
         ctx.sender = address(0);

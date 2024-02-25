@@ -40,8 +40,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         if (minTier == LibTiers.TIER_OPTIMISTIC) {
             tierToProveWith = LibTiers.TIER_SGX;
         } else if (minTier == LibTiers.TIER_SGX) {
-            tierToProveWith = LibTiers.TIER_SGX_AND_PSE_ZKEVM;
-        } else if (minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             tierToProveWith = LibTiers.TIER_GUARDIAN;
         }
         proveBlock(Carol, Carol, meta, parentHash, blockHash, stateRoot, tierToProveWith, "");
@@ -236,14 +234,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 verifyBlock(Carol, 1);
 
                 proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    stateRoot,
-                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
-                    ""
+                    Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
                 );
             }
 
@@ -302,7 +293,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     0,
                     stateRoot,
-                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
+                    LibTiers.TIER_GUARDIAN,
                     TaikoErrors.L1_INVALID_TRANSITION.selector
                 );
             }
@@ -651,7 +642,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 stateRoot,
-                LibTiers.TIER_PSE_ZKEVM,
+                LibTiers.TIER_SGX,
                 TaikoErrors.L1_INVALID_BLOCK_ID.selector
             );
 
@@ -694,7 +685,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 stateRoot,
-                LibTiers.TIER_PSE_ZKEVM,
+                LibTiers.TIER_SGX,
                 TaikoErrors.L1_BLOCK_MISMATCH.selector
             );
 
@@ -742,7 +733,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 stateRoot,
                 stateRoot,
-                LibTiers.TIER_PSE_ZKEVM,
+                LibTiers.TIER_SGX,
                 TaikoErrors.L1_INVALID_TIER.selector
             );
 
@@ -790,8 +781,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash: parentHash,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    graffiti: 0x0,
-                    __reserved: [bytes32(0), bytes32(0)]
+                    graffiti: 0x0
                 });
 
                 TaikoData.TierProof memory proof;
@@ -850,9 +840,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 blockHash = bytes32(uint256(1));
         bytes32 stateRoot = bytes32(uint256(1));
-        proveBlock(
-            Bob, Bob, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_SGX_AND_PSE_ZKEVM, ""
-        );
+        proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
         // Try to contest with a lower tier proof- but should revert with L1_INVALID_TIER
         proveBlock(
