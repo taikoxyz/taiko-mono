@@ -15,10 +15,11 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./AddressResolver.sol";
 import "./OwnerUUPSUpgradable.sol";
 
-abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver {
+abstract contract Essential1StepContract is Initializable, OwnerUUPSUpgradable, AddressResolver {
     uint256[50] private __gap;
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
@@ -31,14 +32,14 @@ abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     // solhint-disable-next-line func-name-mixedcase
-    function __Essential_init(address _addressManager) internal virtual {
+    function __Essential_init(address _addressManager) internal virtual onlyInitializing {
         __OwnerUUPSUpgradable_init();
         __AddressResolver_init(_addressManager);
     }
 
     /// @notice Initializes the contract without an address manager.
     // solhint-disable-next-line func-name-mixedcase
-    function __Essential_init() internal virtual {
+    function __Essential_init() internal virtual onlyInitializing {
         __Essential_init(address(0));
     }
 }
