@@ -17,6 +17,8 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
+/// @title DevnetTierProvider
+/// @dev Labeled in AddressResolver as "tier_provider"
 contract DevnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 

@@ -19,12 +19,6 @@ import "./ITierProvider.sol";
 
 /// @title MainnetTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
-/// @dev Assuming liveness bound is 250TKO.
-// Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
-// the cool down period is 2 days. In 2 days, we can have (2*86400/2)=86400
-// blocks. Assuming 10% tokens are used in bonds, then each block may use up to
-// these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
-// about 722 USD.
 contract MainnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
