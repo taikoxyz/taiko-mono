@@ -394,8 +394,7 @@ contract DeployOnL1 is DeployCapability {
 
         // Revoke granted roles from the deployer
         TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
-        _timelock.transferOwnership(securityCouncil); // Need the securityCouncil acccount to call
-            // the acceptOwnership() manually
+        _timelock.transferOwnership(securityCouncil);
         _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
         _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
         _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
