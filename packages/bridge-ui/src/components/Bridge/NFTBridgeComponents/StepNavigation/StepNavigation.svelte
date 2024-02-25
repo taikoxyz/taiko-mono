@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { importDone } from '$components/Bridge/state';
+  import { selectedNFTs } from '$components/Bridge/state';
   import { BridgeSteps, BridgingStatus, ImportMethod } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
 
@@ -59,7 +59,7 @@
       {#if $selectedImportMethod !== ImportMethod.NONE}
         <ActionButton
           priority="primary"
-          disabled={!$importDone}
+          disabled={!$selectedNFTs || $selectedNFTs.length === 0}
           loading={validatingImport}
           on:click={() => handleNextStep()}>
           <span class="body-bold">{nextStepButtonText}</span>
