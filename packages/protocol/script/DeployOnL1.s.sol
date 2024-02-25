@@ -367,8 +367,7 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new GuardianProver()),
             data: abi.encodeCall(GuardianProver.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
-            owner: address(0),
-            timelock: _timelock
+            owner: address(0)
         });
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");

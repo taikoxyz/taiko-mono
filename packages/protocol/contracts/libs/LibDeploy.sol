@@ -51,8 +51,8 @@ library LibDeploy {
     {
         proxy = deployERC1967Proxy(impl, owner, data);
         if (
-            address(timelock) != address(0) && owner != OwnableUpgradeable(proxy).owner()
-                && owner == address(timelock)
+            address(timelock) != address(0)
+                && address(timelock) != OwnableUpgradeable(proxy).owner()
         ) {
             acceptProxyOwnershipByTimelock(proxy, timelock);
         }
