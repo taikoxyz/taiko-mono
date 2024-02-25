@@ -26,7 +26,11 @@ abstract contract DeployCapability is Script {
         internal
         returns (address proxy)
     {
-        proxy = LibDeploy.deployERC1967Proxy(impl, owner, data, timelock);
+        if (address(timelock) == address(0)) {
+            proxy = LibDeploy.deployERC1967Proxy(impl, owner, data);
+        } else {
+            proxy = LibDeploy.deployERC1967Proxy(impl, timelock, data);
+        }
 
         if (registerTo != address(0)) {
             AddressManager(registerTo).setAddress(

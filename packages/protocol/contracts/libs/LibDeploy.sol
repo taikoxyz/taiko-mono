@@ -42,28 +42,17 @@ library LibDeploy {
 
     function deployERC1967Proxy(
         address impl,
-        address owner,
-        bytes memory data,
-        TimelockControllerUpgradeable timelock
+        TimelockControllerUpgradeable timelock,
+        bytes memory data
     )
         internal
         returns (address proxy)
     {
-        proxy = deployERC1967Proxy(impl, owner, data);
-        if (
-            address(timelock) != address(0)
-                && address(timelock) != OwnableUpgradeable(proxy).owner()
-        ) {
-            acceptProxyOwnershipByTimelock(proxy, timelock);
-        }
+        proxy = deployERC1967Proxy(impl, address(timelock), data);
+        acceptOwnership(proxy, timelock);
     }
 
-    function acceptProxyOwnershipByTimelock(
-        address proxy,
-        TimelockControllerUpgradeable timelock
-    )
-        internal
-    {
+    function acceptOwnership(address proxy, TimelockControllerUpgradeable timelock) internal {
         bytes32 salt = bytes32(block.timestamp);
         bytes memory payload = abi.encodeCall(Ownable2StepUpgradeable(proxy).acceptOwnership, ());
 

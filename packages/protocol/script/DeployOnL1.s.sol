@@ -215,7 +215,7 @@ contract DeployOnL1 is DeployCapability {
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
         _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
 
-        LibDeploy.acceptProxyOwnershipByTimelock(taikoToken, _timelock);
+        LibDeploy.acceptOwnership(taikoToken, _timelock);
 
         // Deploy Bridging contracts
         deployProxy({
@@ -374,7 +374,7 @@ contract DeployOnL1 is DeployCapability {
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
         GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
-        LibDeploy.acceptProxyOwnershipByTimelock(guardianProver, _timelock);
+        LibDeploy.acceptOwnership(guardianProver, _timelock);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
