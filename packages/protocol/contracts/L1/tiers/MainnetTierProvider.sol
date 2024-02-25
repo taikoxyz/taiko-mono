@@ -77,9 +77,9 @@ contract MainnetTierProvider is EssentialContract, ITierProvider {
         tiers[2] = LibTiers.TIER_GUARDIAN;
     }
 
-    function getMinTier(uint256 rand) public pure override returns (uint16) {
+    function getMinTier(uint64 blockId, uint256) public pure override returns (uint16) {
         // 0.1% require SGX + ZKVM; all others require SGX
-        if (rand % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
+        if (blockId % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
         else return LibTiers.TIER_SGX;
     }
 }
