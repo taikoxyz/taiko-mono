@@ -71,7 +71,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         TaikoData.Config memory config = getConfig();
 
         (meta, depositsProcessed) =
-            LibProposing.proposeBlock(state, config, IAddressResolver(this), params, txList);
+            LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
 
         if (!state.slotB.provingPaused) {
             _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
@@ -99,7 +99,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         TaikoData.Config memory config = getConfig();
 
         uint8 maxBlocksToVerify =
-            LibProving.proveBlock(state, config, IAddressResolver(this), meta, tran, proof);
+            LibProving.proveBlock(state, config, AddressResolver(this), meta, tran, proof);
 
         _verifyBlocks(config, maxBlocksToVerify);
     }
@@ -120,7 +120,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
     function depositEtherToL2(address recipient) external payable nonReentrant whenNotPaused {
-        LibDepositing.depositEtherToL2(state, getConfig(), IAddressResolver(this), recipient);
+        LibDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this), recipient);
     }
 
     function unpause() public override {
@@ -252,7 +252,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         internal
         whenProvingNotPaused
     {
-        LibVerifying.verifyBlocks(state, config, IAddressResolver(this), maxBlocksToVerify);
+        LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
     }
 
     function _authorizePause(address)
