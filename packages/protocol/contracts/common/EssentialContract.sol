@@ -18,7 +18,7 @@ import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./AddressResolver.sol";
 import "./OwnerUUPSUpgradable.sol";
 
-abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
+abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver {
     uint256[50] private __gap;
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
@@ -32,7 +32,7 @@ abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     /// @param _addressManager The address of the address manager.
     // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _addressManager) internal virtual onlyInitializing {
-       __OwnerUUPSUpgradable_init();
+        _transferOwnership(msg.sender);
         __AddressResolver_init(_addressManager);
     }
 
@@ -43,4 +43,20 @@ abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     }
 }
 
+abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgradeable {
+    uint256[50] private __gap;
 
+    function transferOwnership(address newOwner)
+        public
+        override(OwnableUpgradeable, Ownable2StepUpgradeable)
+    {
+        Ownable2StepUpgradeable.transferOwnership(newOwner);
+    }
+
+    function _transferOwnership(address newOwner)
+        internal
+        override(OwnableUpgradeable, Ownable2StepUpgradeable)
+    {
+        Ownable2StepUpgradeable._transferOwnership(newOwner);
+    }
+}
