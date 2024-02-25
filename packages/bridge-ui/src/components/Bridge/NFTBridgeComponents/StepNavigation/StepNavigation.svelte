@@ -39,7 +39,10 @@
   };
 
   const handlePreviousStep = () => {
-    if (activeStep === BridgeSteps.REVIEW) {
+    if (activeStep === BridgeSteps.IMPORT) {
+      $selectedNFTs = [];
+      $selectedImportMethod = ImportMethod.NONE;
+    } else if (activeStep === BridgeSteps.REVIEW) {
       activeStep = BridgeSteps.IMPORT;
     } else if (activeStep === BridgeSteps.CONFIRM) {
       activeStep = BridgeSteps.REVIEW;
@@ -65,7 +68,9 @@
           <span class="body-bold">{nextStepButtonText}</span>
         </ActionButton>
 
-        <StepBack on:click={() => ($selectedImportMethod = ImportMethod.NONE)}>{$t('common.back')}</StepBack>
+        <StepBack on:click={() => handlePreviousStep()}>
+          {$t('common.back')}
+        </StepBack>
       {/if}
     {/if}
     {#if activeStep === BridgeSteps.REVIEW}
