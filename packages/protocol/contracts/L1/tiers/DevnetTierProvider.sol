@@ -42,8 +42,8 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
                 verifierName: "tier_guardian",
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
-                cooldownWindow: 24 hours,
-                provingWindow: 8 hours,
+                cooldownWindow: 60, //1 hours
+                provingWindow: 2880, // 48 hours
                 maxBlocksToVerifyPerProof: 16
             });
         }
