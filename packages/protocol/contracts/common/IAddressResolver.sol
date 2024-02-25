@@ -14,9 +14,6 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "./IAddressManager.sol";
-
 /// @title IAddressResolver
 /// @notice This contract acts as a bridge for name-to-address resolution.
 /// It delegates the resolution to the AddressManager. By separating the logic,
