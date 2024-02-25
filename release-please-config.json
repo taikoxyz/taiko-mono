@@ -11,6 +11,5 @@
     "packages/protocol": {},
     "packages/relayer": {}
   },
-  "bump-minor-pre-major": true,
   "separate-pull-requests": true
 }
