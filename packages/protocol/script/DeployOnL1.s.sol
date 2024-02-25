@@ -215,7 +215,7 @@ contract DeployOnL1 is DeployCapability {
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
         _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
 
-        LibDeploy.acceptProxyOwnershipByTimelock(taikoToken, timelock);
+        LibDeploy.acceptProxyOwnershipByTimelock(taikoToken, _timelock);
 
         // Deploy Bridging contracts
         deployProxy({
@@ -223,8 +223,7 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new SignalService()),
             data: abi.encodeCall(SignalService.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
-            owner: address(0),
-            timelock: timelock
+            owner: address(0)
         });
 
         deployProxy({
@@ -233,7 +232,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(Bridge.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         console2.log("------------------------------------------");
@@ -252,7 +251,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(BaseVault.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         deployProxy({
@@ -261,7 +260,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(BaseVault.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         deployProxy({
@@ -270,7 +269,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(BaseVault.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         console2.log("------------------------------------------");
@@ -303,6 +302,7 @@ contract DeployOnL1 is DeployCapability {
     {
         addressNotNull(_sharedAddressManager, "sharedAddressManager");
         addressNotNull(timelock, "timelock");
+        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
 
         rollupAddressManager = deployProxy({
             name: "rollup_address_manager",
@@ -316,7 +316,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(TaikoL1.init, (rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))),
             registerTo: rollupAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         deployProxy({
@@ -325,7 +325,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(AssignmentHook.init, (rollupAddressManager)),
             registerTo: address(0),
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         address tierProvider;
@@ -341,7 +341,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(TestnetTierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         deployProxy({
@@ -350,7 +350,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianVerifier.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         deployProxy({
@@ -359,7 +359,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(SgxVerifier.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: timelock,
-            timelock: timelock
+            timelock: _timelock
         });
 
         address guardianProver = deployProxy({
@@ -368,14 +368,14 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: address(0),
-            timelock: timelock
+            timelock: _timelock
         });
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
         GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
-        LibDeploy.acceptProxyOwnershipByTimelock(guardianProver, timelock);
+        LibDeploy.acceptProxyOwnershipByTimelock(guardianProver, _timelock);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
@@ -393,7 +393,6 @@ contract DeployOnL1 is DeployCapability {
         );
 
         // Revoke granted roles from the deployer
-        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
         _timelock.transferOwnership(securityCouncil);
         _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
         _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);

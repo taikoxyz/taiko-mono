@@ -44,29 +44,30 @@ library LibDeploy {
         address impl,
         address owner,
         bytes memory data,
-        address timelock
+        TimelockControllerUpgradeable timelock
     )
         internal
         returns (address proxy)
     {
         proxy = deployERC1967Proxy(impl, owner, data);
         if (
-            timelock != address(0) && owner != OwnableUpgradeable(proxy).owner()
-                && owner == timelock
+            address(timelock) != address(0) && owner != OwnableUpgradeable(proxy).owner()
+                && owner == address(timelock)
         ) {
             acceptProxyOwnershipByTimelock(proxy, timelock);
         }
     }
 
-    function acceptProxyOwnershipByTimelock(address proxy, address timelock) internal {
+    function acceptProxyOwnershipByTimelock(
+        address proxy,
+        TimelockControllerUpgradeable timelock
+    )
+        internal
+    {
         bytes32 salt = bytes32(block.timestamp);
-
         bytes memory payload = abi.encodeCall(Ownable2StepUpgradeable(proxy).acceptOwnership, ());
 
-        TaikoTimelockController timelockController = TaikoTimelockController(payable(timelock));
-
-        timelockController.schedule(proxy, 0, payload, bytes32(0), salt, 0);
-
-        timelockController.execute(proxy, 0, payload, bytes32(0), salt);
+        timelock.schedule(proxy, 0, payload, bytes32(0), salt, 0);
+        timelock.execute(proxy, 0, payload, bytes32(0), salt);
     }
 }

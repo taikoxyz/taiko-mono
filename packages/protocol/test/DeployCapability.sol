@@ -21,7 +21,7 @@ abstract contract DeployCapability is Script {
         bytes memory data,
         address registerTo,
         address owner,
-        address timelock
+        TimelockControllerUpgradeable timelock
     )
         internal
         returns (address proxy)
@@ -57,7 +57,9 @@ abstract contract DeployCapability is Script {
         internal
         returns (address proxy)
     {
-        return deployProxy(name, impl, data, registerTo, owner, address(0));
+        return deployProxy(
+            name, impl, data, registerTo, owner, TimelockControllerUpgradeable(payable(address(0)))
+        );
     }
 
     function deployProxy(
