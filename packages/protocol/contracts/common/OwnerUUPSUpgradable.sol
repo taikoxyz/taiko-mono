@@ -84,7 +84,7 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, Ownable2StepUpgradeabl
     /// @notice Initializes the contract with an address manager.
     // solhint-disable-next-line func-name-mixedcase
     function __OwnerUUPSUpgradable_init() internal virtual onlyInitializing {
-         _transferOwnership(msg.sender);
+        _transferOwnership(msg.sender);
         _paused = _FALSE;
     }
 
