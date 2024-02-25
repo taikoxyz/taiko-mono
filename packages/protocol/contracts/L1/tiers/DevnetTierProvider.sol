@@ -57,7 +57,7 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
         tiers[1] = LibTiers.TIER_GUARDIAN;
     }
 
-    function getMinTier(uint64, uint256) public pure override returns (uint16) {
+    function getMinTier(uint256) public pure override returns (uint16) {
         return LibTiers.TIER_OPTIMISTIC;
     }
 }

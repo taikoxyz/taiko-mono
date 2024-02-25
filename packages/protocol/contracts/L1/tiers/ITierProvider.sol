@@ -37,7 +37,7 @@ interface ITierProvider {
     function getTierIds() external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
-    function getMinTier(uint64 blockId, uint256 rand) external view returns (uint16);
+    function getMinTier(uint256 rand) external view returns (uint16);
 }
 
 /// @dev Tier ID cannot be zero!

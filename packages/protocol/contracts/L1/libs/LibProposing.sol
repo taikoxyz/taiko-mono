@@ -203,7 +203,7 @@ library LibProposing {
 
         // Use the difficulty as a random number
         meta.minTier = ITierProvider(resolver.resolve("tier_provider", false)).getMinTier(
-            b.numBlocks, uint256(meta.difficulty)
+            uint256(meta.difficulty)
         );
 
         // Create the block that will be stored onchain
