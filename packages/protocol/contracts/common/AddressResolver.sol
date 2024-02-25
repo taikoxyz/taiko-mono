@@ -14,6 +14,7 @@
 
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./AddressManager.sol";
 
 /// @title AddressResolver
@@ -25,7 +26,7 @@ import "./AddressManager.sol";
 /// Note that the address manager should be changed using upgradability, there
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
-abstract contract AddressResolver {
+abstract contract AddressResolver is Initializable {
     address public addressManager;
     uint256[49] private __gap;
 
@@ -93,7 +94,7 @@ abstract contract AddressResolver {
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
     // solhint-disable-next-line func-name-mixedcase
-    function __AddressResolver_init(address _addressManager) internal virtual {
+    function __AddressResolver_init(address _addressManager) internal virtual onlyInitializing {
         if (block.chainid > type(uint64).max) {
             revert RESOLVER_UNEXPECTED_CHAINID();
         }
