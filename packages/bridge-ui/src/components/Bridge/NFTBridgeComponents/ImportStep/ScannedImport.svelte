@@ -40,6 +40,7 @@
   };
 
   function onManualImportClick() {
+    $selectedNFTs = [];
     $selectedImportMethod = ImportMethod.MANUAL;
   }
   $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
