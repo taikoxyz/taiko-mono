@@ -15,7 +15,8 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "./AddressManager.sol";
+import "./IAddressManager.sol";
+import "./IAddressResolver.sol";
 
 /// @title AddressResolver
 /// @notice This contract acts as a bridge for name-to-address resolution.
@@ -26,7 +27,7 @@ import "./AddressManager.sol";
 /// Note that the address manager should be changed using upgradability, there
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
-abstract contract AddressResolver is Initializable {
+abstract contract AddressResolver is IAddressResolver, Initializable {
     address public addressManager;
     uint256[49] private __gap;
 
