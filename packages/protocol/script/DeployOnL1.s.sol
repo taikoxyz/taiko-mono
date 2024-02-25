@@ -321,21 +321,9 @@ contract DeployOnL1 is DeployCapability {
             owner: timelock
         });
 
-        bytes32 tierProviderName = vm.envBytes32("TIER_PROVIDER");
-        address tierProvider;
-        if (tierProviderName == "devnet") {
-            tierProvider = address(new DevnetTierProvider());
-        } else if (tierProviderName == "testnet") {
-            tierProvider = address(new TestnetTierProvider());
-        } else if (tierProviderName == "mainnet") {
-            tierProvider = address(new MainnetTierProvider());
-        } else {
-            revert("invalid tier provider");
-        }
-
         deployProxy({
             name: "tier_provider",
-            impl: tierProvider,
+            impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
             data: abi.encodeCall(TestnetTierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock
@@ -384,6 +372,18 @@ contract DeployOnL1 is DeployCapability {
         register(
             rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
         );
+    }
+
+    function deployTierProvider(string memory tierProviderName) private returns (address) {
+        if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
+            return address(new DevnetTierProvider());
+        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
+            return address(new TestnetTierProvider());
+        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
+            return address(new MainnetTierProvider());
+        } else {
+            revert("invalid tier provider");
+        }
     }
 
     function deployAuxContracts() private {
