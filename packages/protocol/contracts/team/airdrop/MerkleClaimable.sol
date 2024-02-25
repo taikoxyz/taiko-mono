@@ -15,12 +15,11 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../../common/EssentialContract.sol";
 
 /// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
-abstract contract MerkleClaimable is Initializable, EssentialContract {
+abstract contract MerkleClaimable is EssentialContract {
     mapping(bytes32 => bool) public isClaimed;
     bytes32 public merkleRoot;
     uint64 public claimStart;

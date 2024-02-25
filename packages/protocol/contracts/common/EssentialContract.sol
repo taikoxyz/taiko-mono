@@ -15,11 +15,10 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./AddressResolver.sol";
 import "./OwnerUUPSUpgradable.sol";
 
-abstract contract Essential1StepContract is Initializable, OwnerUUPSUpgradable, AddressResolver {
+abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver {
     uint256[50] private __gap;
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.

@@ -15,7 +15,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../common/EssentialContract.sol";
 import "../bridge/IBridge.sol";
 
@@ -24,7 +23,7 @@ import "../bridge/IBridge.sol";
 /// signals for transaction approval.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
 /// not be zero, so on this chain, some EOA can help execute this transaction.
-abstract contract CrossChainOwned is Initializable, EssentialContract, IMessageInvocable {
+abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     uint64 public ownerChainId; // slot 1
     uint64 public nextTxId;
     uint256[49] private __gap;
