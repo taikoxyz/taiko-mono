@@ -22,10 +22,10 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import "../../common/OwnerUUPSUpgradable.sol";
+import "../../common/EssentialContract.sol";
 
 contract TaikoGovernor is
-    OwnerUUPSUpgradable,
+    EssentialContract,
     GovernorCompatibilityBravoUpgradeable,
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
@@ -42,7 +42,7 @@ contract TaikoGovernor is
         external
         initializer
     {
-        __OwnerUUPSUpgradable_init();
+        __Essential_init();
         __Governor_init("TaikoGovernor");
         __GovernorCompatibilityBravo_init();
         __GovernorVotes_init(_token);
