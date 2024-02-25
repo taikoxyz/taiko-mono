@@ -19,6 +19,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
+import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TestnetTierProvider.sol";
 import "../contracts/L1/tiers/MainnetTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
@@ -320,11 +321,16 @@ contract DeployOnL1 is DeployCapability {
             owner: timelock
         });
 
+        bytes32 tierProviderName = vm.envBytes32("TIER_PROVIDER");
         address tierProvider;
-        if (vm.envBool("MAINNET")) {
+        if (tierProviderName == "devnet") {
+            tierProvider = address(new DevnetTierProvider());
+        } else if (tierProviderName == "testnet") {
+            tierProvider = address(new TestnetTierProvider());
+        } else if (tierProviderName == "mainnet") {
             tierProvider = address(new MainnetTierProvider());
         } else {
-            tierProvider = address(new TestnetTierProvider());
+            revert("invalid tier provider");
         }
 
         deployProxy({

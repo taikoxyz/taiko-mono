@@ -28,8 +28,6 @@ import "./ITierProvider.sol";
 contract MainnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
-    error TIER_NOT_FOUND();
-
     /// @notice Initializes the contract with the provided address manager.
     function init() external initializer {
         __Essential_init();
@@ -65,7 +63,7 @@ contract MainnetTierProvider is EssentialContract, ITierProvider {
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 60, //1 hours
                 provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 18
+                maxBlocksToVerifyPerProof: 16
             });
         }
 
