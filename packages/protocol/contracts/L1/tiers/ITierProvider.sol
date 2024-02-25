@@ -17,8 +17,6 @@ pragma solidity 0.8.24;
 /// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
 interface ITierProvider {
-    error TIER_NOT_FOUND();
-
     struct Tier {
         bytes32 verifierName;
         uint96 validityBond;
@@ -27,6 +25,8 @@ interface ITierProvider {
         uint16 provingWindow; // in minutes
         uint8 maxBlocksToVerifyPerProof;
     }
+
+    error TIER_NOT_FOUND();
 
     /// @dev Retrieves the configuration for a specified tier.
     function getTier(uint16 tierId) external view returns (Tier memory);
