@@ -20,7 +20,7 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/TestnetTierProvider.sol";
-import "../contracts/L1/tiers/OptimisticTierProvider.sol";
+import "../contracts/L1/tiers/MainnetTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/gov/TaikoGovernor.sol";
@@ -321,8 +321,8 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address tierProvider;
-        if (vm.envBool("OPTIMISTIC_TIER_PROVIDER")) {
-            tierProvider = address(new OptimisticTierProvider());
+        if (vm.envBool("MAINNET")) {
+            tierProvider = address(new MainnetTierProvider());
         } else {
             tierProvider = address(new TestnetTierProvider());
         }

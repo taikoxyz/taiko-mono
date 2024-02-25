@@ -21,8 +21,8 @@ interface ITierProvider {
         bytes32 verifierName;
         uint96 validityBond;
         uint96 contestBond;
-        uint24 cooldownWindow;
-        uint16 provingWindow;
+        uint24 cooldownWindow; // in minutes
+        uint16 provingWindow; // in minutes
         uint8 maxBlocksToVerifyPerProof;
     }
 
@@ -42,5 +42,6 @@ interface ITierProvider {
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
     uint16 public constant TIER_SGX = 200;
+    uint16 public constant TIER_SGX_ZKVM = 300;
     uint16 public constant TIER_GUARDIAN = 1000;
 }
