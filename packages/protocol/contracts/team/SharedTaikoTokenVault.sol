@@ -17,7 +17,7 @@ pragma solidity 0.8.24;
 import "../L1/TaikoToken.sol";
 
 /// @title SharedTaikoTokenVault
-/// A vault that take custody of all Taiko token to be distributed by airdrop contracts and/or
+/// A vault that takes custody of all Taiko token to be distributed by airdrop contracts and/or
 /// timelock token pools.
 contract SharedTaikoTokenVault is EssentialContract {
     TaikoToken public taikoToken;
@@ -35,8 +35,9 @@ contract SharedTaikoTokenVault is EssentialContract {
         taikoToken = TaikoToken(_taikoToken);
     }
 
-    function delegateToOwner() external onlyOwner {
-        taikoToken.delegate(owner());
+    function delegateToOwner(address delegatee) external onlyOwner {
+        address _delegatee = delegatee == address(0) ? owner() : delegatee;
+        taikoToken.delegate(_delegatee);
     }
 
     function approve(address spender, uint256 amount) external onlyOwner {
