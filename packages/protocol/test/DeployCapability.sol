@@ -20,12 +20,13 @@ abstract contract DeployCapability is Script {
         address impl,
         bytes memory data,
         address registerTo,
-        address owner
+        address owner,
+        address timelock
     )
         internal
         returns (address proxy)
     {
-        proxy = LibDeploy.deployERC1967Proxy(impl, owner, data);
+        proxy = LibDeploy.deployERC1967Proxy(impl, owner, data, timelock);
 
         if (registerTo != address(0)) {
             AddressManager(registerTo).setAddress(
@@ -44,6 +45,19 @@ abstract contract DeployCapability is Script {
             vm.serializeAddress("deployment", name, proxy),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
+    }
+
+    function deployProxy(
+        string memory name,
+        address impl,
+        bytes memory data,
+        address registerTo,
+        address owner
+    )
+        internal
+        returns (address proxy)
+    {
+        return deployProxy(name, impl, data, registerTo, owner, address(0));
     }
 
     function deployProxy(

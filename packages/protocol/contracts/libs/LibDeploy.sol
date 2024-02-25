@@ -16,6 +16,8 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "../L1/gov/TaikoTimelockController.sol";
 
 /// @title LibDeploy
 /// @dev Provides utilities for deploying contracts
@@ -36,5 +38,35 @@ library LibDeploy {
         if (owner != address(0) && owner != OwnableUpgradeable(proxy).owner()) {
             OwnableUpgradeable(proxy).transferOwnership(owner);
         }
+    }
+
+    function deployERC1967Proxy(
+        address impl,
+        address owner,
+        bytes memory data,
+        address timelock
+    )
+        internal
+        returns (address proxy)
+    {
+        proxy = deployERC1967Proxy(impl, owner, data);
+        if (
+            timelock != address(0) && owner != OwnableUpgradeable(proxy).owner()
+                && owner == timelock
+        ) {
+            acceptProxyOwnershipByTimelock(proxy, timelock);
+        }
+    }
+
+    function acceptProxyOwnershipByTimelock(address proxy, address timelock) internal {
+        bytes32 salt = bytes32(block.timestamp);
+
+        bytes memory payload = abi.encodeCall(Ownable2StepUpgradeable(proxy).acceptOwnership, ());
+
+        TaikoTimelockController timelockController = TaikoTimelockController(payable(timelock));
+
+        timelockController.schedule(proxy, 0, payload, bytes32(0), salt, 0);
+
+        timelockController.execute(proxy, 0, payload, bytes32(0), salt);
     }
 }
