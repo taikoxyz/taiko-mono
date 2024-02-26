@@ -192,10 +192,13 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new TaikoGovernor()),
             data: abi.encodeCall(
                 TaikoGovernor.init,
-                (IVotesUpgradeable(taikoToken), TimelockControllerUpgradeable(payable(timelock)))
+                (
+                    timelock,
+                    IVotesUpgradeable(taikoToken),
+                    TimelockControllerUpgradeable(payable(timelock))
+                )
                 ),
-            registerTo: address(0),
-            owner: timelock
+            registerTo: address(0)
         });
 
         // Setup time lock roles

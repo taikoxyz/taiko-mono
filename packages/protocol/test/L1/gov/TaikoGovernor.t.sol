@@ -48,7 +48,7 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         );
 
         // init TaikoGovernor
-        taikoGovernor.init(tko, taikoTimelockController);
+        taikoGovernor.init(address(0), tko, taikoTimelockController);
         // Alice delegate voting power to self
         vm.startPrank(Alice);
         tko.delegate(Alice);

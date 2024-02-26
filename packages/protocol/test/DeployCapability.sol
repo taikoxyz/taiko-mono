@@ -15,7 +15,6 @@ import "../contracts/libs/LibDeploy.sol";
 abstract contract DeployCapability is Script {
     error ADDRESS_NULL();
 
-
     function deployProxy(
         string memory name,
         address impl,
@@ -45,7 +44,6 @@ abstract contract DeployCapability is Script {
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
     }
-
 
     function deployProxy(
         string memory name,

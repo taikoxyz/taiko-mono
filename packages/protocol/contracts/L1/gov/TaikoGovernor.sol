@@ -36,13 +36,14 @@ contract TaikoGovernor is
     error TG_INVALID_SIGNATURES_LENGTH();
 
     function init(
+        address _owner,
         IVotesUpgradeable _token,
         TimelockControllerUpgradeable _timelock
     )
         external
         initializer
+        initEssential(_owner, address(0))
     {
-        __Essential_init();
         __Governor_init("TaikoGovernor");
         __GovernorCompatibilityBravo_init();
         __GovernorVotes_init(_token);
