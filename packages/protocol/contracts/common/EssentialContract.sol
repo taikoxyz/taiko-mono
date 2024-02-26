@@ -46,6 +46,16 @@ abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver
 abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgradeable {
     uint256[50] private __gap;
 
+    modifier initEssential(address _owner, address _addressManager) {
+        __Essential_init(_addressManager);
+        // owner == msg.sender
+        _;
+
+        if (_owner != address(0) && _owner != owner()) {
+            _transferOwnership(_owner);
+        }
+    }
+
     function transferOwnership(address newOwner)
         public
         override(OwnableUpgradeable, Ownable2StepUpgradeable)
