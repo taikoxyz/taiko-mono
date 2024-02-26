@@ -130,7 +130,7 @@ contract SignalService is EssentialContract, ISignalService {
             bool isLastHop = i == _hopProofs.length - 1;
 
             if (isLastHop) {
-                if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
+                // if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
                 _signalService = address(this);
             } else {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
@@ -239,7 +239,7 @@ contract SignalService is EssentialContract, ISignalService {
             hop.rootHash,
             signalService,
             getSignalSlot(chainId, app, signal),
-            bytes.concat(value),
+            value,
             hop.accountProof,
             hop.storageProof
         );

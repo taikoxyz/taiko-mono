@@ -21,10 +21,12 @@ interface ITierProvider {
         bytes32 verifierName;
         uint96 validityBond;
         uint96 contestBond;
-        uint24 cooldownWindow;
-        uint16 provingWindow;
+        uint24 cooldownWindow; // in minutes
+        uint16 provingWindow; // in minutes
         uint8 maxBlocksToVerifyPerProof;
     }
+
+    error TIER_NOT_FOUND();
 
     /// @dev Retrieves the configuration for a specified tier.
     function getTier(uint16 tierId) external view returns (Tier memory);
@@ -42,7 +44,6 @@ interface ITierProvider {
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
     uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_PSE_ZKEVM = 300;
-    uint16 public constant TIER_SGX_AND_PSE_ZKEVM = 400;
+    uint16 public constant TIER_SGX_ZKVM = 300;
     uint16 public constant TIER_GUARDIAN = 1000;
 }

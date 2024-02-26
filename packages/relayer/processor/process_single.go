@@ -14,7 +14,7 @@ import (
 )
 
 func (p *Processor) processSingle(ctx context.Context) error {
-	slog.Info("processing tx", "estimateGas", common.Hash(*p.targetTxHash).Hex())
+	slog.Info("processing single", "txHash", common.Hash(*p.targetTxHash).Hex())
 
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
 	if err != nil {

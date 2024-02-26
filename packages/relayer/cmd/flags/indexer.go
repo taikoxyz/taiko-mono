@@ -82,6 +82,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"EVENT_NAME"},
 	}
+	TargetBlockNumber = &cli.Uint64Flag{
+		Name:     "targetBlockNumber",
+		Usage:    "Specify the target block number to process transactions in",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"TARGET_BLOCK_NUMBER"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -96,4 +103,5 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	WatchMode,
 	NumLatestBlocksToIgnoreWhenCrawling,
 	EventName,
+	TargetBlockNumber,
 })

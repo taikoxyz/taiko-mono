@@ -111,6 +111,8 @@ type Processor struct {
 	taikoL2 *taikol2.TaikoL2
 
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
+
+	cfg *Config
 }
 
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -124,6 +126,8 @@ func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
+	p.cfg = cfg
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err

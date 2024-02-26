@@ -14,6 +14,7 @@
 
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
@@ -24,6 +25,7 @@ import "./IBridge.sol";
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
+    using Address for address;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -65,6 +67,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
+    event MessageRetried(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event MessageSuspended(bytes32 msgHash, bool suspended);
     event AddressBanned(address indexed addr, bool banned);
@@ -375,6 +378,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
         }
+        emit MessageRetried(msgHash);
     }
 
     /// @notice Checks if the message was sent.
@@ -528,8 +532,15 @@ contract Bridge is EssentialContract, IBridge {
 
         _storeContext({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
 
-        // Perform the message call and capture the success value
-        (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        if (
+            message.data.length >= 4 // msg can be empty
+                && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
+                && message.to.isContract()
+        ) {
+            success = false;
+        } else {
+            (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        }
 
         // Reset the context after the message call
         _resetContext();

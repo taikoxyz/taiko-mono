@@ -92,28 +92,20 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
-    /// @notice This function can only be called by the bridge contract while
-    /// invoking a message call. See sendToken, which sets the data to invoke
-    /// this function.
-    /// @param ctoken The canonical ERC1155 token which may or may not live on
-    /// this chain. If not, a BridgedERC1155 contract will be deployed.
-    /// @param from The source address.
-    /// @param to The destination address.
-    /// @param tokenIds The tokenIds to be sent.
-    /// @param amounts The amounts to be sent.
-    function receiveToken(
-        CanonicalNFT calldata ctoken,
-        address from,
-        address to,
-        uint256[] memory tokenIds,
-        uint256[] memory amounts
-    )
-        external
-        payable
-        nonReentrant
-        whenNotPaused
+    /// @inheritdoc IMessageInvocable
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused 
+    // onlyFromBridge
     {
+        (
+            CanonicalNFT memory ctoken,
+            address from,
+            address to,
+            uint256[] memory tokenIds,
+            uint256[] memory amounts
+        ) = abi.decode(data, (CanonicalNFT, address, address, uint256[], uint256[]));
+
         // Check context validity
+        // `onlyFromBridge` checked in checkProcessMessageContext
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         // Don't allow sending to disallowed addresses.
@@ -146,11 +138,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         override
         nonReentrant
         whenNotPaused
+    // onlyFromBridge
     {
+        // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
 
+        (bytes memory _data) = abi.decode(message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
-            abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[], uint256[]));
+            abi.decode(_data, (CanonicalNFT, address, address, uint256[], uint256[]));
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.srcOwner, tokenIds, amounts);
@@ -223,21 +218,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (ctoken.chainId == block.chainid) {
             // Token lives on this chain
             token = ctoken.addr;
-            for (uint256 i; i < tokenIds.length; ++i) {
-                ERC1155(token).safeTransferFrom({
-                    from: address(this),
-                    to: to,
-                    id: tokenIds[i],
-                    amount: amounts[i],
-                    data: ""
-                });
-            }
+            ERC1155(token).safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
         } else {
             // Token does not live on this chain
             token = _getOrDeployBridgedToken(ctoken);
-            for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
-            }
+            BridgedERC1155(token).mintBatch(to, tokenIds, amounts);
         }
     }
 
@@ -287,7 +272,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             }
         }
-        msgData = abi.encodeCall(this.receiveToken, (ctoken, user, op.to, op.tokenIds, op.amounts));
+        msgData = abi.encodeCall(
+            this.onMessageInvocation, abi.encode(ctoken, user, op.to, op.tokenIds, op.amounts)
+        );
     }
 
     /// @dev Retrieve or deploy a bridged ERC1155 token contract.

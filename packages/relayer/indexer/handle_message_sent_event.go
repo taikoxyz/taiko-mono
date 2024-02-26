@@ -28,7 +28,12 @@ func (i *Indexer) handleMessageSentEvent(
 	event *bridge.BridgeMessageSent,
 	waitForConfirmations bool,
 ) error {
-	slog.Info("MessageSent event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
+	slog.Info("MessageSent event found for msgHash",
+		"msgHash",
+		common.Hash(event.MsgHash).Hex(),
+		"txHash",
+		event.Raw.TxHash.Hex(),
+	)
 
 	// if the destinatio chain doesnt match, we dont process it in this indexer.
 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {

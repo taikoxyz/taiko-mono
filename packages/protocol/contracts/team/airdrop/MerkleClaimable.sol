@@ -63,6 +63,7 @@ abstract contract MerkleClaimable is EssentialContract {
         bytes32 _merkleRoot
     )
         internal
+        onlyInitializing
     {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }

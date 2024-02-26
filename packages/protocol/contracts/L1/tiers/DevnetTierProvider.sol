@@ -17,8 +17,10 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
-contract OptimisticTierProvider is EssentialContract, ITierProvider {
-    error TIER_NOT_FOUND();
+/// @title DevnetTierProvider
+/// @dev Labeled in AddressResolver as "tier_provider"
+contract DevnetTierProvider is EssentialContract, ITierProvider {
+    uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
     function init() external initializer {
@@ -31,9 +33,9 @@ contract OptimisticTierProvider is EssentialContract, ITierProvider {
                 verifierName: "tier_optimistic",
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
-                cooldownWindow: 24 hours,
-                provingWindow: 2 hours,
-                maxBlocksToVerifyPerProof: 10
+                cooldownWindow: 1440, //24 hours
+                provingWindow: 120, // 2 hours
+                maxBlocksToVerifyPerProof: 16
             });
         }
 
@@ -42,9 +44,9 @@ contract OptimisticTierProvider is EssentialContract, ITierProvider {
                 verifierName: "tier_guardian",
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
-                cooldownWindow: 24 hours,
-                provingWindow: 8 hours,
-                maxBlocksToVerifyPerProof: 4
+                cooldownWindow: 60, //1 hours
+                provingWindow: 2880, // 48 hours
+                maxBlocksToVerifyPerProof: 16
             });
         }
 
@@ -57,7 +59,7 @@ contract OptimisticTierProvider is EssentialContract, ITierProvider {
         tiers[1] = LibTiers.TIER_GUARDIAN;
     }
 
-    function getMinTier(uint256 /*rand*/ ) public pure override returns (uint16) {
+    function getMinTier(uint256) public pure override returns (uint16) {
         return LibTiers.TIER_OPTIMISTIC;
     }
 }

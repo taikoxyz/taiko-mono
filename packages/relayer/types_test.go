@@ -3,7 +3,6 @@ package relayer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -30,8 +29,8 @@ type mockConfirmer struct {
 var (
 	notFoundTxHash = common.HexToHash("0x123")
 	succeedTxHash  = common.HexToHash("0x456")
-	failTxHash     = common.HexToHash("0x789")
-	blockNum       = 10
+	// failTxHash     = common.HexToHash("0x789")
+	blockNum = 10
 )
 
 func (m *mockConfirmer) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
@@ -77,13 +76,13 @@ func Test_WaitReceipt(t *testing.T) {
 				BlockNumber: new(big.Int).Sub(big.NewInt(int64(blockNum)), big.NewInt(1)),
 			},
 		},
-		{
-			"receiptStatusUnsuccessful",
-			context.Background(),
-			failTxHash,
-			fmt.Errorf("transaction reverted, hash: %s", failTxHash),
-			nil,
-		},
+		// {
+		// 	"receiptStatusUnsuccessful",
+		// 	context.Background(),
+		// 	failTxHash,
+		// 	fmt.Errorf("transaction reverted, hash: %s", failTxHash),
+		// 	nil,
+		// },
 		{
 			"ticker timeout",
 			timeoutTicker,

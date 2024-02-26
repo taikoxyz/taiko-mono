@@ -427,24 +427,24 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// check if message is received first. if not, it will definitely fail,
 	// so we can exit early on this one. there is most likely
 	// an issue with the signal generation.
-	// received, err := p.destBridge.ProveMessageReceived(&bind.CallOpts{
-	// 	Context: ctx,
-	// }, event.Message, encodedSignalProof)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "p.destBridge.ProveMessageReceived")
-	// }
+	received, err := p.destBridge.ProveMessageReceived(&bind.CallOpts{
+		Context: ctx,
+	}, event.Message, encodedSignalProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.ProveMessageReceived")
+	}
 
-	// // message will fail when we try to process it
-	// if !received {
-	// 	slog.Warn("Message not received on dest chain",
-	// 		"msgHash", common.Hash(event.MsgHash).Hex(),
-	// 		"srcChainId", event.Message.SrcChainId,
-	// 	)
+	// message will fail when we try to process it
+	if !received {
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId,
+		)
 
-	// 	relayer.MessagesNotReceivedOnDestChain.Inc()
+		relayer.MessagesNotReceivedOnDestChain.Inc()
 
-	// 	return nil, errors.New("message not received")
-	// }
+		return nil, errors.New("message not received")
+	}
 
 	return encodedSignalProof, nil
 }
