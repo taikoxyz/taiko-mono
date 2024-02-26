@@ -130,7 +130,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     }
 
     function unpause() public override {
-        unpause(); // permission checked inside
+        EssentialContract.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
