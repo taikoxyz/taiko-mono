@@ -318,9 +318,8 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (rollupAddressManager)),
-            registerTo: address(0),
-            owner: timelock
+            data: abi.encodeCall(AssignmentHook.init, (timelock, rollupAddressManager)),
+            registerTo: address(0)
         });
 
         deployProxy({

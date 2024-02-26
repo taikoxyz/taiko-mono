@@ -101,7 +101,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: abi.encodeCall(AssignmentHook.init, address(addressManager))
+                data: abi.encodeCall( AssignmentHook.init, (address(0),address(addressManager)))
             })
         );
 
