@@ -37,6 +37,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 	confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
 
 	defer confCtxCancel()
+
 	if waitForConfirmations {
 		if err := relayer.WaitConfirmations(
 			confCtx,
@@ -52,6 +53,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
+
 	opts := relayer.SaveEventOpts{
 		Name:            relayer.EventNameChainDataSynced,
 		Event:           relayer.EventNameChainDataSynced,

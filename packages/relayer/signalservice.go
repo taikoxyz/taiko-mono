@@ -9,7 +9,12 @@ import (
 
 type SignalService interface {
 	GetSignalSlot(opts *bind.CallOpts, chainId uint64, app common.Address, signal [32]byte) ([32]byte, error)
-	FilterChainDataSynced(opts *bind.FilterOpts, chainid []uint64, blockId []uint64, kind [][32]byte) (*signalservice.SignalServiceChainDataSyncedIterator, error)
+	FilterChainDataSynced(
+		opts *bind.FilterOpts,
+		chainid []uint64,
+		blockId []uint64,
+		kind [][32]byte,
+	) (*signalservice.SignalServiceChainDataSyncedIterator, error)
 	WatchChainDataSynced(
 		opts *bind.WatchOpts,
 		sink chan<- *signalservice.SignalServiceChainDataSynced,

@@ -38,14 +38,22 @@ func (s *SignalService) GetSyncedChainData(opts *bind.CallOpts, chainId uint64, 
 	}, nil
 }
 
-func (s *SignalService) FilterChainDataSynced(opts *bind.FilterOpts, chainid []uint64, blockId []uint64, kind [][32]byte) (*signalservice.SignalServiceChainDataSyncedIterator, error) {
+func (s *SignalService) FilterChainDataSynced(
+	opts *bind.FilterOpts,
+	chainid []uint64,
+	blockId []uint64,
+	kind [][32]byte,
+) (*signalservice.SignalServiceChainDataSyncedIterator, error) {
 	return &signalservice.SignalServiceChainDataSyncedIterator{}, nil
 }
 
 func (s *SignalService) WatchChainDataSynced(
 	opts *bind.WatchOpts,
-	sink chan<- *signalservice.SignalServiceChainDataSynced, chainid []uint64, blockId []uint64, kind [][32]byte) (event.Subscription, error) {
-
+	sink chan<- *signalservice.SignalServiceChainDataSynced,
+	chainid []uint64,
+	blockId []uint64,
+	kind [][32]byte,
+) (event.Subscription, error) {
 	sub := &Subscription{
 		errChan: make(chan error),
 	}
