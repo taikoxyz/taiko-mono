@@ -110,7 +110,7 @@
       log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 5: Call claim() method on the bridge
-      const txHash = await bridge.claim({ msgHash, message, wallet });
+      const txHash = await bridge.claim({ wallet, bridgeTx });
 
       const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
@@ -200,7 +200,7 @@
       log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 4: Call release() method on the bridge
-      const txHash = await bridge.release({ msgHash, message, wallet });
+      const txHash = await bridge.release({ bridgeTx, wallet });
 
       const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
