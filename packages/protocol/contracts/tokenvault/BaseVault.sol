@@ -38,8 +38,15 @@ abstract contract BaseVault is
     }
     /// @notice Initializes the contract with the address manager.
     /// @param _addressManager Address manager contract address.
-    function init(address _owner, address _addressManager) external initializer initEssential(_owner, _addressManager){
-    }
+
+    function init(
+        address _owner,
+        address _addressManager
+    )
+        external
+        initializer
+        initEssential(_owner, _addressManager)
+    { }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param interfaceId The interface identifier.

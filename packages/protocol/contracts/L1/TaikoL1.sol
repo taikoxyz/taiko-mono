@@ -49,8 +49,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(address _owner, address _addressManager, bytes32 _genesisBlockHash) external initializer 
-initEssential(_owner, _addressManager)
+    function init(
+        address _owner,
+        address _addressManager,
+        bytes32 _genesisBlockHash
+    )
+        external
+        initializer
+        initEssential(_owner, _addressManager)
     {
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }

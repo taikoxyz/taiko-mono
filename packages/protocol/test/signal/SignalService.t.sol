@@ -47,7 +47,7 @@ contract TestSignalService is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new MockSignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0),address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 

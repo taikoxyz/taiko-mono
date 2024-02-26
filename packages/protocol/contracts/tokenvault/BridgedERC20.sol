@@ -55,6 +55,7 @@ contract BridgedERC20 is
     /// @param _decimals The number of decimal places of the source token.
     /// @param _symbol The symbol of the token.
     /// @param _name The name of the token.
+
     function init(
         address _owner,
         address _addressManager,
@@ -66,7 +67,7 @@ contract BridgedERC20 is
     )
         external
         initializer
-       initEssential(_owner, _addressManager)
+        initEssential(_owner, _addressManager)
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);

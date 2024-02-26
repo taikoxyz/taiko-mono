@@ -177,7 +177,8 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new TaikoToken()),
             data: abi.encodeCall(
                 TaikoToken.init,
-                (timelock,
+                (
+                    timelock,
                     vm.envString("TAIKO_TOKEN_NAME"),
                     vm.envString("TAIKO_TOKEN_SYMBOL"),
                     vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
@@ -223,7 +224,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, (address(0),sharedAddressManager)),
+            data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
@@ -305,7 +306,9 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "taiko",
             impl: address(new TaikoL1()),
-            data: abi.encodeCall(TaikoL1.init, (timelock,rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))),
+            data: abi.encodeCall(
+                TaikoL1.init, (timelock, rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
+                ),
             registerTo: rollupAddressManager
         });
 

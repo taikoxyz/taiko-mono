@@ -60,8 +60,14 @@ contract AssignmentHook is EssentialContract, IHook {
     error HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
     error HOOK_TIER_NOT_FOUND();
 
-    function init(address _owner, address _addressManager) external initializer initEssential(_owner, _addressManager){
-    }
+    function init(
+        address _owner,
+        address _addressManager
+    )
+        external
+        initializer
+        initEssential(_owner, _addressManager)
+    { }
 
     function onBlockProposed(
         TaikoData.Block memory blk,

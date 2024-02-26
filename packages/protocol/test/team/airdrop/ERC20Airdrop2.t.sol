@@ -48,7 +48,7 @@ contract TestERC20Airdrop2 is TaikoTest {
                 impl: address(new MockERC20Airdrop2()),
                 data: abi.encodeCall(
                     ERC20Airdrop2.init,
-                    (address(0),claimStart, claimEnd, merkleRoot, address(token), owner, 10 days)
+                    (address(0), claimStart, claimEnd, merkleRoot, address(token), owner, 10 days)
                     )
             })
         );

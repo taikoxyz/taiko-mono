@@ -68,8 +68,14 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
-    function init(address _owner, address _addressManager) external initializer initEssential(_owner, _addressManager){
-    }
+    function init(
+        address _owner,
+        address _addressManager
+    )
+        external
+        initializer
+        initEssential(_owner, _addressManager)
+    { }
 
     /// @dev Authorize or deautohrize an address for calling syncChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.

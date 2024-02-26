@@ -43,7 +43,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0),address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
         ss.authorize(address(L1), true);
@@ -101,7 +101,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: abi.encodeCall( AssignmentHook.init, (address(0),address(addressManager)))
+                data: abi.encodeCall(AssignmentHook.init, (address(0), address(addressManager)))
             })
         );
 
@@ -119,7 +119,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: abi.encodeCall(TaikoToken.init, (address(0),"Taiko Token", "TTKOk", address(this))),
+                data: abi.encodeCall(
+                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
+                    ),
                 registerTo: address(addressManager)
             })
         );

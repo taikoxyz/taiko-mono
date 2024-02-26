@@ -103,7 +103,14 @@ contract TestERC721Airdrop is TaikoTest {
                 impl: address(new BridgedERC721()),
                 data: abi.encodeCall(
                     BridgedERC721.init,
-                    (address(0),address(addressManager), randAddress(), 100, "TKOP", "Taiko Points Token")
+                    (
+                        address(0),
+                        address(addressManager),
+                        randAddress(),
+                        100,
+                        "TKOP",
+                        "Taiko Points Token"
+                    )
                     )
             })
         );
@@ -135,7 +142,7 @@ contract TestERC721Airdrop is TaikoTest {
                 impl: address(new MockERC721Airdrop()),
                 data: abi.encodeCall(
                     ERC721Airdrop.init,
-                    (address(0),claimStart, claimEnd, merkleRoot, address(token), address(vault))
+                    (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
                     )
             })
         );

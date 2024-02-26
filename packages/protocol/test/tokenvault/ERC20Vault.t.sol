@@ -89,7 +89,9 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: abi.encodeCall(TaikoToken.init, (address(0),"Taiko Token", "TTKOk", address(this)))
+                data: abi.encodeCall(
+                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
+                    )
             })
         );
 
@@ -140,7 +142,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0),address(addressManager))),
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
                 registerTo: address(0)
             })
         );

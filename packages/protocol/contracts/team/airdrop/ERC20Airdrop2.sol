@@ -57,7 +57,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     )
         external
         initializer
-       initEssential(_owner, address(0))
+        initEssential(_owner, address(0))
     {
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
