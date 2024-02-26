@@ -36,6 +36,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
+    error ZERO_ADDR_MANAGER();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param name The name to check against.
@@ -94,14 +95,16 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         virtual
         onlyInitializing
     {
-        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
+        __Essential_init(_owner);
+
+        if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
         __AddressResolver_init(_addressManager);
-        _paused = _FALSE;
     }
 
     // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _owner) internal virtual {
-        __Essential_init(_owner, address(0));
+        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
+        _paused = _FALSE;
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
