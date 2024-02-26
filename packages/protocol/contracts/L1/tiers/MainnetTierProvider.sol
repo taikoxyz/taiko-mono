@@ -17,9 +17,9 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
-/// @title TestnetTierProvider
+/// @title MainnetTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
-contract TestnetTierProvider is EssentialContract, ITierProvider {
+contract MainnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
@@ -28,25 +28,25 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
     }
 
     function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (tierId == LibTiers.TIER_OPTIMISTIC) {
-            return ITierProvider.Tier({
-                verifierName: "tier_optimistic",
-                validityBond: 250 ether, // TKO
-                contestBond: 500 ether, // TKO
-                cooldownWindow: 1440, //24 hours
-                provingWindow: 30, // 0.5 hours
-                maxBlocksToVerifyPerProof: 12
-            });
-        }
-
         if (tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
-                validityBond: 500 ether, // TKO
-                contestBond: 1000 ether, // TKO
+                validityBond: 250 ether, // TKO
+                contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 60, // 1 hours
                 maxBlocksToVerifyPerProof: 8
+            });
+        }
+
+        if (tierId == LibTiers.TIER_SGX_ZKVM) {
+            return ITierProvider.Tier({
+                verifierName: "tier_sgx_zkvm",
+                validityBond: 500 ether, // TKO
+                contestBond: 1000 ether, // TKO
+                cooldownWindow: 1440, //24 hours
+                provingWindow: 240, // 4 hours
+                maxBlocksToVerifyPerProof: 4
             });
         }
 
@@ -66,15 +66,14 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
 
     function getTierIds() public pure override returns (uint16[] memory tiers) {
         tiers = new uint16[](3);
-        tiers[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers[1] = LibTiers.TIER_SGX;
+        tiers[0] = LibTiers.TIER_SGX;
+        tiers[1] = LibTiers.TIER_SGX_ZKVM;
         tiers[2] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        // 10% will be selected to require SGX proofs.
-        if (rand % 10 == 0) return LibTiers.TIER_SGX;
-        // Other blocks are optimisitc, without validity proofs.
-        return LibTiers.TIER_OPTIMISTIC;
+        // 0.1% require SGX + ZKVM; all others require SGX
+        if (rand % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
+        else return LibTiers.TIER_SGX;
     }
 }

@@ -63,13 +63,6 @@
   }
 </script>
 
-{$selectedNFTs?.length} <br />
-validBalance {validBalance} <br />
-$enteredAmount gt 0 {$enteredAmount > 0} <br />
-has amount {nftHasAmount} <br />
-(nftHasAmount ? $enteredAmount gt 0 : true) {nftHasAmount ? $enteredAmount > 0 : true} <br />
-{hasSelectedNFT && (nftHasAmount ? $enteredAmount > 0 : true)}
-<!-- {JSON.stringify($selectedNFTs, (key, value) => (typeof value === 'bigint' ? Number(value) : value))} -->
 <div class="f-col w-full gap-4">
   <section class="space-y-2">
     <div class="flex justify-between items-center w-full">
