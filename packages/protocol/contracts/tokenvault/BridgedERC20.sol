@@ -66,7 +66,7 @@ contract BridgedERC20 is
     )
         external
         initializer
-        initEssential(_owner, _addressManager)
+       initEssential(_owner, _addressManager)
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);

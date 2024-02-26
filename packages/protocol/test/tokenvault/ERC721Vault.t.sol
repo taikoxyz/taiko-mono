@@ -164,7 +164,7 @@ contract ERC721VaultTest is TaikoTest {
             deployProxy({
                 name: "erc721_vault",
                 impl: address(new ERC721Vault()),
-                data: abi.encodeCall(BaseVault.init, (address(addressManager)))
+                data: abi.encodeCall(BaseVault.init, (address(0), address(addressManager)))
             })
         );
 
@@ -172,7 +172,7 @@ contract ERC721VaultTest is TaikoTest {
             deployProxy({
                 name: "erc721_vault",
                 impl: address(new ERC721Vault()),
-                data: abi.encodeCall(BaseVault.init, (address(addressManager)))
+                data: abi.encodeCall(BaseVault.init, (address(0), address(addressManager)))
             })
         );
 

@@ -11,7 +11,7 @@ optimizer = true
 optimizer_runs = 200
 ffi = true
 gas_limit = "18446744073709551615"
-memory_limit = 2073741824
+memory_limit = 4073741824
 evm_version = "cancun"
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.

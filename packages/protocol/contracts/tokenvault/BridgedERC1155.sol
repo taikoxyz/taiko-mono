@@ -25,7 +25,7 @@ import "./LibBridgedToken.sol";
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 contract BridgedERC1155 is
-    Essential1StepContract,
+    EssentialContract,
     IERC1155Upgradeable,
     IERC1155MetadataURIUpgradeable,
     ERC1155Upgradeable
@@ -46,6 +46,7 @@ contract BridgedERC1155 is
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -54,13 +55,12 @@ contract BridgedERC1155 is
     )
         external
         initializer
+        initEssential(_owner, _addressManager)
     {
         // Check if provided parameters are valid.
         // The symbol and the name can be empty for ERC1155 tokens so we use some placeholder data
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, "foo", "foo");
-
-        __Essential_init(_addressManager);
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;
