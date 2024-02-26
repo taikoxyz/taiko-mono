@@ -57,6 +57,8 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg1' as Hex,
       receipt: undefined,
+      blockNumber: BigInt(123),
+
       tokenType: 'ERC20' as TokenType,
     },
     {
@@ -71,6 +73,7 @@ describe('mergeUniqueTransactions', () => {
       msgHash: 'msg2' as Hex,
       receipt: undefined,
       tokenType: 'ERC20' as TokenType,
+      blockNumber: BigInt(123),
     },
   ];
 
@@ -87,6 +90,7 @@ describe('mergeUniqueTransactions', () => {
       msgHash: 'msg3' as Hex,
       receipt: undefined,
       tokenType: 'ERC20' as TokenType,
+      blockNumber: BigInt(123),
     },
     {
       hash: 'hash4' as Hex,
@@ -100,6 +104,7 @@ describe('mergeUniqueTransactions', () => {
       msgHash: 'msg4' as Hex,
       receipt: undefined,
       tokenType: 'ERC20' as TokenType,
+      blockNumber: BigInt(123),
     },
   ];
 
@@ -141,8 +146,9 @@ describe('mergeUniqueTransactions', () => {
         status: MessageStatus.DONE,
         msgHash: 'msg2' as Hex,
         receipt: undefined,
+        blockNumber: BigInt(123),
         tokenType: 'ERC20' as TokenType,
-      },
+      } satisfies BridgeTransaction,
     ];
 
     const expectedMergedHashes = extractHashes([...localTxs, ...relayerTx]);

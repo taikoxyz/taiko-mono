@@ -14,7 +14,7 @@ export const isBlockCached = async ({
 }: {
   srcChainId: number;
   destChainId: number;
-  blockNumber: number;
+  blockNumber: bigint;
 }) => {
   const signalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
 
@@ -32,26 +32,3 @@ export const isBlockCached = async ({
   }
   return false;
 };
-
-//   const signal = getSignalForChainData(destChainId, blockNumber);
-//   const slot = getSignalSlot(destChainId, signalServiceAddress, signal);
-
-//   const signalRootValue = (await getStorageAt(config, {
-//     address: signalServiceAddress,
-//     chainId: destChainId,
-//     slot,
-//   })) as Hex;
-
-//   if (signalRootValue && signalRootValue !== toHex(0, { size: 32 })) {
-//     return true;
-//   }
-//   return false;
-// };
-
-// const getSignalForChainData = (chainId: number, blockId: number) => {
-//   return keccak256(encodePacked(['uint64', 'bytes32', 'uint64'], [BigInt(chainId), SIGNAL_ROOT, BigInt(blockId)]));
-// };
-
-// const getSignalSlot = (chainId: number, app: Address, signal: Hex) => {
-//   return keccak256(encodePacked(['string', 'uint64', 'address', 'bytes32'], ['SIGNAL', BigInt(chainId), app, signal]));
-// };
