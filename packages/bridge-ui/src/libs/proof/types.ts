@@ -1,17 +1,24 @@
 import type { Address, Hash, Hex } from 'viem';
 
+import type { BridgeTransaction } from '$libs/bridge';
+
 export type GenerateProofArgs = {
   msgHash: Hash;
   contractAddress: Address;
-  proofForAccountAddress: Address;
+  signalServiceAddress: Address;
   clientChainId: number;
   blockNumber: bigint;
+  action: ProofAction;
+  hops: HopParams[];
+};
+
+export type GetProofArgs = {
+  bridgeTx: BridgeTransaction;
 };
 
 export type StorageEntry = {
   key: string;
   value: Hex;
-
   // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node, following the path of the SHA3 (key) as path.
   proof: Hex[];
 };
@@ -20,6 +27,39 @@ export type Hop = {
   signalRootRelay: Address;
   signalRoot: Hex;
   storageProof: Hex;
+};
+
+export const enum ProofAction {
+  SEND,
+  RELEASE,
+  CLAIM,
+  RETRY,
+}
+
+export const enum CacheOptions {
+  CACHE_NOTHING,
+  CACHE_SIGNAL_ROOT,
+  CACHE_STATE_ROOT,
+  CACHE_BOTH,
+}
+
+export type HopProof = {
+  chainId: bigint;
+  blockId: bigint;
+  rootHash: Hash;
+  cacheOption: CacheOptions;
+  accountProof: Hex[];
+  storageProof: Hex[];
+};
+
+export type HopParams = {
+  chainId: bigint;
+  signalServiceAddress: Address;
+  // signalService: Address;
+  key: Hex;
+  // blocker: Address;
+  // caller: Address;
+  blockNumber: bigint;
 };
 
 export type EthGetProofResponse = {
