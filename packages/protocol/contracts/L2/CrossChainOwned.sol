@@ -68,8 +68,8 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
         internal
         virtual
         onlyInitializing
-        initEssential(_owner, _addressManager)
     {
+        __Essential_init(_owner, _addressManager);
         if (_ownerChainId == 0 || _ownerChainId == block.chainid) {
             revert XCO_INVALID_OWNER_CHAINID();
         }

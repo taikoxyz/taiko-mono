@@ -44,19 +44,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _;
     }
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    modifier initEssential(address _owner, address _addressManager) {
-        __Essential_init(_addressManager);
-        // owner == msg.sender
-        _;
-
-        if (_owner != address(0) && _owner != owner()) {
-            _transferOwnership(_owner);
-        }
-    }
-
     modifier nonReentrant() {
         if (_loadReentryLock() == _TRUE) revert REENTRANT_CALL();
         _storeReentryLock(_TRUE);
@@ -95,30 +82,29 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         return _paused == _TRUE;
     }
 
-    /// @notice Initializes the contract with an address manager.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     // solhint-disable-next-line func-name-mixedcase
-    function __Essential_init(address _addressManager) internal virtual onlyInitializing {
-        __OwnerUUPSUpgradable_init();
+    function __Essential_init(
+        address _owner,
+        address _addressManager
+    )
+        internal
+        virtual
+        onlyInitializing
+    {
+        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __AddressResolver_init(_addressManager);
+        _paused = _FALSE;
     }
 
-    /// @notice Initializes the contract without an address manager.
-    // solhint-disable-next-line func-name-mixedcase
-    function __Essential_init() internal virtual onlyInitializing {
-        __Essential_init(address(0));
+    function __Essential_init(address _owner) internal virtual onlyInitializing {
+        __Essential_init(_owner, address(0));
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
     function _authorizePause(address) internal virtual onlyOwner { }
-
-    /// @notice Initializes the contract with an address manager.
-    // solhint-disable-next-line func-name-mixedcase
-    function __OwnerUUPSUpgradable_init() internal virtual onlyInitializing {
-        // Sets owner = msg.sender directly without the pending-accept process.
-        _transferOwnership(msg.sender);
-        _paused = _FALSE;
-    }
 
     // Stores the reentry lock
     function _storeReentryLock(uint8 reentry) internal virtual {

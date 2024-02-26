@@ -6,7 +6,8 @@ import "../TaikoTest.sol";
 contract Target1 is EssentialContract {
     uint256 public count;
 
-    function init(address _owner) external initializer initEssential(_owner, address(0)) {
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
         count = 100;
     }
 

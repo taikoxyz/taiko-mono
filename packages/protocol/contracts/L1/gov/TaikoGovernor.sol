@@ -46,8 +46,8 @@ contract TaikoGovernor is
     )
         external
         initializer
-        initEssential(_owner, address(0))
     {
+        __Essential_init(_owner);
         __Governor_init("TaikoGovernor");
         __GovernorCompatibilityBravo_init();
         __GovernorVotes_init(_token);

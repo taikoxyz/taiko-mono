@@ -40,14 +40,9 @@ abstract contract BaseVault is
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function init(
-        address _owner,
-        address _addressManager
-    )
-        external
-        initializer
-        initEssential(_owner, _addressManager)
-    { }
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+    }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param interfaceId The interface identifier.

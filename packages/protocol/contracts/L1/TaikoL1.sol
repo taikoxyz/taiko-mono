@@ -57,8 +57,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     )
         external
         initializer
-        initEssential(_owner, _addressManager)
     {
+        __Essential_init(_owner, _addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
@@ -130,7 +130,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     }
 
     function unpause() public override {
-        EssentialContract.unpause(); // permission checked inside
+        super.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 

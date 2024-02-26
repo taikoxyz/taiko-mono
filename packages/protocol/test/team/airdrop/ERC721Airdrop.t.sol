@@ -40,7 +40,9 @@ contract MockAddressManager {
 // - funds can later be withdrawn by the user
 contract SimpleERC721Vault is EssentialContract {
     /// @notice Initializes the vault.
-    function init(address _owner) external initializer initEssential(_owner, address(0)) { }
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
 
     function approveAirdropContract(address token, address approvedActor) public onlyOwner {
         BridgedERC721(token).setApprovalForAll(approvedActor, true);
