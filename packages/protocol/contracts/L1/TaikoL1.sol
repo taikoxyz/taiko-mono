@@ -193,14 +193,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         return ITierProvider(resolve("tier_provider", false)).getTier(tierId);
     }
 
-    /// @notice Retrieves the IDs of all supported tiers.
-    function getTierIds() public view virtual override returns (uint16[] memory ids) {
+    /// @inheritdoc ITierProvider
+    function getTierIds() public view override returns (uint16[] memory ids) {
         ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
         if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
     }
 
-    /// @notice Determines the minimal tier for a block based on a random input.
-    function getMinTier(uint256 rand) public view virtual override returns (uint16) {
+    /// @inheritdoc ITierProvider
+    function getMinTier(uint256 rand) public view override returns (uint16) {
         return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
     }
 
