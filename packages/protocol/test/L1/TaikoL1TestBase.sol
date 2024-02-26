@@ -72,7 +72,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
-                data: abi.encodeCall(GuardianProver.init, address(addressManager))
+                data: abi.encodeCall(GuardianProver.init, (address(0), address(addressManager)))
             })
         );
 
@@ -82,7 +82,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_provider",
                 impl: address(new TestnetTierProvider()),
-                data: abi.encodeCall(TestnetTierProvider.init, ())
+                data: abi.encodeCall(TestnetTierProvider.init, (address(0)))
             })
         );
 

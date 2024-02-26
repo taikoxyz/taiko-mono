@@ -325,9 +325,8 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_provider",
             impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
-            data: abi.encodeCall(TestnetTierProvider.init, ()),
-            registerTo: rollupAddressManager,
-            owner: timelock
+            data: abi.encodeCall(TestnetTierProvider.init, (timelock)),
+            registerTo: rollupAddressManager
         });
 
         deployProxy({
@@ -349,9 +348,8 @@ contract DeployOnL1 is DeployCapability {
         address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: address(new GuardianProver()),
-            data: abi.encodeCall(GuardianProver.init, (rollupAddressManager)),
-            registerTo: rollupAddressManager,
-            owner: address(0)
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");

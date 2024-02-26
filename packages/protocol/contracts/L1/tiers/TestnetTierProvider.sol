@@ -23,10 +23,8 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
-    function init() external initializer {
-        __Essential_init();
+    function init(address _owner) external initializer initEssential(_owner, address(0)) {
     }
-
     function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({

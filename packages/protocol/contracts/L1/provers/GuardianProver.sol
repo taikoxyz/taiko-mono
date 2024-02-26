@@ -28,8 +28,7 @@ contract GuardianProver is Guardians {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    function init(address _owner, address _addressManager) external initializer initEssential(_owner, _addressManager){
     }
 
     /// @dev Called by guardians to approve a guardian proof
