@@ -15,13 +15,13 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title OwnerUUPSUpgradable
 /// @notice This contract serves as the base contract for many core components.
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
 /// ReentrancyGuardUpgradeable contract to optimize storage reads.
-abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
+abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, Ownable2StepUpgradeable {
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
 

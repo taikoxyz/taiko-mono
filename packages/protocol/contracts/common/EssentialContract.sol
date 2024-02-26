@@ -18,7 +18,7 @@ import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./AddressResolver.sol";
 import "./OwnerUUPSUpgradable.sol";
 
-abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver {
+abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     uint256[50] private __gap;
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
@@ -26,6 +26,16 @@ abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver
     modifier onlyFromOwnerOrNamed(bytes32 name) {
         if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
         _;
+    }
+
+    modifier initEssential(address _owner, address _addressManager) {
+        __Essential_init(_addressManager);
+        // owner == msg.sender
+        _;
+
+        if (_owner != address(0) && _owner != owner()) {
+            _transferOwnership(_owner);
+        }
     }
 
     /// @notice Initializes the contract with an address manager.
@@ -40,33 +50,5 @@ abstract contract Essential1StepContract is OwnerUUPSUpgradable, AddressResolver
     // solhint-disable-next-line func-name-mixedcase
     function __Essential_init() internal virtual onlyInitializing {
         __Essential_init(address(0));
-    }
-}
-
-abstract contract EssentialContract is Essential1StepContract, Ownable2StepUpgradeable {
-    uint256[50] private __gap;
-
-    modifier initEssential(address _owner, address _addressManager) {
-        __Essential_init(_addressManager);
-        // owner == msg.sender
-        _;
-
-        if (_owner != address(0) && _owner != owner()) {
-            _transferOwnership(_owner);
-        }
-    }
-
-    function transferOwnership(address newOwner)
-        public
-        override(OwnableUpgradeable, Ownable2StepUpgradeable)
-    {
-        Ownable2StepUpgradeable.transferOwnership(newOwner);
-    }
-
-    function _transferOwnership(address newOwner)
-        internal
-        override(OwnableUpgradeable, Ownable2StepUpgradeable)
-    {
-        Ownable2StepUpgradeable._transferOwnership(newOwner);
     }
 }
