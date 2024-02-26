@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
@@ -78,7 +78,7 @@ library LibProving {
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         TaikoData.BlockMetadata memory meta,
         TaikoData.Transition memory tran,
         TaikoData.TierProof memory proof

@@ -56,10 +56,12 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     }
 
     /// @notice Initializes the contract.
-    /// @param _addressManager The address of the address manager.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _ownerChainId The owner's deployment chain ID.
     // solhint-disable-next-line func-name-mixedcase
     function __CrossChainOwned_init(
+        address _owner,
         address _addressManager,
         uint64 _ownerChainId
     )
@@ -67,8 +69,7 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
         virtual
         onlyInitializing
     {
-        __Essential_init(_addressManager);
-
+        __Essential_init(_owner, _addressManager);
         if (_ownerChainId == 0 || _ownerChainId == block.chainid) {
             revert XCO_INVALID_OWNER_CHAINID();
         }

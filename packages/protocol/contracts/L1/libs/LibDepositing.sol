@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
@@ -36,7 +36,7 @@ library LibDepositing {
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         address recipient
     )
         external
