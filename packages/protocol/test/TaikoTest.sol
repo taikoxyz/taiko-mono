@@ -33,6 +33,7 @@ import "../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import "../contracts/L2/TaikoL2.sol";
 
 import "../contracts/team/TimelockTokenPool.sol";
+import "../contracts/team/SharedTaikoTokenVault.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
 import "../contracts/team/airdrop/ERC20Airdrop2.sol";
 import "../contracts/team/airdrop/ERC721Airdrop.sol";

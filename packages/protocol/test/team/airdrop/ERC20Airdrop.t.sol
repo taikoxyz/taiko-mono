@@ -34,33 +34,6 @@ contract MockAddressManager {
     }
 }
 
-// It does nothing but:
-// - stores the tokens for the airdrop
-// - owner can call approve() on token, and approving the AirdropERC20.sol contract so it acts on
-// behalf
-// - funds can later be withdrawn by the user
-contract SimpleERC20Vault is OwnableUpgradeable {
-    /// @notice Initializes the vault.
-    function init() external initializer {
-        __Ownable_init();
-    }
-
-    function approveAirdropContract(
-        address token,
-        address approvedActor,
-        uint256 amount
-    )
-        public
-        onlyOwner
-    {
-        BridgedERC20(token).approve(approvedActor, amount);
-    }
-
-    function withdrawFunds(address token, address to) public onlyOwner {
-        BridgedERC20(token).transfer(to, BridgedERC20(token).balanceOf(address(this)));
-    }
-}
-
 contract TestERC20Airdrop is TaikoTest {
     address public owner = randAddress();
 
@@ -75,17 +48,17 @@ contract TestERC20Airdrop is TaikoTest {
     BridgedERC20 token;
     MockERC20Airdrop airdrop;
     MockAddressManager addressManager;
-    SimpleERC20Vault vault;
+    SharedTaikoTokenVault vault;
 
     function setUp() public {
         vm.startPrank(owner);
 
         // 1. We need to have a vault
-        vault = SimpleERC20Vault(
+        vault = SharedTaikoTokenVault(
             deployProxy({
                 name: "vault",
-                impl: address(new SimpleERC20Vault()),
-                data: abi.encodeCall(SimpleERC20Vault.init, ())
+                impl: address(new SharedTaikoTokenVault()),
+                data: abi.encodeCall(SharedTaikoTokenVault.init, (owner))
             })
         );
 
