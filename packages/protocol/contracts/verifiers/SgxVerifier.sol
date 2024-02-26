@@ -65,6 +65,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint256 indexed id, address indexed instance, address replaced, uint256 validSince
     );
     event InstanceDeleted(uint256 indexed id, address indexed instance);
+    event test(
+        address addr,
+        address newAddr,
+        bytes32 hash,
+        bytes signature,
+        bytes32 metaHash,
+        address prover,
+        TaikoData.Transition tran,
+        TaikoData.TierProof proof
+    );
 
     error SGX_ALREADY_ATTESTED();
     error SGX_DELETE_NOT_AUTHORIZED();
@@ -153,6 +163,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         address oldInstance =
             ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
+
+        emit test(
+            oldInstance,
+            newInstance,
+            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
+            signature,
+            ctx.metaHash,
+            ctx.prover,
+            tran,
+            proof
+        );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);
