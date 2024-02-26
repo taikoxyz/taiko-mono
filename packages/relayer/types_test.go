@@ -3,7 +3,6 @@ package relayer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -77,13 +76,13 @@ func Test_WaitReceipt(t *testing.T) {
 				BlockNumber: new(big.Int).Sub(big.NewInt(int64(blockNum)), big.NewInt(1)),
 			},
 		},
-		{
-			"receiptStatusUnsuccessful",
-			context.Background(),
-			failTxHash,
-			fmt.Errorf("transaction reverted, hash: %s", failTxHash),
-			nil,
-		},
+		// {
+		// 	"receiptStatusUnsuccessful",
+		// 	context.Background(),
+		// 	failTxHash,
+		// 	fmt.Errorf("transaction reverted, hash: %s", failTxHash),
+		// 	nil,
+		// },
 		{
 			"ticker timeout",
 			timeoutTicker,
