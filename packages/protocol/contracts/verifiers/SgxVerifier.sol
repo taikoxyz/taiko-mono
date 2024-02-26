@@ -65,30 +65,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint256 indexed id, address indexed instance, address replaced, uint256 validSince
     );
     event InstanceDeleted(uint256 indexed id, address indexed instance);
-    event test(
-        uint64 id,
-        address newAddr,
-        bytes32 hash,
-        bytes signature,
-        bytes32 metaHash,
-        address prover,
-        TaikoData.Transition tran,
-        TaikoData.TierProof proof
-    );
-
-    event test2(
-        uint64 id,
-        address addr,
-        address newAddr,
-        bytes32 hash,
-        bytes signature,
-        bytes32 metaHash,
-        address prover,
-        TaikoData.Transition tran,
-        TaikoData.TierProof proof
-    );
-
-    event test3(uint64 id);
 
     error SGX_ALREADY_ATTESTED();
     error SGX_DELETE_NOT_AUTHORIZED();
@@ -166,7 +142,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
-        emit test3(ctx.blockId);
         // Size is: 89 bytes
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
         if (proof.data.length != 89) revert SGX_INVALID_PROOF();
@@ -175,31 +150,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address newInstance = address(bytes20(Bytes.slice(proof.data, 4, 20)));
         bytes memory signature = Bytes.slice(proof.data, 24);
 
-        emit test(
-            ctx.blockId,
-            newInstance,
-            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
-            signature,
-            ctx.metaHash,
-            ctx.prover,
-            tran,
-            proof
-        );
-
         address oldInstance =
             ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
-
-        emit test2(
-            ctx.blockId,
-            oldInstance,
-            newInstance,
-            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
-            signature,
-            ctx.metaHash,
-            ctx.prover,
-            tran,
-            proof
-        );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);
