@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"log/slog"
@@ -68,25 +67,6 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			return receipt, nil
 		}
 	}
-}
-
-// getErrorData tries to parse the actual custom error data from the given error.
-func getErrorData(err error) string {
-	// Geth node custom errors, the actual struct of this error is go-ethereum's <rpc.jsonError Value>.
-	gethJSONError, ok := err.(interface{ ErrorData() interface{} }) // nolint: errorlint
-	if ok {
-		if errData, ok := gethJSONError.ErrorData().(string); ok {
-			return errData
-		}
-	}
-
-	// Hardhat node custom errors, example:
-	// "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0xb6d363fd)"
-	if strings.Contains(err.Error(), "reverted with an unrecognized custom error") {
-		return err.Error()[len(err.Error())-11 : len(err.Error())-1]
-	}
-
-	return err.Error()
 }
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
