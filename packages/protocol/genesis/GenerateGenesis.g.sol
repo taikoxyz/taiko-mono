@@ -40,12 +40,12 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("BridgedERC1155Impl");
 
         // check proxy implementations
-        checkProxyImplementation("ERC20Vault", "ERC20VaultImpl");
-        checkProxyImplementation("ERC721Vault", "ERC721VaultImpl");
-        checkProxyImplementation("ERC1155Vault", "ERC1155VaultImpl");
-        checkProxyImplementation("Bridge", "BridgeImpl");
-        checkProxyImplementation("SignalService", "SignalServiceImpl");
-        checkProxyImplementation("SharedAddressManager", "SharedAddressManagerImpl");
+        checkProxyImplementation("ERC20Vault");
+        checkProxyImplementation("ERC721Vault");
+        checkProxyImplementation("ERC1155Vault");
+        checkProxyImplementation("Bridge");
+        checkProxyImplementation("SignalService");
+        checkProxyImplementation("SharedAddressManager");
 
         // // check proxies
         checkDeployedCode("ERC20Vault");
@@ -62,8 +62,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("RollupAddressManager");
 
         // check proxy implementations
-        checkProxyImplementation("TaikoL2", "TaikoL2Impl", ownerTimelockController);
-        checkProxyImplementation("RollupAddressManager", "RollupAddressManagerImpl");
+        checkProxyImplementation("TaikoL2", ownerTimelockController);
+        checkProxyImplementation("RollupAddressManager");
 
         // check proxies
         checkDeployedCode("TaikoL2");
@@ -314,17 +314,15 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function checkProxyImplementation(
-        string memory proxyName,
-        string memory contractName
+        string memory proxyName
     )
         private
     {
-        return checkProxyImplementation(proxyName, contractName, ownerSecurityCouncil);
+        return checkProxyImplementation(proxyName,  ownerSecurityCouncil);
     }
 
     function checkProxyImplementation(
         string memory proxyName,
-        string memory contractName,
         address owner
     )
         private
