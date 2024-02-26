@@ -31,9 +31,8 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (addressManager)),
-                registerTo: addressManager,
-                owner: address(0)
+                data: abi.encodeCall(SignalService.init, ( address(0),addressManager)),
+                registerTo: addressManager
             })
         );
 
@@ -48,9 +47,8 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
                 deployProxy({
                     name: "taiko",
                     impl: address(new SkipBasefeeCheckL2()),
-                    data: abi.encodeCall(TaikoL2.init, (addressManager, l1ChainId, gasExcess)),
-                    registerTo: addressManager,
-                    owner: address(0)
+                    data: abi.encodeCall(TaikoL2.init, (address(0),addressManager, l1ChainId, gasExcess)),
+                    registerTo: addressManager
                 })
             )
         );

@@ -129,7 +129,7 @@ contract TestERC20Airdrop is TaikoTest {
                 impl: address(new MockERC20Airdrop()),
                 data: abi.encodeCall(
                     ERC20Airdrop.init,
-                    (claimStart, claimEnd, merkleRoot, address(token), address(vault))
+                    (address(0),claimStart, claimEnd, merkleRoot, address(token), address(vault))
                     )
             })
         );

@@ -156,7 +156,7 @@ contract ERC721VaultTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 
@@ -183,7 +183,7 @@ contract ERC721VaultTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 

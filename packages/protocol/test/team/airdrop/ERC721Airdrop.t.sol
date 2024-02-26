@@ -135,7 +135,7 @@ contract TestERC721Airdrop is TaikoTest {
                 impl: address(new MockERC721Airdrop()),
                 data: abi.encodeCall(
                     ERC721Airdrop.init,
-                    (claimStart, claimEnd, merkleRoot, address(token), address(vault))
+                    (address(0),claimStart, claimEnd, merkleRoot, address(token), address(vault))
                     )
             })
         );

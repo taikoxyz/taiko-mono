@@ -69,6 +69,7 @@ contract TaikoL2 is CrossChainOwned {
     /// @param _l1ChainId The ID of the base layer.
     /// @param _gasExcess The initial gasExcess.
     function init(
+        address _owner,
         address _addressManager,
         uint64 _l1ChainId,
         uint64 _gasExcess
@@ -76,7 +77,7 @@ contract TaikoL2 is CrossChainOwned {
         external
         initializer
     {
-        __CrossChainOwned_init(_addressManager, _l1ChainId);
+        __CrossChainOwned_init(_owner, _addressManager, _l1ChainId);
 
         if (block.chainid <= 1 || block.chainid > type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();

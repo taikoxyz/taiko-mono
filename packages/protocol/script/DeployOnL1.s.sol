@@ -223,9 +223,8 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, (sharedAddressManager)),
-            registerTo: sharedAddressManager,
-            owner: address(0)
+            data: abi.encodeCall(SignalService.init, (address(0),sharedAddressManager)),
+            registerTo: sharedAddressManager
         });
 
         deployProxy({
