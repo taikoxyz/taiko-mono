@@ -172,7 +172,7 @@ library LibVerifying {
                         tierProvider = resolver.resolve("tier_provider", false);
                     }
                     if (
-                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow)
+                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
                             + uint256(ts.timestamp).max(state.slotB.lastUnpausedAt) > block.timestamp
                     ) {
                         // If cooldownWindow is 0, the block can theoretically

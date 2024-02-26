@@ -19,8 +19,9 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
+import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TestnetTierProvider.sol";
-import "../contracts/L1/tiers/OptimisticTierProvider.sol";
+import "../contracts/L1/tiers/MainnetTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/gov/TaikoGovernor.sol";
@@ -320,16 +321,9 @@ contract DeployOnL1 is DeployCapability {
             owner: timelock
         });
 
-        address tierProvider;
-        if (vm.envBool("OPTIMISTIC_TIER_PROVIDER")) {
-            tierProvider = address(new OptimisticTierProvider());
-        } else {
-            tierProvider = address(new TestnetTierProvider());
-        }
-
         deployProxy({
             name: "tier_provider",
-            impl: tierProvider,
+            impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
             data: abi.encodeCall(TestnetTierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock
@@ -378,6 +372,18 @@ contract DeployOnL1 is DeployCapability {
         register(
             rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
         );
+    }
+
+    function deployTierProvider(string memory tierProviderName) private returns (address) {
+        if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
+            return address(new DevnetTierProvider());
+        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
+            return address(new TestnetTierProvider());
+        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
+            return address(new MainnetTierProvider());
+        } else {
+            revert("invalid tier provider");
+        }
     }
 
     function deployAuxContracts() private {
