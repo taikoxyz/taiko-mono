@@ -197,8 +197,7 @@ contract DeployOnL1 is DeployCapability {
                     IVotesUpgradeable(taikoToken),
                     TimelockControllerUpgradeable(payable(timelock))
                 )
-                ),
-            registerTo: address(0)
+                )
         });
 
         // Setup time lock roles
@@ -315,8 +314,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (timelock, rollupAddressManager)),
-            registerTo: address(0)
+            data: abi.encodeCall(AssignmentHook.init, (timelock, rollupAddressManager))
         });
 
         deployProxy({
