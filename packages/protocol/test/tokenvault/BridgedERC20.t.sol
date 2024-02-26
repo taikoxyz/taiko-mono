@@ -145,10 +145,9 @@ contract TestBridgedERC20 is TaikoTest {
                 name: "bridged_token1",
                 impl: address(new BridgedERC20()),
                 data: abi.encodeCall(
-                    BridgedERC20.init, (address(manager), srcToken, srcChainId, srcDecimals, name, name)
+                    BridgedERC20.init, (owner,address(manager), srcToken, srcChainId, srcDecimals, name, name)
                     ),
-                registerTo: manager,
-                owner: owner
+                registerTo: manager
             })
         );
     }
