@@ -4,6 +4,7 @@
   import { destNetwork as destChain, importDone, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
+  import { OnAccount } from '$components/OnAccount';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import type { NFT } from '$libs/token';
   import { account } from '$stores/account';
@@ -42,6 +43,10 @@
     $selectedImportMethod = ImportMethod.NONE;
   };
 
+  const onAccountChange = () => {
+    reset();
+  };
+
   //  States
   let scanning = false;
 
@@ -50,6 +55,8 @@
   $: {
     if (canProceed) {
       $importDone = true;
+    } else {
+      $importDone = false;
     }
   }
 
@@ -71,3 +78,5 @@
 {:else}
   <ImportActions bind:scanning {canImport} {scanForNFTs} />
 {/if}
+
+<OnAccount change={onAccountChange} />
