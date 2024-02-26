@@ -38,5 +38,6 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		backOffMaxRetries:         1,
 		ethClientTimeout:          10 * time.Second,
 		srcChainId:                mock.MockChainID,
+		destChainId:               mock.MockChainID,
 	}
 }
