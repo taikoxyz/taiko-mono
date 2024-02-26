@@ -103,7 +103,7 @@ contract DeployOnL1 is DeployCapability {
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
-        if (signalService.owner() == address(this)) {
+        if (signalService.owner() == msg.sender) {
             signalService.transferOwnership(timelock);
         } else {
             console2.log("------------------------------------------");
