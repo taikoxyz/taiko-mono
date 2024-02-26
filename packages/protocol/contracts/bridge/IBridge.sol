@@ -80,3 +80,12 @@ interface IRecallableSender {
         external
         payable;
 }
+
+/// @title IMessageInvocable
+/// @notice An interface that all bridge message receiver shall implement
+interface IMessageInvocable {
+    /// @notice Called when this contract is the bridge target.
+    /// @param data The data for this contract to interpret.
+    /// @dev This method should be guarded with `onlyFromNamed("bridge")`.
+    function onMessageInvocation(bytes calldata data) external payable;
+}

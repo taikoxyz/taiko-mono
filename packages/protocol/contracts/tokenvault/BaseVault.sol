@@ -20,7 +20,14 @@ import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibDeploy.sol";
 
-abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgradeable {
+abstract contract BaseVault is
+    EssentialContract,
+    IRecallableSender,
+    IMessageInvocable,
+    IERC165Upgradeable
+{
+    uint256[50] private __gap;
+
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {

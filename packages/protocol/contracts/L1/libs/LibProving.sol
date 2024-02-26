@@ -399,7 +399,7 @@ library LibProving {
         if (tier.contestBond == 0) return;
 
         bool inProvingWindow = uint256(ts.timestamp).max(state.slotB.lastUnpausedAt)
-            + tier.provingWindow >= block.timestamp;
+            + tier.provingWindow * 60 >= block.timestamp;
         bool isAssignedPover = msg.sender == blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.

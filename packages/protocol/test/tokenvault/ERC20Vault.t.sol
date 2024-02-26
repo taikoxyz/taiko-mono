@@ -51,8 +51,8 @@ contract PrankDestBridge {
         // The problem (with foundry) is that this way it is not able to deploy
         // a contract most probably due to some deployment address nonce issue. (Seems a known
         // issue).
-        destERC20Vault.receiveToken{ value: mockLibInvokeMsgValue }(
-            canonicalToken, from, to, amount
+        destERC20Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+            abi.encode(canonicalToken, from, to, amount)
         );
 
         ctx.sender = address(0);
@@ -152,8 +152,6 @@ contract TestERC20Vault is TaikoTest {
         );
 
         addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
-
-        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
 
         addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
 

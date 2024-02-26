@@ -18,10 +18,11 @@ contract BadReceiver {
     }
 }
 
-contract GoodReceiver {
+contract GoodReceiver is IMessageInvocable {
     receive() external payable { }
 
-    function forward(address addr) public payable {
+    function onMessageInvocation(bytes calldata data) public payable {
+        address addr = abi.decode(data, (address));
         payable(addr).transfer(address(this).balance / 2);
     }
 }

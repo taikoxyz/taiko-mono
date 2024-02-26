@@ -163,8 +163,6 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 	err := rmqMsg.Ack(false)
 
-	slog.Info("attempted acknowledge rabbitmq message")
-
 	if err != nil {
 		slog.Error("error acknowledging rabbitmq message", "err", err.Error())
 		return err
