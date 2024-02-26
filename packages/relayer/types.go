@@ -12,14 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
-	"github.com/umbracle/ethgo/abi"
 )
 
 var (
@@ -62,30 +60,6 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			}
 
 			if receipt.Status != types.ReceiptStatusSuccessful {
-				ssabi, err := signalservice.SignalServiceMetaData.GetAbi()
-				if err != nil {
-					log.Crit("Get AssignmentHook ABI error", "error", err)
-				}
-
-				var customErrorMaps = []map[string]abi.Error{
-					ssabi.Errors,
-				}
-
-				errData := getErrorData(originalError)
-
-				// if errData is unparsable and returns 0x, we should not match any errors.
-				if errData == "0x" {
-					return originalError
-				}
-
-				for _, customErrors := range customErrorMaps {
-					for _, customError := range customErrors {
-						if strings.HasPrefix(customError.ID.Hex(), errData) {
-							return errors.New(customError.Name)
-						}
-					}
-				}
-
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
@@ -388,4 +362,36 @@ func (c CanonicalNFT) TokenDecimals() uint8 {
 
 func (c CanonicalNFT) ContractSymbol() string {
 	return c.Symbol
+}
+
+// DecodeRevertReason decodes a hex-encoded revert reason from an Ethereum transaction.
+func DecodeRevertReason(hexStr string) (string, error) {
+	// Decode the hex string to bytes
+	data, err := hexutil.Decode(hexStr)
+	if err != nil {
+		return "", err
+	}
+
+	// Ensure the data is long enough to contain a valid revert reason
+	if len(data) < 68 {
+		return "", fmt.Errorf("data too short to contain a valid revert reason")
+	}
+
+	// The revert reason is encoded in the data returned by a failed transaction call
+	// It starts with the error signature 0x08c379a0 (method ID), followed by the offset
+	// of the string data, the length of the string, and finally the string itself.
+
+	// Skip the first 4 bytes (method ID) and the next 32 bytes (offset)
+	// Then read the length of the string (next 32 bytes)
+	strLen := new(big.Int).SetBytes(data[36:68]).Uint64()
+
+	// Ensure the data contains the full revert string
+	if uint64(len(data)) < 68+strLen {
+		return "", fmt.Errorf("data too short to contain the full revert reason")
+	}
+
+	// Extract the revert reason string
+	revertReason := string(data[68 : 68+strLen])
+
+	return revertReason, nil
 }

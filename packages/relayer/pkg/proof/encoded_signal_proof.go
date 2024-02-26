@@ -2,6 +2,7 @@ package proof
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"log/slog"
@@ -82,6 +83,8 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 		return nil, errors.Wrap(err, "enoding.EncodeHopProofs")
 	}
 
+	slog.Info("proof", "proof", common.Bytes2Hex(encodedSignalProof))
+
 	return encodedSignalProof, nil
 }
 
@@ -117,6 +120,18 @@ func (p *Prover) getProof(
 	slog.Info("proof generated",
 		"value", common.Bytes2Hex(ethProof.StorageProof[0].Value),
 	)
+
+	slog.Info("key", "key", key)
+
+	slog.Info("storageRoot", "root", ethProof.StorageHash.Hex())
+
+	for i, pr := range ethProof.AccountProof {
+		slog.Info("accountProof", fmt.Sprintf("%v", i), common.Bytes2Hex(pr))
+	}
+
+	for i, pr := range ethProof.StorageProof[0].Proof {
+		slog.Info("storageProof", fmt.Sprintf("%v", i), common.Bytes2Hex(pr))
+	}
 
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() == int64(0) {
 		return nil, errors.New("proof will not be valid, expected storageProof to not be 0 but was not")
