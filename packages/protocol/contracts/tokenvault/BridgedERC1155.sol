@@ -25,7 +25,7 @@ import "./LibBridgedToken.sol";
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 contract BridgedERC1155 is
-    Essential1StepContract,
+    EssentialContract,
     IERC1155Upgradeable,
     IERC1155MetadataURIUpgradeable,
     ERC1155Upgradeable
@@ -39,13 +39,15 @@ contract BridgedERC1155 is
 
     error BTOKEN_CANNOT_RECEIVE();
 
-    /// @dev Initializer function to be called after deployment.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -59,8 +61,7 @@ contract BridgedERC1155 is
         // The symbol and the name can be empty for ERC1155 tokens so we use some placeholder data
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, "foo", "foo");
-
-        __Essential_init(_addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;

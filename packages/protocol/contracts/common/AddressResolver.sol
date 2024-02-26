@@ -15,7 +15,8 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "./AddressManager.sol";
+import "./IAddressManager.sol";
+import "./IAddressResolver.sol";
 
 /// @title AddressResolver
 /// @notice This contract acts as a bridge for name-to-address resolution.
@@ -26,7 +27,7 @@ import "./AddressManager.sol";
 /// Note that the address manager should be changed using upgradability, there
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
-abstract contract AddressResolver is Initializable {
+abstract contract AddressResolver is IAddressResolver, Initializable {
     address public addressManager;
     uint256[49] private __gap;
 
@@ -54,11 +55,7 @@ abstract contract AddressResolver is Initializable {
         _;
     }
 
-    /// @notice Resolves a name to its address deployed on this chain.
-    /// @param name Name whose address is to be resolved.
-    /// @param allowZeroAddress If set to true, does not throw if the resolved
-    /// address is `address(0)`.
-    /// @return addr Address associated with the given name.
+    /// @inheritdoc IAddressResolver
     function resolve(
         bytes32 name,
         bool allowZeroAddress
@@ -71,13 +68,7 @@ abstract contract AddressResolver is Initializable {
         return _resolve(uint64(block.chainid), name, allowZeroAddress);
     }
 
-    /// @notice Resolves a name to its address deployed on a specified chain.
-    /// @param chainId The chainId of interest.
-    /// @param name Name whose address is to be resolved.
-    /// @param allowZeroAddress If set to true, does not throw if the resolved
-    /// address is `address(0)`.
-    /// @return addr Address associated with the given name on the specified
-    /// chain.
+    /// @inheritdoc IAddressResolver
     function resolve(
         uint64 chainId,
         bytes32 name,

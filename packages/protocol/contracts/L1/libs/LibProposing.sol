@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
@@ -62,7 +62,7 @@ library LibProposing {
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         bytes calldata data,
         bytes calldata txList
     )
@@ -291,7 +291,7 @@ library LibProposing {
 
     function _isProposerPermitted(
         TaikoData.SlotB memory slotB,
-        AddressResolver resolver
+        IAddressResolver resolver
     )
         private
         view

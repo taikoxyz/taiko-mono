@@ -21,7 +21,7 @@ import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
-contract BridgedERC721 is Essential1StepContract, ERC721Upgradeable {
+contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
 
@@ -30,13 +30,15 @@ contract BridgedERC721 is Essential1StepContract, ERC721Upgradeable {
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_BURN();
 
-    /// @dev Initializer function to be called after deployment.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -48,8 +50,7 @@ contract BridgedERC721 is Essential1StepContract, ERC721Upgradeable {
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-
-        __Essential_init(_addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC721_init(_name, _symbol);
 
         srcToken = _srcToken;

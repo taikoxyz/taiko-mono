@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
@@ -108,7 +108,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         uint64 maxBlocksToVerify
     )
         internal
@@ -246,7 +246,7 @@ library LibVerifying {
 
     function _syncChainData(
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         uint64 lastVerifiedBlockId,
         bytes32 stateRoot
     )
