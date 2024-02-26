@@ -29,8 +29,8 @@ type mockConfirmer struct {
 var (
 	notFoundTxHash = common.HexToHash("0x123")
 	succeedTxHash  = common.HexToHash("0x456")
-	failTxHash     = common.HexToHash("0x789")
-	blockNum       = 10
+	// failTxHash     = common.HexToHash("0x789")
+	blockNum = 10
 )
 
 func (m *mockConfirmer) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
