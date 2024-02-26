@@ -169,7 +169,7 @@ contract DeployOnL1 is DeployCapability {
         sharedAddressManager = deployProxy({
             name: "shared_address_manager",
             impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, ())
+            data: abi.encodeCall(AddressManager.init, (address(0)))
         });
 
         address taikoToken = deployProxy({
@@ -300,7 +300,7 @@ contract DeployOnL1 is DeployCapability {
         rollupAddressManager = deployProxy({
             name: "rollup_address_manager",
             impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, ())
+            data: abi.encodeCall(AddressManager.init, (address(0)))
         });
 
         deployProxy({

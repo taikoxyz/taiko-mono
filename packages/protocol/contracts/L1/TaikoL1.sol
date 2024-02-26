@@ -46,8 +46,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
-    /// @notice Initializes the rollup.
-    /// @param _addressManager The {AddressManager} address.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(
         address _owner,

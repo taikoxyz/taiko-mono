@@ -46,16 +46,15 @@ contract BridgedERC20 is
         }
         _;
     }
+
     /// @notice Initializes the contract.
-    /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
-    /// (e.g., one for USDC, one for USDT, etc.).
-    /// @param _addressManager The address manager.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken The source token address.
     /// @param _srcChainId The source chain ID.
     /// @param _decimals The number of decimal places of the source token.
     /// @param _symbol The symbol of the token.
     /// @param _name The name of the token.
-
     function init(
         address _owner,
         address _addressManager,

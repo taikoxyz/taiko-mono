@@ -12,7 +12,7 @@ contract TestBridgedERC20 is TaikoTest {
         manager = deployProxy({
             name: "address_manager",
             impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, ())
+            data: abi.encodeCall(AddressManager.init, (address(0)))
         });
 
         register(manager, "erc20_vault", vault);

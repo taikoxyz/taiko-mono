@@ -29,7 +29,8 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
 
     error TKO_INVALID_ADDR();
 
-    /// @notice Initializes the TaikoToken contract and mints initial tokens.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.

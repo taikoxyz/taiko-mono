@@ -74,8 +74,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_MISSING_ATTESTATION();
     error SGX_RA_NOT_SUPPORTED();
 
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _addressManager The address of the address manager contract.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     function init(
         address _owner,
         address _addressManager

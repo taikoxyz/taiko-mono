@@ -64,8 +64,9 @@ contract TaikoL2 is CrossChainOwned {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    /// @notice Initializes the TaikoL2 contract.
-    /// @param _addressManager Address of the AddressManager contract.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _gasExcess The initial gasExcess.
     function init(

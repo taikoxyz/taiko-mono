@@ -94,6 +94,7 @@ contract Bridge is EssentialContract, IBridge {
     receive() external payable { }
 
     /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(
         address _owner,

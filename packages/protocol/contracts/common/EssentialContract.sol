@@ -44,6 +44,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _;
     }
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     modifier initEssential(address _owner, address _addressManager) {
         __Essential_init(_addressManager);
         // owner == msg.sender

@@ -20,6 +20,9 @@ import "../../common/EssentialContract.sol";
 contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
     uint256[50] private __gap;
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param minDelay The minimal delay.
     function init(
         address _owner,
         uint256 minDelay

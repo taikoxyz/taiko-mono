@@ -126,7 +126,7 @@ contract ERC721VaultTest is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, ())
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 

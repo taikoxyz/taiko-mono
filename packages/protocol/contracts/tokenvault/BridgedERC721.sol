@@ -30,8 +30,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_BURN();
 
-    /// @dev Initializer function to be called after deployment.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
