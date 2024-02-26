@@ -47,15 +47,16 @@ export type Message = {
 export type RelayerMessage = {
   Id: bigint;
   From: Address;
-  SrcChainId: number | string | bigint;
-  DestChainId: number | string | bigint;
-  Owner: Address;
+  SrcChainId: bigint;
+  DestChainId: bigint;
+  SrcOwner: Address;
+  DestOwner: Address;
   To: Address;
   RefundTo: Address;
   Value: bigint;
   Fee: bigint;
   GasLimit: bigint;
-  Data: Hex;
+  Data: Hex | string;
   Memo: string;
 };
 
@@ -68,14 +69,15 @@ export type BridgeTransaction = {
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
+  blockNumber: bigint;
+  message?: Message;
+  msgHash: Hash;
 
   // Used for sorting local ones
   timestamp?: number;
 
   status?: MessageStatus;
   receipt?: TransactionReceipt;
-  msgHash?: Hash;
-  message?: Message;
 };
 
 interface BaseBridgeTransferOp {
@@ -175,8 +177,7 @@ export type RequireApprovalArgs = {
 };
 
 export type ClaimArgs = {
-  msgHash: Hash;
-  message: Message;
+  bridgeTx: BridgeTransaction;
   wallet: WalletClient;
 };
 

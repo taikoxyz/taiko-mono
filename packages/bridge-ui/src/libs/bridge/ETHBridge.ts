@@ -1,17 +1,16 @@
 import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
-import { getContract, type Hash, UserRejectedRequestError } from 'viem';
+import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
-import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
-import { BridgePausedError, ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
+import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { type ClaimArgs, type ETHBridgeArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
+import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
 
@@ -132,103 +131,6 @@ export class ETHBridge extends Bridge {
       }
 
       throw new SendMessageError('failed to bridge ETH', { cause: err });
-    }
-  }
-
-  async claim(args: ClaimArgs) {
-    const { messageStatus, destBridgeAddress } = await super.beforeClaiming(args);
-
-    let txHash: Hash;
-    const { msgHash, message } = args;
-    const srcChainId = Number(message.srcChainId);
-    const destChainId = Number(message.destChainId);
-
-    if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
-
-      try {
-        const { request } = await simulateContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'processMessage',
-          args: [message, proof],
-          gas: message.gasLimit,
-        });
-        log('Simulate contract', request);
-
-        txHash = await writeContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'processMessage',
-          args: [message, proof],
-          gas: message.gasLimit,
-        });
-        return txHash;
-        log('Transaction hash for processMessage call', txHash);
-      } catch (err) {
-        console.error(err);
-
-        // TODO: possibly same logic as ERC20Bridge
-
-        // TODO: handle unpredictable gas limit error
-        //       by trying with a higher gas limit
-
-        if (`${err}`.includes('denied transaction signature')) {
-          throw new UserRejectedRequestError(err as Error);
-        }
-
-        throw new ProcessMessageError('failed to claim ETH', { cause: err });
-      }
-    } else {
-      // MessageStatus.RETRIABLE
-      //TODO IMPLEMENT RETRY
-      throw new Error('Not implemented');
-      // txHash = await super.retryClaim(message, destBridgeContract);
-    }
-  }
-
-  async release(args: ReleaseArgs) {
-    await super.beforeReleasing(args);
-
-    const { msgHash, message, wallet } = args;
-    const srcChainId = Number(message.srcChainId);
-    const destChainId = Number(message.destChainId);
-    const connectedChainId = await wallet.getChainId();
-
-    const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
-
-    const srcBridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
-    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
-
-    try {
-      const { request } = await simulateContract(config, {
-        address: srcBridgeAddress,
-        abi: bridgeAbi,
-        functionName: 'recallMessage',
-        args: [message, proof],
-        chainId: wallet.chain.id,
-      });
-      log('Simulate contract', request);
-
-      const txHash = await writeContract(config, {
-        address: srcBridgeAddress,
-        abi: bridgeAbi,
-        functionName: 'recallMessage',
-        args: [message, proof],
-        chainId: wallet.chain.id,
-      });
-
-      log('Transaction hash for releaseEther call', txHash);
-
-      return txHash;
-    } catch (err) {
-      console.error(err);
-
-      if (`${err}`.includes('denied transaction signature')) {
-        throw new UserRejectedRequestError(err as Error);
-      }
-
-      throw new ReleaseError('failed to release ETH', { cause: err });
     }
   }
 }
