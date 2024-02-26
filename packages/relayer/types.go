@@ -62,9 +62,9 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			}
 
 			if receipt.Status != types.ReceiptStatusSuccessful {
-				ssabi, err := signalservice.SignalServiceMetaData.GetAbi()
-				if err != nil {
-					log.Crit("Get AssignmentHook ABI error", "error", err)
+				ssabi, originalError := signalservice.SignalServiceMetaData.GetAbi()
+				if originalError != nil {
+					log.Crit("Get AssignmentHook ABI error", "error", originalError)
 				}
 
 				var customErrorMaps = []map[string]abi.Error{
@@ -75,13 +75,13 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 
 				// if errData is unparsable and returns 0x, we should not match any errors.
 				if errData == "0x" {
-					return originalError
+					return receipt, originalError
 				}
 
 				for _, customErrors := range customErrorMaps {
 					for _, customError := range customErrors {
 						if strings.HasPrefix(customError.ID.Hex(), errData) {
-							return errors.New(customError.Name)
+							return receipt, errors.New(customError.Name)
 						}
 					}
 				}
