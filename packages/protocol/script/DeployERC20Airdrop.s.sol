@@ -48,7 +48,9 @@ contract DeployERC20Airdrop is DeployCapability {
             deployProxy({
                 name: "ERC20Airdrop",
                 impl: address(new ERC20Airdrop()),
-                data: abi.encodeCall(ERC20Airdrop.init, (0, 0, bytes32(0), bridgedTko, vaultAddress))
+                data: abi.encodeCall(
+                    ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
+                    )
             })
         );
 

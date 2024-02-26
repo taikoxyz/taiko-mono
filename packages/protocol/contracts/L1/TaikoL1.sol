@@ -46,11 +46,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
-    /// @notice Initializes the rollup.
-    /// @param _addressManager The {AddressManager} address.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(address _addressManager, bytes32 _genesisBlockHash) external initializer {
-        __Essential_init(_addressManager);
+    function init(
+        address _owner,
+        address _addressManager,
+        bytes32 _genesisBlockHash
+    )
+        external
+        initializer
+    {
+        __Essential_init(_owner, _addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
@@ -122,7 +130,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     }
 
     function unpause() public override {
-        OwnerUUPSUpgradable.unpause(); // permission checked inside
+        super.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 

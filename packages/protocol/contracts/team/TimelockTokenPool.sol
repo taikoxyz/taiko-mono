@@ -88,6 +88,7 @@ contract TimelockTokenPool is EssentialContract {
     error NOTHING_TO_WITHDRAW();
 
     function init(
+        address _owner,
         address _taikoToken,
         address _costToken,
         address _sharedVault
@@ -95,8 +96,7 @@ contract TimelockTokenPool is EssentialContract {
         external
         initializer
     {
-        __Essential_init();
-
+        __Essential_init(_owner);
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 

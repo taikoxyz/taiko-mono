@@ -29,10 +29,11 @@ contract AddressManager is EssentialContract, IAddressManager {
 
     error AM_INVALID_PARAMS();
     error AM_UNSUPPORTED();
-    /// @notice Initializes the owner for the upgradable contract.
 
-    function init() external initializer {
-        __Essential_init();
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Sets the address for a specific chainId-name pair.
