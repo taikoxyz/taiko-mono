@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { enteredAmount, selectedNFTs } from '$components/Bridge/state';
@@ -62,7 +62,7 @@
     canProceed = false;
   }
 
-  onDestroy(() => {
+  onMount(() => {
     $selectedNFTs = [];
   });
 </script>
