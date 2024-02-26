@@ -41,11 +41,8 @@ type Config struct {
 	SyncMode                            SyncMode
 	WatchMode                           WatchMode
 	NumLatestBlocksToIgnoreWhenCrawling uint64
-<<<<<<< HEAD
 	EventName                           string
-=======
 	TargetBlockNumber                   *uint64
->>>>>>> main
 	OpenQueueFunc                       func() (queue.Queue, error)
 	OpenDBFunc                          func() (DB, error)
 }
