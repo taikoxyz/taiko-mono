@@ -99,7 +99,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _paused = _FALSE;
     }
 
-    function __Essential_init(address _owner) internal virtual onlyInitializing {
+    function __Essential_init(address _owner) internal virtual {
         __Essential_init(_owner, address(0));
     }
 

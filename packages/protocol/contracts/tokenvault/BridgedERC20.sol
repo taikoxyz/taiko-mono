@@ -67,10 +67,9 @@ contract BridgedERC20 is
         external
         initializer
     {
-        __Essential_init(_owner, _addressManager);
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-
+        __Essential_init(_owner, _addressManager);
         __ERC20_init({ name_: _name, symbol_: _symbol });
         __ERC20Snapshot_init();
         __ERC20Votes_init();

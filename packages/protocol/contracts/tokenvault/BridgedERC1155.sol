@@ -62,7 +62,6 @@ contract BridgedERC1155 is
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, "foo", "foo");
         __Essential_init(_owner, _addressManager);
-
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;
