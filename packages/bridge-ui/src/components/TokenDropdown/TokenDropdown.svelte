@@ -22,6 +22,7 @@
   import { ETHToken, fetchBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
+  import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { type Account, account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
@@ -230,7 +231,7 @@
               <svelte:component this={Erc20} size={20} />
             </i>
           {/if}
-          <span class={textClass}>{value.symbol}</span>
+          <span class={textClass}>{truncateString(value.symbol, 5)}</span>
         </div>
       {/if}
     </div>
