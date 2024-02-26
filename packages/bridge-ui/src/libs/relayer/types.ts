@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import type { Address, Hex } from 'viem';
 
 import type { BridgeTransaction, RelayerMessage } from '$libs/bridge';
 
@@ -33,24 +33,32 @@ export type TransactionData = {
   Message: RelayerMessage;
   Raw: {
     address: Address;
-    transactionHash: string;
+    transactionHash: Hex;
     transactionIndex: string;
+    blockNumber: bigint;
   };
 };
+
+export enum RelayerEventType {
+  ETH = 0,
+  ERC20 = 1,
+  ERC721 = 2,
+  ERC1155 = 3,
+}
 
 export type APIResponseTransaction = {
   id: number;
   name: string;
   data: TransactionData;
   status: number;
-  eventType: number;
+  eventType: RelayerEventType;
   chainID: number;
   canonicalTokenAddress: Address;
   canonicalTokenSymbol: string;
   canonicalTokenName: string;
   canonicalTokenDecimals: number;
   amount: string;
-  msgHash: string;
+  msgHash: Hex;
   messageOwner: Address;
   event: string;
 };
