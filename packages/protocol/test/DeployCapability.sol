@@ -15,6 +15,38 @@ import "../contracts/libs/LibDeploy.sol";
 abstract contract DeployCapability is Script {
     error ADDRESS_NULL();
 
+
+    function deployProxy(
+        string memory name,
+        address impl,
+        bytes memory data,
+        address registerTo
+    )
+        internal
+        returns (address proxy)
+    {
+        proxy = LibDeploy.deployERC1967Proxy(impl, address(0), data);
+
+        if (registerTo != address(0)) {
+            AddressManager(registerTo).setAddress(
+                uint64(block.chainid), bytes32(bytes(name)), proxy
+            );
+        }
+
+        console2.log(">", name, "@", registerTo);
+        console2.log("  proxy      :", proxy);
+        console2.log("  impl       :", impl);
+        console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
+        console2.log("  msg.sender :", msg.sender);
+        console2.log("  this       :", address(this));
+
+        vm.writeJson(
+            vm.serializeAddress("deployment", name, proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
+    }
+
+
     function deployProxy(
         string memory name,
         address impl,

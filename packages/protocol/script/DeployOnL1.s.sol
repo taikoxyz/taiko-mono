@@ -229,9 +229,8 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
-            data: abi.encodeCall(Bridge.init, (sharedAddressManager)),
-            registerTo: sharedAddressManager,
-            owner: timelock
+            data: abi.encodeCall(Bridge.init, (timelock, sharedAddressManager)),
+            registerTo: sharedAddressManager
         });
 
         console2.log("------------------------------------------");
