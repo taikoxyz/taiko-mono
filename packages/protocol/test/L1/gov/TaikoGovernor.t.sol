@@ -23,13 +23,7 @@ contract TestTaikoGovernor is TaikoL1TestBase {
 
         // deploy TaikoTimelockController
         taikoTimelockController = TaikoTimelockController(
-            payable(
-                LibDeploy.deployERC1967Proxy({
-                    impl: address(new TaikoTimelockController()),
-                    owner: address(0),
-                    data: ""
-                })
-            )
+            payable(address(new ERC1967Proxy(address(new TaikoTimelockController()), "")))
         );
 
         // init TaikoTimelockController
@@ -37,15 +31,9 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         taikoTimelockController.init(address(0), minDelay);
 
         // deploy TaikoGovernor
-        taikoGovernor = TaikoGovernor(
-            payable(
-                LibDeploy.deployERC1967Proxy({
-                    impl: address(new TaikoGovernor()),
-                    owner: address(0),
-                    data: ""
-                })
-            )
-        );
+
+        taikoGovernor =
+            TaikoGovernor(payable(address(new ERC1967Proxy(address(new TaikoGovernor()), ""))));
 
         // init TaikoGovernor
         taikoGovernor.init(address(0), tko, taikoTimelockController);

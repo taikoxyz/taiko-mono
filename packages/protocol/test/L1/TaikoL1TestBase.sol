@@ -52,7 +52,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
-                data: abi.encodeCall(SgxVerifier.init, address(addressManager))
+                data: abi.encodeCall(SgxVerifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -64,7 +64,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
-                data: abi.encodeCall(GuardianVerifier.init, address(addressManager))
+                data: abi.encodeCall(GuardianVerifier.init, (address(0), address(addressManager)))
             })
         );
 

@@ -38,8 +38,7 @@ contract TestSignalService is TaikoTest {
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: abi.encodeCall(AddressManager.init, ()),
-                registerTo: address(addressManager),
-                owner: address(0)
+                registerTo: address(addressManager)
             })
         );
 

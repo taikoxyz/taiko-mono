@@ -9,7 +9,6 @@ import "forge-std/src/console2.sol";
 import "forge-std/src/Script.sol";
 
 import "../contracts/common/AddressManager.sol";
-import "../contracts/libs/LibDeploy.sol";
 
 /// @title DeployCapability
 abstract contract DeployCapability is Script {
@@ -24,38 +23,7 @@ abstract contract DeployCapability is Script {
         internal
         returns (address proxy)
     {
-        proxy = LibDeploy.deployERC1967Proxy(impl, address(0), data);
-
-        if (registerTo != address(0)) {
-            AddressManager(registerTo).setAddress(
-                uint64(block.chainid), bytes32(bytes(name)), proxy
-            );
-        }
-
-        console2.log(">", name, "@", registerTo);
-        console2.log("  proxy      :", proxy);
-        console2.log("  impl       :", impl);
-        console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
-        console2.log("  msg.sender :", msg.sender);
-        console2.log("  this       :", address(this));
-
-        vm.writeJson(
-            vm.serializeAddress("deployment", name, proxy),
-            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
-        );
-    }
-
-    function deployProxy(
-        string memory name,
-        address impl,
-        bytes memory data,
-        address registerTo,
-        address owner
-    )
-        internal
-        returns (address proxy)
-    {
-        proxy = LibDeploy.deployERC1967Proxy(impl, owner, data);
+        proxy = address(new ERC1967Proxy(impl, data));
 
         if (registerTo != address(0)) {
             AddressManager(registerTo).setAddress(
@@ -84,7 +52,7 @@ abstract contract DeployCapability is Script {
         internal
         returns (address proxy)
     {
-        return deployProxy(name, impl, data, address(0), address(0));
+        return deployProxy(name, impl, data, address(0));
     }
 
     function register(address registerTo, string memory name, address addr) internal {

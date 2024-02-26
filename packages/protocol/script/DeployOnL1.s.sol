@@ -329,17 +329,15 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_guardian",
             impl: address(new GuardianVerifier()),
-            data: abi.encodeCall(GuardianVerifier.init, (rollupAddressManager)),
-            registerTo: rollupAddressManager,
-            owner: timelock
+            data: abi.encodeCall(GuardianVerifier.init, (timelock, rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
 
         deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (rollupAddressManager)),
-            registerTo: rollupAddressManager,
-            owner: timelock
+            data: abi.encodeCall(SgxVerifier.init, (timelock, rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
 
         address guardianProver = deployProxy({

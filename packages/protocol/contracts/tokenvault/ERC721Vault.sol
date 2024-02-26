@@ -250,8 +250,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             (owner(), addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
 
-        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc721", false), owner(), data);
-
+        btoken = address(new ERC1967Proxy(resolve("bridged_erc721", false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
