@@ -361,9 +361,10 @@ contract ERC20Vault is BaseVault {
     /// @param ctoken CanonicalERC20 data.
     /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
-        bytes memory data = bytes.concat(
-            BridgedERC20.init.selector,
-            abi.encode(
+        bytes memory data = abi.encodeCall(
+            BridgedERC20.init,
+            (
+                owner(),
                 addressManager,
                 ctoken.addr,
                 ctoken.chainId,
@@ -373,8 +374,7 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc20", false), owner(), data);
-
+        btoken = address(new ERC1967Proxy(resolve("bridged_erc20", false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

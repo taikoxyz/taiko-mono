@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
-import "../../../contracts/common/OwnerUUPSUpgradable.sol";
 
 contract MockERC721Airdrop is ERC721Airdrop {
     function _verifyMerkleProof(
@@ -39,10 +38,10 @@ contract MockAddressManager {
 // it acts on
 // behalf
 // - funds can later be withdrawn by the user
-contract SimpleERC721Vault is OwnerUUPSUpgradable {
+contract SimpleERC721Vault is EssentialContract {
     /// @notice Initializes the vault.
-    function init() external initializer {
-        __OwnerUUPSUpgradable_init();
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     function approveAirdropContract(address token, address approvedActor) public onlyOwner {
@@ -86,7 +85,7 @@ contract TestERC721Airdrop is TaikoTest {
             deployProxy({
                 name: "vault",
                 impl: address(new SimpleERC721Vault()),
-                data: abi.encodeCall(SimpleERC721Vault.init, ())
+                data: abi.encodeCall(SimpleERC721Vault.init, (address(0)))
             })
         );
 
@@ -103,7 +102,14 @@ contract TestERC721Airdrop is TaikoTest {
                 impl: address(new BridgedERC721()),
                 data: abi.encodeCall(
                     BridgedERC721.init,
-                    (address(addressManager), randAddress(), 100, "TKOP", "Taiko Points Token")
+                    (
+                        address(0),
+                        address(addressManager),
+                        randAddress(),
+                        100,
+                        "TKOP",
+                        "Taiko Points Token"
+                    )
                     )
             })
         );
@@ -135,7 +141,7 @@ contract TestERC721Airdrop is TaikoTest {
                 impl: address(new MockERC721Airdrop()),
                 data: abi.encodeCall(
                     ERC721Airdrop.init,
-                    (claimStart, claimEnd, merkleRoot, address(token), address(vault))
+                    (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
                     )
             })
         );

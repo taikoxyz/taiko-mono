@@ -7,7 +7,7 @@
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
   import { InvalidParametersProvidedError, UnknownTokenTypeError } from '$libs/error';
-  import { ETHToken, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
+  import { ETHToken, fetchBalance, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -161,23 +161,15 @@
     }
   }
 
-  const determineBalance = () => {
-    let balance = 0n;
-    if (!$selectedToken) return balance;
-    const type = $selectedToken.type;
-    switch (type) {
-      case TokenType.ERC20:
-      case TokenType.ETH:
-        throw new InvalidParametersProvidedError('token type not supported for this component');
-      case TokenType.ERC721:
-      case TokenType.ERC1155:
-        if (typeof $tokenBalance === 'bigint') balance = $tokenBalance;
-        break;
-      default:
-        throw new UnknownTokenTypeError('Unknown token type');
-    }
-    return balance;
-  };
+  export async function determineBalance() {
+    if (!$account?.address || !$selectedToken) return;
+    $tokenBalance = await fetchBalance({
+      userAddress: $account?.address,
+      token: $selectedToken,
+      srcChainId: $connectedSourceChain?.id,
+      destChainId: $destNetwork?.id,
+    });
+  }
 
   $: if (inputBox && sanitizedValue !== value) {
     inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes

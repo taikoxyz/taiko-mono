@@ -24,10 +24,11 @@ contract GuardianVerifier is EssentialContract, IVerifier {
 
     error PERMISSION_DENIED();
 
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @inheritdoc IVerifier
