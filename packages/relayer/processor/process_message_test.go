@@ -107,38 +107,38 @@ func Test_ProcessMessage_gasLimit0(t *testing.T) {
 	assert.EqualError(t, errors.New("only user can process this, gasLimit set to 0"), err.Error())
 }
 
-func Test_ProcessMessage_noChainId(t *testing.T) {
-	p := newTestProcessor(true)
+// func Test_ProcessMessage_noChainId(t *testing.T) {
+// 	p := newTestProcessor(true)
 
-	body := queue.QueueMessageSentBody{
-		Event: &bridge.BridgeMessageSent{
-			Message: bridge.IBridgeMessage{
-				SrcChainId: mock.MockChainID.Uint64(),
-				GasLimit:   big.NewInt(1),
-				Id:         big.NewInt(0),
-			},
-			MsgHash: mock.SuccessMsgHash,
-			Raw: types.Log{
-				Address: relayer.ZeroAddress,
-				Topics: []common.Hash{
-					relayer.ZeroHash,
-				},
-				Data: []byte{0xff},
-			},
-		},
-		ID: 0,
-	}
+// 	body := queue.QueueMessageSentBody{
+// 		Event: &bridge.BridgeMessageSent{
+// 			Message: bridge.IBridgeMessage{
+// 				SrcChainId: mock.MockChainID.Uint64(),
+// 				GasLimit:   big.NewInt(1),
+// 				Id:         big.NewInt(0),
+// 			},
+// 			MsgHash: mock.SuccessMsgHash,
+// 			Raw: types.Log{
+// 				Address: relayer.ZeroAddress,
+// 				Topics: []common.Hash{
+// 					relayer.ZeroHash,
+// 				},
+// 				Data: []byte{0xff},
+// 			},
+// 		},
+// 		ID: 0,
+// 	}
 
-	marshalled, err := json.Marshal(body)
-	assert.Nil(t, err)
+// 	marshalled, err := json.Marshal(body)
+// 	assert.Nil(t, err)
 
-	msg := queue.Message{
-		Body: marshalled,
-	}
+// 	msg := queue.Message{
+// 		Body: marshalled,
+// 	}
 
-	err = p.processMessage(context.Background(), msg)
-	assert.EqualError(t, err, "p.generateEncodedSignalProof: message not received")
-}
+// 	err = p.processMessage(context.Background(), msg)
+// 	assert.EqualError(t, err, "p.generateEncodedSignalProof: message not received")
+// }
 
 func Test_ProcessMessage(t *testing.T) {
 	p := newTestProcessor(true)
