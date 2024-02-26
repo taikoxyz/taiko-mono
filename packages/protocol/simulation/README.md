@@ -24,14 +24,6 @@ Assuming you are in this directory.
    python3 -m pip install -r requirements.txt
    ```
 
-3. **Create Output Directory**
-
-   Ensure there's a directory to store the output files:
-
-   ```
-   mkdir -p out
-   ```
-
 ### Exporting Configuration
 
 4. **Export Simulation Configuration**
