@@ -70,8 +70,16 @@ export class MintError extends Error {
   name = 'MintError';
 }
 
+export class BlockError extends Error {
+  name = 'BlockError';
+}
+
 export class PendingBlockError extends Error {
   name = 'PendingBlockError';
+}
+
+export class ProofGenerationError extends Error {
+  name = 'ProofGenerationError';
 }
 
 export class InvalidProofError extends Error {
@@ -152,4 +160,8 @@ export class ConfigError extends Error {
 
 export class IpfsError extends Error {
   name = 'IpfsError';
+}
+
+export class ClientError extends Error {
+  name = 'ClientError';
 }
