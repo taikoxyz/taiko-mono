@@ -186,23 +186,23 @@ contract SgxVerifier is EssentialContract, IVerifier {
             proof
         );
 
-        // address oldInstance =
-        //     ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
+        address oldInstance =
+            ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
 
-        // emit test2(
-        //     ctx.blockId,
-        //     oldInstance,
-        //     newInstance,
-        //     getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
-        //     signature,
-        //     ctx.metaHash,
-        //     ctx.prover,
-        //     tran,
-        //     proof
-        // );
+        emit test2(
+            ctx.blockId,
+            oldInstance,
+            newInstance,
+            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
+            signature,
+            ctx.metaHash,
+            ctx.prover,
+            tran,
+            proof
+        );
 
-        // if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
-        // _replaceInstance(id, oldInstance, newInstance);
+        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        _replaceInstance(id, oldInstance, newInstance);
     }
 
     function getSignedHash(
