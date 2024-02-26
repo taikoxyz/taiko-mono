@@ -44,17 +44,6 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         _;
     }
 
-    /// @dev Modifier that ensures the caller is one of the resolved addresses of the two given
-    /// names.
-    /// @param name1 The first name to check against.
-    /// @param name2 The second name to check against.
-    modifier onlyFromNamed2(bytes32 name1, bytes32 name2) {
-        if (msg.sender != resolve(name1, true) && msg.sender != resolve(name2, true)) {
-            revert RESOLVER_DENIED();
-        }
-        _;
-    }
-
     /// @inheritdoc IAddressResolver
     function resolve(
         bytes32 name,
