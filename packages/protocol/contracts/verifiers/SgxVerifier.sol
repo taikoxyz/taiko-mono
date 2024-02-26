@@ -66,6 +66,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
     );
     event InstanceDeleted(uint256 indexed id, address indexed instance);
     event test(
+        address newAddr,
+        bytes32 hash,
+        bytes signature,
+        bytes32 metaHash,
+        address prover,
+        TaikoData.Transition tran,
+        TaikoData.TierProof proof
+    );
+
+    event test2(
         address addr,
         address newAddr,
         bytes32 hash,
@@ -75,6 +85,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.Transition tran,
         TaikoData.TierProof proof
     );
+
+    event test3();
 
     error SGX_ALREADY_ATTESTED();
     error SGX_DELETE_NOT_AUTHORIZED();
@@ -152,7 +164,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
-
+        emit test3();
         // Size is: 89 bytes
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
         if (proof.data.length != 89) revert SGX_INVALID_PROOF();
@@ -161,10 +173,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address newInstance = address(bytes20(Bytes.slice(proof.data, 4, 20)));
         bytes memory signature = Bytes.slice(proof.data, 24);
 
+        emit test(
+            newInstance,
+            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
+            signature,
+            ctx.metaHash,
+            ctx.prover,
+            tran,
+            proof
+        );
+
         address oldInstance =
             ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
 
-        emit test(
+        emit test2(
             oldInstance,
             newInstance,
             getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
