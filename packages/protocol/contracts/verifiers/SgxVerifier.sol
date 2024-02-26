@@ -197,8 +197,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
             proof
         );
 
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
-        _replaceInstance(id, oldInstance, newInstance);
+        // if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        // _replaceInstance(id, oldInstance, newInstance);
     }
 
     function getSignedHash(
