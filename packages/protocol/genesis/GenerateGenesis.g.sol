@@ -180,7 +180,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridgeProxy.pause();
         assertEq(bridgeProxy.paused(), true);
 
-        vm.expectRevert(OwnerUUPSUpgradable.INVALID_PAUSE_STATUS.selector);
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
         bridgeProxy.processMessage(
             IBridge.Message({
                 id: 0,
@@ -234,7 +234,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         address erc721VaultAddress = getPredeployedContractAddress("ERC721Vault");
         address bridgeAddress = getPredeployedContractAddress("Bridge");
 
-        OwnerUUPSUpgradable erc721VaultProxy = OwnerUUPSUpgradable(erc721VaultAddress);
+        EssentialContract erc721VaultProxy = EssentialContract(erc721VaultAddress);
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
@@ -256,7 +256,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         address erc1155VaultProxyAddress = getPredeployedContractAddress("ERC1155Vault");
         address bridgeProxyAddress = getPredeployedContractAddress("Bridge");
 
-        OwnerUUPSUpgradable erc1155VaultProxy = OwnerUUPSUpgradable(erc1155VaultProxyAddress);
+        EssentialContract erc1155VaultProxy = EssentialContract(erc1155VaultProxyAddress);
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
@@ -333,7 +333,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         // address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
-        OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(payable(proxyAddress));
+        EssentialContract proxy = EssentialContract(payable(proxyAddress));
 
         assertEq(proxy.owner(), owner);
 

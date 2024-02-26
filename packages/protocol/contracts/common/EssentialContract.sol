@@ -99,6 +99,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _paused = _FALSE;
     }
 
+    // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _owner) internal virtual {
         __Essential_init(_owner, address(0));
     }
