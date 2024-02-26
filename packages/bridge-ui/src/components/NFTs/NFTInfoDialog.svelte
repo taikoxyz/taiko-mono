@@ -27,13 +27,13 @@
 
   const dispatch = createEventDispatcher();
 
-  let bridgedAddress: Address | null;
-  let bridgedChain: number | null;
+  $: bridgedAddress = '' as Address;
+  $: bridgedChain = 0;
 
   let fetchingAddress: boolean = false;
 
-  let canonicalAddress: Address | null;
-  let canonicalChain: number | null;
+  $: canonicalAddress = '';
+  $: canonicalChain = 0;
 
   const selectNFT = () => {
     dispatch('selected', nft);
@@ -47,7 +47,7 @@
   const fetchTokenAddresses = async () => {
     fetchingAddress = true;
 
-    if (!srcChainId || !destChainId) return;
+    if (!srcChainId || !destChainId || !nft) return;
 
     try {
       const tokenInfo = await getTokenAddresses({ token: nft, srcChainId, destChainId });
@@ -75,7 +75,11 @@
     imageLoaded = true;
   }
 
-  $: imageUrl = nft.metadata?.image || placeholderUrl;
+  $: if (modalOpen) {
+    fetchTokenAddresses();
+  }
+
+  $: imageUrl = nft?.metadata?.image || placeholderUrl;
 
   $: showBridgedAddress = destChainId && bridgedAddress && !fetchingAddress;
 
@@ -100,7 +104,7 @@
       <div id="metadata">
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.collection')}</div>
-          <div class="text-primary-content">{nft.name}</div>
+          <div class="text-primary-content">{nft?.name}</div>
         </div>
         <!--  CANONICAL INFO -->
         <div class="f-between-center">
@@ -109,12 +113,16 @@
             <img alt="source chain icon" src={chainConfig[Number(canonicalChain)]?.icon} class="w-4 h-4" />
           </div>
           <div class="f-row min-w-1/2 text-primary-content">
-            {#if canonicalChain && canonicalAddress}
+            {#if fetchingAddress}
+              <Spinner class="h-[10px] w-[10px] " />
+              {$t('common.loading')}
+            {:else if canonicalChain && canonicalAddress}
               <a
                 class="flex justify-start link"
                 href={`${chainConfig[canonicalChain].urls.explorer}/token/${canonicalAddress}`}
                 target="_blank">
                 {shortenAddress(canonicalAddress, 6, 8)}
+                <Icon type="arrow-top-right" fillClass="fill-primary-link" />
               </a>
             {/if}
           </div>
@@ -145,11 +153,11 @@
         </div>
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.token_id')}</div>
-          <div class="text-primary-content">{nft.tokenId}</div>
+          <div class="text-primary-content">{nft?.tokenId}</div>
         </div>
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.token_standard')}</div>
-          <div class="text-primary-content">{nft.type}</div>
+          <div class="text-primary-content">{nft?.type}</div>
         </div>
       </div>
       <div class="f-col">

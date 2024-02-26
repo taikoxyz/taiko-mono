@@ -7,6 +7,7 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import { LoadingText } from '$components/LoadingText';
+  import NftInfoDialog from '$components/NFTs/NFTInfoDialog.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import type { BridgeTransaction } from '$libs/bridge';
   import { getChainName } from '$libs/chain';
@@ -26,6 +27,7 @@
   let token: NFT;
   let insufficientModal = false;
   let detailsOpen = false;
+  let nftInfoOpen = false;
   let isDesktopOrLarger = false;
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
@@ -49,9 +51,13 @@
   };
 
   const openDetails = () => {
-    if (!isDesktopOrLarger) {
+    if (isDesktopOrLarger) {
       detailsOpen = true;
     }
+  };
+
+  const openNFTInfo = () => {
+    nftInfoOpen = true;
   };
 
   const handleInsufficientFunds = () => {
@@ -105,7 +111,11 @@
             <LoadingText mask="&nbsp;" class="min-w-[20px] max-w-[20px] h-4" />
           </div>
         {:else}
-          <img alt="nft" src={imgUrl} class="rounded-[10px] min-w-[50px] max-w-[50px] bg-neutral self-center" />
+          <button on:click={() => openNFTInfo()}>
+            <img
+              alt="nft"
+              src={imgUrl}
+              class="rounded-[10px] min-w-[50px] max-w-[50px] bg-neutral self-center" /></button>
           <div class="f-col text-left">
             <div class="text-sm">{token?.name ? truncateString(token?.name, 15) : 'No Token Name'}</div>
             <div class="text-sm text-secondary-content">
@@ -252,5 +262,7 @@
   {detailsOpen}
   selectedItem={item}
   on:insufficientFunds={handleInsufficientFunds} />
+
+<NftInfoDialog nft={token} bind:modalOpen={nftInfoOpen} on:close={closeDetails} viewOnly />
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />
