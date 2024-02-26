@@ -34,7 +34,7 @@ contract TestTaikoGovernor is TaikoL1TestBase {
 
         // init TaikoTimelockController
         uint256 minDelay = 0.5 days;
-        taikoTimelockController.init(minDelay);
+        taikoTimelockController.init(address(0), minDelay);
 
         // deploy TaikoGovernor
         taikoGovernor = TaikoGovernor(

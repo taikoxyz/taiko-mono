@@ -163,7 +163,7 @@ contract DeployOnL1 is DeployCapability {
         timelock = deployProxy({
             name: "timelock_controller",
             impl: address(new TaikoTimelockController()),
-            data: abi.encodeCall(TaikoTimelockController.init, (7 days))
+            data: abi.encodeCall(TaikoTimelockController.init, (address(0), 7 days))
         });
 
         sharedAddressManager = deployProxy({

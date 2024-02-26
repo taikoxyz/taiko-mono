@@ -20,8 +20,14 @@ import "../../common/EssentialContract.sol";
 contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
     uint256[50] private __gap;
 
-    function init(uint256 minDelay) external initializer {
-        __Essential_init();
+    function init(
+        address _owner,
+        uint256 minDelay
+    )
+        external
+        initializer
+        initEssential(_owner, address(0))
+    {
         address[] memory nil = new address[](0);
         __TimelockController_init(minDelay, nil, nil, owner());
     }
