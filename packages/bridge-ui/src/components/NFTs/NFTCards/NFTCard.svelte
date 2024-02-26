@@ -33,7 +33,9 @@
   $: imageUrl = nft.metadata?.image || placeholderUrl;
 
   $: {
-    isChecked = $selectedNFTs ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId) : false;
+    isChecked = $selectedNFTs
+      ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId && selected.addresses === nft.addresses)
+      : false;
   }
 </script>
 
