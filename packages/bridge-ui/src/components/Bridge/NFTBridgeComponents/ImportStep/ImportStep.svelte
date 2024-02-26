@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
+  import { destNetwork as destChain, importDone, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
+  import { OnAccount } from '$components/OnAccount';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import type { NFT } from '$libs/token';
   import { account } from '$stores/account';
@@ -15,6 +16,7 @@
   import { selectedImportMethod } from './state';
 
   let foundNFTs: NFT[] = [];
+  let canProceed = false;
 
   export let validating = false;
 
@@ -41,10 +43,22 @@
     $selectedImportMethod = ImportMethod.NONE;
   };
 
+  const onAccountChange = () => {
+    reset();
+  };
+
   //  States
   let scanning = false;
 
   $: canImport = ($account?.isConnected && $srcChain?.id && $destChain && !scanning) || false;
+
+  $: {
+    if (canProceed) {
+      $importDone = true;
+    } else {
+      $importDone = false;
+    }
+  }
 
   onMount(() => {
     reset();
@@ -56,10 +70,13 @@
 </div>
 
 <div class="h-sep" />
+
 {#if $selectedImportMethod === ImportMethod.MANUAL}
   <ManualImport bind:validating />
 {:else if $selectedImportMethod === ImportMethod.SCAN}
-  <ScannedImport {scanForNFTs} bind:foundNFTs />
+  <ScannedImport {scanForNFTs} bind:foundNFTs bind:canProceed />
 {:else}
   <ImportActions bind:scanning {canImport} {scanForNFTs} />
 {/if}
+
+<OnAccount change={onAccountChange} />

@@ -50,7 +50,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, ())
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 
@@ -59,9 +59,8 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager))),
-                    registerTo: address(addressManager),
-                    owner: address(0)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
                 })
             )
         );
@@ -71,7 +70,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
                 })
             )
         );
@@ -81,7 +80,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "2_step_bridge",
                     impl: address(new TwoStepBridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
                 })
             )
         );
@@ -90,9 +89,8 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager))),
-                registerTo: address(addressManager),
-                owner: address(0)
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
+                registerTo: address(addressManager)
             })
         );
 
@@ -100,7 +98,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 

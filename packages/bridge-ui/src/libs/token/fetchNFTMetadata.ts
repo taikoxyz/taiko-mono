@@ -6,7 +6,7 @@ import { ipfsConfig } from '$config';
 import { NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
-import { metadataCache } from '$stores/metadata';
+import { getMetadataFromCache, isMetadataCached, metadataCache } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
 import { getTokenAddresses } from './getTokenAddresses';
@@ -29,13 +29,11 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
   if (!tokenInfo || !tokenInfo.canonical?.address) return null;
 
   // check cache for metadata
-  const cache = get(metadataCache);
-  if (cache.has(tokenInfo.canonical?.address)) {
-    const cachedMetadata = cache.get(tokenInfo.canonical?.address);
-    if (cachedMetadata) {
-      log('Found cached metadata for', tokenInfo.canonical?.address, cachedMetadata);
-      return cachedMetadata;
-    }
+  if (isMetadataCached({ address: tokenInfo.canonical?.address, id: token.tokenId })) {
+    log('found cached metadata for', tokenInfo.canonical?.address, token.metadata);
+    // Update cache
+    const data = getMetadataFromCache({ address: tokenInfo.canonical?.address, id: token.tokenId });
+    if (data) return data;
   }
   log('no cached metadata found', token);
   if (!uri) {

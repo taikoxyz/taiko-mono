@@ -22,10 +22,10 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import "../../common/OwnerUUPSUpgradable.sol";
+import "../../common/EssentialContract.sol";
 
 contract TaikoGovernor is
-    OwnerUUPSUpgradable,
+    EssentialContract,
     GovernorCompatibilityBravoUpgradeable,
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
@@ -35,14 +35,19 @@ contract TaikoGovernor is
 
     error TG_INVALID_SIGNATURES_LENGTH();
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _token The Taiko token.
+    /// @param _timelock The timelock contract address.
     function init(
+        address _owner,
         IVotesUpgradeable _token,
         TimelockControllerUpgradeable _timelock
     )
         external
         initializer
     {
-        __OwnerUUPSUpgradable_init();
+        __Essential_init(_owner);
         __Governor_init("TaikoGovernor");
         __GovernorCompatibilityBravo_init();
         __GovernorVotes_init(_token);

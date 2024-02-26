@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.9.3](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.2...bridge-ui-v2.9.3) (2024-02-26)
+
+
+### Bug Fixes
+
+* **bridge-ui:** remove nft debug info from ui ([#16067](https://github.com/taikoxyz/taiko-mono/issues/16067)) ([5eddffe](https://github.com/taikoxyz/taiko-mono/commit/5eddffea3180e67c005d510ddaa7ffb90ce0a85a))
+* **bridge-ui:** truncate selected token name to 5 characters ([#16066](https://github.com/taikoxyz/taiko-mono/issues/16066)) ([dc24155](https://github.com/taikoxyz/taiko-mono/commit/dc24155b306e447f0572d29918183570905866be))
+* **bridge-ui:** various small bugfixes ([#16078](https://github.com/taikoxyz/taiko-mono/issues/16078)) ([e610d19](https://github.com/taikoxyz/taiko-mono/commit/e610d1907ef47fb6e25d8bc26e9b7edf3954d886))
+
 ## [2.9.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.1...bridge-ui-v2.9.2) (2024-02-23)
 
 

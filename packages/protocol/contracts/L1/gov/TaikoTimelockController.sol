@@ -15,13 +15,16 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
-import "../../common/OwnerUUPSUpgradable.sol";
+import "../../common/EssentialContract.sol";
 
-contract TaikoTimelockController is OwnerUUPSUpgradable, TimelockControllerUpgradeable {
+contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
     uint256[50] private __gap;
 
-    function init(uint256 minDelay) external initializer {
-        __OwnerUUPSUpgradable_init();
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param minDelay The minimal delay.
+    function init(address _owner, uint256 minDelay) external initializer {
+        __Essential_init(_owner);
         address[] memory nil = new address[](0);
         __TimelockController_init(minDelay, nil, nil, owner());
     }
