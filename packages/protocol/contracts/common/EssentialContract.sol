@@ -19,23 +19,6 @@ import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./AddressResolver.sol";
 
 abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
-    /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
-    /// @param name The name to check against.
-    modifier onlyFromOwnerOrNamed(bytes32 name) {
-        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
-        _;
-    }
-
-    modifier initEssential(address _owner, address _addressManager) {
-        __Essential_init(_addressManager);
-        // owner == msg.sender
-        _;
-
-        if (_owner != address(0) && _owner != owner()) {
-            _transferOwnership(_owner);
-        }
-    }
-
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
 
@@ -53,6 +36,23 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
+
+    /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
+    /// @param name The name to check against.
+    modifier onlyFromOwnerOrNamed(bytes32 name) {
+        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
+    modifier initEssential(address _owner, address _addressManager) {
+        __Essential_init(_addressManager);
+        // owner == msg.sender
+        _;
+
+        if (_owner != address(0) && _owner != owner()) {
+            _transferOwnership(_owner);
+        }
+    }
 
     modifier nonReentrant() {
         if (_loadReentryLock() == _TRUE) revert REENTRANT_CALL();
