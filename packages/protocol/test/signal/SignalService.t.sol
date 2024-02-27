@@ -66,7 +66,7 @@ contract TestSignalService is TaikoTest {
         vm.stopPrank();
     }
 
-    function test_realsignal() public {
+    function test_real_signal() public {
         vm.chainId(167_001);
 
         bytes memory proof =
