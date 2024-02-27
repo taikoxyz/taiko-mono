@@ -16,7 +16,7 @@
     "test": "forge test -vvv --match-path test/*.t.sol",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
     "test:genesis": "pnpm compile && FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
-    "export:simconf": "forge test --match-test 'test_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
+    "export:simconf": "mkdir -p simulation/out && forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "keywords": [
     "ZKP",
