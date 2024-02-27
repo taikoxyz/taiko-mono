@@ -14,6 +14,16 @@
 .l2indexer.env
 .l2al2bindexer.env
 .l2al2bprocessor.env
+.l1l2aindexer.env
+.l1l2bindexer.env
+.l1l2bprocessor.env
+.l2l1indexer.katla.env
+.l2bl1indexer.katla.env
+.l1l2aprocessor.env
+.l2al1indexer.env
+.l2al1processor.env
+.l2bl1indexer.env
+.l2bl1processor.env
 
 main
 relayer
