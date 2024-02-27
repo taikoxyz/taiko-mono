@@ -103,8 +103,24 @@ contract DeployOnL1 is DeployCapability {
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
+        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
+
         if (signalService.owner() == msg.sender) {
+            // Setup time lock roles
+            // Only the governer can make proposals after holders voting.
+            _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
+            _timelock.grantRole(_timelock.PROPOSER_ROLE(), msg.sender);
+
+            // Granting address(0) the executor role to allow open executation.
+            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
+            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), msg.sender);
+
+            _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
+            _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
+            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
+
             signalService.transferOwnership(timelock);
+            acceptOwnership(signalServiceAddr, TimelockControllerUpgradeable(payable(timelock)));
         } else {
             console2.log("------------------------------------------");
             console2.log("Warning - you need to transact manually:");
@@ -143,11 +159,18 @@ contract DeployOnL1 is DeployCapability {
 
         if (AddressManager(sharedAddressManager).owner() == msg.sender) {
             AddressManager(sharedAddressManager).transferOwnership(timelock);
+            acceptOwnership(sharedAddressManager, TimelockControllerUpgradeable(payable(timelock)));
             console2.log("** sharedAddressManager ownership transferred to timelock:", timelock);
         }
 
         AddressManager(rollupAddressManager).transferOwnership(timelock);
+        acceptOwnership(rollupAddressManager, TimelockControllerUpgradeable(payable(timelock)));
         console2.log("** rollupAddressManager ownership transferred to timelock:", timelock);
+
+        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
+        _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
+        _timelock.transferOwnership(securityCouncil);
     }
 
     function deploySharedContracts()
@@ -200,24 +223,7 @@ contract DeployOnL1 is DeployCapability {
                 )
         });
 
-        // Setup time lock roles
         TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
-        // Only the governer can make proposals after holders voting.
-        _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
-        _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
-
-        // Granting address(0) the executor role to allow open executation.
-        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
-
-        // Cancelling is not supported by the implementation by default, therefore, no need to set
-        // up this role.
-        // _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
-
-        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
-        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
-
-        _timelock.transferOwnership(securityCouncil);
 
         // Deploy Bridging contracts
         deployProxy({
@@ -388,5 +394,13 @@ contract DeployOnL1 is DeployCapability {
 
     function addressNotNull(address addr, string memory err) private pure {
         require(addr != address(0), err);
+    }
+
+    function acceptOwnership(address proxy, TimelockControllerUpgradeable timelock) internal {
+        bytes32 salt = bytes32(block.timestamp);
+        bytes memory payload = abi.encodeCall(Ownable2StepUpgradeable(proxy).acceptOwnership, ());
+
+        timelock.schedule(proxy, 0, payload, bytes32(0), salt, 0);
+        timelock.execute(proxy, 0, payload, bytes32(0), salt);
     }
 }
