@@ -464,11 +464,10 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
-                authorizedAddresses: {
-                    [addressMap.TaikoL2]: ethers.utils.hexZeroPad(
-                        ethers.utils.hexlify(chainId),
-                        32,
-                    ),
+                // AddressResolver
+                addressManager: addressMap.SharedAddressManager,
+                isAuthorized: {
+                    [addressMap.TaikoL2]: true,
                 },
             },
             slots: {

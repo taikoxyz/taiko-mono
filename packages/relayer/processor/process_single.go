@@ -3,14 +3,19 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
 func (p *Processor) processSingle(ctx context.Context) error {
+	slog.Info("processing single", "txHash", common.Hash(*p.targetTxHash).Hex())
+
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
 	if err != nil {
 		return err

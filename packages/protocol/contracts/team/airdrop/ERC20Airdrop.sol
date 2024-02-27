@@ -14,7 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
@@ -25,8 +26,9 @@ contract ERC20Airdrop is MerkleClaimable {
     uint256[48] private __gap;
 
     function init(
-        uint64 _claimStarts,
-        uint64 _claimEnds,
+        address _owner,
+        uint64 _claimStart,
+        uint64 _claimEnd,
         bytes32 _merkleRoot,
         address _token,
         address _vault
@@ -34,15 +36,34 @@ contract ERC20Airdrop is MerkleClaimable {
         external
         initializer
     {
-        __Essential_init();
-        _setConfig(_claimStarts, _claimEnds, _merkleRoot);
+        __Essential_init(_owner);
+        __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
         vault = _vault;
     }
 
-    function _claimWithData(bytes calldata data) internal override {
-        (address user, uint256 amount) = abi.decode(data, (address, uint256));
+    function claimAndDelegate(
+        address user,
+        uint256 amount,
+        bytes32[] calldata proof,
+        bytes calldata delegationData
+    )
+        external
+        nonReentrant
+    {
+        // Check if this can be claimed
+        _verifyClaim(abi.encode(user, amount), proof);
+
+        // Transfer the tokens
         IERC20(token).transferFrom(vault, user, amount);
+
+        // Delegate the voting power to delegatee.
+        // Note that the signature (v,r,s) may not correspond to the user address,
+        // but since the data is provided by Taiko backend, it's not an issue even if
+        // client can change the data to call delegateBySig for another user.
+        (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
+            abi.decode(delegationData, (address, uint256, uint256, uint8, bytes32, bytes32));
+        IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
     }
 }

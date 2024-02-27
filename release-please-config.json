@@ -1,12 +1,15 @@
 {
   "packages": {
-    ".": {},
     "packages/branding": {},
-    "packages/bridge-ui-v2": {},
+    "packages/bridge-ui": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
+    "packages/guardian-prover-health-check": {},
+    "packages/guardian-prover-health-check-ui": {
+      "release-as": "0.1.0"
+    },
     "packages/protocol": {},
-    "packages/relayer": {},
-    "packages/status-page": {}
-  }
+    "packages/relayer": {}
+  },
+  "separate-pull-requests": true
 }

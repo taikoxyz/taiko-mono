@@ -27,11 +27,14 @@ interface IBridge {
         uint64 srcChainId;
         // Destination chain ID where the `to` address lives.
         uint64 destChainId;
-        // The owner of the message.
-        address owner;
+        // The owner of the message on the source chain.
+        address srcOwner;
+        // The owner of the message on the destination chain.
+        address destOwner;
         // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund. If blank, defaults to owner.
+        // Alternate address to send any refund on the destination chain.
+        // If blank, defaults to destOwner.
         address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
@@ -76,4 +79,13 @@ interface IRecallableSender {
     )
         external
         payable;
+}
+
+/// @title IMessageInvocable
+/// @notice An interface that all bridge message receiver shall implement
+interface IMessageInvocable {
+    /// @notice Called when this contract is the bridge target.
+    /// @param data The data for this contract to interpret.
+    /// @dev This method should be guarded with `onlyFromNamed("bridge")`.
+    function onMessageInvocation(bytes calldata data) external payable;
 }

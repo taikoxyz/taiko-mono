@@ -14,10 +14,10 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/utils/Address.sol";
-import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
-import "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -31,7 +31,7 @@ library LibAddress {
     /// @param amount The amount of Ether to send in wei.
     /// @param gasLimit The max amount gas to pay for this transaction.
     function sendEther(address to, uint256 amount, uint256 gasLimit) internal {
-        // Check for zero-value or zero-address transactions
+        // Check for zero-address transactions
         if (to == address(0)) revert ETH_TRANSFER_FAILED();
 
         // Attempt to send Ether to the recipient address

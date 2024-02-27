@@ -14,11 +14,9 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TaikoToken
@@ -27,13 +25,17 @@ import "../common/EssentialContract.sol";
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
+    uint256[50] private __gap;
+
     error TKO_INVALID_ADDR();
 
-    /// @notice Initializes the TaikoToken contract and mints initial tokens.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
     function init(
+        address _owner,
         string calldata _name,
         string calldata _symbol,
         address _recipient
@@ -41,20 +43,14 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         public
         initializer
     {
-        __Essential_init();
+        __Essential_init(_owner);
         __ERC20_init(_name, _symbol);
         __ERC20Snapshot_init();
         __ERC20Votes_init();
+        __ERC20Permit_init(_name);
 
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
-    }
-
-    /// @notice Mints new tokens to the specified address.
-    /// @param to The address to receive the minted tokens.
-    /// @param amount The amount of tokens to mint.
-    function mint(address to, uint256 amount) public onlyOwner {
-        _mint(to, amount);
     }
 
     /// @notice Burns tokens from the specified address.
@@ -65,7 +61,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() public onlyOwner {
+    function snapshot() public onlyFromOwnerOrNamed("snapshooter") {
         _snapshot();
     }
 

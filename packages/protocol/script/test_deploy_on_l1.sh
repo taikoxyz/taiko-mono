@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# This script is only used by `pnpm deploy:foundry`.
+# This script is only used by `pnpm test:deploy`.
 set -e
 
 PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
@@ -16,12 +16,11 @@ TAIKO_TOKEN_NAME="Taiko Token Katla" \
 TAIKO_TOKEN_SYMBOL=TTKOk \
 SHARED_ADDRESS_MANAGER=0x0000000000000000000000000000000000000000 \
 L2_GENESIS_HASH=0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 \
-OPTIMISTIC_TIER_PROVIDER=false \
+TIER_PROVIDER="devnet" \
 forge script script/DeployOnL1.s.sol:DeployOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
-    --evm-version cancun \
     -vvvv \
     --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
     --block-gas-limit 100000000

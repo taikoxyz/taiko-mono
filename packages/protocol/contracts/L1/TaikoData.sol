@@ -42,6 +42,8 @@ library TaikoData {
         uint24 blobExpiry;
         // True if EIP-4844 is enabled for DA
         bool blobAllowedForDA;
+        // True if blob can be reused
+        bool blobReuseEnabled;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -64,6 +66,9 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
+        // syncing)
+        uint8 blockSyncThreshold;
     }
 
     /// @dev Struct representing prover assignment
@@ -84,6 +89,7 @@ library TaikoData {
 
     struct BlockParams {
         address assignedProver;
+        address coinbase;
         bytes32 extraData;
         bytes32 blobHash;
         uint24 txListByteOffset;
@@ -119,7 +125,7 @@ library TaikoData {
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
-        bytes32 signalRoot;
+        bytes32 stateRoot;
         bytes32 graffiti;
     }
 
@@ -128,7 +134,7 @@ library TaikoData {
     struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
-        bytes32 signalRoot; // slot 3
+        bytes32 stateRoot; // slot 3
         address prover; // slot 4
         uint96 validityBond;
         address contester; // slot 5
@@ -136,7 +142,6 @@ library TaikoData {
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
         uint8 contestations;
-        bytes32[4] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
@@ -150,7 +155,6 @@ library TaikoData {
         uint64 proposedIn; // L1 block number
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing an Ethereum deposit.
@@ -200,6 +204,6 @@ library TaikoData {
         mapping(bytes32 blobHash => uint256 since) reusableBlobs;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
-        uint256[143] __gap;
+        uint256[43] __gap;
     }
 }

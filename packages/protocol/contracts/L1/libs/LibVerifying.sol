@@ -14,10 +14,11 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
+import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
 import "./LibUtils.sol";
@@ -33,13 +34,9 @@ library LibVerifying {
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot,
+        bytes32 stateRoot,
         uint16 tier,
         uint8 contestations
-    );
-
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -78,15 +75,15 @@ library LibVerifying {
             assignedProver: address(0),
             prover: address(0),
             blockHash: genesisBlockHash,
-            signalRoot: 0,
+            stateRoot: 0,
             tier: 0,
             contestations: 0
         });
     }
 
-    function isConfigValid(TaikoData.Config memory config) public pure returns (bool isValid) {
+    function isConfigValid(TaikoData.Config memory config) public view returns (bool isValid) {
         if (
-            config.chainId <= 1 //
+            config.chainId <= 1 || config.chainId == block.chainid //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
@@ -99,9 +96,9 @@ library LibVerifying {
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
+                || config.ethDepositMaxAmount > type(uint96).max || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositMaxFee > type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;
@@ -111,11 +108,15 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         uint64 maxBlocksToVerify
     )
         internal
     {
+        if (maxBlocksToVerify == 0) {
+            return;
+        }
+
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
         TaikoData.SlotB memory b = state.slotB;
@@ -135,18 +136,18 @@ library LibVerifying {
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
-        bytes32 signalRoot;
-        uint64 processed;
+        bytes32 stateRoot;
+        uint64 numBlocksVerified;
         address tierProvider;
 
         // Unchecked is safe:
         // - assignment is within ranges
-        // - blockId and processed values incremented will still be OK in the
+        // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
         unchecked {
             ++blockId;
 
-            while (blockId < b.numBlocks && processed < maxBlocksToVerify) {
+            while (blockId < b.numBlocks && numBlocksVerified < maxBlocksToVerify) {
                 slot = blockId % config.blockRingBufferSize;
 
                 blk = state.blocks[slot];
@@ -171,7 +172,7 @@ library LibVerifying {
                         tierProvider = resolver.resolve("tier_provider", false);
                     }
                     if (
-                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow)
+                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
                             + uint256(ts.timestamp).max(state.slotB.lastUnpausedAt) > block.timestamp
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
@@ -185,7 +186,7 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
-                signalRoot = ts.signalRoot;
+                stateRoot = ts.stateRoot;
 
                 // We consistently return the liveness bond and the validity
                 // bond to the actual prover of the transition utilized for
@@ -222,29 +223,45 @@ library LibVerifying {
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: blockHash,
-                    signalRoot: signalRoot,
+                    stateRoot: stateRoot,
                     tier: ts.tier,
                     contestations: ts.contestations
                 });
 
                 ++blockId;
-                ++processed;
+                ++numBlocksVerified;
             }
 
-            if (processed > 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
+            if (numBlocksVerified > 0) {
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Store the L2's signal root as a signal to the local signal
-                // service to allow for multi-hop bridging.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
-
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, signalRoot
-                );
+                // sync chain data
+                _syncChainData(config, resolver, lastVerifiedBlockId, stateRoot);
             }
+        }
+    }
+
+    function _syncChainData(
+        TaikoData.Config memory config,
+        IAddressResolver resolver,
+        uint64 lastVerifiedBlockId,
+        bytes32 stateRoot
+    )
+        private
+    {
+        ISignalService signalService = ISignalService(resolver.resolve("signal_service", false));
+
+        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
+            config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+        );
+
+        if (lastVerifiedBlockId > lastSyncedBlock + config.blockSyncThreshold) {
+            signalService.syncChainData(
+                config.chainId, LibSignals.STATE_ROOT, lastVerifiedBlockId, stateRoot
+            );
         }
     }
 }

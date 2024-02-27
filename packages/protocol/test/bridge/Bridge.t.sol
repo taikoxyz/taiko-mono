@@ -22,7 +22,7 @@ contract UntrustedSendMessageRelayer {
 contract TwoStepBridge is Bridge {
     function getInvocationDelays()
         public
-        view
+        pure
         override
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
@@ -38,7 +38,6 @@ contract BridgeTest is TaikoTest {
     Bridge destChainBridge;
     TwoStepBridge dest2StepBridge;
     SignalService signalService;
-    DummyCrossChainSync crossChainSync;
     SkipProofCheckSignal mockProofSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
     uint64 destChainId = 19_389;
@@ -51,7 +50,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, ())
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 
@@ -60,9 +59,8 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager))),
-                    registerTo: address(addressManager),
-                    owner: address(0)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
                 })
             )
         );
@@ -72,7 +70,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
                 })
             )
         );
@@ -82,7 +80,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "2_step_bridge",
                     impl: address(new TwoStepBridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
                 })
             )
         );
@@ -91,9 +89,8 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, ()),
-                registerTo: address(addressManager),
-                owner: address(0)
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
+                registerTo: address(addressManager)
             })
         );
 
@@ -101,14 +98,12 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ())
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 
         vm.deal(address(destChainBridge), 100 ether);
         vm.deal(address(dest2StepBridge), 100 ether);
-
-        crossChainSync = new DummyCrossChainSync();
 
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
@@ -129,7 +124,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -166,7 +162,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -222,7 +219,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -273,7 +271,8 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
             value: 1000,
@@ -310,13 +309,14 @@ contract BridgeTest is TaikoTest {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            owner: Alice,
+            srcOwner: Alice,
+            destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeCall(GoodReceiver.forward, (Carol)),
+            data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol)),
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
@@ -549,9 +549,6 @@ contract BridgeTest is TaikoTest {
     // proofs via rpc
     // in foundry
     function test_Bridge_process_message() public {
-        /* DISCALIMER: From now on we do not need to have real
-        proofs because we can bypass with overriding skipProofCheck()
-        in a mockBirdge AND proof system already 'battle tested'.*/
         // This predefined successful process message call fails now
         // since we modified the iBridge.Message struct and cut out
         // depositValue
@@ -572,9 +569,6 @@ contract BridgeTest is TaikoTest {
     // proofs via rpc
     // in foundry
     function test_Bridge_retry_message_and_end_up_in_failed_status() public {
-        /* DISCALIMER: From now on we do not need to have real
-        proofs because we can bypass with overriding skipProofCheck()
-        in a mockBirdge AND proof system already 'battle tested'.*/
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
@@ -592,12 +586,12 @@ contract BridgeTest is TaikoTest {
 
         vm.stopPrank();
 
-        vm.prank(message.owner);
+        vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, false);
         Bridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == Bridge.Status.RETRIABLE, true);
 
-        vm.prank(message.owner);
+        vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, true);
         postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == Bridge.Status.FAILED, true);
@@ -632,9 +626,6 @@ contract BridgeTest is TaikoTest {
         destChainBridge.retryMessage(message, true);
     }
 
-    /* DISCALIMER: From now on we do not need to have real
-    proofs because we can bypass with overriding skipProofCheck()
-    in a mockBirdge AND proof system already 'battle tested'.*/
     function setUpPredefinedSuccessfulProcessMessageCall()
         internal
         returns (IBridge.Message memory, bytes memory)
@@ -642,8 +633,6 @@ contract BridgeTest is TaikoTest {
         badReceiver = new BadReceiver();
 
         uint64 dest = 1337;
-        addressManager.setAddress(dest, "taiko", address(crossChainSync));
-
         addressManager.setAddress(1336, "bridge", 0x564540a26Fb667306b3aBdCB4ead35BEb88698ab);
 
         addressManager.setAddress(dest, "bridge", address(destChainBridge));
@@ -651,11 +640,6 @@ contract BridgeTest is TaikoTest {
         vm.deal(address(bridge), 100 ether);
 
         addressManager.setAddress(dest, "signal_service", address(mockProofSignalService));
-
-        crossChainSync.setSyncedData(
-            0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e,
-            0x631b214fb030d82847224f0b3d3b906a6764dded176ad3c7262630204867ba85
-        );
 
         vm.deal(address(destChainBridge), 1 ether);
 
@@ -667,7 +651,8 @@ contract BridgeTest is TaikoTest {
             from: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             srcChainId: 1336,
             destChainId: dest,
-            owner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            srcOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            destOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
             refundTo: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             value: 1000,
@@ -696,7 +681,8 @@ contract BridgeTest is TaikoTest {
         returns (IBridge.Message memory)
     {
         return IBridge.Message({
-            owner: owner,
+            srcOwner: owner,
+            destOwner: owner,
             destChainId: destChain,
             to: to,
             value: value,

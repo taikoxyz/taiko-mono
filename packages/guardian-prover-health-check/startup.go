@@ -13,8 +13,10 @@ import (
 type Startup struct {
 	GuardianProverID      uint64    `json:"guardianProverID"`
 	GuardianProverAddress string    `json:"guardianProverAddress"`
+	L1NodeVersion         string    `json:"l1NodeVersion"`
+	L2NodeVersion         string    `json:"l2NodeVersion"`
 	Revision              string    `json:"revision"`
-	Version               string    `json:"version"`
+	GuardianVersion       string    `json:"guardianVersion"`
 	CreatedAt             time.Time `json:"createdAt"`
 }
 
@@ -22,7 +24,15 @@ type SaveStartupOpts struct {
 	GuardianProverID      uint64
 	GuardianProverAddress string
 	Revision              string
-	Version               string
+	GuardianVersion       string
+	L1NodeVersion         string `json:"l1NodeVersion"`
+	L2NodeVersion         string `json:"l2NodeVersion"`
+}
+
+type NodeInfo struct {
+	Startup
+	LatestL1BlockNumber uint64 `json:"latestL1BlockNumber"`
+	LatestL2BlockNumber uint64 `json:"latestL2BlockNumber"`
 }
 
 type StartupRepository interface {

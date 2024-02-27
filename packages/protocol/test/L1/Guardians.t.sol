@@ -7,7 +7,7 @@ contract DummyGuardians is Guardians {
     uint256 public operationId;
 
     function init() external initializer {
-        __Essential_init();
+        __Essential_init(address(0));
     }
 
     function approve(bytes32 hash) public returns (bool) {
@@ -59,28 +59,28 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_guardians_approve() public {
-        address[] memory signers = getSigners(5);
-        target.setGuardians(signers, 3);
+        address[] memory signers = getSigners(6);
+        target.setGuardians(signers, 4);
 
         bytes32 hash = keccak256("paris");
-        for (uint256 i; i < 5; ++i) {
+        for (uint256 i; i < 6; ++i) {
             vm.prank(signers[0]);
             assertEq(target.approve(hash), false);
             assertEq(target.isApproved(hash), false);
         }
 
         hash = keccak256("singapore");
-        for (uint256 i; i < 5; ++i) {
+        for (uint256 i; i < 6; ++i) {
             vm.startPrank(signers[i]);
             target.approve(hash);
 
-            assertEq(target.approve(hash), i >= 2);
-            assertEq(target.isApproved(hash), i >= 2);
+            assertEq(target.approve(hash), i >= 3);
+            assertEq(target.isApproved(hash), i >= 3);
             vm.stopPrank();
         }
 
         // changing the settings will invalid all approval history
-        target.setGuardians(signers, 2);
+        target.setGuardians(signers, 3);
         assertEq(target.version(), 2);
         assertEq(target.isApproved(hash), false);
     }

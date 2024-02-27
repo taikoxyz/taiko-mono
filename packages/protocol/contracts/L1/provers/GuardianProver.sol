@@ -20,12 +20,17 @@ import "./Guardians.sol";
 
 /// @title GuardianProver
 contract GuardianProver is Guardians {
-    error PROVING_FAILED();
+    uint256[50] private __gap;
 
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    event GuardianApproval(
+        address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
+    );
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @dev Called by guardians to approve a guardian proof
@@ -45,10 +50,9 @@ contract GuardianProver is Guardians {
 
         if (approved) {
             deleteApproval(hash);
-            bytes memory data =
-                abi.encodeCall(ITaikoL1.proveBlock, (meta.id, abi.encode(meta, tran, proof)));
-            (bool success,) = resolve("taiko", false).call(data);
-            if (!success) revert PROVING_FAILED();
+            ITaikoL1(resolve("taiko", false)).proveBlock(meta.id, abi.encode(meta, tran, proof));
         }
+
+        emit GuardianApproval(msg.sender, meta.id, tran.blockHash, approved);
     }
 }

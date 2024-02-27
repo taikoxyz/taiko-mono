@@ -3,12 +3,6 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract MockVerifier {
-    fallback(bytes calldata) external returns (bytes memory) {
-        return bytes.concat(keccak256("taiko"));
-    }
-}
-
 abstract contract TaikoL1TestBase is TaikoTest {
     AddressManager public addressManager;
     AssignmentHook public assignmentHook;
@@ -17,12 +11,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
-    PseZkVerifier public pv;
     SgxVerifier public sv;
-    SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
     GuardianProver public gp;
-    TaikoA6TierProvider public cp;
+    TestnetTierProvider public cp;
     Bridge public bridge;
 
     bytes32 public GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -43,7 +35,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector)
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 
@@ -51,23 +43,16 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector)
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
-
-        pv = PseZkVerifier(
-            deployProxy({
-                name: "tier_pse_zkevm",
-                impl: address(new PseZkVerifier()),
-                data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager)))
-            })
-        );
+        ss.authorize(address(L1), true);
 
         sv = SgxVerifier(
             deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
-                data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(SgxVerifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -75,19 +60,11 @@ abstract contract TaikoL1TestBase is TaikoTest {
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
-        sgxZkVerifier = SgxAndZkVerifier(
-            deployProxy({
-                name: "tier_sgx_and_pse_zkevm",
-                impl: address(new SgxAndZkVerifier()),
-                data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager)))
-            })
-        );
-
         gv = GuardianVerifier(
             deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
-                data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(GuardianVerifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -95,17 +72,17 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
-                data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(GuardianProver.init, (address(0), address(addressManager)))
             })
         );
 
         setupGuardianProverMultisig();
 
-        cp = TaikoA6TierProvider(
+        cp = TestnetTierProvider(
             deployProxy({
                 name: "tier_provider",
-                impl: address(new TaikoA6TierProvider()),
-                data: bytes.concat(TaikoA6TierProvider.init.selector)
+                impl: address(new TestnetTierProvider()),
+                data: abi.encodeCall(TestnetTierProvider.init, (address(0)))
             })
         );
 
@@ -114,9 +91,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
-                    registerTo: address(addressManager),
-                    owner: address(0)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
                 })
             )
         );
@@ -125,43 +101,32 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager)))
+                data: abi.encodeCall(AssignmentHook.init, (address(0), address(addressManager)))
             })
         );
 
         registerAddress("taiko", address(L1));
-        registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
         registerAddress("tier_guardian", address(gv));
-        registerAddress("tier_sgx_and_pse_zkevm", address(sgxZkVerifier));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
         registerAddress("guardian_prover", address(gp));
-        registerAddress("bridge", address(bridge));
         registerL2Address("taiko", address(L2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(L2));
-
-        registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
         tko = TaikoToken(
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: bytes.concat(
-                    TaikoToken.init.selector,
-                    abi.encode(
-                        "Taiko Token", //
-                        "TTKOk",
-                        address(this)
-                    )
+                data: abi.encodeCall(
+                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
                     ),
-                registerTo: address(addressManager),
-                owner: address(0)
+                registerTo: address(addressManager)
             })
         );
 
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
+        L1.init(address(0), address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
     }
 
@@ -177,19 +142,15 @@ abstract contract TaikoL1TestBase is TaikoTest {
             TaikoData.EthDeposit[] memory depositsProcessed
         )
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](5);
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
         // Register the tier fees
         // Based on OPL2ConfigTier we need 3:
-        // - LibTiers.TIER_PSE_ZKEVM;
         // - LibTiers.TIER_SGX;
         // - LibTiers.TIER_OPTIMISTIC;
         // - LibTiers.TIER_GUARDIAN;
-        // - LibTiers.TIER_SGX_AND_PSE_ZKEVM
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
         tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
-        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
-        tierFees[3] = TaikoData.TierFee(LibTiers.TIER_SGX_AND_PSE_ZKEVM, 2 ether);
-        tierFees[4] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
+        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
@@ -228,7 +189,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, 0, 0, 0, 0, false, 0, hookcalls)),
+            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, 0, 0, false, 0, hookcalls)),
             new bytes(txListSize)
         );
     }
@@ -239,7 +200,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot,
+        bytes32 stateRoot,
         uint16 tier,
         bytes4 revertReason
     )
@@ -248,29 +209,12 @@ abstract contract TaikoL1TestBase is TaikoTest {
         TaikoData.Transition memory tran = TaikoData.Transition({
             parentHash: parentHash,
             blockHash: blockHash,
-            signalRoot: signalRoot,
+            stateRoot: stateRoot,
             graffiti: 0x0
         });
 
-        bytes32 instance =
-            pv.calcInstance(tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0);
-
         TaikoData.TierProof memory proof;
         proof.tier = tier;
-        {
-            PseZkVerifier.ZkEvmProof memory zkProof;
-            zkProof.verifierId = 300;
-            zkProof.zkp = bytes.concat(
-                bytes16(0),
-                bytes16(instance),
-                bytes16(0),
-                bytes16(uint128(uint256(instance))),
-                new bytes(100)
-            );
-
-            proof.data = abi.encode(zkProof);
-        }
-
         address newInstance;
 
         // Keep changing the pub key associated with an instance to avoid
@@ -288,15 +232,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
             proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
-        }
-
-        if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-            bytes memory signature =
-                createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
-
-            bytes memory sgxProof = bytes.concat(bytes4(0), bytes20(newInstance), signature);
-            // Concatenate SGX and ZK (in this order)
-            proof.data = bytes.concat(sgxProof, proof.data);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {

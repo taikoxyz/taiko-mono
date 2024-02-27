@@ -6,8 +6,8 @@ import "../TaikoTest.sol";
 contract Target1 is EssentialContract {
     uint256 public count;
 
-    function init() external initializer {
-        __Essential_init();
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
         count = 100;
     }
 
@@ -26,9 +26,9 @@ contract Target2 is Target1 {
     }
 }
 
-contract TestOwnerUUPSUpgradable is TaikoTest {
+contract TestEssentialContract is TaikoTest {
     function test_essential_behind_1967_proxy() external {
-        bytes memory data = abi.encodeCall(Target1.init, ());
+        bytes memory data = abi.encodeCall(Target1.init, (address(0)));
         vm.startPrank(Alice);
         ERC1967Proxy proxy = new ERC1967Proxy(address(new Target1()), data);
         Target1 target = Target1(address(proxy));
@@ -62,57 +62,5 @@ contract TestOwnerUUPSUpgradable is TaikoTest {
         vm.prank(Alice);
         target.adjust();
         assertEq(target.count(), 110);
-    }
-
-    // This tests shows that the admin() and owner() cannot be the same, otherwise,
-    // the owner cannot transact delegated functions on implementation.
-    function test_essential_behind_transparent_proxy() external {
-        bytes memory data = abi.encodeCall(Target1.init, ());
-        vm.startPrank(Alice);
-        TransparentUpgradeableProxy proxy =
-            new TransparentUpgradeableProxy(address(new Target1()), Bob, data);
-        Target1 target = Target1(address(proxy));
-        vm.stopPrank();
-
-        // Owner is Alice
-        // Admin is Bob
-
-        vm.prank(Carol);
-        assertEq(target.owner(), Alice);
-
-        // Only Bob can call admin()
-        vm.prank(Bob);
-        assertEq(proxy.admin(), Bob);
-
-        // Other people, including Alice, cannot call admin()
-        vm.prank(Alice);
-        vm.expectRevert();
-        proxy.admin();
-
-        vm.prank(Carol);
-        vm.expectRevert();
-        proxy.admin();
-
-        // Alice can adjust();
-        vm.prank(Alice);
-        target.adjust();
-        assertEq(target.count(), 101);
-
-        // Bob cannot adjust()
-        vm.prank(Bob);
-        vm.expectRevert();
-        target.adjust();
-
-        // Transfer Owner to Bob, so Bob is both admin and owner
-        vm.prank(Alice);
-        target.transferOwnership(Bob);
-
-        vm.prank(Carol);
-        assertEq(target.owner(), Bob);
-
-        // Now Bob cannot call adjust()
-        vm.prank(Bob);
-        vm.expectRevert();
-        target.adjust();
     }
 }

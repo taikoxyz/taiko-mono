@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
+import "forge-std/src/Test.sol";
+import "forge-std/src/console2.sol";
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../contracts/thirdparty/LibFixedPointMath.sol";
 
@@ -21,9 +22,7 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/GuardianVerifier.sol";
-import "../contracts/verifiers/PseZkVerifier.sol";
-import "../contracts/verifiers/SgxAndZkVerifier.sol";
-import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/tiers/TestnetTierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
@@ -36,6 +35,7 @@ import "../contracts/L2/TaikoL2.sol";
 import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
 import "../contracts/team/airdrop/ERC20Airdrop2.sol";
+import "../contracts/team/airdrop/ERC721Airdrop.sol";
 
 import "../test/common/erc20/FreeMintERC20.sol";
 
@@ -79,5 +79,13 @@ abstract contract TaikoTest is Test, DeployCapability {
 
     function randBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
+    }
+
+    function strToBytes32(string memory input) internal pure returns (bytes32 result) {
+        require(bytes(input).length <= 32, "String too long");
+        // Copy the string's bytes directly into the bytes32 variable
+        assembly {
+            result := mload(add(input, 32))
+        }
     }
 }

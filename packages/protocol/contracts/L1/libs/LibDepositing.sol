@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
@@ -36,7 +36,7 @@ library LibDepositing {
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         address recipient
     )
         external
@@ -153,7 +153,7 @@ library LibDepositing {
     /// @param amount The amount of the deposit.
     /// @return The encoded deposit.
     function _encodeEthDeposit(address addr, uint256 amount) private pure returns (uint256) {
-        if (amount >= type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+        if (amount > type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
         return (uint256(uint160(addr)) << 96) | amount;
     }
 }

@@ -1,0 +1,66 @@
+{
+  "configuredBridges": [
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": ""
+      }
+    },
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": ""
+      }
+    },
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "",
+        "hops": [
+          {
+            "chaind": ,
+            "crossChainSyncAddress": "",
+            "signalServiceAddress": "",
+          }
+        ]
+      }
+    },
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "",
+        "hops": [
+          {
+            "chaind": ,
+            "crossChainSyncAddress": "",
+            "signalServiceAddress": "",
+          }
+        ]
+      }
+    }
+  ]
+}

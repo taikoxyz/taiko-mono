@@ -14,8 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import { MerkleProofUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../../common/EssentialContract.sol";
 
 /// @title MerkleClaimable
@@ -42,27 +41,6 @@ abstract contract MerkleClaimable is EssentialContract {
         _;
     }
 
-    function claim(
-        bytes calldata data,
-        bytes32[] calldata proof
-    )
-        external
-        nonReentrant
-        ongoingClaim
-    {
-        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
-
-        if (isClaimed[hash]) revert CLAIMED_ALREADY();
-
-        if (!MerkleProofUpgradeable.verify(proof, merkleRoot, hash)) {
-            revert INVALID_PROOF();
-        }
-
-        isClaimed[hash] = true;
-        _claimWithData(data);
-        emit Claimed(hash);
-    }
-
     /// @notice Set config parameters
     /// @param _claimStart Unix timestamp for claim start
     /// @param _claimEnd Unix timestamp for claim end
@@ -78,12 +56,44 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) internal {
+    // solhint-disable-next-line func-name-mixedcase
+    function __MerkleClaimable_init(
+        uint64 _claimStart,
+        uint64 _claimEnd,
+        bytes32 _merkleRoot
+    )
+        internal
+        onlyInitializing
+    {
+        _setConfig(_claimStart, _claimEnd, _merkleRoot);
+    }
+
+    function _verifyClaim(bytes memory data, bytes32[] calldata proof) internal ongoingClaim {
+        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
+
+        if (isClaimed[hash]) revert CLAIMED_ALREADY();
+        if (!_verifyMerkleProof(proof, merkleRoot, hash)) revert INVALID_PROOF();
+
+        isClaimed[hash] = true;
+        emit Claimed(hash);
+    }
+
+    function _verifyMerkleProof(
+        bytes32[] calldata _proof,
+        bytes32 _merkleRoot,
+        bytes32 _value
+    )
+        internal
+        pure
+        virtual
+        returns (bool)
+    {
+        return MerkleProof.verify(_proof, _merkleRoot, _value);
+    }
+
+    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
         claimStart = _claimStart;
         claimEnd = _claimEnd;
         merkleRoot = _merkleRoot;
     }
-
-    /// @dev Must revert in case of errors.
-    function _claimWithData(bytes calldata data) internal virtual;
 }

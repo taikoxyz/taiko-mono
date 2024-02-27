@@ -14,13 +14,13 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../common/ICrossChainSync.sol";
-import "../signal/ISignalService.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../signal/ISignalService.sol";
+import "../signal/LibSignals.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
@@ -30,7 +30,7 @@ import "./CrossChainOwned.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is CrossChainOwned, ICrossChainSync {
+contract TaikoL2 is CrossChainOwned {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -42,18 +42,18 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
     // Golden touch address
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
-    mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash; // slot 3
-    uint64 public gasExcess; // slot 4
-    uint64 public latestSyncedL1Height;
+    bytes32 public publicInputHash; // slot 2
+    uint64 public gasExcess; // slot 3
+    uint64 public lastSyncedBlock;
 
-    uint256[146] private __gap;
+    uint256[47] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -64,11 +64,13 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    /// @notice Initializes the TaikoL2 contract.
-    /// @param _addressManager Address of the AddressManager contract.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _gasExcess The initial gasExcess.
     function init(
+        address _owner,
         address _addressManager,
         uint64 _l1ChainId,
         uint64 _gasExcess
@@ -76,9 +78,9 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         external
         initializer
     {
-        __CrossChainOwned_init(_addressManager, _l1ChainId);
+        __CrossChainOwned_init(_owner, _addressManager, _l1ChainId);
 
-        if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
+        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
 
@@ -100,22 +102,24 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     /// message verification.
     /// @param l1BlockHash The latest L1 block hash when this block was
     /// proposed.
-    /// @param l1SignalRoot The latest value of the L1 signal root.
-    /// @param l1Height The latest L1 block height when this block was proposed.
+    /// @param l1StateRoot The latest L1 block's state root.
+    /// @param l1BlockId The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1BlockHash,
-        bytes32 l1SignalRoot,
-        uint64 l1Height,
+        bytes32 l1StateRoot,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         external
         nonReentrant
     {
         if (
-            l1BlockHash == 0 || l1SignalRoot == 0 || l1Height == 0
+            l1BlockHash == 0 || l1StateRoot == 0 || l1BlockId == 0
                 || (block.number != 1 && parentGasUsed == 0)
-        ) revert L2_INVALID_PARAM();
+        ) {
+            revert L2_INVALID_PARAM();
+        }
 
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
@@ -134,32 +138,36 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
+        (basefee, gasExcess) = _calc1559BaseFee(config, l1BlockId, parentGasUsed);
         if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        // Store the L1's signal root as a signal to the local signal service to
-        // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).sendSignal(l1SignalRoot);
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1SignalRoot);
-
+        if (l1BlockId > lastSyncedBlock + BLOCK_SYNC_THRESHOLD) {
+            // Store the L1's state root as a signal to the local signal service to
+            // allow for multi-hop bridging.
+            ISignalService(resolve("signal_service", false)).syncChainData(
+                ownerChainId, LibSignals.STATE_ROOT, l1BlockId, l1StateRoot
+            );
+            lastSyncedBlock = l1BlockId;
+        }
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] = ICrossChainSync.Snippet({
-            remoteBlockId: l1Height,
-            syncedInBlock: uint64(block.number),
-            blockHash: l1BlockHash,
-            signalRoot: l1SignalRoot
-        });
         publicInputHash = publicInputHashNew;
-        latestSyncedL1Height = l1Height;
 
         emit Anchored(blockhash(parentId), gasExcess);
     }
 
     /// @notice Withdraw token or Ether from this address
-    function withdraw(address token, address to) external onlyOwner nonReentrant whenNotPaused {
+    function withdraw(
+        address token,
+        address to
+    )
+        external
+        onlyFromOwnerOrNamed("withdrawer")
+        nonReentrant
+        whenNotPaused
+    {
         if (to == address(0)) revert L2_INVALID_PARAM();
         if (token == address(0)) {
             to.sendEther(address(this).balance);
@@ -168,31 +176,20 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         }
     }
 
-    /// @inheritdoc ICrossChainSync
-    function getSyncedSnippet(uint64 blockId)
-        public
-        view
-        override
-        returns (ICrossChainSync.Snippet memory)
-    {
-        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return snippets[id];
-    }
-
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param l1Height The synced L1 height in the next Taiko block
+    /// @param l1BlockId The synced L1 height in the next Taiko block
     /// @param parentGasUsed Gas used in the parent block.
     /// @return basefee The calculated EIP-1559 base fee per gas.
     function getBasefee(
-        uint64 l1Height,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         public
         view
         returns (uint256 basefee)
     {
-        (basefee,) = _calc1559BaseFee(getConfig(), l1Height, parentGasUsed);
+        (basefee,) = _calc1559BaseFee(getConfig(), l1BlockId, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -252,7 +249,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
     function _calc1559BaseFee(
         Config memory config,
-        uint64 l1Height,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         private
@@ -268,10 +265,13 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
-            // Note that when latestSyncedL1Height is zero, we skip this step.
+            // Note that when lastSyncedBlock is zero, we skip this step
+            // because that means this is the first time calculating the basefee
+            // and the difference between the L1 height would be extremely big,
+            // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
-            if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
-                numL1Blocks = l1Height - latestSyncedL1Height;
+            if (lastSyncedBlock > 0 && l1BlockId > lastSyncedBlock) {
+                numL1Blocks = l1BlockId - lastSyncedBlock;
             }
 
             if (numL1Blocks > 0) {
@@ -283,7 +283,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
             // The base fee per gas used by this block is the spot price at the
             // bonding curve, regardless the actual amount of gas used by this
-            // block, however, the this block's gas used will affect the next
+            // block, however, this block's gas used will affect the next
             // block's base fee.
             _basefee = Lib1559Math.basefee(
                 _gasExcess, uint256(config.basefeeAdjustmentQuotient) * config.gasTargetPerL1Block

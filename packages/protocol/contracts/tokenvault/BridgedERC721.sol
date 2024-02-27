@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
@@ -28,16 +28,17 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     uint256[48] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
-    error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
-    /// @dev Initializer function to be called after deployment.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -47,14 +48,11 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         external
         initializer
     {
-        if (
-            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-                || bytes(_symbol).length == 0 || bytes(_name).length == 0
-        ) {
-            revert BTOKEN_INVALID_PARAMS();
-        }
-        __Essential_init(_addressManager);
+        // Check if provided parameters are valid
+        LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
+        __Essential_init(_owner, _addressManager);
         __ERC721_init(_name, _symbol);
+
         srcToken = _srcToken;
         srcChainId = _srcChainId;
     }
@@ -111,9 +109,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return (srcToken, srcChainId);
     }
 
-    /// @notice Returns an empty token URI.
-    function tokenURI(uint256) public pure virtual override returns (string memory) {
-        return "";
+    /// @notice Returns the token URI.
+    function tokenURI(uint256) public view virtual override returns (string memory) {
+        return LibBridgedToken.buildURI(srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(

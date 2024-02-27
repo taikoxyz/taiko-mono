@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../L1/ITaikoL1.sol";
 import "../common/EssentialContract.sol";
 import "../thirdparty/optimism/Bytes.sol";
@@ -70,15 +70,15 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_DELETE_NOT_AUTHORIZED();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
-    error SGX_INVALID_INSTANCES();
     error SGX_INVALID_PROOF();
     error SGX_MISSING_ATTESTATION();
     error SGX_RA_NOT_SUPPORTED();
 
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
@@ -89,7 +89,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         onlyOwner
         returns (uint256[] memory ids)
     {
-        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
         ids = _addInstances(_instances, true);
     }
 
@@ -99,13 +98,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         onlyFromOwnerOrNamed("rollup_watchdog")
     {
-        if (_ids.length == 0) revert SGX_INVALID_INSTANCES();
         for (uint256 i; i < _ids.length; ++i) {
-            if (instances[_ids[i]].addr == address(0)) revert SGX_INVALID_INSTANCE();
+            uint256 idx = _ids[i];
 
-            emit InstanceDeleted(_ids[i], instances[_ids[i]].addr);
+            if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
 
-            delete instances[_ids[i]];
+            emit InstanceDeleted(idx, instances[idx].addr);
+
+            delete instances[idx];
         }
     }
 
@@ -139,7 +139,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata proof
     )
         external
-        onlyFromNamed2("taiko", "tier_sgx_and_pse_zkevm")
+        onlyFromNamed("taiko")
     {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;

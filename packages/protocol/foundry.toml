@@ -1,16 +1,18 @@
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [profile.default]
 solc-version = "0.8.24"
-src = 'contracts'
-out = 'out'
-test = 'test'
-libs = ['lib']
+src = "contracts"
+out = "out"
+test = "test"
+script = "script"
+libs = ["lib"]
 gas_price = 10000000000 # gas price is 10 Gwei
 optimizer = true
 optimizer_runs = 200
 ffi = true
-gas_limit = '18446744073709551615'
+gas_limit = "18446744073709551615"
 memory_limit = 2073741824
+evm_version = "cancun"
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
 block_gas_limit = 80000000 #80M
@@ -24,7 +26,12 @@ fs_permissions = [
   { access = "read", path = "./genesis" },
 ]
 
-fuzz = { runs = 256 }
+# 2394: transient storage warning
+# 3860: Contract initcode size is xxx bytes and exceeds 49152 bytes
+# 5574: Contract code size is xxx bytes and exceeds 24576 byte
+ignored_error_codes = [ 2394, 3860, 5574]
+
+fuzz = { runs = 200 }
 
 # Workaround as a fixed fuzz seed.
 # Bug is confirmed, will be fixed soon:
@@ -34,9 +41,9 @@ seed = 13623721389213
 [fmt]
 bracket_spacing = true
 line_length = 100
-multiline_func_header = 'all'
-number_underscore = 'thousands'
+multiline_func_header = "all"
+number_underscore = "thousands"
 wrap_comments = true
 
 [profile.genesis]
-test = 'genesis'
+test = "genesis"

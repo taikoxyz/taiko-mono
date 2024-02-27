@@ -51,8 +51,8 @@ contract PrankDestBridge {
         // The problem (with foundry) is that this way it is not able to deploy
         // a contract most probably due to some deployment address nonce issue. (Seems a known
         // issue).
-        destERC20Vault.receiveToken{ value: mockLibInvokeMsgValue }(
-            canonicalToken, from, to, amount
+        destERC20Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+            abi.encode(canonicalToken, from, to, amount)
         );
 
         ctx.sender = address(0);
@@ -74,8 +74,8 @@ contract TestERC20Vault is TaikoTest {
     ERC20Vault erc20Vault;
     ERC20Vault destChainIdERC20Vault;
     PrankDestBridge destChainIdBridge;
+    SkipProofCheckSignal mockProofSignalService;
     FreeMintERC20 erc20;
-    SignalService signalService;
     uint64 destChainId = 7;
     uint64 srcChainId = uint64(block.chainid);
 
@@ -89,7 +89,9 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: abi.encodeCall(TaikoToken.init, ("Taiko Token", "TTKOk", address(this)))
+                data: abi.encodeCall(
+                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
+                    )
             })
         );
 
@@ -97,7 +99,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, ())
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 
@@ -107,7 +109,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(BaseVault.init, (address(addressManager)))
+                data: abi.encodeCall(BaseVault.init, (address(0), address(addressManager)))
             })
         );
 
@@ -115,7 +117,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(BaseVault.init, (address(addressManager)))
+                data: abi.encodeCall(BaseVault.init, (address(0), address(addressManager)))
             })
         );
 
@@ -127,9 +129,8 @@ contract TestERC20Vault is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager))),
-                    registerTo: address(addressManager),
-                    owner: address(0)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
                 })
             )
         );
@@ -137,19 +138,19 @@ contract TestERC20Vault is TaikoTest {
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalService = SignalService(
+        mockProofSignalService = SkipProofCheckSignal(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ()),
-                registerTo: address(0),
-                owner: address(0)
+                impl: address(new SkipProofCheckSignal()),
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 
-        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
+        addressManager.setAddress(
+            uint64(block.chainid), "signal_service", address(mockProofSignalService)
+        );
 
-        addressManager.setAddress(uint64(block.chainid), "signal_service", address(signalService));
+        addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
 
         addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
 
@@ -172,7 +173,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert("ERC20: insufficient allowance");
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
+                destChainId, address(0), Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
             )
         );
     }
@@ -188,7 +189,7 @@ contract TestERC20Vault is TaikoTest {
 
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
             )
         );
 
@@ -208,7 +209,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert();
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, Bob, address(erc20), amount, 1_000_000, amount - 1, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, amount - 1, Bob, ""
             )
         );
     }
@@ -225,6 +226,7 @@ contract TestERC20Vault is TaikoTest {
         erc20Vault.sendToken{ value: amount }(
             ERC20Vault.BridgeTransferOp(
                 destChainId,
+                address(0),
                 Bob,
                 address(erc20),
                 amount - 1, // value: (msg.value - fee)
@@ -250,7 +252,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
             )
         );
     }
@@ -262,7 +264,9 @@ contract TestERC20Vault is TaikoTest {
 
         vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, "")
+            ERC20Vault.BridgeTransferOp(
+                destChainId, address(0), Bob, address(0), amount, 1_000_000, 0, Bob, ""
+            )
         );
     }
 
@@ -430,5 +434,37 @@ contract TestERC20Vault is TaikoTest {
         } catch {
             fail();
         }
+    }
+
+    function test_20Vault_onMessageRecalled_20() public {
+        vm.startPrank(Alice);
+
+        uint256 amount = 2 wei;
+        erc20.approve(address(erc20Vault), amount);
+
+        uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
+
+        IBridge.Message memory _messageToSimulateFail = erc20Vault.sendToken(
+            ERC20Vault.BridgeTransferOp(
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+            )
+        );
+
+        uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceAfter = erc20.balanceOf(address(erc20Vault));
+
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
+        assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
+
+        // No need to imitate that it is failed because we have a mock SignalService
+        bridge.recallMessage(_messageToSimulateFail, bytes(""));
+
+        uint256 aliceBalanceAfterRecall = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceAfterRecall = erc20.balanceOf(address(erc20Vault));
+
+        // Release -> original balance
+        assertEq(aliceBalanceAfterRecall, aliceBalanceBefore);
+        assertEq(erc20VaultBalanceAfterRecall, erc20VaultBalanceBefore);
     }
 }

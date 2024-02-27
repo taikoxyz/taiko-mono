@@ -27,12 +27,6 @@ contract TestAddressResolver is TaikoL1TestBase {
             address(sv),
             " wrong sgxVerifier address"
         );
-
-        assertEq(
-            bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_pse_zkevm")), false),
-            address(pv),
-            "wrong pseZkVerifier address"
-        );
     }
 
     // Tests `resolve()` revert on zero address

@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
@@ -78,7 +78,7 @@ library LibProving {
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         TaikoData.BlockMetadata memory meta,
         TaikoData.Transition memory tran,
         TaikoData.TierProof memory proof
@@ -88,8 +88,8 @@ library LibProving {
     {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
-        // the blockHash and signalRoot.
-        if (tran.parentHash == 0 || tran.blockHash == 0 || tran.signalRoot == 0) {
+        // the blockHash and stateRoot.
+        if (tran.parentHash == 0 || tran.blockHash == 0 || tran.stateRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
 
@@ -110,7 +110,7 @@ library LibProving {
         }
 
         // Each transition is uniquely identified by the parentHash, with the
-        // blockHash and signalRoot open for later updates as higher-tier proofs
+        // blockHash and stateRoot open for later updates as higher-tier proofs
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         (uint32 tid, TaikoData.TransitionState storage ts) =
@@ -127,6 +127,7 @@ library LibProving {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
+        // Check if this prover is allowed to submit a proof for this block
         _checkProverPermission(state, blk, ts, tid, tier);
 
         // We must verify the proof, and any failure in proof verification will
@@ -134,7 +135,7 @@ library LibProving {
         //
         // It's crucial to emphasize that the proof can be assessed in two
         // potential modes: "proving mode" and "contesting mode." However, the
-        // precise verification logic is defined within each tier'IVerifier
+        // precise verification logic is defined within each tier's IVerifier
         // contract implementation. We simply specify to the verifier contract
         // which mode it should utilize - if the new tier is higher than the
         // previous tier, we employ the proving mode; otherwise, we employ the
@@ -145,12 +146,6 @@ library LibProving {
         // Taiko's core protocol.
         {
             address verifier = resolver.resolve(tier.verifierName, true);
-            // The verifier can be address-zero, signifying that there are no
-            // proof checks for the tier. In practice, this only applies to
-            // optimistic proofs.
-            if (verifier == address(0) && tier.verifierName != TIER_OP) {
-                revert L1_MISSING_VERIFIER();
-            }
 
             if (verifier != address(0)) {
                 bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
@@ -158,13 +153,20 @@ library LibProving {
                 IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
+                    // Separate msgSender to allow the prover to be any address in the future.
                     prover: msg.sender,
+                    msgSender: msg.sender,
                     blockId: blk.blockId,
                     isContesting: isContesting,
                     blobUsed: meta.blobUsed
                 });
 
                 IVerifier(verifier).verifyProof(ctx, tran, proof);
+            } else if (tier.verifierName != TIER_OP) {
+                // The verifier can be address-zero, signifying that there are no
+                // proof checks for the tier. In practice, this only applies to
+                // optimistic proofs.
+                revert L1_MISSING_VERIFIER();
             }
         }
 
@@ -183,7 +185,7 @@ library LibProving {
             }
         }
 
-        bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
+        bool sameTransition = tran.blockHash == ts.blockHash && tran.stateRoot == ts.stateRoot;
 
         if (proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -210,7 +212,7 @@ library LibProving {
 
                 ts.prover = msg.sender;
                 ts.blockHash = tran.blockHash;
-                ts.signalRoot = tran.signalRoot;
+                ts.stateRoot = tran.stateRoot;
 
                 emit TransitionProved({
                     blockId: blk.blockId,
@@ -283,7 +285,7 @@ library LibProving {
             // below.
             ts = state.transitions[slot][tid];
             ts.blockHash = 0;
-            ts.signalRoot = 0;
+            ts.stateRoot = 0;
             ts.validityBond = 0;
             ts.contester = address(0);
             ts.contestBond = 1; // to save gas
@@ -322,6 +324,8 @@ library LibProving {
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
                 state.transitionIds[blk.blockId][tran.parentHash] = tid;
+
+                // There is no need to initialize ts.key here because it's only used when tid == 1
             }
         } else {
             // A transition with the provided parentHash has been located.
@@ -376,7 +380,7 @@ library LibProving {
 
         if (!sameTransition) {
             ts.blockHash = tran.blockHash;
-            ts.signalRoot = tran.signalRoot;
+            ts.stateRoot = tran.stateRoot;
         }
     }
 
@@ -395,13 +399,15 @@ library LibProving {
         if (tier.contestBond == 0) return;
 
         bool inProvingWindow = uint256(ts.timestamp).max(state.slotB.lastUnpausedAt)
-            + tier.provingWindow >= block.timestamp;
+            + tier.provingWindow * 60 >= block.timestamp;
         bool isAssignedPover = msg.sender == blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.
         if (tid == 1 && ts.tier == 0 && inProvingWindow) {
             if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
+            // Disallow the same address to prove the block so that we can detect that the
+            // assigned prover should not receive his liveness bond back
             if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }

@@ -14,24 +14,12 @@
 
 pragma solidity 0.8.24;
 
-import "./OwnerUUPSUpgradable.sol";
-
-/// @title IAddressManager
-/// @notice Specifies methods to manage address mappings for given chainId-name
-/// pairs.
-interface IAddressManager {
-    /// @notice Gets the address mapped to a specific chainId-name pair.
-    /// @dev Note that in production, this method shall be a pure function
-    /// without any storage access.
-    /// @param chainId The chainId for which the address needs to be fetched.
-    /// @param name The name for which the address needs to be fetched.
-    /// @return Address associated with the chainId-name pair.
-    function getAddress(uint64 chainId, bytes32 name) external view returns (address);
-}
+import "./IAddressManager.sol";
+import "./EssentialContract.sol";
 
 /// @title AddressManager
 /// @notice Manages a mapping of chainId-name pairs to Ethereum addresses.
-contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
+contract AddressManager is EssentialContract, IAddressManager {
     mapping(uint256 => mapping(bytes32 => address)) private addresses;
     uint256[49] private __gap;
 
@@ -39,11 +27,13 @@ contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
+    error AM_INVALID_PARAMS();
     error AM_UNSUPPORTED();
-    /// @notice Initializes the owner for the upgradable contract.
 
-    function init() external initializer {
-        __OwnerUUPSUpgradable_init();
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Sets the address for a specific chainId-name pair.
@@ -60,6 +50,7 @@ contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
         onlyOwner
     {
         address oldAddress = addresses[chainId][name];
+        if (newAddress == oldAddress) revert AM_INVALID_PARAMS();
         addresses[chainId][name] = newAddress;
         emit AddressSet(chainId, name, newAddress, oldAddress);
     }
