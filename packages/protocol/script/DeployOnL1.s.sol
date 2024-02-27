@@ -120,7 +120,7 @@ contract DeployOnL1 is DeployCapability {
             _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
 
             signalService.transferOwnership(timelock);
-            acceptOwnership(signalServiceAddr, TimelockControllerUpgradeable(payable(timelock)));
+            // acceptOwnership(signalServiceAddr, TimelockControllerUpgradeable(payable(timelock)));
         } else {
             console2.log("------------------------------------------");
             console2.log("Warning - you need to transact manually:");
@@ -159,12 +159,13 @@ contract DeployOnL1 is DeployCapability {
 
         if (AddressManager(sharedAddressManager).owner() == msg.sender) {
             AddressManager(sharedAddressManager).transferOwnership(timelock);
-            acceptOwnership(sharedAddressManager, TimelockControllerUpgradeable(payable(timelock)));
+            // acceptOwnership(sharedAddressManager,
+            // TimelockControllerUpgradeable(payable(timelock)));
             console2.log("** sharedAddressManager ownership transferred to timelock:", timelock);
         }
 
         AddressManager(rollupAddressManager).transferOwnership(timelock);
-        acceptOwnership(rollupAddressManager, TimelockControllerUpgradeable(payable(timelock)));
+        // acceptOwnership(rollupAddressManager, TimelockControllerUpgradeable(payable(timelock)));
         console2.log("** rollupAddressManager ownership transferred to timelock:", timelock);
 
         _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
