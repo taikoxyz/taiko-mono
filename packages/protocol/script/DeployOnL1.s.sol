@@ -71,7 +71,7 @@ contract DeployOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Deploy shared contracts
-        (address sharedAddressManager, address timelock) = deploySharedContracts();
+        (address sharedAddressManager, address timelock, address governor) = deploySharedContracts();
         console2.log("sharedAddressManager: ", sharedAddressManager);
         console2.log("timelock: ", timelock);
         // ---------------------------------------------------------------
@@ -175,11 +175,15 @@ contract DeployOnL1 is DeployCapability {
 
     function deploySharedContracts()
         internal
-        returns (address sharedAddressManager, address timelock)
+        returns (address sharedAddressManager, address timelock, address governor)
     {
         sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
         if (sharedAddressManager != address(0)) {
-            return (sharedAddressManager, vm.envAddress("TIMELOCK_CONTROLLER"));
+            return (
+                sharedAddressManager,
+                vm.envAddress("TIMELOCK_CONTROLLER"),
+                vm.envAddress("TAIKO_GOVERNOR")
+            );
         }
 
         // Deploy the timelock
@@ -210,7 +214,7 @@ contract DeployOnL1 is DeployCapability {
             registerTo: sharedAddressManager
         });
 
-        address governor = deployProxy({
+        governor = deployProxy({
             name: "taiko_governor",
             impl: address(new TaikoGovernor()),
             data: abi.encodeCall(
@@ -222,8 +226,6 @@ contract DeployOnL1 is DeployCapability {
                 )
                 )
         });
-
-        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
 
         // Deploy Bridging contracts
         deployProxy({
