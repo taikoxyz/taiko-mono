@@ -30,8 +30,6 @@ contract AuthorizeTaikoForMultihop is DeployCapability {
 
         vm.startBroadcast(privateKey);
 
-        SignalService signalService = SignalService(sharedSignalService);
-
         for (uint256 i; i < taikoContracts.length; ++i) {
             bytes32 salt = bytes32(block.timestamp);
 
