@@ -126,6 +126,14 @@ var (
 		Required: false,
 		EnvVars:  []string{"TARGET_TX_HASH"},
 	}
+	CacheOption = &cli.IntFlag{
+		Name:     "cacheOption",
+		Usage:    "Cache option. Options: 0 - cache nothing, 1 - cache signal root, 2 - cache state root, 3 - cache both",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"CACHE_OPTION"},
+		Value:    3,
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -148,4 +156,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
+	CacheOption,
 })

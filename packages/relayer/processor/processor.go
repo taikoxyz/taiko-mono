@@ -249,7 +249,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	prover, err := proof.New(srcEthClient)
+	prover, err := proof.New(srcEthClient, p.cfg.CacheOption)
 	if err != nil {
 		return err
 	}
