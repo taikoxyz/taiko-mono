@@ -168,10 +168,10 @@ contract DeployOnL1 is DeployCapability {
         // acceptOwnership(rollupAddressManager, TimelockControllerUpgradeable(payable(timelock)));
         console2.log("** rollupAddressManager ownership transferred to timelock:", timelock);
 
-        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
-        _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
-        _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
-        _timelock.transferOwnership(securityCouncil);
+        // _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        // _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
+        // _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
+        // _timelock.transferOwnership(securityCouncil);
     }
 
     function deploySharedContracts()
