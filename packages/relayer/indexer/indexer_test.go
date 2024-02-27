@@ -17,6 +17,7 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		eventRepo:     &mock.EventRepository{},
 		bridge:        b,
 		destBridge:    b,
+		signalService: &mock.SignalService{},
 		srcEthClient:  &mock.EthClient{},
 		numGoroutines: 10,
 
