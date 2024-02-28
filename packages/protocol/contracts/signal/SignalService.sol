@@ -21,6 +21,7 @@ import "./ISignalService.sol";
 import "./LibSignals.sol";
 
 /// @title SignalService
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is EssentialContract, ISignalService {
@@ -41,7 +42,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId; // slot 1
-    mapping(address => bool) public isAuthorized; // slot 2
+    mapping(address addr => bool authorized) public isAuthorized; // slot 2
     uint256[48] private __gap;
 
     event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
@@ -67,13 +68,17 @@ contract SignalService is EssentialContract, ISignalService {
         _;
     }
 
-    /// @dev Initializer to be called after being deployed behind a proxy.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @dev Authorize or deautohrize an address for calling syncChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
+    /// @param addr The address to be authorized or deauthorized.
+    /// @param toAuthorize True if authorize, false otherwise.
     function authorize(address addr, bool toAuthorize) external onlyOwner {
         if (isAuthorized[addr] == toAuthorize) revert SS_INVALID_STATE();
         isAuthorized[addr] = toAuthorize;

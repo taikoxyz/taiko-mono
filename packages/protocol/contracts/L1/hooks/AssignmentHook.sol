@@ -22,6 +22,7 @@ import "../ITaikoL1.sol";
 import "./IHook.sol";
 
 /// @title AssignmentHook
+/// @custom:security-contact security@taiko.xyz
 /// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
@@ -57,11 +58,13 @@ contract AssignmentHook is EssentialContract, IHook {
 
     error HOOK_ASSIGNMENT_EXPIRED();
     error HOOK_ASSIGNMENT_INVALID_SIG();
-    error HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
     error HOOK_TIER_NOT_FOUND();
 
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     function onBlockProposed(

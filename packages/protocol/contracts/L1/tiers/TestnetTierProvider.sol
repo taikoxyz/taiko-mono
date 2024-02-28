@@ -18,21 +18,15 @@ import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
 /// @title TestnetTierProvider
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "tier_provider"
-/// @dev Assuming liveness bound is 250TKO.
-// Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
-// the cool down period is 2 days. In 2 days, we can have (2*86400/2)=86400
-// blocks. Assuming 10% tokens are used in bonds, then each block may use up to
-// these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
-// about 722 USD.
 contract TestnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
-    error TIER_NOT_FOUND();
-
-    /// @notice Initializes the contract with the provided address manager.
-    function init() external initializer {
-        __Essential_init();
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
@@ -41,9 +35,9 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
                 verifierName: "tier_optimistic",
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
-                cooldownWindow: 24 hours,
-                provingWindow: 2 hours,
-                maxBlocksToVerifyPerProof: 10
+                cooldownWindow: 1440, //24 hours
+                provingWindow: 30, // 0.5 hours
+                maxBlocksToVerifyPerProof: 12
             });
         }
 
@@ -52,8 +46,8 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
                 verifierName: "tier_sgx",
                 validityBond: 500 ether, // TKO
                 contestBond: 1000 ether, // TKO
-                cooldownWindow: 24 hours,
-                provingWindow: 4 hours,
+                cooldownWindow: 1440, //24 hours
+                provingWindow: 60, // 1 hours
                 maxBlocksToVerifyPerProof: 8
             });
         }
@@ -63,9 +57,9 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
                 verifierName: "tier_guardian",
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
-                cooldownWindow: 24 hours,
-                provingWindow: 8 hours,
-                maxBlocksToVerifyPerProof: 4
+                cooldownWindow: 60, //1 hours
+                provingWindow: 2880, // 48 hours
+                maxBlocksToVerifyPerProof: 16
             });
         }
 

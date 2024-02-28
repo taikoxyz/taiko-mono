@@ -19,6 +19,7 @@ import "../common/EssentialContract.sol";
 import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
+/// @custom:security-contact security@taiko.xyz
 /// @notice This contract's owner can be a local address or one that lives on another chain and uses
 /// signals for transaction approval.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
@@ -56,10 +57,12 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     }
 
     /// @notice Initializes the contract.
-    /// @param _addressManager The address of the address manager.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _ownerChainId The owner's deployment chain ID.
     // solhint-disable-next-line func-name-mixedcase
     function __CrossChainOwned_init(
+        address _owner,
         address _addressManager,
         uint64 _ownerChainId
     )
@@ -67,17 +70,10 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
         virtual
         onlyInitializing
     {
-        __Essential_init(_addressManager);
-
+        __Essential_init(_owner, _addressManager);
         if (_ownerChainId == 0 || _ownerChainId == block.chainid) {
             revert XCO_INVALID_OWNER_CHAINID();
         }
         ownerChainId = _ownerChainId;
-    }
-
-    function _checkOwner() internal view virtual override {
-        if (msg.sender != owner() && msg.sender != address(this)) {
-            revert XCO_PERMISSION_DENIED();
-        }
     }
 }

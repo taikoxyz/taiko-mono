@@ -11,6 +11,7 @@
   import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { noop } from '$libs/util/noop';
+  import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
 
   import AddCustomErc20 from './AddCustomERC20.svelte';
@@ -102,7 +103,7 @@
           <i role="img" aria-label={ct.name}>
             <Erc20 />
           </i>
-          <span class="body-bold">{ct.symbol}</span>
+          <span class="body-bold">{truncateString(ct.symbol, 10)}</span>
         </div>
       </li>
     {/each}

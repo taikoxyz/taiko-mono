@@ -15,17 +15,19 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../bridge/IBridge.sol";
+import "../libs/LibAddress.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC721.sol";
 
 /// @title ERC721Vault
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "erc721_vault"
 /// @notice This vault holds all ERC721 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
-contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
+contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     using LibAddress for address;
 
     uint256[50] private __gap;
@@ -34,6 +36,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
     /// @param op Option for sending the ERC721 token.
+    /// @return _message The constructed message.
     function sendToken(BridgeTransferOp memory op)
         external
         payable
@@ -143,7 +146,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         });
     }
 
-    /// @inheritdoc IERC721ReceiverUpgradeable
+    /// @inheritdoc IERC721Receiver
     function onERC721Received(
         address,
         address,
@@ -154,7 +157,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         pure
         returns (bytes4)
     {
-        return IERC721ReceiverUpgradeable.onERC721Received.selector;
+        return IERC721Receiver.onERC721Received.selector;
     }
 
     function name() public pure override returns (bytes32) {
@@ -172,11 +175,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
             for (uint256 i; i < tokenIds.length; ++i) {
-                ERC721Upgradeable(token).safeTransferFrom({
-                    from: address(this),
-                    to: to,
-                    tokenId: tokenIds[i]
-                });
+                IERC721(token).safeTransferFrom({ from: address(this), to: to, tokenId: tokenIds[i] });
             }
         } else {
             token = _getOrDeployBridgedToken(ctoken);
@@ -245,13 +244,12 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// @param ctoken CanonicalNFT data.
     /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory ctoken) private returns (address btoken) {
-        bytes memory data = bytes.concat(
-            BridgedERC721.init.selector,
-            abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
+        bytes memory data = abi.encodeCall(
+            BridgedERC721.init,
+            (owner(), addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
 
-        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc721", false), owner(), data);
-
+        btoken = address(new ERC1967Proxy(resolve("bridged_erc721", false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

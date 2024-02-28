@@ -16,6 +16,8 @@ pragma solidity 0.8.24;
 
 import "../BridgedERC20Base.sol";
 
+/// @title IUSDC
+/// @custom:security-contact security@taiko.xyz
 interface IUSDC {
     function burn(uint256 amount) external;
     function mint(address to, uint256 amount) external;
@@ -23,12 +25,13 @@ interface IUSDC {
 }
 
 /// @title USDCAdapter
+/// @custom:security-contact security@taiko.xyz
 contract USDCAdapter is BridgedERC20Base {
     IUSDC public usdc; // slot 1
     uint256[49] private __gap;
 
-    function init(address _adressManager, IUSDC _usdc) external initializer {
-        __Essential_init(_adressManager);
+    function init(address _owner, address _adressManager, IUSDC _usdc) external initializer {
+        __Essential_init(_owner, _adressManager);
         usdc = _usdc;
     }
 

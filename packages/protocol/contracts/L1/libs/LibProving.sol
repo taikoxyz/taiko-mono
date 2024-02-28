@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
@@ -23,6 +23,7 @@ import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProving {
@@ -61,7 +62,6 @@ library LibProving {
     error L1_INVALID_TRANSITION();
     error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_UNEXPECTED_TRANSITION_TIER();
 
     function pauseProving(TaikoData.State storage state, bool toPause) external {
         if (state.slotB.provingPaused == toPause) revert L1_INVALID_PAUSE_STATUS();
@@ -75,10 +75,17 @@ library LibProving {
     }
 
     /// @dev Proves or contests a block transition.
+    /// @param state Current TaikoData.State.
+    /// @param config Actual TaikoData.Config.
+    /// @param resolver Address resolver interface.
+    /// @param meta The block's metadata.
+    /// @param tran The transition data.
+    /// @param proof The proof.
+    /// @param maxBlocksToVerify The number of blocks to be verified with this transaction.
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         TaikoData.BlockMetadata memory meta,
         TaikoData.Transition memory tran,
         TaikoData.TierProof memory proof
@@ -399,7 +406,7 @@ library LibProving {
         if (tier.contestBond == 0) return;
 
         bool inProvingWindow = uint256(ts.timestamp).max(state.slotB.lastUnpausedAt)
-            + tier.provingWindow >= block.timestamp;
+            + tier.provingWindow * 60 >= block.timestamp;
         bool isAssignedPover = msg.sender == blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.

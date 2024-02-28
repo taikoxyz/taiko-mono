@@ -19,6 +19,7 @@ import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop2
+/// @custom:security-contact security@taiko.xyz
 /// Contract for managing Taiko token airdrop for eligible users but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
 contract ERC20Airdrop2 is MerkleClaimable {
@@ -26,10 +27,10 @@ contract ERC20Airdrop2 is MerkleClaimable {
 
     address public token;
     address public vault;
-    // Represents the token amount for which the user is (by default) eligible
-    mapping(address => uint256) public claimedAmount;
+    // Represents the token amount for which the user has claimed
+    mapping(address addr => uint256 amountClaimed) public claimedAmount;
     // Represents the already withdrawn amount
-    mapping(address => uint256) public withdrawnAmount;
+    mapping(address addr => uint256 amountWithdrawn) public withdrawnAmount;
     // Length of the withdrawal window
     uint64 public withdrawalWindow;
 
@@ -47,6 +48,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     }
 
     function init(
+        address _owner,
         uint64 _claimStart,
         uint64 _claimEnd,
         bytes32 _merkleRoot,
@@ -57,7 +59,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
         external
         initializer
     {
-        __Essential_init();
+        __Essential_init(_owner);
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;

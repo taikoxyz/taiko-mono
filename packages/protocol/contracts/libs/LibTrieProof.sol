@@ -11,6 +11,7 @@ import "../thirdparty/optimism/rlp/RLPWriter.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
 /// @title LibTrieProof
+/// @custom:security-contact security@taiko.xyz
 library LibTrieProof {
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
@@ -57,10 +58,7 @@ library LibTrieProof {
         }
 
         bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot),
-            RLPWriter.writeUint(uint256(value)),
-            storageProof,
-            bytes32(storageRoot)
+            bytes.concat(slot), RLPWriter.writeUint(uint256(value)), storageProof, storageRoot
         );
 
         if (!verified) revert LTP_INVALID_INCLUSION_PROOF();

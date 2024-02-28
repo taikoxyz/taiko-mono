@@ -35,7 +35,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, ())
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 
@@ -43,7 +43,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, address(addressManager))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
         ss.authorize(address(L1), true);
@@ -52,7 +52,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
-                data: abi.encodeCall(SgxVerifier.init, address(addressManager))
+                data: abi.encodeCall(SgxVerifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -64,7 +64,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
-                data: abi.encodeCall(GuardianVerifier.init, address(addressManager))
+                data: abi.encodeCall(GuardianVerifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -72,7 +72,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
-                data: abi.encodeCall(GuardianProver.init, address(addressManager))
+                data: abi.encodeCall(GuardianProver.init, (address(0), address(addressManager)))
             })
         );
 
@@ -82,7 +82,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_provider",
                 impl: address(new TestnetTierProvider()),
-                data: abi.encodeCall(TestnetTierProvider.init, ())
+                data: abi.encodeCall(TestnetTierProvider.init, (address(0)))
             })
         );
 
@@ -91,9 +91,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, address(addressManager)),
-                    registerTo: address(addressManager),
-                    owner: address(0)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
                 })
             )
         );
@@ -102,7 +101,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: abi.encodeCall(AssignmentHook.init, address(addressManager))
+                data: abi.encodeCall(AssignmentHook.init, (address(0), address(addressManager)))
             })
         );
 
@@ -120,13 +119,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: abi.encodeCall(TaikoToken.init, ("Taiko Token", "TTKOk", address(this))),
-                registerTo: address(addressManager),
-                owner: address(0)
+                data: abi.encodeCall(
+                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
+                    ),
+                registerTo: address(addressManager)
             })
         );
 
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
+        L1.init(address(0), address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
     }
 

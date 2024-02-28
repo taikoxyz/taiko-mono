@@ -14,16 +14,18 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC721Airdrop
+/// @custom:security-contact security@taiko.xyz
 contract ERC721Airdrop is MerkleClaimable {
     address public token;
     address public vault;
     uint256[48] private __gap;
 
     function init(
+        address _owner,
         uint64 _claimStart,
         uint64 _claimEnd,
         bytes32 _merkleRoot,
@@ -33,7 +35,7 @@ contract ERC721Airdrop is MerkleClaimable {
         external
         initializer
     {
-        __Essential_init();
+        __Essential_init(_owner);
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
@@ -53,7 +55,7 @@ contract ERC721Airdrop is MerkleClaimable {
 
         // Transfer the tokens
         for (uint256 i; i < tokenIds.length; ++i) {
-            IERC721Upgradeable(token).safeTransferFrom(vault, user, tokenIds[i]);
+            IERC721(token).safeTransferFrom(vault, user, tokenIds[i]);
         }
     }
 }

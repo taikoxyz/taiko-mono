@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
@@ -23,6 +23,7 @@ import "../TaikoData.sol";
 import "./LibDepositing.sol";
 
 /// @title LibProposing
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
@@ -59,10 +60,18 @@ library LibProposing {
     error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes a Taiko L2 block.
+    /// @param state Current TaikoData.State.
+    /// @param config Actual TaikoData.Config.
+    /// @param resolver Address resolver interface.
+    /// @param data Encoded data bytes containing the block params.
+    /// @param txList Transaction list bytes (if not blob).
+    /// @return meta The constructed block's metadata.
+    /// @return depositsProcessed The EthDeposit array about processed deposits in this proposed
+    /// block.
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         bytes calldata data,
         bytes calldata txList
     )
@@ -291,7 +300,7 @@ library LibProposing {
 
     function _isProposerPermitted(
         TaikoData.SlotB memory slotB,
-        AddressResolver resolver
+        IAddressResolver resolver
     )
         private
         view

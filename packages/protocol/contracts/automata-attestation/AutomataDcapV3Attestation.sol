@@ -17,9 +17,8 @@ import { BytesUtils } from "./utils/BytesUtils.sol";
 // External Libraries
 import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
-// import "hardhat/console.sol";
-// import "forge-std/src/console.sol";
-
+/// @title AutomataDcapV3Attestation
+/// @custom:security-contact security@taiko.xyz
 contract AutomataDcapV3Attestation is IAttestation {
     using BytesUtils for bytes;
 
@@ -37,17 +36,17 @@ contract AutomataDcapV3Attestation is IAttestation {
     uint8 constant INVALID_EXIT_CODE = 255;
 
     bool private checkLocalEnclaveReport;
-    mapping(bytes32 => bool) private trustedUserMrEnclave;
-    mapping(bytes32 => bool) private trustedUserMrSigner;
+    mapping(bytes32 enclave => bool trusted) private trustedUserMrEnclave;
+    mapping(bytes32 signer => bool trusted) private trustedUserMrSigner;
 
     // Quote Collateral Configuration
 
     // Index definition:
     // 0 = Quote PCKCrl
     // 1 = RootCrl
-    mapping(uint256 => mapping(bytes => bool)) private serialNumIsRevoked;
+    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private serialNumIsRevoked;
     // fmspc => tcbInfo
-    mapping(string => TCBInfoStruct.TCBInfo) public tcbInfo;
+    mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo;
     EnclaveIdStruct.EnclaveId public qeIdentity;
 
     address public owner;
@@ -499,6 +498,9 @@ contract AutomataDcapV3Attestation is IAttestation {
     /// @dev For all valid quote verification, returns the following data:
     /// (_attestationTcbIsValid())
     /// @dev exitCode is defined in the {{ TCBInfoStruct.TCBStatus }} enum
+    /// @param v3quote The quote to be verified.
+    /// @return success True if successful verification, false otherwise.
+    /// @return exitStep The stage where the code exited.
     function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata v3quote)
         external
         view
@@ -509,7 +511,6 @@ contract AutomataDcapV3Attestation is IAttestation {
 
         // Step 1: Parse the quote input = 152k gas
         // console.log("Step 1: Parse the quote input = 152k gas");
-        // todo: validate(v3quote)
         (
             bool successful,
             ,
@@ -570,7 +571,6 @@ contract AutomataDcapV3Attestation is IAttestation {
                 // quoteCerts[i] = Base64.decode(string(authDataV3.certification.certArray[i]));
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
-                // todo! move decodeCert offchain
                 (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
                     authDataV3.certification.decodedCertDataArray[i], isPckCert
                 );

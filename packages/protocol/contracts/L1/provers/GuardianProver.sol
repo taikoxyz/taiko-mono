@@ -19,6 +19,7 @@ import "../ITaikoL1.sol";
 import "./Guardians.sol";
 
 /// @title GuardianProver
+/// @custom:security-contact security@taiko.xyz
 contract GuardianProver is Guardians {
     uint256[50] private __gap;
 
@@ -26,13 +27,19 @@ contract GuardianProver is Guardians {
         address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
     );
 
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @dev Called by guardians to approve a guardian proof
+    /// @param meta The block's metadata.
+    /// @param tran The valid transition.
+    /// @param proof The tier proof.
+    /// @return approved If the minimum number of participants sent the same proof, and proving
+    /// transaction is fired away returns true, false otherwise.
     function approve(
         TaikoData.BlockMetadata calldata meta,
         TaikoData.Transition calldata tran,

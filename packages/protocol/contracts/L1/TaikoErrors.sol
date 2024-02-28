@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title TaikoErrors
+/// @custom:security-contact security@taiko.xyz
 /// @notice This abstract contract provides custom error declartions used in
 /// the Taiko protocol. Each error corresponds to specific situations where
 /// exceptions might be thrown.
@@ -27,17 +28,14 @@ abstract contract TaikoErrors {
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
-    error L1_BLOB_NOT_USED();
     error L1_BLOB_REUSE_DISALBED();
     error L1_BLOCK_MISMATCH();
-    error L1_CHAIN_DATA_NOT_RELAYED();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
-    error L1_INVALID_PROOF();
     error L1_INVALID_PROVER();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
@@ -55,5 +53,4 @@ abstract contract TaikoErrors {
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
     error L1_UNEXPECTED_TRANSITION_ID();
-    error L1_UNEXPECTED_TRANSITION_TIER();
 }
