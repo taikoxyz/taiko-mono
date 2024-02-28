@@ -158,7 +158,6 @@ func (p *Processor) processMessage(
 			if _, err := p.sendProcessMessageAndWaitForReceipt(ctx, nil, msgBody); err != nil {
 				return errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 			}
-
 		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
 			slog.Info("message processing resulted in MessageExecuted event. processing finished")
 		}

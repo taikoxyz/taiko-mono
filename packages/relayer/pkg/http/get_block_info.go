@@ -49,7 +49,11 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestProcessedSrcBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, srcChainID)
+	latestProcessedSrcBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(
+		relayer.EventNameMessageSent,
+		srcChainID,
+		destChainID,
+	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
@@ -57,6 +61,7 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 	latestProcessedDestBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(
 		relayer.EventNameMessageSent,
 		destChainID,
+		srcChainID,
 	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)

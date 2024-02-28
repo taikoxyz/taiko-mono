@@ -30,6 +30,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 		latestProcessedBlock, err := i.blockRepo.GetLatestBlockProcessedForEvent(
 			i.eventName,
 			chainID,
+			i.destChainId,
 		)
 		if err != nil {
 			return errors.Wrap(err, "svc.blockRepo.GetLatestBlock()")

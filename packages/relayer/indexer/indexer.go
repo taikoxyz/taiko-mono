@@ -265,7 +265,7 @@ func (i *Indexer) Start() error {
 func (i *Indexer) filter(ctx context.Context) error {
 	// if subscribing to new events, skip filtering and subscribe
 	if i.watchMode == Subscribe {
-		return i.subscribe(ctx, i.srcChainId)
+		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
 
 	syncMode := i.syncMode
@@ -286,7 +286,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	if i.processingBlockHeight == header.Number.Uint64() {
 		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", i.srcChainId.Uint64())
-		return i.subscribe(ctx, i.srcChainId)
+		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
 
 	endBlockID := header.Number.Uint64()
@@ -392,7 +392,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	slog.Info("processing is caught up to latest block, subscribing to new blocks")
 
-	return i.subscribe(ctx, i.srcChainId)
+	return i.subscribe(ctx, i.srcChainId, i.destChainId)
 }
 
 func (i *Indexer) indexMessageSentEvents(ctx context.Context,
@@ -492,7 +492,12 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(filterOpts, nil, nil, nil)
+	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(
+		filterOpts,
+		[]uint64{i.destChainId.Uint64()},
+		nil,
+		nil,
+	)
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
