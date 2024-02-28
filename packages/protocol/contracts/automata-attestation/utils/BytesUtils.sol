@@ -306,7 +306,7 @@ library BytesUtils {
 
     // Maps characters from 0x30 to 0x7A to their base32 values.
     // 0xFF represents invalid characters in that range.
-    bytes constant base32HexTable =
+    bytes constant BASE32_HEX_TABLE =
         hex"00010203040506070809FFFFFFFFFFFFFF0A0B0C0D0E0F101112131415161718191A1B1C1D1E1FFFFFFFFFFFFFFFFFFFFF0A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
 
     /**
@@ -332,7 +332,7 @@ library BytesUtils {
         for (uint256 i = 0; i < len; i++) {
             bytes1 char = self[off + i];
             require(char >= 0x30 && char <= 0x7A, "invalid char");
-            decoded = uint8(base32HexTable[uint256(uint8(char)) - 0x30]);
+            decoded = uint8(BASE32_HEX_TABLE[uint256(uint8(char)) - 0x30]);
             require(decoded <= 0x20, "invalid decoded");
             if (i == len - 1) {
                 break;
