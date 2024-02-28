@@ -76,10 +76,4 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
         }
         ownerChainId = _ownerChainId;
     }
-
-    function _checkOwner() internal view virtual override {
-        if (msg.sender != owner() && msg.sender != address(this)) {
-            revert XCO_PERMISSION_DENIED();
-        }
-    }
 }
