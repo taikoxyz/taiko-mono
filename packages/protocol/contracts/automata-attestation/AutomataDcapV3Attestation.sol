@@ -37,17 +37,17 @@ contract AutomataDcapV3Attestation is IAttestation {
     uint8 constant INVALID_EXIT_CODE = 255;
 
     bool private checkLocalEnclaveReport;
-    mapping(bytes32 => bool) private trustedUserMrEnclave;
-    mapping(bytes32 => bool) private trustedUserMrSigner;
+    mapping(bytes32 enclave => bool trusted) private trustedUserMrEnclave;
+    mapping(bytes32 signer => bool trusted) private trustedUserMrSigner;
 
     // Quote Collateral Configuration
 
     // Index definition:
     // 0 = Quote PCKCrl
     // 1 = RootCrl
-    mapping(uint256 => mapping(bytes => bool)) private serialNumIsRevoked;
+    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private serialNumIsRevoked;
     // fmspc => tcbInfo
-    mapping(string => TCBInfoStruct.TCBInfo) public tcbInfo;
+    mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo;
     EnclaveIdStruct.EnclaveId public qeIdentity;
 
     address public owner;
