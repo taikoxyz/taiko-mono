@@ -38,6 +38,8 @@ func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int, destChainID *
 			slog.Info("context finished")
 			return nil
 		case err := <-errChan:
+			slog.Info("error encountered durign subscription", "error", err)
+
 			relayer.ErrorsEncounteredDuringSubscription.Inc()
 
 			return errors.Wrap(err, "errChan")
@@ -244,7 +246,7 @@ func (i *Indexer) subscribeChainDataSynced(
 			slog.Error("i.signalService.WatchChainDataSynced", "error", err)
 		}
 
-		slog.Info("resubscribing to WatchChainDataSynced events")
+		slog.Info("resubscribing to WatchChainDataSynced events", "destChainID", destChainID.Uint64())
 
 		return i.signalService.WatchChainDataSynced(&bind.WatchOpts{
 			Context: ctx,
