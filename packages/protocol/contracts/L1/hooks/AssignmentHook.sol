@@ -57,7 +57,6 @@ contract AssignmentHook is EssentialContract, IHook {
 
     error HOOK_ASSIGNMENT_EXPIRED();
     error HOOK_ASSIGNMENT_INVALID_SIG();
-    error HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
     error HOOK_TIER_NOT_FOUND();
 
     /// @notice Initializes the contract.
