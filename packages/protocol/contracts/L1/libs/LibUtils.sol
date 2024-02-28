@@ -14,9 +14,6 @@
 
 pragma solidity 0.8.24;
 
-import "../../common/IAddressResolver.sol";
-import "../../signal/ISignalService.sol";
-import "../../signal/LibSignals.sol";
 import "../TaikoData.sol";
 
 /// @title LibUtils

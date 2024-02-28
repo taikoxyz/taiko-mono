@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
 import "../bridge/IBridge.sol";
+import "../libs/LibAddress.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC721.sol";
 

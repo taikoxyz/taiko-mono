@@ -14,8 +14,6 @@
 
 pragma solidity 0.8.24;
 
-import "./EssentialContract.sol";
-
 /// @title IAddressManager
 /// @notice Specifies methods to manage address mappings for given chainId-name
 /// pairs.
