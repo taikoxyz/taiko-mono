@@ -50,6 +50,17 @@ All contracts should have, preceding their declaration, at minimum:
 /// @custom:security-contact security@taiko.xyz
 ```
 
+#### Single tag
+
+Always use a single tag, for example do not do this:
+
+```
+/// @dev Here is a dev comment.
+/// @dev Here is another dev comment.
+```
+
+Instead, combine them into a single comment.
+
 #### Comment style
 
 Choose `///` over `/** */` for multi-line NatSpec comments for consistency. All NatSpec comments should use `///` instead of `/** */`. Additional explanatory comments should use `//`, even for multi-line comments.
