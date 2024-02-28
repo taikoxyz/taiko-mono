@@ -75,7 +75,7 @@ contract TimelockTokenPool is EssentialContract {
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
     uint128 public totalCostPaid;
-    mapping(address recipient => Recipient) public recipients;
+    mapping(address recipient => Recipient receipt) public recipients;
     uint128[44] private __gap;
 
     event Granted(address indexed recipient, Grant grant);

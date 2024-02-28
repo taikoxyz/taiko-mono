@@ -52,7 +52,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// the same instance). This is due to side-channel protection. Also this
     /// public key shall expire after some time. (For now it is a long enough 6
     /// months setting.)
-    mapping(uint256 instanceId => Instance) public instances; // slot 2
+    mapping(uint256 instanceId => Instance instance) public instances; // slot 2
     /// @dev One address shall be registered (during attestation) only once, otherwise it could
     /// bypass this contract's expiry check by always registering with the same attestation and
     /// getting multiple valid instanceIds. While during proving, it is technically possible to
