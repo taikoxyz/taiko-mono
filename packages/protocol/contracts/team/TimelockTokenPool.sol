@@ -167,6 +167,9 @@ contract TimelockTokenPool is EssentialContract {
 
         amountWithdrawn = r.amountWithdrawn;
         amountToWithdraw = amountUnlocked - amountWithdrawn;
+
+        // Note: precision is maintained at the token level rather than the wei level to avoid bugs
+        // in tracking the `costPaid` state variable.
         costToWithdraw = (amountUnlocked / 1e18 * r.grant.costPerToken) - r.costPaid;
     }
 
