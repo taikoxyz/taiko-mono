@@ -71,7 +71,7 @@ contract DeployOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Deploy shared contracts
-        (address sharedAddressManager, address timelock) = deploySharedContracts();
+        (address sharedAddressManager, address timelock, address governor) = deploySharedContracts();
         console2.log("sharedAddressManager: ", sharedAddressManager);
         console2.log("timelock: ", timelock);
         // ---------------------------------------------------------------
@@ -103,8 +103,24 @@ contract DeployOnL1 is DeployCapability {
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
+        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
+
         if (signalService.owner() == msg.sender) {
+            // Setup time lock roles
+            // Only the governer can make proposals after holders voting.
+            _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
+            _timelock.grantRole(_timelock.PROPOSER_ROLE(), msg.sender);
+
+            // Granting address(0) the executor role to allow open executation.
+            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
+            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), msg.sender);
+
+            _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
+            _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
+            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
+
             signalService.transferOwnership(timelock);
+            acceptOwnership(signalServiceAddr, TimelockControllerUpgradeable(payable(timelock)));
         } else {
             console2.log("------------------------------------------");
             console2.log("Warning - you need to transact manually:");
@@ -143,20 +159,31 @@ contract DeployOnL1 is DeployCapability {
 
         if (AddressManager(sharedAddressManager).owner() == msg.sender) {
             AddressManager(sharedAddressManager).transferOwnership(timelock);
+            acceptOwnership(sharedAddressManager, TimelockControllerUpgradeable(payable(timelock)));
             console2.log("** sharedAddressManager ownership transferred to timelock:", timelock);
         }
 
         AddressManager(rollupAddressManager).transferOwnership(timelock);
+        acceptOwnership(rollupAddressManager, TimelockControllerUpgradeable(payable(timelock)));
         console2.log("** rollupAddressManager ownership transferred to timelock:", timelock);
+
+        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
+        _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
+        _timelock.transferOwnership(securityCouncil);
     }
 
     function deploySharedContracts()
         internal
-        returns (address sharedAddressManager, address timelock)
+        returns (address sharedAddressManager, address timelock, address governor)
     {
         sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
         if (sharedAddressManager != address(0)) {
-            return (sharedAddressManager, vm.envAddress("TIMELOCK_CONTROLLER"));
+            return (
+                sharedAddressManager,
+                vm.envAddress("TIMELOCK_CONTROLLER"),
+                vm.envAddress("TAIKO_GOVERNOR")
+            );
         }
 
         // Deploy the timelock
@@ -187,7 +214,7 @@ contract DeployOnL1 is DeployCapability {
             registerTo: sharedAddressManager
         });
 
-        address governor = deployProxy({
+        governor = deployProxy({
             name: "taiko_governor",
             impl: address(new TaikoGovernor()),
             data: abi.encodeCall(
@@ -199,25 +226,6 @@ contract DeployOnL1 is DeployCapability {
                 )
                 )
         });
-
-        // Setup time lock roles
-        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
-        // Only the governer can make proposals after holders voting.
-        _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
-        _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
-
-        // Granting address(0) the executor role to allow open executation.
-        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
-
-        // Cancelling is not supported by the implementation by default, therefore, no need to set
-        // up this role.
-        // _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
-
-        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
-        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
-
-        _timelock.transferOwnership(securityCouncil);
 
         // Deploy Bridging contracts
         deployProxy({
@@ -388,5 +396,13 @@ contract DeployOnL1 is DeployCapability {
 
     function addressNotNull(address addr, string memory err) private pure {
         require(addr != address(0), err);
+    }
+
+    function acceptOwnership(address proxy, TimelockControllerUpgradeable timelock) internal {
+        bytes32 salt = bytes32(block.timestamp);
+        bytes memory payload = abi.encodeCall(Ownable2StepUpgradeable(proxy).acceptOwnership, ());
+
+        timelock.schedule(proxy, 0, payload, bytes32(0), salt, 0);
+        timelock.execute(proxy, 0, payload, bytes32(0), salt);
     }
 }
