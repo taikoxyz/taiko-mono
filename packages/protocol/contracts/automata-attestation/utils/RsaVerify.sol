@@ -29,6 +29,8 @@ https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Pro
     
  */
 
+/// @title RsaVerify
+/// @custom:security-contact security@taiko.xyz
 library RsaVerify {
     /**
      * @dev Verifies a PKCSv1.5 SHA256 signature

@@ -17,6 +17,8 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import "../../common/EssentialContract.sol";
 
+/// @title TaikoTimelockController
+/// @custom:security-contact security@taiko.xyz
 contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
     uint256[50] private __gap;
 
@@ -29,7 +31,9 @@ contract TaikoTimelockController is EssentialContract, TimelockControllerUpgrade
         __TimelockController_init(minDelay, nil, nil, owner());
     }
 
-    /// @dev Allows the admin to get around of the min delay.
+    /// @dev Gets the minimum delay for an operation to become valid, allows the admin to get around
+    /// of the min delay.
+    /// @return uint256 The minimum delay.
     function getMinDelay() public view override returns (uint256) {
         return hasRole(TIMELOCK_ADMIN_ROLE, msg.sender) ? 0 : super.getMinDelay();
     }

@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../../common/EssentialContract.sol";
 
 /// @title MerkleClaimable
+/// @custom:security-contact security@taiko.xyz
 /// Contract for managing Taiko token airdrop for eligible users
 abstract contract MerkleClaimable is EssentialContract {
     mapping(bytes32 hash => bool claimed) public isClaimed;
