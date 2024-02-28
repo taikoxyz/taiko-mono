@@ -14,260 +14,287 @@
 
 pragma solidity 0.8.24;
 
-import "../common/EssentialContract.sol";
-import "./libs/LibDepositing.sol";
-import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
-import "./libs/LibVerifying.sol";
-import "./ITaikoL1.sol";
-import "./TaikoErrors.sol";
-import "./TaikoEvents.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title TaikoL1
+import "../libs/LibAddress.sol";
+import "../libs/LibMath.sol";
+import "../signal/ISignalService.sol";
+import "../signal/LibSignals.sol";
+import "./Lib1559Math.sol";
+import "./CrossChainOwned.sol";
+
+/// @title TaikoL2
 /// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "taiko"
-/// @notice This contract serves as the "base layer contract" of the Taiko
-/// protocol, providing functionalities for proposing, proving, and verifying
-/// blocks. The term "base layer contract" means that although this is usually
-/// deployed on L1, it can also be deployed on L2s to create L3s ("inception
-/// layers"). The contract also handles the deposit and withdrawal of Taiko
-/// tokens and Ether.
-/// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
-contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, TaikoErrors {
-    TaikoData.State public state;
-    uint256[50] private __gap;
+/// @notice Taiko L2 is a smart contract that handles cross-layer message
+/// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
+/// It is used to anchor the latest L1 block details to L2 for cross-layer
+/// communication, manage EIP-1559 parameters for gas pricing, and store
+/// verified L1 block information.
+contract TaikoL2 is CrossChainOwned {
+    using LibAddress for address;
+    using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
-    modifier whenProvingNotPaused() {
-        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
-        _;
+    struct Config {
+        uint32 gasTargetPerL1Block;
+        uint8 basefeeAdjustmentQuotient;
     }
 
-    /// @dev Fallback function to receive Ether from Hooks
-    receive() external payable {
-        if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
-    }
+    // Golden touch address
+    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
+
+    // Mapping from L2 block numbers to their block hashes.
+    // All L2 block hashes will be saved in this mapping.
+    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
+
+    // A hash to check the integrity of public inputs.
+    bytes32 public publicInputHash; // slot 2
+    uint64 public gasExcess; // slot 3
+    uint64 public lastSyncedBlock;
+
+    uint256[47] private __gap;
+
+    event Anchored(bytes32 parentHash, uint64 gasExcess);
+
+    error L2_BASEFEE_MISMATCH();
+    error L2_INVALID_CHAIN_ID();
+    error L2_INVALID_PARAM();
+    error L2_INVALID_SENDER();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_TOO_LATE();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _genesisBlockHash The block hash of the genesis block.
+    /// @param _l1ChainId The ID of the base layer.
+    /// @param _gasExcess The initial gasExcess.
     function init(
         address _owner,
         address _addressManager,
-        bytes32 _genesisBlockHash
+        uint64 _l1ChainId,
+        uint64 _gasExcess
     )
         external
         initializer
     {
-        __Essential_init(_owner, _addressManager);
-        LibVerifying.init(state, getConfig(), _genesisBlockHash);
+        __CrossChainOwned_init(_owner, _addressManager, _l1ChainId);
+
+        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
+            revert L2_INVALID_CHAIN_ID();
+        }
+
+        if (block.number == 0) {
+            // This is the case in real L2 genesis
+        } else if (block.number == 1) {
+            // This is the case in tests
+            uint256 parentHeight = block.number - 1;
+            l2Hashes[parentHeight] = blockhash(parentHeight);
+        } else {
+            revert L2_TOO_LATE();
+        }
+
+        gasExcess = _gasExcess;
+        (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-    /// @inheritdoc ITaikoL1
-    function proposeBlock(
-        bytes calldata params,
-        bytes calldata txList
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification.
+    /// @param l1BlockHash The latest L1 block hash when this block was
+    /// proposed.
+    /// @param l1StateRoot The latest L1 block's state root.
+    /// @param l1BlockId The latest L1 block height when this block was proposed.
+    /// @param parentGasUsed The gas used in the parent block.
+    function anchor(
+        bytes32 l1BlockHash,
+        bytes32 l1StateRoot,
+        uint64 l1BlockId,
+        uint32 parentGasUsed
     )
         external
-        payable
+        nonReentrant
+    {
+        if (
+            l1BlockHash == 0 || l1StateRoot == 0 || l1BlockId == 0
+                || (block.number != 1 && parentGasUsed == 0)
+        ) {
+            revert L2_INVALID_PARAM();
+        }
+
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
+        uint256 parentId;
+        unchecked {
+            parentId = block.number - 1;
+        }
+
+        // Verify ancestor hashes
+        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
+        if (publicInputHash != publicInputHashOld) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        }
+
+        Config memory config = getConfig();
+
+        // Verify the base fee per gas is correct
+        uint256 basefee;
+        (basefee, gasExcess) = _calc1559BaseFee(config, l1BlockId, parentGasUsed);
+        if (!skipFeeCheck() && block.basefee != basefee) {
+            revert L2_BASEFEE_MISMATCH();
+        }
+
+        if (l1BlockId > lastSyncedBlock + BLOCK_SYNC_THRESHOLD) {
+            // Store the L1's state root as a signal to the local signal service to
+            // allow for multi-hop bridging.
+            ISignalService(resolve("signal_service", false)).syncChainData(
+                ownerChainId, LibSignals.STATE_ROOT, l1BlockId, l1StateRoot
+            );
+            lastSyncedBlock = l1BlockId;
+        }
+        // Update state variables
+        l2Hashes[parentId] = blockhash(parentId);
+        publicInputHash = publicInputHashNew;
+
+        emit Anchored(blockhash(parentId), gasExcess);
+    }
+
+    /// @notice Withdraw token or Ether from this address
+    /// @param token Token address or address(0) if Ether.
+    /// @param to Withdraw to address.
+    function withdraw(
+        address token,
+        address to
+    )
+        external
+        onlyFromOwnerOrNamed("withdrawer")
         nonReentrant
         whenNotPaused
-        returns (
-            TaikoData.BlockMetadata memory rMeta,
-            TaikoData.EthDeposit[] memory rDepositsProcessed
-        )
     {
-        TaikoData.Config memory config = getConfig();
-
-        (rMeta, rDepositsProcessed) = LibProposing.proposeBlock(state, config, this, params, txList);
-
-        if (!state.slotB.provingPaused) {
-            _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+        if (to == address(0)) revert L2_INVALID_PARAM();
+        if (token == address(0)) {
+            to.sendEther(address(this).balance);
+        } else {
+            IERC20(token).safeTransfer(to, IERC20(token).balanceOf(address(this)));
         }
     }
 
-    /// @inheritdoc ITaikoL1
-    function proveBlock(
-        uint64 blockId,
-        bytes calldata input
+    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
+    /// the given parameters.
+    /// @param l1BlockId The synced L1 height in the next Taiko block
+    /// @param parentGasUsed Gas used in the parent block.
+    /// @return rBasefee The calculated EIP-1559 base fee per gas.
+    function getBasefee(
+        uint64 l1BlockId,
+        uint32 parentGasUsed
     )
-        external
-        nonReentrant
-        whenNotPaused
-        whenProvingNotPaused
-    {
-        (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.Transition memory tran,
-            TaikoData.TierProof memory proof
-        ) = abi.decode(input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
-
-        if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
-
-        TaikoData.Config memory config = getConfig();
-
-        uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
-
-        _verifyBlocks(config, maxBlocksToVerify);
-    }
-
-    /// @inheritdoc ITaikoL1
-    function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant whenNotPaused {
-        _verifyBlocks(getConfig(), maxBlocksToVerify);
-    }
-
-    /// @notice Pause block proving.
-    /// @param pause True if paused.
-    function pauseProving(bool pause) external {
-        _authorizePause(msg.sender);
-        LibProving.pauseProving(state, pause);
-    }
-
-    /// @notice Deposits Ether to Layer 2.
-    /// @param recipient Address of the recipient for the deposited Ether on
-    /// Layer 2.
-    function depositEtherToL2(address recipient) external payable nonReentrant whenNotPaused {
-        LibDepositing.depositEtherToL2(state, getConfig(), this, recipient);
-    }
-
-    function unpause() public override {
-        super.unpause(); // permission checked inside
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
-    }
-
-    /// @notice Checks if Ether deposit is allowed for Layer 2.
-    /// @param amount Amount of Ether to be deposited.
-    /// @return true if Ether deposit is allowed, false otherwise.
-    function canDepositEthToL2(uint256 amount) public view returns (bool) {
-        return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
-    }
-
-    function isBlobReusable(bytes32 blobHash) public view returns (bool) {
-        return LibProposing.isBlobReusable(state, getConfig(), blobHash);
-    }
-
-    /// @notice Gets the details of a block.
-    /// @param blockId Index of the block.
-    /// @return rBlk The block.
-    /// @return rTs The transition used to verify this block.
-    function getBlock(uint64 blockId)
         public
         view
-        returns (TaikoData.Block memory rBlk, TaikoData.TransitionState memory rTs)
+        returns (uint256 rBasefee)
     {
-        uint64 slot;
-        (rBlk, slot) = LibUtils.getBlock(state, getConfig(), blockId);
+        (rBasefee,) = _calc1559BaseFee(getConfig(), l1BlockId, parentGasUsed);
+    }
 
-        if (rBlk.verifiedTransitionId != 0) {
-            rTs = state.transitions[slot][rBlk.verifiedTransitionId];
+    /// @notice Retrieves the block hash for the given L2 block number.
+    /// @param blockId The L2 block number to retrieve the block hash for.
+    /// @return The block hash for the specified L2 block id, or zero if the
+    /// block id is greater than or equal to the current block number.
+    function getBlockHash(uint64 blockId) public view returns (bytes32) {
+        if (blockId >= block.number) return 0;
+        if (blockId + 256 >= block.number) return blockhash(blockId);
+        return l2Hashes[blockId];
+    }
+
+    /// @notice Returns EIP1559 related configurations
+    /// @return rConfig struct containing configuration parameters.
+    function getConfig() public view virtual returns (Config memory rConfig) {
+        // 4x Ethereum gas target, if we assume most of the time, L2 block time
+        // is 3s, and each block is full (gasUsed is 15_000_000), then its
+        // ~60_000_000, if the  network is congester than that, the base fee
+        // will increase.
+        rConfig.gasTargetPerL1Block = 15 * 1e6 * 4;
+        rConfig.basefeeAdjustmentQuotient = 8;
+    }
+
+    /// @notice Tells if we need to validate basefee (for simulation).
+    /// @return Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() public pure virtual returns (bool) {
+        return false;
+    }
+
+    function _calcPublicInputHash(uint256 blockId)
+        private
+        view
+        returns (bytes32 rPublicInputHashOld, bytes32 rPublicInputHashNew)
+    {
+        bytes32[256] memory inputs;
+
+        // Unchecked is safe because it cannot overflow.
+        unchecked {
+            // Put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && blockId >= i + 1; ++i) {
+                uint256 j = blockId - i - 1;
+                inputs[j % 255] = blockhash(j);
+            }
+        }
+
+        inputs[255] = bytes32(block.chainid);
+
+        assembly {
+            rPublicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+        }
+
+        inputs[blockId % 255] = blockhash(blockId);
+        assembly {
+            rPublicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 
-    /// @notice Gets the state transition for a specific block.
-    /// @param blockId Index of the block.
-    /// @param parentHash Parent hash of the block.
-    /// @return TransitionState The state transition data of the block.
-    function getTransition(
-        uint64 blockId,
-        bytes32 parentHash
+    function _calc1559BaseFee(
+        Config memory config,
+        uint64 l1BlockId,
+        uint32 parentGasUsed
     )
-        public
+        private
         view
-        returns (TaikoData.TransitionState memory)
+        returns (uint256 rBasefee, uint64 rGasExcess)
     {
-        return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
-    }
+        // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
+        if (gasExcess > 0) {
+            // We always add the gas used by parent block to the gas excess
+            // value as this has already happend
+            uint256 excess = uint256(gasExcess) + parentGasUsed;
 
-    /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @return slotA State variables stored at SlotA.
-    /// @return slotB State variables stored at SlotB.
-    function getStateVariables()
-        public
-        view
-        returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
-    {
-        return (state.slotA, state.slotB);
-    }
+            // Calculate how much more gas to issue to offset gas excess.
+            // after each L1 block time, config.gasTarget more gas is issued,
+            // the gas excess will be reduced accordingly.
+            // Note that when lastSyncedBlock is zero, we skip this step
+            // because that means this is the first time calculating the basefee
+            // and the difference between the L1 height would be extremely big,
+            // reverting the initial gas excess value back to 0.
+            uint256 numL1Blocks;
+            if (lastSyncedBlock > 0 && l1BlockId > lastSyncedBlock) {
+                numL1Blocks = l1BlockId - lastSyncedBlock;
+            }
 
-    /// @notice Retrieves the configuration for a specified tier.
-    /// @param tierId ID of the tier.
-    /// @return Tier struct containing the tier's parameters. This
-    /// function will revert if the tier is not supported.
-    function getTier(uint16 tierId)
-        public
-        view
-        virtual
-        override
-        returns (ITierProvider.Tier memory)
-    {
-        return ITierProvider(resolve("tier_provider", false)).getTier(tierId);
-    }
+            if (numL1Blocks > 0) {
+                uint256 issuance = numL1Blocks * config.gasTargetPerL1Block;
+                excess = excess > issuance ? excess - issuance : 1;
+            }
 
-    /// @inheritdoc ITierProvider
-    function getTierIds() public view override returns (uint16[] memory ids) {
-        ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
-        if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
-    }
+            rGasExcess = uint64(excess.min(type(uint64).max));
 
-    /// @inheritdoc ITierProvider
-    function getMinTier(uint256 rand) public view override returns (uint16) {
-        return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
-    }
+            // The base fee per gas used by this block is the spot price at the
+            // bonding curve, regardless the actual amount of gas used by this
+            // block, however, this block's gas used will affect the next
+            // block's base fee.
+            rBasefee = Lib1559Math.basefee(
+                rGasExcess, uint256(config.basefeeAdjustmentQuotient) * config.gasTargetPerL1Block
+            );
+        }
 
-    /// @inheritdoc ITaikoL1
-    function getConfig() public view virtual override returns (TaikoData.Config memory) {
-        // All hard-coded configurations:
-        // - treasury: the actual TaikoL2 address.
-        // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
-        // after 256 L2 blocks)
-        return TaikoData.Config({
-            chainId: 167_008,
-            // Assume the block time is 3s, the protocol will allow ~1 month of
-            // new blocks without any verification.
-            blockMaxProposals: 864_000,
-            blockRingBufferSize: 864_100,
-            // Can be overridden by the tier config.
-            maxBlocksToVerifyPerProposal: 10,
-            blockMaxGasLimit: 15_000_000,
-            // Each go-ethereum transaction has a size limit of 128KB,
-            // and right now txList is still saved in calldata, so we set it
-            // to 120KB.
-            blockMaxTxListBytes: 120_000,
-            blobExpiry: 24 hours,
-            blobAllowedForDA: false,
-            blobReuseEnabled: false,
-            livenessBond: 250e18, // 250 Taiko token
-            // ETH deposit related.
-            ethDepositRingBufferSize: 1024,
-            ethDepositMinCountPerBlock: 8,
-            ethDepositMaxCountPerBlock: 32,
-            ethDepositMinAmount: 1 ether,
-            ethDepositMaxAmount: 10_000 ether,
-            ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
-            blockSyncThreshold: 16
-        });
+        // Always make sure basefee is nonzero, this is required by the node.
+        if (rBasefee == 0) rBasefee = 1;
     }
-
-    function isConfigValid() public view returns (bool) {
-        return LibVerifying.isConfigValid(getConfig());
-    }
-
-    function _verifyBlocks(
-        TaikoData.Config memory config,
-        uint64 maxBlocksToVerify
-    )
-        internal
-        whenProvingNotPaused
-    {
-        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
-    }
-
-    function _authorizePause(address)
-        internal
-        view
-        virtual
-        override
-        onlyFromOwnerOrNamed("chain_pauser")
-    { }
 }
