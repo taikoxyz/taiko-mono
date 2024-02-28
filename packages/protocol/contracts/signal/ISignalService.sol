@@ -25,14 +25,14 @@ pragma solidity 0.8.24;
 interface ISignalService {
     /// @notice Emitted when a remote chain's state root or signal root is
     /// synced locally as a signal.
-    /// @param chainid The remote chainId.
-    /// @param blockid The chain data's corresponding blockId.
+    /// @param chainId The remote chainId.
+    /// @param blockId The chain data's corresponding blockId.
     /// @param kind A value to mark the data type.
     /// @param data The remote data.
     /// @param signal The signal for this chain data.
     event ChainDataSynced(
-        uint64 indexed chainid,
-        uint64 indexed blockid,
+        uint64 indexed chainId,
+        uint64 indexed blockId,
         bytes32 indexed kind,
         bytes32 data,
         bytes32 signal
