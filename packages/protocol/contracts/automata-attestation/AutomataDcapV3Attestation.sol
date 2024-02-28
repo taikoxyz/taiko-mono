@@ -17,9 +17,8 @@ import { BytesUtils } from "./utils/BytesUtils.sol";
 // External Libraries
 import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
-// import "hardhat/console.sol";
-// import "forge-std/src/console.sol";
-
+/// @title AutomataDcapV3Attestation
+/// @custom:security-contact security@taiko.xyz
 contract AutomataDcapV3Attestation is IAttestation {
     using BytesUtils for bytes;
 

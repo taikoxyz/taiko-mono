@@ -23,6 +23,7 @@ import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
+/// @custom:security-contact security@taiko.xyz
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 contract BridgedERC1155 is
     EssentialContract,

@@ -20,6 +20,7 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 /// @title LibAddress
+/// @custom:security-contact security@taiko.xyz
 /// @dev Provides utilities for address-related operations.
 library LibAddress {
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;

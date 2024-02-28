@@ -17,6 +17,8 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import "../../common/EssentialContract.sol";
 
+/// @title TaikoTimelockController
+/// @custom:security-contact security@taiko.xyz
 contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
     uint256[50] private __gap;
 

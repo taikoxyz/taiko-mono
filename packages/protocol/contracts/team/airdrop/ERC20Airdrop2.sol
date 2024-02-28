@@ -19,6 +19,7 @@ import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop2
+/// @custom:security-contact security@taiko.xyz
 /// Contract for managing Taiko token airdrop for eligible users but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
 contract ERC20Airdrop2 is MerkleClaimable {

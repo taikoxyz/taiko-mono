@@ -11,6 +11,7 @@ import "../thirdparty/optimism/rlp/RLPWriter.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
 /// @title LibTrieProof
+/// @custom:security-contact security@taiko.xyz
 library LibTrieProof {
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.

@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "../L1/TaikoData.sol";
 
 /// @title IVerifier Interface
+/// @custom:security-contact security@taiko.xyz
 /// @notice Defines the function that handles proof verification.
 interface IVerifier {
     struct Context {

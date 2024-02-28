@@ -21,6 +21,7 @@ import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "bridge"
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.

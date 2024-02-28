@@ -19,6 +19,7 @@ import "../common/EssentialContract.sol";
 import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
+/// @custom:security-contact security@taiko.xyz
 /// @notice This contract's owner can be a local address or one that lives on another chain and uses
 /// signals for transaction approval.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must

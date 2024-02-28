@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title ITierProvider
+/// @custom:security-contact security@taiko.xyz
 /// @notice Defines interface to return tier configuration.
 interface ITierProvider {
     struct Tier {

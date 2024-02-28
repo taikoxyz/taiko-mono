@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title TaikoData
+/// @custom:security-contact security@taiko.xyz
 /// @notice This library defines various data structures used in the Taiko
 /// protocol.
 library TaikoData {
