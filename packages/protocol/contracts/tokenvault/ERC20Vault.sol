@@ -289,7 +289,7 @@ contract ERC20Vault is BaseVault {
     {
         if (ctoken.chainId == block.chainid) {
             rToken = ctoken.addr;
-            ERC20(rToken).safeTransfer(to, amount);
+            IERC20(rToken).safeTransfer(to, amount);
         } else {
             rToken = _getOrDeployBridgedToken(ctoken);
             IBridgedERC20(rToken).mint(to, amount);
@@ -323,7 +323,7 @@ contract ERC20Vault is BaseVault {
             rBalanceChange = amount;
         } else {
             // If it's a canonical token
-            ERC20 t = ERC20(token);
+            IERC20Metadata meta = IERC20Metadata(token);
             rCtoken = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: token,

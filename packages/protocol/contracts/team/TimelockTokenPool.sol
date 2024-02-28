@@ -168,7 +168,7 @@ contract TimelockTokenPool is EssentialContract {
         rAmountUnlocked = _getAmountUnlocked(rec.grant);
 
         rAmountWithdrawn = rec.amountWithdrawn;
-        rAmountWithdrawn = rAmountUnlocked - rAmountWithdrawn;
+        rAmountToWithdraw = rAmountUnlocked - rAmountWithdrawn;
         rCostToWithdraw = (rAmountUnlocked / 1e18 * rec.grant.costPerToken) - rec.costPaid;
     }
 
