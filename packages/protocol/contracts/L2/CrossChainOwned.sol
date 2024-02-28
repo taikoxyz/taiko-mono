@@ -19,6 +19,7 @@ import "../common/EssentialContract.sol";
 import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
+/// @custom:security-contact security@taiko.xyz
 /// @notice This contract's owner can be a local address or one that lives on another chain and uses
 /// signals for transaction approval.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
@@ -74,11 +75,5 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
             revert XCO_INVALID_OWNER_CHAINID();
         }
         ownerChainId = _ownerChainId;
-    }
-
-    function _checkOwner() internal view virtual override {
-        if (msg.sender != owner() && msg.sender != address(this)) {
-            revert XCO_PERMISSION_DENIED();
-        }
     }
 }

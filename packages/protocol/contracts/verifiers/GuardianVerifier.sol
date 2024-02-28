@@ -19,6 +19,7 @@ import "../L1/TaikoData.sol";
 import "./IVerifier.sol";
 
 /// @title GuardianVerifier
+/// @custom:security-contact security@taiko.xyz
 contract GuardianVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
