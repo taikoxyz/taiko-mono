@@ -10,7 +10,7 @@ contract AuthorizeTaikoForMultihop is DeployCapability {
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
     address public timelockAddress = vm.envAddress("TIMELOCK_ADDRESS");
     // TaikoL1 and TaikoL2 contracts
-    address[] public taikoContracts = vm.envAddress("TAIKO_CONTRACTS", ",");
+    address[] public taikoContracts = vm.envAddress("TAIKO_CONTRACTS", ","); 
 
     function run() external {
         require(taikoContracts.length != 0, "invalid taiko contracts");
