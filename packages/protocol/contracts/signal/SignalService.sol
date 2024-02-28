@@ -189,14 +189,14 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         view
-        returns (uint64 blockId_, bytes32 _chainData)
+        returns (uint64 blockId_, bytes32 chainData_)
     {
         blockId_ = _blockId != 0 ? _blockId : topBlockId[_chainId][_kind];
 
         if (blockId_ != 0) {
             bytes32 signal = signalForChainData(_chainId, _kind, blockId_);
-            _chainData = _loadSignalValue(address(this), signal);
-            if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
+            chainData_ = _loadSignalValue(address(this), signal);
+            if (chainData_ == 0) revert SS_SIGNAL_NOT_FOUND();
         }
     }
 
