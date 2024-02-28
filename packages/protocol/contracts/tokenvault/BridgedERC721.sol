@@ -20,6 +20,7 @@ import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
+/// @custom:security-contact security@taiko.xyz
 /// @notice Contract for bridging ERC721 tokens across different chains.
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken; // Address of the source token contract.
@@ -30,13 +31,15 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_BURN();
 
-    /// @dev Initializer function to be called after deployment.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -48,8 +51,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-
-        __Essential_init(_addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC721_init(_name, _symbol);
 
         srcToken = _srcToken;
@@ -103,14 +105,21 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
-    /// @return Source token address and source chain ID.
+    /// @return address The source token's address.
+    /// @return uint256 The source token's chain ID.
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     /// @notice Returns the token URI.
-    function tokenURI(uint256) public view virtual override returns (string memory) {
-        return LibBridgedToken.buildURI(srcToken, srcChainId);
+    /// @param tokenId The token id.
+    /// @return string The token uri following eip-681.
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        return string(
+            abi.encodePacked(
+                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(tokenId)
+            )
+        );
     }
 
     function _beforeTokenTransfer(

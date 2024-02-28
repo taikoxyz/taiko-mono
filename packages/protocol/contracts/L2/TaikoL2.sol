@@ -25,6 +25,7 @@ import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
 /// @title TaikoL2
+/// @custom:security-contact security@taiko.xyz
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
@@ -53,7 +54,7 @@ contract TaikoL2 is CrossChainOwned {
     uint64 public gasExcess; // slot 3
     uint64 public lastSyncedBlock;
 
-    uint256[147] private __gap;
+    uint256[47] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -64,11 +65,13 @@ contract TaikoL2 is CrossChainOwned {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    /// @notice Initializes the TaikoL2 contract.
-    /// @param _addressManager Address of the AddressManager contract.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _gasExcess The initial gasExcess.
     function init(
+        address _owner,
         address _addressManager,
         uint64 _l1ChainId,
         uint64 _gasExcess
@@ -76,7 +79,7 @@ contract TaikoL2 is CrossChainOwned {
         external
         initializer
     {
-        __CrossChainOwned_init(_addressManager, _l1ChainId);
+        __CrossChainOwned_init(_owner, _addressManager, _l1ChainId);
 
         if (block.chainid <= 1 || block.chainid > type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
@@ -157,6 +160,8 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Withdraw token or Ether from this address
+    /// @param token Token address or address(0) if Ether.
+    /// @param to Withdraw to address.
     function withdraw(
         address token,
         address to
@@ -201,6 +206,7 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Returns EIP1559 related configurations
+    /// @return config struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
         // is 3s, and each block is full (gasUsed is 15_000_000), then its

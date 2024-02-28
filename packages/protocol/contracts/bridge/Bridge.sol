@@ -14,16 +14,20 @@
 
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
+import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "bridge"
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
+    using Address for address;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -54,17 +58,17 @@ contract Bridge is EssentialContract, IBridge {
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
-    mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
-    Context private _ctx; // slot 4,5,6
-    mapping(address => bool) public addressBanned; // slot 7
-    mapping(bytes32 msgHash => ProofReceipt) public proofReceipt; // slot 8
-    uint256[42] private __gap;
+    mapping(bytes32 msgHash => Status status) public messageStatus; // slot 2
+    Context private _ctx; // slot 3,4,5
+    mapping(address addr => bool banned) public addressBanned; // slot 6
+    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
+    uint256[43] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
+    event MessageRetried(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event MessageSuspended(bytes32 msgHash, bool suspended);
     event AddressBanned(address indexed addr, bool banned);
@@ -91,12 +95,15 @@ contract Bridge is EssentialContract, IBridge {
     receive() external payable { }
 
     /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
+    /// @param msgHashes The array of msgHashes to be suspended.
+    /// @param toSuspend True if suspend, false if unsuspend.
     function suspendMessages(
         bytes32[] calldata msgHashes,
         bool toSuspend
@@ -114,6 +121,8 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
+    /// @param addr The addreess to ban or unban.
+    /// @param toBan True if ban, false if unban.
     function banAddress(
         address addr,
         bool toBan
@@ -375,6 +384,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
         }
+        emit MessageRetried(msgHash);
     }
 
     /// @notice Checks if the message was sent.
@@ -463,27 +473,41 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        // Only on the base layer (L1) should the returned values be non-zero.
-        // if (
-        //     block.chainid == 1 // Ethereum mainnet
-        //         || block.chainid == 2 // Ropsten
-        //         || block.chainid == 4 // Rinkeby
-        //         || block.chainid == 5 // Goerli
-        //         || block.chainid == 42 // Kovan
-        //         || block.chainid == 11_155_111 // Sepolia
-        // ) {
-        //     return (6 hours, 15 minutes);
-        // }
-
-        return (0, 0);
+        if (
+            block.chainid == 1 // Ethereum mainnet
+        ) {
+            // For Taiko mainnet
+            // 384 seconds = 6.4 minutes = one ethereum epoch
+            return (1 hours, 384 seconds);
+        } else if (
+            block.chainid == 2 // Ropsten
+                || block.chainid == 4 // Rinkeby
+                || block.chainid == 5 // Goerli
+                || block.chainid == 42 // Kovan
+                || block.chainid == 17_000 // Holesky
+                || block.chainid == 11_155_111 // Sepolia
+        ) {
+            // For all Taiko public testnets
+            return (30 minutes, 384 seconds);
+        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
+            // For all Taiko internal devnets
+            return (5 minutes, 384 seconds);
+        } else {
+            // This is a Taiko L2 chain where no deleys are applied.
+            return (0, 0);
+        }
     }
 
     /// @notice Hash the message
+    /// @param message The message struct variable to be hashed.
+    /// @return bytes32 The hashed message.
     function hashMessage(Message memory message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
 
     /// @notice Returns a signal representing a failed/recalled message.
+    /// @param msgHash The message hash.
+    /// @return bytes32 The failed representation of it as bytes32.
     function signalForFailedMessage(bytes32 msgHash) public pure returns (bytes32) {
         return msgHash ^ bytes32(uint256(Status.FAILED));
     }
@@ -518,8 +542,21 @@ contract Bridge is EssentialContract, IBridge {
 
         _storeContext({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
 
-        // Perform the message call and capture the success value
-        (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        if (
+            message.data.length >= 4 // msg can be empty
+                && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
+                && message.to.isContract()
+        ) {
+            success = false;
+        } else {
+            (success,) = ExcessivelySafeCall.excessivelySafeCall(
+                message.to,
+                gasLimit,
+                message.value,
+                64, // return max 64 bytes
+                message.data
+            );
+        }
 
         // Reset the context after the message call
         _resetContext();

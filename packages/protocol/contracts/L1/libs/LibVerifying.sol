@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/AddressResolver.sol";
+import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
@@ -24,6 +24,7 @@ import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block verification in the Taiko protocol.
 library LibVerifying {
     using LibMath for uint256;
@@ -81,9 +82,9 @@ library LibVerifying {
         });
     }
 
-    function isConfigValid(TaikoData.Config memory config) public pure returns (bool isValid) {
+    function isConfigValid(TaikoData.Config memory config) public view returns (bool isValid) {
         if (
-            config.chainId <= 1 //
+            config.chainId <= 1 || config.chainId == block.chainid //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
@@ -108,7 +109,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         uint64 maxBlocksToVerify
     )
         internal
@@ -172,7 +173,7 @@ library LibVerifying {
                         tierProvider = resolver.resolve("tier_provider", false);
                     }
                     if (
-                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow)
+                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
                             + uint256(ts.timestamp).max(state.slotB.lastUnpausedAt) > block.timestamp
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
@@ -246,7 +247,7 @@ library LibVerifying {
 
     function _syncChainData(
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        IAddressResolver resolver,
         uint64 lastVerifiedBlockId,
         bytes32 stateRoot
     )

@@ -15,12 +15,20 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
-import "../libs/LibAddress.sol";
-import "../libs/LibDeploy.sol";
 
-abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgradeable {
+/// @title BaseVault
+/// @custom:security-contact security@taiko.xyz
+abstract contract BaseVault is
+    EssentialContract,
+    IRecallableSender,
+    IMessageInvocable,
+    IERC165Upgradeable
+{
+    uint256[50] private __gap;
+
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {
@@ -29,11 +37,12 @@ abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgr
         }
         _;
     }
-    /// @notice Initializes the contract with the address manager.
-    /// @param addressManager Address manager contract address.
 
-    function init(address addressManager) external initializer {
-        __Essential_init(addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @notice Checks if the contract supports the given interface.

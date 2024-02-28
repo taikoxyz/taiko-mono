@@ -18,9 +18,11 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-
+import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 /// @title LibAddress
+/// @custom:security-contact security@taiko.xyz
 /// @dev Provides utilities for address-related operations.
+
 library LibAddress {
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
@@ -31,14 +33,17 @@ library LibAddress {
     /// @param amount The amount of Ether to send in wei.
     /// @param gasLimit The max amount gas to pay for this transaction.
     function sendEther(address to, uint256 amount, uint256 gasLimit) internal {
-        // Check for zero-value or zero-address transactions
+        // Check for zero-address transactions
         if (to == address(0)) revert ETH_TRANSFER_FAILED();
 
         // Attempt to send Ether to the recipient address
-        // WARNING: call() functions do not have an upper gas cost limit, so
-        // it's important to note that it may not reliably execute as expected
-        // when invoked with untrusted addresses.
-        (bool success,) = payable(to).call{ value: amount, gas: gasLimit }("");
+        (bool success,) = ExcessivelySafeCall.excessivelySafeCall(
+            to,
+            gasLimit,
+            amount,
+            64, // return max 64 bytes
+            ""
+        );
 
         // Ensure the transfer was successful
         if (!success) revert ETH_TRANSFER_FAILED();

@@ -5,8 +5,9 @@ pragma solidity 0.8.24;
 // Inspired by ensdomains/solsha1 - BSD 2-Clause License
 // https://github.com/ensdomains/solsha1/blob/master/contracts/SHA1.sol
 
+/// @title SHA1
+/// @custom:security-contact security@taiko.xyz
 library SHA1 {
-
     function sha1(bytes memory data) internal pure returns (bytes20 ret) {
         assembly {
             // Get a safe scratch location

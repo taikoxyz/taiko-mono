@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -25,7 +25,9 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
+        with:
+          version: nightly-85b4872377bf85c3180e49956a82fded49daff10
+          
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 

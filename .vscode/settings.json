@@ -8,7 +8,7 @@
   },
   "solidity.formatter": "forge",
   "i18n-ally.localesPaths": [
-    "packages/bridge-ui-v2/src/i18n",
+    "packages/bridge-ui/src/i18n",
     "packages/guardian-prover-health-check-ui/src/i18n"
   ],
   "i18n-ally.keystyle": "nested",

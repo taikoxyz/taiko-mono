@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.24;
 
-import { RLPReader } from "../thirdparty/optimism/rlp/RLPReader.sol";
-import { SecureMerkleTrie } from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import "../thirdparty/optimism/rlp/RLPReader.sol";
+import "../thirdparty/optimism/rlp/RLPWriter.sol";
+import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
-/**
- * @title LibTrieProof
- */
+/// @title LibTrieProof
+/// @custom:security-contact security@taiko.xyz
 library LibTrieProof {
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
@@ -35,7 +35,7 @@ library LibTrieProof {
         bytes32 rootHash,
         address addr,
         bytes32 slot,
-        bytes memory value,
+        bytes32 value,
         bytes[] memory accountProof,
         bytes[] memory storageProof
     )
@@ -58,7 +58,7 @@ library LibTrieProof {
         }
 
         bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), value, storageProof, bytes32(storageRoot)
+            bytes.concat(slot), RLPWriter.writeUint(uint256(value)), storageProof, storageRoot
         );
 
         if (!verified) revert LTP_INVALID_INCLUSION_PROOF();

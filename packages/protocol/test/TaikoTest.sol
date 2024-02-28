@@ -7,7 +7,7 @@ import "forge-std/src/console2.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "../contracts/thirdparty/LibFixedPointMath.sol";
+import "../contracts/thirdparty/solmate/LibFixedPointMath.sol";
 
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
@@ -22,9 +22,7 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/GuardianVerifier.sol";
-import "../contracts/verifiers/PseZkVerifier.sol";
-import "../contracts/verifiers/SgxAndZkVerifier.sol";
-import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/tiers/TestnetTierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
@@ -37,6 +35,7 @@ import "../contracts/L2/TaikoL2.sol";
 import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
 import "../contracts/team/airdrop/ERC20Airdrop2.sol";
+import "../contracts/team/airdrop/ERC721Airdrop.sol";
 
 import "../test/common/erc20/FreeMintERC20.sol";
 

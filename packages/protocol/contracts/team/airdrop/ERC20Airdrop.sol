@@ -19,6 +19,7 @@ import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
+/// @custom:security-contact security@taiko.xyz
 /// Contract for managing Taiko token airdrop for eligible users
 contract ERC20Airdrop is MerkleClaimable {
     address public token;
@@ -26,6 +27,7 @@ contract ERC20Airdrop is MerkleClaimable {
     uint256[48] private __gap;
 
     function init(
+        address _owner,
         uint64 _claimStart,
         uint64 _claimEnd,
         bytes32 _merkleRoot,
@@ -35,7 +37,7 @@ contract ERC20Airdrop is MerkleClaimable {
         external
         initializer
     {
-        __Essential_init();
+        __Essential_init(_owner);
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;

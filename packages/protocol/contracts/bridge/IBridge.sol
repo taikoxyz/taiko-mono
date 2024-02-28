@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title IBridge
+/// @custom:security-contact security@taiko.xyz
 /// @notice The bridge used in conjunction with the {ISignalService}.
 /// @dev Ether is held by Bridges on L1 and L2s.
 interface IBridge {
@@ -79,4 +80,13 @@ interface IRecallableSender {
     )
         external
         payable;
+}
+
+/// @title IMessageInvocable
+/// @notice An interface that all bridge message receiver shall implement
+interface IMessageInvocable {
+    /// @notice Called when this contract is the bridge target.
+    /// @param data The data for this contract to interpret.
+    /// @dev This method should be guarded with `onlyFromNamed("bridge")`.
+    function onMessageInvocation(bytes calldata data) external payable;
 }

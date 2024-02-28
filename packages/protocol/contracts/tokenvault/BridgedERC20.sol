@@ -22,6 +22,7 @@ import "./LibBridgedToken.sol";
 import "./BridgedERC20Base.sol";
 
 /// @title BridgedERC20
+/// @custom:security-contact security@taiko.xyz
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 contract BridgedERC20 is
@@ -46,17 +47,17 @@ contract BridgedERC20 is
         }
         _;
     }
+
     /// @notice Initializes the contract.
-    /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
-    /// (e.g., one for USDC, one for USDT, etc.).
-    /// @param _addressManager The address manager.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken The source token address.
     /// @param _srcChainId The source chain ID.
     /// @param _decimals The number of decimal places of the source token.
     /// @param _symbol The symbol of the token.
     /// @param _name The name of the token.
-
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -69,9 +70,7 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-
-        // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
-        __Essential_init(_addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC20_init({ name_: _name, symbol_: _symbol });
         __ERC20Snapshot_init();
         __ERC20Votes_init();
@@ -84,6 +83,7 @@ contract BridgedERC20 is
     }
 
     /// @notice Set the snapshoter address.
+    /// @param _snapshooter snapshooter address.
     function setSnapshoter(address _snapshooter) external onlyOwner {
         snapshooter = _snapshooter;
     }
@@ -127,7 +127,8 @@ contract BridgedERC20 is
     }
 
     /// @notice Gets the canonical token's address and chain ID.
-    /// @return The canonical token's address and chain ID.
+    /// @return address The canonical token's address.
+    /// @return uint256 The canonical token's chain ID.
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
