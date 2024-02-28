@@ -56,14 +56,14 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 	}
 
 	if destChainParam == "" {
-		destChainID, err = srv.srcEthClient.ChainID(c.Request().Context())
+		destChainID, err = srv.destEthClient.ChainID(c.Request().Context())
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 	} else {
 		destChain, ok := new(big.Int).SetString(destChainParam, 10)
 		if !ok {
-			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid src chain param"))
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid dest chain param"))
 		}
 
 		destChainID = destChain
