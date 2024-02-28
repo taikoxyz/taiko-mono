@@ -1,6 +1,8 @@
 package http
 
 import (
+	"errors"
+	"math/big"
 	"net/http"
 
 	"github.com/cyberhorsey/webutils"
@@ -29,14 +31,42 @@ type getBlockInfoResponse struct {
 //			@Success		200	{object} getBlockInfoResponse
 //			@Router			/blockInfo [get]
 func (srv *Server) GetBlockInfo(c echo.Context) error {
-	srcChainID, err := srv.srcEthClient.ChainID(c.Request().Context())
-	if err != nil {
-		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+	var srcChainID *big.Int
+
+	var destChainID *big.Int
+
+	var err error
+
+	srcChainParam := c.QueryParam("srcChainID")
+
+	destChainParam := c.QueryParam("destChainID")
+
+	if srcChainParam == "" {
+		srcChainID, err = srv.srcEthClient.ChainID(c.Request().Context())
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+	} else {
+		srcChain, ok := new(big.Int).SetString(srcChainParam, 10)
+		if !ok {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid src chain param"))
+		}
+
+		srcChainID = srcChain
 	}
 
-	destChainID, err := srv.destEthClient.ChainID(c.Request().Context())
-	if err != nil {
-		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+	if destChainParam == "" {
+		destChainID, err = srv.srcEthClient.ChainID(c.Request().Context())
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+	} else {
+		destChain, ok := new(big.Int).SetString(destChainParam, 10)
+		if !ok {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid src chain param"))
+		}
+
+		destChainID = destChain
 	}
 
 	latestSrcBlock, err := srv.srcEthClient.BlockNumber(c.Request().Context())

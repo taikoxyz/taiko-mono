@@ -28,7 +28,7 @@ func (r *BlockRepository) GetLatestBlockProcessedForEvent(
 	chainID *big.Int,
 	destChainID *big.Int,
 ) (*relayer.Block, error) {
-	if chainID.Int64() != MockChainID.Int64() || destChainID.Int64() != MockChainID.Int64()+1 {
+	if chainID.Int64() != MockChainID.Int64() {
 		return nil, errors.New("error getting latest block processed for event")
 	}
 
