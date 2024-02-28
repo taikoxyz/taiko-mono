@@ -123,43 +123,10 @@ func (p *Processor) processMessage(
 		}
 	}
 
-	var tx *types.Transaction
+	receipt, err := p.sendProcessMessageAndWaitForReceipt(ctx, encodedSignalProof, msgBody)
 
-	sendTx := func() error {
-		if ctx.Err() != nil {
-			return nil
-		}
-
-		tx, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	if err := backoff.Retry(sendTx, backoff.WithMaxRetries(
-		backoff.NewConstantBackOff(p.backOffRetryInterval),
-		p.backOffMaxRetries),
-	); err != nil {
-		return err
-	}
-
-	relayer.EventsProcessed.Inc()
-
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
-
-	defer cancel()
-
-	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
-		return errors.Wrap(err, "relayer.WaitReceipt")
-	}
-
-	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
-
-	if err := p.saveMessageStatusChangedEvent(ctx, receipt, msgBody.Event); err != nil {
-		return errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
+		return errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 	}
 
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
@@ -173,7 +140,6 @@ func (p *Processor) processMessage(
 		// and we have to wait for the invocation delay.
 		if topic == bridgeAbi.Events["MessageReceived"].ID {
 			slog.Info("message processing resulted in MessageReceived event",
-				"txHash", tx.Hash(),
 				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
 			)
 
@@ -188,9 +154,13 @@ func (p *Processor) processMessage(
 			if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
 				return errors.Wrap(err, "p.waitForInvocationDelay")
 			}
+
+			if _, err := p.sendProcessMessageAndWaitForReceipt(ctx, nil, msgBody); err != nil {
+				return errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
+			}
+
 		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
-			slog.Info("message processing resulted in MessageExecuted event. processing finished",
-				"txHash", tx.Hash())
+			slog.Info("message processing resulted in MessageExecuted event. processing finished")
 		}
 	}
 
@@ -203,7 +173,6 @@ func (p *Processor) processMessage(
 		"updating message status",
 		"status", relayer.EventStatus(messageStatus).String(),
 		"occuredtxHash", msgBody.Event.Raw.TxHash.Hex(),
-		"processedTxHash", hex.EncodeToString(tx.Hash().Bytes()),
 	)
 
 	if messageStatus == uint8(relayer.EventStatusRetriable) {
@@ -222,6 +191,55 @@ func (p *Processor) processMessage(
 	}
 
 	return nil
+}
+
+func (p *Processor) sendProcessMessageAndWaitForReceipt(
+	ctx context.Context,
+	encodedSignalProof []byte,
+	msgBody *queue.QueueMessageSentBody,
+) (*types.Receipt, error) {
+	var tx *types.Transaction
+
+	var err error
+
+	sendTx := func() error {
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		tx, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if err := backoff.Retry(sendTx, backoff.WithMaxRetries(
+		backoff.NewConstantBackOff(p.backOffRetryInterval),
+		p.backOffMaxRetries),
+	); err != nil {
+		return nil, err
+	}
+
+	relayer.EventsProcessed.Inc()
+
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+
+	defer cancel()
+
+	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
+	if err != nil {
+		return nil, errors.Wrap(err, "relayer.WaitReceipt")
+	}
+
+	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
+
+	if err := p.saveMessageStatusChangedEvent(ctx, receipt, msgBody.Event); err != nil {
+		return nil, errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
+	}
+
+	return receipt, nil
 }
 
 func (p *Processor) waitForInvocationDelay(
