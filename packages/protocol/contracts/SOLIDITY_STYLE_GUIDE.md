@@ -2,6 +2,13 @@
 
 This document is a work in progress.
 
+## Scope
+
+All solidity files shall follow the style guide in this document except files in:
+
+- automata-attestation/
+- thirdparty/
+
 ## Naming Conventions
 
 - All function parameters start with a leading underscore (`_`);
