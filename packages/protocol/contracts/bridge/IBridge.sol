@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title IBridge
+/// @custom:security-contact security@taiko.xyz
 /// @notice The bridge used in conjunction with the {ISignalService}.
 /// @dev Ether is held by Bridges on L1 and L2s.
 interface IBridge {

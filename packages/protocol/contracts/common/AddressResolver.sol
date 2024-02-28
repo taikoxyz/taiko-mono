@@ -19,6 +19,7 @@ import "./IAddressManager.sol";
 import "./IAddressResolver.sol";
 
 /// @title AddressResolver
+/// @custom:security-contact security@taiko.xyz
 /// @notice This contract acts as a bridge for name-to-address resolution.
 /// It delegates the resolution to the AddressManager. By separating the logic,
 /// we can maintain flexibility in address management without affecting the

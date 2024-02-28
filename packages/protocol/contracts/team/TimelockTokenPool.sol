@@ -20,6 +20,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
+/// @custom:security-contact security@taiko.xyz
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
 ///
@@ -74,7 +75,7 @@ contract TimelockTokenPool is EssentialContract {
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
     uint128 public totalCostPaid;
-    mapping(address recipient => Recipient) public recipients;
+    mapping(address recipient => Recipient receipt) public recipients;
     uint128[44] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
@@ -85,7 +86,6 @@ contract TimelockTokenPool is EssentialContract {
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
-    error NOTHING_TO_WITHDRAW();
 
     function init(
         address _owner,
@@ -107,11 +107,10 @@ contract TimelockTokenPool is EssentialContract {
         sharedVault = _sharedVault;
     }
 
-    /// @notice Gives a new grant to a address with its own unlock schedule.
+    /// @notice Gives a grant to a address with its own unlock schedule.
     /// This transaction should happen on a regular basis, e.g., quarterly.
-    /// @dev It is strongly recommended to add one Grant per receipient address
-    /// so that such a grant can be voided without voiding other grants for the
-    /// same recipient.
+    /// @param recipient The grant recipient address.
+    /// @param g The grant struct.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
         if (recipients[recipient].grant.amount != 0) revert ALREADY_GRANTED();
@@ -126,6 +125,7 @@ contract TimelockTokenPool is EssentialContract {
     /// @notice Puts a stop to all grants for a given recipient.Tokens already
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
+    /// @param recipient The grant recipient address.
     function void(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
         uint128 amountVoided = _voidGrant(r.grant);
@@ -142,6 +142,8 @@ contract TimelockTokenPool is EssentialContract {
     }
 
     /// @notice Withdraws all withdrawable tokens.
+    /// @param to The address where the granted and unlocked tokens shall be sent to.
+    /// @param sig Signature provided by the grant recipient.
     function withdraw(address to, bytes memory sig) external {
         if (to == address(0)) revert INVALID_PARAM();
         bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", to));
