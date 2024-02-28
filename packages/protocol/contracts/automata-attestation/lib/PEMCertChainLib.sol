@@ -166,6 +166,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
             uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
             sigPtr = der.nextSiblingOf(sigPtr);
 
+            // Skip three bytes to the right
             // the three bytes in question: 0x034700 or 0x034800 or 0x034900
             sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
 
