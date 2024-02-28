@@ -26,10 +26,10 @@ contract ERC20Airdrop2 is MerkleClaimable {
 
     address public token;
     address public vault;
-    // Represents the token amount for which the user is (by default) eligible
-    mapping(address => uint256) public claimedAmount;
+    // Represents the token amount for which the user has claimed
+    mapping(address addr => uint256 amountClaimed) public claimedAmount;
     // Represents the already withdrawn amount
-    mapping(address => uint256) public withdrawnAmount;
+    mapping(address addr => uint256 amountWithdrawn) public withdrawnAmount;
     // Length of the withdrawal window
     uint64 public withdrawalWindow;
 

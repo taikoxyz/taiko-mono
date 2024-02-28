@@ -20,7 +20,7 @@ import "../../common/EssentialContract.sol";
 /// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
 abstract contract MerkleClaimable is EssentialContract {
-    mapping(bytes32 => bool) public isClaimed;
+    mapping(bytes32 hash => bool claimed) public isClaimed;
     bytes32 public merkleRoot;
     uint64 public claimStart;
     uint64 public claimEnd;
