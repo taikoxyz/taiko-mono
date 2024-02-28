@@ -59,7 +59,7 @@ contract Bridge is EssentialContract, IBridge {
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => Status status) public messageStatus; // slot 2
-    Context private _ctx; // slot 3,4,5
+    Context private __ctx; // slot 3,4,5
     mapping(address addr => bool banned) public addressBanned; // slot 6
     mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
     uint256[43] private __gap;
@@ -454,9 +454,9 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
-    function context() public view returns (Context memory ctx) {
-        ctx = _loadContext();
-        if (ctx.msgHash == 0 || ctx.msgHash == bytes32(PLACEHOLDER)) {
+    function context() public view returns (Context memory ctx_) {
+        ctx_ = _loadContext();
+        if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(PLACEHOLDER)) {
             revert B_INVALID_CONTEXT();
         }
     }
@@ -599,7 +599,7 @@ contract Bridge is EssentialContract, IBridge {
                 tstore(add(_CTX_SLOT, 2), _srcChainId)
             }
         } else {
-            _ctx = Context({ msgHash: _msgHash, from: _from, srcChainId: _srcChainId });
+            __ctx = Context({ msgHash: _msgHash, from: _from, srcChainId: _srcChainId });
         }
     }
 
@@ -616,7 +616,7 @@ contract Bridge is EssentialContract, IBridge {
             }
             return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
         } else {
-            return _ctx;
+            return __ctx;
         }
     }
 

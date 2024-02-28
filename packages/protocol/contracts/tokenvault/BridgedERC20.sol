@@ -32,7 +32,7 @@ contract BridgedERC20 is
     ERC20VotesUpgradeable
 {
     address public srcToken; // slot 1
-    uint8 private srcDecimals;
+    uint8 private __srcDecimals;
     uint256 public srcChainId; // slot 2
     address public snapshooter; // slot 3
 
@@ -79,7 +79,7 @@ contract BridgedERC20 is
         // Set contract properties
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        srcDecimals = _decimals;
+        __srcDecimals = _decimals;
     }
 
     /// @notice Set the snapshoter address.
@@ -123,7 +123,7 @@ contract BridgedERC20 is
         override(ERC20Upgradeable, IERC20MetadataUpgradeable)
         returns (uint8)
     {
-        return srcDecimals;
+        return __srcDecimals;
     }
 
     /// @notice Gets the canonical token's address and chain ID.

@@ -21,7 +21,7 @@ import "./EssentialContract.sol";
 /// @custom:security-contact security@taiko.xyz
 /// @notice Manages a mapping of chainId-name pairs to Ethereum addresses.
 contract AddressManager is EssentialContract, IAddressManager {
-    mapping(uint256 chainId => mapping(bytes32 name => address addr)) private addresses;
+    mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
     uint256[49] private __gap;
 
     event AddressSet(
@@ -50,15 +50,15 @@ contract AddressManager is EssentialContract, IAddressManager {
         virtual
         onlyOwner
     {
-        address oldAddress = addresses[_chainId][_name];
+        address oldAddress = __addresses[_chainId][_name];
         if (_newAddress == oldAddress) revert AM_INVALID_PARAMS();
-        addresses[_chainId][_name] = _newAddress;
+        __addresses[_chainId][_name] = _newAddress;
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }
 
     /// @inheritdoc IAddressManager
     function getAddress(uint64 _chainId, bytes32 _name) public view override returns (address) {
-        return addresses[_chainId][_name];
+        return __addresses[_chainId][_name];
     }
 
     function _authorizePause(address) internal pure override {

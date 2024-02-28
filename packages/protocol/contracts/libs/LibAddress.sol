@@ -24,7 +24,7 @@ import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 /// @dev Provides utilities for address-related operations.
 
 library LibAddress {
-    bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
+    bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
     error ETH_TRANSFER_FAILED();
 
@@ -81,7 +81,7 @@ library LibAddress {
         returns (bool)
     {
         if (Address.isContract(_addr)) {
-            return IERC1271(_addr).isValidSignature(_hash, _sig) == EIP1271_MAGICVALUE;
+            return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
         } else {
             return ECDSA.recover(_hash, _sig) == _addr;
         }

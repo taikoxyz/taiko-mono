@@ -67,8 +67,8 @@ interface IBridge {
         returns (bytes32 msgHash_, Message memory message_);
 
     /// @notice Returns the bridge state context.
-    /// @return context_ The context of the current bridge operation.
-    function context() external view returns (Context memory context_);
+    /// @return ctx_ The context of the current bridge operation.
+    function context() external view returns (Context memory ctx_);
 }
 
 /// @title IRecallableSender

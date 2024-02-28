@@ -15,7 +15,7 @@ import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 library LibTrieProof {
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
-    uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
+    uint256 private constant _ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     error LTP_INVALID_ACCOUNT_PROOF();
     error LTP_INVALID_INCLUSION_PROOF();
@@ -52,7 +52,7 @@ library LibTrieProof {
             RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
             storageRoot_ =
-                bytes32(RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
+                bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
         } else {
             storageRoot_ = _rootHash;
         }

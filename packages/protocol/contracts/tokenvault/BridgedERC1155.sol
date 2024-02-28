@@ -27,8 +27,8 @@ import "./LibBridgedToken.sol";
 contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
-    string private symbol_; // Symbol of the bridged token.
-    string private name_; // Name of the bridged token.
+    string private __symbol; // Symbol of the bridged token.
+    string private __name; // Name of the bridged token.
 
     uint256[46] private __gap;
 
@@ -61,8 +61,8 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
 
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        symbol_ = _symbol;
-        name_ = _name;
+        __symbol = _symbol;
+        __name = _name;
     }
 
     /// @dev Mints tokens.
@@ -119,13 +119,13 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
     /// @notice Gets the name of the bridged token.
     /// @return The name.
     function name() public view returns (string memory) {
-        return LibBridgedToken.buildName(name_, srcChainId);
+        return LibBridgedToken.buildName(__name, srcChainId);
     }
 
     /// @notice Gets the symbol of the bridged token.
     /// @return The symbol.
     function symbol() public view returns (string memory) {
-        return LibBridgedToken.buildSymbol(symbol_);
+        return LibBridgedToken.buildSymbol(__symbol);
     }
 
     function _beforeTokenTransfer(

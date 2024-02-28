@@ -29,8 +29,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     bytes32 private constant _REENTRY_SLOT =
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721a;
 
-    uint8 private _reentry; // slot 1
-    uint8 private _paused;
+    uint8 private __reentry; // slot 1
+    uint8 private __paused;
     uint256[49] private __gap;
 
     event Paused(address account);
@@ -70,19 +70,19 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     function pause() public virtual whenNotPaused {
-        _paused = _TRUE;
+        __paused = _TRUE;
         emit Paused(msg.sender);
         _authorizePause(msg.sender);
     }
 
     function unpause() public virtual whenPaused {
-        _paused = _FALSE;
+        __paused = _FALSE;
         emit Unpaused(msg.sender);
         _authorizePause(msg.sender);
     }
 
     function paused() public view returns (bool) {
-        return _paused == _TRUE;
+        return __paused == _TRUE;
     }
 
     /// @notice Initializes the contract.
@@ -106,20 +106,20 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _owner) internal virtual {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
-        _paused = _FALSE;
+        __paused = _FALSE;
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
     function _authorizePause(address) internal virtual onlyOwner { }
 
     // Stores the reentry lock
-    function _storeReentryLock(uint8 reentry) internal virtual {
+    function _storeReentryLock(uint8 _reentry) internal virtual {
         if (block.chainid == 1) {
             assembly {
-                tstore(_REENTRY_SLOT, reentry)
+                tstore(_REENTRY_SLOT, _reentry)
             }
         } else {
-            _reentry = reentry;
+            __reentry = _reentry;
         }
     }
 
@@ -130,7 +130,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
                 reentry_ := tload(_REENTRY_SLOT)
             }
         } else {
-            reentry_ = _reentry;
+            reentry_ = __reentry;
         }
     }
 
