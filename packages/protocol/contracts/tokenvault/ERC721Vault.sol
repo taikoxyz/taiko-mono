@@ -206,7 +206,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                     BridgedERC721(op.token).burn(user, op.tokenIds[i]);
                 }
             } else {
-                IERC721 t = IERC721(op.token);
+                ERC721Upgradeable t = ERC721Upgradeable(op.token);
 
                 ctoken = CanonicalNFT({
                     chainId: uint64(block.chainid),
