@@ -17,9 +17,8 @@ import { BytesUtils } from "./utils/BytesUtils.sol";
 // External Libraries
 import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
-// import "hardhat/console.sol";
-// import "forge-std/src/console.sol";
-
+/// @title AutomataDcapV3Attestation
+/// @custom:security-contact security@taiko.xyz
 contract AutomataDcapV3Attestation is IAttestation {
     using BytesUtils for bytes;
 
@@ -499,6 +498,9 @@ contract AutomataDcapV3Attestation is IAttestation {
     /// @dev For all valid quote verification, returns the following data:
     /// (_attestationTcbIsValid())
     /// @dev exitCode is defined in the {{ TCBInfoStruct.TCBStatus }} enum
+    /// @param v3quote The quote to be verified.
+    /// @return success True if successful verification, false otherwise.
+    /// @return exitStep The stage where the code exited.
     function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata v3quote)
         external
         view

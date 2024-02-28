@@ -7,6 +7,8 @@ import { BytesUtils } from "../utils/BytesUtils.sol";
 import { X509DateUtils } from "../utils/X509DateUtils.sol";
 import { IPEMCertChainLib } from "./interfaces/IPEMCertChainLib.sol";
 
+/// @title PEMCertChainLib
+/// @custom:security-contact security@taiko.xyz
 contract PEMCertChainLib is IPEMCertChainLib {
     using Asn1Decode for bytes;
     using NodePtr for uint256;

@@ -4,6 +4,8 @@ pragma solidity 0.8.24;
 import { BytesUtils } from "../../utils/BytesUtils.sol";
 import { V3Struct } from "./V3Struct.sol";
 
+/// @title V3Parser
+/// @custom:security-contact security@taiko.xyz
 library V3Parser {
     using BytesUtils for bytes;
 

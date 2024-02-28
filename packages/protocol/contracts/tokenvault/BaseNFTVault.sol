@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "./BaseVault.sol";
 
 /// @title BaseNFTVault
+/// @custom:security-contact security@taiko.xyz
 /// @notice Abstract contract for bridging NFTs across different chains.
 abstract contract BaseNFTVault is BaseVault {
     // Struct representing the canonical NFT on another chain.
@@ -109,7 +110,6 @@ abstract contract BaseNFTVault is BaseVault {
 
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
-    error VAULT_INVALID_USER();
     error VAULT_INVALID_TO();
     error VAULT_INTERFACE_NOT_SUPPORTED();
     error VAULT_TOKEN_ARRAY_MISMATCH();

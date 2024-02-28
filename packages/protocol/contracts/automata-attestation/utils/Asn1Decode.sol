@@ -7,6 +7,8 @@ pragma solidity 0.8.24;
 
 import "./BytesUtils.sol";
 
+/// @title NodePtr
+/// @custom:security-contact security@taiko.xyz
 library NodePtr {
     // Unpack first byte index
     function ixs(uint256 self) internal pure returns (uint256) {
@@ -31,6 +33,8 @@ library NodePtr {
     }
 }
 
+/// @title Asn1Decode
+/// @custom:security-contact security@taiko.xyz
 library Asn1Decode {
     using NodePtr for uint256;
     using BytesUtils for bytes;

@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title IBridgedERC20
+/// @custom:security-contact security@taiko.xyz
 /// @notice Interface for all bridged tokens.
 /// @dev To facilitate compatibility with third-party bridged tokens, such as USDC's native
 /// standard, it's necessary to implement an intermediary adapter contract which should conform to
@@ -31,8 +32,11 @@ interface IBridgedERC20 {
     function burn(address from, uint256 amount) external;
 
     /// @notice Start or stop migration to/from a specified contract.
+    /// @param addr The address migrating 'to' or 'from'.
+    /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
     function changeMigrationStatus(address addr, bool inbound) external;
 
-    /// @notice Returns the owner
+    /// @notice Returns the owner.
+    /// @return address The address of the owner.
     function owner() external view returns (address);
 }
