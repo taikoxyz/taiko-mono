@@ -1,6 +1,13 @@
 [
   {
     "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "addressManager",
     "inputs": [],
     "outputs": [
@@ -98,6 +105,11 @@
     "name": "init",
     "inputs": [
       {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_addressManager",
         "type": "address",
         "internalType": "address"
@@ -111,14 +123,14 @@
     "name": "isAuthorized",
     "inputs": [
       {
-        "name": "",
+        "name": "addr",
         "type": "address",
         "internalType": "address"
       }
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "authorized",
         "type": "bool",
         "internalType": "bool"
       }
@@ -212,6 +224,19 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -530,7 +555,7 @@
     "name": "ChainDataSynced",
     "inputs": [
       {
-        "name": "chainid",
+        "name": "chainId",
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
@@ -577,6 +602,25 @@
   },
   {
     "type": "event",
+    "name": "OwnershipTransferStarted",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
@@ -603,6 +647,37 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SignalSent",
+    "inputs": [
+      {
+        "name": "app",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "signal",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "slot",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "value",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -727,6 +802,11 @@
   {
     "type": "error",
     "name": "SS_UNSUPPORTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_ADDR_MANAGER",
     "inputs": []
   }
 ]

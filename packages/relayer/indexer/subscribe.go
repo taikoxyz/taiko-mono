@@ -151,7 +151,7 @@ func (i *Indexer) subscribeMessageReceived(
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				slog.Info("new message received event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
+				slog.Info("new messageReceived event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
 				err := i.handleMessageReceivedEvent(ctx, chainID, event, true)
 
 				if err != nil {
@@ -265,7 +265,7 @@ func (i *Indexer) subscribeChainDataSynced(
 		case event := <-sink:
 			slog.Info("new chainDataSynced event",
 				"signal", common.Hash(event.Signal).Hex(),
-				"chainID", event.Chainid,
+				"chainID", event.ChainId,
 				"blockID", event.BlockId,
 				"syncedInBlock", event.Raw.BlockNumber,
 			)

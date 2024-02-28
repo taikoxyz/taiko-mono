@@ -40,6 +40,13 @@
   },
   {
     "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "addressManager",
     "inputs": [],
     "outputs": [
@@ -56,7 +63,7 @@
     "name": "bridgedToCanonical",
     "inputs": [
       {
-        "name": "",
+        "name": "btoken",
         "type": "address",
         "internalType": "address"
       }
@@ -90,19 +97,19 @@
     "name": "canonicalToBridged",
     "inputs": [
       {
-        "name": "",
+        "name": "chainId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "",
+        "name": "ctoken",
         "type": "address",
         "internalType": "address"
       }
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "btoken",
         "type": "address",
         "internalType": "address"
       }
@@ -114,7 +121,12 @@
     "name": "init",
     "inputs": [
       {
-        "name": "addressManager",
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_addressManager",
         "type": "address",
         "internalType": "address"
       }
@@ -168,6 +180,19 @@
       }
     ],
     "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "onMessageInvocation",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -289,6 +314,19 @@
   },
   {
     "type": "function",
+    "name": "pendingOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "proxiableUUID",
     "inputs": [],
     "outputs": [
@@ -299,56 +337,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "receiveToken",
-    "inputs": [
-      {
-        "name": "ctoken",
-        "type": "tuple",
-        "internalType": "struct BaseNFTVault.CanonicalNFT",
-        "components": [
-          {
-            "name": "chainId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "addr",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "symbol",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "name",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      },
-      {
-        "name": "from",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "to",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "tokenIds",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -702,6 +690,25 @@
   },
   {
     "type": "event",
+    "name": "OwnershipTransferStarted",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
@@ -923,11 +930,6 @@
   },
   {
     "type": "error",
-    "name": "NULL_IMPL_ADDR",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "REENTRANT_CALL",
     "inputs": []
   },
@@ -984,11 +986,6 @@
   },
   {
     "type": "error",
-    "name": "VAULT_INVALID_USER",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "VAULT_MAX_TOKEN_PER_TXN_EXCEEDED",
     "inputs": []
   },
@@ -1000,6 +997,11 @@
   {
     "type": "error",
     "name": "VAULT_TOKEN_ARRAY_MISMATCH",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_ADDR_MANAGER",
     "inputs": []
   }
 ]

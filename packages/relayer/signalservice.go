@@ -18,7 +18,7 @@ type SignalService interface {
 	WatchChainDataSynced(
 		opts *bind.WatchOpts,
 		sink chan<- *signalservice.SignalServiceChainDataSynced,
-		chainid []uint64,
+		chainId []uint64,
 		blockId []uint64,
 		kind [][32]byte,
 	) (event.Subscription, error)

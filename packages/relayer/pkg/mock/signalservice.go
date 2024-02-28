@@ -62,7 +62,7 @@ func (s *SignalService) WatchChainDataSynced(
 		<-time.After(2 * time.Second)
 
 		sink <- &signalservice.SignalServiceChainDataSynced{
-			Chainid: 1,
+			ChainId: 1,
 			BlockId: 1,
 			Kind:    [32]byte{},
 			Data:    [32]byte{},

@@ -492,6 +492,8 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
+	slog.Info("indexing chainDataSynced events")
+
 	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(
 		filterOpts,
 		[]uint64{i.destChainId.Uint64()},
@@ -513,9 +515,9 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active
-				slog.Error("error handling event", "err", err.Error())
+				slog.Error("error handling chainDataSynced", "err", err.Error())
 			} else {
-				slog.Info("handled chaindatasync event successfully")
+				slog.Info("handled chainDataSynced event successfully")
 			}
 
 			return nil
@@ -527,7 +529,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		return errors.Wrap(err, "group.Wait")
 	}
 
-	slog.Info("done indexing chain data synced events")
+	slog.Info("done indexing chainDataSynced events")
 
 	return nil
 }

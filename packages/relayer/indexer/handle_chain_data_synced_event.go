@@ -22,7 +22,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 ) error {
 	slog.Info("chainDataSynced event found for msgHash",
 		"signal", common.Hash(event.Signal).Hex(),
-		"chainID", event.Chainid,
+		"chainID", event.ChainId,
 		"blockID", event.BlockId,
 		"txHash", event.Raw.TxHash.Hex(),
 	)
@@ -59,7 +59,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		Event:           relayer.EventNameChainDataSynced,
 		Data:            string(marshaled),
 		ChainID:         i.srcChainId,
-		SyncedChainID:   event.Chainid,
+		SyncedChainID:   event.ChainId,
 		BlockID:         event.BlockId,
 		MsgHash:         common.BytesToHash(event.Signal[:]).Hex(),
 		SyncData:        common.BytesToHash(event.Data[:]).Hex(),
