@@ -28,6 +28,11 @@ library LibUtils {
 
     /// @dev Retrieves the transition with a given parentHash.
     /// This function will revert if the transition is not found.
+    /// @param state Current TaikoData.State.
+    /// @param config Actual TaikoData.Config.
+    /// @param blockId Id of the block.
+    /// @param parentHash Parent hash of the block.
+    /// @return ts The state transition data of the block.
     function getTransition(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -54,6 +59,9 @@ library LibUtils {
     }
 
     /// @dev Retrieves a block based on its ID.
+    /// @param state Current TaikoData.State.
+    /// @param config Actual TaikoData.Config.
+    /// @param blockId Id of the block.
     function getBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,

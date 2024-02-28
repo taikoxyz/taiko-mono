@@ -160,6 +160,8 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Withdraw token or Ether from this address
+    /// @param token Token address or address(0) if Ether.
+    /// @param to Withdraw to address.
     function withdraw(
         address token,
         address to
@@ -204,6 +206,7 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Returns EIP1559 related configurations
+    /// @return config struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
         // is 3s, and each block is full (gasUsed is 15_000_000), then its
