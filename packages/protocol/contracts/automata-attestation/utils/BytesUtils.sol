@@ -362,7 +362,7 @@ library BytesUtils {
             ret = (ret << 2) | (decoded >> 3);
             bitlen -= 3;
         } else {
-            revert("unexpected error");
+            revert("unexpected len");
         }
 
         return bytes32(ret << (256 - bitlen));
