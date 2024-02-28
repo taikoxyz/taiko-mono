@@ -26,10 +26,10 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
 
-// Actually this one is deployed already on mainnets, but we are now deploying our own (non vi-ir)
-// version. For mainnet, it is easier to go with either this:
-// https://github.com/daimo-eth/p256-verifier or this:
-// https://github.com/rdubois-crypto/FreshCryptoLib
+// Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
+// version. For mainnet, it is easier to go with one of:
+// - https://github.com/daimo-eth/p256-verifier
+// - https://github.com/rdubois-crypto/FreshCryptoLib
 import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1

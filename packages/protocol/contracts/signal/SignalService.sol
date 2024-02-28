@@ -8,9 +8,9 @@ import "./ISignalService.sol";
 import "./LibSignals.sol";
 
 /// @title SignalService
-/// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
+/// @dev Labeled in AddressResolver as "signal_service".
+/// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
     enum CacheOption {
         CACHE_NOTHING,

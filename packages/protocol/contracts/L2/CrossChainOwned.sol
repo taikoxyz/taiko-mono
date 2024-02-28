@@ -6,11 +6,11 @@ import "../common/EssentialContract.sol";
 import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
-/// @custom:security-contact security@taiko.xyz
 /// @notice This contract's owner can be a local address or one that lives on another chain and uses
 /// signals for transaction approval.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
 /// not be zero, so on this chain, some EOA can help execute this transaction.
+/// @custom:security-contact security@taiko.xyz
 abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     uint64 public ownerChainId; // slot 1
     uint64 public nextTxId;

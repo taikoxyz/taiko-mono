@@ -7,8 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
-/// @custom:security-contact security@taiko.xyz
-/// Contract for managing Taiko tokens allocated to different roles and
+/// @notice Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
 ///
 /// Manages Taiko tokens through a three-state lifecycle: "allocated" to
@@ -22,6 +21,7 @@ import "../common/EssentialContract.sol";
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
+/// @custom:security-contact security@taiko.xyz
 contract TimelockTokenPool is EssentialContract {
     using SafeERC20 for IERC20;
 

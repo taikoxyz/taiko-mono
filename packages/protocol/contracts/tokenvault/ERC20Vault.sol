@@ -10,11 +10,11 @@ import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
-/// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "erc20_vault"
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
+/// @dev Labeled in AddressResolver as "erc20_vault".
+/// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20 for IERC20;

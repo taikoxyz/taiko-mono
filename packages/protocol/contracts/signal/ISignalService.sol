@@ -2,13 +2,13 @@
 pragma solidity 0.8.24;
 
 /// @title ISignalService
-/// @custom:security-contact security@taiko.xyz
 /// @notice The SignalService contract serves as a secure cross-chain message
 /// passing system. It defines methods for sending and verifying signals with
 /// merkle proofs. The trust assumption is that the target chain has secure
 /// access to the merkle root (such as Taiko injects it in the anchor
 /// transaction). With this, verifying a signal is reduced to simply verifying
 /// a merkle proof.
+/// @custom:security-contact security@taiko.xyz
 interface ISignalService {
     /// @notice Emitted when a remote chain's state root or signal root is
     /// synced locally as a signal.

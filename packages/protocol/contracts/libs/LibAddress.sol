@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
-/// @title LibAddress
-/// @custom:security-contact security@taiko.xyz
-/// @dev Provides utilities for address-related operations.
 
+/// @title LibAddress
+/// @dev Provides utilities for address-related operations.
+/// @custom:security-contact security@taiko.xyz
 library LibAddress {
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
 

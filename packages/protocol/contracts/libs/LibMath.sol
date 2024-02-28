@@ -2,8 +2,8 @@
 pragma solidity 0.8.24;
 
 /// @title LibMath
-/// @custom:security-contact security@taiko.xyz
 /// @dev This library offers additional math functions for uint256.
+/// @custom:security-contact security@taiko.xyz
 library LibMath {
     /// @dev Returns the smaller of the two given values.
     /// @param a The first number to compare.

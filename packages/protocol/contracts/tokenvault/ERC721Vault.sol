@@ -9,11 +9,10 @@ import "./BaseNFTVault.sol";
 import "./BridgedERC721.sol";
 
 /// @title ERC721Vault
+/// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
+/// the mapping between canonical tokens and their bridged tokens.
+/// @dev Labeled in AddressResolver as "erc721_vault".
 /// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "erc721_vault"
-/// @notice This vault holds all ERC721 tokens that users have deposited.
-/// It also manages the mapping between canonical tokens and their bridged
-/// tokens.
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     using LibAddress for address;
 

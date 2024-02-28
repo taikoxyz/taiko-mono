@@ -10,11 +10,12 @@ import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
+/// @notice This contract is the implementation of verifying SGX signature proofs
+/// onchain.
+/// @dev Please see references below:
+/// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
+/// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
-/// @notice This contract is the implementation of verifying SGX signature
-/// proofs on-chain. Please see references below!
-/// Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
-/// Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 contract SgxVerifier is EssentialContract, IVerifier {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation

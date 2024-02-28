@@ -9,10 +9,10 @@ import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
 
 /// @title IERC1155NameAndSymbol
-/// @custom:security-contact security@taiko.xyz
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
 /// used by some contracts.
+/// @custom:security-contact security@taiko.xyz
 interface IERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);

@@ -12,12 +12,12 @@ import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
 /// @title TaikoL2
-/// @custom:security-contact security@taiko.xyz
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
+/// @custom:security-contact security@taiko.xyz
 contract TaikoL2 is CrossChainOwned {
     using LibAddress for address;
     using LibMath for uint256;
