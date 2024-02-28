@@ -15,15 +15,15 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
-import "../TaikoData.sol";
 
 /// @title Guardians
+/// @custom:security-contact security@taiko.xyz
 abstract contract Guardians is EssentialContract {
     uint256 public constant MIN_NUM_GUARDIANS = 5;
 
     // Contains the index of the guardian in `guardians` plus one (zero means not a guardian)
     mapping(address guardian => uint256 id) public guardianIds; // slot 1
-    mapping(uint32 version => mapping(bytes32 => uint256 approvalBits)) internal _approvals;
+    mapping(uint32 version => mapping(bytes32 hash => uint256 approvalBits)) internal _approvals;
     address[] public guardians; // slot 3
     uint32 public version; // slot 4
     uint32 public minGuardians;

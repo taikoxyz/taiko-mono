@@ -20,6 +20,7 @@ import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
 
 /// @title LibDepositing
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling Ether deposits in the Taiko protocol.
 library LibDepositing {
     using LibAddress for address;
@@ -33,6 +34,10 @@ library LibDepositing {
     error L1_INVALID_ETH_DEPOSIT();
 
     /// @dev Deposits Ether to Layer 2.
+    /// @param state Current TaikoData.State.
+    /// @param config Actual TaikoData.Config.
+    /// @param resolver Address resolver interface.
+    /// @param recipient The recipient address.
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
