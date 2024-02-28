@@ -474,7 +474,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             // For Taiko mainnet
             // 384 seconds = 6.4 minutes = one ethereum epoch
-            return (6 hours, 384 seconds);
+            return (1 hours, 384 seconds);
         } else if (
             block.chainid == 2 // Ropsten
                 || block.chainid == 4 // Rinkeby
