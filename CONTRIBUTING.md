@@ -195,7 +195,7 @@ If you are referring to some struct or function within the file you can use the 
 
 #### Documenting interfaces
 
-To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts. Thus, you should mention a statement like so:
+To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts at the top-level. Thus, you should mention a statement like so:
 
 ```solidity
 /// @notice See the documentation in {IProverPool}
