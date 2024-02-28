@@ -182,16 +182,16 @@ contract TaikoL2 is CrossChainOwned {
     /// the given parameters.
     /// @param l1BlockId The synced L1 height in the next Taiko block
     /// @param parentGasUsed Gas used in the parent block.
-    /// @return basefee The calculated EIP-1559 base fee per gas.
+    /// @return rBasefee The calculated EIP-1559 base fee per gas.
     function getBasefee(
         uint64 l1BlockId,
         uint32 parentGasUsed
     )
         public
         view
-        returns (uint256 basefee)
+        returns (uint256 rBasefee)
     {
-        (basefee,) = _calc1559BaseFee(getConfig(), l1BlockId, parentGasUsed);
+        (rBasefee,) = _calc1559BaseFee(getConfig(), l1BlockId, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -205,14 +205,14 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Returns EIP1559 related configurations
-    /// @return config struct containing configuration parameters.
-    function getConfig() public view virtual returns (Config memory config) {
+    /// @return rConfig struct containing configuration parameters.
+    function getConfig() public view virtual returns (Config memory rConfig) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
         // is 3s, and each block is full (gasUsed is 15_000_000), then its
         // ~60_000_000, if the  network is congester than that, the base fee
         // will increase.
-        config.gasTargetPerL1Block = 15 * 1e6 * 4;
-        config.basefeeAdjustmentQuotient = 8;
+        rConfig.gasTargetPerL1Block = 15 * 1e6 * 4;
+        rConfig.basefeeAdjustmentQuotient = 8;
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
@@ -224,7 +224,7 @@ contract TaikoL2 is CrossChainOwned {
     function _calcPublicInputHash(uint256 blockId)
         private
         view
-        returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
+        returns (bytes32 rPublicInputHashOld, bytes32 rPublicInputHashNew)
     {
         bytes32[256] memory inputs;
 
@@ -241,12 +241,12 @@ contract TaikoL2 is CrossChainOwned {
         inputs[255] = bytes32(block.chainid);
 
         assembly {
-            publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            rPublicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[blockId % 255] = blockhash(blockId);
         assembly {
-            publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            rPublicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 
@@ -257,7 +257,7 @@ contract TaikoL2 is CrossChainOwned {
     )
         private
         view
-        returns (uint256 _basefee, uint64 _gasExcess)
+        returns (uint256 rBasefee, uint64 rGasExcess)
     {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
         if (gasExcess > 0) {
@@ -282,18 +282,18 @@ contract TaikoL2 is CrossChainOwned {
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
-            _gasExcess = uint64(excess.min(type(uint64).max));
+            rGasExcess = uint64(excess.min(type(uint64).max));
 
             // The base fee per gas used by this block is the spot price at the
             // bonding curve, regardless the actual amount of gas used by this
             // block, however, this block's gas used will affect the next
             // block's base fee.
-            _basefee = Lib1559Math.basefee(
-                _gasExcess, uint256(config.basefeeAdjustmentQuotient) * config.gasTargetPerL1Block
+            rBasefee = Lib1559Math.basefee(
+                rGasExcess, uint256(config.basefeeAdjustmentQuotient) * config.gasTargetPerL1Block
             );
         }
 
         // Always make sure basefee is nonzero, this is required by the node.
-        if (_basefee == 0) _basefee = 1;
+        if (rBasefee == 0) rBasefee = 1;
     }
 }

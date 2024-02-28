@@ -83,13 +83,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
-    /// @return ids The respective instanceId array per addresses.
+    /// @return uint256[] The respective instanceId array per addresses.
     function addInstances(address[] calldata _instances)
         external
         onlyOwner
-        returns (uint256[] memory ids)
+        returns (uint256[] memory)
     {
-        ids = _addInstances(_instances, true);
+        return _addInstances(_instances, true);
     }
 
     /// @notice Deletes SGX instances from the registry.
@@ -111,7 +111,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds an SGX instance after the attestation is verified
     /// @param attestation The parsed attestation quote.
-    /// @return id The respective instanceId
+    /// @return uint256 The respective instanceId
     function registerInstance(V3Struct.ParsedV3QuoteStruct calldata attestation)
         external
         returns (uint256)
@@ -167,7 +167,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     )
         public
         view
-        returns (bytes32 signedHash)
+        returns (bytes32)
     {
         address taikoL1 = resolve("taiko", false);
         return keccak256(
@@ -188,9 +188,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bool instantValid
     )
         private
-        returns (uint256[] memory ids)
+        returns (uint256[] memory rIds)
     {
-        ids = new uint256[](_instances.length);
+        rIds = new uint256[](_instances.length);
 
         uint64 validSince = uint64(block.timestamp);
 
@@ -206,7 +206,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
             instances[nextInstanceId] = Instance(_instances[i], validSince);
-            ids[i] = nextInstanceId;
+            rIds[i] = nextInstanceId;
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 

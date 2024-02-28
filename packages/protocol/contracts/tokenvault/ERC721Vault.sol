@@ -34,14 +34,14 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
     /// @param op Option for sending the ERC721 token.
-    /// @return _message The constructed message.
+    /// @return rMessage The constructed message.
     function sendToken(BridgeTransferOp memory op)
         external
         payable
         nonReentrant
         whenNotPaused
         withValidOperation(op)
-        returns (IBridge.Message memory _message)
+        returns (IBridge.Message memory rMessage)
     {
         for (uint256 i; i < op.tokenIds.length; ++i) {
             if (op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
@@ -66,14 +66,14 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         message.memo = op.memo;
 
         bytes32 msgHash;
-        (msgHash, _message) =
+        (msgHash, rMessage) =
             IBridge(resolve("bridge", false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.srcOwner,
+            from: rMessage.srcOwner,
             to: op.to,
-            destChainId: _message.destChainId,
+            destChainId: rMessage.destChainId,
             ctoken: ctoken.addr,
             token: op.token,
             tokenIds: op.tokenIds,
@@ -168,21 +168,21 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         uint256[] memory tokenIds
     )
         private
-        returns (address token)
+        returns (address rToken)
     {
         if (ctoken.chainId == block.chainid) {
-            token = ctoken.addr;
+            rToken = ctoken.addr;
             for (uint256 i; i < tokenIds.length; ++i) {
-                ERC721Upgradeable(token).safeTransferFrom({
+                ERC721Upgradeable(rToken).safeTransferFrom({
                     from: address(this),
                     to: to,
                     tokenId: tokenIds[i]
                 });
             }
         } else {
-            token = _getOrDeployBridgedToken(ctoken);
+            rToken = _getOrDeployBridgedToken(ctoken);
             for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC721(token).mint(to, tokenIds[i]);
+                BridgedERC721(rToken).mint(to, tokenIds[i]);
             }
         }
     }
@@ -191,25 +191,25 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// call on the destination call.
     /// @param user The user's address.
     /// @param op BridgeTransferOp data.
-    /// @return msgData Encoded message data.
-    /// @return ctoken The canonical token.
+    /// @return rMsgData Encoded message data.
+    /// @return rCtoken The canonical token.
     function _handleMessage(
         address user,
         BridgeTransferOp memory op
     )
         private
-        returns (bytes memory msgData, CanonicalNFT memory ctoken)
+        returns (bytes memory rMsgData, CanonicalNFT memory rCtoken)
     {
         unchecked {
             if (bridgedToCanonical[op.token].addr != address(0)) {
-                ctoken = bridgedToCanonical[op.token];
+                rCtoken = bridgedToCanonical[op.token];
                 for (uint256 i; i < op.tokenIds.length; ++i) {
                     BridgedERC721(op.token).burn(user, op.tokenIds[i]);
                 }
             } else {
                 ERC721Upgradeable t = ERC721Upgradeable(op.token);
 
-                ctoken = CanonicalNFT({
+                rCtoken = CanonicalNFT({
                     chainId: uint64(block.chainid),
                     addr: op.token,
                     symbol: t.symbol(),
@@ -222,21 +222,21 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        msgData =
-            abi.encodeCall(this.onMessageInvocation, abi.encode(ctoken, user, op.to, op.tokenIds));
+        rMsgData =
+            abi.encodeCall(this.onMessageInvocation, abi.encode(rCtoken, user, op.to, op.tokenIds));
     }
 
     /// @dev Retrieve or deploy a bridged ERC721 token contract.
     /// @param ctoken CanonicalNFT data.
-    /// @return btoken Address of the bridged token contract.
+    /// @return rBtoken Address of the bridged token contract.
     function _getOrDeployBridgedToken(CanonicalNFT memory ctoken)
         private
-        returns (address btoken)
+        returns (address rBtoken)
     {
-        btoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
+        rBtoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
-        if (btoken == address(0)) {
-            btoken = _deployBridgedToken(ctoken);
+        if (rBtoken == address(0)) {
+            rBtoken = _deployBridgedToken(ctoken);
         }
     }
 
@@ -244,21 +244,21 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// This must be called before the first time a bridged token is sent to
     /// this chain.
     /// @param ctoken CanonicalNFT data.
-    /// @return btoken Address of the deployed bridged token contract.
-    function _deployBridgedToken(CanonicalNFT memory ctoken) private returns (address btoken) {
+    /// @return rBtoken Address of the deployed bridged token contract.
+    function _deployBridgedToken(CanonicalNFT memory ctoken) private returns (address rBtoken) {
         bytes memory data = abi.encodeCall(
             BridgedERC721.init,
             (owner(), addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
 
-        btoken = address(new ERC1967Proxy(resolve("bridged_erc721", false), data));
-        bridgedToCanonical[btoken] = ctoken;
-        canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
+        rBtoken = address(new ERC1967Proxy(resolve("bridged_erc721", false), data));
+        bridgedToCanonical[rBtoken] = ctoken;
+        canonicalToBridged[ctoken.chainId][ctoken.addr] = rBtoken;
 
         emit BridgedTokenDeployed({
             chainId: ctoken.chainId,
             ctoken: ctoken.addr,
-            btoken: btoken,
+            btoken: rBtoken,
             ctokenSymbol: ctoken.symbol,
             ctokenName: ctoken.name
         });

@@ -20,8 +20,8 @@ interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block.
     /// @param params Block parameters, currently an encoded BlockParams object.
     /// @param txList txList data if calldata is used for DA.
-    /// @return meta The metadata of the proposed L2 block.
-    /// @return depositsProcessed The Ether deposits processed.
+    /// @return rMeta The metadata of the proposed L2 block.
+    /// @return rDepositsProcessed The Ether deposits processed.
     function proposeBlock(
         bytes calldata params,
         bytes calldata txList
@@ -29,8 +29,8 @@ interface ITaikoL1 {
         external
         payable
         returns (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.EthDeposit[] memory depositsProcessed
+            TaikoData.BlockMetadata memory rMeta,
+            TaikoData.EthDeposit[] memory rDepositsProcessed
         );
 
     /// @notice Proves or contests a block transition.

@@ -155,21 +155,21 @@ contract TimelockTokenPool is EssentialContract {
         public
         view
         returns (
-            uint128 amountOwned,
-            uint128 amountUnlocked,
-            uint128 amountWithdrawn,
-            uint128 amountToWithdraw,
-            uint128 costToWithdraw
+            uint128 rAmountOwned,
+            uint128 rAmountUnlocked,
+            uint128 rAmountWithdrawn,
+            uint128 rAmountToWithdraw,
+            uint128 rCostToWithdraw
         )
     {
-        Recipient storage r = recipients[recipient];
+        Recipient storage rec = recipients[recipient];
 
-        amountOwned = _getAmountOwned(r.grant);
-        amountUnlocked = _getAmountUnlocked(r.grant);
+        rAmountOwned = _getAmountOwned(rec.grant);
+        rAmountUnlocked = _getAmountUnlocked(rec.grant);
 
-        amountWithdrawn = r.amountWithdrawn;
-        amountToWithdraw = amountUnlocked - amountWithdrawn;
-        costToWithdraw = (amountUnlocked / 1e18 * r.grant.costPerToken) - r.costPaid;
+        rAmountWithdrawn = rec.amountWithdrawn;
+        rAmountWithdrawn = rAmountUnlocked - rAmountWithdrawn;
+        rCostToWithdraw = (rAmountUnlocked / 1e18 * rec.grant.costPerToken) - rec.costPaid;
     }
 
     function getMyGrant(address recipient) public view returns (Grant memory) {
@@ -193,10 +193,10 @@ contract TimelockTokenPool is EssentialContract {
         emit Withdrawn(recipient, to, amountToWithdraw, costToWithdraw);
     }
 
-    function _voidGrant(Grant storage g) private returns (uint128 amountVoided) {
+    function _voidGrant(Grant storage g) private returns (uint128 rAmountVoided) {
         uint128 amountOwned = _getAmountOwned(g);
 
-        amountVoided = g.amount - amountOwned;
+        rAmountVoided = g.amount - amountOwned;
         g.amount = amountOwned;
 
         g.grantStart = 0;

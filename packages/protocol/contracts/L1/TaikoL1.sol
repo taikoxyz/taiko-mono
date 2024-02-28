@@ -72,13 +72,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         nonReentrant
         whenNotPaused
         returns (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.EthDeposit[] memory depositsProcessed
+            TaikoData.BlockMetadata memory rMeta,
+            TaikoData.EthDeposit[] memory rDepositsProcessed
         )
     {
         TaikoData.Config memory config = getConfig();
 
-        (meta, depositsProcessed) = LibProposing.proposeBlock(state, config, this, params, txList);
+        (rMeta, rDepositsProcessed) = LibProposing.proposeBlock(state, config, this, params, txList);
 
         if (!state.slotB.provingPaused) {
             _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
@@ -147,18 +147,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
 
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
-    /// @return blk The block.
-    /// @return ts The transition used to verify this block.
+    /// @return rBlk The block.
+    /// @return rTs The transition used to verify this block.
     function getBlock(uint64 blockId)
         public
         view
-        returns (TaikoData.Block memory blk, TaikoData.TransitionState memory ts)
+        returns (TaikoData.Block memory rBlk, TaikoData.TransitionState memory rTs)
     {
         uint64 slot;
-        (blk, slot) = LibUtils.getBlock(state, getConfig(), blockId);
+        (rBlk, slot) = LibUtils.getBlock(state, getConfig(), blockId);
 
-        if (blk.verifiedTransitionId != 0) {
-            ts = state.transitions[slot][blk.verifiedTransitionId];
+        if (rBlk.verifiedTransitionId != 0) {
+            rTs = state.transitions[slot][rBlk.verifiedTransitionId];
         }
     }
 
@@ -178,15 +178,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @return a State variables stored at SlotA.
-    /// @return b State variables stored at SlotB.
+    /// @return slotA State variables stored at SlotA.
+    /// @return slotB State variables stored at SlotB.
     function getStateVariables()
         public
         view
-        returns (TaikoData.SlotA memory a, TaikoData.SlotB memory b)
+        returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
-        a = state.slotA;
-        b = state.slotB;
+        return (state.slotA, state.slotB);
     }
 
     /// @notice Retrieves the configuration for a specified tier.

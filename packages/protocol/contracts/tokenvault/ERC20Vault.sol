@@ -118,7 +118,7 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         whenNotPaused
         onlyOwner
-        returns (address btokenOld)
+        returns (address rBtokenOld)
     {
         if (btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)) {
             revert VAULT_INVALID_NEW_BTOKEN();
@@ -130,10 +130,10 @@ contract ERC20Vault is BaseVault {
             revert VAULT_NOT_SAME_OWNER();
         }
 
-        btokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
+        rBtokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
-        if (btokenOld != address(0)) {
-            CanonicalERC20 memory _ctoken = bridgedToCanonical[btokenOld];
+        if (rBtokenOld != address(0)) {
+            CanonicalERC20 memory _ctoken = bridgedToCanonical[rBtokenOld];
 
             // The ctoken must match the saved one.
             if (
@@ -142,12 +142,12 @@ contract ERC20Vault is BaseVault {
                     || keccak256(bytes(_ctoken.name)) != keccak256(bytes(ctoken.name))
             ) revert VAULT_CTOKEN_MISMATCH();
 
-            delete bridgedToCanonical[btokenOld];
-            btokenBlacklist[btokenOld] = true;
+            delete bridgedToCanonical[rBtokenOld];
+            btokenBlacklist[rBtokenOld] = true;
 
             // Start the migration
-            IBridgedERC20(btokenOld).changeMigrationStatus(btokenNew, false);
-            IBridgedERC20(btokenNew).changeMigrationStatus(btokenOld, true);
+            IBridgedERC20(rBtokenOld).changeMigrationStatus(btokenNew, false);
+            IBridgedERC20(btokenNew).changeMigrationStatus(rBtokenOld, true);
         }
 
         bridgedToCanonical[btokenNew] = ctoken;
@@ -156,7 +156,7 @@ contract ERC20Vault is BaseVault {
         emit BridgedTokenChanged({
             srcChainId: ctoken.chainId,
             ctoken: ctoken.addr,
-            btokenOld: btokenOld,
+            btokenOld: rBtokenOld,
             btokenNew: btokenNew,
             ctokenSymbol: ctoken.symbol,
             ctokenName: ctoken.name,
@@ -168,13 +168,13 @@ contract ERC20Vault is BaseVault {
     /// destination chain so the user can receive the same amount of tokens by
     /// invoking the message call.
     /// @param op Option for sending ERC20 tokens.
-    /// @return _message The constructed message.
+    /// @return rMessage The constructed message.
     function sendToken(BridgeTransferOp calldata op)
         external
         payable
         nonReentrant
         whenNotPaused
-        returns (IBridge.Message memory _message)
+        returns (IBridge.Message memory rMessage)
     {
         if (op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
@@ -198,12 +198,12 @@ contract ERC20Vault is BaseVault {
         message.memo = op.memo;
 
         bytes32 msgHash;
-        (msgHash, _message) =
+        (msgHash, rMessage) =
             IBridge(resolve("bridge", false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.srcOwner,
+            from: rMessage.srcOwner,
             to: op.to,
             destChainId: op.destChainId,
             ctoken: ctoken.addr,
@@ -282,14 +282,14 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     )
         private
-        returns (address token)
+        returns (address rToken)
     {
         if (ctoken.chainId == block.chainid) {
-            token = ctoken.addr;
-            ERC20(token).safeTransfer(to, amount);
+            rToken = ctoken.addr;
+            ERC20(rToken).safeTransfer(to, amount);
         } else {
-            token = _getOrDeployBridgedToken(ctoken);
-            IBridgedERC20(token).mint(to, amount);
+            rToken = _getOrDeployBridgedToken(ctoken);
+            IBridgedERC20(rToken).mint(to, amount);
         }
     }
 
@@ -299,9 +299,9 @@ contract ERC20Vault is BaseVault {
     /// @param token The token address.
     /// @param to To address.
     /// @param amount Amount to be sent.
-    /// @return msgData Encoded message data.
-    /// @return ctoken The canonical token.
-    /// @return balanceChange User token balance actual change after the token
+    /// @return rMsgData Encoded message data.
+    /// @return rCtoken The canonical token.
+    /// @return rBalanceChange User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transfered away.
     function _handleMessage(
@@ -311,17 +311,17 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     )
         private
-        returns (bytes memory msgData, CanonicalERC20 memory ctoken, uint256 balanceChange)
+        returns (bytes memory rMsgData, CanonicalERC20 memory rCtoken, uint256 rBalanceChange)
     {
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
-            ctoken = bridgedToCanonical[token];
+            rCtoken = bridgedToCanonical[token];
             IBridgedERC20(token).burn(msg.sender, amount);
-            balanceChange = amount;
+            rBalanceChange = amount;
         } else {
             // If it's a canonical token
             ERC20 t = ERC20(token);
-            ctoken = CanonicalERC20({
+            rCtoken = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: token,
                 decimals: t.decimals(),
@@ -335,24 +335,24 @@ contract ERC20Vault is BaseVault {
             // transferred amount.
             uint256 _balance = t.balanceOf(address(this));
             t.safeTransferFrom({ from: msg.sender, to: address(this), value: amount });
-            balanceChange = t.balanceOf(address(this)) - _balance;
+            rBalanceChange = t.balanceOf(address(this)) - _balance;
         }
 
-        msgData =
-            abi.encodeCall(this.onMessageInvocation, abi.encode(ctoken, user, to, balanceChange));
+        rMsgData =
+            abi.encodeCall(this.onMessageInvocation, abi.encode(rCtoken, user, to, rBalanceChange));
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.
     /// @param ctoken CanonicalERC20 data.
-    /// @return btoken Address of the bridged token contract.
+    /// @return rBtoken Address of the bridged token contract.
     function _getOrDeployBridgedToken(CanonicalERC20 memory ctoken)
         private
-        returns (address btoken)
+        returns (address rBtoken)
     {
-        btoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
+        rBtoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
-        if (btoken == address(0)) {
-            btoken = _deployBridgedToken(ctoken);
+        if (rBtoken == address(0)) {
+            rBtoken = _deployBridgedToken(ctoken);
         }
     }
 
@@ -360,8 +360,8 @@ contract ERC20Vault is BaseVault {
     /// This must be called before the first time a bridged token is sent to
     /// this chain.
     /// @param ctoken CanonicalERC20 data.
-    /// @return btoken Address of the deployed bridged token contract.
-    function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
+    /// @return rBtoken Address of the deployed bridged token contract.
+    function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address rBtoken) {
         bytes memory data = abi.encodeCall(
             BridgedERC20.init,
             (
@@ -375,14 +375,14 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        btoken = address(new ERC1967Proxy(resolve("bridged_erc20", false), data));
-        bridgedToCanonical[btoken] = ctoken;
-        canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
+        rBtoken = address(new ERC1967Proxy(resolve("bridged_erc20", false), data));
+        bridgedToCanonical[rBtoken] = ctoken;
+        canonicalToBridged[ctoken.chainId][ctoken.addr] = rBtoken;
 
         emit BridgedTokenDeployed({
             srcChainId: ctoken.chainId,
             ctoken: ctoken.addr,
-            btoken: btoken,
+            btoken: rBtoken,
             ctokenSymbol: ctoken.symbol,
             ctokenName: ctoken.name,
             ctokenDecimal: ctoken.decimals

@@ -144,7 +144,7 @@ contract Bridge is EssentialContract, IBridge {
         override
         nonReentrant
         whenNotPaused
-        returns (bytes32 msgHash, Message memory _message)
+        returns (bytes32 rMsgHash, Message memory rMessage)
     {
         // Ensure the message owner is not null.
         if (message.srcOwner == address(0) || message.destOwner == address(0)) {
@@ -164,17 +164,17 @@ contract Bridge is EssentialContract, IBridge {
         uint256 expectedAmount = message.value + message.fee;
         if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
-        _message = message;
+        rMessage = message;
         // Configure message details and send signal to indicate message
         // sending.
-        _message.id = nextMessageId++;
-        _message.from = msg.sender;
-        _message.srcChainId = uint64(block.chainid);
+        rMessage.id = nextMessageId++;
+        rMessage.from = msg.sender;
+        rMessage.srcChainId = uint64(block.chainid);
 
-        msgHash = hashMessage(_message);
+        rMsgHash = hashMessage(rMessage);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
-        emit MessageSent(msgHash, _message);
+        ISignalService(resolve("signal_service", false)).sendSignal(rMsgHash);
+        emit MessageSent(rMsgHash, rMessage);
     }
 
     /// @notice Recalls a failed message on its source chain, releasing
@@ -439,15 +439,15 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Checks if the destination chain is enabled.
     /// @param chainId The destination chain ID.
-    /// @return enabled True if the destination chain is enabled.
-    /// @return destBridge The bridge of the destination chain.
+    /// @return rEnabled True if the destination chain is enabled.
+    /// @return rDestBridge The bridge of the destination chain.
     function isDestChainEnabled(uint64 chainId)
         public
         view
-        returns (bool enabled, address destBridge)
+        returns (bool rEnabled, address rDestBridge)
     {
-        destBridge = resolve(chainId, "bridge", true);
-        enabled = destBridge != address(0);
+        rDestBridge = resolve(chainId, "bridge", true);
+        rEnabled = rDestBridge != address(0);
     }
 
     /// @notice Gets the current context.

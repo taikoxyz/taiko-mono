@@ -65,11 +65,11 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
         revert TIER_NOT_FOUND();
     }
 
-    function getTierIds() public pure override returns (uint16[] memory tiers) {
-        tiers = new uint16[](3);
-        tiers[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers[1] = LibTiers.TIER_SGX;
-        tiers[2] = LibTiers.TIER_GUARDIAN;
+    function getTierIds() public pure override returns (uint16[] memory rTiers) {
+        rTiers = new uint16[](3);
+        rTiers[0] = LibTiers.TIER_OPTIMISTIC;
+        rTiers[1] = LibTiers.TIER_SGX;
+        rTiers[2] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {

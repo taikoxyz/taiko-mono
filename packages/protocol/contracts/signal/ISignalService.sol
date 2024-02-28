@@ -40,8 +40,8 @@ interface ISignalService {
 
     /// @notice Send a signal (message) by setting the storage slot to a value of 1.
     /// @param signal The signal (message) to send.
-    /// @return slot The location in storage where this signal is stored.
-    function sendSignal(bytes32 signal) external returns (bytes32 slot);
+    /// @return rSlot The location in storage where this signal is stored.
+    function sendSignal(bytes32 signal) external returns (bytes32 rSlot);
 
     /// @notice Sync a data from a remote chain locally as a signal. The signal is calculated
     /// uniquely from chainId, kind, and data.
@@ -49,7 +49,7 @@ interface ISignalService {
     /// @param kind A value to mark the data type.
     /// @param blockId The chain data's corresponding blockId
     /// @param chainData The remote data.
-    /// @return signal The signal for this chain data.
+    /// @return rSignal The signal for this chain data.
     function syncChainData(
         uint64 chainId,
         bytes32 kind,
@@ -57,7 +57,7 @@ interface ISignalService {
         bytes32 chainData
     )
         external
-        returns (bytes32 signal);
+        returns (bytes32 rSignal);
 
     /// @notice Verifies if a signal has been received on the target chain.
     /// @param chainId The identifier for the source chain from which the
@@ -102,8 +102,8 @@ interface ISignalService {
     /// @param kind A value to mark the data type.
     /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
-    /// @return _blockId The actual block id.
-    /// @return _chainData The synced chain data.
+    /// @return rBlockId The actual block id.
+    /// @return rChainData The synced chain data.
     function getSyncedChainData(
         uint64 chainId,
         bytes32 kind,
@@ -111,14 +111,14 @@ interface ISignalService {
     )
         external
         view
-        returns (uint64 _blockId, bytes32 _chainData);
+        returns (uint64 rBlockId, bytes32 rChainData);
 
     /// @notice Returns the data to be used for caching slot generation.
     /// @param chainId Indenitifer of the chainId.
     /// @param kind A value to mark the data type.
     /// @param blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
-    /// @return signal The signal used for caching slot creation.
+    /// @return rSignal The signal used for caching slot creation.
     function signalForChainData(
         uint64 chainId,
         bytes32 kind,
@@ -126,5 +126,5 @@ interface ISignalService {
     )
         external
         pure
-        returns (bytes32 signal);
+        returns (bytes32 rSignal);
 }

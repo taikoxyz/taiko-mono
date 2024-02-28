@@ -85,7 +85,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal) external returns (bytes32 slot) {
+    function sendSignal(bytes32 signal) external returns (bytes32) {
         return _sendSignal(msg.sender, signal, signal);
     }
 
@@ -97,7 +97,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 chainData
     )
         external
-        returns (bytes32 signal)
+        returns (bytes32)
     {
         if (!isAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
         return _syncChainData(chainId, kind, blockId, chainData);
@@ -188,14 +188,14 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         view
-        returns (uint64 _blockId, bytes32 _chainData)
+        returns (uint64 rBlockId, bytes32 rChainData)
     {
-        _blockId = blockId != 0 ? blockId : topBlockId[chainId][kind];
+        rBlockId = blockId != 0 ? blockId : topBlockId[chainId][kind];
 
-        if (_blockId != 0) {
-            bytes32 signal = signalForChainData(chainId, kind, _blockId);
-            _chainData = _loadSignalValue(address(this), signal);
-            if (_chainData == 0) revert SS_SIGNAL_NOT_FOUND();
+        if (rBlockId != 0) {
+            bytes32 signal = signalForChainData(chainId, kind, rBlockId);
+            rChainData = _loadSignalValue(address(this), signal);
+            if (rChainData == 0) revert SS_SIGNAL_NOT_FOUND();
         }
     }
 
@@ -237,7 +237,7 @@ contract SignalService is EssentialContract, ISignalService {
         validSender(app)
         nonZeroValue(signal)
         nonZeroValue(value)
-        returns (bytes32 signalRoot)
+        returns (bytes32)
     {
         return LibTrieProof.verifyMerkleProof(
             hop.rootHash,
@@ -260,15 +260,15 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 chainData
     )
         private
-        returns (bytes32 signal)
+        returns (bytes32 rSignal)
     {
-        signal = signalForChainData(chainId, kind, blockId);
-        _sendSignal(address(this), signal, chainData);
+        rSignal = signalForChainData(chainId, kind, blockId);
+        _sendSignal(address(this), rSignal, chainData);
 
         if (topBlockId[chainId][kind] < blockId) {
             topBlockId[chainId][kind] = blockId;
         }
-        emit ChainDataSynced(chainId, blockId, kind, chainData, signal);
+        emit ChainDataSynced(chainId, blockId, kind, chainData, rSignal);
     }
 
     function _sendSignal(
@@ -280,13 +280,13 @@ contract SignalService is EssentialContract, ISignalService {
         validSender(app)
         nonZeroValue(signal)
         nonZeroValue(value)
-        returns (bytes32 slot)
+        returns (bytes32 rSlot)
     {
-        slot = getSignalSlot(uint64(block.chainid), app, signal);
+        rSlot = getSignalSlot(uint64(block.chainid), app, signal);
         assembly {
-            sstore(slot, value)
+            sstore(rSlot, value)
         }
-        emit SignalSent(app, signal, slot, value);
+        emit SignalSent(app, signal, rSlot, value);
     }
 
     function _cacheChainData(
@@ -324,11 +324,11 @@ contract SignalService is EssentialContract, ISignalService {
         view
         validSender(app)
         nonZeroValue(signal)
-        returns (bytes32 value)
+        returns (bytes32 rValue)
     {
         bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
         assembly {
-            value := sload(slot)
+            rValue := sload(slot)
         }
     }
 }

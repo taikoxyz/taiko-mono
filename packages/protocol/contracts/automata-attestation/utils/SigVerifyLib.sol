@@ -82,14 +82,14 @@ contract SigVerifyLib is ISigVerifyLib {
     )
         public
         view
-        returns (bool sigValid)
+        returns (bool)
     {
         // Parse public key
         bytes memory exponent = publicKey.substring(0, 3);
         bytes memory modulus = publicKey.substring(3, publicKey.length - 3);
 
         // Verify signature
-        sigValid = RsaVerify.pkcs1Sha256Raw(tbs, signature, exponent, modulus);
+        return RsaVerify.pkcs1Sha256Raw(tbs, signature, exponent, modulus);
     }
 
     function verifyRS1Signature(
@@ -99,14 +99,14 @@ contract SigVerifyLib is ISigVerifyLib {
     )
         public
         view
-        returns (bool sigValid)
+        returns (bool)
     {
         // Parse public key
         bytes memory exponent = publicKey.substring(0, 3);
         bytes memory modulus = publicKey.substring(3, publicKey.length - 3);
 
         // Verify signature
-        sigValid = RsaVerify.pkcs1Sha1Raw(tbs, signature, exponent, modulus);
+        return RsaVerify.pkcs1Sha1Raw(tbs, signature, exponent, modulus);
     }
 
     function verifyES256Signature(
@@ -116,7 +116,7 @@ contract SigVerifyLib is ISigVerifyLib {
     )
         public
         view
-        returns (bool sigValid)
+        returns (bool)
     {
         // Parse signature
         if (signature.length != 64) {
