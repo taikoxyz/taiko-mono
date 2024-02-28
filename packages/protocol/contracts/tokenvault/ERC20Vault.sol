@@ -136,13 +136,13 @@ contract ERC20Vault is BaseVault {
         btokenOld_ = canonicalToBridged[_ctoken.chainId][_ctoken.addr];
 
         if (btokenOld_ != address(0)) {
-            CanonicalERC20 memory ctoken_ = bridgedToCanonical[btokenOld_];
+            CanonicalERC20 memory ctoken = bridgedToCanonical[btokenOld_];
 
             // The ctoken must match the saved one.
             if (
-                ctoken_.decimals != _ctoken.decimals
-                    || keccak256(bytes(ctoken_.symbol)) != keccak256(bytes(_ctoken.symbol))
-                    || keccak256(bytes(ctoken_.name)) != keccak256(bytes(_ctoken.name))
+                ctoken.decimals != _ctoken.decimals
+                    || keccak256(bytes(ctoken.symbol)) != keccak256(bytes(_ctoken.symbol))
+                    || keccak256(bytes(ctoken.name)) != keccak256(bytes(_ctoken.name))
             ) revert VAULT_CTOKEN_MISMATCH();
 
             delete bridgedToCanonical[_btokenNew];
