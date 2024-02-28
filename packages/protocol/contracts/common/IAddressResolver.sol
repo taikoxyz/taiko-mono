@@ -29,7 +29,7 @@ interface IAddressResolver {
     /// @param _name Name whose address is to be resolved.
     /// @param _allowZeroAddress If set to true, does not throw if the resolved
     /// address is `address(0)`.
-    /// @return  Address associated with the given name.
+    /// @return Address associated with the given name.
     function resolve(
         bytes32 _name,
         bool _allowZeroAddress

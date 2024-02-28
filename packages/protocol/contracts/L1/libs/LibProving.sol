@@ -262,16 +262,16 @@ library LibProving {
     /// @dev Handle the transition initialization logic
     function _createTransition(
         TaikoData.State storage _state,
-        TaikoData.Block storage blk,
-        TaikoData.Transition memory tran,
+        TaikoData.Block storage _blk,
+        TaikoData.Transition memory _tran,
         uint64 slot
     )
         private
-        returns (uint32 tid, TaikoData.TransitionState storage ts)
+        returns (uint32 tid_, TaikoData.TransitionState storage ts_)
     {
-        tid = LibUtils.getTransitionId(_state, blk, slot, tran.parentHash);
+        tid_ = LibUtils.getTransitionId(_state, _blk, slot, _tran.parentHash);
 
-        if (tid == 0) {
+        if (tid_ == 0) {
             // In cases where a transition with the provided parentHash is not
             // found, we must essentially "create" one and set it to its initial
             // _state. This initial state can be viewed as a special transition
@@ -284,29 +284,29 @@ library LibProving {
             unchecked {
                 // Unchecked is safe:  Not realistic 2**32 different fork choice
                 // per block will be proven and none of them is valid
-                tid = blk.nextTransitionId++;
+                tid_ = _blk.nextTransitionId++;
             }
 
             // Keep in mind that _state.transitions are also reusable storage
             // slots, so it's necessary to reinitialize all transition fields
             // below.
-            ts = _state.transitions[slot][tid];
-            ts.blockHash = 0;
-            ts.stateRoot = 0;
-            ts.validityBond = 0;
-            ts.contester = address(0);
-            ts.contestBond = 1; // to save gas
-            ts.timestamp = blk.proposedAt;
-            ts.tier = 0;
-            ts.contestations = 0;
+            ts_ = _state.transitions[slot][tid_];
+            ts_.blockHash = 0;
+            ts_.stateRoot = 0;
+            ts_.validityBond = 0;
+            ts_.contester = address(0);
+            ts_.contestBond = 1; // to save gas
+            ts_.timestamp = _blk.proposedAt;
+            ts_.tier = 0;
+            ts_.contestations = 0;
 
-            if (tid == 1) {
+            if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
                 // majority of blocks, where the first transition is expected to
                 // be the correct one. Writing to `tran` is more economical
                 // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
-                ts.key = tran.parentHash;
+                ts_.key = _tran.parentHash;
 
                 // In the case of this first transition, the block's assigned
                 // prover has the privilege to re-prove it, but only when the
@@ -318,99 +318,99 @@ library LibProving {
                 //
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
-                ts.prover = blk.assignedProver;
+                ts_.prover = _blk.assignedProver;
             } else {
                 // In scenarios where this transition is not the first one, we
                 // straightforwardly reset the transition prover to address
                 // zero.
-                ts.prover = address(0);
+                ts_.prover = address(0);
 
                 // Furthermore, we index the transition for future retrieval.
                 // It's worth emphasizing that this mapping for indexing is not
                 // reusable. However, given that the majority of blocks will
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
-                _state.transitionIds[blk.blockId][tran.parentHash] = tid;
+                _state.transitionIds[_blk.blockId][_tran.parentHash] = tid_;
 
                 // There is no need to initialize ts.key here because it's only used when tid == 1
             }
         } else {
             // A transition with the provided parentHash has been located.
-            ts = _state.transitions[slot][tid];
+            ts_ = _state.transitions[slot][tid_];
         }
     }
 
     /// @dev Handles what happens when there is a higher proof incoming
     function _overrideWithHigherProof(
-        TaikoData.TransitionState storage ts,
-        TaikoData.Transition memory tran,
-        TaikoData.TierProof memory proof,
-        ITierProvider.Tier memory tier,
-        IERC20 tko,
-        bool sameTransition
+        TaikoData.TransitionState storage _ts,
+        TaikoData.Transition memory _tran,
+        TaikoData.TierProof memory _proof,
+        ITierProvider.Tier memory _tier,
+        IERC20 _tko,
+        bool _sameTransition
     )
         private
     {
         // Higher tier proof overwriting lower tier proof
         uint256 reward;
 
-        if (ts.contester != address(0)) {
-            if (sameTransition) {
+        if (_ts.contester != address(0)) {
+            if (_sameTransition) {
                 // The contested transition is proven to be valid, contestor loses the game
-                reward = ts.contestBond >> 2;
-                tko.transfer(ts.prover, ts.validityBond + reward);
+                reward = _ts.contestBond >> 2;
+                _tko.transfer(_ts.prover, _ts.validityBond + reward);
             } else {
                 // The contested transition is proven to be invalid, contestor wins the game
-                reward = ts.validityBond >> 2;
-                tko.transfer(ts.contester, ts.contestBond + reward);
+                reward = _ts.validityBond >> 2;
+                _tko.transfer(_ts.contester, _ts.contestBond + reward);
             }
         } else {
-            if (sameTransition) revert L1_ALREADY_PROVED();
+            if (_sameTransition) revert L1_ALREADY_PROVED();
             // Contest the existing transition and prove it to be invalid
-            reward = ts.validityBond >> 1;
-            ts.contestations += 1;
+            reward = _ts.validityBond >> 1;
+            _ts.contestations += 1;
         }
 
         unchecked {
-            if (reward > tier.validityBond) {
-                tko.transfer(msg.sender, reward - tier.validityBond);
+            if (reward > _tier.validityBond) {
+                _tko.transfer(msg.sender, reward - _tier.validityBond);
             } else {
-                tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
+                _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
             }
         }
 
-        ts.validityBond = tier.validityBond;
-        ts.contestBond = 1; // to save gas
-        ts.contester = address(0);
-        ts.prover = msg.sender;
-        ts.tier = proof.tier;
+        _ts.validityBond = _tier.validityBond;
+        _ts.contestBond = 1; // to save gas
+        _ts.contester = address(0);
+        _ts.prover = msg.sender;
+        _ts.tier = _proof.tier;
 
-        if (!sameTransition) {
-            ts.blockHash = tran.blockHash;
-            ts.stateRoot = tran.stateRoot;
+        if (!_sameTransition) {
+            _ts.blockHash = _tran.blockHash;
+            _ts.stateRoot = _tran.stateRoot;
         }
     }
 
     /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
     function _checkProverPermission(
         TaikoData.State storage _state,
-        TaikoData.Block storage blk,
-        TaikoData.TransitionState storage ts,
-        uint32 tid,
-        ITierProvider.Tier memory tier
+        TaikoData.Block storage _blk,
+        TaikoData.TransitionState storage _ts,
+        uint32 _tid,
+        ITierProvider.Tier memory _tier
     )
         private
         view
     {
         // The highest tier proof can always submit new proofs
-        if (tier.contestBond == 0) return;
+        if (_tier.contestBond == 0) return;
 
-        bool inProvingWindow = uint256(ts.timestamp).max(_state.slotB.lastUnpausedAt)
-            + tier.provingWindow * 60 >= block.timestamp;
-        bool isAssignedPover = msg.sender == blk.assignedProver;
+        bool inProvingWindow = uint256(_ts.timestamp).max(_state.slotB.lastUnpausedAt)
+            + _tier.provingWindow * 60 >= block.timestamp;
+        bool isAssignedPover = msg.sender == _blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.
-        if (tid == 1 && ts.tier == 0 && inProvingWindow) {
+        if (_tid == 1 && _ts.tier == 0 && inProvingWindow) {
             if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
             // Disallow the same address to prove the block so that we can detect that the
