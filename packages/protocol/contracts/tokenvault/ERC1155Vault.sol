@@ -14,18 +14,18 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "../bridge/IBridge.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
 
-/// @title ERC1155NameAndSymbol
+/// @title IERC1155NameAndSymbol
 /// @custom:security-contact security@taiko.xyz
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
 /// used by some contracts.
-interface ERC1155NameAndSymbol {
+interface IERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
 }
@@ -219,7 +219,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (ctoken.chainId == block.chainid) {
             // Token lives on this chain
             token = ctoken.addr;
-            ERC1155(token).safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
+            IERC1155(token).safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
         } else {
             // Token does not live on this chain
             token = _getOrDeployBridgedToken(ctoken);
@@ -255,7 +255,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     symbol: "",
                     name: ""
                 });
-                ERC1155NameAndSymbol t = ERC1155NameAndSymbol(op.token);
+                IERC1155NameAndSymbol t = IERC1155NameAndSymbol(op.token);
                 try t.name() returns (string memory _name) {
                     ctoken.name = _name;
                 } catch { }
@@ -263,7 +263,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     ctoken.symbol = _symbol;
                 } catch { }
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    ERC1155(op.token).safeTransferFrom({
+                    IERC1155(op.token).safeTransferFrom({
                         from: msg.sender,
                         to: address(this),
                         id: op.tokenIds[i],

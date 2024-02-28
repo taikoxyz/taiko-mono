@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "../thirdparty/LibFixedPointMath.sol";
+import "../thirdparty/solmate/LibFixedPointMath.sol";
 
 /// @title Lib1559Math
 /// @custom:security-contact security@taiko.xyz
