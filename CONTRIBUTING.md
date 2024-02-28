@@ -46,7 +46,6 @@ All contracts should have, preceding their declaration, at minimum:
 
 ```
 /// @title A title
-/// @notice A notice description
 /// @custom:security-contact security@taiko.xyz
 ```
 
