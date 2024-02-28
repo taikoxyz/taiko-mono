@@ -20,6 +20,8 @@ import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 
+/// @title BaseVault
+/// @custom:security-contact security@taiko.xyz
 abstract contract BaseVault is
     EssentialContract,
     IRecallableSender,

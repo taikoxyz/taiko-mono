@@ -22,6 +22,7 @@ import "../ITaikoL1.sol";
 import "./IHook.sol";
 
 /// @title AssignmentHook
+/// @custom:security-contact security@taiko.xyz
 /// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;

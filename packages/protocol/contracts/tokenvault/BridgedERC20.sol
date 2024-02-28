@@ -22,6 +22,7 @@ import "./LibBridgedToken.sol";
 import "./BridgedERC20Base.sol";
 
 /// @title BridgedERC20
+/// @custom:security-contact security@taiko.xyz
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 contract BridgedERC20 is

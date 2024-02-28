@@ -20,6 +20,7 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 /// @title LibAddress
+/// @custom:security-contact security@taiko.xyz
 /// @dev Provides utilities for address-related operations.
 
 library LibAddress {

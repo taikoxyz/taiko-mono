@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title Lib4844
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling EIP-4844 blobs
 /// `solc contracts/libs/Lib4844.sol --ir > contracts/libs/Lib4844.yul`
 library Lib4844 {

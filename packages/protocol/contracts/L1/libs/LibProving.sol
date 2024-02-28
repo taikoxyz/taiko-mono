@@ -23,6 +23,7 @@ import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProving {

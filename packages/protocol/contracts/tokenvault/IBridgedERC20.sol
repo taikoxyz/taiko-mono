@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title IBridgedERC20
+/// @custom:security-contact security@taiko.xyz
 /// @notice Interface for all bridged tokens.
 /// @dev To facilitate compatibility with third-party bridged tokens, such as USDC's native
 /// standard, it's necessary to implement an intermediary adapter contract which should conform to

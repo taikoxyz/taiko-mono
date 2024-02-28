@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+/// @title TCBInfoStruct
+/// @custom:security-contact security@taiko.xyz
 library TCBInfoStruct {
     struct TCBInfo {
         string pceid;

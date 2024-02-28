@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC721Airdrop
+/// @custom:security-contact security@taiko.xyz
 contract ERC721Airdrop is MerkleClaimable {
     address public token;
     address public vault;

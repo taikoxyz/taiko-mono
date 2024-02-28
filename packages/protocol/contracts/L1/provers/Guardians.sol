@@ -18,6 +18,7 @@ import "../../common/EssentialContract.sol";
 import "../TaikoData.sol";
 
 /// @title Guardians
+/// @custom:security-contact security@taiko.xyz
 abstract contract Guardians is EssentialContract {
     uint256 public constant MIN_NUM_GUARDIANS = 5;
 

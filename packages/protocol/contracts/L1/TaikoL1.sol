@@ -24,6 +24,7 @@ import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
 
 /// @title TaikoL1
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "taiko"
 /// @notice This contract serves as the "base layer contract" of the Taiko
 /// protocol, providing functionalities for proposing, proving, and verifying
