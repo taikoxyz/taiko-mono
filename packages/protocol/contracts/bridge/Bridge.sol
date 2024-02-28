@@ -58,10 +58,10 @@ contract Bridge is EssentialContract, IBridge {
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => Status) public messageStatus; // slot 2
+    mapping(bytes32 msgHash => Status status) public messageStatus; // slot 2
     Context private _ctx; // slot 3,4,5
-    mapping(address => bool) public addressBanned; // slot 6
-    mapping(bytes32 msgHash => ProofReceipt) public proofReceipt; // slot 7
+    mapping(address addr => bool banned) public addressBanned; // slot 6
+    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
     uint256[43] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
