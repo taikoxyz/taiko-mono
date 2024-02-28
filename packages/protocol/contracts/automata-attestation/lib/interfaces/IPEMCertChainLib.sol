@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
+/// @title IPEMCertChainLib
+/// @custom:security-contact security@taiko.xyz
 interface IPEMCertChainLib {
     struct ECSha256Certificate {
         uint256 notBefore;

@@ -25,6 +25,7 @@ import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
 /// @title TaikoL2
+/// @custom:security-contact security@taiko.xyz
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer

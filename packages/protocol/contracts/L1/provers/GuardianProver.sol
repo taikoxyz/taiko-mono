@@ -19,6 +19,7 @@ import "../ITaikoL1.sol";
 import "./Guardians.sol";
 
 /// @title GuardianProver
+/// @custom:security-contact security@taiko.xyz
 contract GuardianProver is Guardians {
     uint256[50] private __gap;
 

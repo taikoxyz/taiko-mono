@@ -15,6 +15,7 @@
 pragma solidity 0.8.24;
 
 /// @title TaikoErrors
+/// @custom:security-contact security@taiko.xyz
 /// @notice This abstract contract provides custom error declartions used in
 /// the Taiko protocol. Each error corresponds to specific situations where
 /// exceptions might be thrown.

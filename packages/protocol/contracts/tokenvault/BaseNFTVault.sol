@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "./BaseVault.sol";
 
 /// @title BaseNFTVault
+/// @custom:security-contact security@taiko.xyz
 /// @notice Abstract contract for bridging NFTs across different chains.
 abstract contract BaseNFTVault is BaseVault {
     // Struct representing the canonical NFT on another chain.

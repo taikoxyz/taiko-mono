@@ -24,6 +24,8 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 import "../../common/EssentialContract.sol";
 
+/// @title TaikoGovernor
+/// @custom:security-contact security@taiko.xyz
 contract TaikoGovernor is
     EssentialContract,
     GovernorCompatibilityBravoUpgradeable,

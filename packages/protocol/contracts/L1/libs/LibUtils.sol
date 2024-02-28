@@ -20,6 +20,7 @@ import "../../signal/LibSignals.sol";
 import "../TaikoData.sol";
 
 /// @title LibUtils
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library that offers helper functions.
 library LibUtils {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
