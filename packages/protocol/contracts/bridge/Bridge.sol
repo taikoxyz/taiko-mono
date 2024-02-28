@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
+import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
@@ -477,7 +478,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             // For Taiko mainnet
             // 384 seconds = 6.4 minutes = one ethereum epoch
-            return (6 hours, 384 seconds);
+            return (1 hours, 384 seconds);
         } else if (
             block.chainid == 2 // Ropsten
                 || block.chainid == 4 // Rinkeby
@@ -548,7 +549,13 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             success = false;
         } else {
-            (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+            (success,) = ExcessivelySafeCall.excessivelySafeCall(
+                message.to,
+                gasLimit,
+                message.value,
+                64, // return max 64 bytes
+                message.data
+            );
         }
 
         // Reset the context after the message call

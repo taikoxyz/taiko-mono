@@ -14,7 +14,8 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
@@ -27,7 +28,7 @@ import "./BaseVault.sol";
 /// their bridged tokens.
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
-    using SafeERC20 for ERC20;
+    using SafeERC20 for IERC20;
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
@@ -286,7 +287,7 @@ contract ERC20Vault is BaseVault {
     {
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
-            ERC20(token).safeTransfer(to, amount);
+            IERC20(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
             IBridgedERC20(token).mint(to, amount);
@@ -320,19 +321,20 @@ contract ERC20Vault is BaseVault {
             balanceChange = amount;
         } else {
             // If it's a canonical token
-            ERC20 t = ERC20(token);
+            IERC20Metadata meta = IERC20Metadata(token);
             ctoken = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: token,
-                decimals: t.decimals(),
-                symbol: t.symbol(),
-                name: t.name()
+                decimals: meta.decimals(),
+                symbol: meta.symbol(),
+                name: meta.name()
             });
 
             // Query the balance then query it again to get the actual amount of
             // token transferred into this address, this is more accurate than
             // simply using `amount` -- some contract may deduct a fee from the
             // transferred amount.
+            IERC20 t = IERC20(token);
             uint256 _balance = t.balanceOf(address(this));
             t.safeTransferFrom({ from: msg.sender, to: address(this), value: amount });
             balanceChange = t.balanceOf(address(this)) - _balance;
