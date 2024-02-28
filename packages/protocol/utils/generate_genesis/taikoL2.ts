@@ -240,7 +240,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressManager
-                addresses: {
+                __addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
@@ -545,7 +545,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressManager
-                addresses: {
+                __addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko"),
