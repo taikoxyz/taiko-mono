@@ -86,7 +86,6 @@ contract TimelockTokenPool is EssentialContract {
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
-    error NOTHING_TO_WITHDRAW();
 
     function init(
         address _owner,
