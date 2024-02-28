@@ -26,7 +26,6 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     event MigrationStatusChanged(address addr, bool inbound);
 
     event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
-    event MigratedFrom(address indexed toToken, address indexed account, uint256 amount);
 
     error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();
