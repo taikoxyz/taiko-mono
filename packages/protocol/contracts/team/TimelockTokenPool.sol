@@ -170,7 +170,7 @@ contract TimelockTokenPool is EssentialContract {
         amountWithdrawn = r.amountWithdrawn;
         amountToWithdraw = amountUnlocked - amountWithdrawn;
         costToWithdraw =
-            (uint256(amountUnlocked) * r.grant.costPerToken / 1e18 - r.costPaid).toUint128();
+            (uint256(amountUnlocked) * r.grant.costPerToken / 1e18).toUint128() - r.costPaid;
     }
 
     function getMyGrant(address recipient) public view returns (Grant memory) {
