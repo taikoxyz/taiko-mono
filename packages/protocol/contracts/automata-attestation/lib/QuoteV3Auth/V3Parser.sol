@@ -99,28 +99,6 @@ library V3Parser {
             "Invalid QEAuthData size"
         );
 
-        // todo!
-        // v3Quote.v3AuthData.certification.certDataSize ==
-        //      len(join((BEGIN_CERT, base64.encode(certArray[i]), END_CERT) for i in 0..3))
-        // This check need b64 encoding, skip it now.
-        // require(
-        //     base64.encode(v3Quote.v3AuthData.certification.decodedCertDataArray[0]).length +
-        //          base64.encode(v3Quote
-        //             .v3AuthData
-        //             .certification
-        //             .decodedCertDataArray[1])
-        //             .length +
-        //          base64.encode(v3Quote
-        //             .v3AuthData
-        //             .certification
-        //             .decodedCertDataArray[2])
-        //             .length +
-        //         3 *
-        //         (HEADER_LENGTH + FOOTER_LENGTH) ==
-        //         v3Quote.v3AuthData.certification.certDataSize,
-        //     "Invalid certData size"
-        // );
-
         uint32 totalQuoteSize = 48 // header
             + 384 // local QE report
             + 64 // ecdsa256BitSignature

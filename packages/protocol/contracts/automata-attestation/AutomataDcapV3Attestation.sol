@@ -509,7 +509,6 @@ contract AutomataDcapV3Attestation is IAttestation {
 
         // Step 1: Parse the quote input = 152k gas
         // console.log("Step 1: Parse the quote input = 152k gas");
-        // todo: validate(v3quote)
         (
             bool successful,
             ,
@@ -570,7 +569,6 @@ contract AutomataDcapV3Attestation is IAttestation {
                 // quoteCerts[i] = Base64.decode(string(authDataV3.certification.certArray[i]));
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
-                // todo! move decodeCert offchain
                 (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
                     authDataV3.certification.decodedCertDataArray[i], isPckCert
                 );
