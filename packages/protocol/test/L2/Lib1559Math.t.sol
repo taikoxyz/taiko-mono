@@ -13,24 +13,24 @@ contract TestLib1559Math is TaikoTest {
         // The expected values are calculated in eip1559_util.py
         _assertAmostEq(
             999_999_916,
-            Lib1559Math.basefee({ gasExcess: 49_954_623_777, adjustmentFactor: adjustmentFactor })
+            Lib1559Math.basefee({ _gasExcess: 49_954_623_777, _adjustmentFactor: adjustmentFactor })
         );
 
         _assertAmostEq(
             48_246_703_821_869_050_543_408_253_349_256_099_602_613_005_189_120,
             Lib1559Math.basefee({
-                gasExcess: LibFixedPointMath.MAX_EXP_INPUT * adjustmentFactor
+                _gasExcess: LibFixedPointMath.MAX_EXP_INPUT * adjustmentFactor
                     / LibFixedPointMath.SCALING_FACTOR,
-                adjustmentFactor: adjustmentFactor
+                _adjustmentFactor: adjustmentFactor
             })
         );
     }
 
     // Assert the different between two number is smaller than 1/1000000
-    function _assertAmostEq(uint256 a, uint256 b) private {
-        uint256 min = a.min(b);
-        uint256 max = a.max(b);
+    function _assertAmostEq(uint256 _a, uint256 _b) private {
+        uint256 min = _a.min(_b);
+        uint256 max = _a.max(_b);
         assertTrue(max > 0 && ((max - min) * 1_000_000) / max <= 1);
-        console2.log(a, " <> ", b);
+        console2.log(_a, " <> ", _b);
     }
 }

@@ -82,13 +82,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
-    /// @return ids The respective instanceId array per addresses.
+    /// @return The respective instanceId array per addresses.
     function addInstances(address[] calldata _instances)
         external
         onlyOwner
-        returns (uint256[] memory ids)
+        returns (uint256[] memory)
     {
-        ids = _addInstances(_instances, true);
+        return _addInstances(_instances, true);
     }
 
     /// @notice Deletes SGX instances from the registry.
@@ -109,9 +109,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @notice Adds an SGX instance after the attestation is verified
-    /// @param attestation The parsed attestation quote.
-    /// @return id The respective instanceId
-    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata attestation)
+    /// @param _attestation The parsed attestation quote.
+    /// @return The respective instanceId
+    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
         external
         returns (uint256)
     {
@@ -121,48 +121,48 @@ contract SgxVerifier is EssentialContract, IVerifier {
             revert SGX_RA_NOT_SUPPORTED();
         }
 
-        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
+        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
 
         if (!verified) revert SGX_INVALID_ATTESTATION();
 
         address[] memory _address = new address[](1);
-        _address[0] = address(bytes20(attestation.localEnclaveReport.reportData));
+        _address[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
 
         return _addInstances(_address, false)[0];
     }
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata ctx,
-        TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata proof
+        Context calldata _ctx,
+        TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
     )
         external
         onlyFromNamed("taiko")
     {
         // Do not run proof verification to contest an existing proof
-        if (ctx.isContesting) return;
+        if (_ctx.isContesting) return;
 
         // Size is: 89 bytes
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        if (proof.data.length != 89) revert SGX_INVALID_PROOF();
+        if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
 
-        uint32 id = uint32(bytes4(Bytes.slice(proof.data, 0, 4)));
-        address newInstance = address(bytes20(Bytes.slice(proof.data, 4, 20)));
-        bytes memory signature = Bytes.slice(proof.data, 24);
+        uint32 id = uint32(bytes4(Bytes.slice(_proof.data, 0, 4)));
+        address newInstance = address(bytes20(Bytes.slice(_proof.data, 4, 20)));
+        bytes memory signature = Bytes.slice(_proof.data, 24);
 
         address oldInstance =
-            ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
+            ECDSA.recover(getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), signature);
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);
     }
 
     function getSignedHash(
-        TaikoData.Transition memory tran,
-        address newInstance,
-        address prover,
-        bytes32 metaHash
+        TaikoData.Transition memory _tran,
+        address _newInstance,
+        address _prover,
+        bytes32 _metaHash
     )
         public
         view
@@ -174,10 +174,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
                 "VERIFY_PROOF",
                 ITaikoL1(taikoL1).getConfig().chainId,
                 address(this),
-                tran,
-                newInstance,
-                prover,
-                metaHash
+                _tran,
+                _newInstance,
+                _prover,
+                _metaHash
             )
         );
     }

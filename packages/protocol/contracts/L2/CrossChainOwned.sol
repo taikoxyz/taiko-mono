@@ -36,13 +36,13 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     error XCO_PERMISSION_DENIED();
     error XCO_TX_REVERTED();
 
-    function onMessageInvocation(bytes calldata data)
+    function onMessageInvocation(bytes calldata _data)
         external
         payable
         whenNotPaused
         onlyFromNamed("bridge")
     {
-        (uint64 txId, bytes memory txdata) = abi.decode(data, (uint64, bytes));
+        (uint64 txId, bytes memory txdata) = abi.decode(_data, (uint64, bytes));
         if (txId != nextTxId) revert XCO_INVALID_TX_ID();
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();

@@ -34,36 +34,36 @@ library LibDepositing {
     error L1_INVALID_ETH_DEPOSIT();
 
     /// @dev Deposits Ether to Layer 2.
-    /// @param state Current TaikoData.State.
-    /// @param config Actual TaikoData.Config.
-    /// @param resolver Address resolver interface.
-    /// @param recipient The recipient address.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _resolver Address resolver interface.
+    /// @param _recipient The recipient address.
     function depositEtherToL2(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        IAddressResolver resolver,
-        address recipient
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        address _recipient
     )
         external
     {
-        if (!canDepositEthToL2(state, config, msg.value)) {
+        if (!canDepositEthToL2(_state, _config, msg.value)) {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        resolver.resolve("bridge", false).sendEther(msg.value);
+        _resolver.resolve("bridge", false).sendEther(msg.value);
 
         // Append the deposit to the queue.
-        address _recipient = recipient == address(0) ? msg.sender : recipient;
-        uint256 slot = state.slotA.numEthDeposits % config.ethDepositRingBufferSize;
+        address recipient_ = _recipient == address(0) ? msg.sender : _recipient;
+        uint256 slot = _state.slotA.numEthDeposits % _config.ethDepositRingBufferSize;
 
         // range of msg.value is checked by next line.
-        state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
+        _state.ethDeposits[slot] = _encodeEthDeposit(recipient_, msg.value);
 
         emit EthDeposited(
             TaikoData.EthDeposit({
-                recipient: _recipient,
+                recipient: recipient_,
                 amount: uint96(msg.value),
-                id: state.slotA.numEthDeposits
+                id: _state.slotA.numEthDeposits
             })
         );
 
@@ -71,31 +71,32 @@ library LibDepositing {
         // - uint64 can store up to ~1.8 * 1e19, which can represent 584K years
         // if we are depositing at every second
         unchecked {
-            state.slotA.numEthDeposits++;
+            _state.slotA.numEthDeposits++;
         }
     }
 
     /// @dev Processes the ETH deposits in a batched manner.
     function processDeposits(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        address feeRecipient
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        address _feeRecipient
     )
         internal
         returns (TaikoData.EthDeposit[] memory deposits)
     {
         // Calculate the number of pending deposits.
-        uint256 numPending = state.slotA.numEthDeposits - state.slotA.nextEthDepositToProcess;
+        uint256 numPending = _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess;
 
-        if (numPending < config.ethDepositMinCountPerBlock) {
+        if (numPending < _config.ethDepositMinCountPerBlock) {
             deposits = new TaikoData.EthDeposit[](0);
         } else {
-            deposits = new TaikoData.EthDeposit[](numPending.min(config.ethDepositMaxCountPerBlock));
-            uint96 fee = uint96(config.ethDepositMaxFee.min(block.basefee * config.ethDepositGas));
-            uint64 j = state.slotA.nextEthDepositToProcess;
+            deposits =
+                new TaikoData.EthDeposit[](numPending.min(_config.ethDepositMaxCountPerBlock));
+            uint96 fee = uint96(_config.ethDepositMaxFee.min(block.basefee * _config.ethDepositGas));
+            uint64 j = _state.slotA.nextEthDepositToProcess;
             uint96 totalFee;
             for (uint256 i; i < deposits.length;) {
-                uint256 data = state.ethDeposits[j % config.ethDepositRingBufferSize];
+                uint256 data = _state.ethDeposits[j % _config.ethDepositRingBufferSize];
                 deposits[i] = TaikoData.EthDeposit({
                     recipient: address(uint160(data >> 96)),
                     amount: uint96(data),
@@ -115,50 +116,50 @@ library LibDepositing {
                     ++j;
                 }
             }
-            state.slotA.nextEthDepositToProcess = j;
+            _state.slotA.nextEthDepositToProcess = j;
             // This is the fee deposit
-            state.ethDeposits[state.slotA.numEthDeposits % config.ethDepositRingBufferSize] =
-                _encodeEthDeposit(feeRecipient, totalFee);
+            _state.ethDeposits[_state.slotA.numEthDeposits % _config.ethDepositRingBufferSize] =
+                _encodeEthDeposit(_feeRecipient, totalFee);
 
             // Unchecked is safe:
             // - uint64 can store up to ~1.8 * 1e19, which can represent 584K
             // years if we are depositing at every second
             unchecked {
-                state.slotA.numEthDeposits++;
+                _state.slotA.numEthDeposits++;
             }
         }
     }
 
     /// @dev Checks if Ether deposit is allowed for Layer 2.
     function canDepositEthToL2(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 amount
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint256 _amount
     )
         internal
         view
         returns (bool)
     {
         // Unchecked is safe:
-        // - both numEthDeposits and state.slotA.nextEthDepositToProcess are
+        // - both numEthDeposits and _state.slotA.nextEthDepositToProcess are
         // indexes. One is tracking all deposits (numEthDeposits: unprocessed)
         // and the next to be processed, so nextEthDepositToProcess cannot be
         // bigger than numEthDeposits
         // - ethDepositRingBufferSize cannot be 0 by default (validity checked
         // in LibVerifying)
         unchecked {
-            return amount >= config.ethDepositMinAmount && amount <= config.ethDepositMaxAmount
-                && state.slotA.numEthDeposits - state.slotA.nextEthDepositToProcess
-                    < config.ethDepositRingBufferSize - 1;
+            return _amount >= _config.ethDepositMinAmount && _amount <= _config.ethDepositMaxAmount
+                && _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess
+                    < _config.ethDepositRingBufferSize - 1;
         }
     }
 
     /// @dev Encodes the given deposit into a uint256.
-    /// @param addr The address of the deposit recipient.
-    /// @param amount The amount of the deposit.
+    /// @param _addr The address of the deposit recipient.
+    /// @param _amount The amount of the deposit.
     /// @return The encoded deposit.
-    function _encodeEthDeposit(address addr, uint256 amount) private pure returns (uint256) {
-        if (amount > type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
-        return (uint256(uint160(addr)) << 96) | amount;
+    function _encodeEthDeposit(address _addr, uint256 _amount) private pure returns (uint256) {
+        if (_amount > type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+        return (uint256(uint160(_addr)) << 96) | _amount;
     }
 }

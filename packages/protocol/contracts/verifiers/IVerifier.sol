@@ -31,9 +31,9 @@ interface IVerifier {
     }
 
     function verifyProof(
-        Context calldata ctx,
-        TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata proof
+        Context calldata _ctx,
+        TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
     )
         external;
 }

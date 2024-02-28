@@ -46,10 +46,10 @@ abstract contract BaseVault is
     }
 
     /// @notice Checks if the contract supports the given interface.
-    /// @param interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IRecallableSender).interfaceId;
+    /// @param _interfaceId The interface identifier.
+    /// @return True if the contract supports the interface, false otherwise.
+    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
+        return _interfaceId == type(IRecallableSender).interfaceId;
     }
 
     function name() public pure virtual returns (bytes32);
@@ -58,20 +58,20 @@ abstract contract BaseVault is
         internal
         view
         onlyFromBridge
-        returns (IBridge.Context memory ctx)
+        returns (IBridge.Context memory ctx_)
     {
-        ctx = IBridge(msg.sender).context();
-        address selfOnSourceChain = resolve(ctx.srcChainId, name(), false);
-        if (ctx.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
+        ctx_ = IBridge(msg.sender).context();
+        address selfOnSourceChain = resolve(ctx_.srcChainId, name(), false);
+        if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 
     function checkRecallMessageContext()
         internal
         view
         onlyFromBridge
-        returns (IBridge.Context memory ctx)
+        returns (IBridge.Context memory ctx_)
     {
-        ctx = IBridge(msg.sender).context();
-        if (ctx.from != msg.sender) revert VAULT_PERMISSION_DENIED();
+        ctx_ = IBridge(msg.sender).context();
+        if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
     }
 }

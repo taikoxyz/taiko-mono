@@ -58,25 +58,25 @@ interface IBridge {
 
     /// @notice Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    /// @param message The message to be sent.
-    /// @return msgHash The hash of the sent message.
-    /// @return updatedMessage The updated message sent.
-    function sendMessage(Message calldata message)
+    /// @param _message The message to be sent.
+    /// @return msgHash_ The hash of the sent message.
+    /// @return message_ The updated message sent.
+    function sendMessage(Message calldata _message)
         external
         payable
-        returns (bytes32 msgHash, Message memory updatedMessage);
+        returns (bytes32 msgHash_, Message memory message_);
 
     /// @notice Returns the bridge state context.
-    /// @return context The context of the current bridge operation.
-    function context() external view returns (Context memory context);
+    /// @return context_ The context of the current bridge operation.
+    function context() external view returns (Context memory context_);
 }
 
 /// @title IRecallableSender
 /// @notice An interface that all recallable message senders shall implement.
 interface IRecallableSender {
     function onMessageRecalled(
-        IBridge.Message calldata message,
-        bytes32 msgHash
+        IBridge.Message calldata _message,
+        bytes32 _msgHash
     )
         external
         payable;
@@ -86,7 +86,7 @@ interface IRecallableSender {
 /// @notice An interface that all bridge message receiver shall implement
 interface IMessageInvocable {
     /// @notice Called when this contract is the bridge target.
-    /// @param data The data for this contract to interpret.
+    /// @param _data The data for this contract to interpret.
     /// @dev This method should be guarded with `onlyFromNamed("bridge")`.
-    function onMessageInvocation(bytes calldata data) external payable;
+    function onMessageInvocation(bytes calldata _data) external payable;
 }

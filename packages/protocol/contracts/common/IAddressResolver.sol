@@ -26,31 +26,31 @@ pragma solidity 0.8.24;
 /// contracts that are resolvers.
 interface IAddressResolver {
     /// @notice Resolves a name to its address deployed on this chain.
-    /// @param name Name whose address is to be resolved.
-    /// @param allowZeroAddress If set to true, does not throw if the resolved
+    /// @param _name Name whose address is to be resolved.
+    /// @param _allowZeroAddress If set to true, does not throw if the resolved
     /// address is `address(0)`.
-    /// @return addr Address associated with the given name.
+    /// @return  Address associated with the given name.
     function resolve(
-        bytes32 name,
-        bool allowZeroAddress
+        bytes32 _name,
+        bool _allowZeroAddress
     )
         external
         view
-        returns (address payable addr);
+        returns (address payable);
 
     /// @notice Resolves a name to its address deployed on a specified chain.
-    /// @param chainId The chainId of interest.
-    /// @param name Name whose address is to be resolved.
-    /// @param allowZeroAddress If set to true, does not throw if the resolved
+    /// @param _chainId The chainId of interest.
+    /// @param _name Name whose address is to be resolved.
+    /// @param _allowZeroAddress If set to true, does not throw if the resolved
     /// address is `address(0)`.
-    /// @return addr Address associated with the given name on the specified
+    /// @return Address associated with the given name on the specified
     /// chain.
     function resolve(
-        uint64 chainId,
-        bytes32 name,
-        bool allowZeroAddress
+        uint64 _chainId,
+        bytes32 _name,
+        bool _allowZeroAddress
     )
         external
         view
-        returns (address payable addr);
+        returns (address payable);
 }

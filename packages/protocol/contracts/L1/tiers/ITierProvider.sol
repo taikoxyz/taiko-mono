@@ -37,12 +37,12 @@ interface ITierProvider {
     /// @dev Retrieves the IDs of all supported tiers.
     /// Note that the core protocol requires the number of tiers to be smaller
     /// than 256. In reality, this number should be much smaller.
-    /// @return uint16[] struct containing the ids of the tiers.
+    /// @return The ids of the tiers.
     function getTierIds() external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
     /// @param rand (Semi) random number.
-    /// @return uint16 Tier id.
+    /// @return The tier id.
     function getMinTier(uint256 rand) external view returns (uint16);
 }
 

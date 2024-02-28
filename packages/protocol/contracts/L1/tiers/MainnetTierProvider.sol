@@ -29,8 +29,8 @@ contract MainnetTierProvider is EssentialContract, ITierProvider {
         __Essential_init(_owner);
     }
 
-    function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (tierId == LibTiers.TIER_SGX) {
+    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+        if (_tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
                 validityBond: 250 ether, // TKO
@@ -41,7 +41,7 @@ contract MainnetTierProvider is EssentialContract, ITierProvider {
             });
         }
 
-        if (tierId == LibTiers.TIER_SGX_ZKVM) {
+        if (_tierId == LibTiers.TIER_SGX_ZKVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx_zkvm",
                 validityBond: 500 ether, // TKO
@@ -52,7 +52,7 @@ contract MainnetTierProvider is EssentialContract, ITierProvider {
             });
         }
 
-        if (tierId == LibTiers.TIER_GUARDIAN) {
+        if (_tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: "tier_guardian",
                 validityBond: 0, // must be 0 for top tier
@@ -66,16 +66,16 @@ contract MainnetTierProvider is EssentialContract, ITierProvider {
         revert TIER_NOT_FOUND();
     }
 
-    function getTierIds() public pure override returns (uint16[] memory tiers) {
-        tiers = new uint16[](3);
-        tiers[0] = LibTiers.TIER_SGX;
-        tiers[1] = LibTiers.TIER_SGX_ZKVM;
-        tiers[2] = LibTiers.TIER_GUARDIAN;
+    function getTierIds() public pure override returns (uint16[] memory tiers_) {
+        tiers_ = new uint16[](3);
+        tiers_[0] = LibTiers.TIER_SGX;
+        tiers_[1] = LibTiers.TIER_SGX_ZKVM;
+        tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
-    function getMinTier(uint256 rand) public pure override returns (uint16) {
+    function getMinTier(uint256 _rand) public pure override returns (uint16) {
         // 0.1% require SGX + ZKVM; all others require SGX
-        if (rand % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
+        if (_rand % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
         else return LibTiers.TIER_SGX;
     }
 }

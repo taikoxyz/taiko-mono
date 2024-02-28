@@ -41,9 +41,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     error ZERO_ADDR_MANAGER();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
-    /// @param name The name to check against.
-    modifier onlyFromOwnerOrNamed(bytes32 name) {
-        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+    /// @param _name The name to check against.
+    modifier onlyFromOwnerOrNamed(bytes32 _name) {
+        if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
         _;
     }
 
@@ -124,13 +124,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     // Loads the reentry lock
-    function _loadReentryLock() internal view virtual returns (uint8 reentry) {
+    function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
         if (block.chainid == 1) {
             assembly {
-                reentry := tload(_REENTRY_SLOT)
+                reentry_ := tload(_REENTRY_SLOT)
             }
         } else {
-            reentry = _reentry;
+            reentry_ = _reentry;
         }
     }
 

@@ -53,45 +53,45 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         emit MigrationStatusChanged(_migratingAddress, _migratingInbound);
     }
 
-    function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
+    function mint(address _account, uint256 _amount) public nonReentrant whenNotPaused {
         // mint is disabled while migrating outbound.
         if (_isMigratingOut()) revert BB_MINT_DISALLOWED();
 
         if (msg.sender == migratingAddress) {
             // Inbound migration
-            emit MigratedTo(migratingAddress, account, amount);
+            emit MigratedTo(migratingAddress, _account, _amount);
         } else if (msg.sender != resolve("erc20_vault", true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
         }
 
-        _mintToken(account, amount);
+        _mintToken(_account, _amount);
     }
 
-    function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
+    function burn(address _account, uint256 _amount) public nonReentrant whenNotPaused {
         if (_isMigratingOut()) {
             // Only the owner of the tokens himself can migrate out
-            if (msg.sender != account) revert BB_PERMISSION_DENIED();
+            if (msg.sender != _account) revert BB_PERMISSION_DENIED();
             // Outbound migration
-            emit MigratedTo(migratingAddress, account, amount);
+            emit MigratedTo(migratingAddress, _account, _amount);
             // Ask the new bridged token to mint token for the user.
-            IBridgedERC20(migratingAddress).mint(account, amount);
+            IBridgedERC20(migratingAddress).mint(_account, _amount);
         } else if (msg.sender != resolve("erc20_vault", true)) {
             // Only the vault can burn tokens when not migrating out
             revert RESOLVER_DENIED();
         }
 
-        _burnToken(account, amount);
+        _burnToken(_account, _amount);
     }
 
     /// @notice Returns the owner.
-    /// @return address The address of the owner.
+    /// @return The address of the owner.
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return super.owner();
     }
 
-    function _mintToken(address account, uint256 amount) internal virtual;
-    function _burnToken(address from, uint256 amount) internal virtual;
+    function _mintToken(address _account, uint256 _amount) internal virtual;
+    function _burnToken(address _from, uint256 _amount) internal virtual;
 
     function _isMigratingOut() internal view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;

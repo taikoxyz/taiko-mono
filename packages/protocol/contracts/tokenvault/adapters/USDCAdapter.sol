@@ -19,9 +19,9 @@ import "../BridgedERC20Base.sol";
 /// @title IUSDC
 /// @custom:security-contact security@taiko.xyz
 interface IUSDC {
-    function burn(uint256 amount) external;
-    function mint(address to, uint256 amount) external;
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function burn(uint256 _amount) external;
+    function mint(address _to, uint256 _amount) external;
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
 }
 
 /// @title USDCAdapter
@@ -35,12 +35,12 @@ contract USDCAdapter is BridgedERC20Base {
         usdc = _usdc;
     }
 
-    function _mintToken(address account, uint256 amount) internal override {
-        usdc.mint(account, amount);
+    function _mintToken(address _account, uint256 _amount) internal override {
+        usdc.mint(_account, _amount);
     }
 
-    function _burnToken(address from, uint256 amount) internal override {
-        usdc.transferFrom(from, address(this), amount);
-        usdc.burn(amount);
+    function _burnToken(address _from, uint256 _amount) internal override {
+        usdc.transferFrom(_from, address(this), _amount);
+        usdc.burn(_amount);
     }
 }

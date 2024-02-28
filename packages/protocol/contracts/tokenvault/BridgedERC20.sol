@@ -127,63 +127,63 @@ contract BridgedERC20 is
     }
 
     /// @notice Gets the canonical token's address and chain ID.
-    /// @return address The canonical token's address.
-    /// @return uint256 The canonical token's chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
-    function _mintToken(address account, uint256 amount) internal override {
-        _mint(account, amount);
+    function _mintToken(address _account, uint256 _amount) internal override {
+        _mint(_account, _amount);
     }
 
-    function _burnToken(address from, uint256 amount) internal override {
-        _burn(from, amount);
+    function _burnToken(address _from, uint256 _amount) internal override {
+        _burn(_from, _amount);
     }
 
     /// @dev For ERC20SnapshotUpgradeable and ERC20VotesUpgradeable, need to implement the following
     /// functions
     function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
     {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
-        super._beforeTokenTransfer(from, to, amount);
+        super._beforeTokenTransfer(_from, _to, _amount);
     }
 
     function _afterTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._afterTokenTransfer(from, to, amount);
+        super._afterTokenTransfer(_from, _to, _amount);
     }
 
     function _mint(
-        address to,
-        uint256 amount
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._mint(to, amount);
+        super._mint(_to, _amount);
     }
 
     function _burn(
-        address from,
-        uint256 amount
+        address _from,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._burn(from, amount);
+        super._burn(_from, _amount);
     }
 }

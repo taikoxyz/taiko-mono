@@ -20,9 +20,9 @@ import "../TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IHook {
     function onBlockProposed(
-        TaikoData.Block memory blk,
-        TaikoData.BlockMetadata memory meta,
-        bytes memory data
+        TaikoData.Block memory _blk,
+        TaikoData.BlockMetadata memory _meta,
+        bytes memory _data
     )
         external
         payable;
