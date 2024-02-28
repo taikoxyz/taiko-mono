@@ -11,8 +11,8 @@ import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block verification in the Taiko protocol.
+/// @custom:security-contact security@taiko.xyz
 library LibVerifying {
     using LibMath for uint256;
 

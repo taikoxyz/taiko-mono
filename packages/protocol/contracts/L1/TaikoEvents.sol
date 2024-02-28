@@ -4,12 +4,12 @@ pragma solidity 0.8.24;
 import "./TaikoData.sol";
 
 /// @title TaikoEvents
-/// @custom:security-contact security@taiko.xyz
 /// @notice This abstract contract provides event declarations for the Taiko
 /// protocol, which are emitted during block proposal, proof, verification, and
 /// Ethereum deposit processes.
 /// @dev The events defined here must match the definitions in the corresponding
 /// L1 libraries.
+/// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.

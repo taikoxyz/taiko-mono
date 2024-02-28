@@ -2,8 +2,8 @@
 pragma solidity 0.8.24;
 
 /// @title ITierProvider
-/// @custom:security-contact security@taiko.xyz
 /// @notice Defines interface to return tier configuration.
+/// @custom:security-contact security@taiko.xyz
 interface ITierProvider {
     struct Tier {
         bytes32 verifierName;

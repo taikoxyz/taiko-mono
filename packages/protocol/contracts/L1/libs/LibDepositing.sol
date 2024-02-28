@@ -7,8 +7,8 @@ import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
 
 /// @title LibDepositing
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling Ether deposits in the Taiko protocol.
+/// @custom:security-contact security@taiko.xyz
 library LibDepositing {
     using LibAddress for address;
     using LibAddress for address payable;

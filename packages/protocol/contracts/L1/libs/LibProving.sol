@@ -10,9 +10,9 @@ import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
+/// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;
 

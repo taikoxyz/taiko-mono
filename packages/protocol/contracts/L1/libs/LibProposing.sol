@@ -10,8 +10,8 @@ import "../TaikoData.sol";
 import "./LibDepositing.sol";
 
 /// @title LibProposing
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling block proposals in the Taiko protocol.
+/// @custom:security-contact security@taiko.xyz
 library LibProposing {
     using LibAddress for address;
 

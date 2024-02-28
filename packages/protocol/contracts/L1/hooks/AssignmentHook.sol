@@ -9,8 +9,8 @@ import "../ITaikoL1.sol";
 import "./IHook.sol";
 
 /// @title AssignmentHook
+/// @notice A hook that handles prover assignment verification and fee processing.
 /// @custom:security-contact security@taiko.xyz
-/// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
     using SafeERC20 for IERC20;

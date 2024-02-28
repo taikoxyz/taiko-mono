@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import "../TaikoData.sol";
 
 /// @title LibUtils
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library that offers helper functions.
+/// @custom:security-contact security@taiko.xyz
 library LibUtils {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
@@ -13,8 +13,8 @@ library LibUtils {
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();
 
+    /// @notice This function will revert if the transition is not found.
     /// @dev Retrieves the transition with a given parentHash.
-    /// This function will revert if the transition is not found.
     /// @param state Current TaikoData.State.
     /// @param config Actual TaikoData.Config.
     /// @param blockId Id of the block.
