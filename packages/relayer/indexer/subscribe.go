@@ -220,7 +220,7 @@ func (i *Indexer) subscribeMessageStatusChanged(
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			slog.Info("new message status changed event",
+			slog.Info("new messageStatusChanged event",
 				"msgHash", common.Hash(event.MsgHash).Hex(),
 				"chainID", chainID.String(),
 			)
@@ -241,10 +241,10 @@ func (i *Indexer) subscribeChainDataSynced(
 
 	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			slog.Error("i.signalService.WatchMessageStatusChanged", "error", err)
+			slog.Error("i.signalService.WatchChainDataSynced", "error", err)
 		}
 
-		slog.Info("resubscribing to WatchMessageStatusChanged events")
+		slog.Info("resubscribing to WatchChainDataSynced events")
 
 		return i.signalService.WatchChainDataSynced(&bind.WatchOpts{
 			Context: ctx,
@@ -261,7 +261,7 @@ func (i *Indexer) subscribeChainDataSynced(
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			slog.Info("new chain data synced event",
+			slog.Info("new chainDataSynced event",
 				"signal", common.Hash(event.Signal).Hex(),
 				"chainID", event.Chainid,
 				"blockID", event.BlockId,
@@ -269,7 +269,7 @@ func (i *Indexer) subscribeChainDataSynced(
 			)
 
 			if err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event, true); err != nil {
-				slog.Error("error handling chain data synced event", "error", err)
+				slog.Error("error handling chainDataSynced event", "error", err)
 				continue
 			}
 
