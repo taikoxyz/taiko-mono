@@ -7,7 +7,7 @@ import "forge-std/src/console2.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "../contracts/thirdparty/LibFixedPointMath.sol";
+import "../contracts/thirdparty/solmate/LibFixedPointMath.sol";
 
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
