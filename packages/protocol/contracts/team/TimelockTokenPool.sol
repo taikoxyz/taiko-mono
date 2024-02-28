@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
@@ -36,6 +37,7 @@ import "../common/EssentialContract.sol";
 /// - grant program grantees
 contract TimelockTokenPool is EssentialContract {
     using SafeERC20 for IERC20;
+    using SafeCast for uint256;
 
     struct Grant {
         uint128 amount;
@@ -167,7 +169,8 @@ contract TimelockTokenPool is EssentialContract {
 
         amountWithdrawn = r.amountWithdrawn;
         amountToWithdraw = amountUnlocked - amountWithdrawn;
-        costToWithdraw = (amountUnlocked / 1e18 * r.grant.costPerToken) - r.costPaid;
+        costToWithdraw =
+            (uint256(amountUnlocked) * r.grant.costPerToken / 1e18).toUint128() - r.costPaid;
     }
 
     function getMyGrant(address recipient) public view returns (Grant memory) {
