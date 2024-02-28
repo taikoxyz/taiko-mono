@@ -152,7 +152,7 @@ library LibProposing {
                 // proposeBlock functions are called more than once in the same
                 // L1 transaction, these multiple L2 blocks will share the same
                 // blob.
-                meta.blobHash = blobhash(0);
+                meta.blobHash = keccak256(abi.encode(0));
 
                 if (meta.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
