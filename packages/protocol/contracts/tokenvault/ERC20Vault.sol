@@ -55,7 +55,7 @@ contract ERC20Vault is BaseVault {
 
     // Mappings from canonical tokens to their btokens. Also storing chainId for
     // tokens across other chains aside from Ethereum.
-    mapping(uint256 chainId=> mapping(address ctoken=> address btoken)) public canonicalToBridged;
+    mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
     mapping(address btoken => bool blacklisted) public btokenBlacklist;
 

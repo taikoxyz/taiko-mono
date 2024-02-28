@@ -64,7 +64,7 @@ abstract contract BaseNFTVault is BaseVault {
     mapping(address btoken => CanonicalNFT cannonical) public bridgedToCanonical;
 
     // Mapping to store canonical NFTs and their bridged counterparts.
-    mapping(uint256 chainId => mapping(address ctoken=> address btoken)) public canonicalToBridged;
+    mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
     uint256[48] private __gap;
 
