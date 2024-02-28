@@ -24,6 +24,8 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 import "../../common/EssentialContract.sol";
 
+/// @title TaikoGovernor
+/// @custom:security-contact security@taiko.xyz
 contract TaikoGovernor is
     EssentialContract,
     GovernorCompatibilityBravoUpgradeable,
@@ -55,6 +57,7 @@ contract TaikoGovernor is
         __GovernorTimelockControl_init(_timelock);
     }
 
+    /// @dev See {IGovernor-propose}
     function propose(
         address[] memory targets,
         uint256[] memory values,
@@ -74,6 +77,7 @@ contract TaikoGovernor is
     /// https://github.com/taikoxyz/taiko-mono/security/dependabot/114
     /// See fix in OZ 4.8.3 here:
     /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
+    /// @dev See {GovernorCompatibilityBravoUpgradeable-propose}
     function propose(
         address[] memory targets,
         uint256[] memory values,

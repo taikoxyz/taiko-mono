@@ -23,6 +23,7 @@ import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
+/// @custom:security-contact security@taiko.xyz
 /// @notice This contract is the implementation of verifying SGX signature
 /// proofs on-chain. Please see references below!
 /// Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
@@ -51,7 +52,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// the same instance). This is due to side-channel protection. Also this
     /// public key shall expire after some time. (For now it is a long enough 6
     /// months setting.)
-    mapping(uint256 instanceId => Instance) public instances; // slot 2
+    mapping(uint256 instanceId => Instance instance) public instances; // slot 2
     /// @dev One address shall be registered (during attestation) only once, otherwise it could
     /// bypass this contract's expiry check by always registering with the same attestation and
     /// getting multiple valid instanceIds. While during proving, it is technically possible to
@@ -67,11 +68,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
     error SGX_ALREADY_ATTESTED();
-    error SGX_DELETE_NOT_AUTHORIZED();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
-    error SGX_MISSING_ATTESTATION();
     error SGX_RA_NOT_SUPPORTED();
 
     /// @notice Initializes the contract.

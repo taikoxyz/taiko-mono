@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+/// @title V3Struct
+/// @custom:security-contact security@taiko.xyz
 library V3Struct {
     struct Header {
         bytes2 version;
@@ -36,7 +38,7 @@ library V3Struct {
 
     struct ParsedQEAuthData {
         uint16 parsedDataSize;
-        bytes data; // todo! data.length = parsedDataSize
+        bytes data;
     }
 
     struct CertificationData {
@@ -50,8 +52,7 @@ library V3Struct {
     struct ParsedCertificationData {
         uint16 certType;
         // avoid uint256 -> uint32 conversion to save gas
-        uint32 certDataSize; // todo! certDataSize = len(join((BEGIN_CERT, certArray[i], END_CERT)
-            // for i in 0..3))
+        uint32 certDataSize;
         bytes[3] decodedCertDataArray; // base64 decoded cert bytes array
     }
 

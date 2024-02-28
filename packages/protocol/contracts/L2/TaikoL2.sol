@@ -25,6 +25,7 @@ import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
 /// @title TaikoL2
+/// @custom:security-contact security@taiko.xyz
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
@@ -159,6 +160,8 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Withdraw token or Ether from this address
+    /// @param token Token address or address(0) if Ether.
+    /// @param to Withdraw to address.
     function withdraw(
         address token,
         address to
@@ -203,6 +206,7 @@ contract TaikoL2 is CrossChainOwned {
     }
 
     /// @notice Returns EIP1559 related configurations
+    /// @return config struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
         // is 3s, and each block is full (gasUsed is 15_000_000), then its
