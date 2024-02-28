@@ -6,15 +6,8 @@ import "./IAddressManager.sol";
 import "./IAddressResolver.sol";
 
 /// @title AddressResolver
+/// @notice See the documentation in {IAddressResolver}.
 /// @custom:security-contact security@taiko.xyz
-/// @notice This contract acts as a bridge for name-to-address resolution.
-/// It delegates the resolution to the AddressManager. By separating the logic,
-/// we can maintain flexibility in address management without affecting the
-/// resolving process.
-///
-/// Note that the address manager should be changed using upgradability, there
-/// is no setAddressManager() function go guarantee atomicness across all
-/// contracts that are resolvers.
 abstract contract AddressResolver is IAddressResolver, Initializable {
     address public addressManager;
     uint256[49] private __gap;

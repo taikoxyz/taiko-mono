@@ -5,8 +5,8 @@ import "./IAddressManager.sol";
 import "./EssentialContract.sol";
 
 /// @title AddressManager
+/// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
-/// @notice Manages a mapping of chainId-name pairs to Ethereum addresses.
 contract AddressManager is EssentialContract, IAddressManager {
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private addresses;
     uint256[49] private __gap;

@@ -2,9 +2,8 @@
 pragma solidity 0.8.24;
 
 /// @title IAddressManager
+/// @notice Manages a mapping of (chainId, name) pairs to Ethereum addresses.
 /// @custom:security-contact security@taiko.xyz
-/// @notice Specifies methods to manage address mappings for given chainId-name
-/// pairs.
 interface IAddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.
     /// @dev Note that in production, this method shall be a pure function
