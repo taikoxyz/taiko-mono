@@ -104,14 +104,21 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
-    /// @return Source token address and source chain ID.
+    /// @return address The source token's address.
+    /// @return uint256 The source token's chain ID.
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     /// @notice Returns the token URI.
-    function tokenURI(uint256) public view virtual override returns (string memory) {
-        return LibBridgedToken.buildURI(srcToken, srcChainId);
+    /// @param tokenId The token id.
+    /// @return string The token uri following eip-681.
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        return string(
+            abi.encodePacked(
+                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(tokenId)
+            )
+        );
     }
 
     function _beforeTokenTransfer(

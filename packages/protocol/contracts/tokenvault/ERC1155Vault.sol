@@ -43,6 +43,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// the destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
     /// @param op Option for sending the ERC1155 token.
+    /// @return _message The constructed message.
     function sendToken(BridgeTransferOp memory op)
         external
         payable
@@ -190,7 +191,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return IERC1155ReceiverUpgradeable.onERC1155Received.selector;
     }
 
-    /// @dev See {IERC165-supportsInterface}.
+    /// @dev See {BaseVault-supportsInterface}.
+    /// @param interfaceId The interface identifier.
+    /// @return bool True if supports, else otherwise.
     function supportsInterface(bytes4 interfaceId)
         public
         view

@@ -32,6 +32,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     error BB_INVALID_PARAMS();
     error BB_MINT_DISALLOWED();
 
+    /// @notice Start or stop migration to/from a specified contract.
+    /// @param _migratingAddress The address migrating 'to' or 'from'.
+    /// @param _migratingInbound If false then signals migrating 'from', true if migrating 'into'.
     function changeMigrationStatus(
         address _migratingAddress,
         bool _migratingInbound
@@ -81,6 +84,8 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         _burnToken(account, amount);
     }
 
+    /// @notice Returns the owner.
+    /// @return address The address of the owner.
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return super.owner();
     }

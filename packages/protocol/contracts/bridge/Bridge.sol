@@ -101,6 +101,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
+    /// @param msgHashes The array of msgHashes to be suspended.
+    /// @param toSuspend True if suspend, false if unsuspend.
     function suspendMessages(
         bytes32[] calldata msgHashes,
         bool toSuspend
@@ -118,6 +120,8 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
+    /// @param addr The addreess to ban or unban.
+    /// @param toBan True if ban, false if unban.
     function banAddress(
         address addr,
         bool toBan
@@ -494,11 +498,15 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Hash the message
+    /// @param message The message struct variable to be hashed.
+    /// @return bytes32 The hashed message.
     function hashMessage(Message memory message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
 
     /// @notice Returns a signal representing a failed/recalled message.
+    /// @param msgHash The message hash.
+    /// @return bytes32 The failed representation of it as bytes32.
     function signalForFailedMessage(bytes32 msgHash) public pure returns (bytes32) {
         return msgHash ^ bytes32(uint256(Status.FAILED));
     }

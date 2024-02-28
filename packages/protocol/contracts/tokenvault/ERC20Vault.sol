@@ -168,6 +168,7 @@ contract ERC20Vault is BaseVault {
     /// destination chain so the user can receive the same amount of tokens by
     /// invoking the message call.
     /// @param op Option for sending ERC20 tokens.
+    /// @return _message The constructed message.
     function sendToken(BridgeTransferOp calldata op)
         external
         payable
