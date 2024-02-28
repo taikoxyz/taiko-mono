@@ -22,7 +22,7 @@ library EnclaveIdStruct {
     }
 
     enum EnclaveIdStatus {
-        OK,
+        OK, // placeholder for value 0
         SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
     }
 }
