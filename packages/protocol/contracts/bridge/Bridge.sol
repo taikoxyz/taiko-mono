@@ -18,9 +18,11 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
+import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "bridge"
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
@@ -56,12 +58,11 @@ contract Bridge is EssentialContract, IBridge {
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
-    mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
-    Context private _ctx; // slot 4,5,6
-    mapping(address => bool) public addressBanned; // slot 7
-    mapping(bytes32 msgHash => ProofReceipt) public proofReceipt; // slot 8
-    uint256[42] private __gap;
+    mapping(bytes32 msgHash => Status status) public messageStatus; // slot 2
+    Context private _ctx; // slot 3,4,5
+    mapping(address addr => bool banned) public addressBanned; // slot 6
+    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
+    uint256[43] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
@@ -477,7 +478,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             // For Taiko mainnet
             // 384 seconds = 6.4 minutes = one ethereum epoch
-            return (6 hours, 384 seconds);
+            return (1 hours, 384 seconds);
         } else if (
             block.chainid == 2 // Ropsten
                 || block.chainid == 4 // Rinkeby
@@ -548,7 +549,13 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             success = false;
         } else {
-            (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
+            (success,) = ExcessivelySafeCall.excessivelySafeCall(
+                message.to,
+                gasLimit,
+                message.value,
+                64, // return max 64 bytes
+                message.data
+            );
         }
 
         // Reset the context after the message call

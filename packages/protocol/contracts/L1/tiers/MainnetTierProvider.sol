@@ -18,6 +18,7 @@ import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
 /// @title MainnetTierProvider
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "tier_provider"
 contract MainnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;

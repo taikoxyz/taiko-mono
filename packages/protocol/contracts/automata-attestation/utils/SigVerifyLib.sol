@@ -5,12 +5,13 @@ import "../interfaces/ISigVerifyLib.sol";
 import "./RsaVerify.sol";
 import "./BytesUtils.sol";
 
+/// @title SigVerifyLib
+/// @custom:security-contact security@taiko.xyz
 // Library for verifying signatures
 // Supports verifying signatures with the following algorithms:
 // - RS256
 // - ES256
 // - RS1
-
 contract SigVerifyLib is ISigVerifyLib {
     using BytesUtils for bytes;
 

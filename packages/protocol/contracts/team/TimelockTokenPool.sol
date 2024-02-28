@@ -20,6 +20,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
+/// @custom:security-contact security@taiko.xyz
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
 ///
@@ -74,7 +75,7 @@ contract TimelockTokenPool is EssentialContract {
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
     uint128 public totalCostPaid;
-    mapping(address recipient => Recipient) public recipients;
+    mapping(address recipient => Recipient receipt) public recipients;
     uint128[44] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
@@ -85,7 +86,6 @@ contract TimelockTokenPool is EssentialContract {
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
-    error NOTHING_TO_WITHDRAW();
 
     function init(
         address _owner,

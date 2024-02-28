@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "./TaikoL2.sol";
 
 /// @title TaikoL2EIP1559Configurable
+/// @custom:security-contact security@taiko.xyz
 /// @notice Taiko L2 with a setter to change EIP-1559 configurations and states.
 contract TaikoL2EIP1559Configurable is TaikoL2 {
     Config public customConfig;

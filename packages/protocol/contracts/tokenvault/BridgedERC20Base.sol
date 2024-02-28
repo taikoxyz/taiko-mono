@@ -14,10 +14,11 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "./IBridgedERC20.sol";
 
+/// @title BridgedERC20Base
+/// @custom:security-contact security@taiko.xyz
 abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     address public migratingAddress; // slot 1
     bool public migratingInbound;
@@ -26,7 +27,6 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     event MigrationStatusChanged(address addr, bool inbound);
 
     event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
-    event MigratedFrom(address indexed toToken, address indexed account, uint256 amount);
 
     error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();

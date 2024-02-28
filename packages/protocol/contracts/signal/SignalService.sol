@@ -21,6 +21,7 @@ import "./ISignalService.sol";
 import "./LibSignals.sol";
 
 /// @title SignalService
+/// @custom:security-contact security@taiko.xyz
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is EssentialContract, ISignalService {
@@ -41,7 +42,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId; // slot 1
-    mapping(address => bool) public isAuthorized; // slot 2
+    mapping(address addr => bool authorized) public isAuthorized; // slot 2
     uint256[48] private __gap;
 
     event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);

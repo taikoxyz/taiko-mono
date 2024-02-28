@@ -16,6 +16,8 @@ pragma solidity 0.8.24;
 
 import "./TaikoData.sol";
 
+/// @title ITaikoL1
+/// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block.
     /// @param params Block parameters, currently an encoded BlockParams object.

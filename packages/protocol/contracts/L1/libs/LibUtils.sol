@@ -14,17 +14,14 @@
 
 pragma solidity 0.8.24;
 
-import "../../common/IAddressResolver.sol";
-import "../../signal/ISignalService.sol";
-import "../../signal/LibSignals.sol";
 import "../TaikoData.sol";
 
 /// @title LibUtils
+/// @custom:security-contact security@taiko.xyz
 /// @notice A library that offers helper functions.
 library LibUtils {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
-    error L1_CHAIN_DATA_NOT_RELAYED();
     error L1_INVALID_BLOCK_ID();
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();

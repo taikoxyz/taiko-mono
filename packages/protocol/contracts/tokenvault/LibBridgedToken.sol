@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title LibBridgedToken
+/// @custom:security-contact security@taiko.xyz
 library LibBridgedToken {
     error BTOKEN_INVALID_PARAMS();
 

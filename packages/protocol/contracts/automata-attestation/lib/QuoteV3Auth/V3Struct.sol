@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+/// @title V3Struct
+/// @custom:security-contact security@taiko.xyz
 library V3Struct {
     struct Header {
         bytes2 version;
