@@ -23,11 +23,7 @@ import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
-contract BridgedERC1155 is
-    EssentialContract,
-    IERC1155MetadataURIUpgradeable,
-    ERC1155Upgradeable
-{
+contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
     string private symbol_; // Symbol of the bridged token.
