@@ -129,9 +129,9 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 
 	var amount *big.Int = big.NewInt(0)
 
-	erc20ReceiveTokensFunctionSig := "240f6a5f"
-	erc721ReceiveTokensFunctionSig := "300536b5"
-	erc1155ReceiveTokensFunctionSig := "079312bf"
+	erc20ReceiveTokensFunctionSig := "7f07c947"
+	erc721ReceiveTokensFunctionSig := "7f07c947"
+	erc1155ReceiveTokensFunctionSig := "7f07c947"
 
 	// try to see if its an ERC20
 	if eventData != nil && common.BytesToHash(eventData) != ZeroHash && len(eventData) > 3 {
