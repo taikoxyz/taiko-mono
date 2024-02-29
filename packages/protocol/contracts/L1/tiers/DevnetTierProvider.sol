@@ -17,8 +17,8 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
     }
 
     /// @inheritdoc ITierProvider
-    function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (tierId == LibTiers.TIER_OPTIMISTIC) {
+    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+        if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
                 validityBond: 250 ether, // TKO
@@ -29,7 +29,7 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
             });
         }
 
-        if (tierId == LibTiers.TIER_GUARDIAN) {
+        if (_tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: "tier_guardian",
                 validityBond: 0, // must be 0 for top tier
@@ -44,10 +44,10 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
     }
 
     /// @inheritdoc ITierProvider
-    function getTierIds() public pure override returns (uint16[] memory tiers) {
-        tiers = new uint16[](2);
-        tiers[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers[1] = LibTiers.TIER_GUARDIAN;
+    function getTierIds() public pure override returns (uint16[] memory tiers_) {
+        tiers_ = new uint16[](2);
+        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
+        tiers_[1] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider

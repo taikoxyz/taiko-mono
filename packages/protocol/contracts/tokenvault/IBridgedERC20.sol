@@ -9,21 +9,21 @@ pragma solidity 0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface IBridgedERC20 {
     /// @notice Mints `amount` tokens and assigns them to the `account` address.
-    /// @param account The account to receive the minted tokens.
-    /// @param amount The amount of tokens to mint.
-    function mint(address account, uint256 amount) external;
+    /// @param _account The account to receive the minted tokens.
+    /// @param _amount The amount of tokens to mint.
+    function mint(address _account, uint256 _amount) external;
 
     /// @notice Burns `amount` tokens from the `from` address.
-    /// @param from The account from which the tokens will be burned.
-    /// @param amount The amount of tokens to burn.
-    function burn(address from, uint256 amount) external;
+    /// @param _from The account from which the tokens will be burned.
+    /// @param _amount The amount of tokens to burn.
+    function burn(address _from, uint256 _amount) external;
 
     /// @notice Start or stop migration to/from a specified contract.
-    /// @param addr The address migrating 'to' or 'from'.
-    /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
-    function changeMigrationStatus(address addr, bool inbound) external;
+    /// @param _addr The address migrating 'to' or 'from'.
+    /// @param _inbound If false then signals migrating 'from', true if migrating 'into'.
+    function changeMigrationStatus(address _addr, bool _inbound) external;
 
     /// @notice Returns the owner.
-    /// @return address The address of the owner.
+    /// @return The address of the owner.
     function owner() external view returns (address);
 }

@@ -49,26 +49,26 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @dev Mints tokens.
-    /// @param account Address to receive the minted token.
-    /// @param tokenId ID of the token to mint.
+    /// @param _account Address to receive the minted token.
+    /// @param _tokenId ID of the token to mint.
     function mint(
-        address account,
-        uint256 tokenId
+        address _account,
+        uint256 _tokenId
     )
         public
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
     {
-        _safeMint(account, tokenId);
+        _safeMint(_account, _tokenId);
     }
 
     /// @dev Burns tokens.
-    /// @param account Address from which the token is burned.
-    /// @param tokenId ID of the token to burn.
+    /// @param _account Address from which the token is burned.
+    /// @param _tokenId ID of the token to burn.
     function burn(
-        address account,
-        uint256 tokenId
+        address _account,
+        uint256 _tokenId
     )
         public
         nonReentrant
@@ -76,10 +76,10 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         onlyFromNamed("erc721_vault")
     {
         // Check if the caller is the owner of the token.
-        if (ownerOf(tokenId) != account) {
+        if (ownerOf(_tokenId) != _account) {
             revert BTOKEN_INVALID_BURN();
         }
-        _burn(tokenId);
+        _burn(_tokenId);
     }
 
     /// @notice Gets the name of the token.
@@ -95,34 +95,34 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
-    /// @return address The source token's address.
-    /// @return uint256 The source token's chain ID.
+    /// @return The source token's address.
+    /// @return The source token's chain ID.
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     /// @notice Returns the token URI.
-    /// @param tokenId The token id.
-    /// @return string The token uri following eip-681.
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    /// @param _tokenId The token id.
+    /// @return The token URI following EIP-681.
+    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
         return string(
             abi.encodePacked(
-                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(tokenId)
+                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
             )
         );
     }
 
     function _beforeTokenTransfer(
-        address, /*from*/
-        address to,
-        uint256, /*firstTokenId*/
-        uint256 /*batchSize*/
+        address, /*_from*/
+        address _to,
+        uint256, /*_firstTokenId*/
+        uint256 /*_batchSize*/
     )
         internal
         virtual
         override
     {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
     }
 }

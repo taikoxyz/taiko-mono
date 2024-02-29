@@ -7,20 +7,20 @@ import "../BridgedERC20Base.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IUSDC {
     /// @notice Burns a specific amount of tokens.
-    /// @param amount The amount of token to be burned.
-    function burn(uint256 amount) external;
+    /// @param _amount The amount of token to be burned.
+    function burn(uint256 _amount) external;
 
     /// @notice Mints a specific amount of new tokens to an address.
-    /// @param to The address that will receive the minted tokens.
-    /// @param amount The amount of tokens to mint.
-    function mint(address to, uint256 amount) external;
+    /// @param _to The address that will receive the minted tokens.
+    /// @param _amount The amount of tokens to mint.
+    function mint(address _to, uint256 _amount) external;
 
     /// @notice Transfers tokens from one address to another.
     /// @param from The address which you want to send tokens from.
-    /// @param to The address which you want to transfer to.
-    /// @param value The amount of tokens to be transferred.
-    /// @return True if the transfer was successful, otherwise false.
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    /// @param _to The address which you want to transfer to.
+    /// @param _amount The amount of tokens to be transferred.
+    /// @return true if the transfer was successful, otherwise false.
+    function transferFrom(address from, address _to, uint256 _amount) external returns (bool);
 }
 
 /// @title USDCAdapter
@@ -40,12 +40,12 @@ contract USDCAdapter is BridgedERC20Base {
         usdc = _usdc;
     }
 
-    function _mintToken(address account, uint256 amount) internal override {
-        usdc.mint(account, amount);
+    function _mintToken(address _account, uint256 _amount) internal override {
+        usdc.mint(_account, _amount);
     }
 
-    function _burnToken(address from, uint256 amount) internal override {
-        usdc.transferFrom(from, address(this), amount);
-        usdc.burn(amount);
+    function _burnToken(address _from, uint256 _amount) internal override {
+        usdc.transferFrom(_from, address(this), _amount);
+        usdc.burn(_amount);
     }
 }

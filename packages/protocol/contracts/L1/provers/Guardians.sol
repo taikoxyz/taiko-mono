@@ -95,39 +95,39 @@ abstract contract Guardians is EssentialContract {
         emit GuardiansUpdated(version, _newGuardians);
     }
 
-    /// @notice Return if the hash is approved
-    /// @param hash The hash to check
-    /// @return True if the hash is approved
-    function isApproved(bytes32 hash) public view returns (bool) {
-        return isApproved(_approvals[version][hash]);
+    /// @notice Returns if the hash is approved
+    /// @param _hash The hash to check
+    /// @return true if the hash is approved
+    function isApproved(bytes32 _hash) public view returns (bool) {
+        return isApproved(_approvals[version][_hash]);
     }
 
-    /// @notice Return the number of guardians
+    /// @notice Returns the number of guardians
     /// @return The number of guardians
     function numGuardians() public view returns (uint256) {
         return guardians.length;
     }
 
-    function approve(uint256 operationId, bytes32 hash) internal returns (bool approved) {
+    function approve(uint256 _operationId, bytes32 _hash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
         unchecked {
-            _approvals[version][hash] |= 1 << (id - 1);
+            _approvals[version][_hash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[version][hash];
-        approved = isApproved(_approval);
-        emit Approved(operationId, _approval, approved);
+        uint256 _approval = _approvals[version][_hash];
+        approved_ = isApproved(_approval);
+        emit Approved(_operationId, _approval, approved_);
     }
 
-    function deleteApproval(bytes32 hash) internal {
-        delete _approvals[version][hash];
+    function deleteApproval(bytes32 _hash) internal {
+        delete _approvals[version][_hash];
     }
 
-    function isApproved(uint256 approvalBits) internal view returns (bool) {
+    function isApproved(uint256 _approvalBits) internal view returns (bool) {
         uint256 count;
-        uint256 bits = approvalBits;
+        uint256 bits = _approvalBits;
         uint256 guardiansLength = guardians.length;
         unchecked {
             for (uint256 i; i < guardiansLength; ++i) {

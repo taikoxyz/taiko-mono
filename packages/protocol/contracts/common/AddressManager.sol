@@ -8,7 +8,7 @@ import "./EssentialContract.sol";
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
 contract AddressManager is EssentialContract, IAddressManager {
-    mapping(uint256 chainId => mapping(bytes32 name => address addr)) private addresses;
+    mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
     uint256[49] private __gap;
 
     /// @notice Emitted when an address is set.
@@ -30,27 +30,27 @@ contract AddressManager is EssentialContract, IAddressManager {
     }
 
     /// @notice Sets the address for a specific chainId-name pair.
-    /// @param chainId The chainId to which the address will be mapped.
-    /// @param name The name to which the address will be mapped.
-    /// @param newAddress The Ethereum address to be mapped.
+    /// @param _chainId The chainId to which the address will be mapped.
+    /// @param _name The name to which the address will be mapped.
+    /// @param _newAddress The Ethereum address to be mapped.
     function setAddress(
-        uint64 chainId,
-        bytes32 name,
-        address newAddress
+        uint64 _chainId,
+        bytes32 _name,
+        address _newAddress
     )
         external
         virtual
         onlyOwner
     {
-        address oldAddress = addresses[chainId][name];
-        if (newAddress == oldAddress) revert AM_INVALID_PARAMS();
-        addresses[chainId][name] = newAddress;
-        emit AddressSet(chainId, name, newAddress, oldAddress);
+        address oldAddress = __addresses[_chainId][_name];
+        if (_newAddress == oldAddress) revert AM_INVALID_PARAMS();
+        __addresses[_chainId][_name] = _newAddress;
+        emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }
 
     /// @inheritdoc IAddressManager
-    function getAddress(uint64 chainId, bytes32 name) public view override returns (address) {
-        return addresses[chainId][name];
+    function getAddress(uint64 _chainId, bytes32 _name) public view override returns (address) {
+        return __addresses[_chainId][_name];
     }
 
     function _authorizePause(address) internal pure override {

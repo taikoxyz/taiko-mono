@@ -18,13 +18,13 @@ interface IVerifier {
     }
 
     /// @notice Verifies a proof.
-    /// @param ctx The context of the proof verification.
-    /// @param tran The transition to verify.
-    /// @param proof The proof to verify.
+    /// @param _ctx The context of the proof verification.
+    /// @param _tran The transition to verify.
+    /// @param _proof The proof to verify.
     function verifyProof(
-        Context calldata ctx,
-        TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata proof
+        Context calldata _ctx,
+        TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
     )
         external;
 }

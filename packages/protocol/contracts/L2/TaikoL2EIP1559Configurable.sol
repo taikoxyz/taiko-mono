@@ -20,23 +20,23 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
     error L2_INVALID_CONFIG();
 
     /// @notice Sets EIP1559 configuration and gas excess.
-    /// @param newConfig The new EIP1559 config.
-    /// @param newGasExcess The new gas excess
+    /// @param _newConfig The new EIP1559 config.
+    /// @param _newGasExcess The new gas excess
     function setConfigAndExcess(
-        Config memory newConfig,
-        uint64 newGasExcess
+        Config memory _newConfig,
+        uint64 _newGasExcess
     )
         external
         virtual
         onlyOwner
     {
-        if (newConfig.gasTargetPerL1Block == 0) revert L2_INVALID_CONFIG();
-        if (newConfig.basefeeAdjustmentQuotient == 0) revert L2_INVALID_CONFIG();
+        if (_newConfig.gasTargetPerL1Block == 0) revert L2_INVALID_CONFIG();
+        if (_newConfig.basefeeAdjustmentQuotient == 0) revert L2_INVALID_CONFIG();
 
-        customConfig = newConfig;
-        gasExcess = newGasExcess;
+        customConfig = _newConfig;
+        gasExcess = _newGasExcess;
 
-        emit ConfigAndExcessChanged(newConfig, newGasExcess);
+        emit ConfigAndExcessChanged(_newConfig, _newGasExcess);
     }
 
     /// @inheritdoc TaikoL2
