@@ -31,14 +31,18 @@ contract AssignmentHook is EssentialContract, IHook {
         uint256 tip; // A tip to L1 block builder
     }
 
-    // Max gas paying the prover. This should be large enough to prevent the
-    // worst cases for the prover. To assure a trustless relationship between
-    // the proposer and the prover it's the prover's job to make sure it can
-    // get paid within this limit.
+    /// @notice Max gas paying the prover.
+    /// @dev This should be large enough to prevent the worst cases for the prover.
+    /// To assure a trustless relationship between the proposer and the prover it's
+    /// the prover's job to make sure it can get paid within this limit.
     uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
 
     uint256[50] private __gap;
 
+    /// @notice Emitted when a block is assigned to a prover.
+    /// @param assignedProver The address of the assigned prover.
+    /// @param meta The metadata of the assigned block.
+    /// @param assignment The prover assignment.
     event BlockAssigned(
         address indexed assignedProver, TaikoData.BlockMetadata meta, ProverAssignment assignment
     );
@@ -54,6 +58,7 @@ contract AssignmentHook is EssentialContract, IHook {
         _Essential_init(_owner, _addressManager);
     }
 
+    /// @inheritdoc IHook
     function onBlockProposed(
         TaikoData.Block memory _blk,
         TaikoData.BlockMetadata memory _meta,
@@ -124,6 +129,11 @@ contract AssignmentHook is EssentialContract, IHook {
         emit BlockAssigned(_blk.assignedProver, _meta, assignment);
     }
 
+    /// @notice Hashes the prover assignment.
+    /// @param assignment The prover assignment.
+    /// @param taikoL1Address The address of the TaikoL1 contract.
+    /// @param blobHash The blob hash.
+    /// @return The hash of the prover assignment.
     function hashAssignment(
         ProverAssignment memory _assignment,
         address _taikoL1Address,

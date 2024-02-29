@@ -17,6 +17,10 @@ interface IVerifier {
         address msgSender;
     }
 
+    /// @notice Verifies a proof.
+    /// @param ctx The context of the proof verification.
+    /// @param tran The transition to verify.
+    /// @param proof The proof to verify.
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,

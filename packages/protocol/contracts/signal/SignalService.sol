@@ -12,9 +12,27 @@ import "./LibSignals.sol";
 /// @dev Labeled in AddressResolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId; // slot 1
-    mapping(address addr => bool authorized) public isAuthorized; // slot 2
+    /// @notice Mapping to store the top blockId.
+    /// @dev Slot 1.
+    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
+
+    /// @notice Mapping to store the authorized addresses.
+    /// @dev Slot 2.
+    mapping(address addr => bool authorized) public isAuthorized;
+
     uint256[48] private __gap;
+
+    /// @notice Emitted when a signal is sent.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal (message) that was sent.
+    /// @param slot The location in storage where this signal is stored.
+    /// @param value The value of the signal.
+    event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
+
+    /// @notice Emitted when an address is authorized or deauthorized.
+    /// @param addr The address to be authorized or deauthorized.
+    /// @param authrized True if authorized, false otherwise.
+    event Authorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_SENDER();
@@ -43,7 +61,7 @@ contract SignalService is EssentialContract, ISignalService {
         _Essential_init(_owner, _addressManager);
     }
 
-    /// @dev Authorize or deautohrize an address for calling syncChainData
+    /// @dev Authorize or deauthorize an address for calling syncChainData.
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
     /// @param _addr The address to be authorized or deauthorized.
     /// @param _authorize True if authorize, false otherwise.
@@ -180,6 +198,11 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encode(_chainId, _kind, _blockId));
     }
 
+    /// @notice Returns the slot for a signal.
+    /// @param chainId The chainId of the signal.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal (message) that was sent.
+    /// @return slot The slot for the signal.
     function getSignalSlot(
         uint64 _chainId,
         address _app,

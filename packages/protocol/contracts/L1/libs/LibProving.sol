@@ -16,10 +16,19 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
+    /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
+
+    /// @notice The tier name for optimistic proofs.
     bytes32 public constant TIER_OP = bytes32("tier_optimistic");
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    /// @notice Emitted when a transition is proved.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param prover The prover's address.
+    /// @param validityBond The validity bond amount.
+    /// @param tier The tier of the proof.
     event TransitionProved(
         uint256 indexed blockId,
         TaikoData.Transition tran,
@@ -28,6 +37,12 @@ library LibProving {
         uint16 tier
     );
 
+    /// @notice Emitted when a transition is contested.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param contester The contester's address.
+    /// @param contestBond The contest bond amount.
+    /// @param tier The tier of the proof.
     event TransitionContested(
         uint256 indexed blockId,
         TaikoData.Transition tran,
@@ -36,6 +51,8 @@ library LibProving {
         uint16 tier
     );
 
+    /// @notice Emitted when proving is paused or unpaused.
+    /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -50,9 +67,11 @@ library LibProving {
     error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
 
+    /// @notice Pauses or unpauses the proving process.
+    /// @param _state Current TaikoData.State.
+    /// @param _pause The pause status.
     function pauseProving(TaikoData.State storage _state, bool _pause) external {
         if (_state.slotB.provingPaused == _pause) revert L1_INVALID_PAUSE_STATUS();
-
         _state.slotB.provingPaused = _pause;
 
         if (!_pause) {

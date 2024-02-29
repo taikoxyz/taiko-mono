@@ -17,6 +17,14 @@ library LibVerifying {
     using LibMath for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    /// @notice Emitted when a block is verified.
+    /// @param blockId The block ID.
+    /// @param assignedProver The assigned prover of the block.
+    /// @param prover The actual prover of the block.
+    /// @param blockHash The block hash.
+    /// @param stateRoot The state root.
+    /// @param tier The tier of the transition used for verification.
+    /// @param contestations The number of contestations.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -32,6 +40,10 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
 
+    /// @notice Initializes the Taiko protocol state.
+    /// @param state The state to initialize.
+    /// @param config The configuration for the Taiko protocol.
+    /// @param genesisBlockHash The block hash of the genesis block.
     function init(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,

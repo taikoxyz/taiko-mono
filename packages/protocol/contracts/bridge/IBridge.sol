@@ -128,6 +128,9 @@ interface IBridge {
 /// @title IRecallableSender
 /// @notice An interface that all recallable message senders shall implement.
 interface IRecallableSender {
+    /// @notice Called when a message is recalled.
+    /// @param message The recalled message.
+    /// @param msgHash The hash of the recalled message.
     function onMessageRecalled(
         IBridge.Message calldata _message,
         bytes32 _msgHash

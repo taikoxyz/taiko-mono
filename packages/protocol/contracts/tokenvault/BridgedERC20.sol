@@ -18,10 +18,16 @@ contract BridgedERC20 is
     ERC20SnapshotUpgradeable,
     ERC20VotesUpgradeable
 {
-    address public srcToken; // slot 1
+    /// @dev Slot 1.
+    address public srcToken;
+
     uint8 private __srcDecimals;
-    uint256 public srcChainId; // slot 2
-    address public snapshooter; // slot 3
+
+    /// @dev Slot 2.
+    uint256 public srcChainId;
+
+    /// @dev Slot 3.
+    address public snapshooter;
 
     uint256[47] private __gap;
 

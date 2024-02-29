@@ -14,10 +14,11 @@ library LibDepositing {
     using LibAddress for address payable;
     using LibMath for uint256;
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    /// @notice Emitted when Ether is deposited.
+    /// @dev Any events defined here must also be defined in TaikoEvents.sol.
     event EthDeposited(TaikoData.EthDeposit deposit);
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
+    /// @dev Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_INVALID_ETH_DEPOSIT();
 
     /// @dev Deposits Ether to Layer 2.

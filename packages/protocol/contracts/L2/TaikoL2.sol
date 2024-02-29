@@ -28,21 +28,32 @@ contract TaikoL2 is CrossChainOwned {
         uint8 basefeeAdjustmentQuotient;
     }
 
-    // Golden touch address
+    /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+
+    /// @notice The number of L2 blocks to wait before syncing L1 block details.
     uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
 
-    // Mapping from L2 block numbers to their block hashes.
-    // All L2 block hashes will be saved in this mapping.
+    /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
+    /// be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
 
-    // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash; // slot 2
-    uint64 public gasExcess; // slot 3
+    /// @notice A hash to check the integrity of public inputs.
+    /// @dev Slot 2.
+    bytes32 public publicInputHash;
+
+    /// @notice The gas excess value used to calculate the base fee.
+    /// @dev Slot 3.
+    uint64 public gasExcess;
+
+    /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
 
     uint256[47] private __gap;
 
+    /// @notice Emitted when the latest L1 block details are anchored to L2.
+    /// @param parentHash The hash of the parent block.
+    /// @param gasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
     error L2_BASEFEE_MISMATCH();
@@ -192,8 +203,8 @@ contract TaikoL2 is CrossChainOwned {
         return l2Hashes[_blockId];
     }
 
-    /// @notice Returns EIP1559 related configurations
-    /// @return config_ Struct containing configuration parameters.
+    /// @notice Returns EIP1559 related configurations.
+    /// @return config struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config_) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
         // is 3s, and each block is full (gasUsed is 15_000_000), then its

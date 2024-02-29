@@ -75,7 +75,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         payable
         nonReentrant
         whenNotPaused
-    // onlyFromBridge
     {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
@@ -113,7 +112,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         override
         nonReentrant
         whenNotPaused
-    // onlyFromBridge
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
@@ -150,6 +148,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
+    /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
         return "erc721_vault";
     }

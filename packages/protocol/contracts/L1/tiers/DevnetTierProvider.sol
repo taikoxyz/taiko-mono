@@ -16,6 +16,7 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
         _Essential_init(_owner);
     }
 
+    /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
@@ -42,12 +43,14 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
         revert TIER_NOT_FOUND();
     }
 
+    /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](2);
         tiers_[0] = LibTiers.TIER_OPTIMISTIC;
         tiers_[1] = LibTiers.TIER_GUARDIAN;
     }
 
+    /// @inheritdoc ITierProvider
     function getMinTier(uint256) public pure override returns (uint16) {
         return LibTiers.TIER_OPTIMISTIC;
     }

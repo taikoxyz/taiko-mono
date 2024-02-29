@@ -7,6 +7,7 @@ import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 
 /// @title BaseVault
+/// @notice This abstract contract provides a base implementation for vaults.
 /// @custom:security-contact security@taiko.xyz
 abstract contract BaseVault is
     EssentialContract,
@@ -39,6 +40,8 @@ abstract contract BaseVault is
         return _interfaceId == type(IRecallableSender).interfaceId;
     }
 
+    /// @notice Returns the name of the vault.
+    /// @return The name of the vault.
     function name() public pure virtual returns (bytes32);
 
     function checkProcessMessageContext()
