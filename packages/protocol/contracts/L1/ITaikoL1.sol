@@ -38,8 +38,8 @@ interface ITaikoL1 {
     /// @notice Proves or contests a block transition.
     /// @param _blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
-    /// @param _input An abi-encoded (BlockMetadata, Transition, TierProof)
-    /// tuple.
+    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// TaikoData.TierProof) tuple.
     function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
     /// @notice Verifies up to a certain number of blocks.
