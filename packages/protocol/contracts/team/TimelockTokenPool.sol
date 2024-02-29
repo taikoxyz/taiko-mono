@@ -173,12 +173,6 @@ contract TimelockTokenPool is EssentialContract {
     }
 
     /// @notice Returns the summary of the grant for a given recipient.
-    /// @param _recipient The grant recipient address.
-    /// @return amountOwned The amount of tokens owned.
-    /// @return amountUnlocked The amount of tokens unlocked.
-    /// @return amountWithdrawn The amount of tokens withdrawn.
-    /// @return amountToWithdraw The amount of tokens to withdraw.
-    /// @return costToWithdraw The cost to withdraw.
     function getMyGrantSummary(address _recipient)
         public
         view

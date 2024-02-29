@@ -24,6 +24,7 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
     /// @dev Name of the bridged token.
     string private __name;
 
+
     uint256[46] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
