@@ -149,6 +149,7 @@
       // if only two chains are available, set the destination chain to the other one
       $destNetwork = chainIdToChain(alternateChainID);
     }
+    refresh();
   });
 </script>
 
