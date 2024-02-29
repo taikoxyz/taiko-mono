@@ -251,6 +251,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         return LibVerifying.isConfigValid(getConfig());
     }
 
+    function _authorizePause(address)
+        internal
+        view
+        virtual
+        override
+        onlyFromOwnerOrNamed("chain_pauser")
+    { }
+
     function _verifyBlocks(
         TaikoData.Config memory _config,
         uint64 _maxBlocksToVerify
@@ -260,12 +268,4 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
     {
         LibVerifying.verifyBlocks(state, _config, this, _maxBlocksToVerify);
     }
-
-    function _authorizePause(address)
-        internal
-        view
-        virtual
-        override
-        onlyFromOwnerOrNamed("chain_pauser")
-    { }
 }
