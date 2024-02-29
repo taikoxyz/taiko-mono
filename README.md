@@ -42,15 +42,15 @@ taiko-mono/
 ...
 </pre>
 
-## Issues
+## Issues 🐛
 
 If you find a bug or have a feature request, please [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
 
-## Contributing
+## Contributing 👨‍👩‍👧‍👦
 
 Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
 
-## Get help
+## Get help 🆘
 
 Reach out to the community on [Discord](https://discord.gg/taikoxyz) to get help.
 
