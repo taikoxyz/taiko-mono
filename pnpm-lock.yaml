@@ -265,8 +265,8 @@ importers:
   packages/protocol:
     dependencies:
       '@openzeppelin/contracts':
-        specifier: 4.8.2
-        version: 4.8.2
+        specifier: 4.9.6
+        version: 4.9.6
       '@openzeppelin/contracts-upgradeable':
         specifier: 4.8.2
         version: 4.8.2
@@ -3305,8 +3305,8 @@ packages:
     resolution: {integrity: sha512-zIggnBwemUmmt9IS73qxi+tumALxCY4QEs3zLCII78k0Gfse2hAOdAkuAeLUzvWUpneMUfFE5sGHzEUSTvn4Ag==}
     dev: false
 
-  /@openzeppelin/contracts@4.8.2:
-    resolution: {integrity: sha512-kEUOgPQszC0fSYWpbh2kT94ltOJwj1qfT2DWo+zVttmGmf97JZ99LspePNaeeaLhCImaHVeBbjaQFZQn7+Zc5g==}
+  /@openzeppelin/contracts@4.9.6:
+    resolution: {integrity: sha512-xSmezSupL+y9VkHZJGDoCBpmnB2ogM13ccaYDWqJTfS3dbuHkgjuwDFUmaFauBCboQMGB/S5UqUl2y54X99BmA==}
     dev: false
 
   /@parcel/watcher-android-arm64@2.4.0:
