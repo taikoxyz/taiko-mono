@@ -230,6 +230,10 @@ Functions should be grouped according to their visibility and ordered:
 6. internal
 7. private
 
+It is preferred for state variables to follow the same ordering according to visibility as functions, shown above, but it is not required as this could affect the storage layout.
+
+Lexicographical order is preferred but also optional.
+
 #### Documenting interfaces
 
 To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts at the top-level. Thus, you should mention a statement like so:
