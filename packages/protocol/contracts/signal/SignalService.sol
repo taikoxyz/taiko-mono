@@ -20,14 +20,6 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Slot 2.
     mapping(address addr => bool authorized) public isAuthorized;
 
-    /// @notice Mapping to store the top blockId.
-    /// @dev Slot 1.
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
-
-    /// @notice Mapping to store the authorized addresses.
-    /// @dev Slot 2.
-    mapping(address addr => bool authorized) public isAuthorized;
-
     uint256[48] private __gap;
 
     error SS_EMPTY_PROOF();

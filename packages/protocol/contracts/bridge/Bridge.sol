@@ -34,7 +34,7 @@ contract Bridge is EssentialContract, IBridge {
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
     /// @dev Slots 3, 4, and 5.
-    Context private _ctx;
+    Context private __ctx;
 
     /// @notice Mapping to store banned addresses.
     /// @dev Slot 6.
