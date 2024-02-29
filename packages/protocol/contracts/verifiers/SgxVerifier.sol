@@ -26,33 +26,49 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint64 validSince;
     }
 
+    /// @notice The expiry time for the SGX instance.
     uint64 public constant INSTANCE_EXPIRY = 180 days;
-    // A security feature, a delay until an instanace is enabled when using onchain RA verification
+
+    /// @notice A security feature, a delay until an instance is enabled when using onchain RA
+    /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
 
-    /// @dev For gas savings, we shall assign each SGX instance with an id
-    /// so that when we need to set a new pub key, just write storage once.
-    uint256 public nextInstanceId; // slot 1
+    /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
+    /// set a new pub key, just write storage once.
+    /// Slot 1.
+    uint256 public nextInstanceId;
 
-    /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA
-    /// public key (or rather ethereum address). Once that address is used (by
-    /// proof verification) it has to be overwritten by a new one (representing
-    /// the same instance). This is due to side-channel protection. Also this
-    /// public key shall expire after some time. (For now it is a long enough 6
-    /// months setting.)
-    mapping(uint256 instanceId => Instance instance) public instances; // slot 2
+    /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA public key
+    /// (or rather ethereum address). Once that address is used (by proof verification) it has to be
+    /// overwritten by a new one (representing the same instance). This is due to side-channel
+    /// protection. Also this public key shall expire after some time
+    /// (for now it is a long enough 6 months setting).
+    /// Slot 2.
+    mapping(uint256 instanceId => Instance instance) public instances;
+
     /// @dev One address shall be registered (during attestation) only once, otherwise it could
     /// bypass this contract's expiry check by always registering with the same attestation and
     /// getting multiple valid instanceIds. While during proving, it is technically possible to
     /// register the old addresses, it is less of a problem, because the instanceId would be the
     /// same for those addresses and if deleted - the attestation cannot be reused anyways.
-    mapping(address instanceAddress => bool alreadyAttested) public addressRegistered; // slot 3
+    /// Slot 3.
+    mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 
     uint256[47] private __gap;
 
+    /// @notice Emitted when a new SGX instance is added to the registry, or replaced.
+    /// @param id The ID of the SGX instance.
+    /// @param instance The address of the SGX instance.
+    /// @param replaced The address of the SGX instance that was replaced. If it is the first
+    /// instance, this value is zero address.
+    /// @param validSince The time since the instance is valid.
     event InstanceAdded(
         uint256 indexed id, address indexed instance, address replaced, uint256 validSince
     );
+
+    /// @notice Emitted when an SGX instance is deleted from the registry.
+    /// @param id The ID of the SGX instance.
+    /// @param instance The address of the SGX instance.
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
     error SGX_ALREADY_ATTESTED();
@@ -146,6 +162,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
         _replaceInstance(id, oldInstance, newInstance);
     }
 
+    /// @notice Gets the signed hash for the proof verification.
+    /// @param tran The transition to verify.
+    /// @param newInstance The new instance address.
+    /// @param prover The prover address.
+    /// @param metaHash The meta hash.
+    /// @return signedHash The signed hash.
     function getSignedHash(
         TaikoData.Transition memory tran,
         address newInstance,
