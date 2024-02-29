@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -23,11 +10,12 @@ import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
+/// @notice This contract is the implementation of verifying SGX signature proofs
+/// onchain.
+/// @dev Please see references below:
+/// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
+/// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
-/// @notice This contract is the implementation of verifying SGX signature
-/// proofs on-chain. Please see references below!
-/// Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
-/// Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 contract SgxVerifier is EssentialContract, IVerifier {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation

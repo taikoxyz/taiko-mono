@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -39,10 +26,10 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
 
-// Actually this one is deployed already on mainnets, but we are now deploying our own (non vi-ir)
-// version. For mainnet, it is easier to go with either this:
-// https://github.com/daimo-eth/p256-verifier or this:
-// https://github.com/rdubois-crypto/FreshCryptoLib
+// Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
+// version. For mainnet, it is easier to go with one of:
+// - https://github.com/daimo-eth/p256-verifier
+// - https://github.com/rdubois-crypto/FreshCryptoLib
 import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1

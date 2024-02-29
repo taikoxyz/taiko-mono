@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -19,9 +6,9 @@ import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop2
-/// @custom:security-contact security@taiko.xyz
-/// Contract for managing Taiko token airdrop for eligible users but the
+/// @notice Contract for managing Taiko token airdrop for eligible users, but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
+/// @custom:security-contact security@taiko.xyz
 contract ERC20Airdrop2 is MerkleClaimable {
     using LibMath for uint256;
 

@@ -1,25 +1,12 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../thirdparty/solmate/LibFixedPointMath.sol";
 
 /// @title Lib1559Math
+/// @notice Implements e^(x) based bonding curve for EIP-1559
+/// @dev See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
 /// @custom:security-contact security@taiko.xyz
-/// @dev Implementation of e^(x) based bonding curve for EIP-1559
-/// See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
 library Lib1559Math {
     error EIP1559_INVALID_PARAMS();
 
