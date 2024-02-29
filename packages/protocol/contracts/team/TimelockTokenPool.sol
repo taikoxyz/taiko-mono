@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -20,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
-/// Contract for managing Taiko tokens allocated to different roles and
+/// @notice Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
 ///
 /// Manages Taiko tokens through a three-state lifecycle: "allocated" to
@@ -34,6 +21,7 @@ import "../common/EssentialContract.sol";
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
+/// @custom:security-contact security@taiko.xyz
 contract TimelockTokenPool is EssentialContract {
     using SafeERC20 for IERC20;
 
@@ -67,26 +55,59 @@ contract TimelockTokenPool is EssentialContract {
         Grant grant;
     }
 
+    /// @notice The Taiko token address.
     address public taikoToken;
+
+    /// @notice The cost token address.
     address public costToken;
+
+    /// @notice The shared vault address.
     address public sharedVault;
+
+    /// @notice The total amount of tokens granted.
     uint128 public totalAmountGranted;
+
+    /// @notice The total amount of tokens voided.
     uint128 public totalAmountVoided;
+
+    /// @notice The total amount of tokens withdrawn.
     uint128 public totalAmountWithdrawn;
+
+    /// @notice The total cost paid.
     uint128 public totalCostPaid;
-    mapping(address recipient => Recipient) public recipients;
+
+    /// @notice Mapping of recipient address to grant information.
+    mapping(address recipient => Recipient receipt) public recipients;
+
     uint128[44] private __gap;
 
+    /// @notice Emitted when a grant is made.
+    /// @param recipient The grant recipient address.
+    /// @param grant The grant.
     event Granted(address indexed recipient, Grant grant);
+
+    /// @notice Emitted when a grant is voided.
+    /// @param recipient The grant recipient address.
+    /// @param amount The amount of tokens voided.
     event Voided(address indexed recipient, uint128 amount);
+
+    /// @notice Emitted when tokens are withdrawn.
+    /// @param recipient The grant recipient address.
+    /// @param to The address where the granted and unlocked tokens shall be sent to.
+    /// @param amount The amount of tokens withdrawn.
+    /// @param cost The cost.
     event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
     error ALREADY_GRANTED();
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
-    error NOTHING_TO_WITHDRAW();
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner address.
+    /// @param _taikoToken The Taiko token address.
+    /// @param _costToken The cost token address.
+    /// @param _sharedVault The shared vault address.
     function init(
         address _owner,
         address _taikoToken,
@@ -107,33 +128,33 @@ contract TimelockTokenPool is EssentialContract {
         sharedVault = _sharedVault;
     }
 
-    /// @notice Gives a new grant to a address with its own unlock schedule.
+    /// @notice Gives a grant to a address with its own unlock schedule.
     /// This transaction should happen on a regular basis, e.g., quarterly.
-    /// @dev It is strongly recommended to add one Grant per receipient address
-    /// so that such a grant can be voided without voiding other grants for the
-    /// same recipient.
-    function grant(address recipient, Grant memory g) external onlyOwner {
-        if (recipient == address(0)) revert INVALID_PARAM();
-        if (recipients[recipient].grant.amount != 0) revert ALREADY_GRANTED();
+    /// @param _recipient The grant recipient address.
+    /// @param _grant The grant struct.
+    function grant(address _recipient, Grant memory _grant) external onlyOwner {
+        if (_recipient == address(0)) revert INVALID_PARAM();
+        if (recipients[_recipient].grant.amount != 0) revert ALREADY_GRANTED();
 
-        _validateGrant(g);
+        _validateGrant(_grant);
 
-        totalAmountGranted += g.amount;
-        recipients[recipient].grant = g;
-        emit Granted(recipient, g);
+        totalAmountGranted += _grant.amount;
+        recipients[_recipient].grant = _grant;
+        emit Granted(_recipient, _grant);
     }
 
-    /// @notice Puts a stop to all grants for a given recipient.Tokens already
+    /// @notice Puts a stop to all grants for a given recipient. Tokens already
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
-    function void(address recipient) external onlyOwner {
-        Recipient storage r = recipients[recipient];
+    /// @param _recipient The grant recipient address.
+    function void(address _recipient) external onlyOwner {
+        Recipient storage r = recipients[_recipient];
         uint128 amountVoided = _voidGrant(r.grant);
 
         if (amountVoided == 0) revert NOTHING_TO_VOID();
 
         totalAmountVoided += amountVoided;
-        emit Voided(recipient, amountVoided);
+        emit Voided(_recipient, amountVoided);
     }
 
     /// @notice Withdraws all withdrawable tokens.
@@ -142,14 +163,17 @@ contract TimelockTokenPool is EssentialContract {
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw(address to, bytes memory sig) external {
-        if (to == address(0)) revert INVALID_PARAM();
-        bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", to));
-        address recipient = ECDSA.recover(hash, sig);
-        _withdraw(recipient, to);
+    /// @param _to The address where the granted and unlocked tokens shall be sent to.
+    /// @param _sig Signature provided by the grant recipient.
+    function withdraw(address _to, bytes memory _sig) external {
+        if (_to == address(0)) revert INVALID_PARAM();
+        bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", _to));
+        address recipient = ECDSA.recover(hash, _sig);
+        _withdraw(recipient, _to);
     }
 
-    function getMyGrantSummary(address recipient)
+    /// @notice Returns the summary of the grant for a given recipient.
+    function getMyGrantSummary(address _recipient)
         public
         view
         returns (
@@ -160,24 +184,31 @@ contract TimelockTokenPool is EssentialContract {
             uint128 costToWithdraw
         )
     {
-        Recipient storage r = recipients[recipient];
+        Recipient storage r = recipients[_recipient];
 
         amountOwned = _getAmountOwned(r.grant);
         amountUnlocked = _getAmountUnlocked(r.grant);
 
         amountWithdrawn = r.amountWithdrawn;
         amountToWithdraw = amountUnlocked - amountWithdrawn;
-        costToWithdraw = (amountUnlocked / 1e18 * r.grant.costPerToken) - r.costPaid;
+
+        // Note: precision is maintained at the token level rather than the wei level, otherwise,
+        // `costPaid` must be a uint256.
+        uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
+        costToWithdraw = _amountUnlocked * r.grant.costPerToken - r.costPaid;
     }
 
-    function getMyGrant(address recipient) public view returns (Grant memory) {
-        return recipients[recipient].grant;
+    /// @notice Returns the grant for a given recipient.
+    /// @param _recipient The grant recipient address.
+    /// @return The grant.
+    function getMyGrant(address _recipient) public view returns (Grant memory) {
+        return recipients[_recipient].grant;
     }
 
-    function _withdraw(address recipient, address to) private {
-        Recipient storage r = recipients[recipient];
+    function _withdraw(address _recipient, address _to) private {
+        Recipient storage r = recipients[_recipient];
 
-        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(recipient);
+        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(_recipient);
 
         r.amountWithdrawn += amountToWithdraw;
         r.costPaid += costToWithdraw;
@@ -185,64 +216,66 @@ contract TimelockTokenPool is EssentialContract {
         totalAmountWithdrawn += amountToWithdraw;
         totalCostPaid += costToWithdraw;
 
-        IERC20(taikoToken).transferFrom(sharedVault, to, amountToWithdraw);
-        IERC20(costToken).safeTransferFrom(recipient, sharedVault, costToWithdraw);
+        IERC20(taikoToken).transferFrom(sharedVault, _to, amountToWithdraw);
+        IERC20(costToken).safeTransferFrom(_recipient, sharedVault, costToWithdraw);
 
-        emit Withdrawn(recipient, to, amountToWithdraw, costToWithdraw);
+        emit Withdrawn(_recipient, _to, amountToWithdraw, costToWithdraw);
     }
 
-    function _voidGrant(Grant storage g) private returns (uint128 amountVoided) {
-        uint128 amountOwned = _getAmountOwned(g);
+    function _voidGrant(Grant storage _grant) private returns (uint128 amountVoided) {
+        uint128 amountOwned = _getAmountOwned(_grant);
 
-        amountVoided = g.amount - amountOwned;
-        g.amount = amountOwned;
+        amountVoided = _grant.amount - amountOwned;
+        _grant.amount = amountOwned;
 
-        g.grantStart = 0;
-        g.grantPeriod = 0;
+        _grant.grantStart = 0;
+        _grant.grantPeriod = 0;
     }
 
-    function _getAmountOwned(Grant memory g) private view returns (uint128) {
-        return _calcAmount(g.amount, g.grantStart, g.grantCliff, g.grantPeriod);
+    function _getAmountOwned(Grant memory _grant) private view returns (uint128) {
+        return _calcAmount(_grant.amount, _grant.grantStart, _grant.grantCliff, _grant.grantPeriod);
     }
 
-    function _getAmountUnlocked(Grant memory g) private view returns (uint128) {
-        return _calcAmount(_getAmountOwned(g), g.unlockStart, g.unlockCliff, g.unlockPeriod);
+    function _getAmountUnlocked(Grant memory _grant) private view returns (uint128) {
+        return _calcAmount(
+            _getAmountOwned(_grant), _grant.unlockStart, _grant.unlockCliff, _grant.unlockPeriod
+        );
     }
 
     function _calcAmount(
-        uint128 amount,
-        uint64 start,
-        uint64 cliff,
-        uint64 period
+        uint128 _amount,
+        uint64 _start,
+        uint64 _cliff,
+        uint64 _period
     )
         private
         view
         returns (uint128)
     {
-        if (amount == 0) return 0;
-        if (start == 0) return amount;
-        if (block.timestamp <= start) return 0;
+        if (_amount == 0) return 0;
+        if (_start == 0) return _amount;
+        if (block.timestamp <= _start) return 0;
 
-        if (period == 0) return amount;
-        if (block.timestamp >= start + period) return amount;
+        if (_period == 0) return _amount;
+        if (block.timestamp >= _start + _period) return _amount;
 
-        if (block.timestamp <= cliff) return 0;
+        if (block.timestamp <= _cliff) return 0;
 
-        return amount * uint64(block.timestamp - start) / period;
+        return _amount * uint64(block.timestamp - _start) / _period;
     }
 
-    function _validateGrant(Grant memory g) private pure {
-        if (g.amount == 0) revert INVALID_GRANT();
-        _validateCliff(g.grantStart, g.grantCliff, g.grantPeriod);
-        _validateCliff(g.unlockStart, g.unlockCliff, g.unlockPeriod);
+    function _validateGrant(Grant memory _grant) private pure {
+        if (_grant.amount == 0) revert INVALID_GRANT();
+        _validateCliff(_grant.grantStart, _grant.grantCliff, _grant.grantPeriod);
+        _validateCliff(_grant.unlockStart, _grant.unlockCliff, _grant.unlockPeriod);
     }
 
-    function _validateCliff(uint64 start, uint64 cliff, uint32 period) private pure {
-        if (start == 0 || period == 0) {
-            if (cliff > 0) revert INVALID_GRANT();
+    function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
+        if (_start == 0 || _period == 0) {
+            if (_cliff > 0) revert INVALID_GRANT();
         } else {
-            if (cliff > 0 && cliff <= start) revert INVALID_GRANT();
-            if (cliff >= start + period) revert INVALID_GRANT();
+            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+            if (_cliff >= _start + _period) revert INVALID_GRANT();
         }
     }
 }

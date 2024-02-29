@@ -1,43 +1,51 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../BridgedERC20Base.sol";
 
+/// @title IUSDC
+/// @custom:security-contact security@taiko.xyz
 interface IUSDC {
-    function burn(uint256 amount) external;
-    function mint(address to, uint256 amount) external;
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    /// @notice Burns a specific amount of tokens.
+    /// @param _amount The amount of token to be burned.
+    function burn(uint256 _amount) external;
+
+    /// @notice Mints a specific amount of new tokens to an address.
+    /// @param _to The address that will receive the minted tokens.
+    /// @param _amount The amount of tokens to mint.
+    function mint(address _to, uint256 _amount) external;
+
+    /// @notice Transfers tokens from one address to another.
+    /// @param from The address which you want to send tokens from.
+    /// @param _to The address which you want to transfer to.
+    /// @param _amount The amount of tokens to be transferred.
+    /// @return true if the transfer was successful, otherwise false.
+    function transferFrom(address from, address _to, uint256 _amount) external returns (bool);
 }
 
 /// @title USDCAdapter
+/// @custom:security-contact security@taiko.xyz
 contract USDCAdapter is BridgedERC20Base {
-    IUSDC public usdc; // slot 1
+    /// @notice The USDC instance.
+    /// @dev Slot 1.
+    IUSDC public usdc;
     uint256[49] private __gap;
 
-    function init(address _owner, address _adressManager, IUSDC _usdc) external initializer {
-        __Essential_init(_owner, _adressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _usdc The USDC instance.
+    function init(address _owner, address _addressManager, IUSDC _usdc) external initializer {
+        __Essential_init(_owner, _addressManager);
         usdc = _usdc;
     }
 
-    function _mintToken(address account, uint256 amount) internal override {
-        usdc.mint(account, amount);
+    function _mintToken(address _account, uint256 _amount) internal override {
+        usdc.mint(_account, _amount);
     }
 
-    function _burnToken(address from, uint256 amount) internal override {
-        usdc.transferFrom(from, address(this), amount);
-        usdc.burn(amount);
+    function _burnToken(address _from, uint256 _amount) internal override {
+        usdc.transferFrom(_from, address(this), _amount);
+        usdc.burn(_amount);
     }
 }

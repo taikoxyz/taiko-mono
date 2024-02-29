@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -19,22 +6,32 @@ import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop2
-/// Contract for managing Taiko token airdrop for eligible users but the
+/// @notice Contract for managing Taiko token airdrop for eligible users, but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
+/// @custom:security-contact security@taiko.xyz
 contract ERC20Airdrop2 is MerkleClaimable {
     using LibMath for uint256;
 
+    /// @notice The address of the token contract.
     address public token;
+
+    /// @notice The address of the vault contract.
     address public vault;
-    // Represents the token amount for which the user is (by default) eligible
-    mapping(address => uint256) public claimedAmount;
-    // Represents the already withdrawn amount
-    mapping(address => uint256) public withdrawnAmount;
-    // Length of the withdrawal window
+
+    /// @notice Represents the token amount for which the user has claimed.
+    mapping(address addr => uint256 amountClaimed) public claimedAmount;
+
+    /// @notice Represents the already withdrawn amount.
+    mapping(address addr => uint256 amountWithdrawn) public withdrawnAmount;
+
+    /// @notice Length of the withdrawal window.
     uint64 public withdrawalWindow;
 
     uint256[45] private __gap;
 
+    /// @notice Event emitted when a user withdraws their tokens.
+    /// @param user The address of the user.
+    /// @param amount The amount of tokens withdrawn.
     event Withdrawn(address user, uint256 amount);
 
     error WITHDRAWALS_NOT_ONGOING();
@@ -46,6 +43,14 @@ contract ERC20Airdrop2 is MerkleClaimable {
         _;
     }
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract.
+    /// @param _claimStart The start time of the claim period.
+    /// @param _claimEnd The end time of the claim period.
+    /// @param _merkleRoot The merkle root.
+    /// @param _token The address of the token contract.
+    /// @param _vault The address of the vault contract.
+    /// @param _withdrawalWindow The length of the withdrawal window.
     function init(
         address _owner,
         uint64 _claimStart,
@@ -66,6 +71,10 @@ contract ERC20Airdrop2 is MerkleClaimable {
         withdrawalWindow = _withdrawalWindow;
     }
 
+    /// @notice Claims the airdrop for the user.
+    /// @param user The address of the user.
+    /// @param amount The amount of tokens to claim.
+    /// @param proof The merkle proof.
     function claim(address user, uint256 amount, bytes32[] calldata proof) external nonReentrant {
         // Check if this can be claimed
         _verifyClaim(abi.encode(user, amount), proof);

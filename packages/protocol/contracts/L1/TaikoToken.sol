@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -20,10 +7,11 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "../common/EssentialContract.sol";
 
 /// @title TaikoToken
-/// @dev Labeled in AddressResolver as "taiko_token"
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
+/// @dev Labeled in AddressResolver as "taiko_token"
+/// @custom:security-contact security@taiko.xyz
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     uint256[50] private __gap;
 
@@ -54,10 +42,10 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     }
 
     /// @notice Burns tokens from the specified address.
-    /// @param from The address to burn tokens from.
-    /// @param amount The amount of tokens to burn.
-    function burn(address from, uint256 amount) public onlyOwner {
-        _burn(from, amount);
+    /// @param _from The address to burn tokens from.
+    /// @param _amount The amount of tokens to burn.
+    function burn(address _from, uint256 _amount) public onlyOwner {
+        _burn(_from, _amount);
     }
 
     /// @notice Creates a new token snapshot.
@@ -66,71 +54,71 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     }
 
     /// @notice Transfers tokens to a specified address.
-    /// @param to The address to transfer tokens to.
-    /// @param amount The amount of tokens to transfer.
+    /// @param _to The address to transfer tokens to.
+    /// @param _amount The amount of tokens to transfer.
     /// @return A boolean indicating whether the transfer was successful or not.
-    function transfer(address to, uint256 amount) public override returns (bool) {
-        if (to == address(this)) revert TKO_INVALID_ADDR();
-        return super.transfer(to, amount);
+    function transfer(address _to, uint256 _amount) public override returns (bool) {
+        if (_to == address(this)) revert TKO_INVALID_ADDR();
+        return super.transfer(_to, _amount);
     }
 
     /// @notice Transfers tokens from one address to another.
-    /// @param from The address to transfer tokens from.
-    /// @param to The address to transfer tokens to.
-    /// @param amount The amount of tokens to transfer.
+    /// @param _from The address to transfer tokens from.
+    /// @param _to The address to transfer tokens to.
+    /// @param _amount The amount of tokens to transfer.
     /// @return A boolean indicating whether the transfer was successful or not.
     function transferFrom(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         public
         override
         returns (bool)
     {
-        if (to == address(this)) revert TKO_INVALID_ADDR();
-        return super.transferFrom(from, to, amount);
+        if (_to == address(this)) revert TKO_INVALID_ADDR();
+        return super.transferFrom(_from, _to, _amount);
     }
 
     function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
     {
-        super._beforeTokenTransfer(from, to, amount);
+        super._beforeTokenTransfer(_from, _to, _amount);
     }
 
     function _afterTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._afterTokenTransfer(from, to, amount);
+        super._afterTokenTransfer(_from, _to, _amount);
     }
 
     function _mint(
-        address to,
-        uint256 amount
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._mint(to, amount);
+        super._mint(_to, _amount);
     }
 
     function _burn(
-        address from,
-        uint256 amount
+        address _from,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._burn(from, amount);
+        super._burn(_from, _amount);
     }
 }

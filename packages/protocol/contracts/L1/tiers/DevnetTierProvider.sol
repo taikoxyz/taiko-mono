@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
@@ -19,6 +6,7 @@ import "./ITierProvider.sol";
 
 /// @title DevnetTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
+/// @custom:security-contact security@taiko.xyz
 contract DevnetTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
@@ -28,8 +16,9 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
         __Essential_init(_owner);
     }
 
-    function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (tierId == LibTiers.TIER_OPTIMISTIC) {
+    /// @inheritdoc ITierProvider
+    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+        if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
                 validityBond: 250 ether, // TKO
@@ -40,7 +29,7 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
             });
         }
 
-        if (tierId == LibTiers.TIER_GUARDIAN) {
+        if (_tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: "tier_guardian",
                 validityBond: 0, // must be 0 for top tier
@@ -54,12 +43,14 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
         revert TIER_NOT_FOUND();
     }
 
-    function getTierIds() public pure override returns (uint16[] memory tiers) {
-        tiers = new uint16[](2);
-        tiers[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers[1] = LibTiers.TIER_GUARDIAN;
+    /// @inheritdoc ITierProvider
+    function getTierIds() public pure override returns (uint16[] memory tiers_) {
+        tiers_ = new uint16[](2);
+        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
+        tiers_[1] = LibTiers.TIER_GUARDIAN;
     }
 
+    /// @inheritdoc ITierProvider
     function getMinTier(uint256) public pure override returns (uint16) {
         return LibTiers.TIER_OPTIMISTIC;
     }

@@ -4,6 +4,8 @@ pragma solidity 0.8.24;
 import { BytesUtils } from "../../utils/BytesUtils.sol";
 import { V3Struct } from "./V3Struct.sol";
 
+/// @title V3Parser
+/// @custom:security-contact security@taiko.xyz
 library V3Parser {
     using BytesUtils for bytes;
 
@@ -98,28 +100,6 @@ library V3Parser {
                 == v3Quote.v3AuthData.qeAuthData.data.length,
             "Invalid QEAuthData size"
         );
-
-        // todo!
-        // v3Quote.v3AuthData.certification.certDataSize ==
-        //      len(join((BEGIN_CERT, base64.encode(certArray[i]), END_CERT) for i in 0..3))
-        // This check need b64 encoding, skip it now.
-        // require(
-        //     base64.encode(v3Quote.v3AuthData.certification.decodedCertDataArray[0]).length +
-        //          base64.encode(v3Quote
-        //             .v3AuthData
-        //             .certification
-        //             .decodedCertDataArray[1])
-        //             .length +
-        //          base64.encode(v3Quote
-        //             .v3AuthData
-        //             .certification
-        //             .decodedCertDataArray[2])
-        //             .length +
-        //         3 *
-        //         (HEADER_LENGTH + FOOTER_LENGTH) ==
-        //         v3Quote.v3AuthData.certification.certDataSize,
-        //     "Invalid certData size"
-        // );
 
         uint32 totalQuoteSize = 48 // header
             + 384 // local QE report

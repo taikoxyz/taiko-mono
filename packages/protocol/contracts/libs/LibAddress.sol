@@ -1,84 +1,76 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
+/// @custom:security-contact security@taiko.xyz
 library LibAddress {
-    bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
+    bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
     error ETH_TRANSFER_FAILED();
 
     /// @dev Sends Ether to the specified address.
-    /// @param to The recipient address.
-    /// @param amount The amount of Ether to send in wei.
-    /// @param gasLimit The max amount gas to pay for this transaction.
-    function sendEther(address to, uint256 amount, uint256 gasLimit) internal {
+    /// @param _to The recipient address.
+    /// @param _amount The amount of Ether to send in wei.
+    /// @param _gasLimit The max amount gas to pay for this transaction.
+    function sendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
         // Check for zero-address transactions
-        if (to == address(0)) revert ETH_TRANSFER_FAILED();
+        if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 
         // Attempt to send Ether to the recipient address
-        // WARNING: call() functions do not have an upper gas cost limit, so
-        // it's important to note that it may not reliably execute as expected
-        // when invoked with untrusted addresses.
-        (bool success,) = payable(to).call{ value: amount, gas: gasLimit }("");
+        (bool success,) = ExcessivelySafeCall.excessivelySafeCall(
+            _to,
+            _gasLimit,
+            _amount,
+            64, // return max 64 bytes
+            ""
+        );
 
         // Ensure the transfer was successful
         if (!success) revert ETH_TRANSFER_FAILED();
     }
 
     /// @dev Sends Ether to the specified address.
-    /// @param to The recipient address.
-    /// @param amount The amount of Ether to send in wei.
-    function sendEther(address to, uint256 amount) internal {
-        sendEther(to, amount, gasleft());
+    /// @param _to The recipient address.
+    /// @param _amount The amount of Ether to send in wei.
+    function sendEther(address _to, uint256 _amount) internal {
+        sendEther(_to, _amount, gasleft());
     }
 
     function supportsInterface(
-        address addr,
-        bytes4 interfaceId
+        address _addr,
+        bytes4 _interfaceId
     )
         internal
         view
-        returns (bool result)
+        returns (bool result_)
     {
-        if (!Address.isContract(addr)) return false;
+        if (!Address.isContract(_addr)) return false;
 
-        try IERC165(addr).supportsInterface(interfaceId) returns (bool _result) {
-            result = _result;
+        try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
+            result_ = _result;
         } catch { }
     }
 
     function isValidSignature(
-        address addr,
-        bytes32 hash,
-        bytes memory sig
+        address _addr,
+        bytes32 _hash,
+        bytes memory _sig
     )
         internal
         view
-        returns (bool valid)
+        returns (bool)
     {
-        if (Address.isContract(addr)) {
-            return IERC1271(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
+        if (Address.isContract(_addr)) {
+            return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
         } else {
-            return ECDSA.recover(hash, sig) == addr;
+            return ECDSA.recover(_hash, _sig) == _addr;
         }
     }
 

@@ -1,32 +1,29 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../../common/EssentialContract.sol";
 
 /// @title MerkleClaimable
-/// Contract for managing Taiko token airdrop for eligible users
+/// @notice Contract for managing Taiko token airdrop for eligible users
+/// @custom:security-contact security@taiko.xyz
 abstract contract MerkleClaimable is EssentialContract {
-    mapping(bytes32 => bool) public isClaimed;
+    /// @notice Mapping of hashes and their claim status
+    mapping(bytes32 hash => bool claimed) public isClaimed;
+
+    /// @notice Merkle root of the tree
     bytes32 public merkleRoot;
+
+    /// @notice Unix timestamp for claim start
     uint64 public claimStart;
+
+    /// @notice Unix timestamp for claim end
     uint64 public claimEnd;
 
     uint256[47] private __gap;
 
+    /// @notice Event emitted when a claim is made
+    /// @param hash Hash of the claim
     event Claimed(bytes32 hash);
 
     error CLAIM_NOT_ONGOING();
