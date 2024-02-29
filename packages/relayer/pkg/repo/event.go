@@ -185,7 +185,7 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	if err := r.db.GormDB().Table("events").
 		Where("chain_id = ?", srcChainId).
 		Where("synced_chain_id = ?", syncedChainId).
-		Select("max(block_id)").
+		Select("COALESCE(MAX(block_id), 0)").
 		Scan(&blockID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return 0, nil
