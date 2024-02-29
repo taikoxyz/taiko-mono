@@ -398,7 +398,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return Returns true if the message has failed, false otherwise.
+    /// @return True if the message has failed, false otherwise.
     function proveMessageFailed(
         Message calldata _message,
         bytes calldata _proof
@@ -420,7 +420,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return Returns true if the message has failed, false otherwise.
+    /// @return True if the message has failed, false otherwise.
     function proveMessageReceived(
         Message calldata _message,
         bytes calldata _proof
@@ -497,7 +497,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Hash the message
     /// @param _message The message struct variable to be hashed.
-    /// @return The hashed message.
+    /// @return The message's hash.
     function hashMessage(Message memory _message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", _message));
     }
@@ -537,7 +537,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_gasLimit == 0) revert B_INVALID_GAS_LIMIT();
         assert(_message.from != address(this));
 
-        _storeContext({ _msgHash: _msgHash, _from: _message.from, _srcChainId: _message.srcChainId });
+        _storeContext(_msgHash, _message.from, _message.srcChainId);
 
         if (
             _message.data.length >= 4 // msg can be empty
@@ -595,7 +595,7 @@ contract Bridge is EssentialContract, IBridge {
                 tstore(add(_CTX_SLOT, 2), _srcChainId)
             }
         } else {
-            __ctx = Context({ msgHash: _msgHash, from: _from, srcChainId: _srcChainId });
+            __ctx = Context(_msgHash, _from, _srcChainId);
         }
     }
 
@@ -610,7 +610,7 @@ contract Bridge is EssentialContract, IBridge {
                 from := tload(add(_CTX_SLOT, 1))
                 srcChainId := tload(add(_CTX_SLOT, 2))
             }
-            return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
+            return Context(msgHash, from, srcChainId);
         } else {
             return __ctx;
         }

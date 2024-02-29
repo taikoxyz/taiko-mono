@@ -78,11 +78,11 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorize or deautohrize an address for calling syncChainData
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
     /// @param _addr The address to be authorized or deauthorized.
-    /// @param _toAuthorize True if authorize, false otherwise.
-    function authorize(address _addr, bool _toAuthorize) external onlyOwner {
-        if (isAuthorized[_addr] == _toAuthorize) revert SS_INVALID_STATE();
-        isAuthorized[_addr] = _toAuthorize;
-        emit Authorized(_addr, _toAuthorize);
+    /// @param _authorize True if authorize, false otherwise.
+    function authorize(address _addr, bool _authorize) external onlyOwner {
+        if (isAuthorized[_addr] == _authorize) revert SS_INVALID_STATE();
+        isAuthorized[_addr] = _authorize;
+        emit Authorized(_addr, _authorize);
     }
 
     /// @inheritdoc ISignalService
@@ -117,22 +117,21 @@ contract SignalService is EssentialContract, ISignalService {
         validSender(_app)
         nonZeroValue(_signal)
     {
-        HopProof[] memory _hopProofs = abi.decode(_proof, (HopProof[]));
-        if (_hopProofs.length == 0) revert SS_EMPTY_PROOF();
+        HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
+        if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
-        uint64 chainId_ = _chainId;
-        address app_ = _app;
-        bytes32 signal_ = _signal;
-        bytes32 value_ = _signal;
-        address signalService = resolve(chainId_, "signal_service", false);
+        uint64 chainId = _chainId;
+        address app = _app;
+        bytes32 signal = _signal;
+        bytes32 value = _signal;
+        address signalService = resolve(chainId, "signal_service", false);
 
         HopProof memory hop;
-        for (uint256 i; i < _hopProofs.length; ++i) {
-            hop = _hopProofs[i];
+        for (uint256 i; i < hopProofs.length; ++i) {
+            hop = hopProofs[i];
 
-            bytes32 signalRoot =
-                _verifyHopProof(chainId_, app_, signal_, value_, hop, signalService);
-            bool isLastHop = i == _hopProofs.length - 1;
+            bytes32 signalRoot = _verifyHopProof(chainId, app, signal, value, hop, signalService);
+            bool isLastHop = i == hopProofs.length - 1;
 
             if (isLastHop) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
@@ -146,16 +145,16 @@ contract SignalService is EssentialContract, ISignalService {
 
             bool isFullProof = hop.accountProof.length > 0;
 
-            _cacheChainData(hop, chainId_, hop.blockId, signalRoot, isFullProof, isLastHop);
+            _cacheChainData(hop, chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
 
             bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
-            signal_ = signalForChainData(chainId_, kind, hop.blockId);
-            value_ = hop.rootHash;
-            chainId_ = hop.chainId;
-            app_ = signalService;
+            signal = signalForChainData(chainId, kind, hop.blockId);
+            value = hop.rootHash;
+            chainId = hop.chainId;
+            app = signalService;
         }
 
-        if (value_ == 0 || value_ != _loadSignalValue(address(this), signal_)) {
+        if (value == 0 || value != _loadSignalValue(address(this), signal)) {
             revert SS_SIGNAL_NOT_FOUND();
         }
     }
