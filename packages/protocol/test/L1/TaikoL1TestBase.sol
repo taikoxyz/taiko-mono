@@ -27,7 +27,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
-    function tierProvider() internal returns (ITierProvider) {
+    function tierProvider() internal view returns (ITierProvider) {
         return ITierProvider(L1.resolve("tier_provider", false));
     }
 
