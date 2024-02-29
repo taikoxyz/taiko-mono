@@ -29,9 +29,36 @@ Because we squash all of the changes into a single commit, please try to keep th
 
 For example, `feat(scope): description of feature` should only impact the `scope` package. If your change is a global one, you can use `feat: description of feature`, for example.
 
-### Source code comments
+### Source code comments (NatSpec)
 
 Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
+
+#### Contract header
+
+All contracts should have at the top, and nothing else (minimum viable documentation):
+
+```
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.24;
+```
+
+All contracts should have, preceding their declaration, at minimum:
+
+```
+/// @title A title
+/// @custom:security-contact security@taiko.xyz
+```
+
+#### Single tag
+
+Always use a single tag, for example do not do this:
+
+```
+/// @dev Here is a dev comment.
+/// @dev Here is another dev comment.
+```
+
+Instead, combine them into a single comment.
 
 #### Comment style
 
@@ -39,16 +66,16 @@ Choose `///` over `/** */` for multi-line NatSpec comments for consistency. All 
 
 #### Notice tag
 
-Omit the usage of `@notice` and let the compiler automatically pick it up to save column space. For example, this:
+Explicitly use `@notice`, don't let the compiler pick it up automatically:
 
 ```
-/// @notice This is a notice.
+/// This is a notice.
 ```
 
 becomes this:
 
 ```
-/// This is a notice.
+/// @notice This is a notice.
 ```
 
 #### Annotation indentation
@@ -166,9 +193,50 @@ If you are referring to some struct or function within the file you can use the 
 /// @notice See the struct in {TaikoData.Config}
 ```
 
+#### What to document
+
+All public interfaces (those that would be in the ABI) should be documented. This includes public state variables, functions, events, errors, etc. If it's in the ABI, it needs NatSpec.
+
+#### Ordering
+
+> Taken from the official Solidity Style Guide
+
+Contract elements should be laid out in the following order:
+
+1. Pragma statements
+2. Import statements
+3. Events
+4. Errors
+5. Interfaces
+6. Libraries
+7. Contracts
+
+Inside each contract, library or interface, use the following order:
+
+1. Type declarations
+2. State variables
+3. Events
+4. Errors
+5. Modifiers
+6. Functions
+
+Functions should be grouped according to their visibility and ordered:
+
+1. constructor
+2. receive function (if exists)
+3. fallback function (if exists)
+4. external
+5. public
+6. internal
+7. private
+
+It is preferred for state variables to follow the same ordering according to visibility as functions, shown above, but it is not required as this could affect the storage layout.
+
+Lexicographical order is preferred but also optional.
+
 #### Documenting interfaces
 
-To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts. Thus, you should mention a statement like so:
+To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts at the top-level. Thus, you should mention a statement like so:
 
 ```solidity
 /// @notice See the documentation in {IProverPool}

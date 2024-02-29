@@ -1,23 +1,11 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "./BaseVault.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.
+/// @custom:security-contact security@taiko.xyz
 abstract contract BaseNFTVault is BaseVault {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
@@ -55,19 +43,29 @@ abstract contract BaseNFTVault is BaseVault {
         string memo;
     }
 
-    // Constants for interface IDs.
+    /// @notice ERC1155 interface ID.
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+
+    /// @notice ERC721 interface ID.
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+
+    /// @notice Maximum number of tokens that can be transferred per transaction.
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
-    // Mapping to store bridged NFTs and their canonical counterparts.
-    mapping(address => CanonicalNFT) public bridgedToCanonical;
+    /// @notice Mapping to store bridged NFTs and their canonical counterparts.
+    mapping(address btoken => CanonicalNFT cannonical) public bridgedToCanonical;
 
-    // Mapping to store canonical NFTs and their bridged counterparts.
-    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
+    /// @notice Mapping to store canonical NFTs and their bridged counterparts.
+    mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
     uint256[48] private __gap;
 
+    /// @notice Emitted when a new bridged token is deployed.
+    /// @param chainId The chain ID of the bridged token.
+    /// @param ctoken The address of the canonical token.
+    /// @param btoken The address of the bridged token.
+    /// @param ctokenSymbol The symbol of the canonical token.
+    /// @param ctokenName The name of the canonical token.
     event BridgedTokenDeployed(
         uint64 indexed chainId,
         address indexed ctoken,
@@ -76,6 +74,15 @@ abstract contract BaseNFTVault is BaseVault {
         string ctokenName
     );
 
+    /// @notice Emitted when a token is sent to another chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The sender of the message.
+    /// @param to The recipient of the message.
+    /// @param destChainId The destination chain ID.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param tokenIds The IDs of the tokens.
+    /// @param amounts The amounts of the tokens.
     event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
@@ -87,6 +94,13 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts
     );
 
+    /// @notice Emitted when a token is released on the current chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The sender of the message.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param tokenIds The IDs of the tokens.
+    /// @param amounts The amounts of the tokens.
     event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
@@ -96,6 +110,15 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts
     );
 
+    /// @notice Emitted when a token is received from another chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The sender of the message.
+    /// @param to The recipient of the message.
+    /// @param srcChainId The source chain ID.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param tokenIds The IDs of the tokens.
+    /// @param amounts The amounts of the tokens.
     event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
@@ -109,22 +132,21 @@ abstract contract BaseNFTVault is BaseVault {
 
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
-    error VAULT_INVALID_USER();
     error VAULT_INVALID_TO();
     error VAULT_INTERFACE_NOT_SUPPORTED();
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
-    modifier withValidOperation(BridgeTransferOp memory op) {
-        if (op.tokenIds.length != op.amounts.length) {
+    modifier withValidOperation(BridgeTransferOp memory _op) {
+        if (_op.tokenIds.length != _op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
         }
 
-        if (op.tokenIds.length > MAX_TOKEN_PER_TXN) {
+        if (_op.tokenIds.length > MAX_TOKEN_PER_TXN) {
             revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
         }
 
-        if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
+        if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         _;
     }
 }

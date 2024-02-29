@@ -7,6 +7,8 @@ pragma solidity 0.8.24;
 
 import "./BytesUtils.sol";
 
+/// @title NodePtr
+/// @custom:security-contact security@taiko.xyz
 library NodePtr {
     // Unpack first byte index
     function ixs(uint256 self) internal pure returns (uint256) {
@@ -31,6 +33,8 @@ library NodePtr {
     }
 }
 
+/// @title Asn1Decode
+/// @custom:security-contact security@taiko.xyz
 library Asn1Decode {
     using NodePtr for uint256;
     using BytesUtils for bytes;
@@ -89,7 +93,7 @@ library Asn1Decode {
     * @dev Use for looping through children of a node (either i or j).
     * @param i Pointer to an ASN1 node
     * @param j Pointer to another ASN1 node of the same ASN1 structure
-    * @return True iff j is child of i or i is child of j.
+    * @return true iff j is child of i or i is child of j.
     */
     function isChildOf(uint256 i, uint256 j) internal pure returns (bool) {
         return (
@@ -173,9 +177,9 @@ library Asn1Decode {
     * @return Value of bitstring converted to bytes
     */
     function bitstringAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
-        require(der[ptr.ixs()] == 0x03, "Not type BIT STRING");
+        require(der[ptr.ixs()] == 0x03, "ixs Not type BIT STRING 0x03");
         // Only 00 padded bitstr can be converted to bytestr!
-        require(der[ptr.ixf()] == 0x00);
+        require(der[ptr.ixf()] == 0x00, "ixf Not 0");
         uint256 valueLength = ptr.ixl() + 1 - ptr.ixf();
         return der.substring(ptr.ixf() + 1, valueLength - 1);
     }
