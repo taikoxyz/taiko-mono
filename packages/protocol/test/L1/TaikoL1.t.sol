@@ -29,10 +29,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         );
     }
 
-    function tierProvider() internal returns (ITierProvider) {
-        return ITierProvider(L1.resolve("tier_provider", false));
-    }
-
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
     function test_L1_more_blocks_than_ring_buffer_size() external {
