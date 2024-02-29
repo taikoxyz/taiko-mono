@@ -49,13 +49,13 @@ func (s *Subscription) Unsubscribe() {}
 
 func (b *Bridge) SuspendMessages(
 	opts *bind.TransactOpts,
-	msgHashes [][32]byte,
-	toSuspend bool,
+	_msgHashes [][32]byte,
+	_toSuspend bool,
 ) (*types.Transaction, error) {
 	return ProcessMessageTx, nil
 }
 
-func (b *Bridge) IsMessageSent(opts *bind.CallOpts, message bridge.IBridgeMessage) (bool, error) {
+func (b *Bridge) IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessage) (bool, error) {
 	return false, nil
 }
 
@@ -219,14 +219,18 @@ func (b *Bridge) MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, er
 
 func (b *Bridge) ProcessMessage(
 	opts *bind.TransactOpts,
-	message bridge.IBridgeMessage,
-	proof []byte,
+	_message bridge.IBridgeMessage,
+	_proof []byte,
 ) (*types.Transaction, error) {
 	return ProcessMessageTx, nil
 }
 
-func (b *Bridge) ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridgeMessage, proof []byte) (bool, error) {
-	if message.Id.Uint64() == SuccessId.Uint64() {
+func (b *Bridge) ProveMessageReceived(
+	opts *bind.CallOpts,
+	_message bridge.IBridgeMessage,
+	_proof []byte,
+) (bool, error) {
+	if _message.Id.Uint64() == SuccessId.Uint64() {
 		return true, nil
 	}
 

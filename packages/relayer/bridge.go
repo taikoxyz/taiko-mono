@@ -11,7 +11,7 @@ import (
 )
 
 type Bridge interface {
-	IsMessageSent(opts *bind.CallOpts, message bridge.IBridgeMessage) (bool, error)
+	IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessage) (bool, error)
 	WatchMessageSent(
 		opts *bind.WatchOpts,
 		sink chan<- *bridge.BridgeMessageSent,
@@ -25,8 +25,8 @@ type Bridge interface {
 	FilterMessageSent(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageSentIterator, error)
 	FilterMessageReceived(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageReceivedIterator, error)
 	MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
-	ProcessMessage(opts *bind.TransactOpts, message bridge.IBridgeMessage, proof []byte) (*types.Transaction, error)
-	ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridgeMessage, proof []byte) (bool, error)
+	ProcessMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage, _proof []byte) (*types.Transaction, error)
+	ProveMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error)
 	FilterMessageStatusChanged(
 		opts *bind.FilterOpts,
 		msgHash [][32]byte,
@@ -45,5 +45,5 @@ type Bridge interface {
 		InvocationDelay      *big.Int
 		InvocationExtraDelay *big.Int
 	}, error)
-	SuspendMessages(opts *bind.TransactOpts, msgHashes [][32]byte, toSuspend bool) (*types.Transaction, error)
+	SuspendMessages(opts *bind.TransactOpts, _msgHashes [][32]byte, _toSuspend bool) (*types.Transaction, error)
 }

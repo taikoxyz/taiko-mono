@@ -8,7 +8,7 @@ import (
 )
 
 type SignalService interface {
-	GetSignalSlot(opts *bind.CallOpts, chainId uint64, app common.Address, signal [32]byte) ([32]byte, error)
+	GetSignalSlot(opts *bind.CallOpts, _chainId uint64, _app common.Address, _signal [32]byte) ([32]byte, error)
 	FilterChainDataSynced(
 		opts *bind.FilterOpts,
 		chainid []uint64,
@@ -22,7 +22,7 @@ type SignalService interface {
 		blockId []uint64,
 		kind [][32]byte,
 	) (event.Subscription, error)
-	GetSyncedChainData(opts *bind.CallOpts, chainId uint64, kind [32]byte, blockId uint64) (struct {
+	GetSyncedChainData(opts *bind.CallOpts, _chainId uint64, _kind [32]byte, _blockId uint64) (struct {
 		BlockId   uint64
 		ChainData [32]byte
 	}, error)
