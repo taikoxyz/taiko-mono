@@ -230,7 +230,7 @@ library LibVerifying {
         }
     }
 
-    function _isConfigValid(TaikoData.Config memory _config) public view returns (bool) {
+    function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
         if (
             _config.chainId <= 1 || _config.chainId == block.chainid //
                 || _config.blockMaxProposals == 1
