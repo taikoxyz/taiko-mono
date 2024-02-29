@@ -95,14 +95,14 @@ abstract contract Guardians is EssentialContract {
         emit GuardiansUpdated(version, _newGuardians);
     }
 
-    /// @notice Return if the hash is approved
+    /// @notice Returns if the hash is approved
     /// @param _hash The hash to check
     /// @return true if the hash is approved
     function isApproved(bytes32 _hash) public view returns (bool) {
         return isApproved(_approvals[version][_hash]);
     }
 
-    /// @notice Return the number of guardians
+    /// @notice Returns the number of guardians
     /// @return The number of guardians
     function numGuardians() public view returns (uint256) {
         return guardians.length;
