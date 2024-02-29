@@ -71,7 +71,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 
     /// @notice Burns tokens from the specified account.
     /// @param account The address of the account to burn the tokens from.
-    /// @param amount The amount of tokens to burn.    
+    /// @param amount The amount of tokens to burn.
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
         if (_isMigratingOut()) {
             // Only the owner of the tokens himself can migrate out

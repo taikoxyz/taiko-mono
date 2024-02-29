@@ -20,7 +20,7 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
 
     /// @dev Symbol of the bridged token.
     string private symbol_;
-    
+
     /// @dev Name of the bridged token.
     string private name_;
 
