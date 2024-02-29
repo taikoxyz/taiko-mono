@@ -6,6 +6,10 @@ import "../TaikoData.sol";
 /// @title IHook
 /// @custom:security-contact security@taiko.xyz
 interface IHook {
+    /// @notice Called when a block is proposed.
+    /// @param blk The proposed block.
+    /// @param meta The metadata of the proposed block.
+    /// @param data The data of the proposed block.
     function onBlockProposed(
         TaikoData.Block memory blk,
         TaikoData.BlockMetadata memory meta,
