@@ -95,7 +95,6 @@ library LibProposing {
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
-
         if (b.numBlocks >= b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
         }
