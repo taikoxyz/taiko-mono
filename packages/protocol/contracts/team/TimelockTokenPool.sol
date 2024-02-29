@@ -143,7 +143,7 @@ contract TimelockTokenPool is EssentialContract {
         emit Granted(recipient, g);
     }
 
-    /// @notice Puts a stop to all grants for a given recipient.Tokens already
+    /// @notice Puts a stop to all grants for a given recipient. Tokens already
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
     /// @param recipient The grant recipient address.
