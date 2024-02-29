@@ -8,7 +8,9 @@ import "./EssentialContract.sol";
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
 contract AddressManager is EssentialContract, IAddressManager {
+    /// @dev Mapping of chainId to mapping of name to address.
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
+
     uint256[49] private __gap;
 
     /// @notice Emitted when an address is set.
