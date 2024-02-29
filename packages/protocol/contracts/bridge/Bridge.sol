@@ -103,37 +103,37 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
     /// @param _msgHashes The array of msgHashes to be suspended.
-    /// @param _toSuspend True if suspend, false if unsuspend.
+    /// @param _suspend True if suspend, false if unsuspend.
     function suspendMessages(
         bytes32[] calldata _msgHashes,
-        bool _toSuspend
+        bool _suspend
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
     {
-        uint64 _timestamp = _toSuspend ? type(uint64).max : uint64(block.timestamp);
+        uint64 _timestamp = _suspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < _msgHashes.length; ++i) {
             bytes32 msgHash = _msgHashes[i];
             proofReceipt[msgHash].receivedAt = _timestamp;
-            emit MessageSuspended(msgHash, _toSuspend);
+            emit MessageSuspended(msgHash, _suspend);
         }
     }
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
     /// @param _addr The addreess to ban or unban.
-    /// @param _toBan True if ban, false if unban.
+    /// @param _ban True if ban, false if unban.
     function banAddress(
         address _addr,
-        bool _toBan
+        bool _ban
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
         nonReentrant
     {
-        if (addressBanned[_addr] == _toBan) revert B_INVALID_STATUS();
-        addressBanned[_addr] = _toBan;
-        emit AddressBanned(_addr, _toBan);
+        if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
+        addressBanned[_addr] = _ban;
+        emit AddressBanned(_addr, _ban);
     }
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -145,7 +145,7 @@ contract Bridge is EssentialContract, IBridge {
         override
         nonReentrant
         whenNotPaused
-        returns (bytes32 msgHash, Message memory message_)
+        returns (bytes32 msgHash_, Message memory message_)
     {
         // Ensure the message owner is not null.
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
@@ -172,10 +172,10 @@ contract Bridge is EssentialContract, IBridge {
         message_.from = msg.sender;
         message_.srcChainId = uint64(block.chainid);
 
-        msgHash = hashMessage(message_);
+        msgHash_ = hashMessage(message_);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
-        emit MessageSent(msgHash, message_);
+        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
+        emit MessageSent(msgHash_, message_);
     }
 
     /// @notice Recalls a failed message on its source chain, releasing
