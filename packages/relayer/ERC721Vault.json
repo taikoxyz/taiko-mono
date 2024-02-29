@@ -186,7 +186,7 @@
     "name": "onMessageInvocation",
     "inputs": [
       {
-        "name": "data",
+        "name": "_data",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -199,7 +199,7 @@
     "name": "onMessageRecalled",
     "inputs": [
       {
-        "name": "message",
+        "name": "_message",
         "type": "tuple",
         "internalType": "struct IBridge.Message",
         "components": [
@@ -271,7 +271,7 @@
         ]
       },
       {
-        "name": "msgHash",
+        "name": "_msgHash",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -350,24 +350,24 @@
     "name": "resolve",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "name",
+        "name": "_name",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "allowZeroAddress",
+        "name": "_allowZeroAddress",
         "type": "bool",
         "internalType": "bool"
       }
     ],
     "outputs": [
       {
-        "name": "addr",
+        "name": "",
         "type": "address",
         "internalType": "address payable"
       }
@@ -379,19 +379,19 @@
     "name": "resolve",
     "inputs": [
       {
-        "name": "name",
+        "name": "_name",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "allowZeroAddress",
+        "name": "_allowZeroAddress",
         "type": "bool",
         "internalType": "bool"
       }
     ],
     "outputs": [
       {
-        "name": "addr",
+        "name": "",
         "type": "address",
         "internalType": "address payable"
       }
@@ -403,7 +403,7 @@
     "name": "sendToken",
     "inputs": [
       {
-        "name": "op",
+        "name": "_op",
         "type": "tuple",
         "internalType": "struct BaseNFTVault.BridgeTransferOp",
         "components": [
@@ -462,7 +462,7 @@
     ],
     "outputs": [
       {
-        "name": "_message",
+        "name": "message_",
         "type": "tuple",
         "internalType": "struct IBridge.Message",
         "components": [
@@ -541,7 +541,7 @@
     "name": "supportsInterface",
     "inputs": [
       {
-        "name": "interfaceId",
+        "name": "_interfaceId",
         "type": "bytes4",
         "internalType": "bytes4"
       }

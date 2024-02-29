@@ -24,12 +24,12 @@
     "name": "authorize",
     "inputs": [
       {
-        "name": "addr",
+        "name": "_addr",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "toAuthorize",
+        "name": "_authorize",
         "type": "bool",
         "internalType": "bool"
       }
@@ -42,17 +42,17 @@
     "name": "getSignalSlot",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "app",
+        "name": "_app",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "signal",
+        "name": "_signal",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -71,29 +71,29 @@
     "name": "getSyncedChainData",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "kind",
+        "name": "_kind",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "blockId",
+        "name": "_blockId",
         "type": "uint64",
         "internalType": "uint64"
       }
     ],
     "outputs": [
       {
-        "name": "_blockId",
+        "name": "blockId_",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "_chainData",
+        "name": "chainData_",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -142,22 +142,22 @@
     "name": "isChainDataSynced",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "kind",
+        "name": "_kind",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "blockId",
+        "name": "_blockId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "chainData",
+        "name": "_chainData",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -176,12 +176,12 @@
     "name": "isSignalSent",
     "inputs": [
       {
-        "name": "app",
+        "name": "_app",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "signal",
+        "name": "_signal",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -246,22 +246,22 @@
     "name": "proveSignalReceived",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "app",
+        "name": "_app",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "signal",
+        "name": "_signal",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "proof",
+        "name": "_proof",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -294,24 +294,24 @@
     "name": "resolve",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "name",
+        "name": "_name",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "allowZeroAddress",
+        "name": "_allowZeroAddress",
         "type": "bool",
         "internalType": "bool"
       }
     ],
     "outputs": [
       {
-        "name": "addr",
+        "name": "",
         "type": "address",
         "internalType": "address payable"
       }
@@ -323,19 +323,19 @@
     "name": "resolve",
     "inputs": [
       {
-        "name": "name",
+        "name": "_name",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "allowZeroAddress",
+        "name": "_allowZeroAddress",
         "type": "bool",
         "internalType": "bool"
       }
     ],
     "outputs": [
       {
-        "name": "addr",
+        "name": "",
         "type": "address",
         "internalType": "address payable"
       }
@@ -347,14 +347,14 @@
     "name": "sendSignal",
     "inputs": [
       {
-        "name": "signal",
+        "name": "_signal",
         "type": "bytes32",
         "internalType": "bytes32"
       }
     ],
     "outputs": [
       {
-        "name": "slot",
+        "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -366,17 +366,17 @@
     "name": "signalForChainData",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "kind",
+        "name": "_kind",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "blockId",
+        "name": "_blockId",
         "type": "uint64",
         "internalType": "uint64"
       }
@@ -395,29 +395,29 @@
     "name": "syncChainData",
     "inputs": [
       {
-        "name": "chainId",
+        "name": "_chainId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "kind",
+        "name": "_kind",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "blockId",
+        "name": "_blockId",
         "type": "uint64",
         "internalType": "uint64"
       },
       {
-        "name": "chainData",
+        "name": "_chainData",
         "type": "bytes32",
         "internalType": "bytes32"
       }
     ],
     "outputs": [
       {
-        "name": "signal",
+        "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
       }

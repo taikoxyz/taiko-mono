@@ -31,7 +31,7 @@ var (
 
 // SignalServiceMetaData contains all meta data concerning the SignalService contract.
 var SignalServiceMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"authorize\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"toAuthorize\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getSignalSlot\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getSyncedChainData\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isAuthorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"authorized\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isChainDataSynced\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSignalSent\",\"inputs\":[{\"name\":\"app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proveSignalReceived\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sendSignal\",\"inputs\":[{\"name\":\"signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"signalForChainData\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"syncChainData\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"topBlockId\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Authorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"authrized\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ChainDataSynced\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"data\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignalSent\",\"inputs\":[{\"name\":\"app\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"slot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_ACCOUNT_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_INCLUSION_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"SS_EMPTY_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_LAST_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_MID_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_SENDER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_STATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_VALUE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_SIGNAL_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_UNAUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_UNSUPPORTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDR_MANAGER\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"authorize\",\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_authorize\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getSignalSlot\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getSyncedChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"blockId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"chainData_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isAuthorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"authorized\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isChainDataSynced\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSignalSent\",\"inputs\":[{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proveSignalReceived\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sendSignal\",\"inputs\":[{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"signalForChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"syncChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"topBlockId\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Authorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"authrized\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ChainDataSynced\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"data\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignalSent\",\"inputs\":[{\"name\":\"app\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"slot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_ACCOUNT_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_INCLUSION_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"SS_EMPTY_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_LAST_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_MID_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_SENDER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_STATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_VALUE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_SIGNAL_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_UNAUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_UNSUPPORTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDR_MANAGER\",\"inputs\":[]}]",
 }
 
 // SignalServiceABI is the input ABI used to generate the binding from.
@@ -213,10 +213,10 @@ func (_SignalService *SignalServiceCallerSession) AddressManager() (common.Addre
 
 // GetSignalSlot is a free data retrieval call binding the contract method 0x91f3f74b.
 //
-// Solidity: function getSignalSlot(uint64 chainId, address app, bytes32 signal) pure returns(bytes32)
-func (_SignalService *SignalServiceCaller) GetSignalSlot(opts *bind.CallOpts, chainId uint64, app common.Address, signal [32]byte) ([32]byte, error) {
+// Solidity: function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal) pure returns(bytes32)
+func (_SignalService *SignalServiceCaller) GetSignalSlot(opts *bind.CallOpts, _chainId uint64, _app common.Address, _signal [32]byte) ([32]byte, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "getSignalSlot", chainId, app, signal)
+	err := _SignalService.contract.Call(opts, &out, "getSignalSlot", _chainId, _app, _signal)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -230,27 +230,27 @@ func (_SignalService *SignalServiceCaller) GetSignalSlot(opts *bind.CallOpts, ch
 
 // GetSignalSlot is a free data retrieval call binding the contract method 0x91f3f74b.
 //
-// Solidity: function getSignalSlot(uint64 chainId, address app, bytes32 signal) pure returns(bytes32)
-func (_SignalService *SignalServiceSession) GetSignalSlot(chainId uint64, app common.Address, signal [32]byte) ([32]byte, error) {
-	return _SignalService.Contract.GetSignalSlot(&_SignalService.CallOpts, chainId, app, signal)
+// Solidity: function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal) pure returns(bytes32)
+func (_SignalService *SignalServiceSession) GetSignalSlot(_chainId uint64, _app common.Address, _signal [32]byte) ([32]byte, error) {
+	return _SignalService.Contract.GetSignalSlot(&_SignalService.CallOpts, _chainId, _app, _signal)
 }
 
 // GetSignalSlot is a free data retrieval call binding the contract method 0x91f3f74b.
 //
-// Solidity: function getSignalSlot(uint64 chainId, address app, bytes32 signal) pure returns(bytes32)
-func (_SignalService *SignalServiceCallerSession) GetSignalSlot(chainId uint64, app common.Address, signal [32]byte) ([32]byte, error) {
-	return _SignalService.Contract.GetSignalSlot(&_SignalService.CallOpts, chainId, app, signal)
+// Solidity: function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal) pure returns(bytes32)
+func (_SignalService *SignalServiceCallerSession) GetSignalSlot(_chainId uint64, _app common.Address, _signal [32]byte) ([32]byte, error) {
+	return _SignalService.Contract.GetSignalSlot(&_SignalService.CallOpts, _chainId, _app, _signal)
 }
 
 // GetSyncedChainData is a free data retrieval call binding the contract method 0xdfc8ff1d.
 //
-// Solidity: function getSyncedChainData(uint64 chainId, bytes32 kind, uint64 blockId) view returns(uint64 _blockId, bytes32 _chainData)
-func (_SignalService *SignalServiceCaller) GetSyncedChainData(opts *bind.CallOpts, chainId uint64, kind [32]byte, blockId uint64) (struct {
+// Solidity: function getSyncedChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) view returns(uint64 blockId_, bytes32 chainData_)
+func (_SignalService *SignalServiceCaller) GetSyncedChainData(opts *bind.CallOpts, _chainId uint64, _kind [32]byte, _blockId uint64) (struct {
 	BlockId   uint64
 	ChainData [32]byte
 }, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "getSyncedChainData", chainId, kind, blockId)
+	err := _SignalService.contract.Call(opts, &out, "getSyncedChainData", _chainId, _kind, _blockId)
 
 	outstruct := new(struct {
 		BlockId   uint64
@@ -269,22 +269,22 @@ func (_SignalService *SignalServiceCaller) GetSyncedChainData(opts *bind.CallOpt
 
 // GetSyncedChainData is a free data retrieval call binding the contract method 0xdfc8ff1d.
 //
-// Solidity: function getSyncedChainData(uint64 chainId, bytes32 kind, uint64 blockId) view returns(uint64 _blockId, bytes32 _chainData)
-func (_SignalService *SignalServiceSession) GetSyncedChainData(chainId uint64, kind [32]byte, blockId uint64) (struct {
+// Solidity: function getSyncedChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) view returns(uint64 blockId_, bytes32 chainData_)
+func (_SignalService *SignalServiceSession) GetSyncedChainData(_chainId uint64, _kind [32]byte, _blockId uint64) (struct {
 	BlockId   uint64
 	ChainData [32]byte
 }, error) {
-	return _SignalService.Contract.GetSyncedChainData(&_SignalService.CallOpts, chainId, kind, blockId)
+	return _SignalService.Contract.GetSyncedChainData(&_SignalService.CallOpts, _chainId, _kind, _blockId)
 }
 
 // GetSyncedChainData is a free data retrieval call binding the contract method 0xdfc8ff1d.
 //
-// Solidity: function getSyncedChainData(uint64 chainId, bytes32 kind, uint64 blockId) view returns(uint64 _blockId, bytes32 _chainData)
-func (_SignalService *SignalServiceCallerSession) GetSyncedChainData(chainId uint64, kind [32]byte, blockId uint64) (struct {
+// Solidity: function getSyncedChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) view returns(uint64 blockId_, bytes32 chainData_)
+func (_SignalService *SignalServiceCallerSession) GetSyncedChainData(_chainId uint64, _kind [32]byte, _blockId uint64) (struct {
 	BlockId   uint64
 	ChainData [32]byte
 }, error) {
-	return _SignalService.Contract.GetSyncedChainData(&_SignalService.CallOpts, chainId, kind, blockId)
+	return _SignalService.Contract.GetSyncedChainData(&_SignalService.CallOpts, _chainId, _kind, _blockId)
 }
 
 // IsAuthorized is a free data retrieval call binding the contract method 0xfe9fbb80.
@@ -320,10 +320,10 @@ func (_SignalService *SignalServiceCallerSession) IsAuthorized(addr common.Addre
 
 // IsChainDataSynced is a free data retrieval call binding the contract method 0x3ced0e08.
 //
-// Solidity: function isChainDataSynced(uint64 chainId, bytes32 kind, uint64 blockId, bytes32 chainData) view returns(bool)
-func (_SignalService *SignalServiceCaller) IsChainDataSynced(opts *bind.CallOpts, chainId uint64, kind [32]byte, blockId uint64, chainData [32]byte) (bool, error) {
+// Solidity: function isChainDataSynced(uint64 _chainId, bytes32 _kind, uint64 _blockId, bytes32 _chainData) view returns(bool)
+func (_SignalService *SignalServiceCaller) IsChainDataSynced(opts *bind.CallOpts, _chainId uint64, _kind [32]byte, _blockId uint64, _chainData [32]byte) (bool, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "isChainDataSynced", chainId, kind, blockId, chainData)
+	err := _SignalService.contract.Call(opts, &out, "isChainDataSynced", _chainId, _kind, _blockId, _chainData)
 
 	if err != nil {
 		return *new(bool), err
@@ -337,24 +337,24 @@ func (_SignalService *SignalServiceCaller) IsChainDataSynced(opts *bind.CallOpts
 
 // IsChainDataSynced is a free data retrieval call binding the contract method 0x3ced0e08.
 //
-// Solidity: function isChainDataSynced(uint64 chainId, bytes32 kind, uint64 blockId, bytes32 chainData) view returns(bool)
-func (_SignalService *SignalServiceSession) IsChainDataSynced(chainId uint64, kind [32]byte, blockId uint64, chainData [32]byte) (bool, error) {
-	return _SignalService.Contract.IsChainDataSynced(&_SignalService.CallOpts, chainId, kind, blockId, chainData)
+// Solidity: function isChainDataSynced(uint64 _chainId, bytes32 _kind, uint64 _blockId, bytes32 _chainData) view returns(bool)
+func (_SignalService *SignalServiceSession) IsChainDataSynced(_chainId uint64, _kind [32]byte, _blockId uint64, _chainData [32]byte) (bool, error) {
+	return _SignalService.Contract.IsChainDataSynced(&_SignalService.CallOpts, _chainId, _kind, _blockId, _chainData)
 }
 
 // IsChainDataSynced is a free data retrieval call binding the contract method 0x3ced0e08.
 //
-// Solidity: function isChainDataSynced(uint64 chainId, bytes32 kind, uint64 blockId, bytes32 chainData) view returns(bool)
-func (_SignalService *SignalServiceCallerSession) IsChainDataSynced(chainId uint64, kind [32]byte, blockId uint64, chainData [32]byte) (bool, error) {
-	return _SignalService.Contract.IsChainDataSynced(&_SignalService.CallOpts, chainId, kind, blockId, chainData)
+// Solidity: function isChainDataSynced(uint64 _chainId, bytes32 _kind, uint64 _blockId, bytes32 _chainData) view returns(bool)
+func (_SignalService *SignalServiceCallerSession) IsChainDataSynced(_chainId uint64, _kind [32]byte, _blockId uint64, _chainData [32]byte) (bool, error) {
+	return _SignalService.Contract.IsChainDataSynced(&_SignalService.CallOpts, _chainId, _kind, _blockId, _chainData)
 }
 
 // IsSignalSent is a free data retrieval call binding the contract method 0x32676bc6.
 //
-// Solidity: function isSignalSent(address app, bytes32 signal) view returns(bool)
-func (_SignalService *SignalServiceCaller) IsSignalSent(opts *bind.CallOpts, app common.Address, signal [32]byte) (bool, error) {
+// Solidity: function isSignalSent(address _app, bytes32 _signal) view returns(bool)
+func (_SignalService *SignalServiceCaller) IsSignalSent(opts *bind.CallOpts, _app common.Address, _signal [32]byte) (bool, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "isSignalSent", app, signal)
+	err := _SignalService.contract.Call(opts, &out, "isSignalSent", _app, _signal)
 
 	if err != nil {
 		return *new(bool), err
@@ -368,16 +368,16 @@ func (_SignalService *SignalServiceCaller) IsSignalSent(opts *bind.CallOpts, app
 
 // IsSignalSent is a free data retrieval call binding the contract method 0x32676bc6.
 //
-// Solidity: function isSignalSent(address app, bytes32 signal) view returns(bool)
-func (_SignalService *SignalServiceSession) IsSignalSent(app common.Address, signal [32]byte) (bool, error) {
-	return _SignalService.Contract.IsSignalSent(&_SignalService.CallOpts, app, signal)
+// Solidity: function isSignalSent(address _app, bytes32 _signal) view returns(bool)
+func (_SignalService *SignalServiceSession) IsSignalSent(_app common.Address, _signal [32]byte) (bool, error) {
+	return _SignalService.Contract.IsSignalSent(&_SignalService.CallOpts, _app, _signal)
 }
 
 // IsSignalSent is a free data retrieval call binding the contract method 0x32676bc6.
 //
-// Solidity: function isSignalSent(address app, bytes32 signal) view returns(bool)
-func (_SignalService *SignalServiceCallerSession) IsSignalSent(app common.Address, signal [32]byte) (bool, error) {
-	return _SignalService.Contract.IsSignalSent(&_SignalService.CallOpts, app, signal)
+// Solidity: function isSignalSent(address _app, bytes32 _signal) view returns(bool)
+func (_SignalService *SignalServiceCallerSession) IsSignalSent(_app common.Address, _signal [32]byte) (bool, error) {
+	return _SignalService.Contract.IsSignalSent(&_SignalService.CallOpts, _app, _signal)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -506,10 +506,10 @@ func (_SignalService *SignalServiceCallerSession) ProxiableUUID() ([32]byte, err
 
 // Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_SignalService *SignalServiceCaller) Resolve(opts *bind.CallOpts, chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_SignalService *SignalServiceCaller) Resolve(opts *bind.CallOpts, _chainId uint64, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "resolve", chainId, name, allowZeroAddress)
+	err := _SignalService.contract.Call(opts, &out, "resolve", _chainId, _name, _allowZeroAddress)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -523,24 +523,24 @@ func (_SignalService *SignalServiceCaller) Resolve(opts *bind.CallOpts, chainId 
 
 // Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_SignalService *SignalServiceSession) Resolve(chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _SignalService.Contract.Resolve(&_SignalService.CallOpts, chainId, name, allowZeroAddress)
+// Solidity: function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_SignalService *SignalServiceSession) Resolve(_chainId uint64, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _SignalService.Contract.Resolve(&_SignalService.CallOpts, _chainId, _name, _allowZeroAddress)
 }
 
 // Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_SignalService *SignalServiceCallerSession) Resolve(chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _SignalService.Contract.Resolve(&_SignalService.CallOpts, chainId, name, allowZeroAddress)
+// Solidity: function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_SignalService *SignalServiceCallerSession) Resolve(_chainId uint64, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _SignalService.Contract.Resolve(&_SignalService.CallOpts, _chainId, _name, _allowZeroAddress)
 }
 
 // Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
 //
-// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_SignalService *SignalServiceCaller) Resolve0(opts *bind.CallOpts, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function resolve(bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_SignalService *SignalServiceCaller) Resolve0(opts *bind.CallOpts, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "resolve0", name, allowZeroAddress)
+	err := _SignalService.contract.Call(opts, &out, "resolve0", _name, _allowZeroAddress)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -554,24 +554,24 @@ func (_SignalService *SignalServiceCaller) Resolve0(opts *bind.CallOpts, name [3
 
 // Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
 //
-// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_SignalService *SignalServiceSession) Resolve0(name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _SignalService.Contract.Resolve0(&_SignalService.CallOpts, name, allowZeroAddress)
+// Solidity: function resolve(bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_SignalService *SignalServiceSession) Resolve0(_name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _SignalService.Contract.Resolve0(&_SignalService.CallOpts, _name, _allowZeroAddress)
 }
 
 // Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
 //
-// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_SignalService *SignalServiceCallerSession) Resolve0(name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _SignalService.Contract.Resolve0(&_SignalService.CallOpts, name, allowZeroAddress)
+// Solidity: function resolve(bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_SignalService *SignalServiceCallerSession) Resolve0(_name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _SignalService.Contract.Resolve0(&_SignalService.CallOpts, _name, _allowZeroAddress)
 }
 
 // SignalForChainData is a free data retrieval call binding the contract method 0x9b527cfa.
 //
-// Solidity: function signalForChainData(uint64 chainId, bytes32 kind, uint64 blockId) pure returns(bytes32)
-func (_SignalService *SignalServiceCaller) SignalForChainData(opts *bind.CallOpts, chainId uint64, kind [32]byte, blockId uint64) ([32]byte, error) {
+// Solidity: function signalForChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) pure returns(bytes32)
+func (_SignalService *SignalServiceCaller) SignalForChainData(opts *bind.CallOpts, _chainId uint64, _kind [32]byte, _blockId uint64) ([32]byte, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "signalForChainData", chainId, kind, blockId)
+	err := _SignalService.contract.Call(opts, &out, "signalForChainData", _chainId, _kind, _blockId)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -585,16 +585,16 @@ func (_SignalService *SignalServiceCaller) SignalForChainData(opts *bind.CallOpt
 
 // SignalForChainData is a free data retrieval call binding the contract method 0x9b527cfa.
 //
-// Solidity: function signalForChainData(uint64 chainId, bytes32 kind, uint64 blockId) pure returns(bytes32)
-func (_SignalService *SignalServiceSession) SignalForChainData(chainId uint64, kind [32]byte, blockId uint64) ([32]byte, error) {
-	return _SignalService.Contract.SignalForChainData(&_SignalService.CallOpts, chainId, kind, blockId)
+// Solidity: function signalForChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) pure returns(bytes32)
+func (_SignalService *SignalServiceSession) SignalForChainData(_chainId uint64, _kind [32]byte, _blockId uint64) ([32]byte, error) {
+	return _SignalService.Contract.SignalForChainData(&_SignalService.CallOpts, _chainId, _kind, _blockId)
 }
 
 // SignalForChainData is a free data retrieval call binding the contract method 0x9b527cfa.
 //
-// Solidity: function signalForChainData(uint64 chainId, bytes32 kind, uint64 blockId) pure returns(bytes32)
-func (_SignalService *SignalServiceCallerSession) SignalForChainData(chainId uint64, kind [32]byte, blockId uint64) ([32]byte, error) {
-	return _SignalService.Contract.SignalForChainData(&_SignalService.CallOpts, chainId, kind, blockId)
+// Solidity: function signalForChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) pure returns(bytes32)
+func (_SignalService *SignalServiceCallerSession) SignalForChainData(_chainId uint64, _kind [32]byte, _blockId uint64) ([32]byte, error) {
+	return _SignalService.Contract.SignalForChainData(&_SignalService.CallOpts, _chainId, _kind, _blockId)
 }
 
 // TopBlockId is a free data retrieval call binding the contract method 0x355bcc3d.
@@ -651,23 +651,23 @@ func (_SignalService *SignalServiceTransactorSession) AcceptOwnership() (*types.
 
 // Authorize is a paid mutator transaction binding the contract method 0x2d1fb389.
 //
-// Solidity: function authorize(address addr, bool toAuthorize) returns()
-func (_SignalService *SignalServiceTransactor) Authorize(opts *bind.TransactOpts, addr common.Address, toAuthorize bool) (*types.Transaction, error) {
-	return _SignalService.contract.Transact(opts, "authorize", addr, toAuthorize)
+// Solidity: function authorize(address _addr, bool _authorize) returns()
+func (_SignalService *SignalServiceTransactor) Authorize(opts *bind.TransactOpts, _addr common.Address, _authorize bool) (*types.Transaction, error) {
+	return _SignalService.contract.Transact(opts, "authorize", _addr, _authorize)
 }
 
 // Authorize is a paid mutator transaction binding the contract method 0x2d1fb389.
 //
-// Solidity: function authorize(address addr, bool toAuthorize) returns()
-func (_SignalService *SignalServiceSession) Authorize(addr common.Address, toAuthorize bool) (*types.Transaction, error) {
-	return _SignalService.Contract.Authorize(&_SignalService.TransactOpts, addr, toAuthorize)
+// Solidity: function authorize(address _addr, bool _authorize) returns()
+func (_SignalService *SignalServiceSession) Authorize(_addr common.Address, _authorize bool) (*types.Transaction, error) {
+	return _SignalService.Contract.Authorize(&_SignalService.TransactOpts, _addr, _authorize)
 }
 
 // Authorize is a paid mutator transaction binding the contract method 0x2d1fb389.
 //
-// Solidity: function authorize(address addr, bool toAuthorize) returns()
-func (_SignalService *SignalServiceTransactorSession) Authorize(addr common.Address, toAuthorize bool) (*types.Transaction, error) {
-	return _SignalService.Contract.Authorize(&_SignalService.TransactOpts, addr, toAuthorize)
+// Solidity: function authorize(address _addr, bool _authorize) returns()
+func (_SignalService *SignalServiceTransactorSession) Authorize(_addr common.Address, _authorize bool) (*types.Transaction, error) {
+	return _SignalService.Contract.Authorize(&_SignalService.TransactOpts, _addr, _authorize)
 }
 
 // Init is a paid mutator transaction binding the contract method 0xf09a4016.
@@ -714,23 +714,23 @@ func (_SignalService *SignalServiceTransactorSession) Pause() (*types.Transactio
 
 // ProveSignalReceived is a paid mutator transaction binding the contract method 0x910af6ed.
 //
-// Solidity: function proveSignalReceived(uint64 chainId, address app, bytes32 signal, bytes proof) returns()
-func (_SignalService *SignalServiceTransactor) ProveSignalReceived(opts *bind.TransactOpts, chainId uint64, app common.Address, signal [32]byte, proof []byte) (*types.Transaction, error) {
-	return _SignalService.contract.Transact(opts, "proveSignalReceived", chainId, app, signal, proof)
+// Solidity: function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes _proof) returns()
+func (_SignalService *SignalServiceTransactor) ProveSignalReceived(opts *bind.TransactOpts, _chainId uint64, _app common.Address, _signal [32]byte, _proof []byte) (*types.Transaction, error) {
+	return _SignalService.contract.Transact(opts, "proveSignalReceived", _chainId, _app, _signal, _proof)
 }
 
 // ProveSignalReceived is a paid mutator transaction binding the contract method 0x910af6ed.
 //
-// Solidity: function proveSignalReceived(uint64 chainId, address app, bytes32 signal, bytes proof) returns()
-func (_SignalService *SignalServiceSession) ProveSignalReceived(chainId uint64, app common.Address, signal [32]byte, proof []byte) (*types.Transaction, error) {
-	return _SignalService.Contract.ProveSignalReceived(&_SignalService.TransactOpts, chainId, app, signal, proof)
+// Solidity: function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes _proof) returns()
+func (_SignalService *SignalServiceSession) ProveSignalReceived(_chainId uint64, _app common.Address, _signal [32]byte, _proof []byte) (*types.Transaction, error) {
+	return _SignalService.Contract.ProveSignalReceived(&_SignalService.TransactOpts, _chainId, _app, _signal, _proof)
 }
 
 // ProveSignalReceived is a paid mutator transaction binding the contract method 0x910af6ed.
 //
-// Solidity: function proveSignalReceived(uint64 chainId, address app, bytes32 signal, bytes proof) returns()
-func (_SignalService *SignalServiceTransactorSession) ProveSignalReceived(chainId uint64, app common.Address, signal [32]byte, proof []byte) (*types.Transaction, error) {
-	return _SignalService.Contract.ProveSignalReceived(&_SignalService.TransactOpts, chainId, app, signal, proof)
+// Solidity: function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes _proof) returns()
+func (_SignalService *SignalServiceTransactorSession) ProveSignalReceived(_chainId uint64, _app common.Address, _signal [32]byte, _proof []byte) (*types.Transaction, error) {
+	return _SignalService.Contract.ProveSignalReceived(&_SignalService.TransactOpts, _chainId, _app, _signal, _proof)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -756,44 +756,44 @@ func (_SignalService *SignalServiceTransactorSession) RenounceOwnership() (*type
 
 // SendSignal is a paid mutator transaction binding the contract method 0x66ca2bc0.
 //
-// Solidity: function sendSignal(bytes32 signal) returns(bytes32 slot)
-func (_SignalService *SignalServiceTransactor) SendSignal(opts *bind.TransactOpts, signal [32]byte) (*types.Transaction, error) {
-	return _SignalService.contract.Transact(opts, "sendSignal", signal)
+// Solidity: function sendSignal(bytes32 _signal) returns(bytes32)
+func (_SignalService *SignalServiceTransactor) SendSignal(opts *bind.TransactOpts, _signal [32]byte) (*types.Transaction, error) {
+	return _SignalService.contract.Transact(opts, "sendSignal", _signal)
 }
 
 // SendSignal is a paid mutator transaction binding the contract method 0x66ca2bc0.
 //
-// Solidity: function sendSignal(bytes32 signal) returns(bytes32 slot)
-func (_SignalService *SignalServiceSession) SendSignal(signal [32]byte) (*types.Transaction, error) {
-	return _SignalService.Contract.SendSignal(&_SignalService.TransactOpts, signal)
+// Solidity: function sendSignal(bytes32 _signal) returns(bytes32)
+func (_SignalService *SignalServiceSession) SendSignal(_signal [32]byte) (*types.Transaction, error) {
+	return _SignalService.Contract.SendSignal(&_SignalService.TransactOpts, _signal)
 }
 
 // SendSignal is a paid mutator transaction binding the contract method 0x66ca2bc0.
 //
-// Solidity: function sendSignal(bytes32 signal) returns(bytes32 slot)
-func (_SignalService *SignalServiceTransactorSession) SendSignal(signal [32]byte) (*types.Transaction, error) {
-	return _SignalService.Contract.SendSignal(&_SignalService.TransactOpts, signal)
+// Solidity: function sendSignal(bytes32 _signal) returns(bytes32)
+func (_SignalService *SignalServiceTransactorSession) SendSignal(_signal [32]byte) (*types.Transaction, error) {
+	return _SignalService.Contract.SendSignal(&_SignalService.TransactOpts, _signal)
 }
 
 // SyncChainData is a paid mutator transaction binding the contract method 0x4f90a674.
 //
-// Solidity: function syncChainData(uint64 chainId, bytes32 kind, uint64 blockId, bytes32 chainData) returns(bytes32 signal)
-func (_SignalService *SignalServiceTransactor) SyncChainData(opts *bind.TransactOpts, chainId uint64, kind [32]byte, blockId uint64, chainData [32]byte) (*types.Transaction, error) {
-	return _SignalService.contract.Transact(opts, "syncChainData", chainId, kind, blockId, chainData)
+// Solidity: function syncChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId, bytes32 _chainData) returns(bytes32)
+func (_SignalService *SignalServiceTransactor) SyncChainData(opts *bind.TransactOpts, _chainId uint64, _kind [32]byte, _blockId uint64, _chainData [32]byte) (*types.Transaction, error) {
+	return _SignalService.contract.Transact(opts, "syncChainData", _chainId, _kind, _blockId, _chainData)
 }
 
 // SyncChainData is a paid mutator transaction binding the contract method 0x4f90a674.
 //
-// Solidity: function syncChainData(uint64 chainId, bytes32 kind, uint64 blockId, bytes32 chainData) returns(bytes32 signal)
-func (_SignalService *SignalServiceSession) SyncChainData(chainId uint64, kind [32]byte, blockId uint64, chainData [32]byte) (*types.Transaction, error) {
-	return _SignalService.Contract.SyncChainData(&_SignalService.TransactOpts, chainId, kind, blockId, chainData)
+// Solidity: function syncChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId, bytes32 _chainData) returns(bytes32)
+func (_SignalService *SignalServiceSession) SyncChainData(_chainId uint64, _kind [32]byte, _blockId uint64, _chainData [32]byte) (*types.Transaction, error) {
+	return _SignalService.Contract.SyncChainData(&_SignalService.TransactOpts, _chainId, _kind, _blockId, _chainData)
 }
 
 // SyncChainData is a paid mutator transaction binding the contract method 0x4f90a674.
 //
-// Solidity: function syncChainData(uint64 chainId, bytes32 kind, uint64 blockId, bytes32 chainData) returns(bytes32 signal)
-func (_SignalService *SignalServiceTransactorSession) SyncChainData(chainId uint64, kind [32]byte, blockId uint64, chainData [32]byte) (*types.Transaction, error) {
-	return _SignalService.Contract.SyncChainData(&_SignalService.TransactOpts, chainId, kind, blockId, chainData)
+// Solidity: function syncChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId, bytes32 _chainData) returns(bytes32)
+func (_SignalService *SignalServiceTransactorSession) SyncChainData(_chainId uint64, _kind [32]byte, _blockId uint64, _chainData [32]byte) (*types.Transaction, error) {
+	return _SignalService.Contract.SyncChainData(&_SignalService.TransactOpts, _chainId, _kind, _blockId, _chainData)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
