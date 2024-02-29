@@ -62,7 +62,7 @@ library LibProposing {
         bytes calldata _data,
         bytes calldata _txList
     )
-        external
+        internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));

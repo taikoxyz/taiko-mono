@@ -59,12 +59,16 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     function pause() public virtual whenNotPaused {
         __paused = _TRUE;
         emit Paused(msg.sender);
+        // We call the authorize function here to avoid:
+        // Warning (5740): Unreachable code.
         _authorizePause(msg.sender);
     }
 
     function unpause() public virtual whenPaused {
         __paused = _FALSE;
         emit Unpaused(msg.sender);
+        // We call the authorize function here to avoid:
+        // Warning (5740): Unreachable code.
         _authorizePause(msg.sender);
     }
 

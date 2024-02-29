@@ -39,7 +39,7 @@ library LibVerifying {
     )
         external
     {
-        if (!isConfigValid(_config)) revert L1_INVALID_CONFIG();
+        if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
 
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -67,29 +67,6 @@ library LibVerifying {
             tier: 0,
             contestations: 0
         });
-    }
-
-    function isConfigValid(TaikoData.Config memory _config) public view returns (bool) {
-        if (
-            _config.chainId <= 1 || _config.chainId == block.chainid //
-                || _config.blockMaxProposals == 1
-                || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
-                || _config.blockMaxGasLimit == 0 || _config.blockMaxTxListBytes == 0
-                || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
-                || _config.livenessBond == 0 || _config.ethDepositRingBufferSize <= 1
-                || _config.ethDepositMinCountPerBlock == 0
-            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
-            // TaikoL1.sol) costs 72_502 gas.
-            || _config.ethDepositMaxCountPerBlock > 32
-                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
-                || _config.ethDepositMinAmount == 0
-                || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
-                || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
-                || _config.ethDepositMaxFee == 0
-                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
-        ) return false;
-
-        return true;
     }
 
     /// @dev Verifies up to N blocks.
@@ -251,5 +228,28 @@ library LibVerifying {
                 _config.chainId, LibSignals.STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
+    }
+
+    function _isConfigValid(TaikoData.Config memory _config) public view returns (bool) {
+        if (
+            _config.chainId <= 1 || _config.chainId == block.chainid //
+                || _config.blockMaxProposals == 1
+                || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
+                || _config.blockMaxGasLimit == 0 || _config.blockMaxTxListBytes == 0
+                || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
+                || _config.livenessBond == 0 || _config.ethDepositRingBufferSize <= 1
+                || _config.ethDepositMinCountPerBlock == 0
+            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
+            // TaikoL1.sol) costs 72_502 gas.
+            || _config.ethDepositMaxCountPerBlock > 32
+                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
+                || _config.ethDepositMinAmount == 0
+                || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
+                || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
+                || _config.ethDepositMaxFee == 0
+                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
+        ) return false;
+
+        return true;
     }
 }

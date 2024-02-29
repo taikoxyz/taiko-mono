@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "./TaikoL1TestBase.sol";
 
-contract TaikoL1_NoCooldown is TaikoL1 {
+contract TaikoL1_NoCooldown is TaikoL1, ITierProvider {
     function getConfig() public view override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
         // over-write the following
@@ -11,6 +11,25 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
+    }
+
+    function getTier(uint16 tierId)
+        public
+        view
+        virtual
+        override
+        returns (ITierProvider.Tier memory)
+    {
+        return ITierProvider(resolve("tier_provider", false)).getTier(tierId);
+    }
+
+    function getTierIds() public view override returns (uint16[] memory ids) {
+        ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
+        if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
+    }
+
+    function getMinTier(uint256 rand) public view override returns (uint16) {
+        return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
     }
 }
 
@@ -57,7 +76,10 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + ITierProvider(address(L1)).getTier(minTier).cooldownWindow * 60
+                    + 1
+            );
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -89,7 +111,10 @@ contract TaikoL1Test is TaikoL1TestBase {
             proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + ITierProvider(address(L1)).getTier(minTier).cooldownWindow * 60
+                    + 1
+            );
 
             verifyBlock(Alice, 2);
             parentHash = blockHash;
