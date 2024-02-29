@@ -77,7 +77,7 @@ library LibProving {
         TaikoData.Transition memory tran,
         TaikoData.TierProof memory proof
     )
-        external
+        internal
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero

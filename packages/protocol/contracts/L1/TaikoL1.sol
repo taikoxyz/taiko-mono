@@ -19,7 +19,7 @@ import "./TaikoEvents.sol";
 /// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, TaikoErrors {
+contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[50] private __gap;
 
@@ -68,7 +68,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         (meta, depositsProcessed) = LibProposing.proposeBlock(state, config, this, params, txList);
 
         if (!state.slotB.provingPaused) {
-            _verifyBlocks(config, config.maxBlocksToVerifyPerProposal);
+            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
         }
     }
 
@@ -94,12 +94,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
 
         uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
 
-        _verifyBlocks(config, maxBlocksToVerify);
+        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant whenNotPaused {
-        _verifyBlocks(getConfig(), maxBlocksToVerify);
+    function verifyBlocks(uint64 maxBlocksToVerify)
+        external
+        nonReentrant
+        whenNotPaused
+        whenProvingNotPaused
+    {
+        LibVerifying.verifyBlocks(state, getConfig(), this, maxBlocksToVerify);
     }
 
     /// @notice Pause block proving.
@@ -176,31 +181,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         b = state.slotB;
     }
 
-    /// @notice Retrieves the configuration for a specified tier.
-    /// @param tierId ID of the tier.
-    /// @return Tier struct containing the tier's parameters. This
-    /// function will revert if the tier is not supported.
-    function getTier(uint16 tierId)
-        public
-        view
-        virtual
-        override
-        returns (ITierProvider.Tier memory)
-    {
-        return ITierProvider(resolve("tier_provider", false)).getTier(tierId);
-    }
-
-    /// @inheritdoc ITierProvider
-    function getTierIds() public view override returns (uint16[] memory ids) {
-        ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
-        if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
-    }
-
-    /// @inheritdoc ITierProvider
-    function getMinTier(uint256 rand) public view override returns (uint16) {
-        return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
-    }
-
     /// @inheritdoc ITaikoL1
     function getConfig() public view virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
@@ -234,20 +214,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
             ethDepositMaxFee: 1 ether / 10,
             blockSyncThreshold: 16
         });
-    }
-
-    function isConfigValid() public view returns (bool) {
-        return LibVerifying.isConfigValid(getConfig());
-    }
-
-    function _verifyBlocks(
-        TaikoData.Config memory config,
-        uint64 maxBlocksToVerify
-    )
-        internal
-        whenProvingNotPaused
-    {
-        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
     }
 
     function _authorizePause(address)
