@@ -77,7 +77,7 @@ contract TaikoL2 is CrossChainOwned {
         external
         initializer
     {
-        _CrossChainOwned_init(_owner, _addressManager, _l1ChainId);
+        __CrossChainOwned_init(_owner, _addressManager, _l1ChainId);
 
         if (block.chainid <= 1 || block.chainid > type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();

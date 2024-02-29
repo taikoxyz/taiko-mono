@@ -100,7 +100,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         __Essential_init(_owner);
 
         if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
-        _AddressResolver_init(_addressManager);
+        __AddressResolver_init(_addressManager);
     }
 
     // solhint-disable-next-line func-name-mixedcase

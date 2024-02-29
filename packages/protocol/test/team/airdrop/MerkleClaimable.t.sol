@@ -5,7 +5,7 @@ import "../../TaikoTest.sol";
 
 contract MockMerkleClaimable is MerkleClaimable {
     function init(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) external initializer {
-        _MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
+        __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
     }
 
     function verifyClaim(bytes calldata data, bytes32[] calldata proof) external {

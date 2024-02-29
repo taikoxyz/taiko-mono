@@ -56,7 +56,7 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _ownerChainId The owner's deployment chain ID.
     // solhint-disable-next-line func-name-mixedcase
-    function _CrossChainOwned_init(
+    function __CrossChainOwned_init(
         address _owner,
         address _addressManager,
         uint64 _ownerChainId
