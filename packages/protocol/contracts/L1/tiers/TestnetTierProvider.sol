@@ -66,7 +66,7 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
     function getMinTier(uint256 _rand) public pure override returns (uint16) {
         // 10% will be selected to require SGX proofs.
         if (_rand % 10 == 0) return LibTiers.TIER_SGX;
-        // Other blocks are optimisitc, without validity proofs.
+        // Other blocks are optimistic, without validity proofs.
         return LibTiers.TIER_OPTIMISTIC;
     }
 }
