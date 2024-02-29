@@ -226,11 +226,7 @@ contract Bridge is EssentialContract, IBridge {
             // Execute the recall logic based on the contract's support for the
             // IRecallableSender interface
             if (_message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
-                _storeContext({
-                    _msgHash: msgHash,
-                    _from: address(this),
-                    _srcChainId: _message.srcChainId
-                });
+                _storeContext(msgHash, address(this), _message.srcChainId);
 
                 // Perform recall
                 IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
