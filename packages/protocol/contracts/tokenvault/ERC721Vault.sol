@@ -146,6 +146,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
+    /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
         return "erc721_vault";
     }
