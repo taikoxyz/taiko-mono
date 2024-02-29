@@ -29,6 +29,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         );
     }
 
+    function tierProvider() internal returns (ITierProvider) {
+        return ITierProvider(L1.resolve("tier_provider", false));
+    }
+
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
     function test_L1_more_blocks_than_ring_buffer_size() external {
@@ -57,11 +61,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(
-                block.timestamp
-                    + ITierProvider(L1.resolve("tier_provider", false)).getTier(minTier).cooldownWindow
-                        * 60 + 1
-            );
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -93,11 +93,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
-            vm.warp(
-                block.timestamp
-                    + ITierProvider(L1.resolve("tier_provider", false)).getTier(minTier).cooldownWindow
-                        * 60 + 1
-            );
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Alice, 2);
             parentHash = blockHash;
