@@ -187,12 +187,7 @@ contract ERC20Vault is BaseVault {
         IBridge.Message memory message;
         CanonicalERC20 memory ctoken;
 
-        (message.data, ctoken, _amount) = _handleMessage({
-            _user: msg.sender,
-            _token: _op.token,
-            _amount: _op.amount,
-            _to: _op.to
-        });
+        (message.data, ctoken, _amount) = _handleMessage(msg.sender, _op.token, _op.to, _op.amount);
 
         message.destChainId = _op.destChainId;
         message.srcOwner = msg.sender;
@@ -266,9 +261,9 @@ contract ERC20Vault is BaseVault {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
 
-        (bytes memory _data) = abi.decode(_message.data[4:], (bytes));
+        (bytes memory data) = abi.decode(_message.data[4:], (bytes));
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
-            abi.decode(_data, (CanonicalERC20, address, address, uint256));
+            abi.decode(data, (CanonicalERC20, address, address, uint256));
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, _message.srcOwner, amount);

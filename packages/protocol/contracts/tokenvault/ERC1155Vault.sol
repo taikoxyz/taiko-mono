@@ -146,9 +146,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
 
-        (bytes memory _data) = abi.decode(message.data[4:], (bytes));
+        (bytes memory data) = abi.decode(message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
-            abi.decode(_data, (CanonicalNFT, address, address, uint256[], uint256[]));
+            abi.decode(data, (CanonicalNFT, address, address, uint256[], uint256[]));
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.srcOwner, tokenIds, amounts);

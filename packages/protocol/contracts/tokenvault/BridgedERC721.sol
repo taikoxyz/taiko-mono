@@ -113,7 +113,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     /// @notice Returns the token URI.
     /// @param _tokenId The token id.
-    /// @return The token uri following eip-681.
+    /// @return The token URI following EIP-681.
     function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
         return string(
             abi.encodePacked(

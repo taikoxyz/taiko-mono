@@ -132,9 +132,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
 
-        (bytes memory _data) = abi.decode(_message.data[4:], (bytes));
+        (bytes memory data) = abi.decode(_message.data[4:], (bytes));
         (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds) =
-            abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
+            abi.decode(data, (CanonicalNFT, address, address, uint256[]));
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, _message.srcOwner, tokenIds);
@@ -179,11 +179,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         if (_ctoken.chainId == block.chainid) {
             token_ = _ctoken.addr;
             for (uint256 i; i < _tokenIds.length; ++i) {
-                IERC721(token_).safeTransferFrom({
-                    from: address(this),
-                    to: _to,
-                    tokenId: _tokenIds[i]
-                });
+                IERC721(token_).safeTransferFrom(address(this), _to, _tokenIds[i]);
             }
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
