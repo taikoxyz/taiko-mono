@@ -50,7 +50,7 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         // The symbol and the name can be empty for ERC1155 tokens so we use some placeholder data
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, "foo", "foo");
-        _Essential_init(_owner, _addressManager);
+        ___Essential_init(_owner, _addressManager);
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;

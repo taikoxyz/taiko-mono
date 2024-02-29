@@ -47,7 +47,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         external
         initializer
     {
-        _Essential_init(_owner, _addressManager);
+        ___Essential_init(_owner, _addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 

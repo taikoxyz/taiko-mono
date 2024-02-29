@@ -89,7 +89,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     // solhint-disable-next-line func-name-mixedcase
-    function _Essential_init(
+    function ___Essential_init(
         address _owner,
         address _addressManager
     )
@@ -97,14 +97,14 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         virtual
         onlyInitializing
     {
-        _Essential_init(_owner);
+        ___Essential_init(_owner);
 
         if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
         _AddressResolver_init(_addressManager);
     }
 
     // solhint-disable-next-line func-name-mixedcase
-    function _Essential_init(address _owner) internal virtual {
+    function ___Essential_init(address _owner) internal virtual {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __paused = _FALSE;
     }

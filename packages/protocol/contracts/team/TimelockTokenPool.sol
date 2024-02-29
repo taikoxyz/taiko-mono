@@ -117,7 +117,7 @@ contract TimelockTokenPool is EssentialContract {
         external
         initializer
     {
-        _Essential_init(_owner);
+        ___Essential_init(_owner);
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 

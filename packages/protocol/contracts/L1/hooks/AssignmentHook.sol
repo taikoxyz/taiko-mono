@@ -55,7 +55,7 @@ contract AssignmentHook is EssentialContract, IHook {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
-        _Essential_init(_owner, _addressManager);
+        ___Essential_init(_owner, _addressManager);
     }
 
     /// @inheritdoc IHook
