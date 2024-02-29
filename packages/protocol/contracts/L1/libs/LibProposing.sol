@@ -66,7 +66,7 @@ library LibProposing {
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata.
-    /// @return depositsProcessed_ The EthDeposit array about processed deposits in this proposed
+    /// @return deposits_ The EthDeposit array about processed deposits in this proposed
     /// block.
     function proposeBlock(
         TaikoData.State storage _state,
@@ -76,10 +76,7 @@ library LibProposing {
         bytes calldata _txList
     )
         external
-        returns (
-            TaikoData.BlockMetadata memory meta_,
-            TaikoData.EthDeposit[] memory depositsProcessed_
-        )
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
 
@@ -118,7 +115,7 @@ library LibProposing {
 
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
-        depositsProcessed_ = LibDepositing.processDeposits(_state, _config, params.coinbase);
+        deposits_ = LibDepositing.processDeposits(_state, _config, params.coinbase);
 
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
@@ -130,7 +127,7 @@ library LibProposing {
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
-                depositsHash: keccak256(abi.encode(depositsProcessed_)),
+                depositsHash: keccak256(abi.encode(deposits_)),
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -282,7 +279,7 @@ library LibProposing {
             assignedProver: blk.assignedProver,
             livenessBond: _config.livenessBond,
             meta: meta_,
-            depositsProcessed: depositsProcessed_
+            depositsProcessed: deposits_
         });
     }
 
