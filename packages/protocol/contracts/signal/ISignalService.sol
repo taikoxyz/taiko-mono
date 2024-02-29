@@ -23,7 +23,6 @@ pragma solidity 0.8.24;
 /// transaction). With this, verifying a signal is reduced to simply verifying
 /// a merkle proof.
 interface ISignalService {
-
     enum CacheOption {
         CACHE_NOTHING,
         CACHE_SIGNAL_ROOT,
