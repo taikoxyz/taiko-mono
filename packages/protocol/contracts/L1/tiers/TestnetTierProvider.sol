@@ -16,6 +16,7 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
         __Essential_init(_owner);
     }
 
+    /// @inheritdoc ITierProvider
     function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
@@ -53,6 +54,7 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
         revert TIER_NOT_FOUND();
     }
 
+    /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers) {
         tiers = new uint16[](3);
         tiers[0] = LibTiers.TIER_OPTIMISTIC;
@@ -60,6 +62,7 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
         tiers[2] = LibTiers.TIER_GUARDIAN;
     }
 
+    /// @inheritdoc ITierProvider
     function getMinTier(uint256 rand) public pure override returns (uint16) {
         // 10% will be selected to require SGX proofs.
         if (rand % 10 == 0) return LibTiers.TIER_SGX;
