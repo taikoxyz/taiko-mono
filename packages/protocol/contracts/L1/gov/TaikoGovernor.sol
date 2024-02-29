@@ -62,8 +62,9 @@ contract TaikoGovernor is
     /// not check that the length of signatures equal the calldata.
     /// @dev See vulnerability description here:
     /// https://github.com/taikoxyz/taiko-mono/security/dependabot/114
-    /// See fix in OZ 4.8.3 here:
-    /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
+    /// See fix in OZ 4.8.3 here (URL broken down for readability):
+    /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/
+    /// 0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
     /// See {GovernorCompatibilityBravoUpgradeable-propose}
     function propose(
         address[] memory _targets,
