@@ -7,6 +7,8 @@ import { BytesUtils } from "../utils/BytesUtils.sol";
 import { X509DateUtils } from "../utils/X509DateUtils.sol";
 import { IPEMCertChainLib } from "./interfaces/IPEMCertChainLib.sol";
 
+/// @title PEMCertChainLib
+/// @custom:security-contact security@taiko.xyz
 contract PEMCertChainLib is IPEMCertChainLib {
     using Asn1Decode for bytes;
     using NodePtr for uint256;
@@ -164,7 +166,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
             uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
             sigPtr = der.nextSiblingOf(sigPtr);
 
-            // Skip three bytes to the right, TODO: why is it tagged with 0x03?
+            // Skip three bytes to the right
             // the three bytes in question: 0x034700 or 0x034800 or 0x034900
             sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
 

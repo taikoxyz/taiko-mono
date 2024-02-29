@@ -145,7 +145,7 @@ library Bytes {
     /// @notice Compares two byte arrays by comparing their keccak256 hashes.
     /// @param _bytes First byte array to compare.
     /// @param _other Second byte array to compare.
-    /// @return True if the two byte arrays are equal, false otherwise.
+    /// @return true if the two byte arrays are equal, false otherwise.
     function equal(bytes memory _bytes, bytes memory _other) internal pure returns (bool) {
         return keccak256(_bytes) == keccak256(_other);
     }

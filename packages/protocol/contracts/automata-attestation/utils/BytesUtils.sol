@@ -3,7 +3,8 @@ pragma solidity 0.8.24;
 
 // Inspired by ensdomains/dnssec-oracle - BSD-2-Clause license
 // https://github.com/ensdomains/dnssec-oracle/blob/master/contracts/BytesUtils.sol
-
+/// @title BytesUtils
+/// @custom:security-contact security@taiko.xyz
 library BytesUtils {
     /*
     * @dev Returns the keccak-256 hash of a byte range.
@@ -21,7 +22,7 @@ library BytesUtils {
         pure
         returns (bytes32 ret)
     {
-        require(offset + len <= self.length);
+        require(offset + len <= self.length, "invalid offset");
         assembly {
             ret := keccak256(add(add(self, 32), offset), len)
         }
@@ -110,7 +111,7 @@ library BytesUtils {
     * @param other The second byte range to compare.
     * @param otherOffset The offset into the second byte range.
     * @param len The number of bytes to compare
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(
         bytes memory self,
@@ -132,7 +133,7 @@ library BytesUtils {
     * @param offset The offset into the first byte range.
     * @param other The second byte range to compare.
     * @param otherOffset The offset into the second byte range.
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(
         bytes memory self,
@@ -154,7 +155,7 @@ library BytesUtils {
     * @param self The first byte range to compare.
     * @param offset The offset into the first byte range.
     * @param other The second byte range to compare.
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(
         bytes memory self,
@@ -172,7 +173,7 @@ library BytesUtils {
     * @dev Returns true if the two byte ranges are equal.
     * @param self The first byte range to compare.
     * @param other The second byte range to compare.
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(bytes memory self, bytes memory other) internal pure returns (bool) {
         return self.length == other.length && equals(self, 0, other, 0, self.length);
@@ -195,7 +196,7 @@ library BytesUtils {
     * @return The specified 16 bits of the string, interpreted as an integer.
     */
     function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
-        require(idx + 2 <= self.length);
+        require(idx + 2 <= self.length, "invalid idx");
         assembly {
             ret := and(mload(add(add(self, 2), idx)), 0xFFFF)
         }
@@ -208,7 +209,7 @@ library BytesUtils {
     * @return The specified 32 bits of the string, interpreted as an integer.
     */
     function readUint32(bytes memory self, uint256 idx) internal pure returns (uint32 ret) {
-        require(idx + 4 <= self.length);
+        require(idx + 4 <= self.length, "unexpected idx");
         assembly {
             ret := and(mload(add(add(self, 4), idx)), 0xFFFFFFFF)
         }
@@ -221,7 +222,7 @@ library BytesUtils {
     * @return The specified 32 bytes of the string.
     */
     function readBytes32(bytes memory self, uint256 idx) internal pure returns (bytes32 ret) {
-        require(idx + 32 <= self.length);
+        require(idx + 32 <= self.length, "unexpected idx");
         assembly {
             ret := mload(add(add(self, 32), idx))
         }
@@ -234,7 +235,7 @@ library BytesUtils {
     * @return The specified 32 bytes of the string.
     */
     function readBytes20(bytes memory self, uint256 idx) internal pure returns (bytes20 ret) {
-        require(idx + 20 <= self.length);
+        require(idx + 20 <= self.length, "unexpected idx");
         assembly {
             ret :=
                 and(
@@ -260,8 +261,8 @@ library BytesUtils {
         pure
         returns (bytes32 ret)
     {
-        require(len <= 32);
-        require(idx + len <= self.length);
+        require(len <= 32, "unexpected len");
+        require(idx + len <= self.length, "unexpected idx");
         assembly {
             let mask := not(sub(exp(256, sub(32, len)), 1))
             ret := and(mload(add(add(self, 32), idx)), mask)
@@ -289,7 +290,7 @@ library BytesUtils {
         pure
         returns (bytes memory)
     {
-        require(offset + len <= self.length);
+        require(offset + len <= self.length, "unexpected offset");
 
         bytes memory ret = new bytes(len);
         uint256 dest;
@@ -306,7 +307,7 @@ library BytesUtils {
 
     // Maps characters from 0x30 to 0x7A to their base32 values.
     // 0xFF represents invalid characters in that range.
-    bytes constant base32HexTable =
+    bytes constant BASE32_HEX_TABLE =
         hex"00010203040506070809FFFFFFFFFFFFFF0A0B0C0D0E0F101112131415161718191A1B1C1D1E1FFFFFFFFFFFFFFFFFFFFF0A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
 
     /**
@@ -325,15 +326,15 @@ library BytesUtils {
         pure
         returns (bytes32)
     {
-        require(len <= 52);
+        require(len <= 52, "unexpected len");
 
         uint256 ret = 0;
         uint8 decoded;
         for (uint256 i = 0; i < len; i++) {
             bytes1 char = self[off + i];
-            require(char >= 0x30 && char <= 0x7A);
-            decoded = uint8(base32HexTable[uint256(uint8(char)) - 0x30]);
-            require(decoded <= 0x20);
+            require(char >= 0x30 && char <= 0x7A, "invalid char");
+            decoded = uint8(BASE32_HEX_TABLE[uint256(uint8(char)) - 0x30]);
+            require(decoded <= 0x20, "invalid decoded");
             if (i == len - 1) {
                 break;
             }
@@ -361,7 +362,7 @@ library BytesUtils {
             ret = (ret << 2) | (decoded >> 3);
             bitlen -= 3;
         } else {
-            revert();
+            revert("unexpected len");
         }
 
         return bytes32(ret << (256 - bitlen));

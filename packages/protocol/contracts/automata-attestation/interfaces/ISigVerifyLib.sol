@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0;
+pragma solidity 0.8.24;
 
+/// @title ISigVerifyLib
+/// @custom:security-contact security@taiko.xyz
 interface ISigVerifyLib {
     enum KeyType {
         RSA,

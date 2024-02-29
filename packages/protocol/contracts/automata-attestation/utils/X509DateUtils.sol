@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.24;
 
+/// @title X509DateUtils
+/// @custom:security-contact security@taiko.xyz
 library X509DateUtils {
     function toTimestamp(bytes memory x509Time) internal pure returns (uint256) {
         uint16 yrs;
