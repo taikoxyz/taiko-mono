@@ -1,6 +1,6 @@
 # Taiko native vs. wrapped token bridging
 
-![Wrapped_vs_Native](./native_bridge/native_support.png "Wrapped vs. Native bridging")
+![Wrapped_vs_Native](./images/native_support.png "Wrapped vs. Native bridging")
 
 Taiko's briding concept is a lock-and-mint type. It simply means (the red path above) on the canonical chain we take custody of the assets and on the destination chain we mint the wrapped counterpart. When someone wants to bridge back (from destination to canonical) it will first burn the tokens, then release the funds on the canonical chain.
 
