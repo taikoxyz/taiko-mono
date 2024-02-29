@@ -47,7 +47,7 @@ abstract contract BaseVault is
 
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
-    /// @return True if the contract supports the interface, false otherwise.
+    /// @return true if the contract supports the interface, false otherwise.
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return _interfaceId == type(IRecallableSender).interfaceId;
     }

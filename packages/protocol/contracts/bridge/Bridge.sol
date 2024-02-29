@@ -386,7 +386,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Checks if the message was sent.
     /// @param _message The message.
-    /// @return True if the message was sent.
+    /// @return true if the message was sent.
     function isMessageSent(Message calldata _message) public view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
@@ -398,7 +398,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return True if the message has failed, false otherwise.
+    /// @return true if the message has failed, false otherwise.
     function proveMessageFailed(
         Message calldata _message,
         bytes calldata _proof
@@ -420,7 +420,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return True if the message has failed, false otherwise.
+    /// @return true if the message has failed, false otherwise.
     function proveMessageReceived(
         Message calldata _message,
         bytes calldata _proof

@@ -77,7 +77,7 @@ interface ISignalService {
     /// @notice Verifies if a particular signal has already been sent.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
-    /// @return True if the signal has been sent, otherwise false.
+    /// @return true if the signal has been sent, otherwise false.
     function isSignalSent(address _app, bytes32 _signal) external view returns (bool);
 
     /// @notice Checks if a chain data has been synced.
@@ -86,7 +86,7 @@ interface ISignalService {
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding blockId
     /// @param _chainData The remote data.
-    /// @return True if the data has been synced, otherwise false.
+    /// @return true if the data has been synced, otherwise false.
     function isChainDataSynced(
         uint64 _chainId,
         bytes32 _kind,

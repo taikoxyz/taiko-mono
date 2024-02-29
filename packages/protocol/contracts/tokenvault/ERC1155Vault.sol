@@ -195,7 +195,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     /// @dev See {BaseVault-supportsInterface}.
     /// @param interfaceId The interface identifier.
-    /// @return True if supports, else otherwise.
+    /// @return true if supports, else otherwise.
     function supportsInterface(bytes4 interfaceId)
         public
         view

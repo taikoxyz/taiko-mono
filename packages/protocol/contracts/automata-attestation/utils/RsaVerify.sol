@@ -38,7 +38,7 @@ library RsaVerify {
      * @param _s is the signature
      * @param _e is the exponent
      * @param _m is the modulus
-     * @return True if success, false otherwise
+     * @return true if success, false otherwise
      */
     function pkcs1Sha256(
         bytes32 _sha256,
@@ -207,7 +207,7 @@ library RsaVerify {
      * @param _s is the signature
      * @param _e is the exponent
      * @param _m is the modulus
-     * @return True if success, false otherwise
+     * @return true if success, false otherwise
      */
     function pkcs1Sha1(
         bytes20 _sha1,

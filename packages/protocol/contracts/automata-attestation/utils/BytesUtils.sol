@@ -111,7 +111,7 @@ library BytesUtils {
     * @param other The second byte range to compare.
     * @param otherOffset The offset into the second byte range.
     * @param len The number of bytes to compare
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(
         bytes memory self,
@@ -133,7 +133,7 @@ library BytesUtils {
     * @param offset The offset into the first byte range.
     * @param other The second byte range to compare.
     * @param otherOffset The offset into the second byte range.
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(
         bytes memory self,
@@ -155,7 +155,7 @@ library BytesUtils {
     * @param self The first byte range to compare.
     * @param offset The offset into the first byte range.
     * @param other The second byte range to compare.
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(
         bytes memory self,
@@ -173,7 +173,7 @@ library BytesUtils {
     * @dev Returns true if the two byte ranges are equal.
     * @param self The first byte range to compare.
     * @param other The second byte range to compare.
-    * @return True if the byte ranges are equal, false otherwise.
+    * @return true if the byte ranges are equal, false otherwise.
     */
     function equals(bytes memory self, bytes memory other) internal pure returns (bool) {
         return self.length == other.length && equals(self, 0, other, 0, self.length);

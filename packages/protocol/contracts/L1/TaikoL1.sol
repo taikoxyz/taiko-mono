@@ -134,7 +134,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
 
     /// @notice Checks if Ether deposit is allowed for Layer 2.
     /// @param _amount Amount of Ether to be deposited.
-    /// @return True if Ether deposit is allowed, false otherwise.
+    /// @return true if Ether deposit is allowed, false otherwise.
     function canDepositEthToL2(uint256 _amount) public view returns (bool) {
         return LibDepositing.canDepositEthToL2(state, getConfig(), _amount);
     }
