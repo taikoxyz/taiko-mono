@@ -10,6 +10,11 @@ import "./Guardians.sol";
 contract GuardianProver is Guardians {
     uint256[50] private __gap;
 
+    /// @notice Emitted when a guardian proof is approved.
+    /// @param addr The address of the guardian.
+    /// @param blockId The block ID.
+    /// @param blockHash The block hash.
+    /// @param approved If the proof is approved.
     event GuardianApproval(
         address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
     );

@@ -71,7 +71,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused 
-    // onlyFromBridge
     {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(data, (CanonicalNFT, address, address, uint256[]));
@@ -109,7 +108,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         override
         nonReentrant
         whenNotPaused
-    // onlyFromBridge
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();

@@ -53,7 +53,7 @@ contract ERC20Vault is BaseVault {
 
     uint256[47] private __gap;
 
-    /// @notice Event emitted when a new bridged token is deployed.
+    /// @notice Emitted when a new bridged token is deployed.
     /// @param srcChainId The chain ID of the canonical token.
     /// @param ctoken The address of the canonical token.
     /// @param btoken The address of the bridged token.
@@ -69,7 +69,7 @@ contract ERC20Vault is BaseVault {
         uint8 ctokenDecimal
     );
 
-    /// @notice Event emitted when a bridged token is changed.
+    /// @notice Emitted when a bridged token is changed.
     /// @param srcChainId The chain ID of the canonical token.
     /// @param ctoken The address of the canonical token.
     /// @param btokenOld The address of the old bridged token.
@@ -87,7 +87,7 @@ contract ERC20Vault is BaseVault {
         uint8 ctokenDecimal
     );
 
-    /// @notice Event emitted when a token is sent to another chain.
+    /// @notice Emitted when a token is sent to another chain.
     /// @param msgHash The hash of the message.
     /// @param from The address of the sender.
     /// @param to The address of the recipient.
@@ -105,7 +105,7 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
 
-    /// @notice Event emitted when a token is released from a message.
+    /// @notice Emitted when a token is released from a message.
     /// @param msgHash The hash of the message.
     /// @param from The address of the sender.
     /// @param ctoken The address of the canonical token.
@@ -115,7 +115,7 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash, address indexed from, address ctoken, address token, uint256 amount
     );
 
-    /// @notice Event emitted when a token is received from another chain.
+    /// @notice Emitted when a token is received from another chain.
     /// @param msgHash The hash of the message.
     /// @param from The address of the sender.
     /// @param to The address of the recipient.
