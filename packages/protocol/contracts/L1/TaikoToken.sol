@@ -31,7 +31,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         public
         initializer
     {
-        __Essential_init(_owner);
+        _Essential_init(_owner);
         __ERC20_init(_name, _symbol);
         __ERC20Snapshot_init();
         __ERC20Votes_init();

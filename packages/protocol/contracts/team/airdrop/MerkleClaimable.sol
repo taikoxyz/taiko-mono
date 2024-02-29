@@ -45,7 +45,7 @@ abstract contract MerkleClaimable is EssentialContract {
     }
 
     // solhint-disable-next-line func-name-mixedcase
-    function __MerkleClaimable_init(
+    function _MerkleClaimable_init(
         uint64 _claimStart,
         uint64 _claimEnd,
         bytes32 _merkleRoot
