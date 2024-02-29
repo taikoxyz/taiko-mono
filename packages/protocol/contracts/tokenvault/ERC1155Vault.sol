@@ -14,7 +14,10 @@ import "./BridgedERC1155.sol";
 /// used by some contracts.
 /// @custom:security-contact security@taiko.xyz
 interface IERC1155NameAndSymbol {
+    /// @notice Returns the name of the token.
     function name() external view returns (string memory);
+
+    /// @notice Returns the symbol of the token.
     function symbol() external view returns (string memory);
 }
 
@@ -84,7 +87,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused 
-    // onlyFromBridge
     {
         (
             CanonicalNFT memory ctoken,
@@ -128,7 +130,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         override
         nonReentrant
         whenNotPaused
-    // onlyFromBridge
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
@@ -152,6 +153,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
+    /// @notice See {ERC1155ReceiverUpgradeable-onERC1155BatchReceived}.
     function onERC1155BatchReceived(
         address,
         address,
@@ -166,6 +168,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return IERC1155ReceiverUpgradeable.onERC1155BatchReceived.selector;
     }
 
+    /// @notice See {ERC1155ReceiverUpgradeable-onERC1155Received}.
     function onERC1155Received(
         address,
         address,
@@ -194,10 +197,17 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             || BaseVault.supportsInterface(interfaceId);
     }
 
+    /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
         return "erc1155_vault";
     }
 
+    /// @dev Transfers ERC1155 tokens to the `to` address.
+    /// @param ctoken CanonicalNFT data.
+    /// @param to The address to transfer the tokens to.
+    /// @param tokenIds The token IDs to transfer.
+    /// @param amounts The amounts to transfer.
+    /// @return token The address of the token.
     function _transferTokens(
         CanonicalNFT memory ctoken,
         address to,
