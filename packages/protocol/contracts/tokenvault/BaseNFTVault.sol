@@ -43,19 +43,29 @@ abstract contract BaseNFTVault is BaseVault {
         string memo;
     }
 
-    // Constants for interface IDs.
+    /// @notice ERC1155 interface ID.
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+
+    /// @notice ERC721 interface ID.
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+
+    /// @notice Maximum number of tokens that can be transferred per transaction.
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
-    // Mapping to store bridged NFTs and their canonical counterparts.
+    /// @notice Mapping to store bridged NFTs and their canonical counterparts.
     mapping(address btoken => CanonicalNFT cannonical) public bridgedToCanonical;
 
-    // Mapping to store canonical NFTs and their bridged counterparts.
+    /// @notice Mapping to store canonical NFTs and their bridged counterparts.
     mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
     uint256[48] private __gap;
 
+    /// @notice Emitted when a new bridged token is deployed.
+    /// @param chainId The chain ID of the bridged token.
+    /// @param ctoken The address of the canonical token.
+    /// @param btoken The address of the bridged token.
+    /// @param ctokenSymbol The symbol of the canonical token.
+    /// @param ctokenName The name of the canonical token.
     event BridgedTokenDeployed(
         uint64 indexed chainId,
         address indexed ctoken,
@@ -64,6 +74,15 @@ abstract contract BaseNFTVault is BaseVault {
         string ctokenName
     );
 
+    /// @notice Emitted when a token is sent to another chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The sender of the message.
+    /// @param to The recipient of the message.
+    /// @param destChainId The destination chain ID.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param tokenIds The IDs of the tokens.
+    /// @param amounts The amounts of the tokens.
     event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
@@ -75,6 +94,13 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts
     );
 
+    /// @notice Emitted when a token is released on the current chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The sender of the message.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param tokenIds The IDs of the tokens.
+    /// @param amounts The amounts of the tokens.
     event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
@@ -84,6 +110,15 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts
     );
 
+    /// @notice Emitted when a token is received from another chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The sender of the message.
+    /// @param to The recipient of the message.
+    /// @param srcChainId The source chain ID.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param tokenIds The IDs of the tokens.
+    /// @param amounts The amounts of the tokens.
     event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
