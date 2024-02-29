@@ -4,20 +4,42 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 
 /// @title Guardians
+/// @notice A contract that manages a set of guardians and their approvals.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Guardians is EssentialContract {
+    /// @notice The minimum number of guardians
     uint256 public constant MIN_NUM_GUARDIANS = 5;
 
-    // Contains the index of the guardian in `guardians` plus one (zero means not a guardian)
-    mapping(address guardian => uint256 id) public guardianIds; // slot 1
+    /// @notice Contains the index of the guardian in `guardians` plus one (zero means not a
+    /// guardian)
+    /// @dev Slot 1
+    mapping(address guardian => uint256 id) public guardianIds;
+
+    /// @notice Mapping to store the approvals for a given hash, for a given version
     mapping(uint32 version => mapping(bytes32 hash => uint256 approvalBits)) internal _approvals;
-    address[] public guardians; // slot 3
-    uint32 public version; // slot 4
+
+    /// @notice The set of guardians
+    /// @dev Slot 3
+    address[] public guardians;
+
+    /// @notice The version of the guardians
+    /// @dev Slot 4
+    uint32 public version;
+
+    /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
     uint256[46] private __gap;
 
+    /// @notice Emitted when the set of guardians is updated
+    /// @param version The new version
+    /// @param guardians The new set of guardians
     event GuardiansUpdated(uint32 version, address[] guardians);
+
+    /// @notice Emitted when an approval is made
+    /// @param operationId The operation ID
+    /// @param approvalBits The new approval bits
+    /// @param proofSubmitted If the proof was submitted
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool proofSubmitted);
 
     error INVALID_GUARDIAN();
@@ -73,10 +95,15 @@ abstract contract Guardians is EssentialContract {
         emit GuardiansUpdated(version, _newGuardians);
     }
 
+    /// @notice Return if the hash is approved
+    /// @param hash The hash to check
+    /// @return True if the hash is approved
     function isApproved(bytes32 hash) public view returns (bool) {
         return isApproved(_approvals[version][hash]);
     }
 
+    /// @notice Return the number of guardians
+    /// @return The number of guardians
     function numGuardians() public view returns (uint256) {
         return guardians.length;
     }
