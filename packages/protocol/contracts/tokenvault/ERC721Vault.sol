@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -22,11 +9,10 @@ import "./BaseNFTVault.sol";
 import "./BridgedERC721.sol";
 
 /// @title ERC721Vault
+/// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
+/// the mapping between canonical tokens and their bridged tokens.
+/// @dev Labeled in AddressResolver as "erc721_vault".
 /// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "erc721_vault"
-/// @notice This vault holds all ERC721 tokens that users have deposited.
-/// It also manages the mapping between canonical tokens and their bridged
-/// tokens.
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     using LibAddress for address;
 

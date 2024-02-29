@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -20,11 +7,11 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "../common/EssentialContract.sol";
 
 /// @title TaikoToken
-/// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "taiko_token"
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
+/// @dev Labeled in AddressResolver as "taiko_token"
+/// @custom:security-contact security@taiko.xyz
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     uint256[50] private __gap;
 

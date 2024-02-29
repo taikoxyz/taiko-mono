@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../../common/IAddressResolver.sol";
@@ -20,8 +7,8 @@ import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
 
 /// @title LibDepositing
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling Ether deposits in the Taiko protocol.
+/// @custom:security-contact security@taiko.xyz
 library LibDepositing {
     using LibAddress for address;
     using LibAddress for address payable;

@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "../thirdparty/optimism/rlp/RLPWriter.sol";

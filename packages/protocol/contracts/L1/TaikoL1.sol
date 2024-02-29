@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
@@ -24,15 +11,14 @@ import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
 
 /// @title TaikoL1
-/// @custom:security-contact security@taiko.xyz
+/// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
+/// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
+/// means that although this is usually deployed on L1, it can also be deployed on L2s to create
+/// L3 "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens
+/// and Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held
+/// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
-/// @notice This contract serves as the "base layer contract" of the Taiko
-/// protocol, providing functionalities for proposing, proving, and verifying
-/// blocks. The term "base layer contract" means that although this is usually
-/// deployed on L1, it can also be deployed on L2s to create L3s ("inception
-/// layers"). The contract also handles the deposit and withdrawal of Taiko
-/// tokens and Ether.
-/// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
+/// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[50] private __gap;

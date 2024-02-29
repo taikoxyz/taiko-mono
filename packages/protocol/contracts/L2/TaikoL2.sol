@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -25,12 +12,12 @@ import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
 
 /// @title TaikoL2
-/// @custom:security-contact security@taiko.xyz
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
+/// @custom:security-contact security@taiko.xyz
 contract TaikoL2 is CrossChainOwned {
     using LibAddress for address;
     using LibMath for uint256;

@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -21,9 +8,9 @@ import "./ISignalService.sol";
 import "./LibSignals.sol";
 
 /// @title SignalService
-/// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
+/// @dev Labeled in AddressResolver as "signal_service".
+/// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
     enum CacheOption {
         CACHE_NOTHING,

@@ -1,24 +1,11 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "./TaikoL2.sol";
 
 /// @title TaikoL2EIP1559Configurable
+/// @notice TaikoL2 with a setter to change EIP-1559 configurations and states.
 /// @custom:security-contact security@taiko.xyz
-/// @notice Taiko L2 with a setter to change EIP-1559 configurations and states.
 contract TaikoL2EIP1559Configurable is TaikoL2 {
     Config public customConfig;
     uint256[49] private __gap;

@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
@@ -22,10 +9,10 @@ import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
 
 /// @title IERC1155NameAndSymbol
-/// @custom:security-contact security@taiko.xyz
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
 /// used by some contracts.
+/// @custom:security-contact security@taiko.xyz
 interface IERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);

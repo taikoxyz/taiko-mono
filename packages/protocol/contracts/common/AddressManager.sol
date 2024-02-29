@@ -1,25 +1,12 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "./IAddressManager.sol";
 import "./EssentialContract.sol";
 
 /// @title AddressManager
+/// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
-/// @notice Manages a mapping of chainId-name pairs to Ethereum addresses.
 contract AddressManager is EssentialContract, IAddressManager {
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private addresses;
     uint256[49] private __gap;

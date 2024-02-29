@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -23,11 +10,11 @@ import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
-/// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "erc20_vault"
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
+/// @dev Labeled in AddressResolver as "erc20_vault".
+/// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20 for IERC20;

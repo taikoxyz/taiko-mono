@@ -1,25 +1,12 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 /// @title IBridgedERC20
-/// @custom:security-contact security@taiko.xyz
 /// @notice Interface for all bridged tokens.
 /// @dev To facilitate compatibility with third-party bridged tokens, such as USDC's native
 /// standard, it's necessary to implement an intermediary adapter contract which should conform to
 /// this interface, enabling effective interaction with third-party contracts.
+/// @custom:security-contact security@taiko.xyz
 interface IBridgedERC20 {
     /// @notice Mints `amount` tokens and assigns them to the `account` address.
     /// @param account The account to receive the minted tokens.

@@ -1,24 +1,11 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "./BaseVault.sol";
 
 /// @title BaseNFTVault
-/// @custom:security-contact security@taiko.xyz
 /// @notice Abstract contract for bridging NFTs across different chains.
+/// @custom:security-contact security@taiko.xyz
 abstract contract BaseNFTVault is BaseVault {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
