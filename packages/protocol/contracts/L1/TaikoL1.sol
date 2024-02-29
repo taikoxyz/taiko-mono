@@ -259,7 +259,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         TaikoData.Config memory _config,
         uint64 _maxBlocksToVerify
     )
-        internal
+        private
         whenProvingNotPaused
     {
         LibVerifying.verifyBlocks(state, _config, this, _maxBlocksToVerify);

@@ -82,35 +82,35 @@ library LibDepositing {
         address _feeRecipient
     )
         internal
-        returns (TaikoData.EthDeposit[] memory deposits)
+        returns (TaikoData.EthDeposit[] memory deposits_)
     {
         // Calculate the number of pending deposits.
         uint256 numPending = _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess;
 
         if (numPending < _config.ethDepositMinCountPerBlock) {
-            deposits = new TaikoData.EthDeposit[](0);
+            deposits_ = new TaikoData.EthDeposit[](0);
         } else {
-            deposits =
+            deposits_ =
                 new TaikoData.EthDeposit[](numPending.min(_config.ethDepositMaxCountPerBlock));
             uint96 fee = uint96(_config.ethDepositMaxFee.min(block.basefee * _config.ethDepositGas));
             uint64 j = _state.slotA.nextEthDepositToProcess;
             uint96 totalFee;
-            for (uint256 i; i < deposits.length;) {
+            for (uint256 i; i < deposits_.length;) {
                 uint256 data = _state.ethDeposits[j % _config.ethDepositRingBufferSize];
-                deposits[i] = TaikoData.EthDeposit({
+                deposits_[i] = TaikoData.EthDeposit({
                     recipient: address(uint160(data >> 96)),
                     amount: uint96(data),
                     id: j
                 });
-                uint96 _fee = deposits[i].amount > fee ? fee : deposits[i].amount;
+                uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
 
                 // Unchecked is safe:
-                // - _fee cannot be bigger than deposits[i].amount
+                // - _fee cannot be bigger than deposits_[i].amount
                 // - all values are in the same range (uint96) except loop
                 // counter, which obviously cannot be bigger than uint95
                 // otherwise the function would be gassing out.
                 unchecked {
-                    deposits[i].amount -= _fee;
+                    deposits_[i].amount -= _fee;
                     totalFee += _fee;
                     ++i;
                     ++j;
