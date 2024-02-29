@@ -66,7 +66,7 @@ library LibUtils {
     }
 
     /// @dev Retrieves the ID of the transition with a given parentHash.
-    /// This function will return 0 if the transtion is not found.
+    /// This function will return 0 if the transition is not found.
     function getTransitionId(
         TaikoData.State storage _state,
         TaikoData.Block storage _blk,

@@ -43,8 +43,8 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
-    error L1_BLOB_NOT_REUSEABLE();
-    error L1_BLOB_REUSE_DISALBED();
+    error L1_BLOB_NOT_REUSABLE();
+    error L1_BLOB_REUSE_DISABLED();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
@@ -142,11 +142,11 @@ library LibProposing {
             if (!_config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
 
             if (params.blobHash != 0) {
-                if (!_config.blobReuseEnabled) revert L1_BLOB_REUSE_DISALBED();
+                if (!_config.blobReuseEnabled) revert L1_BLOB_REUSE_DISABLED();
 
                 // We try to reuse an old blob
                 if (!isBlobReusable(_state, _config, params.blobHash)) {
-                    revert L1_BLOB_NOT_REUSEABLE();
+                    revert L1_BLOB_NOT_REUSABLE();
                 }
                 meta_.blobHash = params.blobHash;
             } else {

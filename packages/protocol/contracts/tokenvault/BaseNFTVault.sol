@@ -53,7 +53,7 @@ abstract contract BaseNFTVault is BaseVault {
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     /// @notice Mapping to store bridged NFTs and their canonical counterparts.
-    mapping(address btoken => CanonicalNFT cannonical) public bridgedToCanonical;
+    mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
 
     /// @notice Mapping to store canonical NFTs and their bridged counterparts.
     mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;

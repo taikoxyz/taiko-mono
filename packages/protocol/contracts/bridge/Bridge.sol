@@ -95,7 +95,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
-    /// @param _addr The addreess to ban or unban.
+    /// @param _addr The address to ban or unban.
     /// @param _ban True if ban, false if unban.
     function banAddress(
         address _addr,
