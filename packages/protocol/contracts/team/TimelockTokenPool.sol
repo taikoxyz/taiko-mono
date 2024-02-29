@@ -55,18 +55,47 @@ contract TimelockTokenPool is EssentialContract {
         Grant grant;
     }
 
+    /// @notice The Taiko token address.
     address public taikoToken;
+
+    /// @notice The cost token address.
     address public costToken;
+
+    /// @notice The shared vault address.
     address public sharedVault;
+
+    /// @notice The total amount of tokens granted.
     uint128 public totalAmountGranted;
+
+    /// @notice The total amount of tokens voided.
     uint128 public totalAmountVoided;
+
+    /// @notice The total amount of tokens withdrawn.
     uint128 public totalAmountWithdrawn;
+
+    /// @notice The total cost paid.
     uint128 public totalCostPaid;
+
+    /// @notice Mapping of recipient address to grant information.
     mapping(address recipient => Recipient receipt) public recipients;
+
     uint128[44] private __gap;
 
+    /// @notice Emitted when a grant is made.
+    /// @param recipient The grant recipient address.
+    /// @param grant The grant.
     event Granted(address indexed recipient, Grant grant);
+
+    /// @notice Emitted when a grant is voided.
+    /// @param recipient The grant recipient address.
+    /// @param amount The amount of tokens voided.
     event Voided(address indexed recipient, uint128 amount);
+
+    /// @notice Emitted when tokens are withdrawn.
+    /// @param recipient The grant recipient address.
+    /// @param to The address where the granted and unlocked tokens shall be sent to.
+    /// @param amount The amount of tokens withdrawn.
+    /// @param cost The cost.
     event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
     error ALREADY_GRANTED();
@@ -74,6 +103,11 @@ contract TimelockTokenPool is EssentialContract {
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner address.
+    /// @param _taikoToken The Taiko token address.
+    /// @param _costToken The cost token address.
+    /// @param _sharedVault The shared vault address.
     function init(
         address _owner,
         address _taikoToken,
@@ -109,7 +143,7 @@ contract TimelockTokenPool is EssentialContract {
         emit Granted(recipient, g);
     }
 
-    /// @notice Puts a stop to all grants for a given recipient.Tokens already
+    /// @notice Puts a stop to all grants for a given recipient. Tokens already
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
     /// @param recipient The grant recipient address.
@@ -138,6 +172,13 @@ contract TimelockTokenPool is EssentialContract {
         _withdraw(recipient, to);
     }
 
+    /// @notice Returns the summary of the grant for a given recipient.
+    /// @param recipient The grant recipient address.
+    /// @return amountOwned The amount of tokens owned.
+    /// @return amountUnlocked The amount of tokens unlocked.
+    /// @return amountWithdrawn The amount of tokens withdrawn.
+    /// @return amountToWithdraw The amount of tokens to withdraw.
+    /// @return costToWithdraw The cost to withdraw.
     function getMyGrantSummary(address recipient)
         public
         view
@@ -163,6 +204,9 @@ contract TimelockTokenPool is EssentialContract {
         costToWithdraw = _amountUnlocked * r.grant.costPerToken - r.costPaid;
     }
 
+    /// @notice Returns the grant for a given recipient.
+    /// @param recipient The grant recipient address.
+    /// @return The grant.
     function getMyGrant(address recipient) public view returns (Grant memory) {
         return recipients[recipient].grant;
     }

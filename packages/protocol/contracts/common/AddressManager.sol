@@ -11,6 +11,11 @@ contract AddressManager is EssentialContract, IAddressManager {
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private addresses;
     uint256[49] private __gap;
 
+    /// @notice Emitted when an address is set.
+    /// @param chainId The chainId for the address mapping.
+    /// @param name The name for the address mapping.
+    /// @param newAddress The new address.
+    /// @param oldAddress The old address.
     event AddressSet(
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );

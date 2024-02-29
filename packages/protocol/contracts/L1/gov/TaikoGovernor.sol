@@ -59,12 +59,12 @@ contract TaikoGovernor is
     }
 
     /// @notice An overwrite of GovernorCompatibilityBravoUpgradeable's propose() as that one does
-    /// not checks the length of signatures equal to calldatas.
-    /// See vulnerability description here:
+    /// not check that the length of signatures equal the calldata.
+    /// @dev See vulnerability description here:
     /// https://github.com/taikoxyz/taiko-mono/security/dependabot/114
     /// See fix in OZ 4.8.3 here:
     /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
-    /// @dev See {GovernorCompatibilityBravoUpgradeable-propose}
+    /// See {GovernorCompatibilityBravoUpgradeable-propose}
     function propose(
         address[] memory targets,
         uint256[] memory values,
@@ -84,6 +84,7 @@ contract TaikoGovernor is
         );
     }
 
+    /// @dev See {GovernorUpgradeable-supportsInterface}
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -93,6 +94,7 @@ contract TaikoGovernor is
         return super.supportsInterface(interfaceId);
     }
 
+    /// @dev See {GovernorUpgradeable-state}
     function state(uint256 proposalId)
         public
         view
@@ -102,18 +104,21 @@ contract TaikoGovernor is
         return super.state(proposalId);
     }
 
-    // How long after a proposal is created should voting power be fixed. A
-    // large voting delay gives users time to unstake tokens if necessary.
+    /// @notice How long after a proposal is created should voting power be fixed. A
+    /// large voting delay gives users time to unstake tokens if necessary.
+    /// @return The duration of the voting delay.
     function votingDelay() public pure override returns (uint256) {
         return 7200; // 1 day
     }
 
-    // How long does a proposal remain open to votes.
+    /// @notice How long does a proposal remain open to votes.
+    /// @return The duration of the voting period.
     function votingPeriod() public pure override returns (uint256) {
         return 50_400; // 1 week
     }
 
-    // The number of votes required in order for a voter to become a proposer
+    /// @notice The number of votes required in order for a voter to become a proposer.
+    /// @return The number of votes required.
     function proposalThreshold() public pure override returns (uint256) {
         return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
     }

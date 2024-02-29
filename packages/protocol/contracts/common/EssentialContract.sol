@@ -20,7 +20,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     uint8 private _paused;
     uint256[49] private __gap;
 
+    /// @notice Emitted when the contract is paused.
+    /// @param account The account that paused the contract.
     event Paused(address account);
+
+    /// @notice Emitted when the contract is unpaused.
+    /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
     error REENTRANT_CALL();
@@ -56,6 +61,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _disableInitializers();
     }
 
+    /// @notice Pauses the contract.
     function pause() public virtual whenNotPaused {
         _paused = _TRUE;
         emit Paused(msg.sender);
@@ -64,6 +70,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _authorizePause(msg.sender);
     }
 
+    /// @notice Unpauses the contract.
     function unpause() public virtual whenPaused {
         _paused = _FALSE;
         emit Unpaused(msg.sender);
@@ -72,6 +79,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _authorizePause(msg.sender);
     }
 
+    /// @notice Returns true if the contract is paused, and false otherwise.
+    /// @return True if paused, false otherwise.
     function paused() public view returns (bool) {
         return _paused == _TRUE;
     }

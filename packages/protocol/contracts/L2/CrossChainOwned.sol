@@ -12,10 +12,17 @@ import "../bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @custom:security-contact security@taiko.xyz
 abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
-    uint64 public ownerChainId; // slot 1
+    /// @notice The owner chain ID.
+    uint64 public ownerChainId;
+
+    /// @notice The next transaction ID.
     uint64 public nextTxId;
+
     uint256[49] private __gap;
 
+    /// @notice Emitted when a transaction is executed.
+    /// @param txId The transaction ID.
+    /// @param selector The function selector.
     event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector);
 
     error XCO_INVALID_OWNER_CHAINID();
@@ -23,6 +30,7 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     error XCO_PERMISSION_DENIED();
     error XCO_TX_REVERTED();
 
+    /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata data)
         external
         payable

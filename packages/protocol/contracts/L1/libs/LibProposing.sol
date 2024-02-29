@@ -15,11 +15,19 @@ import "./LibDepositing.sol";
 library LibProposing {
     using LibAddress for address;
 
-    // According to EIP4844, each blob has up to 4096 field elements, and each
-    // field element has 32 bytes.
+    /// @notice The maximum number of bytes allowed per blob.
+    /// @dev According to EIP4844, each blob has up to 4096 field elements, and each
+    /// field element has 32 bytes.
     uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    /// @notice Emitted when a block is proposed.
+    /// @param blockId The ID of the proposed block.
+    /// @param assignedProver The address of the assigned prover.
+    /// @param livenessBond The liveness bond of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
+    /// block.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -28,6 +36,8 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a blob is cached.
+    /// @param blobHash The hash of the cached blob.
     event BlobCached(bytes32 blobHash);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -273,6 +283,11 @@ library LibProposing {
         });
     }
 
+    /// @notice Checks if a blob is reusable.
+    /// @param state Current TaikoData.State.
+    /// @param config The TaikoData.Config.
+    /// @param blobHash The blob hash
+    /// @return True if the blob is reusable, false otherwise.
     function isBlobReusable(
         TaikoData.State storage state,
         TaikoData.Config memory config,

@@ -7,12 +7,23 @@ import "./IBridgedERC20.sol";
 /// @title BridgedERC20Base
 /// @custom:security-contact security@taiko.xyz
 abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
-    address public migratingAddress; // slot 1
+    /// @notice The address of the contract to migrate tokens to or from.
+    address public migratingAddress;
+
+    /// @notice If true, signals migrating 'to', false if migrating 'from'.
     bool public migratingInbound;
+
     uint256[49] private __gap;
 
+    /// @notice Emitted when the migration status is changed.
+    /// @param addr The address migrating 'to' or 'from'.
+    /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
     event MigrationStatusChanged(address addr, bool inbound);
 
+    /// @notice Emitted when tokens are migrated to or from the bridged token.
+    /// @param fromToken The address of the bridged token.
+    /// @param account The address of the account.
+    /// @param amount The amount of tokens migrated.
     event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
 
     error BB_PERMISSION_DENIED();
@@ -40,6 +51,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         emit MigrationStatusChanged(_migratingAddress, _migratingInbound);
     }
 
+    /// @notice Mints tokens to the specified account.
+    /// @param account The address of the account to receive the tokens.
+    /// @param amount The amount of tokens to mint.
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
         // mint is disabled while migrating outbound.
         if (_isMigratingOut()) revert BB_MINT_DISALLOWED();
@@ -55,6 +69,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         _mintToken(account, amount);
     }
 
+    /// @notice Burns tokens from the specified account.
+    /// @param account The address of the account to burn the tokens from.
+    /// @param amount The amount of tokens to burn.
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
         if (_isMigratingOut()) {
             // Only the owner of the tokens himself can migrate out
@@ -78,6 +95,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     }
 
     function _mintToken(address account, uint256 amount) internal virtual;
+
     function _burnToken(address from, uint256 amount) internal virtual;
 
     function _isMigratingOut() internal view returns (bool) {

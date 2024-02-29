@@ -8,13 +8,22 @@ import "../../common/EssentialContract.sol";
 /// @notice Contract for managing Taiko token airdrop for eligible users
 /// @custom:security-contact security@taiko.xyz
 abstract contract MerkleClaimable is EssentialContract {
+    /// @notice Mapping of hashes and their claim status
     mapping(bytes32 hash => bool claimed) public isClaimed;
+
+    /// @notice Merkle root of the tree
     bytes32 public merkleRoot;
+
+    /// @notice Unix timestamp for claim start
     uint64 public claimStart;
+
+    /// @notice Unix timestamp for claim end
     uint64 public claimEnd;
 
     uint256[47] private __gap;
 
+    /// @notice Event emitted when a claim is made
+    /// @param hash Hash of the claim
     event Claimed(bytes32 hash);
 
     error CLAIM_NOT_ONGOING();

@@ -10,8 +10,11 @@ import "./LibBridgedToken.sol";
 /// @notice Contract for bridging ERC721 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
-    address public srcToken; // Address of the source token contract.
-    uint256 public srcChainId; // Source chain ID where the token originates.
+    /// @notice Address of the source token contract.
+    address public srcToken;
+
+    /// @notice Source chain ID where the token originates.
+    uint256 public srcChainId;
 
     uint256[48] private __gap;
 

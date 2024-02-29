@@ -20,7 +20,9 @@ import "./TaikoEvents.sol";
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
+    /// @notice The TaikoL1 state.
     TaikoData.State public state;
+
     uint256[50] private __gap;
 
     modifier whenProvingNotPaused() {
@@ -121,6 +123,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibDepositing.depositEtherToL2(state, getConfig(), this, recipient);
     }
 
+    /// @inheritdoc EssentialContract
     function unpause() public override {
         super.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
@@ -133,6 +136,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
     }
 
+    /// @notice See {LibProposing-isBlobReusable}.
     function isBlobReusable(bytes32 blobHash) public view returns (bool) {
         return LibProposing.isBlobReusable(state, getConfig(), blobHash);
     }

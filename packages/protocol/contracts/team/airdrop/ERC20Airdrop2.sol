@@ -12,17 +12,26 @@ import "./MerkleClaimable.sol";
 contract ERC20Airdrop2 is MerkleClaimable {
     using LibMath for uint256;
 
+    /// @notice The address of the token contract.
     address public token;
+
+    /// @notice The address of the vault contract.
     address public vault;
-    // Represents the token amount for which the user has claimed
+
+    /// @notice Represents the token amount for which the user has claimed.
     mapping(address addr => uint256 amountClaimed) public claimedAmount;
-    // Represents the already withdrawn amount
+
+    /// @notice Represents the already withdrawn amount.
     mapping(address addr => uint256 amountWithdrawn) public withdrawnAmount;
-    // Length of the withdrawal window
+
+    /// @notice Length of the withdrawal window.
     uint64 public withdrawalWindow;
 
     uint256[45] private __gap;
 
+    /// @notice Event emitted when a user withdraws their tokens.
+    /// @param user The address of the user.
+    /// @param amount The amount of tokens withdrawn.
     event Withdrawn(address user, uint256 amount);
 
     error WITHDRAWALS_NOT_ONGOING();
@@ -34,6 +43,14 @@ contract ERC20Airdrop2 is MerkleClaimable {
         _;
     }
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract.
+    /// @param _claimStart The start time of the claim period.
+    /// @param _claimEnd The end time of the claim period.
+    /// @param _merkleRoot The merkle root.
+    /// @param _token The address of the token contract.
+    /// @param _vault The address of the vault contract.
+    /// @param _withdrawalWindow The length of the withdrawal window.
     function init(
         address _owner,
         uint64 _claimStart,
@@ -54,6 +71,10 @@ contract ERC20Airdrop2 is MerkleClaimable {
         withdrawalWindow = _withdrawalWindow;
     }
 
+    /// @notice Claims the airdrop for the user.
+    /// @param user The address of the user.
+    /// @param amount The amount of tokens to claim.
+    /// @param proof The merkle proof.
     function claim(address user, uint256 amount, bytes32[] calldata proof) external nonReentrant {
         // Check if this can be claimed
         _verifyClaim(abi.encode(user, amount), proof);

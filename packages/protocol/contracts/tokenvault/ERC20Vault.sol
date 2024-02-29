@@ -19,7 +19,7 @@ contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
-    // Structs for canonical ERC20 tokens and transfer operations
+    /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
         uint64 chainId;
         address addr;
@@ -28,6 +28,7 @@ contract ERC20Vault is BaseVault {
         string name;
     }
 
+    /// @dev Represents an operation to send tokens to another chain.
     struct BridgeTransferOp {
         uint64 destChainId;
         address destOwner;
@@ -40,17 +41,25 @@ contract ERC20Vault is BaseVault {
         string memo;
     }
 
-    // Mappings from btokens to their canonical tokens.
+    /// @notice Mappings from bridged tokens to their canonical tokens.
     mapping(address btoken => CanonicalERC20 cannonical) public bridgedToCanonical;
 
-    // Mappings from canonical tokens to their btokens. Also storing chainId for
-    // tokens across other chains aside from Ethereum.
+    /// @notice Mappings from canonical tokens to their bridged tokens. Also storing
+    /// the chainId for tokens across other chains aside from Ethereum.
     mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
+    /// @notice Mappings from bridged tokens to their blacklist status.
     mapping(address btoken => bool blacklisted) public btokenBlacklist;
 
     uint256[47] private __gap;
 
+    /// @notice Emitted when a new bridged token is deployed.
+    /// @param srcChainId The chain ID of the canonical token.
+    /// @param ctoken The address of the canonical token.
+    /// @param btoken The address of the bridged token.
+    /// @param ctokenSymbol The symbol of the canonical token.
+    /// @param ctokenName The name of the canonical token.
+    /// @param ctokenDecimal The decimal of the canonical token.
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
         address indexed ctoken,
@@ -60,6 +69,14 @@ contract ERC20Vault is BaseVault {
         uint8 ctokenDecimal
     );
 
+    /// @notice Emitted when a bridged token is changed.
+    /// @param srcChainId The chain ID of the canonical token.
+    /// @param ctoken The address of the canonical token.
+    /// @param btokenOld The address of the old bridged token.
+    /// @param btokenNew The address of the new bridged token.
+    /// @param ctokenSymbol The symbol of the canonical token.
+    /// @param ctokenName The name of the canonical token.
+    /// @param ctokenDecimal The decimal of the canonical token.
     event BridgedTokenChanged(
         uint256 indexed srcChainId,
         address indexed ctoken,
@@ -70,6 +87,14 @@ contract ERC20Vault is BaseVault {
         uint8 ctokenDecimal
     );
 
+    /// @notice Emitted when a token is sent to another chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The address of the sender.
+    /// @param to The address of the recipient.
+    /// @param destChainId The chain ID of the destination chain.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param amount The amount of tokens sent.
     event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
@@ -79,9 +104,25 @@ contract ERC20Vault is BaseVault {
         address token,
         uint256 amount
     );
+
+    /// @notice Emitted when a token is released from a message.
+    /// @param msgHash The hash of the message.
+    /// @param from The address of the sender.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param amount The amount of tokens released.
     event TokenReleased(
         bytes32 indexed msgHash, address indexed from, address ctoken, address token, uint256 amount
     );
+
+    /// @notice Emitted when a token is received from another chain.
+    /// @param msgHash The hash of the message.
+    /// @param from The address of the sender.
+    /// @param to The address of the recipient.
+    /// @param srcChainId The chain ID of the source chain.
+    /// @param ctoken The address of the canonical token.
+    /// @param token The address of the bridged token.
+    /// @param amount The amount of tokens received.
     event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
@@ -100,6 +141,9 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 
+    /// @notice Change bridged token.
+    /// @param ctoken The canonical token.
+    /// @param btokenNew The new bridged token address.
     function changeBridgedToken(
         CanonicalERC20 calldata ctoken,
         address btokenNew
@@ -203,9 +247,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused 
-    // onlyFromBridge
-    {
+    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
 
@@ -231,6 +273,7 @@ contract ERC20Vault is BaseVault {
         });
     }
 
+    /// @inheritdoc IRecallableSender
     function onMessageRecalled(
         IBridge.Message calldata message,
         bytes32 msgHash
@@ -240,7 +283,6 @@ contract ERC20Vault is BaseVault {
         override
         nonReentrant
         whenNotPaused
-    // onlyFromBridge
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
@@ -262,6 +304,7 @@ contract ERC20Vault is BaseVault {
         });
     }
 
+    /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
         return "erc20_vault";
     }
