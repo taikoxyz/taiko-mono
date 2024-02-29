@@ -36,7 +36,7 @@ contract USDCAdapter is BridgedERC20Base {
     /// @param _adressManager The address of the {AddressManager} contract.
     /// @param _usdc The USDC instance.
     function init(address _owner, address _adressManager, IUSDC _usdc) external initializer {
-        ___Essential_init(_owner, _adressManager);
+        __Essential_init(_owner, _adressManager);
         usdc = _usdc;
     }
 

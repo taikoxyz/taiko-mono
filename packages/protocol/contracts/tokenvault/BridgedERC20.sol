@@ -63,7 +63,7 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-        ___Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC20_init(_name, _symbol);
         __ERC20Snapshot_init();
         __ERC20Votes_init();

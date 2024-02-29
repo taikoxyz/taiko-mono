@@ -41,7 +41,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-        ___Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC721_init(_name, _symbol);
 
         srcToken = _srcToken;

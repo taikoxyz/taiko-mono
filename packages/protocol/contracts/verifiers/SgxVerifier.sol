@@ -81,7 +81,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
-        ___Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _addressManager);
     }
 
     /// @notice Adds trusted SGX instances to the registry.

@@ -41,7 +41,7 @@ contract MockAddressManager {
 contract SimpleERC721Vault is EssentialContract {
     /// @notice Initializes the vault.
     function init(address _owner) external initializer {
-        ___Essential_init(_owner);
+        __Essential_init(_owner);
     }
 
     function approveAirdropContract(address token, address approvedActor) public onlyOwner {

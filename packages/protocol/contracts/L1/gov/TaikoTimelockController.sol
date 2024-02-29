@@ -13,7 +13,7 @@ contract TaikoTimelockController is EssentialContract, TimelockControllerUpgrade
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _minDelay The minimal delay.
     function init(address _owner, uint256 _minDelay) external initializer {
-        ___Essential_init(_owner);
+        __Essential_init(_owner);
         address[] memory nil = new address[](0);
         __TimelockController_init(_minDelay, nil, nil, owner());
     }

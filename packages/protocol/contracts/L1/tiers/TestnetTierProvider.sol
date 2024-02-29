@@ -13,7 +13,7 @@ contract TestnetTierProvider is EssentialContract, ITierProvider {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
-        ___Essential_init(_owner);
+        __Essential_init(_owner);
     }
 
     /// @inheritdoc ITierProvider
