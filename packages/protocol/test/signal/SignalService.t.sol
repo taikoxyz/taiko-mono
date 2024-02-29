@@ -466,7 +466,7 @@ contract TestSignalService is TaikoTest {
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
-        proofs[0].cacheOption = SignalService.CacheOption.CACHE_NOTHING;
+        proofs[0].cacheOption = ISignalService.CacheOption.CACHE_NOTHING;
 
         // hop 2:  full merkle proof, CACHE_STATE_ROOT
         proofs[1].chainId = nextChainId++;
@@ -474,7 +474,7 @@ contract TestSignalService is TaikoTest {
         proofs[1].rootHash = randBytes32();
         proofs[1].accountProof = new bytes[](1);
         proofs[1].storageProof = new bytes[](10);
-        proofs[1].cacheOption = SignalService.CacheOption.CACHE_STATE_ROOT;
+        proofs[1].cacheOption = ISignalService.CacheOption.CACHE_STATE_ROOT;
 
         // hop 3:  full merkle proof, CACHE_SIGNAL_ROOT
         proofs[2].chainId = nextChainId++;
@@ -482,7 +482,7 @@ contract TestSignalService is TaikoTest {
         proofs[2].rootHash = randBytes32();
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
-        proofs[2].cacheOption = SignalService.CacheOption.CACHE_SIGNAL_ROOT;
+        proofs[2].cacheOption = ISignalService.CacheOption.CACHE_SIGNAL_ROOT;
 
         // hop 4:  full merkle proof, CACHE_BOTH
         proofs[3].chainId = nextChainId++;
@@ -490,7 +490,7 @@ contract TestSignalService is TaikoTest {
         proofs[3].rootHash = randBytes32();
         proofs[3].accountProof = new bytes[](1);
         proofs[3].storageProof = new bytes[](10);
-        proofs[3].cacheOption = SignalService.CacheOption.CACHE_BOTH;
+        proofs[3].cacheOption = ISignalService.CacheOption.CACHE_BOTH;
 
         // hop 5:  storage merkle proof, CACHE_NOTHING
         proofs[4].chainId = nextChainId++;
@@ -498,7 +498,7 @@ contract TestSignalService is TaikoTest {
         proofs[4].rootHash = randBytes32();
         proofs[4].accountProof = new bytes[](0);
         proofs[4].storageProof = new bytes[](10);
-        proofs[4].cacheOption = SignalService.CacheOption.CACHE_NOTHING;
+        proofs[4].cacheOption = ISignalService.CacheOption.CACHE_NOTHING;
 
         // hop 6:  storage merkle proof, CACHE_STATE_ROOT
         proofs[5].chainId = nextChainId++;
@@ -506,7 +506,7 @@ contract TestSignalService is TaikoTest {
         proofs[5].rootHash = randBytes32();
         proofs[5].accountProof = new bytes[](0);
         proofs[5].storageProof = new bytes[](10);
-        proofs[5].cacheOption = SignalService.CacheOption.CACHE_STATE_ROOT;
+        proofs[5].cacheOption = ISignalService.CacheOption.CACHE_STATE_ROOT;
 
         // hop 7:  storage merkle proof, CACHE_SIGNAL_ROOT
         proofs[6].chainId = nextChainId++;
@@ -514,7 +514,7 @@ contract TestSignalService is TaikoTest {
         proofs[6].rootHash = randBytes32();
         proofs[6].accountProof = new bytes[](0);
         proofs[6].storageProof = new bytes[](10);
-        proofs[6].cacheOption = SignalService.CacheOption.CACHE_SIGNAL_ROOT;
+        proofs[6].cacheOption = ISignalService.CacheOption.CACHE_SIGNAL_ROOT;
 
         // hop 8:  storage merkle proof, CACHE_BOTH
         proofs[7].chainId = nextChainId++;
@@ -522,7 +522,7 @@ contract TestSignalService is TaikoTest {
         proofs[7].rootHash = randBytes32();
         proofs[7].accountProof = new bytes[](0);
         proofs[7].storageProof = new bytes[](10);
-        proofs[7].cacheOption = SignalService.CacheOption.CACHE_BOTH;
+        proofs[7].cacheOption = ISignalService.CacheOption.CACHE_BOTH;
 
         // last hop, 9:  full merkle proof, CACHE_BOTH
         proofs[8].chainId = uint64(block.chainid);
@@ -530,7 +530,7 @@ contract TestSignalService is TaikoTest {
         proofs[8].rootHash = randBytes32();
         proofs[8].accountProof = new bytes[](1);
         proofs[8].storageProof = new bytes[](10);
-        proofs[8].cacheOption = SignalService.CacheOption.CACHE_BOTH;
+        proofs[8].cacheOption = ISignalService.CacheOption.CACHE_BOTH;
 
         // Add two trusted hop relayers
         vm.startPrank(Alice);

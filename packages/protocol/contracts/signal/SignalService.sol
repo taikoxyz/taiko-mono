@@ -25,28 +25,9 @@ import "./LibSignals.sol";
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is EssentialContract, ISignalService {
-    enum CacheOption {
-        CACHE_NOTHING,
-        CACHE_SIGNAL_ROOT,
-        CACHE_STATE_ROOT,
-        CACHE_BOTH
-    }
-
-    struct HopProof {
-        uint64 chainId;
-        uint64 blockId;
-        bytes32 rootHash;
-        CacheOption cacheOption;
-        bytes[] accountProof;
-        bytes[] storageProof;
-    }
-
     mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId; // slot 1
     mapping(address addr => bool authorized) public isAuthorized; // slot 2
     uint256[48] private __gap;
-
-    event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
-    event Authorized(address indexed addr, bool authrized);
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_SENDER();

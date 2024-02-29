@@ -31,25 +31,6 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    enum Status {
-        NEW,
-        RETRIABLE,
-        DONE,
-        FAILED,
-        RECALLED
-    }
-
-    // Note that this struct shall take only 1 slot to minimize gas cost
-    struct ProofReceipt {
-        // The time a message is marked as received on the destination chain
-        uint64 receivedAt;
-        // The address that can execute the message after the invocation delay without an extra
-        // delay.
-        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
-        // invoke the message.
-        address preferredExecutor;
-    }
-
     // The slot in transient storage of the call context
     // This is the keccak256 hash of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -63,15 +44,6 @@ contract Bridge is EssentialContract, IBridge {
     mapping(address addr => bool banned) public addressBanned; // slot 6
     mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
     uint256[43] private __gap;
-
-    event MessageSent(bytes32 indexed msgHash, Message message);
-    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
-    event MessageRecalled(bytes32 indexed msgHash);
-    event MessageExecuted(bytes32 indexed msgHash);
-    event MessageRetried(bytes32 indexed msgHash);
-    event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event MessageSuspended(bytes32 msgHash, bool suspended);
-    event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -136,8 +108,6 @@ contract Bridge is EssentialContract, IBridge {
         emit AddressBanned(_addr, _ban);
     }
 
-    /// @notice Sends a message to the destination chain and takes custody
-    /// of Ether required in this contract. All extra Ether will be refunded.
     /// @inheritdoc IBridge
     function sendMessage(Message calldata _message)
         external
@@ -178,12 +148,7 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageSent(msgHash_, message_);
     }
 
-    /// @notice Recalls a failed message on its source chain, releasing
-    /// associated assets.
-    /// @dev This function checks if the message failed on the source chain and
-    /// releases associated Ether or tokens.
-    /// @param _message The message whose associated Ether should be released.
-    /// @param _proof The merkle inclusion proof.
+    /// @inheritdoc IBridge
     function recallMessage(
         Message calldata _message,
         bytes calldata _proof
@@ -246,14 +211,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Processes a bridge message on the destination chain. This
-    /// function is callable by any address, including the `message.destOwner`.
-    /// @dev The process begins by hashing the message and checking the message
-    /// status in the bridge  If the status is "NEW", the message is invoked. The
-    /// status is updated accordingly, and processing fees are refunded as
-    /// needed.
-    /// @param _message The message to be processed.
-    /// @param _proof The merkle inclusion proof.
+    /// @inheritdoc IBridge
     function processMessage(
         Message calldata _message,
         bytes calldata _proof
@@ -346,15 +304,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Retries to invoke the messageCall after releasing associated
-    /// Ether and tokens.
-    /// @dev This function can be called by any address, including the
-    /// `message.destOwner`.
-    /// It attempts to invoke the messageCall and updates the message status
-    /// accordingly.
-    /// @param _message The message to retry.
-    /// @param _isLastAttempt Specifies if this is the last attempt to retry the
-    /// message.
+    /// @inheritdoc IBridge
     function retryMessage(
         Message calldata _message,
         bool _isLastAttempt
@@ -384,9 +334,7 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageRetried(msgHash);
     }
 
-    /// @notice Checks if the message was sent.
-    /// @param _message The message.
-    /// @return true if the message was sent.
+    /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) public view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
@@ -495,9 +443,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Hash the message
-    /// @param _message The message struct variable to be hashed.
-    /// @return The message's hash.
+    /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", _message));
     }

@@ -23,6 +23,23 @@ pragma solidity 0.8.24;
 /// transaction). With this, verifying a signal is reduced to simply verifying
 /// a merkle proof.
 interface ISignalService {
+
+    enum CacheOption {
+        CACHE_NOTHING,
+        CACHE_SIGNAL_ROOT,
+        CACHE_STATE_ROOT,
+        CACHE_BOTH
+    }
+
+    struct HopProof {
+        uint64 chainId;
+        uint64 blockId;
+        bytes32 rootHash;
+        CacheOption cacheOption;
+        bytes[] accountProof;
+        bytes[] storageProof;
+    }
+
     /// @notice Emitted when a remote chain's state root or signal root is
     /// synced locally as a signal.
     /// @param chainId The remote chainId.
@@ -37,6 +54,9 @@ interface ISignalService {
         bytes32 data,
         bytes32 signal
     );
+
+    event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
+    event Authorized(address indexed addr, bool authrized);
 
     /// @notice Send a signal (message) by setting the storage slot to a value of 1.
     /// @param _signal The signal (message) to send.
