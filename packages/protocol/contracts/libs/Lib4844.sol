@@ -1,26 +1,18 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 /// @title Lib4844
-/// @custom:security-contact security@taiko.xyz
 /// @notice A library for handling EIP-4844 blobs
-/// `solc contracts/libs/Lib4844.sol --ir > contracts/libs/Lib4844.yul`
+/// @dev `solc contracts/libs/Lib4844.sol --ir > contracts/libs/Lib4844.yul`
+/// @custom:security-contact security@taiko.xyz
 library Lib4844 {
+    /// @notice The address of the point evaluation precompile
     address public constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(0x0A);
+
+    /// @notice The number of field elements per blob
     uint32 public constant FIELD_ELEMENTS_PER_BLOB = 4096;
+
+    /// @notice The modulus of the BLS curve
     uint256 public constant BLS_MODULUS =
         52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
 
@@ -30,26 +22,26 @@ library Lib4844 {
     error POINT_Y_TOO_LARGE();
 
     /// @notice Evaluates the 4844 point using the precompile.
-    /// @param blobHash The versioned hash
-    /// @param x The evaluation point
-    /// @param y The expected output
-    /// @param commitment The input kzg point
-    /// @param pointProof The quotient kzg
+    /// @param _blobHash The versioned hash
+    /// @param _x The evaluation point
+    /// @param _y The expected output
+    /// @param _commitment The input kzg point
+    /// @param _pointProof The quotient kzg
     function evaluatePoint(
-        bytes32 blobHash,
-        uint256 x,
-        uint256 y,
-        bytes1[48] memory commitment,
-        bytes1[48] memory pointProof
+        bytes32 _blobHash,
+        uint256 _x,
+        uint256 _y,
+        bytes1[48] memory _commitment,
+        bytes1[48] memory _pointProof
     )
         internal
         view
     {
-        if (x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();
-        if (y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
+        if (_x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();
+        if (_y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
 
         (bool ok, bytes memory ret) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
-            abi.encodePacked(blobHash, x, y, commitment, pointProof)
+            abi.encodePacked(_blobHash, _x, _y, _commitment, _pointProof)
         );
 
         if (!ok) revert EVAL_FAILED_1();

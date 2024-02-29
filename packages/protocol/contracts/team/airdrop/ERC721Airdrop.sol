@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -20,10 +7,21 @@ import "./MerkleClaimable.sol";
 /// @title ERC721Airdrop
 /// @custom:security-contact security@taiko.xyz
 contract ERC721Airdrop is MerkleClaimable {
+    /// @notice The address of the token contract.
     address public token;
+
+    /// @notice The address of the vault contract.
     address public vault;
+
     uint256[48] private __gap;
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract.
+    /// @param _claimStart The start time of the claim period.
+    /// @param _claimEnd The end time of the claim period.
+    /// @param _merkleRoot The merkle root.
+    /// @param _token The address of the token contract.
+    /// @param _vault The address of the vault contract.
     function init(
         address _owner,
         uint64 _claimStart,
@@ -42,6 +40,10 @@ contract ERC721Airdrop is MerkleClaimable {
         vault = _vault;
     }
 
+    /// @notice Claims the airdrop for the user.
+    /// @param user The address of the user.
+    /// @param tokenIds The token IDs to claim.
+    /// @param proof The merkle proof.
     function claim(
         address user,
         uint256[] calldata tokenIds,

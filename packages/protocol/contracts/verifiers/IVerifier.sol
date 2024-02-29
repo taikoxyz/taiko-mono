@@ -1,24 +1,11 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../L1/TaikoData.sol";
 
-/// @title IVerifier Interface
-/// @custom:security-contact security@taiko.xyz
+/// @title IVerifier
 /// @notice Defines the function that handles proof verification.
+/// @custom:security-contact security@taiko.xyz
 interface IVerifier {
     struct Context {
         bytes32 metaHash;
@@ -30,10 +17,14 @@ interface IVerifier {
         address msgSender;
     }
 
+    /// @notice Verifies a proof.
+    /// @param _ctx The context of the proof verification.
+    /// @param _tran The transition to verify.
+    /// @param _proof The proof to verify.
     function verifyProof(
-        Context calldata ctx,
-        TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata proof
+        Context calldata _ctx,
+        TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
     )
         external;
 }

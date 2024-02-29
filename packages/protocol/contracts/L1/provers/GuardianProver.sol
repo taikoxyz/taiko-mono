@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../tiers/ITierProvider.sol";
@@ -23,6 +10,11 @@ import "./Guardians.sol";
 contract GuardianProver is Guardians {
     uint256[50] private __gap;
 
+    /// @notice Emitted when a guardian proof is approved.
+    /// @param addr The address of the guardian.
+    /// @param blockId The block ID.
+    /// @param blockHash The block hash.
+    /// @param approved If the proof is approved.
     event GuardianApproval(
         address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
     );
@@ -35,30 +27,30 @@ contract GuardianProver is Guardians {
     }
 
     /// @dev Called by guardians to approve a guardian proof
-    /// @param meta The block's metadata.
-    /// @param tran The valid transition.
-    /// @param proof The tier proof.
-    /// @return approved If the minimum number of participants sent the same proof, and proving
+    /// @param _meta The block's metadata.
+    /// @param _tran The valid transition.
+    /// @param _proof The tier proof.
+    /// @return approved_ If the minimum number of participants sent the same proof, and proving
     /// transaction is fired away returns true, false otherwise.
     function approve(
-        TaikoData.BlockMetadata calldata meta,
-        TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata proof
+        TaikoData.BlockMetadata calldata _meta,
+        TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
     )
         external
         whenNotPaused
         nonReentrant
-        returns (bool approved)
+        returns (bool approved_)
     {
-        if (proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
-        bytes32 hash = keccak256(abi.encode(meta, tran));
-        approved = approve(meta.id, hash);
+        if (_proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
+        bytes32 hash = keccak256(abi.encode(_meta, _tran));
+        approved_ = approve(_meta.id, hash);
 
-        if (approved) {
+        if (approved_) {
             deleteApproval(hash);
-            ITaikoL1(resolve("taiko", false)).proveBlock(meta.id, abi.encode(meta, tran, proof));
+            ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
         }
 
-        emit GuardianApproval(msg.sender, meta.id, tran.blockHash, approved);
+        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_);
     }
 }

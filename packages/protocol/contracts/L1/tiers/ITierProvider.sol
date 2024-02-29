@@ -1,22 +1,9 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 /// @title ITierProvider
-/// @custom:security-contact security@taiko.xyz
 /// @notice Defines interface to return tier configuration.
+/// @custom:security-contact security@taiko.xyz
 interface ITierProvider {
     struct Tier {
         bytes32 verifierName;
@@ -37,19 +24,26 @@ interface ITierProvider {
     /// @dev Retrieves the IDs of all supported tiers.
     /// Note that the core protocol requires the number of tiers to be smaller
     /// than 256. In reality, this number should be much smaller.
-    /// @return uint16[] struct containing the ids of the tiers.
+    /// @return The ids of the tiers.
     function getTierIds() external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
     /// @param rand (Semi) random number.
-    /// @return uint16 Tier id.
+    /// @return The tier id.
     function getMinTier(uint256 rand) external view returns (uint16);
 }
 
 /// @dev Tier ID cannot be zero!
 library LibTiers {
+    /// @notice Optimistic tier ID.
     uint16 public constant TIER_OPTIMISTIC = 100;
+
+    /// @notice SGX tier ID.
     uint16 public constant TIER_SGX = 200;
+
+    /// @notice SGX + ZKVM tier ID.
     uint16 public constant TIER_SGX_ZKVM = 300;
+
+    /// @notice Guardian tier ID.
     uint16 public constant TIER_GUARDIAN = 1000;
 }

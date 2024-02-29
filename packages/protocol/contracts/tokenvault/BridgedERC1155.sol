@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -22,13 +9,20 @@ import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
-/// @custom:security-contact security@taiko.xyz
 /// @notice Contract for bridging ERC1155 tokens across different chains.
+/// @custom:security-contact security@taiko.xyz
 contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
-    address public srcToken; // Address of the source token contract.
-    uint256 public srcChainId; // Source chain ID where the token originates.
-    string private symbol_; // Symbol of the bridged token.
-    string private name_; // Name of the bridged token.
+    /// @notice Address of the source token contract.
+    address public srcToken;
+
+    /// @notice Source chain ID where the token originates.
+    uint256 public srcChainId;
+
+    /// @dev Symbol of the bridged token.
+    string private __symbol;
+
+    /// @dev Name of the bridged token.
+    string private __name;
 
     uint256[46] private __gap;
 
@@ -61,86 +55,86 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
 
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        symbol_ = _symbol;
-        name_ = _name;
+        __symbol = _symbol;
+        __name = _name;
     }
 
     /// @dev Mints tokens.
-    /// @param to Address to receive the minted tokens.
-    /// @param tokenId ID of the token to mint.
-    /// @param amount Amount of tokens to mint.
+    /// @param _to Address to receive the minted tokens.
+    /// @param _tokenId ID of the token to mint.
+    /// @param _amount Amount of tokens to mint.
     function mint(
-        address to,
-        uint256 tokenId,
-        uint256 amount
+        address _to,
+        uint256 _tokenId,
+        uint256 _amount
     )
         public
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
-        _mint(to, tokenId, amount, "");
+        _mint(_to, _tokenId, _amount, "");
     }
 
     /// @dev Mints tokens.
-    /// @param to Address to receive the minted tokens.
-    /// @param tokenIds ID of the token to mint.
-    /// @param amounts Amount of tokens to mint.
+    /// @param _to Address to receive the minted tokens.
+    /// @param _tokenIds ID of the token to mint.
+    /// @param _amounts Amount of tokens to mint.
     function mintBatch(
-        address to,
-        uint256[] memory tokenIds,
-        uint256[] memory amounts
+        address _to,
+        uint256[] memory _tokenIds,
+        uint256[] memory _amounts
     )
         public
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
-        _mintBatch(to, tokenIds, amounts, "");
+        _mintBatch(_to, _tokenIds, _amounts, "");
     }
 
     /// @dev Burns tokens.
-    /// @param account Address from which tokens are burned.
-    /// @param tokenId ID of the token to burn.
-    /// @param amount Amount of tokens to burn.
+    /// @param _account Address from which tokens are burned.
+    /// @param _tokenId ID of the token to burn.
+    /// @param _amount Amount of tokens to burn.
     function burn(
-        address account,
-        uint256 tokenId,
-        uint256 amount
+        address _account,
+        uint256 _tokenId,
+        uint256 _amount
     )
         public
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
-        _burn(account, tokenId, amount);
+        _burn(_account, _tokenId, _amount);
     }
 
     /// @notice Gets the name of the bridged token.
     /// @return The name.
     function name() public view returns (string memory) {
-        return LibBridgedToken.buildName(name_, srcChainId);
+        return LibBridgedToken.buildName(__name, srcChainId);
     }
 
     /// @notice Gets the symbol of the bridged token.
     /// @return The symbol.
     function symbol() public view returns (string memory) {
-        return LibBridgedToken.buildSymbol(symbol_);
+        return LibBridgedToken.buildSymbol(__symbol);
     }
 
     function _beforeTokenTransfer(
-        address, /*operator*/
-        address, /*from*/
-        address to,
-        uint256[] memory, /*ids*/
-        uint256[] memory, /*amounts*/
-        bytes memory /*data*/
+        address, /*_operator*/
+        address, /*_from*/
+        address _to,
+        uint256[] memory, /*_ids*/
+        uint256[] memory, /*_amounts*/
+        bytes memory /*_data*/
     )
         internal
         virtual
         override
     {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
     }
 }

@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -39,29 +26,36 @@ library LibBridgedToken {
     }
 
     function buildName(
-        string memory name,
-        uint256 srcChainId
+        string memory _name,
+        uint256 _srcChainId
     )
         internal
         pure
         returns (string memory)
     {
-        return string.concat("Bridged ", name, unicode" (⭀", Strings.toString(srcChainId), ")");
+        return string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
     }
 
-    function buildSymbol(string memory symbol) internal pure returns (string memory) {
-        return string.concat(symbol, ".t");
+    function buildSymbol(string memory _symbol) internal pure returns (string memory) {
+        return string.concat(_symbol, ".t");
     }
 
-    function buildURI(address srcToken, uint256 srcChainId) internal pure returns (string memory) {
+    function buildURI(
+        address _srcToken,
+        uint256 _srcChainId
+    )
+        internal
+        pure
+        returns (string memory)
+    {
         // Creates a base URI in the format specified by EIP-681:
         // https://eips.ethereum.org/EIPS/eip-681
         return string(
             abi.encodePacked(
                 "ethereum:",
-                Strings.toHexString(uint160(srcToken), 20),
+                Strings.toHexString(uint160(_srcToken), 20),
                 "@",
-                Strings.toString(srcChainId),
+                Strings.toString(_srcChainId),
                 "/tokenURI?uint256="
             )
         );

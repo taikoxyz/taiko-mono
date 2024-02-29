@@ -1,36 +1,45 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
 
 /// @title Guardians
+/// @notice A contract that manages a set of guardians and their approvals.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Guardians is EssentialContract {
+    /// @notice The minimum number of guardians
     uint256 public constant MIN_NUM_GUARDIANS = 5;
 
-    // Contains the index of the guardian in `guardians` plus one (zero means not a guardian)
-    mapping(address guardian => uint256 id) public guardianIds; // slot 1
+    /// @notice Contains the index of the guardian in `guardians` plus one (zero means not a
+    /// guardian)
+    /// @dev Slot 1
+    mapping(address guardian => uint256 id) public guardianIds;
+
+    /// @notice Mapping to store the approvals for a given hash, for a given version
     mapping(uint32 version => mapping(bytes32 hash => uint256 approvalBits)) internal _approvals;
-    address[] public guardians; // slot 3
-    uint32 public version; // slot 4
+
+    /// @notice The set of guardians
+    /// @dev Slot 3
+    address[] public guardians;
+
+    /// @notice The version of the guardians
+    /// @dev Slot 4
+    uint32 public version;
+
+    /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
     uint256[46] private __gap;
 
+    /// @notice Emitted when the set of guardians is updated
+    /// @param version The new version
+    /// @param guardians The new set of guardians
     event GuardiansUpdated(uint32 version, address[] guardians);
+
+    /// @notice Emitted when an approval is made
+    /// @param operationId The operation ID
+    /// @param approvalBits The new approval bits
+    /// @param proofSubmitted If the proof was submitted
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool proofSubmitted);
 
     error INVALID_GUARDIAN();
@@ -86,34 +95,39 @@ abstract contract Guardians is EssentialContract {
         emit GuardiansUpdated(version, _newGuardians);
     }
 
-    function isApproved(bytes32 hash) public view returns (bool) {
-        return isApproved(_approvals[version][hash]);
+    /// @notice Returns if the hash is approved
+    /// @param _hash The hash to check
+    /// @return true if the hash is approved
+    function isApproved(bytes32 _hash) public view returns (bool) {
+        return isApproved(_approvals[version][_hash]);
     }
 
+    /// @notice Returns the number of guardians
+    /// @return The number of guardians
     function numGuardians() public view returns (uint256) {
         return guardians.length;
     }
 
-    function approve(uint256 operationId, bytes32 hash) internal returns (bool approved) {
+    function approve(uint256 _operationId, bytes32 _hash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
         unchecked {
-            _approvals[version][hash] |= 1 << (id - 1);
+            _approvals[version][_hash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[version][hash];
-        approved = isApproved(_approval);
-        emit Approved(operationId, _approval, approved);
+        uint256 _approval = _approvals[version][_hash];
+        approved_ = isApproved(_approval);
+        emit Approved(_operationId, _approval, approved_);
     }
 
-    function deleteApproval(bytes32 hash) internal {
-        delete _approvals[version][hash];
+    function deleteApproval(bytes32 _hash) internal {
+        delete _approvals[version][_hash];
     }
 
-    function isApproved(uint256 approvalBits) internal view returns (bool) {
+    function isApproved(uint256 _approvalBits) internal view returns (bool) {
         uint256 count;
-        uint256 bits = approvalBits;
+        uint256 bits = _approvalBits;
         uint256 guardiansLength = guardians.length;
         unchecked {
             for (uint256 i; i < guardiansLength; ++i) {

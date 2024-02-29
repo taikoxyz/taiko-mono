@@ -86,7 +86,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 
@@ -128,14 +128,17 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             vm.roll(block.number + 15 * 12);
 
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             // Cannot verify block because it is contested..
             verifyBlock(Carol, 1);
 
             proveHigherTierProof(meta, parentHash, stateRoot, blockHash, minTier);
 
-            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60
+                    + 1
+            );
             // Now can verify
             console2.log("Probalom verify-olni");
             verifyBlock(Carol, 1);
@@ -177,7 +180,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             vm.roll(block.number + 15 * 12);
 
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             // Cannot verify block because it is contested..
             verifyBlock(Carol, 1);
@@ -185,7 +188,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             proveHigherTierProof(meta, parentHash, stateRoot, blockHash, minTier);
 
             // Otherwise just not contest
-            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60
+                    + 1
+            );
             // Now can verify
             verifyBlock(Carol, 1);
 
@@ -228,7 +234,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
                 vm.roll(block.number + 15 * 12);
 
-                vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+                vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
                 // Cannot verify block because it is contested..
                 verifyBlock(Carol, 1);
@@ -239,7 +245,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             }
 
             // Otherwise just not contest
-            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60
+                    + 1
+            );
             // Now can verify
             verifyBlock(Carol, 1);
 
@@ -282,7 +291,8 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 vm.roll(block.number + 15 * 12);
 
                 vm.warp(
-                    block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1
+                    block.timestamp
+                        + tierProvider().getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1
                 );
 
                 // Cannot verify block because it is contested..
@@ -301,7 +311,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             }
 
             // Otherwise just not contest
-            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60
+                    + 1
+            );
             // Now can verify
             verifyBlock(Carol, 1);
 
@@ -345,7 +358,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -379,7 +392,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             proveBlock(
                 Bob,
@@ -441,7 +454,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 
@@ -458,7 +471,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             );
 
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(LibTiers.TIER_GUARDIAN).cooldownWindow * 60
+                    + 1
+            );
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -507,7 +523,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 
@@ -550,7 +566,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 
@@ -602,7 +618,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 
@@ -742,7 +758,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 
@@ -812,7 +828,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Carol, 1);
 

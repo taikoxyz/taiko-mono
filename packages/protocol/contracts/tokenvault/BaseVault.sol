@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
@@ -20,6 +7,7 @@ import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 
 /// @title BaseVault
+/// @notice This abstract contract provides a base implementation for vaults.
 /// @custom:security-contact security@taiko.xyz
 abstract contract BaseVault is
     EssentialContract,
@@ -46,32 +34,34 @@ abstract contract BaseVault is
     }
 
     /// @notice Checks if the contract supports the given interface.
-    /// @param interfaceId The interface identifier.
+    /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IRecallableSender).interfaceId;
+    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
+        return _interfaceId == type(IRecallableSender).interfaceId;
     }
 
+    /// @notice Returns the name of the vault.
+    /// @return The name of the vault.
     function name() public pure virtual returns (bytes32);
 
     function checkProcessMessageContext()
         internal
         view
         onlyFromBridge
-        returns (IBridge.Context memory ctx)
+        returns (IBridge.Context memory ctx_)
     {
-        ctx = IBridge(msg.sender).context();
-        address selfOnSourceChain = resolve(ctx.srcChainId, name(), false);
-        if (ctx.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
+        ctx_ = IBridge(msg.sender).context();
+        address selfOnSourceChain = resolve(ctx_.srcChainId, name(), false);
+        if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 
     function checkRecallMessageContext()
         internal
         view
         onlyFromBridge
-        returns (IBridge.Context memory ctx)
+        returns (IBridge.Context memory ctx_)
     {
-        ctx = IBridge(msg.sender).context();
-        if (ctx.from != msg.sender) revert VAULT_PERMISSION_DENIED();
+        ctx_ = IBridge(msg.sender).context();
+        if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
     }
 }

@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -22,33 +9,14 @@ import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
-/// @custom:security-contact security@taiko.xyz
-/// @dev Labeled in AddressResolver as "bridge"
 /// @notice See the documentation for {IBridge}.
-/// @dev The code hash for the same address on L1 and L2 may be different.
+/// @dev Labeled in AddressResolver as "bridge". Additionally, the code hash for the same address on
+/// L1 and L2 may be different.
+/// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
     using Address for address;
     using LibAddress for address;
     using LibAddress for address payable;
-
-    enum Status {
-        NEW,
-        RETRIABLE,
-        DONE,
-        FAILED,
-        RECALLED
-    }
-
-    // Note that this struct shall take only 1 slot to minimize gas cost
-    struct ProofReceipt {
-        // The time a message is marked as received on the destination chain
-        uint64 receivedAt;
-        // The address that can execute the message after the invocation delay without an extra
-        // delay.
-        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
-        // invoke the message.
-        address preferredExecutor;
-    }
 
     // The slot in transient storage of the call context
     // This is the keccak256 hash of "bridge.ctx_slot"
@@ -57,21 +25,26 @@ contract Bridge is EssentialContract, IBridge {
     // Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
-    uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => Status status) public messageStatus; // slot 2
-    Context private _ctx; // slot 3,4,5
-    mapping(address addr => bool banned) public addressBanned; // slot 6
-    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
-    uint256[43] private __gap;
+    /// @notice The next message ID.
+    /// @dev Slot 1.
+    uint128 public nextMessageId;
 
-    event MessageSent(bytes32 indexed msgHash, Message message);
-    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
-    event MessageRecalled(bytes32 indexed msgHash);
-    event MessageExecuted(bytes32 indexed msgHash);
-    event MessageRetried(bytes32 indexed msgHash);
-    event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event MessageSuspended(bytes32 msgHash, bool suspended);
-    event AddressBanned(address indexed addr, bool banned);
+    /// @notice Mapping to store the status of a message from its hash.
+    /// @dev Slot 2.
+    mapping(bytes32 msgHash => Status status) public messageStatus;
+
+    /// @dev Slots 3, 4, and 5.
+    Context private __ctx;
+
+    /// @notice Mapping to store banned addresses.
+    /// @dev Slot 6.
+    mapping(address addr => bool banned) public addressBanned;
+
+    /// @notice Mapping to store the proof receipt of a message from its hash.
+    /// @dev Slot 7.
+    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt;
+
+    uint256[43] private __gap;
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -87,11 +60,12 @@ contract Bridge is EssentialContract, IBridge {
     error B_STATUS_MISMATCH();
     error B_INVOCATION_TOO_EARLY();
 
-    modifier sameChain(uint64 chainId) {
-        if (chainId != block.chainid) revert B_INVALID_CHAINID();
+    modifier sameChain(uint64 _chainId) {
+        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
         _;
     }
 
+    /// @notice Function to receive Ether.
     receive() external payable { }
 
     /// @notice Initializes the contract.
@@ -102,98 +76,91 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
-    /// @param msgHashes The array of msgHashes to be suspended.
-    /// @param toSuspend True if suspend, false if unsuspend.
+    /// @param _msgHashes The array of msgHashes to be suspended.
+    /// @param _suspend True if suspend, false if unsuspend.
     function suspendMessages(
-        bytes32[] calldata msgHashes,
-        bool toSuspend
+        bytes32[] calldata _msgHashes,
+        bool _suspend
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
     {
-        uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
-        for (uint256 i; i < msgHashes.length; ++i) {
-            bytes32 msgHash = msgHashes[i];
+        uint64 _timestamp = _suspend ? type(uint64).max : uint64(block.timestamp);
+        for (uint256 i; i < _msgHashes.length; ++i) {
+            bytes32 msgHash = _msgHashes[i];
             proofReceipt[msgHash].receivedAt = _timestamp;
-            emit MessageSuspended(msgHash, toSuspend);
+            emit MessageSuspended(msgHash, _suspend);
         }
     }
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
-    /// @param addr The addreess to ban or unban.
-    /// @param toBan True if ban, false if unban.
+    /// @param _addr The address to ban or unban.
+    /// @param _ban True if ban, false if unban.
     function banAddress(
-        address addr,
-        bool toBan
+        address _addr,
+        bool _ban
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
         nonReentrant
     {
-        if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
-        addressBanned[addr] = toBan;
-        emit AddressBanned(addr, toBan);
+        if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
+        addressBanned[_addr] = _ban;
+        emit AddressBanned(_addr, _ban);
     }
 
-    /// @notice Sends a message to the destination chain and takes custody
-    /// of Ether required in this contract. All extra Ether will be refunded.
     /// @inheritdoc IBridge
-    function sendMessage(Message calldata message)
+    function sendMessage(Message calldata _message)
         external
         payable
         override
         nonReentrant
         whenNotPaused
-        returns (bytes32 msgHash, Message memory _message)
+        returns (bytes32 msgHash_, Message memory message_)
     {
         // Ensure the message owner is not null.
-        if (message.srcOwner == address(0) || message.destOwner == address(0)) {
+        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();
         }
 
         // Check if the destination chain is enabled.
-        (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
+        (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
 
         // Verify destination chain and to address.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
-        if (message.destChainId == block.chainid) {
+        if (_message.destChainId == block.chainid) {
             revert B_INVALID_CHAINID();
         }
 
         // Ensure the sent value matches the expected amount.
-        uint256 expectedAmount = message.value + message.fee;
+        uint256 expectedAmount = _message.value + _message.fee;
         if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
-        _message = message;
+        message_ = _message;
         // Configure message details and send signal to indicate message
         // sending.
-        _message.id = nextMessageId++;
-        _message.from = msg.sender;
-        _message.srcChainId = uint64(block.chainid);
+        message_.id = nextMessageId++;
+        message_.from = msg.sender;
+        message_.srcChainId = uint64(block.chainid);
 
-        msgHash = hashMessage(_message);
+        msgHash_ = hashMessage(message_);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
-        emit MessageSent(msgHash, _message);
+        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
+        emit MessageSent(msgHash_, message_);
     }
 
-    /// @notice Recalls a failed message on its source chain, releasing
-    /// associated assets.
-    /// @dev This function checks if the message failed on the source chain and
-    /// releases associated Ether or tokens.
-    /// @param message The message whose associated Ether should be released.
-    /// @param proof The merkle inclusion proof.
+    /// @inheritdoc IBridge
     function recallMessage(
-        Message calldata message,
-        bytes calldata proof
+        Message calldata _message,
+        bytes calldata _proof
     )
         external
         nonReentrant
         whenNotPaused
-        sameChain(message.srcChainId)
+        sameChain(_message.srcChainId)
     {
-        bytes32 msgHash = hashMessage(message);
+        bytes32 msgHash = hashMessage(_message);
 
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
@@ -208,7 +175,7 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             bytes32 failureSignal = signalForFailedMessage(msgHash);
-            if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
+            if (!_proveSignalReceived(signalService, failureSignal, _message.destChainId, _proof)) {
                 revert B_NOT_FAILED();
             }
 
@@ -225,49 +192,38 @@ contract Bridge is EssentialContract, IBridge {
 
             // Execute the recall logic based on the contract's support for the
             // IRecallableSender interface
-            if (message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
-                _storeContext({
-                    msgHash: msgHash,
-                    from: address(this),
-                    srcChainId: message.srcChainId
-                });
+            if (_message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
+                _storeContext(msgHash, address(this), _message.srcChainId);
 
                 // Perform recall
-                IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
-                    message, msgHash
+                IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
+                    _message, msgHash
                 );
 
                 // Reset the context after the message call
                 _resetContext();
             } else {
-                message.srcOwner.sendEther(message.value);
+                _message.srcOwner.sendEther(_message.value);
             }
             emit MessageRecalled(msgHash);
         } else if (!isMessageProven) {
-            emit MessageReceived(msgHash, message, true);
+            emit MessageReceived(msgHash, _message, true);
         } else {
             revert B_INVOCATION_TOO_EARLY();
         }
     }
 
-    /// @notice Processes a bridge message on the destination chain. This
-    /// function is callable by any address, including the `message.destOwner`.
-    /// @dev The process begins by hashing the message and checking the message
-    /// status in the bridge  If the status is "NEW", the message is invoked. The
-    /// status is updated accordingly, and processing fees are refunded as
-    /// needed.
-    /// @param message The message to be processed.
-    /// @param proof The merkle inclusion proof.
+    /// @inheritdoc IBridge
     function processMessage(
-        Message calldata message,
-        bytes calldata proof
+        Message calldata _message,
+        bytes calldata _proof
     )
         external
         nonReentrant
         whenNotPaused
-        sameChain(message.destChainId)
+        sameChain(_message.destChainId)
     {
-        bytes32 msgHash = hashMessage(message);
+        bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         address signalService = resolve("signal_service", false);
@@ -277,7 +233,7 @@ contract Bridge is EssentialContract, IBridge {
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
 
         if (!isMessageProven) {
-            if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
+            if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
@@ -286,7 +242,7 @@ contract Bridge is EssentialContract, IBridge {
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = ProofReceipt({
                     receivedAt: receivedAt,
-                    preferredExecutor: message.gasLimit == 0 ? message.destOwner : msg.sender
+                    preferredExecutor: _message.gasLimit == 0 ? _message.destOwner : msg.sender
                 });
             }
         }
@@ -301,7 +257,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (block.timestamp >= invocationDelay + receivedAt) {
             // If the gas limit is set to zero, only the owner can process the message.
-            if (message.gasLimit == 0 && msg.sender != message.destOwner) {
+            if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
             }
 
@@ -311,19 +267,19 @@ contract Bridge is EssentialContract, IBridge {
 
             // Process message differently based on the target address
             if (
-                message.to == address(0) || message.to == address(this)
-                    || message.to == signalService || addressBanned[message.to]
+                _message.to == address(0) || _message.to == address(this)
+                    || _message.to == signalService || addressBanned[_message.to]
             ) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
-                refundAmount = message.value;
+                refundAmount = _message.value;
                 _updateMessageStatus(msgHash, Status.DONE);
             } else {
                 // Use the specified message gas limit if called by the owner, else
                 // use remaining gas
-                uint256 gasLimit = msg.sender == message.destOwner ? gasleft() : message.gasLimit;
+                uint256 gasLimit = msg.sender == _message.destOwner ? gasleft() : _message.gasLimit;
 
-                if (_invokeMessageCall(message, msgHash, gasLimit)) {
+                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
                 } else {
                     _updateMessageStatus(msgHash, Status.RETRIABLE);
@@ -331,131 +287,122 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             // Determine the refund recipient
-            address refundTo = message.refundTo == address(0) ? message.destOwner : message.refundTo;
+            address refundTo =
+                _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEther(message.fee + refundAmount);
+                refundTo.sendEther(_message.fee + refundAmount);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEther(message.fee);
+                msg.sender.sendEther(_message.fee);
                 refundTo.sendEther(refundAmount);
             }
             emit MessageExecuted(msgHash);
         } else if (!isMessageProven) {
-            emit MessageReceived(msgHash, message, false);
+            emit MessageReceived(msgHash, _message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
         }
     }
 
-    /// @notice Retries to invoke the messageCall after releasing associated
-    /// Ether and tokens.
-    /// @dev This function can be called by any address, including the
-    /// `message.destOwner`.
-    /// It attempts to invoke the messageCall and updates the message status
-    /// accordingly.
-    /// @param message The message to retry.
-    /// @param isLastAttempt Specifies if this is the last attempt to retry the
-    /// message.
+    /// @inheritdoc IBridge
     function retryMessage(
-        Message calldata message,
-        bool isLastAttempt
+        Message calldata _message,
+        bool _isLastAttempt
     )
         external
         nonReentrant
         whenNotPaused
-        sameChain(message.destChainId)
+        sameChain(_message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.destOwner.
-        if (message.gasLimit == 0 || isLastAttempt) {
-            if (msg.sender != message.destOwner) revert B_PERMISSION_DENIED();
+        if (_message.gasLimit == 0 || _isLastAttempt) {
+            if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = hashMessage(message);
+        bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
         }
 
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(message, msgHash, gasleft())) {
+        if (_invokeMessageCall(_message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
-        } else if (isLastAttempt) {
+        } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
         }
         emit MessageRetried(msgHash);
     }
 
-    /// @notice Checks if the message was sent.
-    /// @param message The message.
-    /// @return True if the message was sent.
-    function isMessageSent(Message calldata message) public view returns (bool) {
-        if (message.srcChainId != block.chainid) return false;
+    /// @inheritdoc IBridge
+    function isMessageSent(Message calldata _message) public view returns (bool) {
+        if (_message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
-            app: address(this),
-            signal: hashMessage(message)
+            _app: address(this),
+            _signal: hashMessage(_message)
         });
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
-    /// @param message The message.
-    /// @param proof The merkle inclusion proof.
-    /// @return Returns true if the message has failed, false otherwise.
+    /// @param _message The message.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message has failed, false otherwise.
     function proveMessageFailed(
-        Message calldata message,
-        bytes calldata proof
+        Message calldata _message,
+        bytes calldata _proof
     )
         public
         view
         returns (bool)
     {
-        if (message.srcChainId != block.chainid) return false;
+        if (_message.srcChainId != block.chainid) return false;
 
         return _proveSignalReceived(
             resolve("signal_service", false),
-            signalForFailedMessage(hashMessage(message)),
-            message.destChainId,
-            proof
+            signalForFailedMessage(hashMessage(_message)),
+            _message.destChainId,
+            _proof
         );
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
-    /// @param message The message.
-    /// @param proof The merkle inclusion proof.
-    /// @return Returns true if the message has failed, false otherwise.
+    /// @param _message The message.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message has failed, false otherwise.
     function proveMessageReceived(
-        Message calldata message,
-        bytes calldata proof
+        Message calldata _message,
+        bytes calldata _proof
     )
         public
         view
         returns (bool)
     {
-        if (message.destChainId != block.chainid) return false;
+        if (_message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            resolve("signal_service", false), hashMessage(message), message.srcChainId, proof
+            resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
         );
     }
 
     /// @notice Checks if the destination chain is enabled.
-    /// @param chainId The destination chain ID.
-    /// @return enabled True if the destination chain is enabled.
-    /// @return destBridge The bridge of the destination chain.
-    function isDestChainEnabled(uint64 chainId)
+    /// @param _chainId The destination chain ID.
+    /// @return enabled_ True if the destination chain is enabled.
+    /// @return destBridge_ The bridge of the destination chain.
+    function isDestChainEnabled(uint64 _chainId)
         public
         view
-        returns (bool enabled, address destBridge)
+        returns (bool enabled_, address destBridge_)
     {
-        destBridge = resolve(chainId, "bridge", true);
-        enabled = destBridge != address(0);
+        destBridge_ = resolve(_chainId, "bridge", true);
+        enabled_ = destBridge_ != address(0);
     }
 
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
-    function context() public view returns (Context memory ctx) {
-        ctx = _loadContext();
-        if (ctx.msgHash == 0 || ctx.msgHash == bytes32(PLACEHOLDER)) {
+    function context() public view returns (Context memory ctx_) {
+        ctx_ = _loadContext();
+        if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(PLACEHOLDER)) {
             revert B_INVALID_CONTEXT();
         }
     }
@@ -463,15 +410,15 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return invocationDelay The minimal delay in second before a message can be executed since
+    /// @return invocationDelay_ The minimal delay in second before a message can be executed since
     /// and the time it was received on the this chain.
-    /// @return invocationExtraDelay The extra delay in second (to be added to invocationDelay) if
+    /// @return invocationExtraDelay_ The extra delay in second (to be added to invocationDelay) if
     /// the transactor is not the preferredExecutor who proved this message.
     function getInvocationDelays()
         public
         view
         virtual
-        returns (uint256 invocationDelay, uint256 invocationExtraDelay)
+        returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
     {
         if (
             block.chainid == 1 // Ethereum mainnet
@@ -498,22 +445,20 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Hash the message
-    /// @param message The message struct variable to be hashed.
-    /// @return bytes32 The hashed message.
-    function hashMessage(Message memory message) public pure returns (bytes32) {
-        return keccak256(abi.encode("TAIKO_MESSAGE", message));
+    /// @inheritdoc IBridge
+    function hashMessage(Message memory _message) public pure returns (bytes32) {
+        return keccak256(abi.encode("TAIKO_MESSAGE", _message));
     }
 
     /// @notice Returns a signal representing a failed/recalled message.
-    /// @param msgHash The message hash.
-    /// @return bytes32 The failed representation of it as bytes32.
-    function signalForFailedMessage(bytes32 msgHash) public pure returns (bytes32) {
-        return msgHash ^ bytes32(uint256(Status.FAILED));
+    /// @param _msgHash The message hash.
+    /// @return The failed representation of it as bytes32.
+    function signalForFailedMessage(bytes32 _msgHash) public pure returns (bytes32) {
+        return _msgHash ^ bytes32(uint256(Status.FAILED));
     }
 
     /// @notice Checks if the given address can pause and unpause the bridge.
-    function _authorizePause(address addr)
+    function _authorizePause(address)
         internal
         view
         virtual
@@ -522,39 +467,39 @@ contract Bridge is EssentialContract, IBridge {
     { }
 
     /// @notice Invokes a call message on the Bridge.
-    /// @param message The call message to be invoked.
-    /// @param msgHash The hash of the message.
-    /// @param gasLimit The gas limit for the message call.
-    /// @return success A boolean value indicating whether the message call was
+    /// @param _message The call message to be invoked.
+    /// @param _msgHash The hash of the message.
+    /// @param _gasLimit The gas limit for the message call.
+    /// @return success_ A boolean value indicating whether the message call was
     /// successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
     function _invokeMessageCall(
-        Message calldata message,
-        bytes32 msgHash,
-        uint256 gasLimit
+        Message calldata _message,
+        bytes32 _msgHash,
+        uint256 _gasLimit
     )
         private
-        returns (bool success)
+        returns (bool success_)
     {
-        if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
-        assert(message.from != address(this));
+        if (_gasLimit == 0) revert B_INVALID_GAS_LIMIT();
+        assert(_message.from != address(this));
 
-        _storeContext({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
+        _storeContext(_msgHash, _message.from, _message.srcChainId);
 
         if (
-            message.data.length >= 4 // msg can be empty
-                && bytes4(message.data) != IMessageInvocable.onMessageInvocation.selector
-                && message.to.isContract()
+            _message.data.length >= 4 // msg can be empty
+                && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
+                && _message.to.isContract()
         ) {
-            success = false;
+            success_ = false;
         } else {
-            (success,) = ExcessivelySafeCall.excessivelySafeCall(
-                message.to,
-                gasLimit,
-                message.value,
+            (success_,) = ExcessivelySafeCall.excessivelySafeCall(
+                _message.to,
+                _gasLimit,
+                _message.value,
                 64, // return max 64 bytes
-                message.data
+                _message.data
             );
         }
 
@@ -565,17 +510,17 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Updates the status of a bridge message.
     /// @dev If the new status is different from the current status in the
     /// mapping, the status is updated and an event is emitted.
-    /// @param msgHash The hash of the message.
-    /// @param status The new status of the message.
-    function _updateMessageStatus(bytes32 msgHash, Status status) private {
-        if (messageStatus[msgHash] == status) return;
+    /// @param _msgHash The hash of the message.
+    /// @param _status The new status of the message.
+    function _updateMessageStatus(bytes32 _msgHash, Status _status) private {
+        if (messageStatus[_msgHash] == _status) return;
 
-        messageStatus[msgHash] = status;
-        emit MessageStatusChanged(msgHash, status);
+        messageStatus[_msgHash] = _status;
+        emit MessageStatusChanged(_msgHash, _status);
 
-        if (status == Status.FAILED) {
+        if (_status == Status.FAILED) {
             ISignalService(resolve("signal_service", false)).sendSignal(
-                signalForFailedMessage(msgHash)
+                signalForFailedMessage(_msgHash)
             );
         }
     }
@@ -590,15 +535,15 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Stores the call context
-    function _storeContext(bytes32 msgHash, address from, uint64 srcChainId) private {
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
         if (block.chainid == 1) {
             assembly {
-                tstore(_CTX_SLOT, msgHash)
-                tstore(add(_CTX_SLOT, 1), from)
-                tstore(add(_CTX_SLOT, 2), srcChainId)
+                tstore(_CTX_SLOT, _msgHash)
+                tstore(add(_CTX_SLOT, 1), _from)
+                tstore(add(_CTX_SLOT, 2), _srcChainId)
             }
         } else {
-            _ctx = Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
+            __ctx = Context(_msgHash, _from, _srcChainId);
         }
     }
 
@@ -613,32 +558,32 @@ contract Bridge is EssentialContract, IBridge {
                 from := tload(add(_CTX_SLOT, 1))
                 srcChainId := tload(add(_CTX_SLOT, 2))
             }
-            return Context({ msgHash: msgHash, from: from, srcChainId: srcChainId });
+            return Context(msgHash, from, srcChainId);
         } else {
-            return _ctx;
+            return __ctx;
         }
     }
 
     /// @notice Checks if the signal was received.
-    /// @param signalService The signalService
-    /// @param signal The signal.
-    /// @param chainId The ID of the chain the signal is stored on
-    /// @param proof The merkle inclusion proof.
-    /// @return success True if the message was received.
+    /// @param _signalService The signalService
+    /// @param _signal The signal.
+    /// @param _chainId The ID of the chain the signal is stored on
+    /// @param _proof The merkle inclusion proof.
+    /// @return success_ True if the message was received.
     function _proveSignalReceived(
-        address signalService,
-        bytes32 signal,
-        uint64 chainId,
-        bytes calldata proof
+        address _signalService,
+        bytes32 _signal,
+        uint64 _chainId,
+        bytes calldata _proof
     )
         private
         view
-        returns (bool success)
+        returns (bool success_)
     {
         bytes memory data = abi.encodeCall(
             ISignalService.proveSignalReceived,
-            (chainId, resolve(chainId, "bridge", false), signal, proof)
+            (_chainId, resolve(_chainId, "bridge", false), _signal, _proof)
         );
-        (success,) = signalService.staticcall(data);
+        (success_,) = _signalService.staticcall(data);
     }
 }

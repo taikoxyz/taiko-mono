@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../TaikoData.sol";
@@ -19,10 +6,14 @@ import "../TaikoData.sol";
 /// @title IHook
 /// @custom:security-contact security@taiko.xyz
 interface IHook {
+    /// @notice Called when a block is proposed.
+    /// @param _blk The proposed block.
+    /// @param _meta The metadata of the proposed block.
+    /// @param _data The data of the proposed block.
     function onBlockProposed(
-        TaikoData.Block memory blk,
-        TaikoData.BlockMetadata memory meta,
-        bytes memory data
+        TaikoData.Block memory _blk,
+        TaikoData.BlockMetadata memory _meta,
+        bytes memory _data
     )
         external
         payable;

@@ -1,28 +1,15 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "./TaikoData.sol";
 
 /// @title TaikoEvents
-/// @custom:security-contact security@taiko.xyz
 /// @notice This abstract contract provides event declarations for the Taiko
 /// protocol, which are emitted during block proposal, proof, verification, and
 /// Ethereum deposit processes.
 /// @dev The events defined here must match the definitions in the corresponding
 /// L1 libraries.
+/// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -41,7 +28,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param assignedProver The block's assigned prover.
-    /// @param prover The prover whose transition is used for verifing the
+    /// @param prover The prover whose transition is used for verifying the
     /// block.
     /// @param blockHash The hash of the verified block.
     /// @param stateRoot The block's state root.

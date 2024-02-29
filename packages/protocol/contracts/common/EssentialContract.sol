@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -29,11 +16,16 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     bytes32 private constant _REENTRY_SLOT =
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721a;
 
-    uint8 private _reentry; // slot 1
-    uint8 private _paused;
+    uint8 private __reentry; // slot 1
+    uint8 private __paused;
     uint256[49] private __gap;
 
+    /// @notice Emitted when the contract is paused.
+    /// @param account The account that paused the contract.
     event Paused(address account);
+
+    /// @notice Emitted when the contract is unpaused.
+    /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
     error REENTRANT_CALL();
@@ -41,9 +33,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     error ZERO_ADDR_MANAGER();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
-    /// @param name The name to check against.
-    modifier onlyFromOwnerOrNamed(bytes32 name) {
-        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+    /// @param _name The name to check against.
+    modifier onlyFromOwnerOrNamed(bytes32 _name) {
+        if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
         _;
     }
 
@@ -69,20 +61,28 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _disableInitializers();
     }
 
+    /// @notice Pauses the contract.
     function pause() public virtual whenNotPaused {
-        _paused = _TRUE;
+        __paused = _TRUE;
         emit Paused(msg.sender);
+        // We call the authorize function here to avoid:
+        // Warning (5740): Unreachable code.
         _authorizePause(msg.sender);
     }
 
+    /// @notice Unpauses the contract.
     function unpause() public virtual whenPaused {
-        _paused = _FALSE;
+        __paused = _FALSE;
         emit Unpaused(msg.sender);
+        // We call the authorize function here to avoid:
+        // Warning (5740): Unreachable code.
         _authorizePause(msg.sender);
     }
 
+    /// @notice Returns true if the contract is paused, and false otherwise.
+    /// @return True if paused, false otherwise.
     function paused() public view returns (bool) {
-        return _paused == _TRUE;
+        return __paused == _TRUE;
     }
 
     /// @notice Initializes the contract.
@@ -106,31 +106,31 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _owner) internal virtual {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
-        _paused = _FALSE;
+        __paused = _FALSE;
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
     function _authorizePause(address) internal virtual onlyOwner { }
 
     // Stores the reentry lock
-    function _storeReentryLock(uint8 reentry) internal virtual {
+    function _storeReentryLock(uint8 _reentry) internal virtual {
         if (block.chainid == 1) {
             assembly {
-                tstore(_REENTRY_SLOT, reentry)
+                tstore(_REENTRY_SLOT, _reentry)
             }
         } else {
-            _reentry = reentry;
+            __reentry = _reentry;
         }
     }
 
     // Loads the reentry lock
-    function _loadReentryLock() internal view virtual returns (uint8 reentry) {
+    function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
         if (block.chainid == 1) {
             assembly {
-                reentry := tload(_REENTRY_SLOT)
+                reentry_ := tload(_REENTRY_SLOT)
             }
         } else {
-            reentry = _reentry;
+            reentry_ = __reentry;
         }
     }
 

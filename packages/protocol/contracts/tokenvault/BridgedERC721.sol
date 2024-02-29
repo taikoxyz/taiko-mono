@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
@@ -20,11 +7,14 @@ import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
-/// @custom:security-contact security@taiko.xyz
 /// @notice Contract for bridging ERC721 tokens across different chains.
+/// @custom:security-contact security@taiko.xyz
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
-    address public srcToken; // Address of the source token contract.
-    uint256 public srcChainId; // Source chain ID where the token originates.
+    /// @notice Address of the source token contract.
+    address public srcToken;
+
+    /// @notice Source chain ID where the token originates.
+    uint256 public srcChainId;
 
     uint256[48] private __gap;
 
@@ -59,26 +49,26 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @dev Mints tokens.
-    /// @param account Address to receive the minted token.
-    /// @param tokenId ID of the token to mint.
+    /// @param _account Address to receive the minted token.
+    /// @param _tokenId ID of the token to mint.
     function mint(
-        address account,
-        uint256 tokenId
+        address _account,
+        uint256 _tokenId
     )
         public
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
     {
-        _safeMint(account, tokenId);
+        _safeMint(_account, _tokenId);
     }
 
     /// @dev Burns tokens.
-    /// @param account Address from which the token is burned.
-    /// @param tokenId ID of the token to burn.
+    /// @param _account Address from which the token is burned.
+    /// @param _tokenId ID of the token to burn.
     function burn(
-        address account,
-        uint256 tokenId
+        address _account,
+        uint256 _tokenId
     )
         public
         nonReentrant
@@ -86,10 +76,10 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         onlyFromNamed("erc721_vault")
     {
         // Check if the caller is the owner of the token.
-        if (ownerOf(tokenId) != account) {
+        if (ownerOf(_tokenId) != _account) {
             revert BTOKEN_INVALID_BURN();
         }
-        _burn(tokenId);
+        _burn(_tokenId);
     }
 
     /// @notice Gets the name of the token.
@@ -105,34 +95,34 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
-    /// @return address The source token's address.
-    /// @return uint256 The source token's chain ID.
+    /// @return The source token's address.
+    /// @return The source token's chain ID.
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     /// @notice Returns the token URI.
-    /// @param tokenId The token id.
-    /// @return string The token uri following eip-681.
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    /// @param _tokenId The token id.
+    /// @return The token URI following EIP-681.
+    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
         return string(
             abi.encodePacked(
-                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(tokenId)
+                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
             )
         );
     }
 
     function _beforeTokenTransfer(
-        address, /*from*/
-        address to,
-        uint256, /*firstTokenId*/
-        uint256 /*batchSize*/
+        address, /*_from*/
+        address _to,
+        uint256, /*_firstTokenId*/
+        uint256 /*_batchSize*/
     )
         internal
         virtual
         override
     {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
     }
 }

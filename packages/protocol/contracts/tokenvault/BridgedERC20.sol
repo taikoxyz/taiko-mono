@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
@@ -22,19 +9,25 @@ import "./LibBridgedToken.sol";
 import "./BridgedERC20Base.sol";
 
 /// @title BridgedERC20
-/// @custom:security-contact security@taiko.xyz
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
+/// @custom:security-contact security@taiko.xyz
 contract BridgedERC20 is
     BridgedERC20Base,
     IERC20MetadataUpgradeable,
     ERC20SnapshotUpgradeable,
     ERC20VotesUpgradeable
 {
-    address public srcToken; // slot 1
-    uint8 private srcDecimals;
-    uint256 public srcChainId; // slot 2
-    address public snapshooter; // slot 3
+    /// @dev Slot 1.
+    address public srcToken;
+
+    uint8 private __srcDecimals;
+
+    /// @dev Slot 2.
+    uint256 public srcChainId;
+
+    /// @dev Slot 3.
+    address public snapshooter;
 
     uint256[47] private __gap;
 
@@ -71,7 +64,7 @@ contract BridgedERC20 is
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
         __Essential_init(_owner, _addressManager);
-        __ERC20_init({ name_: _name, symbol_: _symbol });
+        __ERC20_init(_name, _symbol);
         __ERC20Snapshot_init();
         __ERC20Votes_init();
         __ERC20Permit_init(_name);
@@ -79,7 +72,7 @@ contract BridgedERC20 is
         // Set contract properties
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        srcDecimals = _decimals;
+        __srcDecimals = _decimals;
     }
 
     /// @notice Set the snapshoter address.
@@ -123,67 +116,67 @@ contract BridgedERC20 is
         override(ERC20Upgradeable, IERC20MetadataUpgradeable)
         returns (uint8)
     {
-        return srcDecimals;
+        return __srcDecimals;
     }
 
     /// @notice Gets the canonical token's address and chain ID.
-    /// @return address The canonical token's address.
-    /// @return uint256 The canonical token's chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
-    function _mintToken(address account, uint256 amount) internal override {
-        _mint(account, amount);
+    function _mintToken(address _account, uint256 _amount) internal override {
+        _mint(_account, _amount);
     }
 
-    function _burnToken(address from, uint256 amount) internal override {
-        _burn(from, amount);
+    function _burnToken(address _from, uint256 _amount) internal override {
+        _burn(_from, _amount);
     }
 
     /// @dev For ERC20SnapshotUpgradeable and ERC20VotesUpgradeable, need to implement the following
     /// functions
     function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
     {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
-        super._beforeTokenTransfer(from, to, amount);
+        super._beforeTokenTransfer(_from, _to, _amount);
     }
 
     function _afterTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
+        address _from,
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._afterTokenTransfer(from, to, amount);
+        super._afterTokenTransfer(_from, _to, _amount);
     }
 
     function _mint(
-        address to,
-        uint256 amount
+        address _to,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._mint(to, amount);
+        super._mint(_to, _amount);
     }
 
     function _burn(
-        address from,
-        uint256 amount
+        address _from,
+        uint256 _amount
     )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._burn(from, amount);
+        super._burn(_from, _amount);
     }
 }

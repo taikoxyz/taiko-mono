@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
@@ -59,102 +46,107 @@ contract TaikoGovernor is
 
     /// @dev See {IGovernor-propose}
     function propose(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        string memory description
+        address[] memory _targets,
+        uint256[] memory _values,
+        bytes[] memory _calldatas,
+        string memory _description
     )
         public
         override(IGovernorUpgradeable, GovernorUpgradeable, GovernorCompatibilityBravoUpgradeable)
         returns (uint256)
     {
-        return super.propose(targets, values, calldatas, description);
+        return super.propose(_targets, _values, _calldatas, _description);
     }
 
     /// @notice An overwrite of GovernorCompatibilityBravoUpgradeable's propose() as that one does
-    /// not checks the length of signatures equal to calldatas.
-    /// See vulnerability description here:
+    /// not check that the length of signatures equal the calldata.
+    /// @dev See vulnerability description here:
     /// https://github.com/taikoxyz/taiko-mono/security/dependabot/114
     /// See fix in OZ 4.8.3 here:
     /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
-    /// @dev See {GovernorCompatibilityBravoUpgradeable-propose}
+    /// See {GovernorCompatibilityBravoUpgradeable-propose}
     function propose(
-        address[] memory targets,
-        uint256[] memory values,
-        string[] memory signatures,
-        bytes[] memory calldatas,
-        string memory description
+        address[] memory _targets,
+        uint256[] memory _values,
+        string[] memory _signatures,
+        bytes[] memory _calldatas,
+        string memory _description
     )
         public
         virtual
         override(GovernorCompatibilityBravoUpgradeable)
         returns (uint256)
     {
-        if (signatures.length != calldatas.length) revert TG_INVALID_SIGNATURES_LENGTH();
+        if (_signatures.length != _calldatas.length) revert TG_INVALID_SIGNATURES_LENGTH();
 
         return GovernorCompatibilityBravoUpgradeable.propose(
-            targets, values, signatures, calldatas, description
+            _targets, _values, _signatures, _calldatas, _description
         );
     }
 
-    function supportsInterface(bytes4 interfaceId)
+    /// @dev See {GovernorUpgradeable-supportsInterface}
+    function supportsInterface(bytes4 _interfaceId)
         public
         view
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable, IERC165Upgradeable)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return super.supportsInterface(_interfaceId);
     }
 
-    function state(uint256 proposalId)
+    /// @dev See {GovernorUpgradeable-state}
+    function state(uint256 _proposalId)
         public
         view
         override(IGovernorUpgradeable, GovernorUpgradeable, GovernorTimelockControlUpgradeable)
         returns (ProposalState)
     {
-        return super.state(proposalId);
+        return super.state(_proposalId);
     }
 
-    // How long after a proposal is created should voting power be fixed. A
-    // large voting delay gives users time to unstake tokens if necessary.
+    /// @notice How long after a proposal is created should voting power be fixed. A
+    /// large voting delay gives users time to unstake tokens if necessary.
+    /// @return The duration of the voting delay.
     function votingDelay() public pure override returns (uint256) {
         return 7200; // 1 day
     }
 
-    // How long does a proposal remain open to votes.
+    /// @notice How long does a proposal remain open to votes.
+    /// @return The duration of the voting period.
     function votingPeriod() public pure override returns (uint256) {
         return 50_400; // 1 week
     }
 
-    // The number of votes required in order for a voter to become a proposer
+    /// @notice The number of votes required in order for a voter to become a proposer.
+    /// @return The number of votes required.
     function proposalThreshold() public pure override returns (uint256) {
         return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
     }
 
     function _execute(
-        uint256 proposalId,
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        bytes32 descriptionHash
+        uint256 _proposalId,
+        address[] memory _targets,
+        uint256[] memory _values,
+        bytes[] memory _calldatas,
+        bytes32 _descriptionHash
     )
         internal
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
     {
-        super._execute(proposalId, targets, values, calldatas, descriptionHash);
+        super._execute(_proposalId, _targets, _values, _calldatas, _descriptionHash);
     }
 
     function _cancel(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        bytes32 descriptionHash
+        address[] memory _targets,
+        uint256[] memory _values,
+        bytes[] memory _calldatas,
+        bytes32 _descriptionHash
     )
         internal
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
         returns (uint256)
     {
-        return super._cancel(targets, values, calldatas, descriptionHash);
+        return super._cancel(_targets, _values, _calldatas, _descriptionHash);
     }
 
     function _executor()
