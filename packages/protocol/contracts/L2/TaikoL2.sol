@@ -203,7 +203,7 @@ contract TaikoL2 is CrossChainOwned {
         return l2Hashes[blockId];
     }
 
-    /// @notice Returns EIP1559 related configurations
+    /// @notice Returns EIP1559 related configurations.
     /// @return config struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
