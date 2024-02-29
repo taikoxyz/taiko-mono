@@ -130,9 +130,9 @@ contract AssignmentHook is EssentialContract, IHook {
     }
 
     /// @notice Hashes the prover assignment.
-    /// @param assignment The prover assignment.
-    /// @param taikoL1Address The address of the TaikoL1 contract.
-    /// @param blobHash The blob hash.
+    /// @param _assignment The prover assignment.
+    /// @param _taikoL1Address The address of the TaikoL1 contract.
+    /// @param _blobHash The blob hash.
     /// @return The hash of the prover assignment.
     function hashAssignment(
         ProverAssignment memory _assignment,

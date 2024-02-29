@@ -142,8 +142,9 @@ contract ERC20Vault is BaseVault {
     error VAULT_NOT_SAME_OWNER();
 
     /// @notice Change bridged token.
-    /// @param ctoken The canonical token.
-    /// @param btokenNew The new bridged token address.
+    /// @param _ctoken The canonical token.
+    /// @param _btokenNew The new bridged token address.
+    /// @return btokenOld_ The old bridged token address.
     function changeBridgedToken(
         CanonicalERC20 calldata _ctoken,
         address _btokenNew

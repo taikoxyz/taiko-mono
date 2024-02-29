@@ -62,13 +62,42 @@ interface IBridge {
         uint64 srcChainId; // Source chain ID.
     }
 
+    /// @notice Emitted when a message is sent.
+    /// @param msgHash The hash of the message.
+    /// @param message The message.
     event MessageSent(bytes32 indexed msgHash, Message message);
+
+    /// @notice Emitted when a message is received.
+    /// @param msgHash The hash of the message.
+    /// @param message The message.
+    /// @param isRecall True if the message is a recall.
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
+
+    /// @notice Emitted when a message is recalled.
+    /// @param msgHash The hash of the message.
     event MessageRecalled(bytes32 indexed msgHash);
+
+    /// @notice Emitted when a message is executed.
+    /// @param msgHash The hash of the message.
     event MessageExecuted(bytes32 indexed msgHash);
+
+    /// @notice Emitted when a message is retried.
+    /// @param msgHash The hash of the message.
     event MessageRetried(bytes32 indexed msgHash);
+
+    /// @notice Emitted when the status of a message changes.
+    /// @param msgHash The hash of the message.
+    /// @param status The new status of the message.
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
+
+    /// @notice Emitted when a message is suspended or unsuspended.
+    /// @param msgHash The hash of the message.
+    /// @param suspended True if the message is suspended.
     event MessageSuspended(bytes32 msgHash, bool suspended);
+
+    /// @notice Emitted when an address is banned or unbanned.
+    /// @param addr The address to ban or unban.
+    /// @param banned True if the address is banned.
     event AddressBanned(address indexed addr, bool banned);
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -129,8 +158,8 @@ interface IBridge {
 /// @notice An interface that all recallable message senders shall implement.
 interface IRecallableSender {
     /// @notice Called when a message is recalled.
-    /// @param message The recalled message.
-    /// @param msgHash The hash of the recalled message.
+    /// @param _message The recalled message.
+    /// @param _msgHash The hash of the recalled message.
     function onMessageRecalled(
         IBridge.Message calldata _message,
         bytes32 _msgHash

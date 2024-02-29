@@ -18,9 +18,9 @@ interface IVerifier {
     }
 
     /// @notice Verifies a proof.
-    /// @param ctx The context of the proof verification.
-    /// @param tran The transition to verify.
-    /// @param proof The proof to verify.
+    /// @param _ctx The context of the proof verification.
+    /// @param _tran The transition to verify.
+    /// @param _proof The proof to verify.
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,

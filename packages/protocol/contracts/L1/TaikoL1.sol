@@ -133,7 +133,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         return LibDepositing.canDepositEthToL2(state, getConfig(), _amount);
     }
 
-
     /// @notice See {LibProposing-isBlobReusable}.
     function isBlobReusable(bytes32 _blobHash) public view returns (bool) {
         return LibProposing.isBlobReusable(state, getConfig(), _blobHash);

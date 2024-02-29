@@ -41,9 +41,9 @@ library LibVerifying {
     error L1_TRANSITION_ID_ZERO();
 
     /// @notice Initializes the Taiko protocol state.
-    /// @param state The state to initialize.
-    /// @param config The configuration for the Taiko protocol.
-    /// @param genesisBlockHash The block hash of the genesis block.
+    /// @param _state The state to initialize.
+    /// @param _config The configuration for the Taiko protocol.
+    /// @param _genesisBlockHash The block hash of the genesis block.
     function init(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,

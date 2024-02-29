@@ -41,7 +41,16 @@ interface ISignalService {
         bytes32 signal
     );
 
+    /// @notice Emitted when a signal is sent.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal (message) that was sent.
+    /// @param slot The location in storage where this signal is stored.
+    /// @param value The value of the signal.
     event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
+
+    /// @notice Emitted when an address is authorized or deauthorized.
+    /// @param addr The address to be authorized or deauthorized.
+    /// @param authrized True if authorized, false otherwise.
     event Authorized(address indexed addr, bool authrized);
 
     /// @notice Send a signal (message) by setting the storage slot to a value of 1.

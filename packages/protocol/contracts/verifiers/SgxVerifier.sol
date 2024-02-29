@@ -163,11 +163,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @notice Gets the signed hash for the proof verification.
-    /// @param tran The transition to verify.
-    /// @param newInstance The new instance address.
-    /// @param prover The prover address.
-    /// @param metaHash The meta hash.
-    /// @return signedHash The signed hash.
+    /// @param _tran The transition to verify.
+    /// @param _newInstance The new instance address.
+    /// @param _prover The prover address.
+    /// @param _metaHash The meta hash.
+    /// @return The signed hash.
     function getSignedHash(
         TaikoData.Transition memory _tran,
         address _newInstance,
@@ -176,7 +176,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     )
         public
         view
-        returns (bytes32 signedHash)
+        returns (bytes32)
     {
         address taikoL1 = resolve("taiko", false);
         return keccak256(

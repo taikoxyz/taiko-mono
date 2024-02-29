@@ -22,18 +22,6 @@ contract SignalService is EssentialContract, ISignalService {
 
     uint256[48] private __gap;
 
-    /// @notice Emitted when a signal is sent.
-    /// @param app The address that initiated the signal.
-    /// @param signal The signal (message) that was sent.
-    /// @param slot The location in storage where this signal is stored.
-    /// @param value The value of the signal.
-    event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
-
-    /// @notice Emitted when an address is authorized or deauthorized.
-    /// @param addr The address to be authorized or deauthorized.
-    /// @param authrized True if authorized, false otherwise.
-    event Authorized(address indexed addr, bool authrized);
-
     error SS_EMPTY_PROOF();
     error SS_INVALID_SENDER();
     error SS_INVALID_LAST_HOP_CHAINID();
@@ -199,10 +187,10 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @notice Returns the slot for a signal.
-    /// @param chainId The chainId of the signal.
-    /// @param app The address that initiated the signal.
-    /// @param signal The signal (message) that was sent.
-    /// @return slot The slot for the signal.
+    /// @param _chainId The chainId of the signal.
+    /// @param _app The address that initiated the signal.
+    /// @param _signal The signal (message) that was sent.
+    /// @return The slot for the signal.
     function getSignalSlot(
         uint64 _chainId,
         address _app,
