@@ -131,7 +131,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
     }
 
-    /// @inheritdoc LibProposing
+    /// @notice See {LibProposing-isBlobReusable}.
     function isBlobReusable(bytes32 blobHash) public view returns (bool) {
         return LibProposing.isBlobReusable(state, getConfig(), blobHash);
     }
@@ -240,7 +240,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, ITierProvider, TaikoEvents, Tai
         });
     }
 
-    /// @inheritdoc LibVerifying
+    /// @notice See {LibVerifying-isConfigValid}.
     function isConfigValid() public view returns (bool) {
         return LibVerifying.isConfigValid(getConfig());
     }
