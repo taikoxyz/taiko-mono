@@ -44,20 +44,63 @@ contract Bridge is EssentialContract, IBridge {
     // Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
-    uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => Status status) public messageStatus; // slot 2
-    Context private _ctx; // slot 3,4,5
-    mapping(address addr => bool banned) public addressBanned; // slot 6
-    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt; // slot 7
+    /// @notice The next message ID.
+    /// @dev Slot 1.
+    uint128 public nextMessageId;
+
+    /// @notice Mapping to store the status of a message from its hash.
+    /// @dev Slot 2.
+    mapping(bytes32 msgHash => Status status) public messageStatus;
+
+    /// @dev Slots 3, 4, and 5.
+    Context private _ctx;
+
+    /// @notice Mapping to store banned addresses.
+    /// @dev Slot 6.
+    mapping(address addr => bool banned) public addressBanned;
+
+    /// @notice Mapping to store the proof receipt of a message from its hash.
+    /// @dev Slot 7.
+    mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt;
+
     uint256[43] private __gap;
 
+    /// @notice Emitted when a message is sent.
+    /// @param msgHash The hash of the message.
+    /// @param message The message.
     event MessageSent(bytes32 indexed msgHash, Message message);
+
+    /// @notice Emitted when a message is received.
+    /// @param msgHash The hash of the message.
+    /// @param message The message.
+    /// @param isRecall True if the message is a recall.
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
+
+    /// @notice Emitted when a message is recalled.
+    /// @param msgHash The hash of the message.    
     event MessageRecalled(bytes32 indexed msgHash);
+
+    /// @notice Emitted when a message is executed.
+    /// @param msgHash The hash of the message.
     event MessageExecuted(bytes32 indexed msgHash);
+
+    /// @notice Emitted when a message is retried.
+    /// @param msgHash The hash of the message.
     event MessageRetried(bytes32 indexed msgHash);
+
+    /// @notice Emitted when the status of a message changes.
+    /// @param msgHash The hash of the message.
+    /// @param status The new status of the message.
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
+
+    /// @notice Emitted when a message is suspended or unsuspended.
+    /// @param msgHash The hash of the message.
+    /// @param suspended True if the message is suspended.
     event MessageSuspended(bytes32 msgHash, bool suspended);
+
+    /// @notice Emitted when an address is banned or unbanned.
+    /// @param addr The address to ban or unban.
+    /// @param banned True if the address is banned.
     event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
@@ -79,6 +122,7 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
+    /// @notice Function to receive Ether.
     receive() external payable { }
 
     /// @notice Initializes the contract.
