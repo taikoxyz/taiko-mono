@@ -283,6 +283,11 @@ library LibProposing {
         });
     }
 
+    /// @notice Checks if a blob is reusable.
+    /// @param state Current TaikoData.State.
+    /// @param config The TaikoData.Config.
+    /// @param blobHash The blob hash
+    /// @return True if the blob is reusable, false otherwise.
     function isBlobReusable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
