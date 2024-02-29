@@ -224,14 +224,4 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         override
         onlyFromOwnerOrNamed("chain_pauser")
     { }
-
-    function _verifyBlocks(
-        TaikoData.Config memory _config,
-        uint64 _maxBlocksToVerify
-    )
-        private
-        whenProvingNotPaused
-    {
-        LibVerifying.verifyBlocks(state, _config, this, _maxBlocksToVerify);
-    }
 }
