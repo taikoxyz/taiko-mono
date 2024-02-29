@@ -22,8 +22,8 @@ contract ERC721Airdrop is MerkleClaimable {
         external
         initializer
     {
-        __Essential_init(_owner);
-        __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
+        _Essential_init(_owner);
+        _MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
         vault = _vault;

@@ -40,7 +40,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+        _Essential_init(_owner, _addressManager);
     }
 
     /// @dev Authorize or deautohrize an address for calling syncChainData
