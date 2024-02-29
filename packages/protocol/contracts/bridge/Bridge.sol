@@ -77,7 +77,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
 
     /// @notice Emitted when a message is recalled.
-    /// @param msgHash The hash of the message.    
+    /// @param msgHash The hash of the message.
     event MessageRecalled(bytes32 indexed msgHash);
 
     /// @notice Emitted when a message is executed.
