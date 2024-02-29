@@ -63,15 +63,15 @@ library LibProving {
     error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
 
-    function pauseProving(TaikoData.State storage _state, bool _toPause) external {
-        if (_state.slotB.provingPaused == _toPause) revert L1_INVALID_PAUSE_STATUS();
+    function pauseProving(TaikoData.State storage _state, bool _pause) external {
+        if (_state.slotB.provingPaused == _pause) revert L1_INVALID_PAUSE_STATUS();
 
-        _state.slotB.provingPaused = _toPause;
+        _state.slotB.provingPaused = _pause;
 
-        if (!_toPause) {
+        if (!_pause) {
             _state.slotB.lastUnpausedAt = uint64(block.timestamp);
         }
-        emit ProvingPaused(_toPause);
+        emit ProvingPaused(_pause);
     }
 
     /// @dev Proves or contests a block transition.
@@ -274,7 +274,7 @@ library LibProving {
         if (tid_ == 0) {
             // In cases where a transition with the provided parentHash is not
             // found, we must essentially "create" one and set it to its initial
-            // _state. This initial state can be viewed as a special transition
+            // state. This initial state can be viewed as a special transition
             // on tier-0.
             //
             // Subsequently, we transform this tier-0 transition into a
@@ -287,7 +287,7 @@ library LibProving {
                 tid_ = _blk.nextTransitionId++;
             }
 
-            // Keep in mind that _state.transitions are also reusable storage
+            // Keep in mind that state.transitions are also reusable storage
             // slots, so it's necessary to reinitialize all transition fields
             // below.
             ts_ = _state.transitions[slot][tid_];
