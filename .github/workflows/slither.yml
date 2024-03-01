@@ -15,6 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      # Workaround to prevent slither-action from trying to install deps with `package.json`,
+      # and since there is no lockfile it defaults `npm install` which fails because we use pnpm.
+      # See: https://github.com/crytic/slither-action/issues/44#issuecomment-1931104731
+      - name: Remove package.json
+        run: rm packages/protocol/package.json
+
       - name: Run Slither
         uses: crytic/slither-action@v0.3.1
         id: slither
