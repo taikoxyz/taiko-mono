@@ -26,8 +26,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-85b4872377bf85c3180e49956a82fded49daff10
-          
+          version: nightly-93f094bfa54111f5689c346206d70ef45b4dd680
+
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
