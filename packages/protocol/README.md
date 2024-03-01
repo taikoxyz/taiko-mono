@@ -130,3 +130,8 @@ pnpm test:deploy
 ```
 
 This command will deploy the L1 contracts using the settings and addresses you’ve provided in the `test_deploy_on_l1.sh` script.
+
+## Running slither
+
+1. Install the latest [slither](https://github.com/crytic/slither?tab=readme-ov-file#how-to-install).
+2. From `protocol/`, execute `slither . --checklist > checklist.md` to re-generate the checklist.

@@ -1,6 +1,13 @@
 name: Slither Analysis
 
-on: [push]
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "packages/protocol/**"
+  push:
+    branches:
+      - main
 
 jobs:
   analyze:
@@ -16,7 +23,7 @@ jobs:
           sarif: results.sarif
           fail-on: config
           slither-config: packages/protocol/slither.config.json
-          slither-args: --triage-database packages/protocol/slither.db.json/tai
+          slither-args: --triage-database packages/protocol/slither.db.json
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
