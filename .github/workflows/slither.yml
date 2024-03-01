@@ -12,8 +12,11 @@ jobs:
         uses: crytic/slither-action@v0.3.1
         id: slither
         with:
+          target: packages/protocol
           sarif: results.sarif
-          fail-on: none
+          fail-on: config
+          slither-config: packages/protocol/slither.config.json
+          slither-args: --triage-database packages/protocol/slither.db.json
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
