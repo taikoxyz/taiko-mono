@@ -114,7 +114,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         // Create instances to add
         address[] memory instances = new address[](2);
         instances[0] = Alice;
-        instances[1] = Alice; // invalid as duplicate isntance
+        instances[1] = Alice; // invalid as duplicate instance
 
         // `addInstances()`
         vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
