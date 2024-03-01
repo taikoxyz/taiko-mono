@@ -31,6 +31,8 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     error XCO_TX_REVERTED();
 
     /// @inheritdoc IMessageInvocable
+    /// @dev Do not guard with nonReentrant as this function will re-enter the contract as _data
+    /// represents calls to address(this).
     function onMessageInvocation(bytes calldata _data)
         external
         payable
@@ -55,7 +57,6 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _ownerChainId The owner's deployment chain ID.
-    // solhint-disable-next-line func-name-mixedcase
     function __CrossChainOwned_init(
         address _owner,
         address _addressManager,

@@ -53,7 +53,6 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    // solhint-disable-next-line func-name-mixedcase
     function __MerkleClaimable_init(
         uint64 _claimStart,
         uint64 _claimEnd,

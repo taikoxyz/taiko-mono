@@ -41,17 +41,21 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(msg.sender, _op);
 
-        IBridge.Message memory message;
-        message.destChainId = _op.destChainId;
-        message.data = data;
-        message.srcOwner = msg.sender;
-        message.destOwner = _op.destOwner != address(0) ? _op.destOwner : msg.sender;
-        message.to = resolve(message.destChainId, name(), false);
-        message.gasLimit = _op.gasLimit;
-        message.value = msg.value - _op.fee;
-        message.fee = _op.fee;
-        message.refundTo = _op.refundTo;
-        message.memo = _op.memo;
+        IBridge.Message memory message = IBridge.Message({
+            id: 0, // will receive a new value
+            from: address(0), // will receive a new value
+            srcChainId: 0, // will receive a new value
+            destChainId: _op.destChainId,
+            srcOwner: msg.sender,
+            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+            to: resolve(_op.destChainId, name(), false),
+            refundTo: _op.refundTo,
+            value: msg.value - _op.fee,
+            fee: _op.fee,
+            gasLimit: _op.gasLimit,
+            data: data,
+            memo: _op.memo
+        });
 
         bytes32 msgHash;
         (msgHash, message_) =

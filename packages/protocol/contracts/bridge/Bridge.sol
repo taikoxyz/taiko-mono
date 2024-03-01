@@ -18,11 +18,12 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    // The slot in transient storage of the call context
-    // This is the keccak256 hash of "bridge.ctx_slot"
+    /// @dev The slot in transient storage of the call context. This is the keccak256 hash
+    /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
-    // Place holder value when not using transient storage
+
+    /// @dev Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     /// @notice The next message ID.
@@ -138,8 +139,8 @@ contract Bridge is EssentialContract, IBridge {
         if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
         message_ = _message;
-        // Configure message details and send signal to indicate message
-        // sending.
+
+        // Configure message details and send signal to indicate message sending.
         message_.id = nextMessageId++;
         message_.from = msg.sender;
         message_.srcChainId = uint64(block.chainid);
@@ -183,7 +184,6 @@ contract Bridge is EssentialContract, IBridge {
             proofReceipt[msgHash].receivedAt = receivedAt;
         }
 
-        // assert(receivedAt != 0);
         (uint256 invocationDelay,) = getInvocationDelays();
 
         if (block.timestamp >= invocationDelay + receivedAt) {
@@ -200,7 +200,7 @@ contract Bridge is EssentialContract, IBridge {
                     _message, msgHash
                 );
 
-                // Reset the context after the message call
+                // Must reset the context after the message call
                 _resetContext();
             } else {
                 _message.srcOwner.sendEther(_message.value);
@@ -503,7 +503,7 @@ contract Bridge is EssentialContract, IBridge {
             );
         }
 
-        // Reset the context after the message call
+        // Must reset the context after the message call
         _resetContext();
     }
 
@@ -535,6 +535,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Stores the call context
+    /// @param _msgHash The message hash.
+    /// @param _from The sender's address.
+    /// @param _srcChainId The source chain ID.
     function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
         if (block.chainid == 1) {
             assembly {
@@ -547,7 +550,8 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Loads the call context
+    /// @notice Loads and returns the call context.
+    /// @return ctx_ The call context.
     function _loadContext() private view returns (Context memory) {
         if (block.chainid == 1) {
             bytes32 msgHash;
@@ -565,9 +569,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Checks if the signal was received.
-    /// @param _signalService The signalService
+    /// @param _signalService The signal service address.
     /// @param _signal The signal.
-    /// @param _chainId The ID of the chain the signal is stored on
+    /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
     /// @return success_ True if the message was received.
     function _proveSignalReceived(
