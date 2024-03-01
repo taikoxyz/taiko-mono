@@ -14,6 +14,9 @@ export type GenerateProofArgs = {
 
 export type GetProofArgs = {
   bridgeTx: BridgeTransaction;
+  blockNumber: bigint;
+  key: Hex;
+  signalServiceAddress: Address;
 };
 
 export type StorageEntry = {
@@ -47,7 +50,7 @@ export type HopProof = {
   chainId: bigint;
   blockId: bigint;
   rootHash: Hash;
-  cacheOption: CacheOptions;
+  cacheOption: bigint;
   accountProof: Hex[];
   storageProof: Hex[];
 };
@@ -63,7 +66,7 @@ export type HopParams = {
 };
 
 export type EthGetProofResponse = {
-  balance: bigint;
+  balance: Hex;
   codeHash: Hash;
   nonce: number;
   storageHash: Hash;
