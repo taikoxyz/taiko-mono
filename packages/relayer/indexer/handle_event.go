@@ -58,19 +58,23 @@ func (i *Indexer) handleEvent(
 		return nil
 	}
 
-	// we need to wait for confirmations to confirm this event is not being reverted,
-	// removed, or reorged now.
-	confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
+	// only wait for confirmations when not crawling past blocks.
+	// these are guaranteed to be confirmed since the blocks are old.
+	if i.watchMode != CrawlPastBlocks {
+		// we need to wait for confirmations to confirm this event is not being reverted,
+		// removed, or reorged now.
+		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
 
-	defer confCtxCancel()
+		defer confCtxCancel()
 
-	if err := relayer.WaitConfirmations(
-		confCtx,
-		i.srcEthClient,
-		uint64(defaultConfirmations),
-		event.Raw.TxHash,
-	); err != nil {
-		return err
+		if err := relayer.WaitConfirmations(
+			confCtx,
+			i.srcEthClient,
+			uint64(defaultConfirmations),
+			event.Raw.TxHash,
+		); err != nil {
+			return err
+		}
 	}
 
 	// get event status from msgHash on chain
