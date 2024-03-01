@@ -5,3 +5,5 @@
 - /solmate: code copied from https://github.com/transmissions11/solmate/blob/v7/src/utils/FixedPointMathLib.sol as-is with only solidity pragma changed.
 
 - /nomad-xyz: code copied from https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol with unused coded removed and solidity pragma changed.
+
+- /solady: code copied from https://github.com/Vectorized/solady/releases/tag/v0.0.173 with  solidity pragma changed.

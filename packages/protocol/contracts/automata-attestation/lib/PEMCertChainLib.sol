@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { LibString } from "solady/src/utils/LibString.sol";
+import { LibString as LibStr } from "../../thirdparty/solady/LibString.sol";
 import { Asn1Decode, NodePtr } from "../utils/Asn1Decode.sol";
 import { BytesUtils } from "../utils/BytesUtils.sol";
 import { X509DateUtils } from "../utils/X509DateUtils.sol";
@@ -54,7 +54,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         for (uint256 i = 0; i < size; i++) {
             string memory input;
             if (i > 0) {
-                input = LibString.slice(pemChainStr, index, index + len);
+                input = LibStr.slice(pemChainStr, index, index + len);
             } else {
                 input = pemChainStr;
             }
@@ -117,8 +117,8 @@ contract PEMCertChainLib is IPEMCertChainLib {
             issuerPtr = der.firstChildOf(issuerPtr);
             issuerPtr = der.nextSiblingOf(issuerPtr);
             cert.pck.issuerName = string(der.bytesAt(issuerPtr));
-            bool issuerNameIsValid = LibString.eq(cert.pck.issuerName, PLATFORM_ISSUER_NAME)
-                || LibString.eq(cert.pck.issuerName, PROCESSOR_ISSUER_NAME);
+            bool issuerNameIsValid = LibStr.eq(cert.pck.issuerName, PLATFORM_ISSUER_NAME)
+                || LibStr.eq(cert.pck.issuerName, PROCESSOR_ISSUER_NAME);
             if (!issuerNameIsValid) {
                 return (false, cert);
             }
@@ -149,7 +149,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
             subjectPtr = der.firstChildOf(subjectPtr);
             subjectPtr = der.nextSiblingOf(subjectPtr);
             cert.pck.commonName = string(der.bytesAt(subjectPtr));
-            if (!LibString.eq(cert.pck.commonName, PCK_COMMON_NAME)) {
+            if (!LibStr.eq(cert.pck.commonName, PCK_COMMON_NAME)) {
                 return (false, cert);
             }
         }
@@ -205,8 +205,8 @@ contract PEMCertChainLib is IPEMCertChainLib {
             }
             cert.pck.sgxExtension.pcesvn = pcesvn;
             cert.pck.sgxExtension.sgxTcbCompSvnArr = cpuSvns;
-            cert.pck.sgxExtension.pceid = LibString.toHexStringNoPrefix(pceidBytes);
-            cert.pck.sgxExtension.fmspc = LibString.toHexStringNoPrefix(fmspcBytes);
+            cert.pck.sgxExtension.pceid = LibStr.toHexStringNoPrefix(pceidBytes);
+            cert.pck.sgxExtension.fmspc = LibStr.toHexStringNoPrefix(fmspcBytes);
             cert.isPck = true;
         }
 
@@ -219,11 +219,11 @@ contract PEMCertChainLib is IPEMCertChainLib {
         returns (bool success, bytes memory extracted, uint256 endIndex)
     {
         // Check if the input contains the "BEGIN" and "END" headers
-        uint256 beginPos = LibString.indexOf(pemData, HEADER);
-        uint256 endPos = LibString.indexOf(pemData, FOOTER);
+        uint256 beginPos = LibStr.indexOf(pemData, HEADER);
+        uint256 endPos = LibStr.indexOf(pemData, FOOTER);
 
-        bool headerFound = beginPos != LibString.NOT_FOUND;
-        bool footerFound = endPos != LibString.NOT_FOUND;
+        bool headerFound = beginPos != LibStr.NOT_FOUND;
+        bool footerFound = endPos != LibStr.NOT_FOUND;
 
         if (!headerFound || !footerFound) {
             return (false, extracted, endIndex);
@@ -237,12 +237,12 @@ contract PEMCertChainLib is IPEMCertChainLib {
 
         // do not include newline
         bytes memory delimiter = hex"0a";
-        string memory contentSlice = LibString.slice(pemData, contentStart, endPos);
-        string[] memory split = LibString.split(contentSlice, string(delimiter));
+        string memory contentSlice = LibStr.slice(pemData, contentStart, endPos);
+        string[] memory split = LibStr.split(contentSlice, string(delimiter));
         string memory contentStr;
 
         for (uint256 i = 0; i < split.length; i++) {
-            contentStr = LibString.concat(contentStr, split[i]);
+            contentStr = LibStr.concat(contentStr, split[i]);
         }
 
         contentBytes = bytes(contentStr);

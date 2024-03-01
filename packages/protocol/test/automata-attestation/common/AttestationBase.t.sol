@@ -12,7 +12,7 @@ import { SigVerifyLib } from "../../../contracts/automata-attestation/utils/SigV
 import { PEMCertChainLib } from "../../../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import { V3Struct } from "../../../contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import { BytesUtils } from "../../../contracts/automata-attestation/utils/BytesUtils.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
+import { Base64 } from "../../../contracts/thirdparty/solady/Base64.sol";
 import "../utils/DcapTestUtils.t.sol";
 import "../utils/V3QuoteParseUtils.t.sol";
 

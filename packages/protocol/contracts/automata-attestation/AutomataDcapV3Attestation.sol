@@ -10,8 +10,8 @@ import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
 import { IAttestation } from "./interfaces/IAttestation.sol";
 
 // Internal Libraries
-import { Base64 } from "solady/src/utils/Base64.sol";
-import { LibString } from "solady/src/utils/LibString.sol";
+import { Base64 } from "../thirdparty/solady/Base64.sol";
+import { LibString as LibStr } from "../thirdparty/solady/LibString.sol";
 import { BytesUtils } from "./utils/BytesUtils.sol";
 
 // External Libraries
@@ -237,13 +237,13 @@ contract AutomataDcapV3Attestation is IAttestation {
         {
             string memory parsedFmspc = parsedQuoteCerts[0].pck.sgxExtension.fmspc;
             fetchedTcbInfo = tcbInfo[parsedFmspc];
-            bool tcbConfigured = LibString.eq(parsedFmspc, fetchedTcbInfo.fmspc);
+            bool tcbConfigured = LibStr.eq(parsedFmspc, fetchedTcbInfo.fmspc);
             if (!tcbConfigured) {
                 return (false, retData);
             }
 
             IPEMCertChainLib.ECSha256Certificate memory pckCert = parsedQuoteCerts[0];
-            bool pceidMatched = LibString.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
+            bool pceidMatched = LibStr.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
             if (!pceidMatched) {
                 return (false, retData);
             }
@@ -586,13 +586,13 @@ contract AutomataDcapV3Attestation is IAttestation {
         {
             string memory parsedFmspc = parsedQuoteCerts[0].pck.sgxExtension.fmspc;
             fetchedTcbInfo = tcbInfo[parsedFmspc];
-            bool tcbConfigured = LibString.eq(parsedFmspc, fetchedTcbInfo.fmspc);
+            bool tcbConfigured = LibStr.eq(parsedFmspc, fetchedTcbInfo.fmspc);
             if (!tcbConfigured) {
                 return (false, exitStep);
             }
 
             IPEMCertChainLib.ECSha256Certificate memory pckCert = parsedQuoteCerts[0];
-            bool pceidMatched = LibString.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
+            bool pceidMatched = LibStr.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
             if (!pceidMatched) {
                 return (false, exitStep);
             }

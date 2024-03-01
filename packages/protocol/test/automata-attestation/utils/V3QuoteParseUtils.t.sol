@@ -6,13 +6,13 @@ import { V3Parser } from "../../../contracts/automata-attestation/lib/QuoteV3Aut
 import { IPEMCertChainLib } from
     "../../../contracts/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
 import { PEMCertChainLib } from "../../../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
-import { JSONParserLib } from "solady/src/utils/JSONParserLib.sol";
-import { LibString } from "solady/src/utils/LibString.sol";
+import { Base64 } from "../../../contracts/thirdparty/solady/Base64.sol";
+import { JSONParserLib } from "../../../contracts/thirdparty/solady/JSONParserLib.sol";
+import { LibString as LibStr } from "../../../contracts/thirdparty/solady/LibString.sol";
 
 contract V3QuoteParseUtils {
     using JSONParserLib for JSONParserLib.Item;
-    using LibString for string;
+    using LibStr for string;
 
     // all helper structure are ordered by alphabetical order of their field names
     // because the foundry Json decoder will decode the json string in alphabetical order
