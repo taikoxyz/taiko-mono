@@ -17,7 +17,7 @@ library TaikoData {
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
         // The maximum number of proposals allowed in a single block.
-        uint64 blockMaxProposals;
+        // uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
         // The maximum number of verifications allowed when a block is proposed.
