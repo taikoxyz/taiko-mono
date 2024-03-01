@@ -1,5 +1,5 @@
-# for foundry test only!
-export PRIVATE_KEY=0x0e7c38ba429fa5081692121c4fcf6304ca5895c6c86d31ed155b0493c516107f
+# Run "PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh" to configure the dcap verifier contract.
+
 # export LOG_LEVEL=DEBUG
 # export REPORT_GAS=true
 # replace with the address of the verifier/attester/pemCertChain.
@@ -26,4 +26,4 @@ forge script script/SetDcapParams.s.sol:SetDcapParams \
     --ffi \
     -vvvv \
     --block-gas-limit 100000000 \
-    --private-key 0x0e7c38ba429fa5081692121c4fcf6304ca5895c6c86d31ed155b0493c516107f \ #foundry test key
+    --private-key ${PRIVATE_KEY}
