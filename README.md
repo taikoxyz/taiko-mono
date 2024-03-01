@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  A decentralized, Ethereum-equivalent ZK-Rollup.
+  A decentralized, Ethereum-equivalent ZK-Rollup. Hrer is my tpying smothing cool.
 </p>
 
 <div align="center">
