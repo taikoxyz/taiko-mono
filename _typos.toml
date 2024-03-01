@@ -1,0 +1,15 @@
+[files]
+# Temporarily commenting a lot so that at least *.sol files are included.
+extend-exclude = [
+    "CHANGELOG.md",
+    "*.go",
+    "*.html",
+    "*md",
+    "*.ts",
+    "*.css",
+    "*.yaml",
+    "*.yml",
+    "*.json",
+    "packages/protocol/contracts/automata-attestation/**",
+    "packages/protocol/contracts/thirdparty/**",
+]

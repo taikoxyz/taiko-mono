@@ -323,7 +323,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_NonAsignedProverCannotBeFirstInProofWindowTime() external {
+    function test_L1_NonAssignedProverCannotBeFirstInProofWindowTime() external {
         giveEthAndTko(Alice, 1e8 ether, 100 ether);
         // This is a very weird test (code?) issue here.
         // If this line (or Bob's query balance) is uncommented,
@@ -366,7 +366,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_asignedProverCannotProveAfterHisWindowElapsed() external {
+    function test_L1_assignedProverCannotProveAfterHisWindowElapsed() external {
         giveEthAndTko(Alice, 1e8 ether, 100 ether);
         // This is a very weird test (code?) issue here.
         // If this line (or Bob's query balance) is uncommented,
