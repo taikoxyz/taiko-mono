@@ -23,7 +23,7 @@
 
 ## Documentation
 
-End user documentation can be found at [docs.taiko.xyz](https://docs.taiko.xyz). Protocol specs can be found [here](./packages/protocol/docs/).
+End user documentation can be found at [docs.taiko.xyz](https://docs.taiko.xyz). Protocol specs can be found [here](./packages/protocol/docs/README.md).
 
 Each package of the monorepo is well documented and includes a README.
 
