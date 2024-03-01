@@ -215,21 +215,24 @@ contract ERC20Vault is BaseVault {
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
-        uint256 _amount;
-        IBridge.Message memory message;
-        CanonicalERC20 memory ctoken;
+        (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
+            _handleMessage(msg.sender, _op.token, _op.to, _op.amount);
 
-        (message.data, ctoken, _amount) = _handleMessage(msg.sender, _op.token, _op.to, _op.amount);
-
-        message.destChainId = _op.destChainId;
-        message.srcOwner = msg.sender;
-        message.destOwner = _op.destOwner != address(0) ? _op.destOwner : msg.sender;
-        message.to = resolve(_op.destChainId, name(), false);
-        message.gasLimit = _op.gasLimit;
-        message.value = msg.value - _op.fee;
-        message.fee = _op.fee;
-        message.refundTo = _op.refundTo;
-        message.memo = _op.memo;
+        IBridge.Message memory message = IBridge.Message({
+            id: 0, // will receive a new value
+            from: address(0), // will receive a new value
+            srcChainId: 0, // will receive a new value
+            destChainId: _op.destChainId,
+            srcOwner: msg.sender,
+            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+            to: resolve(_op.destChainId, name(), false),
+            refundTo: _op.refundTo,
+            value: msg.value - _op.fee,
+            fee: _op.fee,
+            gasLimit: _op.gasLimit,
+            data: data,
+            memo: _op.memo
+        });
 
         bytes32 msgHash;
         (msgHash, message_) =
@@ -242,7 +245,7 @@ contract ERC20Vault is BaseVault {
             destChainId: _op.destChainId,
             ctoken: ctoken.addr,
             token: _op.token,
-            amount: _amount
+            amount: balanceChange
         });
     }
 

@@ -31,6 +31,8 @@ abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
     error XCO_TX_REVERTED();
 
     /// @inheritdoc IMessageInvocable
+    /// @dev Do not guard with nonReentrant as this function will re-enter the contract as _data
+    /// represents calls to address(this).
     function onMessageInvocation(bytes calldata _data)
         external
         payable
