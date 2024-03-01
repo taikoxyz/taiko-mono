@@ -1,0 +1,24 @@
+name: Slither Analysis
+
+on: [push]
+
+jobs:
+  analyze:
+    runs-on: [taiko-runner]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.3.1
+        id: slither
+        with:
+          target: packages/protocol
+          sarif: results.sarif
+          fail-on: config
+          slither-config: packages/protocol/slither.config.json
+          slither-args: --triage-database packages/protocol/slither.db.json/tai
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}
