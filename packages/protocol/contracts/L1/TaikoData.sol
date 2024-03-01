@@ -12,7 +12,7 @@ library TaikoData {
         // Group 1: General configs
         // ---------------------------------------------------------------------
         // The chain ID of the network where Taiko contracts are deployed.
-        uint64 chainId;
+        // uint64 chainId;
         // ---------------------------------------------------------------------
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
