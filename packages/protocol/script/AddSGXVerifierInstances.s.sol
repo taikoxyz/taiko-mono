@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../test/DeployCapability.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 
 contract AddSGXVerifierInstances is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -24,13 +25,16 @@ contract AddSGXVerifierInstances is DeployCapability {
     function updateInstancesByTimelock(address timelock) internal {
         bytes32 salt = bytes32(block.timestamp);
 
-        bytes memory payload =
-            abi.encodeWithSelector(bytes4(keccak256("addInstances(address[])")), instances);
+        V3Struct.Header memory header;
+        V3Struct.EnclaveReport memory report;
+        V3Struct.ECDSAQuoteV3AuthData memory authData;
+
+        bytes memory payload = abi.encodeCall(
+            SgxVerifier.registerInstance, (V3Struct.ParsedV3QuoteStruct(header, report, authData))
+        );
 
         TaikoTimelockController timelockController = TaikoTimelockController(payable(timelock));
-
         timelockController.schedule(sgxVerifier, 0, payload, bytes32(0), salt, 0);
-
         timelockController.execute(sgxVerifier, 0, payload, bytes32(0), salt);
 
         for (uint256 i; i < instances.length; ++i) {
