@@ -11,12 +11,12 @@ import { V3Struct } from "./V3Struct.sol";
 library V3Parser {
     using BytesUtils for bytes;
 
-    uint256 constant MINIMUM_QUOTE_LENGTH = 1020;
-    bytes2 constant SUPPORTED_QUOTE_VERSION = 0x0300;
-    bytes2 constant SUPPORTED_ATTESTATION_KEY_TYPE = 0x0200;
+    uint256 internal constant MINIMUM_QUOTE_LENGTH = 1020;
+    bytes2 internal constant SUPPORTED_QUOTE_VERSION = 0x0300;
+    bytes2 internal constant SUPPORTED_ATTESTATION_KEY_TYPE = 0x0200;
     // SGX only
-    bytes4 constant SUPPORTED_TEE_TYPE = 0;
-    bytes16 constant VALID_QE_VENDOR_ID = 0x939a7233f79c4ca9940a0db3957f0607;
+    bytes4 internal constant SUPPORTED_TEE_TYPE = 0;
+    bytes16 internal constant VALID_QE_VENDOR_ID = 0x939a7233f79c4ca9940a0db3957f0607;
 
     function parseInput(
         bytes memory quote,
