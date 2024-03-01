@@ -9,7 +9,7 @@ import "../contracts/team/airdrop/ERC20Airdrop.sol";
 // 1. Is Vault - which will store the tokens - deployed ?
 // 2. Is (bridged) TKO token existing ?
 // 3. Is ERC20Airdrop contract is 'approved operator' on the TKO token ?
-// 4. Proof (merkle root) and minting window related variabes (start, end) set ?
+// 4. Proof (merkle root) and minting window related variables (start, end) set ?
 // If YES the answer to all above, we can go live with airdrop, which is like:
 // 1. User go to website. -> For sake of simplicity he is eligible
 // 2. User wants to mint, but first site established the delegateHash (user sets a delegatee) which

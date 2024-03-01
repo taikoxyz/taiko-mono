@@ -1,0 +1,40 @@
+name: Slither Analysis
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "packages/protocol/**"
+  push:
+    branches:
+      - main
+
+jobs:
+  analyze:
+    runs-on: [taiko-runner]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      # Workaround to prevent slither-action from trying to install deps with `package.json`,
+      # and since there is no lockfile it defaults `npm install` which fails because we use pnpm.
+      # See: https://github.com/crytic/slither-action/issues/44#issuecomment-1931104731
+      - name: Remove package.json
+        run: rm packages/protocol/package.json
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.3.1
+        id: slither
+        with:
+          target: packages/protocol
+          sarif: results.sarif
+          fail-on: config
+          slither-config: packages/protocol/slither.config.json
+          slither-args: --triage-database packages/protocol/slither.db.json
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}
