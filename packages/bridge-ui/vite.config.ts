@@ -1,6 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import dotenv from 'dotenv';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { defineConfig } from 'vitest/dist/config';
+import { defineProject } from 'vitest/dist/config';
 
 import { generateBridgeConfig } from './scripts/vite-plugins/generateBridgeConfig';
 import { generateChainConfig } from './scripts/vite-plugins/generateChainConfig';
@@ -8,7 +9,11 @@ import { generateCustomTokenConfig } from './scripts/vite-plugins/generateCustom
 import { generateEventIndexerConfig } from './scripts/vite-plugins/generateEventIndexerConfig';
 import { generateRelayerConfig } from './scripts/vite-plugins/generateRelayerConfig';
 
-export default defineConfig({
+if (process.env.NODE_ENV === 'test') {
+  dotenv.config({ path: './.env.test' });
+}
+
+export default defineProject({
   build: {
     sourcemap: true,
   },
@@ -16,7 +21,7 @@ export default defineConfig({
     sveltekit(),
     // This plugin gives vite the ability to resolve imports using TypeScript's path mapping.
     // https://www.npmjs.com/package/vite-tsconfig-paths
-    tsconfigPaths(),
+    tsconfigPaths({ ignoreConfigErrors: true }),
     generateBridgeConfig(),
     generateChainConfig(),
     generateRelayerConfig(),
@@ -25,7 +30,8 @@ export default defineConfig({
   ],
   test: {
     environment: 'jsdom',
+    setupFiles: ['src/tests/setup.ts'],
     globals: true,
-    include: ['src/**/*.{test,spec}.{js,ts}'],
+    include: ['./**/*.{test,spec}.{js,ts}'],
   },
 });
