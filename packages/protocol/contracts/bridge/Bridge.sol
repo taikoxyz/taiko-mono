@@ -200,7 +200,7 @@ contract Bridge is EssentialContract, IBridge {
                     _message, msgHash
                 );
 
-                // Reset the context after the message call
+                // Must reset the context after the message call
                 _resetContext();
             } else {
                 _message.srcOwner.sendEther(_message.value);
@@ -503,7 +503,7 @@ contract Bridge is EssentialContract, IBridge {
             );
         }
 
-        // Reset the context after the message call
+        // Must reset the context after the message call
         _resetContext();
     }
 
