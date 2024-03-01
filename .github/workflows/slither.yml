@@ -8,11 +8,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Workaround to prevent slither-action from trying to install JS deps.
-      # Without this step, it detects the `package.json``, and since there is no
-      # lockfile it defaults `npm install` which fails due to the preinstall
-      # script to enforce pnpm. https://github.com/crytic/slither-action/issues/44#issuecomment-1338183656
-      # Kudos to @optimism for the fix! :)
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      # Workaround to prevent slither-action from trying to install deps with `package.json`,
+      # and since there is no lockfile it defaults `npm install` which fails because we use pnpm.
+      # See: https://github.com/crytic/slither-action/issues/44#issuecomment-1931104731
       - name: Remove package.json
         run: rm packages/protocol/package.json
 
