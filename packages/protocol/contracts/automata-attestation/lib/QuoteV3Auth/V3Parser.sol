@@ -11,12 +11,12 @@ import { V3Struct } from "./V3Struct.sol";
 library V3Parser {
     using BytesUtils for bytes;
 
-    uint256 constant MINIMUM_QUOTE_LENGTH = 1020;
-    bytes2 constant SUPPORTED_QUOTE_VERSION = 0x0300;
-    bytes2 constant SUPPORTED_ATTESTATION_KEY_TYPE = 0x0200;
+    uint256 internal constant MINIMUM_QUOTE_LENGTH = 1020;
+    bytes2 internal constant SUPPORTED_QUOTE_VERSION = 0x0300;
+    bytes2 internal constant SUPPORTED_ATTESTATION_KEY_TYPE = 0x0200;
     // SGX only
-    bytes4 constant SUPPORTED_TEE_TYPE = 0;
-    bytes16 constant VALID_QE_VENDOR_ID = 0x939a7233f79c4ca9940a0db3957f0607;
+    bytes4 internal constant SUPPORTED_TEE_TYPE = 0;
+    bytes16 internal constant VALID_QE_VENDOR_ID = 0x939a7233f79c4ca9940a0db3957f0607;
 
     function parseInput(
         bytes memory quote,
@@ -150,7 +150,7 @@ library V3Parser {
     }
 
     function littleEndianDecode(bytes memory encoded) private pure returns (uint256 decoded) {
-        for (uint256 i = 0; i < encoded.length; i++) {
+        for (uint256 i; i < encoded.length; ++i) {
             uint256 digits = uint256(uint8(bytes1(encoded[i])));
             uint256 upperDigit = digits / 16;
             uint256 lowerDigit = digits % 16;
@@ -278,7 +278,7 @@ library V3Parser {
             pemCertLib.splitCertificateChain(certBytes, 3);
         require(certParsedSuccessfully, "splitCertificateChain failed");
         parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i; i < 3; ++i) {
             quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
         }
 

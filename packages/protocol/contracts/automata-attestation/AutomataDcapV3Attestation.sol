@@ -26,25 +26,25 @@ contract AutomataDcapV3Attestation is IAttestation {
     IPEMCertChainLib public immutable pemCertLib;
 
     // https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/e7604e02331b3377f3766ed3653250e03af72d45/QuoteVerification/QVL/Src/AttestationLibrary/src/CertVerification/X509Constants.h#L64
-    uint256 constant CPUSVN_LENGTH = 16;
+    uint256 internal constant CPUSVN_LENGTH = 16;
 
     // keccak256(hex"0ba9c4c0c0c86193a3fe23d6b02cda10a8bbd4e88e48b4458561a36e705525f567918e2edc88e40d860bd0cc4ee26aacc988e505a953558c453f6b0904ae7394")
     // the uncompressed (0x04) prefix is not included in the pubkey pre-image
-    bytes32 constant ROOTCA_PUBKEY_HASH =
+    bytes32 internal constant ROOTCA_PUBKEY_HASH =
         0x89f72d7c488e5b53a77c23ebcb36970ef7eb5bcf6658e9b8292cfbe4703a8473;
 
-    uint8 constant INVALID_EXIT_CODE = 255;
+    uint8 internal constant INVALID_EXIT_CODE = 255;
 
-    bool private checkLocalEnclaveReport;
-    mapping(bytes32 enclave => bool trusted) private trustedUserMrEnclave;
-    mapping(bytes32 signer => bool trusted) private trustedUserMrSigner;
+    bool private _checkLocalEnclaveReport;
+    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
+    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
 
     // Quote Collateral Configuration
 
     // Index definition:
     // 0 = Quote PCKCrl
     // 1 = RootCrl
-    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private serialNumIsRevoked;
+    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
     // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo;
     EnclaveIdStruct.EnclaveId public qeIdentity;
@@ -63,11 +63,11 @@ contract AutomataDcapV3Attestation is IAttestation {
     }
 
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
-        trustedUserMrSigner[_mrSigner] = _trusted;
+        _trustedUserMrSigner[_mrSigner] = _trusted;
     }
 
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
-        trustedUserMrEnclave[_mrEnclave] = _trusted;
+        _trustedUserMrEnclave[_mrEnclave] = _trusted;
     }
 
     function addRevokedCertSerialNum(
@@ -77,11 +77,11 @@ contract AutomataDcapV3Attestation is IAttestation {
         external
         onlyOwner
     {
-        for (uint256 i = 0; i < serialNumBatch.length; i++) {
-            if (serialNumIsRevoked[index][serialNumBatch[i]]) {
+        for (uint256 i; i < serialNumBatch.length; ++i) {
+            if (_serialNumIsRevoked[index][serialNumBatch[i]]) {
                 continue;
             }
-            serialNumIsRevoked[index][serialNumBatch[i]] = true;
+            _serialNumIsRevoked[index][serialNumBatch[i]] = true;
         }
     }
 
@@ -92,11 +92,11 @@ contract AutomataDcapV3Attestation is IAttestation {
         external
         onlyOwner
     {
-        for (uint256 i = 0; i < serialNumBatch.length; i++) {
-            if (!serialNumIsRevoked[index][serialNumBatch[i]]) {
+        for (uint256 i; i < serialNumBatch.length; ++i) {
+            if (!_serialNumIsRevoked[index][serialNumBatch[i]]) {
                 continue;
             }
-            delete serialNumIsRevoked[index][serialNumBatch[i]];
+            delete _serialNumIsRevoked[index][serialNumBatch[i]];
         }
     }
 
@@ -120,7 +120,7 @@ contract AutomataDcapV3Attestation is IAttestation {
     }
 
     function toggleLocalReportCheck() external onlyOwner {
-        checkLocalEnclaveReport = !checkLocalEnclaveReport;
+        _checkLocalEnclaveReport = !_checkLocalEnclaveReport;
     }
 
     function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
@@ -188,7 +188,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         bool isvprodidMatched = quoteEnclaveReport.isvProdId == enclaveId.isvprodid;
 
         bool tcbFound;
-        for (uint256 i = 0; i < enclaveId.tcbLevels.length; i++) {
+        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
             EnclaveIdStruct.TcbLevel memory tcb = enclaveId.tcbLevels[i];
             if (tcb.tcb.isvsvn <= quoteEnclaveReport.isvSvn) {
                 tcbFound = true;
@@ -211,7 +211,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         pure
         returns (bool, TCBInfoStruct.TCBStatus status)
     {
-        for (uint256 i = 0; i < tcb.tcbLevels.length; i++) {
+        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
             TCBInfoStruct.TCBLevelObj memory current = tcb.tcbLevels[i];
             bool pceSvnIsHigherOrGreater = pck.sgxExtension.pcesvn >= current.pcesvn;
             bool cpuSvnsAreHigherOrGreater = _isCpuSvnHigherOrGreater(
@@ -237,7 +237,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         if (pckCpuSvns.length != CPUSVN_LENGTH || tcbCpuSvns.length != CPUSVN_LENGTH) {
             return false;
         }
-        for (uint256 i = 0; i < CPUSVN_LENGTH; i++) {
+        for (uint256 i; i < CPUSVN_LENGTH; ++i) {
             if (pckCpuSvns[i] < tcbCpuSvns[i]) {
                 return false;
             }
@@ -256,7 +256,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         bool verified;
         bool certChainCanBeTrusted;
 
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i; i < n; ++i) {
             IPEMCertChainLib.ECSha256Certificate memory issuer;
             if (i == n - 1) {
                 // rootCA
@@ -265,11 +265,11 @@ contract AutomataDcapV3Attestation is IAttestation {
                 issuer = certs[i + 1];
                 if (i == n - 2) {
                     // this cert is expected to be signed by the root
-                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
+                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
                         .serialNumber];
                 } else if (certs[i].isPck) {
-                    certRevoked =
-                        serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i].serialNumber];
+                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
+                        .serialNumber];
                 }
                 if (certRevoked) {
                     break;
@@ -382,10 +382,11 @@ contract AutomataDcapV3Attestation is IAttestation {
 
         // Step 2: Verify application enclave report MRENCLAVE and MRSIGNER
         {
-            if (checkLocalEnclaveReport) {
+            if (_checkLocalEnclaveReport) {
                 // 4k gas
-                bool mrEnclaveIsTrusted = trustedUserMrEnclave[v3quote.localEnclaveReport.mrEnclave];
-                bool mrSignerIsTrusted = trustedUserMrSigner[v3quote.localEnclaveReport.mrSigner];
+                bool mrEnclaveIsTrusted =
+                    _trustedUserMrEnclave[v3quote.localEnclaveReport.mrEnclave];
+                bool mrSignerIsTrusted = _trustedUserMrSigner[v3quote.localEnclaveReport.mrSigner];
 
                 if (!mrEnclaveIsTrusted || !mrSignerIsTrusted) {
                     return (false, retData);
@@ -416,7 +417,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         {
             // 536k gas
             parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
-            for (uint256 i = 0; i < 3; i++) {
+            for (uint256 i; i < 3; ++i) {
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
                 // todo! move decodeCert offchain
