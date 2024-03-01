@@ -2,17 +2,17 @@
   "extends": "solhint:recommended",
   "rules": {
     "avoid-low-level-calls": "off",
-    "compiler-version": ["error", "^0.8.24"],
-    "func-visibility": ["warn", { "ignoreConstructors": true }],
-    "max-line-length": "off",
+    "avoid-tx-origin": "off",
+    "compiler-version": ["error", "0.8.24"],
+    "func-name-mixedcase": "off",
+    "func-visibility": ["error", { "ignoreConstructors": true }],
+    "max-line-length": ["error", 120],
     "no-empty-blocks": "off",
+    "named-parameters-mapping": "warn",
+    "no-console": "off",
+    "no-global-import": "off",
     "no-inline-assembly": "off",
     "not-rely-on-time": "off",
-    "ordering": "warn",
-    "payable-fallback": "off",
-    "no-console": "off",
-    "avoid-tx-origin": "off",
-    "one-contract-per-file": "off",
-    "no-global-import": "off"
+    "one-contract-per-file": "off"
   }
 }
