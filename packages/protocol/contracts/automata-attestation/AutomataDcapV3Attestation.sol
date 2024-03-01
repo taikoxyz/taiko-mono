@@ -76,7 +76,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         external
         onlyOwner
     {
-        for (uint256 i = 0; i < serialNumBatch.length; i++) {
+        for (uint256 i; i < serialNumBatch.length; ++i) {
             if (_serialNumIsRevoked[index][serialNumBatch[i]]) {
                 continue;
             }
@@ -91,7 +91,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         external
         onlyOwner
     {
-        for (uint256 i = 0; i < serialNumBatch.length; i++) {
+        for (uint256 i; i < serialNumBatch.length; ++i) {
             if (!_serialNumIsRevoked[index][serialNumBatch[i]]) {
                 continue;
             }
@@ -187,7 +187,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         bool isvprodidMatched = quoteEnclaveReport.isvProdId == enclaveId.isvprodid;
 
         bool tcbFound;
-        for (uint256 i = 0; i < enclaveId.tcbLevels.length; i++) {
+        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
             EnclaveIdStruct.TcbLevel memory tcb = enclaveId.tcbLevels[i];
             if (tcb.tcb.isvsvn <= quoteEnclaveReport.isvSvn) {
                 tcbFound = true;
@@ -210,7 +210,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         pure
         returns (bool, TCBInfoStruct.TCBStatus status)
     {
-        for (uint256 i = 0; i < tcb.tcbLevels.length; i++) {
+        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
             TCBInfoStruct.TCBLevelObj memory current = tcb.tcbLevels[i];
             bool pceSvnIsHigherOrGreater = pck.sgxExtension.pcesvn >= current.pcesvn;
             bool cpuSvnsAreHigherOrGreater = _isCpuSvnHigherOrGreater(
@@ -236,7 +236,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         if (pckCpuSvns.length != CPUSVN_LENGTH || tcbCpuSvns.length != CPUSVN_LENGTH) {
             return false;
         }
-        for (uint256 i = 0; i < CPUSVN_LENGTH; i++) {
+        for (uint256 i; i < CPUSVN_LENGTH; ++i) {
             if (pckCpuSvns[i] < tcbCpuSvns[i]) {
                 return false;
             }
@@ -255,7 +255,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         bool verified;
         bool certChainCanBeTrusted;
 
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i; i < n; ++i) {
             IPEMCertChainLib.ECSha256Certificate memory issuer;
             if (i == n - 1) {
                 // rootCA
@@ -416,7 +416,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         {
             // 536k gas
             parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
-            for (uint256 i = 0; i < 3; i++) {
+            for (uint256 i; i < 3; ++i) {
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
                 // todo! move decodeCert offchain

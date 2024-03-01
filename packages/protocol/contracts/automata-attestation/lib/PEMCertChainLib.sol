@@ -51,7 +51,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         uint256 index = 0;
         uint256 len = pemChain.length;
 
-        for (uint256 i = 0; i < size; i++) {
+        for (uint256 i; i < size; ++i) {
             string memory input;
             if (i > 0) {
                 input = LibString.slice(pemChainStr, index, index + len);
@@ -241,7 +241,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         string[] memory split = LibString.split(contentSlice, string(delimiter));
         string memory contentStr;
 
-        for (uint256 i = 0; i < split.length; i++) {
+        for (uint256 i; i < split.length; ++i) {
             contentStr = LibString.concat(contentStr, split[i]);
         }
 
@@ -351,7 +351,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         // get the first svn object in the sequence
         uint256 svnParentPtr = der.firstChildOf(tcbPtr);
         cpusvns = new uint256[](SGX_TCB_CPUSVN_SIZE);
-        for (uint256 i = 0; i < SGX_TCB_CPUSVN_SIZE + 1; i++) {
+        for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
             uint256 svnPtr = der.firstChildOf(svnParentPtr); // OID
             uint256 svnValuePtr = der.nextSiblingOf(svnPtr); // value
             bytes memory svnValueBytes = der.bytesAt(svnValuePtr);

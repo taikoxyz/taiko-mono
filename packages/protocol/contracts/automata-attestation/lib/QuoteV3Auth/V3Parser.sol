@@ -150,7 +150,7 @@ library V3Parser {
     }
 
     function littleEndianDecode(bytes memory encoded) private pure returns (uint256 decoded) {
-        for (uint256 i = 0; i < encoded.length; i++) {
+        for (uint256 i; i < encoded.length; ++i) {
             uint256 digits = uint256(uint8(bytes1(encoded[i])));
             uint256 upperDigit = digits / 16;
             uint256 lowerDigit = digits % 16;
@@ -278,7 +278,7 @@ library V3Parser {
             pemCertLib.splitCertificateChain(certBytes, 3);
         require(certParsedSuccessfully, "splitCertificateChain failed");
         parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i; i < 3; ++i) {
             quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
         }
 
