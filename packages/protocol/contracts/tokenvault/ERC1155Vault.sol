@@ -55,17 +55,21 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(msg.sender, _op);
 
         // Create a message to send to the destination chain
-        IBridge.Message memory message;
-        message.destChainId = _op.destChainId;
-        message.data = data;
-        message.srcOwner = msg.sender;
-        message.destOwner = _op.destOwner != address(0) ? _op.destOwner : msg.sender;
-        message.to = resolve(message.destChainId, name(), false);
-        message.gasLimit = _op.gasLimit;
-        message.value = msg.value - _op.fee;
-        message.fee = _op.fee;
-        message.refundTo = _op.refundTo;
-        message.memo = _op.memo;
+        IBridge.Message memory message = IBridge.Message({
+            id: 0, // will receive a new value
+            from: address(0), // will receive a new value
+            srcChainId: 0, // will receive a new value
+            destChainId: _op.destChainId,
+            srcOwner: msg.sender,
+            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+            to: resolve(_op.destChainId, name(), false),
+            refundTo: _op.refundTo,
+            value: msg.value - _op.fee,
+            fee: _op.fee,
+            gasLimit: _op.gasLimit,
+            data: data,
+            memo: _op.memo
+        });
 
         // Send the message and obtain the message hash
         bytes32 msgHash;
