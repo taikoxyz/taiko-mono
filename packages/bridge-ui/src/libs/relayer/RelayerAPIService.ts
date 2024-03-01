@@ -245,11 +245,9 @@ export class RelayerAPIService {
     return { txs: bridgeTxs, paginationInfo };
   }
 
-  async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
+  async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
-
-    // TODO: why to use a Map here?
-    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
+    const blockInfoRecord: Record<number, RelayerBlockInfo> = {};
 
     try {
       const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL);
@@ -259,14 +257,26 @@ export class RelayerAPIService {
       const { data } = response;
 
       if (data?.data.length > 0) {
-        data.data.forEach((blockInfo: RelayerBlockInfo) => blockInfoMap.set(blockInfo.chainID, blockInfo));
+        data.data.forEach((blockInfo: RelayerBlockInfo) => (blockInfoRecord[blockInfo.chainID] = blockInfo));
       }
     } catch (error) {
       console.error(error);
-      throw new Error('failed to fetch block info', { cause: error });
+      throw new Error('Failed to fetch block info', { cause: error });
     }
 
-    return blockInfoMap;
+    return blockInfoRecord;
+  }
+
+  async getSpecificBlockInfo({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    srcChainId,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    destChainId,
+  }: {
+    srcChainId: number;
+    destChainId: number;
+  }): Promise<Record<number, RelayerBlockInfo>> {
+    throw new Error('Not implemented');
   }
 }
 
