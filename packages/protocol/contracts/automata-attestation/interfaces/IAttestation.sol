@@ -9,5 +9,5 @@ interface IAttestation {
     function verifyAttestation(bytes calldata data) external returns (bool);
     function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata v3quote)
         external
-        returns (bool success, uint8 exitStep);
+        returns (bool success, bytes memory retData);
 }

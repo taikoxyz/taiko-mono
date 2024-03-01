@@ -10,8 +10,7 @@ import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
 import { IAttestation } from "./interfaces/IAttestation.sol";
 
 // Internal Libraries
-import { Base64 } from "solady/src/utils/Base64.sol";
-import { LibString } from "solady/src/utils/LibString.sol";
+import { Base64, LibString } from "solady/src/Milady.sol";
 import { BytesUtils } from "./utils/BytesUtils.sol";
 
 // External Libraries
@@ -135,7 +134,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             || status == TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
     }
 
-    function verifyAttestation(bytes calldata data) external view returns (bool) {
+    function verifyAttestation(bytes calldata data) external view override returns (bool) {
         (bool success,) = _verify(data);
         return success;
     }
@@ -163,125 +162,13 @@ contract AutomataDcapV3Attestation is IAttestation {
         bytes memory retData = abi.encodePacked(INVALID_EXIT_CODE);
 
         // Step 1: Parse the quote input = 152k gas
-        (
-            bool successful,
-            ,
-            V3Struct.EnclaveReport memory localEnclaveReport,
-            bytes memory signedQuoteData,
-            V3Struct.ECDSAQuoteV3AuthData memory authDataV3
-        ) = V3Parser.parseInput(quote);
+        (bool successful, V3Struct.ParsedV3QuoteStruct memory parsedV3Quote) =
+            V3Parser.parseInput(quote, address(pemCertLib));
         if (!successful) {
             return (false, retData);
         }
 
-        // Step 2: Verify application enclave report MRENCLAVE and MRSIGNER
-        {
-            if (checkLocalEnclaveReport) {
-                // 4k gas
-                bool mrEnclaveIsTrusted = trustedUserMrEnclave[localEnclaveReport.mrEnclave];
-                bool mrSignerIsTrusted = trustedUserMrSigner[localEnclaveReport.mrSigner];
-
-                if (!mrEnclaveIsTrusted || !mrSignerIsTrusted) {
-                    return (false, retData);
-                }
-            }
-        }
-
-        // Step 3: Verify enclave identity = 43k gas
-        V3Struct.EnclaveReport memory qeEnclaveReport;
-        EnclaveIdStruct.EnclaveIdStatus qeTcbStatus;
-        {
-            qeEnclaveReport = V3Parser.parseEnclaveReport(authDataV3.rawQeReport);
-            bool verifiedEnclaveIdSuccessfully;
-            (verifiedEnclaveIdSuccessfully, qeTcbStatus) =
-                _verifyQEReportWithIdentity(qeEnclaveReport);
-            if (!verifiedEnclaveIdSuccessfully) {
-                return (false, retData);
-            }
-            if (
-                !verifiedEnclaveIdSuccessfully
-                    || qeTcbStatus == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
-            ) {
-                return (false, retData);
-            }
-        }
-
-        // Step 4: Parse Quote CertChain
-        IPEMCertChainLib.ECSha256Certificate[] memory parsedQuoteCerts;
-        TCBInfoStruct.TCBInfo memory fetchedTcbInfo;
-        {
-            // 660k gas
-            (bool certParsedSuccessfully, bytes[] memory quoteCerts) =
-                pemCertLib.splitCertificateChain(authDataV3.certification.certData, 3);
-            if (!certParsedSuccessfully) {
-                return (false, retData);
-            }
-
-            // 536k gas
-            parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
-            for (uint256 i = 0; i < 3; i++) {
-                quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
-                //console.log("Step 4.%s: Parse Quote parsedQuoteCerts", i);
-                //console.logBytes(quoteCerts[i]);
-                bool isPckCert = i == 0; // additional parsing for PCKCert
-                bool certDecodedSuccessfully;
-                (certDecodedSuccessfully, parsedQuoteCerts[i]) =
-                    pemCertLib.decodeCert(quoteCerts[i], isPckCert);
-                if (!certDecodedSuccessfully) {
-                    return (false, retData);
-                }
-            }
-        }
-
-        // Step 5: basic PCK and TCB check = 381k gas
-        {
-            string memory parsedFmspc = parsedQuoteCerts[0].pck.sgxExtension.fmspc;
-            fetchedTcbInfo = tcbInfo[parsedFmspc];
-            bool tcbConfigured = LibString.eq(parsedFmspc, fetchedTcbInfo.fmspc);
-            if (!tcbConfigured) {
-                return (false, retData);
-            }
-
-            IPEMCertChainLib.ECSha256Certificate memory pckCert = parsedQuoteCerts[0];
-            bool pceidMatched = LibString.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
-            if (!pceidMatched) {
-                return (false, retData);
-            }
-        }
-
-        // Step 6: Verify TCB Level
-        TCBInfoStruct.TCBStatus tcbStatus;
-        {
-            // 4k gas
-            bool tcbVerified;
-            (tcbVerified, tcbStatus) = _checkTcbLevels(parsedQuoteCerts[0].pck, fetchedTcbInfo);
-            if (!tcbVerified) {
-                return (false, retData);
-            }
-        }
-
-        // Step 7: Verify cert chain for PCK
-        {
-            // 660k gas (rootCA pubkey is trusted)
-            bool pckCertChainVerified = _verifyCertChain(parsedQuoteCerts);
-            if (!pckCertChainVerified) {
-                return (false, retData);
-            }
-        }
-
-        // Step 8: Verify the local attestation sig and qe report sig = 670k gas
-        {
-            bool enclaveReportSigsVerified = _enclaveReportSigVerification(
-                parsedQuoteCerts[0].pubKey, signedQuoteData, authDataV3, qeEnclaveReport
-            );
-            if (!enclaveReportSigsVerified) {
-                return (false, retData);
-            }
-        }
-
-        retData = abi.encodePacked(sha256(quote), tcbStatus);
-
-        return (_attestationTcbIsValid(tcbStatus), retData);
+        return _verifyParsedQuote(parsedV3Quote);
     }
 
     function _verifyQEReportWithIdentity(V3Struct.EnclaveReport memory quoteEnclaveReport)
@@ -429,48 +316,14 @@ contract AutomataDcapV3Attestation is IAttestation {
 
         bool qeReportDataIsValid = expectedAuthDataHash == computedAuthDataHash;
         if (qeReportDataIsValid) {
-            bool qeSigVerified = sigVerifyLib.verifyES256Signature(
-                authDataV3.rawQeReport, authDataV3.qeReportSignature, pckCertPubKey
-            );
-            bool quoteSigVerified = sigVerifyLib.verifyES256Signature(
-                signedQuoteData, authDataV3.ecdsa256BitSignature, authDataV3.ecdsaAttestationKey
-            );
-            return qeSigVerified && quoteSigVerified;
-        } else {
-            return false;
-        }
-    }
-
-    function _enclaveParsedReportSigVerification(
-        bytes memory pckCertPubKey,
-        bytes memory signedQuoteData,
-        V3Struct.ParsedECDSAQuoteV3AuthData memory authDataV3,
-        V3Struct.EnclaveReport memory qeEnclaveReport
-    )
-        private
-        view
-        returns (bool)
-    {
-        bytes32 expectedAuthDataHash = bytes32(qeEnclaveReport.reportData.substring(0, 32));
-        bytes memory concatOfAttestKeyAndQeAuthData =
-            abi.encodePacked(authDataV3.ecdsaAttestationKey, authDataV3.qeAuthData.data);
-        bytes32 computedAuthDataHash = sha256(concatOfAttestKeyAndQeAuthData);
-
-        bool qeReportDataIsValid = expectedAuthDataHash == computedAuthDataHash;
-        if (qeReportDataIsValid) {
             bytes memory pckSignedQeReportBytes =
                 V3Parser.packQEReport(authDataV3.pckSignedQeReport);
             bool qeSigVerified = sigVerifyLib.verifyES256Signature(
                 pckSignedQeReportBytes, authDataV3.qeReportSignature, pckCertPubKey
             );
-            // console.log("qeSigVerified = %s", qeSigVerified);
             bool quoteSigVerified = sigVerifyLib.verifyES256Signature(
                 signedQuoteData, authDataV3.ecdsa256BitSignature, authDataV3.ecdsaAttestationKey
             );
-            // console.log("quoteSigVerified = %s", quoteSigVerified);
-            // console.logBytes(signedQuoteData);
-            // console.logBytes(authDataV3.ecdsa256BitSignature);
-            // console.logBytes(authDataV3.ecdsaAttestationKey);
             return qeSigVerified && quoteSigVerified;
         } else {
             return false;
@@ -498,35 +351,35 @@ contract AutomataDcapV3Attestation is IAttestation {
     /// @dev For all valid quote verification, returns the following data:
     /// (_attestationTcbIsValid())
     /// @dev exitCode is defined in the {{ TCBInfoStruct.TCBStatus }} enum
-    /// @param v3quote The quote to be verified.
-    /// @return success True if successful verification, false otherwise.
-    /// @return exitStep The stage where the code exited.
     function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata v3quote)
         external
         view
-        returns (bool success, uint8 exitStep)
+        override
+        returns (bool, bytes memory)
     {
-        success = false;
-        exitStep = 1;
+        return _verifyParsedQuote(v3quote);
+    }
 
-        // Step 1: Parse the quote input = 152k gas
-        // console.log("Step 1: Parse the quote input = 152k gas");
+    function _verifyParsedQuote(V3Struct.ParsedV3QuoteStruct memory v3quote)
+        internal
+        view
+        returns (bool, bytes memory)
+    {
+        bytes memory retData = abi.encodePacked(INVALID_EXIT_CODE);
+
+        // // Step 1: Parse the quote input = 152k gas
         (
             bool successful,
             ,
             ,
             bytes memory signedQuoteData,
-            V3Struct.ParsedECDSAQuoteV3AuthData memory authDataV3
+            V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);
         if (!successful) {
-            return (false, exitStep);
+            return (false, retData);
         }
 
-        exitStep += 1;
         // Step 2: Verify application enclave report MRENCLAVE and MRSIGNER
-        // console.log(
-        //     "Step 2: Verify application enclave report MRENCLAVE and MRSIGNER"
-        // );
         {
             if (checkLocalEnclaveReport) {
                 // 4k gas
@@ -534,13 +387,11 @@ contract AutomataDcapV3Attestation is IAttestation {
                 bool mrSignerIsTrusted = trustedUserMrSigner[v3quote.localEnclaveReport.mrSigner];
 
                 if (!mrEnclaveIsTrusted || !mrSignerIsTrusted) {
-                    return (false, exitStep);
+                    return (false, retData);
                 }
             }
         }
 
-        exitStep += 1;
-        // console.log("Step 3: Verify enclave identity = 43k gas");
         // Step 3: Verify enclave identity = 43k gas
         EnclaveIdStruct.EnclaveIdStatus qeTcbStatus;
         {
@@ -548,18 +399,16 @@ contract AutomataDcapV3Attestation is IAttestation {
             (verifiedEnclaveIdSuccessfully, qeTcbStatus) =
                 _verifyQEReportWithIdentity(v3quote.v3AuthData.pckSignedQeReport);
             if (!verifiedEnclaveIdSuccessfully) {
-                return (false, exitStep);
+                return (false, retData);
             }
             if (
                 !verifiedEnclaveIdSuccessfully
                     || qeTcbStatus == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
             ) {
-                return (false, exitStep);
+                return (false, retData);
             }
         }
 
-        exitStep += 1;
-        // console.log("Step 4: Parse Quote CertChain");
         // Step 4: Parse Quote CertChain
         IPEMCertChainLib.ECSha256Certificate[] memory parsedQuoteCerts;
         TCBInfoStruct.TCBInfo memory fetchedTcbInfo;
@@ -567,39 +416,34 @@ contract AutomataDcapV3Attestation is IAttestation {
             // 536k gas
             parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
             for (uint256 i = 0; i < 3; i++) {
-                //console.log("Step 4.%s: Parse Quote parsedQuoteCerts", i);
-                // quoteCerts[i] = Base64.decode(string(authDataV3.certification.certArray[i]));
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
+                // todo! move decodeCert offchain
                 (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
                     authDataV3.certification.decodedCertDataArray[i], isPckCert
                 );
                 if (!certDecodedSuccessfully) {
-                    return (false, exitStep);
+                    return (false, retData);
                 }
             }
         }
 
-        exitStep += 1;
-        // console.log("Step 5: basic PCK and TCB check = 381k gas");
         // Step 5: basic PCK and TCB check = 381k gas
         {
             string memory parsedFmspc = parsedQuoteCerts[0].pck.sgxExtension.fmspc;
             fetchedTcbInfo = tcbInfo[parsedFmspc];
             bool tcbConfigured = LibString.eq(parsedFmspc, fetchedTcbInfo.fmspc);
             if (!tcbConfigured) {
-                return (false, exitStep);
+                return (false, retData);
             }
 
             IPEMCertChainLib.ECSha256Certificate memory pckCert = parsedQuoteCerts[0];
             bool pceidMatched = LibString.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
             if (!pceidMatched) {
-                return (false, exitStep);
+                return (false, retData);
             }
         }
 
-        exitStep += 1;
-        // console.log("Step 6: Verify TCB Level");
         // Step 6: Verify TCB Level
         TCBInfoStruct.TCBStatus tcbStatus;
         {
@@ -607,44 +451,34 @@ contract AutomataDcapV3Attestation is IAttestation {
             bool tcbVerified;
             (tcbVerified, tcbStatus) = _checkTcbLevels(parsedQuoteCerts[0].pck, fetchedTcbInfo);
             if (!tcbVerified) {
-                return (false, exitStep);
+                return (false, retData);
             }
         }
 
-        exitStep += 1;
-        // console.log("Step 7: Verify cert chain for PCK");
         // Step 7: Verify cert chain for PCK
         {
             // 660k gas (rootCA pubkey is trusted)
             bool pckCertChainVerified = _verifyCertChain(parsedQuoteCerts);
             if (!pckCertChainVerified) {
-                return (false, exitStep);
+                return (false, retData);
             }
         }
 
-        exitStep += 1;
-        // console.log(
-        //     "Step 8: Verify the local attestation sig and qe report sig = 670k gas"
-        // );
-        // Step 8: Verify the local attestation sig and qe report sig
+        // Step 8: Verify the local attestation sig and qe report sig = 670k gas
         {
-            bool enclaveReportSigsVerified = _enclaveParsedReportSigVerification(
+            bool enclaveReportSigsVerified = _enclaveReportSigVerification(
                 parsedQuoteCerts[0].pubKey,
                 signedQuoteData,
                 authDataV3,
                 v3quote.v3AuthData.pckSignedQeReport
             );
             if (!enclaveReportSigsVerified) {
-                return (false, exitStep);
+                return (false, retData);
             }
         }
 
-        // retData = abi.encodePacked(
-        //     sha256(abi.encodePacked(v3quote)),
-        //     tcbStatus
-        // );
-        exitStep += 1;
-        success = _attestationTcbIsValid(tcbStatus);
-        // console.log("Step 9: return success = %s, tcbStatus = %s", success, uint256(tcbStatus));
+        retData = abi.encodePacked(sha256(abi.encode(v3quote)), tcbStatus);
+
+        return (_attestationTcbIsValid(tcbStatus), retData);
     }
 }
