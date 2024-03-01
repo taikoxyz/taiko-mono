@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "0.15.2",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
