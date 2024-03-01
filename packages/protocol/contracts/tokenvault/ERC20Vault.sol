@@ -215,7 +215,7 @@ contract ERC20Vault is BaseVault {
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
-        (bytes memory data, CanonicalERC20 memory ctoken, uint256 amount) =
+        (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(msg.sender, _op.token, _op.to, _op.amount);
 
         IBridge.Message memory message = IBridge.Message({
@@ -245,7 +245,7 @@ contract ERC20Vault is BaseVault {
             destChainId: _op.destChainId,
             ctoken: ctoken.addr,
             token: _op.token,
-            amount: amount
+            amount: balanceChange
         });
     }
 
