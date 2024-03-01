@@ -15,11 +15,12 @@ interface IBridge {
     }
 
     struct Message {
-        // Message ID.
+        // Message ID whose value is automatically assigned.
         uint128 id;
         // The address, EOA or contract, that interacts with this bridge.
+        // The value is automatically assigned.
         address from;
-        // Source chain ID.
+        // Source chain ID whose value is automatically assigned.
         uint64 srcChainId;
         // Destination chain ID where the `to` address lives.
         uint64 destChainId;
