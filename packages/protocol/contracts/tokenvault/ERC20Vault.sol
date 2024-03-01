@@ -42,7 +42,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @notice Mappings from bridged tokens to their canonical tokens.
-    mapping(address btoken => CanonicalERC20 cannonical) public bridgedToCanonical;
+    mapping(address btoken => CanonicalERC20 canonical) public bridgedToCanonical;
 
     /// @notice Mappings from canonical tokens to their bridged tokens. Also storing
     /// the chainId for tokens across other chains aside from Ethereum.
@@ -341,7 +341,7 @@ contract ERC20Vault is BaseVault {
     /// @return ctoken_ The canonical token.
     /// @return balanceChange_ User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
-    /// change is the amount of token transfered away.
+    /// change is the amount of token transferred away.
     function _handleMessage(
         address _user,
         address _token,

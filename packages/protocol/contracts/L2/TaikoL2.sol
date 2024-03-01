@@ -261,7 +261,7 @@ contract TaikoL2 is CrossChainOwned {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
         if (gasExcess > 0) {
             // We always add the gas used by parent block to the gas excess
-            // value as this has already happend
+            // value as this has already happened
             uint256 excess = uint256(gasExcess) + _parentGasUsed;
 
             // Calculate how much more gas to issue to offset gas excess.
