@@ -330,7 +330,7 @@ library BytesUtils {
 
         uint256 ret = 0;
         uint8 decoded;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i; i < len; ++i) {
             bytes1 char = self[off + i];
             require(char >= 0x30 && char <= 0x7A, "invalid char");
             decoded = uint8(BASE32_HEX_TABLE[uint256(uint8(char)) - 0x30]);
