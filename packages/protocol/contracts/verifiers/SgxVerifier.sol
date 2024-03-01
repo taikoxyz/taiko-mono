@@ -203,9 +203,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         uint64 validSince = uint64(block.timestamp);
 
-        if (!instantValid) {
-            validSince += INSTANCE_VALIDITY_DELAY;
-        }
+        // if (!instantValid) {
+        //     validSince += INSTANCE_VALIDITY_DELAY;
+        // }
 
         for (uint256 i; i < _instances.length; ++i) {
             if (addressRegistered[_instances[i]]) revert SGX_ALREADY_ATTESTED();
