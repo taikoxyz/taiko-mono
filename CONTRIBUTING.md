@@ -25,7 +25,7 @@ This section describes our coding standards at Taiko.
 
 **It is important you use the correct commit type**. For minor semver bumps, use `feat`, for patches use `fix`. For a major bump use `feat(scope)!` or `fix(scope)!`. If you use `chore`, `docs`, or `ci`, then it won't result in a release-please PR or version bump.
 
-If you make a mistake you can push an empty commit with the correct commit type. For example: `fix(protocol): bump minor, see commit a36daf`.
+If you make a mistake you can push an empty commit with the correct commit type. For example: `git commit --allow-empty -m "fix(protocol): bump minor, see commit a36daf"`.
 
 Specify the scope of your change with a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) in the PR title (for example, `feat(scope): description of feature`). This will be squashed and merged into the `main` branch. You can find the full list of allowed scopes [here](https://github.com/taikoxyz/taiko-mono/blob/main/.github/workflows/validate-pr-title.yml).
 
