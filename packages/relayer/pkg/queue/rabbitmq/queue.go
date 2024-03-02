@@ -163,8 +163,6 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 	err := rmqMsg.Ack(false)
 
-	slog.Info("attempted acknowledge rabbitmq message")
-
 	if err != nil {
 		slog.Error("error acknowledging rabbitmq message", "err", err.Error())
 		return err
@@ -214,12 +212,24 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 				slog.Error("rabbitmq notify close connection")
 			}
 
+			r.Close(ctx)
+
+			if err := r.connect(); err != nil {
+				return err
+			}
+
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
 			if err != nil {
 				slog.Error("rabbitmq notify close channel", "err", err.Error())
 			} else {
 				slog.Error("rabbitmq notify close channel")
+			}
+
+			r.Close(ctx)
+
+			if err := r.connect(); err != nil {
+				return err
 			}
 
 			return queue.ErrClosed
