@@ -215,6 +215,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			r.Close(ctx)
 
 			if err := r.connect(); err != nil {
+				slog.Error("error connecting to rabbitmq", "err", err.Error())
 				return err
 			}
 
@@ -229,6 +230,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			r.Close(ctx)
 
 			if err := r.connect(); err != nil {
+				slog.Error("error connecting to rabbitmq", "err", err.Error())
 				return err
 			}
 
