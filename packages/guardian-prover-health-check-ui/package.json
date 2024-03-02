@@ -16,7 +16,7 @@
 		"lint:fix": "pnpm format && eslint . --fix"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.41.2",
+		"@playwright/test": "^1.42.1",
 		"@sveltejs/adapter-auto": "^3.1.1",
 		"@sveltejs/kit": "^2.5.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.2",
