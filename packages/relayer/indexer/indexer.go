@@ -379,16 +379,10 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
-	latestBlockIDToCompare := latestBlock.Number.Uint64()
-
-	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > i.numLatestBlocksToIgnoreWhenCrawling {
-		latestBlockIDToCompare -= i.numLatestBlocksToIgnoreWhenCrawling
-	}
-
-	if i.processingBlockHeight < latestBlockIDToCompare {
+	if i.processingBlockHeight < latestBlock.Number.Uint64() {
 		slog.Info("header has advanced",
 			"processingBlockHeight", i.processingBlockHeight,
-			"latestBlock", latestBlockIDToCompare,
+			"latestBlock", latestBlock.Number.Uint64(),
 		)
 
 		return i.filter(ctx)
