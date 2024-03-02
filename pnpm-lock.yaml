@@ -268,8 +268,8 @@ importers:
         specifier: 4.8.2
         version: 4.8.2
       '@openzeppelin/contracts-upgradeable':
-        specifier: 4.8.2
-        version: 4.8.2
+        specifier: 5.0.2
+        version: 5.0.2(@openzeppelin/contracts@4.8.2)
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
@@ -3301,8 +3301,12 @@ packages:
       fastq: 1.17.1
     dev: true
 
-  /@openzeppelin/contracts-upgradeable@4.8.2:
-    resolution: {integrity: sha512-zIggnBwemUmmt9IS73qxi+tumALxCY4QEs3zLCII78k0Gfse2hAOdAkuAeLUzvWUpneMUfFE5sGHzEUSTvn4Ag==}
+  /@openzeppelin/contracts-upgradeable@5.0.2(@openzeppelin/contracts@4.8.2):
+    resolution: {integrity: sha512-0MmkHSHiW2NRFiT9/r5Lu4eJq5UJ4/tzlOgYXNAIj/ONkQTVnz22pLxDvp4C4uZ9he7ZFvGn3Driptn1/iU7tQ==}
+    peerDependencies:
+      '@openzeppelin/contracts': 5.0.2
+    dependencies:
+      '@openzeppelin/contracts': 4.8.2
     dev: false
 
   /@openzeppelin/contracts@4.8.2:
