@@ -331,10 +331,20 @@ func (i *Indexer) filter(ctx context.Context) error {
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
 
+		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
+			// use "end" not "filterEnd" here, because it will be used as the start
+			// of the next batch.
+			if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
+				return errors.Wrap(err, "i.handleNoEventsInBatch")
+			}
+
+			continue
+		}
+
 		group, groupCtx := errgroup.WithContext(ctx)
 		group.SetLimit(i.numGoroutines)
 
-		for messageSentEvents.Next() {
+		for {
 			event := messageSentEvents.Event
 
 			group.Go(func() error {
@@ -349,17 +359,21 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 				return nil
 			})
-		}
 
-		// wait for the last of the goroutines to finish
-		if err := group.Wait(); err != nil {
-			return errors.Wrap(err, "group.Wait")
-		}
+			// if there are no more events
+			if !messageSentEvents.Next() {
+				// wait for the last of the goroutines to finish
+				if err := group.Wait(); err != nil {
+					return errors.Wrap(err, "group.Wait")
+				}
+				// handle no events remaining, saving the processing block and restarting the for
+				// loop
+				if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
+					return errors.Wrap(err, "i.handleNoEventsInBatch")
+				}
 
-		// handle no events remaining, saving the processing block and restarting the for
-		// loop
-		if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
-			return errors.Wrap(err, "i.handleNoEventsInBatch")
+				break
+			}
 		}
 	}
 
