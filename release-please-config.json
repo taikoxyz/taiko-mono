@@ -1,13 +1,12 @@
 {
+  "draft": true,
   "packages": {
     "packages/branding": {},
     "packages/bridge-ui": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},
-    "packages/guardian-prover-health-check-ui": {
-      "release-as": "0.1.0"
-    },
+    "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {},
     "packages/relayer": {}
   },

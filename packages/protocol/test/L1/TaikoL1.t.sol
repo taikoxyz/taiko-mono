@@ -229,7 +229,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // The number of deposits
         assertEq(a.numEthDeposits, 8);
-        // The index / cursos of the next deposit
+        // The index / cursor of the next deposit
         assertEq(a.nextEthDepositToProcess, 0);
 
         // We shall invoke proposeBlock() because this is what will call the

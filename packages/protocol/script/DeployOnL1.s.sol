@@ -94,11 +94,11 @@ contract DeployOnL1 is DeployCapability {
 
         if (signalService.owner() == msg.sender) {
             // Setup time lock roles
-            // Only the governer can make proposals after holders voting.
+            // Only the governor can make proposals after holders voting.
             _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
             _timelock.grantRole(_timelock.PROPOSER_ROLE(), msg.sender);
 
-            // Granting address(0) the executor role to allow open executation.
+            // Granting address(0) the executor role to allow open execution.
             _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
             _timelock.grantRole(_timelock.EXECUTOR_ROLE(), msg.sender);
 

@@ -9,15 +9,19 @@ import "./AddressResolver.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
     uint8 private constant _FALSE = 1;
+
     uint8 private constant _TRUE = 2;
 
-    // The slot in transient storage of the reentry lock
-    // This is the keccak256 hash of "ownerUUPS.reentry_slot"
+    /// @dev The slot in transient storage of the reentry lock. This is the keccak256 hash
+    /// of "ownerUUPS.reentry_slot"
     bytes32 private constant _REENTRY_SLOT =
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721a;
 
-    uint8 private __reentry; // slot 1
+    /// @dev Slot 1.
+    uint8 private __reentry;
+
     uint8 private __paused;
+
     uint256[49] private __gap;
 
     /// @notice Emitted when the contract is paused.
@@ -88,7 +92,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(
         address _owner,
         address _addressManager
@@ -103,13 +106,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         __AddressResolver_init(_addressManager);
     }
 
-    // solhint-disable-next-line func-name-mixedcase
     function __Essential_init(address _owner) internal virtual {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __paused = _FALSE;
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
+
     function _authorizePause(address) internal virtual onlyOwner { }
 
     // Stores the reentry lock
