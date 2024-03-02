@@ -236,7 +236,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -285,7 +285,7 @@ contract ERC721VaultTest is TaikoTest {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_721Vault_sendToken_with_1_tokens_but_erc721_amount_1_invalid() public {
+    function test_721Vault_sendToken_with_1_tokens_but_erc721_amount_0_invalid() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -295,7 +295,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = 0;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
             address(0),
@@ -326,7 +326,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -379,7 +379,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -427,7 +427,7 @@ contract ERC721VaultTest is TaikoTest {
 
         tokenIds[0] = 2;
 
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -469,7 +469,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         uint256 etherValue = 0.1 ether;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
@@ -529,7 +529,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -569,8 +569,8 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[1] = 2;
 
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = 0;
-        amounts[1] = 0;
+        amounts[0] = 1;
+        amounts[1] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -625,7 +625,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -724,7 +724,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
@@ -808,7 +808,7 @@ contract ERC721VaultTest is TaikoTest {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,

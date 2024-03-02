@@ -18,6 +18,16 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     uint256[50] private __gap;
 
+    /// @notice Helper function to create array of ones with specified length
+    /// @param length array length to create
+    function createArrayOfOnes(uint256 length) private pure returns (uint256[] memory) {
+        uint256[] memory ones = new uint256[](length);
+        for (uint256 i; i < length; ++i) {
+            ones[i] = 1;
+        }
+        return ones;
+    }
+
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
@@ -32,7 +42,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         returns (IBridge.Message memory message_)
     {
         for (uint256 i; i < _op.tokenIds.length; ++i) {
-            if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
+            if (_op.amounts[i] != 1) revert VAULT_INVALID_AMOUNT();
         }
 
         if (!_op.token.supportsInterface(ERC721_INTERFACE_ID)) {
@@ -102,7 +112,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             ctoken: ctoken.addr,
             token: token,
             tokenIds: tokenIds,
-            amounts: new uint256[](tokenIds.length)
+            amounts: createArrayOfOnes(tokenIds.length)
         });
     }
 
@@ -134,7 +144,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             ctoken: ctoken.addr,
             token: token,
             tokenIds: tokenIds,
-            amounts: new uint256[](tokenIds.length)
+            amounts: createArrayOfOnes(tokenIds.length)
         });
     }
 
