@@ -71,7 +71,8 @@ abstract contract Guardians is EssentialContract {
         }
 
         // Delete the current guardians
-        for (uint256 i; i < guardians.length; ++i) {
+        uint256 guardianslen = guardians.length;
+        for (uint256 i; i < guardianslen; ++i) {
             delete guardianIds[guardians[i]];
         }
         delete guardians;
