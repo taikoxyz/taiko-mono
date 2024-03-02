@@ -141,11 +141,15 @@ func (i *Indexer) handleEvent(
 		if i.watchMode == CrawlPastBlocks && eventStatus == existingEvent.Status {
 			// If the status from contract matches the existing event status,
 			// we can return early as this message has been processed as expected.
+			slog.Info("crawler returning early", "eventStatus", eventStatus, "existingEvent.Status", existingEvent.Status)
+
 			return nil
 		}
 
 		// If the status from contract is done, update the database
 		if i.watchMode == CrawlPastBlocks && eventStatus == relayer.EventStatusDone {
+			slog.Info("updating status for msgHash", "msgHash", common.Hash(event.MsgHash).Hex())
+
 			if err := i.eventRepo.UpdateStatus(ctx, id, relayer.EventStatusDone); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("i.eventRepo.UpdateStatus, id: %v", id))
 			}
