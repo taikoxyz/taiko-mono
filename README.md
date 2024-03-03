@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./packages/branding/RGB SVG (For Digital Use)/Taiko Icon/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./packages/branding/RGB SVG (For Digital Use)/Taiko Icon/taiko-icon-blk.svg" width="80" alt="Taiko Logo" />
 </p>
 
 <h1 align="center">
@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  A based rollup.
+  基于 Rollup 的项目。
 </p>
 
 <div align="center">
@@ -23,11 +23,11 @@
 
 ## Documentation
 
-End user documentation can be found at [docs.taiko.xyz](https://docs.taiko.xyz). Protocol specs can be found [here](./packages/protocol/docs/README.md).
+用户端文档可在 [docs.taiko.xyz](https://docs.taiko.xyz) 找到。协议规范可在[这里](./packages/protocol/docs/README.md)找到。
 
-Each package of the monorepo is well documented and includes a README.
+monorepo 的每个包都有良好的文档，并包含一个 README。
 
-## Project structure
+## 项目结构
 
 <pre>
 taiko-mono/
@@ -36,27 +36,28 @@ taiko-mono/
 ├── <a href="./LICENSE.md">LICENSE.md</a>
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI.
-│   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
-│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page.
-│   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check service.
-│   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI.
-│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
-│   └── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
+│   ├── <a href="./packages/branding">branding</a>: Taiko 品牌材料。
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI。
+│   ├── <a href="./packages/eventindexer">eventindexer</a>: 事件索引器。
+│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff 页面。
+│   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check 服务。
+│   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI。
+│   ├── <a href="./packages/protocol">protocol</a>: Taiko 协议和桥接智能合约。
+│   └── <a href="./packages/relayer">relayer</a>: Go 中的桥接后端中继器。
 ...
 </pre>
 
-## Issues
+## 问题
 
-If you find a bug or have a feature request, please [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
+如果您发现错误或有功能请求，请[提出问题](https://github.com/taikoxyz/taiko-mono/issues/new/choose)。
 
-## Contributing
+## 贡献
 
-Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
+查看[CONTRIBUTING.md](./CONTRIBUTING.md)以获取有关如何贡献的详细信息。
 
-You can also check out our grants cycle at [grants.taiko.xyz](https://grants.taiko.xyz).
+您还可以查看我们的赠款周期，网址为[grants.taiko.xyz](https://grants.taiko.xyz)。
 
-## Getting support
+## 获取支持
 
-Reach out to the community on [Discord](https://discord.gg/taikoxyz) if you need any help!
+如果您需要任何帮助，请在 [Discord](https://discord.gg/taikoxyz) 社区中联系我们！
+
