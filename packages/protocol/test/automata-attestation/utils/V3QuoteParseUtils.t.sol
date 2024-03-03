@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.24;
 
 import { V3Struct } from "../../../contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import { V3Parser } from "../../../contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
@@ -131,11 +131,11 @@ contract V3QuoteParseUtils {
             reportData: bytes(v3quoteHelper.v3AuthData.pckSignedQeReport.reportData)
         });
         v3quote.v3AuthData.qeReportSignature = bytes(v3quoteHelper.v3AuthData.qeReportSignature);
-        v3quote.v3AuthData.qeAuthData = V3Struct.ParsedQEAuthData({
+        v3quote.v3AuthData.qeAuthData = V3Struct.QEAuthData({
             parsedDataSize: uint16(v3quoteHelper.v3AuthData.qeAuthData.parsedDataSize),
             data: bytes.concat(v3quoteHelper.v3AuthData.qeAuthData.data)
         });
-        v3quote.v3AuthData.certification = V3Struct.ParsedCertificationData({
+        v3quote.v3AuthData.certification = V3Struct.CertificationData({
             certType: uint16(v3quoteHelper.v3AuthData.certification.certType),
             certDataSize: uint32(v3quoteHelper.v3AuthData.certification.certDataSize),
             decodedCertDataArray: [
@@ -154,53 +154,8 @@ contract V3QuoteParseUtils {
         pure
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)
     {
-        (
-            bool successful,
-            V3Struct.Header memory header,
-            V3Struct.EnclaveReport memory localEnclaveReport,
-            ,
-            V3Struct.ECDSAQuoteV3AuthData memory authDataV3
-        ) = V3Parser.parseInput(v3QuoteBytes);
+        bool successful = false;
+        (successful, v3quote) = V3Parser.parseInput(v3QuoteBytes, pemCertChainLib);
         require(successful, "V3Quote bytes parse failed");
-
-        v3quote = V3Struct.ParsedV3QuoteStruct({
-            header: header,
-            localEnclaveReport: localEnclaveReport,
-            v3AuthData: fromLegacyECDSAQuoteV3AuthData(pemCertChainLib, authDataV3)
-        });
-    }
-
-    function fromLegacyECDSAQuoteV3AuthData(
-        address pemCertLibAddr,
-        V3Struct.ECDSAQuoteV3AuthData memory v3AuthDataOld
-    )
-        internal
-        pure
-        returns (V3Struct.ParsedECDSAQuoteV3AuthData memory v3AuthDataNew)
-    {
-        IPEMCertChainLib pemCertLib = PEMCertChainLib(pemCertLibAddr);
-        IPEMCertChainLib.ECSha256Certificate[] memory parsedQuoteCerts;
-        (bool certParsedSuccessfully, bytes[] memory quoteCerts) =
-            pemCertLib.splitCertificateChain(v3AuthDataOld.certification.certData, 3);
-        require(certParsedSuccessfully, "splitCertificateChain failed");
-        parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
-        for (uint256 i = 0; i < 3; i++) {
-            quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
-        }
-
-        // setup v3AuthData
-        v3AuthDataNew.ecdsa256BitSignature = v3AuthDataOld.ecdsa256BitSignature;
-        v3AuthDataNew.ecdsaAttestationKey = v3AuthDataOld.ecdsaAttestationKey;
-        v3AuthDataNew.pckSignedQeReport = V3Parser.parseEnclaveReport(v3AuthDataOld.rawQeReport);
-        v3AuthDataNew.qeReportSignature = v3AuthDataOld.qeReportSignature;
-        v3AuthDataNew.qeAuthData = V3Struct.ParsedQEAuthData({
-            parsedDataSize: uint16(v3AuthDataOld.qeAuthData.parsedDataSize),
-            data: bytes.concat(v3AuthDataOld.qeAuthData.data)
-        });
-        v3AuthDataNew.certification = V3Struct.ParsedCertificationData({
-            certType: uint16(v3AuthDataOld.certification.certType),
-            certDataSize: uint32(v3AuthDataOld.certification.certDataSize),
-            decodedCertDataArray: [quoteCerts[0], quoteCerts[1], quoteCerts[2]]
-        });
     }
 }

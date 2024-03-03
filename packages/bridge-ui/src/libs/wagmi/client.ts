@@ -1,4 +1,4 @@
-import { walletConnect } from '@wagmi/connectors';
+import { injected, walletConnect } from '@wagmi/connectors';
 import { createConfig, getPublicClient, http, reconnect } from '@wagmi/core';
 import type { Chain } from 'viem';
 

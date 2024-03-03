@@ -12,7 +12,7 @@ on:
 
 jobs:
   Deploy-Preview:
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

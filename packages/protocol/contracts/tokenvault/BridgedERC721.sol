@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
@@ -21,22 +8,28 @@ import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
+/// @custom:security-contact security@taiko.xyz
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
-    address public srcToken; // Address of the source token contract.
-    uint256 public srcChainId; // Source chain ID where the token originates.
+    /// @notice Address of the source token contract.
+    address public srcToken;
+
+    /// @notice Source chain ID where the token originates.
+    uint256 public srcChainId;
 
     uint256[48] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_BURN();
 
-    /// @dev Initializer function to be called after deployment.
-    /// @param _addressManager The address of the address manager.
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -48,8 +41,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
-
-        __Essential_init(_addressManager);
+        __Essential_init(_owner, _addressManager);
         __ERC721_init(_name, _symbol);
 
         srcToken = _srcToken;
@@ -57,26 +49,26 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @dev Mints tokens.
-    /// @param account Address to receive the minted token.
-    /// @param tokenId ID of the token to mint.
+    /// @param _account Address to receive the minted token.
+    /// @param _tokenId ID of the token to mint.
     function mint(
-        address account,
-        uint256 tokenId
+        address _account,
+        uint256 _tokenId
     )
         public
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
     {
-        _safeMint(account, tokenId);
+        _safeMint(_account, _tokenId);
     }
 
     /// @dev Burns tokens.
-    /// @param account Address from which the token is burned.
-    /// @param tokenId ID of the token to burn.
+    /// @param _account Address from which the token is burned.
+    /// @param _tokenId ID of the token to burn.
     function burn(
-        address account,
-        uint256 tokenId
+        address _account,
+        uint256 _tokenId
     )
         public
         nonReentrant
@@ -84,10 +76,10 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         onlyFromNamed("erc721_vault")
     {
         // Check if the caller is the owner of the token.
-        if (ownerOf(tokenId) != account) {
+        if (ownerOf(_tokenId) != _account) {
             revert BTOKEN_INVALID_BURN();
         }
-        _burn(tokenId);
+        _burn(_tokenId);
     }
 
     /// @notice Gets the name of the token.
@@ -103,27 +95,34 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
-    /// @return Source token address and source chain ID.
+    /// @return The source token's address.
+    /// @return The source token's chain ID.
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     /// @notice Returns the token URI.
-    function tokenURI(uint256) public view virtual override returns (string memory) {
-        return LibBridgedToken.buildURI(srcToken, srcChainId);
+    /// @param _tokenId The token id.
+    /// @return The token URI following EIP-681.
+    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
+        return string(
+            abi.encodePacked(
+                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
+            )
+        );
     }
 
     function _beforeTokenTransfer(
-        address, /*from*/
-        address to,
-        uint256, /*firstTokenId*/
-        uint256 /*batchSize*/
+        address, /*_from*/
+        address _to,
+        uint256, /*_firstTokenId*/
+        uint256 /*_batchSize*/
     )
         internal
         virtual
         override
     {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
     }
 }

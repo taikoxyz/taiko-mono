@@ -7,24 +7,26 @@ import { BytesUtils } from "../utils/BytesUtils.sol";
 import { X509DateUtils } from "../utils/X509DateUtils.sol";
 import { IPEMCertChainLib } from "./interfaces/IPEMCertChainLib.sol";
 
+/// @title PEMCertChainLib
+/// @custom:security-contact security@taiko.xyz
 contract PEMCertChainLib is IPEMCertChainLib {
     using Asn1Decode for bytes;
     using NodePtr for uint256;
     using BytesUtils for bytes;
 
-    string constant HEADER = "-----BEGIN CERTIFICATE-----";
-    string constant FOOTER = "-----END CERTIFICATE-----";
+    string internal constant HEADER = "-----BEGIN CERTIFICATE-----";
+    string internal constant FOOTER = "-----END CERTIFICATE-----";
     uint256 internal constant HEADER_LENGTH = 27;
     uint256 internal constant FOOTER_LENGTH = 25;
 
-    string constant PCK_COMMON_NAME = "Intel SGX PCK Certificate";
-    string constant PLATFORM_ISSUER_NAME = "Intel SGX PCK Platform CA";
-    string constant PROCESSOR_ISSUER_NAME = "Intel SGX PCK Processor CA";
-    bytes constant SGX_EXTENSION_OID = hex"2A864886F84D010D01";
-    bytes constant TCB_OID = hex"2A864886F84D010D0102";
-    bytes constant PCESVN_OID = hex"2A864886F84D010D010211";
-    bytes constant PCEID_OID = hex"2A864886F84D010D0103";
-    bytes constant FMSPC_OID = hex"2A864886F84D010D0104";
+    string internal constant PCK_COMMON_NAME = "Intel SGX PCK Certificate";
+    string internal constant PLATFORM_ISSUER_NAME = "Intel SGX PCK Platform CA";
+    string internal constant PROCESSOR_ISSUER_NAME = "Intel SGX PCK Processor CA";
+    bytes internal constant SGX_EXTENSION_OID = hex"2A864886F84D010D01";
+    bytes internal constant TCB_OID = hex"2A864886F84D010D0102";
+    bytes internal constant PCESVN_OID = hex"2A864886F84D010D010211";
+    bytes internal constant PCEID_OID = hex"2A864886F84D010D0103";
+    bytes internal constant FMSPC_OID = hex"2A864886F84D010D0104";
 
     // https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/e7604e02331b3377f3766ed3653250e03af72d45/QuoteVerification/QVL/Src/AttestationLibrary/src/CertVerification/X509Constants.h#L64
     uint256 constant SGX_TCB_CPUSVN_SIZE = 16;
@@ -49,7 +51,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         uint256 index = 0;
         uint256 len = pemChain.length;
 
-        for (uint256 i = 0; i < size; i++) {
+        for (uint256 i; i < size; ++i) {
             string memory input;
             if (i > 0) {
                 input = LibString.slice(pemChainStr, index, index + len);
@@ -164,7 +166,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
             uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
             sigPtr = der.nextSiblingOf(sigPtr);
 
-            // Skip three bytes to the right, TODO: why is it tagged with 0x03?
+            // Skip three bytes to the right
             // the three bytes in question: 0x034700 or 0x034800 or 0x034900
             sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
 
@@ -239,7 +241,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         string[] memory split = LibString.split(contentSlice, string(delimiter));
         string memory contentStr;
 
-        for (uint256 i = 0; i < split.length; i++) {
+        for (uint256 i; i < split.length; ++i) {
             contentStr = LibString.concat(contentStr, split[i]);
         }
 
@@ -349,7 +351,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         // get the first svn object in the sequence
         uint256 svnParentPtr = der.firstChildOf(tcbPtr);
         cpusvns = new uint256[](SGX_TCB_CPUSVN_SIZE);
-        for (uint256 i = 0; i < SGX_TCB_CPUSVN_SIZE + 1; i++) {
+        for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
             uint256 svnPtr = der.firstChildOf(svnParentPtr); // OID
             uint256 svnValuePtr = der.nextSiblingOf(svnPtr); // value
             bytes memory svnValueBytes = der.bytesAt(svnValuePtr);

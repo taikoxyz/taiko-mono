@@ -1,5 +1,7 @@
 # Overview
 
+**See the fork diff page at [geth.taiko.xyz](https://geth.taiko.xyz).**
+
 This package contains:
 
 - An `index.html` which shows the diff between [taiko-geth](https://github.com/taikoxyz/taiko-geth) and [go-ethereum](https://github.com/ethereum/go-ethereum).

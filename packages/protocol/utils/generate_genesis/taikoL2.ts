@@ -240,7 +240,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressManager
-                addresses: {
+                __addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
@@ -296,8 +296,8 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
@@ -331,8 +331,8 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
@@ -366,8 +366,8 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
@@ -401,8 +401,8 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
@@ -460,8 +460,8 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressResolver
@@ -545,7 +545,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressManager
-                addresses: {
+                __addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko"),

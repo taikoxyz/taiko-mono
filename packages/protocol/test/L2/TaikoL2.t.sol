@@ -25,16 +25,15 @@ contract TestTaikoL2 is TaikoTest {
         addressManager = deployProxy({
             name: "address_manager",
             impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, ())
+            data: abi.encodeCall(AddressManager.init, (address(0)))
         });
 
         SignalService ss = SignalService(
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (addressManager)),
-                registerTo: addressManager,
-                owner: address(0)
+                data: abi.encodeCall(SignalService.init, (address(0), addressManager)),
+                registerTo: addressManager
             })
         );
 
@@ -48,9 +47,10 @@ contract TestTaikoL2 is TaikoTest {
                 deployProxy({
                     name: "taiko",
                     impl: address(new TaikoL2EIP1559Configurable()),
-                    data: abi.encodeCall(TaikoL2.init, (addressManager, l1ChainId, gasExcess)),
-                    registerTo: addressManager,
-                    owner: address(0)
+                    data: abi.encodeCall(
+                        TaikoL2.init, (address(0), addressManager, l1ChainId, gasExcess)
+                        ),
+                    registerTo: addressManager
                 })
             )
         );

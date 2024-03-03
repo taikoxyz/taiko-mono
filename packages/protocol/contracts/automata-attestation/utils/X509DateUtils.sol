@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.24;
 
+/// @title X509DateUtils
+/// @custom:security-contact security@taiko.xyz
 library X509DateUtils {
     function toTimestamp(bytes memory x509Time) internal pure returns (uint256) {
         uint16 yrs;
@@ -43,7 +45,7 @@ library X509DateUtils {
     {
         uint256 timestamp = 0;
 
-        for (uint16 i = 1970; i < year; i++) {
+        for (uint16 i = 1970; i < year; ++i) {
             if (isLeapYear(i)) {
                 timestamp += 31_622_400; // Leap year in seconds
             } else {
@@ -54,7 +56,7 @@ library X509DateUtils {
         uint8[12] memory monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         if (isLeapYear(year)) monthDays[1] = 29;
 
-        for (uint8 i = 1; i < month; i++) {
+        for (uint8 i = 1; i < month; ++i) {
             timestamp += uint256(monthDays[i - 1]) * 86_400; // Days in seconds
         }
 

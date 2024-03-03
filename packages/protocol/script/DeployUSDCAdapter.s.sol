@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../contracts/tokenvault/adapters/USDCAdapter.sol";
@@ -49,7 +36,9 @@ contract DeployUSDCAdapter is DeployCapability {
         address adapterProxy = deployProxy({
             name: "usdc_adapter",
             impl: address(new USDCAdapter()),
-            data: abi.encodeCall(USDCAdapter.init, (l2SharedAddressManager, IUSDC(usdcProxyL2)))
+            data: abi.encodeCall(
+                USDCAdapter.init, (address(0), l2SharedAddressManager, IUSDC(usdcProxyL2))
+                )
         });
 
         USDCAdapter(adapterProxy).transferOwnership(erc20VaultOwner);

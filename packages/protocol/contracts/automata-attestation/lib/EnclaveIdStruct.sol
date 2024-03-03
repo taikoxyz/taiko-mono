@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+/// @title EnclaveIdStruct
+/// @custom:security-contact security@taiko.xyz
 library EnclaveIdStruct {
     struct EnclaveId {
         bytes4 miscselect;

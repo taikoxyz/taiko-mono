@@ -29,6 +29,8 @@ https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Pro
     
  */
 
+/// @title RsaVerify
+/// @custom:security-contact security@taiko.xyz
 library RsaVerify {
     /**
      * @dev Verifies a PKCSv1.5 SHA256 signature
@@ -135,7 +137,7 @@ library RsaVerify {
         if (decipher[0] != 0 || decipher[1] != 0x01) {
             return false;
         }
-        for (uint256 i = 2; i < 2 + paddingLen; i++) {
+        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
             if (decipher[i] != 0xff) {
                 return false;
             }
@@ -147,13 +149,13 @@ library RsaVerify {
         // check digest algorithm
 
         if (digestAlgoWithParamLen == sha256ExplicitNullParam.length) {
-            for (uint256 i = 0; i < digestAlgoWithParamLen; i++) {
+            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
                 if (decipher[3 + paddingLen + i] != bytes1(sha256ExplicitNullParam[i])) {
                     return false;
                 }
             }
         } else {
-            for (uint256 i = 0; i < digestAlgoWithParamLen; i++) {
+            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
                 if (decipher[3 + paddingLen + i] != bytes1(sha256ImplicitNullParam[i])) {
                     return false;
                 }
@@ -169,7 +171,7 @@ library RsaVerify {
             return false;
         }
 
-        for (uint256 i = 0; i < _sha256.length; i++) {
+        for (uint256 i; i < _sha256.length; ++i) {
             if (decipher[5 + paddingLen + digestAlgoWithParamLen + i] != _sha256[i]) {
                 return false;
             }
@@ -268,7 +270,7 @@ library RsaVerify {
         if (decipher[0] != 0 || decipher[1] != 0x01) {
             return false;
         }
-        for (uint256 i = 2; i < 2 + paddingLen; i++) {
+        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
             if (decipher[i] != 0xff) {
                 return false;
             }
@@ -278,14 +280,14 @@ library RsaVerify {
         }
 
         // check digest algorithm
-        for (uint256 i = 0; i < sha1Prefix.length; i++) {
+        for (uint256 i; i < sha1Prefix.length; ++i) {
             if (decipher[3 + paddingLen + i] != bytes1(sha1Prefix[i])) {
                 return false;
             }
         }
 
         // check digest
-        for (uint256 i = 0; i < _sha1.length; i++) {
+        for (uint256 i; i < _sha1.length; ++i) {
             if (decipher[3 + paddingLen + sha1Prefix.length + i] != _sha1[i]) {
                 return false;
             }

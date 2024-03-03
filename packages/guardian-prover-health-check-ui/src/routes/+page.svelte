@@ -8,4 +8,3 @@
 </svelte:head>
 
 <Overview />
-<p>hiya! this is just a fun test, you can ignore it</p>

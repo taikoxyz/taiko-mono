@@ -31,13 +31,14 @@ var (
 
 // AssignmentHookProverAssignment is an auto generated low-level Go binding around an user-defined struct.
 type AssignmentHookProverAssignment struct {
-	FeeToken      common.Address
-	Expiry        uint64
-	MaxBlockId    uint64
-	MaxProposedIn uint64
-	MetaHash      [32]byte
-	TierFees      []TaikoDataTierFee
-	Signature     []byte
+	FeeToken       common.Address
+	Expiry         uint64
+	MaxBlockId     uint64
+	MaxProposedIn  uint64
+	MetaHash       [32]byte
+	ParentMetaHash [32]byte
+	TierFees       []TaikoDataTierFee
+	Signature      []byte
 }
 
 // TaikoDataBlock is an auto generated low-level Go binding around an user-defined struct.
@@ -50,7 +51,6 @@ type TaikoDataBlock struct {
 	ProposedIn           uint64
 	NextTransitionId     uint32
 	VerifiedTransitionId uint32
-	Reserved             [7][32]byte
 }
 
 // TaikoDataBlockMetadata is an auto generated low-level Go binding around an user-defined struct.
@@ -80,7 +80,7 @@ type TaikoDataTierFee struct {
 
 // AssignmentHookMetaData contains all meta data concerning the AssignmentHook contract.
 var AssignmentHookMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"ETH_TRANSFER_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"HOOK_ASSIGNMENT_EXPIRED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"HOOK_ASSIGNMENT_INSUFFICIENT_FEE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"HOOK_ASSIGNMENT_INVALID_SIG\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"HOOK_TIER_NOT_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_PAUSE_STATUS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REENTRANT_CALL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_MANAGER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"previousAdmin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"AdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"beacon\",\"type\":\"address\"}],\"name\":\"BeaconUpgraded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"assignedProver\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"difficulty\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"blobHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"extraData\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"depositsHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"coinbase\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"uint24\",\"name\":\"txListByteOffset\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteSize\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"minTier\",\"type\":\"uint16\"},{\"internalType\":\"bool\",\"name\":\"blobUsed\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"parentMetaHash\",\"type\":\"bytes32\"}],\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"feeToken\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"expiry\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxBlockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxProposedIn\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"metaHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint16\",\"name\":\"tier\",\"type\":\"uint16\"},{\"internalType\":\"uint128\",\"name\":\"fee\",\"type\":\"uint128\"}],\"internalType\":\"structTaikoData.TierFee[]\",\"name\":\"tierFees\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"}],\"indexed\":false,\"internalType\":\"structAssignmentHook.ProverAssignment\",\"name\":\"assignment\",\"type\":\"tuple\"}],\"name\":\"BlockAssigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"MAX_GAS_PAYING_PROVER\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"feeToken\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"expiry\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxBlockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxProposedIn\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"metaHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint16\",\"name\":\"tier\",\"type\":\"uint16\"},{\"internalType\":\"uint128\",\"name\":\"fee\",\"type\":\"uint128\"}],\"internalType\":\"structTaikoData.TierFee[]\",\"name\":\"tierFees\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"}],\"internalType\":\"structAssignmentHook.ProverAssignment\",\"name\":\"assignment\",\"type\":\"tuple\"},{\"internalType\":\"address\",\"name\":\"taikoAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"blobHash\",\"type\":\"bytes32\"}],\"name\":\"hashAssignment\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"metaHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"assignedProver\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"livenessBond\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"proposedAt\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"proposedIn\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"nextTransitionId\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"verifiedTransitionId\",\"type\":\"uint32\"},{\"internalType\":\"bytes32[7]\",\"name\":\"__reserved\",\"type\":\"bytes32[7]\"}],\"internalType\":\"structTaikoData.Block\",\"name\":\"blk\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"difficulty\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"blobHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"extraData\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"depositsHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"coinbase\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"uint24\",\"name\":\"txListByteOffset\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteSize\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"minTier\",\"type\":\"uint16\"},{\"internalType\":\"bool\",\"name\":\"blobUsed\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"parentMetaHash\",\"type\":\"bytes32\"}],\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"onBlockProposed\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"}],\"name\":\"upgradeTo\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"upgradeToAndCall\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"MAX_GAS_PAYING_PROVER\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"hashAssignment\",\"inputs\":[{\"name\":\"_assignment\",\"type\":\"tuple\",\"internalType\":\"structAssignmentHook.ProverAssignment\",\"components\":[{\"name\":\"feeToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"expiry\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxProposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"tierFees\",\"type\":\"tuple[]\",\"internalType\":\"structTaikoData.TierFee[]\",\"components\":[{\"name\":\"tier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"fee\",\"type\":\"uint128\",\"internalType\":\"uint128\"}]},{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"_taikoL1Address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onBlockProposed\",\"inputs\":[{\"name\":\"_blk\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.Block\",\"components\":[{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"assignedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"nextTransitionId\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"verifiedTransitionId\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]},{\"name\":\"_meta\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.BlockMetadata\",\"components\":[{\"name\":\"l1Hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"depositsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"l1Height\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListByteOffset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"txListByteSize\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockAssigned\",\"inputs\":[{\"name\":\"assignedProver\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"meta\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"components\":[{\"name\":\"l1Hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"depositsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"l1Height\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListByteOffset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"txListByteSize\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"assignment\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structAssignmentHook.ProverAssignment\",\"components\":[{\"name\":\"feeToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"expiry\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxProposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"tierFees\",\"type\":\"tuple[]\",\"internalType\":\"structTaikoData.TierFee[]\",\"components\":[{\"name\":\"tier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"fee\",\"type\":\"uint128\",\"internalType\":\"uint128\"}]},{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_ASSIGNMENT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_ASSIGNMENT_INVALID_SIG\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_TIER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADDR_MANAGER\",\"inputs\":[]}]",
 }
 
 // AssignmentHookABI is the input ABI used to generate the binding from.
@@ -291,12 +291,12 @@ func (_AssignmentHook *AssignmentHookCallerSession) AddressManager() (common.Add
 	return _AssignmentHook.Contract.AddressManager(&_AssignmentHook.CallOpts)
 }
 
-// HashAssignment is a free data retrieval call binding the contract method 0x9f64a349.
+// HashAssignment is a free data retrieval call binding the contract method 0xbab50685.
 //
-// Solidity: function hashAssignment((address,uint64,uint64,uint64,bytes32,(uint16,uint128)[],bytes) assignment, address taikoAddress, bytes32 blobHash) pure returns(bytes32)
-func (_AssignmentHook *AssignmentHookCaller) HashAssignment(opts *bind.CallOpts, assignment AssignmentHookProverAssignment, taikoAddress common.Address, blobHash [32]byte) ([32]byte, error) {
+// Solidity: function hashAssignment((address,uint64,uint64,uint64,bytes32,bytes32,(uint16,uint128)[],bytes) _assignment, address _taikoL1Address, bytes32 _blobHash) view returns(bytes32)
+func (_AssignmentHook *AssignmentHookCaller) HashAssignment(opts *bind.CallOpts, _assignment AssignmentHookProverAssignment, _taikoL1Address common.Address, _blobHash [32]byte) ([32]byte, error) {
 	var out []interface{}
-	err := _AssignmentHook.contract.Call(opts, &out, "hashAssignment", assignment, taikoAddress, blobHash)
+	err := _AssignmentHook.contract.Call(opts, &out, "hashAssignment", _assignment, _taikoL1Address, _blobHash)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -308,18 +308,18 @@ func (_AssignmentHook *AssignmentHookCaller) HashAssignment(opts *bind.CallOpts,
 
 }
 
-// HashAssignment is a free data retrieval call binding the contract method 0x9f64a349.
+// HashAssignment is a free data retrieval call binding the contract method 0xbab50685.
 //
-// Solidity: function hashAssignment((address,uint64,uint64,uint64,bytes32,(uint16,uint128)[],bytes) assignment, address taikoAddress, bytes32 blobHash) pure returns(bytes32)
-func (_AssignmentHook *AssignmentHookSession) HashAssignment(assignment AssignmentHookProverAssignment, taikoAddress common.Address, blobHash [32]byte) ([32]byte, error) {
-	return _AssignmentHook.Contract.HashAssignment(&_AssignmentHook.CallOpts, assignment, taikoAddress, blobHash)
+// Solidity: function hashAssignment((address,uint64,uint64,uint64,bytes32,bytes32,(uint16,uint128)[],bytes) _assignment, address _taikoL1Address, bytes32 _blobHash) view returns(bytes32)
+func (_AssignmentHook *AssignmentHookSession) HashAssignment(_assignment AssignmentHookProverAssignment, _taikoL1Address common.Address, _blobHash [32]byte) ([32]byte, error) {
+	return _AssignmentHook.Contract.HashAssignment(&_AssignmentHook.CallOpts, _assignment, _taikoL1Address, _blobHash)
 }
 
-// HashAssignment is a free data retrieval call binding the contract method 0x9f64a349.
+// HashAssignment is a free data retrieval call binding the contract method 0xbab50685.
 //
-// Solidity: function hashAssignment((address,uint64,uint64,uint64,bytes32,(uint16,uint128)[],bytes) assignment, address taikoAddress, bytes32 blobHash) pure returns(bytes32)
-func (_AssignmentHook *AssignmentHookCallerSession) HashAssignment(assignment AssignmentHookProverAssignment, taikoAddress common.Address, blobHash [32]byte) ([32]byte, error) {
-	return _AssignmentHook.Contract.HashAssignment(&_AssignmentHook.CallOpts, assignment, taikoAddress, blobHash)
+// Solidity: function hashAssignment((address,uint64,uint64,uint64,bytes32,bytes32,(uint16,uint128)[],bytes) _assignment, address _taikoL1Address, bytes32 _blobHash) view returns(bytes32)
+func (_AssignmentHook *AssignmentHookCallerSession) HashAssignment(_assignment AssignmentHookProverAssignment, _taikoL1Address common.Address, _blobHash [32]byte) ([32]byte, error) {
+	return _AssignmentHook.Contract.HashAssignment(&_AssignmentHook.CallOpts, _assignment, _taikoL1Address, _blobHash)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -384,6 +384,37 @@ func (_AssignmentHook *AssignmentHookCallerSession) Paused() (bool, error) {
 	return _AssignmentHook.Contract.Paused(&_AssignmentHook.CallOpts)
 }
 
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_AssignmentHook *AssignmentHookCaller) PendingOwner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _AssignmentHook.contract.Call(opts, &out, "pendingOwner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_AssignmentHook *AssignmentHookSession) PendingOwner() (common.Address, error) {
+	return _AssignmentHook.Contract.PendingOwner(&_AssignmentHook.CallOpts)
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_AssignmentHook *AssignmentHookCallerSession) PendingOwner() (common.Address, error) {
+	return _AssignmentHook.Contract.PendingOwner(&_AssignmentHook.CallOpts)
+}
+
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
 //
 // Solidity: function proxiableUUID() view returns(bytes32)
@@ -417,10 +448,10 @@ func (_AssignmentHook *AssignmentHookCallerSession) ProxiableUUID() ([32]byte, e
 
 // Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_AssignmentHook *AssignmentHookCaller) Resolve(opts *bind.CallOpts, chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_AssignmentHook *AssignmentHookCaller) Resolve(opts *bind.CallOpts, _chainId uint64, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
 	var out []interface{}
-	err := _AssignmentHook.contract.Call(opts, &out, "resolve", chainId, name, allowZeroAddress)
+	err := _AssignmentHook.contract.Call(opts, &out, "resolve", _chainId, _name, _allowZeroAddress)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -434,24 +465,24 @@ func (_AssignmentHook *AssignmentHookCaller) Resolve(opts *bind.CallOpts, chainI
 
 // Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_AssignmentHook *AssignmentHookSession) Resolve(chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _AssignmentHook.Contract.Resolve(&_AssignmentHook.CallOpts, chainId, name, allowZeroAddress)
+// Solidity: function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_AssignmentHook *AssignmentHookSession) Resolve(_chainId uint64, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _AssignmentHook.Contract.Resolve(&_AssignmentHook.CallOpts, _chainId, _name, _allowZeroAddress)
 }
 
 // Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_AssignmentHook *AssignmentHookCallerSession) Resolve(chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _AssignmentHook.Contract.Resolve(&_AssignmentHook.CallOpts, chainId, name, allowZeroAddress)
+// Solidity: function resolve(uint64 _chainId, bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_AssignmentHook *AssignmentHookCallerSession) Resolve(_chainId uint64, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _AssignmentHook.Contract.Resolve(&_AssignmentHook.CallOpts, _chainId, _name, _allowZeroAddress)
 }
 
 // Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
 //
-// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_AssignmentHook *AssignmentHookCaller) Resolve0(opts *bind.CallOpts, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function resolve(bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_AssignmentHook *AssignmentHookCaller) Resolve0(opts *bind.CallOpts, _name [32]byte, _allowZeroAddress bool) (common.Address, error) {
 	var out []interface{}
-	err := _AssignmentHook.contract.Call(opts, &out, "resolve0", name, allowZeroAddress)
+	err := _AssignmentHook.contract.Call(opts, &out, "resolve0", _name, _allowZeroAddress)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -465,58 +496,79 @@ func (_AssignmentHook *AssignmentHookCaller) Resolve0(opts *bind.CallOpts, name 
 
 // Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
 //
-// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_AssignmentHook *AssignmentHookSession) Resolve0(name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _AssignmentHook.Contract.Resolve0(&_AssignmentHook.CallOpts, name, allowZeroAddress)
+// Solidity: function resolve(bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_AssignmentHook *AssignmentHookSession) Resolve0(_name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _AssignmentHook.Contract.Resolve0(&_AssignmentHook.CallOpts, _name, _allowZeroAddress)
 }
 
 // Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
 //
-// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_AssignmentHook *AssignmentHookCallerSession) Resolve0(name [32]byte, allowZeroAddress bool) (common.Address, error) {
-	return _AssignmentHook.Contract.Resolve0(&_AssignmentHook.CallOpts, name, allowZeroAddress)
+// Solidity: function resolve(bytes32 _name, bool _allowZeroAddress) view returns(address)
+func (_AssignmentHook *AssignmentHookCallerSession) Resolve0(_name [32]byte, _allowZeroAddress bool) (common.Address, error) {
+	return _AssignmentHook.Contract.Resolve0(&_AssignmentHook.CallOpts, _name, _allowZeroAddress)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x19ab453c.
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
-// Solidity: function init(address _addressManager) returns()
-func (_AssignmentHook *AssignmentHookTransactor) Init(opts *bind.TransactOpts, _addressManager common.Address) (*types.Transaction, error) {
-	return _AssignmentHook.contract.Transact(opts, "init", _addressManager)
+// Solidity: function acceptOwnership() returns()
+func (_AssignmentHook *AssignmentHookTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _AssignmentHook.contract.Transact(opts, "acceptOwnership")
 }
 
-// Init is a paid mutator transaction binding the contract method 0x19ab453c.
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
-// Solidity: function init(address _addressManager) returns()
-func (_AssignmentHook *AssignmentHookSession) Init(_addressManager common.Address) (*types.Transaction, error) {
-	return _AssignmentHook.Contract.Init(&_AssignmentHook.TransactOpts, _addressManager)
+// Solidity: function acceptOwnership() returns()
+func (_AssignmentHook *AssignmentHookSession) AcceptOwnership() (*types.Transaction, error) {
+	return _AssignmentHook.Contract.AcceptOwnership(&_AssignmentHook.TransactOpts)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x19ab453c.
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
-// Solidity: function init(address _addressManager) returns()
-func (_AssignmentHook *AssignmentHookTransactorSession) Init(_addressManager common.Address) (*types.Transaction, error) {
-	return _AssignmentHook.Contract.Init(&_AssignmentHook.TransactOpts, _addressManager)
+// Solidity: function acceptOwnership() returns()
+func (_AssignmentHook *AssignmentHookTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _AssignmentHook.Contract.AcceptOwnership(&_AssignmentHook.TransactOpts)
 }
 
-// OnBlockProposed is a paid mutator transaction binding the contract method 0x6bfd8a0f.
+// Init is a paid mutator transaction binding the contract method 0xf09a4016.
 //
-// Solidity: function onBlockProposed((bytes32,address,uint96,uint64,uint64,uint64,uint32,uint32,bytes32[7]) blk, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, bytes data) payable returns()
-func (_AssignmentHook *AssignmentHookTransactor) OnBlockProposed(opts *bind.TransactOpts, blk TaikoDataBlock, meta TaikoDataBlockMetadata, data []byte) (*types.Transaction, error) {
-	return _AssignmentHook.contract.Transact(opts, "onBlockProposed", blk, meta, data)
+// Solidity: function init(address _owner, address _addressManager) returns()
+func (_AssignmentHook *AssignmentHookTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
+	return _AssignmentHook.contract.Transact(opts, "init", _owner, _addressManager)
 }
 
-// OnBlockProposed is a paid mutator transaction binding the contract method 0x6bfd8a0f.
+// Init is a paid mutator transaction binding the contract method 0xf09a4016.
 //
-// Solidity: function onBlockProposed((bytes32,address,uint96,uint64,uint64,uint64,uint32,uint32,bytes32[7]) blk, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, bytes data) payable returns()
-func (_AssignmentHook *AssignmentHookSession) OnBlockProposed(blk TaikoDataBlock, meta TaikoDataBlockMetadata, data []byte) (*types.Transaction, error) {
-	return _AssignmentHook.Contract.OnBlockProposed(&_AssignmentHook.TransactOpts, blk, meta, data)
+// Solidity: function init(address _owner, address _addressManager) returns()
+func (_AssignmentHook *AssignmentHookSession) Init(_owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
+	return _AssignmentHook.Contract.Init(&_AssignmentHook.TransactOpts, _owner, _addressManager)
 }
 
-// OnBlockProposed is a paid mutator transaction binding the contract method 0x6bfd8a0f.
+// Init is a paid mutator transaction binding the contract method 0xf09a4016.
 //
-// Solidity: function onBlockProposed((bytes32,address,uint96,uint64,uint64,uint64,uint32,uint32,bytes32[7]) blk, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, bytes data) payable returns()
-func (_AssignmentHook *AssignmentHookTransactorSession) OnBlockProposed(blk TaikoDataBlock, meta TaikoDataBlockMetadata, data []byte) (*types.Transaction, error) {
-	return _AssignmentHook.Contract.OnBlockProposed(&_AssignmentHook.TransactOpts, blk, meta, data)
+// Solidity: function init(address _owner, address _addressManager) returns()
+func (_AssignmentHook *AssignmentHookTransactorSession) Init(_owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
+	return _AssignmentHook.Contract.Init(&_AssignmentHook.TransactOpts, _owner, _addressManager)
+}
+
+// OnBlockProposed is a paid mutator transaction binding the contract method 0x4a697ba4.
+//
+// Solidity: function onBlockProposed((bytes32,address,uint96,uint64,uint64,uint64,uint32,uint32) _blk, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) _meta, bytes _data) payable returns()
+func (_AssignmentHook *AssignmentHookTransactor) OnBlockProposed(opts *bind.TransactOpts, _blk TaikoDataBlock, _meta TaikoDataBlockMetadata, _data []byte) (*types.Transaction, error) {
+	return _AssignmentHook.contract.Transact(opts, "onBlockProposed", _blk, _meta, _data)
+}
+
+// OnBlockProposed is a paid mutator transaction binding the contract method 0x4a697ba4.
+//
+// Solidity: function onBlockProposed((bytes32,address,uint96,uint64,uint64,uint64,uint32,uint32) _blk, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) _meta, bytes _data) payable returns()
+func (_AssignmentHook *AssignmentHookSession) OnBlockProposed(_blk TaikoDataBlock, _meta TaikoDataBlockMetadata, _data []byte) (*types.Transaction, error) {
+	return _AssignmentHook.Contract.OnBlockProposed(&_AssignmentHook.TransactOpts, _blk, _meta, _data)
+}
+
+// OnBlockProposed is a paid mutator transaction binding the contract method 0x4a697ba4.
+//
+// Solidity: function onBlockProposed((bytes32,address,uint96,uint64,uint64,uint64,uint32,uint32) _blk, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) _meta, bytes _data) payable returns()
+func (_AssignmentHook *AssignmentHookTransactorSession) OnBlockProposed(_blk TaikoDataBlock, _meta TaikoDataBlockMetadata, _data []byte) (*types.Transaction, error) {
+	return _AssignmentHook.Contract.OnBlockProposed(&_AssignmentHook.TransactOpts, _blk, _meta, _data)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -999,9 +1051,9 @@ type AssignmentHookBlockAssigned struct {
 	Raw            types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockAssigned is a free log retrieval operation binding the contract event 0xcd949933b61139cc85e76147e25c12a4fb3664bd6e1dcf9ab10e87e756e7c4a7.
+// FilterBlockAssigned is a free log retrieval operation binding the contract event 0xde277ba69c45b6cbbca46ad05227230e568794cf370fe431a0a02966b7ecf35a.
 //
-// Solidity: event BlockAssigned(address indexed assignedProver, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, (address,uint64,uint64,uint64,bytes32,(uint16,uint128)[],bytes) assignment)
+// Solidity: event BlockAssigned(address indexed assignedProver, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, (address,uint64,uint64,uint64,bytes32,bytes32,(uint16,uint128)[],bytes) assignment)
 func (_AssignmentHook *AssignmentHookFilterer) FilterBlockAssigned(opts *bind.FilterOpts, assignedProver []common.Address) (*AssignmentHookBlockAssignedIterator, error) {
 
 	var assignedProverRule []interface{}
@@ -1016,9 +1068,9 @@ func (_AssignmentHook *AssignmentHookFilterer) FilterBlockAssigned(opts *bind.Fi
 	return &AssignmentHookBlockAssignedIterator{contract: _AssignmentHook.contract, event: "BlockAssigned", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockAssigned is a free log subscription operation binding the contract event 0xcd949933b61139cc85e76147e25c12a4fb3664bd6e1dcf9ab10e87e756e7c4a7.
+// WatchBlockAssigned is a free log subscription operation binding the contract event 0xde277ba69c45b6cbbca46ad05227230e568794cf370fe431a0a02966b7ecf35a.
 //
-// Solidity: event BlockAssigned(address indexed assignedProver, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, (address,uint64,uint64,uint64,bytes32,(uint16,uint128)[],bytes) assignment)
+// Solidity: event BlockAssigned(address indexed assignedProver, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, (address,uint64,uint64,uint64,bytes32,bytes32,(uint16,uint128)[],bytes) assignment)
 func (_AssignmentHook *AssignmentHookFilterer) WatchBlockAssigned(opts *bind.WatchOpts, sink chan<- *AssignmentHookBlockAssigned, assignedProver []common.Address) (event.Subscription, error) {
 
 	var assignedProverRule []interface{}
@@ -1058,9 +1110,9 @@ func (_AssignmentHook *AssignmentHookFilterer) WatchBlockAssigned(opts *bind.Wat
 	}), nil
 }
 
-// ParseBlockAssigned is a log parse operation binding the contract event 0xcd949933b61139cc85e76147e25c12a4fb3664bd6e1dcf9ab10e87e756e7c4a7.
+// ParseBlockAssigned is a log parse operation binding the contract event 0xde277ba69c45b6cbbca46ad05227230e568794cf370fe431a0a02966b7ecf35a.
 //
-// Solidity: event BlockAssigned(address indexed assignedProver, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, (address,uint64,uint64,uint64,bytes32,(uint16,uint128)[],bytes) assignment)
+// Solidity: event BlockAssigned(address indexed assignedProver, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint24,uint24,uint16,bool,bytes32) meta, (address,uint64,uint64,uint64,bytes32,bytes32,(uint16,uint128)[],bytes) assignment)
 func (_AssignmentHook *AssignmentHookFilterer) ParseBlockAssigned(log types.Log) (*AssignmentHookBlockAssigned, error) {
 	event := new(AssignmentHookBlockAssigned)
 	if err := _AssignmentHook.contract.UnpackLog(event, "BlockAssigned", log); err != nil {
@@ -1198,6 +1250,159 @@ func (_AssignmentHook *AssignmentHookFilterer) WatchInitialized(opts *bind.Watch
 func (_AssignmentHook *AssignmentHookFilterer) ParseInitialized(log types.Log) (*AssignmentHookInitialized, error) {
 	event := new(AssignmentHookInitialized)
 	if err := _AssignmentHook.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// AssignmentHookOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the AssignmentHook contract.
+type AssignmentHookOwnershipTransferStartedIterator struct {
+	Event *AssignmentHookOwnershipTransferStarted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AssignmentHookOwnershipTransferStartedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AssignmentHookOwnershipTransferStarted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AssignmentHookOwnershipTransferStarted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AssignmentHookOwnershipTransferStartedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AssignmentHookOwnershipTransferStartedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// AssignmentHookOwnershipTransferStarted represents a OwnershipTransferStarted event raised by the AssignmentHook contract.
+type AssignmentHookOwnershipTransferStarted struct {
+	PreviousOwner common.Address
+	NewOwner      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterOwnershipTransferStarted is a free log retrieval operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_AssignmentHook *AssignmentHookFilterer) FilterOwnershipTransferStarted(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*AssignmentHookOwnershipTransferStartedIterator, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _AssignmentHook.contract.FilterLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &AssignmentHookOwnershipTransferStartedIterator{contract: _AssignmentHook.contract, event: "OwnershipTransferStarted", logs: logs, sub: sub}, nil
+}
+
+// WatchOwnershipTransferStarted is a free log subscription operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_AssignmentHook *AssignmentHookFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpts, sink chan<- *AssignmentHookOwnershipTransferStarted, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _AssignmentHook.contract.WatchLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(AssignmentHookOwnershipTransferStarted)
+				if err := _AssignmentHook.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOwnershipTransferStarted is a log parse operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_AssignmentHook *AssignmentHookFilterer) ParseOwnershipTransferStarted(log types.Log) (*AssignmentHookOwnershipTransferStarted, error) {
+	event := new(AssignmentHookOwnershipTransferStarted)
+	if err := _AssignmentHook.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

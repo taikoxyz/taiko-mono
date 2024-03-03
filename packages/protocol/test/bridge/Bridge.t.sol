@@ -50,7 +50,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, ())
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
 
@@ -59,9 +59,8 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager))),
-                    registerTo: address(addressManager),
-                    owner: address(0)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
                 })
             )
         );
@@ -71,7 +70,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
                 })
             )
         );
@@ -81,7 +80,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "2_step_bridge",
                     impl: address(new TwoStepBridge()),
-                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
                 })
             )
         );
@@ -90,9 +89,8 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager))),
-                registerTo: address(addressManager),
-                owner: address(0)
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
+                registerTo: address(addressManager)
             })
         );
 
@@ -100,7 +98,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
             })
         );
 
@@ -137,7 +135,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
@@ -146,9 +144,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         destChainBridge.processMessage(message, proof);
 
-        Bridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == Bridge.Status.DONE, true);
+        assertEq(status == IBridge.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
@@ -175,7 +173,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = dest2StepBridge.hashMessage(message);
@@ -185,9 +183,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         dest2StepBridge.processMessage(message, proof);
 
-        Bridge.Status status = dest2StepBridge.messageStatus(msgHash);
+        IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
         // Still new ! Because of the delay, no processing happened
-        assertEq(status == Bridge.Status.NEW, true);
+        assertEq(status == IBridge.Status.NEW, true);
         // Alice has 100 ether
         assertEq(Alice.balance, 100_000_000_000_000_000_000);
 
@@ -232,7 +230,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = dest2StepBridge.hashMessage(message);
@@ -242,9 +240,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         dest2StepBridge.processMessage(message, proof);
 
-        Bridge.Status status = dest2StepBridge.messageStatus(msgHash);
+        IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
         // Still new ! Because of the delay, no processing happened
-        assertEq(status == Bridge.Status.NEW, true);
+        assertEq(status == IBridge.Status.NEW, true);
         // Alice has 100 ether
         assertEq(Alice.balance, 100_000_000_000_000_000_000);
 
@@ -284,7 +282,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
@@ -294,9 +292,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         destChainBridge.processMessage(message, proof);
 
-        Bridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == Bridge.Status.DONE, true);
+        assertEq(status == IBridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
         assertEq(address(goodReceiver).balance, 1000);
@@ -318,11 +316,11 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeCall(GoodReceiver.forward, (Carol)),
+            data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol)),
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
@@ -332,9 +330,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         destChainBridge.processMessage(message, proof);
 
-        Bridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == Bridge.Status.DONE, true);
+        assertEq(status == IBridge.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
@@ -562,9 +560,9 @@ contract BridgeTest is TaikoTest {
 
         destChainBridge.processMessage(message, proof);
 
-        Bridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == Bridge.Status.DONE, true);
+        assertEq(status == IBridge.Status.DONE, true);
     }
 
     // test with a known good merkle proof / message since we cant generate
@@ -582,21 +580,21 @@ contract BridgeTest is TaikoTest {
 
         destChainBridge.processMessage(message, proof);
 
-        Bridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == Bridge.Status.RETRIABLE, true);
+        assertEq(status == IBridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
 
         vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, false);
-        Bridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
-        assertEq(postRetryStatus == Bridge.Status.RETRIABLE, true);
+        IBridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
+        assertEq(postRetryStatus == IBridge.Status.RETRIABLE, true);
 
         vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, true);
         postRetryStatus = destChainBridge.messageStatus(msgHash);
-        assertEq(postRetryStatus == Bridge.Status.FAILED, true);
+        assertEq(postRetryStatus == IBridge.Status.FAILED, true);
     }
 
     function retry_message_reverts_when_status_non_retriable() public {

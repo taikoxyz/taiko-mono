@@ -33,8 +33,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             parentHash: bytes32(0),
             blockHash: bytes32(0),
             stateRoot: bytes32(0),
-            graffiti: bytes32(0),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32(0)
         });
 
         // TierProof
@@ -62,8 +61,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             parentHash: bytes32(0),
             blockHash: bytes32(0),
             stateRoot: bytes32(0),
-            graffiti: bytes32(0),
-            __reserved: [bytes32(0), bytes32(0)]
+            graffiti: bytes32(0)
         });
 
         // TierProof

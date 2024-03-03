@@ -23,15 +23,73 @@ This section describes our coding standards at Taiko.
 
 ### Pull requests
 
+**It is important you use the correct commit type**. For minor semver bumps, use `feat`, for patches use `fix`. For a major bump use `feat(scope)!` or `fix(scope)!`. If you use `chore`, `docs`, or `ci`, then it won't result in a release-please PR or version bump.
+
 Specify the scope of your change with a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) in the PR title (for example, `feat(scope): description of feature`). This will be squashed and merged into the `main` branch. You can find the full list of allowed scopes [here](https://github.com/taikoxyz/taiko-mono/blob/main/.github/workflows/validate-pr-title.yml).
 
 Because we squash all of the changes into a single commit, please try to keep the PR limited to the scope specified in the commit message. This commit message will end up in the automated changelog by checking which packages are affected by the commit.
 
 For example, `feat(scope): description of feature` should only impact the `scope` package. If your change is a global one, you can use `feat: description of feature`, for example.
 
-### Source code comments
+### Source code comments (NatSpec)
 
-Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
+Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code.
+
+Please adhere to a few additional style guidelines which are outlined in the following subsections.
+
+This style guide applies to all Solidity files in `packages/protocol/contracts`, with the exception of those located within the following directories:
+
+- `packages/protocol/automata-attestation/`
+- `packages/protocol/thirdparty/`
+
+These directories may contain externally sourced contracts or those following different conventions.
+
+#### Naming conventions
+
+To maintain clarity and consistency across our Solidity codebase, the following naming conventions are to be adhered to:
+
+- **Function Parameters:** Prefix all function parameters with a leading underscore (`_`) to distinguish them from local and global variables and avoid naming conflicts.
+- **Function Return Values:** Suffix names of function return variables with an underscore (`_`) to clearly differentiate them from other variables and parameters.
+- **Private Functions:** Prefix private function names with a leading underscore (`_`). This convention signals the function's visibility level at a glance.
+- **Private State Variables:** Prefix all private state variable names with a leading underscore (`_`), highlighting their limited scope within the contract.
+
+#### Reserved storage slots
+
+To ensure upgradeability and prevent storage collisions in future contract versions, reserve a fixed number of storage slots at the end of each contract. This is achieved by declaring a placeholder array in the contract's storage layout as follows:
+
+```solidity
+// Reserve 50 storage slots for future use to ensure contract upgradeability.
+uint256[50] private __gap;
+```
+
+> Note: Replace `xx` with the actual number of slots you intend to reserve, as shown in the example above.
+
+#### Contract header
+
+All contracts should have at the top, and nothing else (minimum viable documentation):
+
+```
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.24;
+```
+
+All contracts should have, preceding their declaration, at minimum:
+
+```
+/// @title A title
+/// @custom:security-contact security@taiko.xyz
+```
+
+#### Single tag
+
+Always use a single tag, for example do not do this:
+
+```
+/// @dev Here is a dev comment.
+/// @dev Here is another dev comment.
+```
+
+Instead, combine them into a single comment.
 
 #### Comment style
 
@@ -39,16 +97,16 @@ Choose `///` over `/** */` for multi-line NatSpec comments for consistency. All 
 
 #### Notice tag
 
-Omit the usage of `@notice` and let the compiler automatically pick it up to save column space. For example, this:
+Explicitly use `@notice`, don't let the compiler pick it up automatically:
 
 ```
-/// @notice This is a notice.
+/// This is a notice.
 ```
 
 becomes this:
 
 ```
-/// This is a notice.
+/// @notice This is a notice.
 ```
 
 #### Annotation indentation
@@ -152,6 +210,25 @@ struct Some {
 }
 ```
 
+#### For-loop
+The variable in the for-loop shall not be initialized with 0, and we enforce using `++var` instead of `var++``.
+
+This is **correct**:
+
+```
+for (uint256 i; i < 100; ++i) {
+}
+
+```
+
+This is **wrong**:
+
+```
+for (uint256 i = 0; i < 100; i++) {
+}
+
+```
+
 #### Mentioning other files in the repo
 
 To mention another contract file in the repo use the standard like this:
@@ -166,9 +243,50 @@ If you are referring to some struct or function within the file you can use the 
 /// @notice See the struct in {TaikoData.Config}
 ```
 
+#### What to document
+
+All public interfaces (those that would be in the ABI) should be documented. This includes public state variables, functions, events, errors, etc. If it's in the ABI, it needs NatSpec.
+
+#### Ordering
+
+> Taken from the official Solidity Style Guide
+
+Contract elements should be laid out in the following order:
+
+1. Pragma statements
+2. Import statements
+3. Events
+4. Errors
+5. Interfaces
+6. Libraries
+7. Contracts
+
+Inside each contract, library or interface, use the following order:
+
+1. Type declarations
+2. State variables
+3. Events
+4. Errors
+5. Modifiers
+6. Functions
+
+Functions should be grouped according to their visibility and ordered:
+
+1. constructor
+2. receive function (if exists)
+3. fallback function (if exists)
+4. external
+5. public
+6. internal
+7. private
+
+It is preferred for state variables to follow the same ordering according to visibility as functions, shown above, but it is not required as this could affect the storage layout.
+
+Lexicographical order is preferred but also optional.
+
 #### Documenting interfaces
 
-To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts. Thus, you should mention a statement like so:
+To document the implementing contract of an interface, you cannot use `@inheritdoc`, it is not supported for contracts at the top-level. Thus, you should mention a statement like so:
 
 ```solidity
 /// @notice See the documentation in {IProverPool}

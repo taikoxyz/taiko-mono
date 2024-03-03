@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
@@ -22,7 +9,7 @@ import "../contracts/team/airdrop/ERC20Airdrop.sol";
 // 1. Is Vault - which will store the tokens - deployed ?
 // 2. Is (bridged) TKO token existing ?
 // 3. Is ERC20Airdrop contract is 'approved operator' on the TKO token ?
-// 4. Proof (merkle root) and minting window related variabes (start, end) set ?
+// 4. Proof (merkle root) and minting window related variables (start, end) set ?
 // If YES the answer to all above, we can go live with airdrop, which is like:
 // 1. User go to website. -> For sake of simplicity he is eligible
 // 2. User wants to mint, but first site established the delegateHash (user sets a delegatee) which
@@ -48,7 +35,9 @@ contract DeployERC20Airdrop is DeployCapability {
             deployProxy({
                 name: "ERC20Airdrop",
                 impl: address(new ERC20Airdrop()),
-                data: abi.encodeCall(ERC20Airdrop.init, (0, 0, bytes32(0), bridgedTko, vaultAddress))
+                data: abi.encodeCall(
+                    ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
+                    )
             })
         );
 

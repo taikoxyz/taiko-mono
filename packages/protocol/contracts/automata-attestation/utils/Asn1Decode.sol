@@ -7,6 +7,8 @@ pragma solidity 0.8.24;
 
 import "./BytesUtils.sol";
 
+/// @title NodePtr
+/// @custom:security-contact security@taiko.xyz
 library NodePtr {
     // Unpack first byte index
     function ixs(uint256 self) internal pure returns (uint256) {
@@ -31,6 +33,8 @@ library NodePtr {
     }
 }
 
+/// @title Asn1Decode
+/// @custom:security-contact security@taiko.xyz
 library Asn1Decode {
     using NodePtr for uint256;
     using BytesUtils for bytes;
@@ -41,7 +45,7 @@ library Asn1Decode {
     * @return A pointer to the outermost node
     */
     function root(bytes memory der) internal pure returns (uint256) {
-        return readNodeLength(der, 0);
+        return _readNodeLength(der, 0);
     }
 
     /*
@@ -51,7 +55,7 @@ library Asn1Decode {
     */
     function rootOfBitStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] == 0x03, "Not type BIT STRING");
-        return readNodeLength(der, ptr.ixf() + 1);
+        return _readNodeLength(der, ptr.ixf() + 1);
     }
 
     /*
@@ -61,7 +65,7 @@ library Asn1Decode {
     */
     function rootOfOctetStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] == 0x04, "Not type OCTET STRING");
-        return readNodeLength(der, ptr.ixf());
+        return _readNodeLength(der, ptr.ixf());
     }
 
     /*
@@ -71,7 +75,7 @@ library Asn1Decode {
     * @return A pointer to the next sibling node
     */
     function nextSiblingOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
-        return readNodeLength(der, ptr.ixl() + 1);
+        return _readNodeLength(der, ptr.ixl() + 1);
     }
 
     /*
@@ -82,14 +86,14 @@ library Asn1Decode {
     */
     function firstChildOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] & 0x20 == 0x20, "Not a constructed type");
-        return readNodeLength(der, ptr.ixf());
+        return _readNodeLength(der, ptr.ixf());
     }
 
     /*
     * @dev Use for looping through children of a node (either i or j).
     * @param i Pointer to an ASN1 node
     * @param j Pointer to another ASN1 node of the same ASN1 structure
-    * @return True iff j is child of i or i is child of j.
+    * @return true iff j is child of i or i is child of j.
     */
     function isChildOf(uint256 i, uint256 j) internal pure returns (bool) {
         return (
@@ -173,14 +177,14 @@ library Asn1Decode {
     * @return Value of bitstring converted to bytes
     */
     function bitstringAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
-        require(der[ptr.ixs()] == 0x03, "Not type BIT STRING");
+        require(der[ptr.ixs()] == 0x03, "ixs Not type BIT STRING 0x03");
         // Only 00 padded bitstr can be converted to bytestr!
-        require(der[ptr.ixf()] == 0x00);
+        require(der[ptr.ixf()] == 0x00, "ixf Not 0");
         uint256 valueLength = ptr.ixl() + 1 - ptr.ixf();
         return der.substring(ptr.ixf() + 1, valueLength - 1);
     }
 
-    function readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
+    function _readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
         uint256 length;
         uint80 ixFirstContentByte;
         uint80 ixLastContentByte;

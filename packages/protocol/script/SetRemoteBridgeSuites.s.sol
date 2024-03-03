@@ -1,17 +1,4 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
@@ -23,6 +10,7 @@ contract SetRemoteBridgeSuites is DeployCapability {
     address public timelockAddress = vm.envAddress("TIMELOCK_ADDRESS");
     address public addressManagerAddress = vm.envAddress("ADDRESS_MANAGER_ADDRESS");
     uint256[] public remoteChainIDs = vm.envUint("REMOTE_CHAIN_IDS", ",");
+    address[] public remoteSignalServices = vm.envAddress("REMOTE_SIGNAL_SERVICES", ",");
     address[] public remoteBridges = vm.envAddress("REMOTE_BRIDGES", ",");
     address[] public remoteERC20Vaults = vm.envAddress("REMOTE_ERC20_VAULTS", ",");
     address[] public remoteERC721Vaults = vm.envAddress("REMOTE_ERC721_VAULTS", ",");
@@ -31,6 +19,10 @@ contract SetRemoteBridgeSuites is DeployCapability {
     function run() external {
         require(
             remoteChainIDs.length == remoteBridges.length, "invalid remote bridge addresses length"
+        );
+        require(
+            remoteChainIDs.length == remoteSignalServices.length,
+            "invalid remote SignalService addresses length"
         );
         require(
             remoteChainIDs.length == remoteERC20Vaults.length,
@@ -51,6 +43,7 @@ contract SetRemoteBridgeSuites is DeployCapability {
             uint64 chainid = uint64(remoteChainIDs[i]);
 
             if (securityCouncilPrivateKey == 0) {
+                register(addressManagerAddress, "signal_service", remoteSignalServices[i], chainid);
                 register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
                 register(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
                 register(addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid);
@@ -58,6 +51,9 @@ contract SetRemoteBridgeSuites is DeployCapability {
                 continue;
             }
 
+            registerByTimelock(
+                addressManagerAddress, "signal_service", remoteSignalServices[i], chainid
+            );
             registerByTimelock(addressManagerAddress, "bridge", remoteBridges[i], chainid);
             registerByTimelock(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
             registerByTimelock(

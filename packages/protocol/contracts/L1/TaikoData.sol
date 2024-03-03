@@ -1,22 +1,10 @@
 // SPDX-License-Identifier: MIT
-//  _____     _ _         _         _
-// |_   _|_ _(_) |_____  | |   __ _| |__ ___
-//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
-//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-//
-//   Email: security@taiko.xyz
-//   Website: https://taiko.xyz
-//   GitHub: https://github.com/taikoxyz
-//   Discord: https://discord.gg/taikoxyz
-//   Twitter: https://twitter.com/taikoxyz
-//   Blog: https://mirror.xyz/labs.taiko.eth
-//   Youtube: https://www.youtube.com/@taikoxyz
-
 pragma solidity 0.8.24;
 
 /// @title TaikoData
 /// @notice This library defines various data structures used in the Taiko
 /// protocol.
+/// @custom:security-contact security@taiko.xyz
 library TaikoData {
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {
@@ -127,7 +115,6 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 stateRoot;
         bytes32 graffiti;
-        bytes32[2] __reserved;
     }
 
     /// @dev Struct representing state transition data.
@@ -191,20 +178,20 @@ library TaikoData {
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mod_blockRingBufferSize => Block) blocks;
+        mapping(uint64 blockId_mod_blockRingBufferSize => Block blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
         mapping(uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint32 transitionId => TransitionState)
+                => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
         // Ring buffer for Ether deposits
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256) ethDeposits;
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositAmount) ethDeposits;
         // Reusable blobs
         mapping(bytes32 blobHash => uint256 since) reusableBlobs;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
-        uint256[143] __gap;
+        uint256[43] __gap;
     }
 }
