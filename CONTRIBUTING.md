@@ -23,6 +23,8 @@ This section describes our coding standards at Taiko.
 
 ### Pull requests
 
+**It is important you use the correct commit type**. For minor semver bumps, use `feat`, for patches use `fix`. For a major bump use `feat(scope)!` or `fix(scope)!`. If you use `chore`, `docs`, or `ci`, then it won't result in a release-please PR or version bump.
+
 Specify the scope of your change with a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) in the PR title (for example, `feat(scope): description of feature`). This will be squashed and merged into the `main` branch. You can find the full list of allowed scopes [here](https://github.com/taikoxyz/taiko-mono/blob/main/.github/workflows/validate-pr-title.yml).
 
 Because we squash all of the changes into a single commit, please try to keep the PR limited to the scope specified in the commit message. This commit message will end up in the automated changelog by checking which packages are affected by the commit.
@@ -31,7 +33,36 @@ For example, `feat(scope): description of feature` should only impact the `scope
 
 ### Source code comments (NatSpec)
 
-Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
+Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code.
+
+Please adhere to a few additional style guidelines which are outlined in the following subsections.
+
+This style guide applies to all Solidity files in `packages/protocol/contracts`, with the exception of those located within the following directories:
+
+- `packages/protocol/automata-attestation/`
+- `packages/protocol/thirdparty/`
+
+These directories may contain externally sourced contracts or those following different conventions.
+
+#### Naming conventions
+
+To maintain clarity and consistency across our Solidity codebase, the following naming conventions are to be adhered to:
+
+- **Function Parameters:** Prefix all function parameters with a leading underscore (`_`) to distinguish them from local and global variables and avoid naming conflicts.
+- **Function Return Values:** Suffix names of function return variables with an underscore (`_`) to clearly differentiate them from other variables and parameters.
+- **Private Functions:** Prefix private function names with a leading underscore (`_`). This convention signals the function's visibility level at a glance.
+- **Private State Variables:** Prefix all private state variable names with a leading underscore (`_`), highlighting their limited scope within the contract.
+
+#### Reserved storage slots
+
+To ensure upgradeability and prevent storage collisions in future contract versions, reserve a fixed number of storage slots at the end of each contract. This is achieved by declaring a placeholder array in the contract's storage layout as follows:
+
+```solidity
+// Reserve 50 storage slots for future use to ensure contract upgradeability.
+uint256[50] private __gap;
+```
+
+> Note: Replace `xx` with the actual number of slots you intend to reserve, as shown in the example above.
 
 #### Contract header
 

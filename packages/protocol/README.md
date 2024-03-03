@@ -18,6 +18,10 @@ pnpm compile
 
 If you run into `Error: Unknown version provided`, you should upgrade your foundry installation by running `curl -L https://foundry.paradigm.xyz | bash`.
 
+## Style Guide
+
+Please see [CONTRIBUTING.md](../../CONTRIBUTING.md) for the source code style guidelines to adhere to.
+
 ## Generate L2 Genesis JSON's `alloc` Field
 
 Create a `config.js` with the following structure:

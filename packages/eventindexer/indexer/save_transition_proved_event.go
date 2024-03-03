@@ -114,7 +114,7 @@ func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1
 		return errors.Wrap(err, "indxr.statRepo.Find")
 	}
 
-	proposedAt := block.ProposedAt
+	proposedAt := block.Blk.ProposedAt
 
 	provenAt := eventBlock.Time()
 
