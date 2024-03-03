@@ -179,6 +179,25 @@ struct Some {
 }
 ```
 
+#### For-loop
+The variable in the for-loop shall not be initialized with 0, and we enforce using `++var` instead of `var++``.
+
+This is **correct**:
+
+```
+for (uint256 i; i < 100; ++i) {
+}
+
+```
+
+This is **wrpmg**:
+
+```
+for (uint256 i = 0; i < 100; i++) {
+}
+
+```
+
 #### Mentioning other files in the repo
 
 To mention another contract file in the repo use the standard like this:
