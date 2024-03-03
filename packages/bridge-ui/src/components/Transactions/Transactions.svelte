@@ -75,16 +75,7 @@
     // We want to make sure that we are connected and only
     // fetch if the account has changed
     if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
-      loadingTxs = true;
-
-      try {
-        await updateTransactions(newAccount.address);
-      } catch (err) {
-        console.error(err);
-        // TODO: handle
-      } finally {
-        loadingTxs = false;
-      }
+      await updateTransactions(newAccount.address);
     }
   };
 
@@ -95,6 +86,7 @@
   };
 
   const updateTransactions = async (address: Address) => {
+    if (loadingTxs) return;
     loadingTxs = true;
     const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
     transactions = mergedTransactions;
@@ -107,6 +99,8 @@
     }
     loadingTxs = false;
   };
+
+  $: $account?.address && $account.isConnected, refresh();
 
   $: statusFilteredTransactions =
     selectedStatus !== null ? transactions.filter((tx) => tx.status === selectedStatus) : transactions;
@@ -149,7 +143,6 @@
       // if only two chains are available, set the destination chain to the other one
       $destNetwork = chainIdToChain(alternateChainID);
     }
-    refresh();
   });
 </script>
 
