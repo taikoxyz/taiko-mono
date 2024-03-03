@@ -77,7 +77,7 @@ abstract contract Guardians is EssentialContract {
         delete guardians;
 
         // Set the new guardians
-        for (uint256 i = 0; i < _newGuardians.length; ++i) {
+        for (uint256 i; i < _newGuardians.length; ++i) {
             address guardian = _newGuardians[i];
             if (guardian == address(0)) revert INVALID_GUARDIAN();
             // This makes sure there are not duplicate addresses
