@@ -24,4 +24,4 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # merge_solidity_files(args.root_dir)
     merge_solidity_files("/contracts")
-    print("merged into ../out/taiko_protocol.md")
+    print("merged into /out/taiko_protocol.md")
