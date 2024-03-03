@@ -25,7 +25,7 @@ function createTransports(chains: readonly Chain[]) {
 
 export const config = createConfig({
   chains,
-  connectors: [walletConnect({ projectId })],
+  connectors: [walletConnect({ projectId, showQrModal: false }), injected()],
   transports: createTransports(chains),
 });
 
