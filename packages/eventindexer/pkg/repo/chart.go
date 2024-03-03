@@ -60,23 +60,43 @@ func (r *ChartRepository) Find(
 	var q string
 	var args []interface{}
 	args = append(args, task)
-	if start != "" && end != "" {
-		q = `SELECT * FROM time_series_data
+	if feeTokenAddress == "" && tier == "" {
+		if start != "" && end != "" {
+			q = `SELECT * FROM time_series_data
          WHERE task = ? AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN ? AND ?
          ORDER BY STR_TO_DATE(date, '%Y-%m-%d')`
-		args = append(args, startDate, endDate)
-	} else {
-		q = `SELECT * FROM time_series_data
+			args = append(args, startDate, endDate)
+		} else {
+			q = `SELECT * FROM time_series_data
          WHERE task = ?
          ORDER BY date`
+		}
 	}
 
 	if feeTokenAddress != "" {
-		q += ` AND fee_token_address = ?`
-		args = append(args, feeTokenAddress)
+		if start != "" && end != "" {
+			q = `SELECT * FROM time_series_data
+			WHERE task = ? AND fee_token_address = ? AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN ? AND ?
+			ORDER BY date`
+			args = append(args, feeTokenAddress, startDate, endDate)
+		} else {
+			q = `SELECT * FROM time_series_data
+			WHERE task = ? AND fee_token_address = ?
+			ORDER BY date`
+			args = append(args, feeTokenAddress)
+		}
 	} else if tier != "" {
-		q += ` AND tier = ?`
-		args = append(args, tier)
+		if start != "" && end != "" {
+			q = `SELECT * FROM time_series_data
+			WHERE task = ? AND tier = ? AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN ? AND ?
+			ORDER BY date`
+			args = append(args, tier)
+		} else {
+			q = `SELECT * FROM time_series_data
+			WHERE task = ? AND tier = ?
+			ORDER BY date`
+			args = append(args, tier)
+		}
 	}
 
 	tx = r.getDB().Raw(q, args...)
