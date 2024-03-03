@@ -47,11 +47,6 @@ func (i *Indexer) handleEvent(
 		return nil
 	}
 
-	// check if we have seen this event and msgHash before - if we have, it is being reorged.
-	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
-		return errors.Wrap(err, "svc.detectAndHandleReorg")
-	}
-
 	// we should never see an empty msgHash, but if we do, we dont process.
 	if event.MsgHash == relayer.ZeroHash {
 		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
@@ -61,6 +56,11 @@ func (i *Indexer) handleEvent(
 	// only wait for confirmations when not crawling past blocks.
 	// these are guaranteed to be confirmed since the blocks are old.
 	if i.watchMode != CrawlPastBlocks {
+		// check if we have seen this event and msgHash before - if we have, it is being reorged.
+		if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
+			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		}
+
 		// we need to wait for confirmations to confirm this event is not being reverted,
 		// removed, or reorged now.
 		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
@@ -141,11 +141,15 @@ func (i *Indexer) handleEvent(
 		if i.watchMode == CrawlPastBlocks && eventStatus == existingEvent.Status {
 			// If the status from contract matches the existing event status,
 			// we can return early as this message has been processed as expected.
+			slog.Info("crawler returning early", "eventStatus", eventStatus, "existingEvent.Status", existingEvent.Status)
+
 			return nil
 		}
 
 		// If the status from contract is done, update the database
 		if i.watchMode == CrawlPastBlocks && eventStatus == relayer.EventStatusDone {
+			slog.Info("updating status for msgHash", "msgHash", common.Hash(event.MsgHash).Hex())
+
 			if err := i.eventRepo.UpdateStatus(ctx, id, relayer.EventStatusDone); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("i.eventRepo.UpdateStatus, id: %v", id))
 			}
