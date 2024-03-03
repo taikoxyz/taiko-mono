@@ -134,7 +134,7 @@ func splitByteArray(data []byte, chunkSize int) [][]byte {
 	return chunks
 }
 
-func decodeDataAsCanonicalERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
+func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 	var token CanonicalERC20
 
 	chunks := splitByteArray(decodedData, 32)
@@ -145,7 +145,6 @@ func decodeDataAsCanonicalERC20(decodedData []byte) (CanonicalToken, *big.Int, e
 	}
 
 	canonicalTokenData := decodedData[offset:]
-	slog.Info(common.Bytes2Hex(canonicalTokenData))
 
 	types := []string{"uint64", "address", "uint8", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -166,6 +165,69 @@ func decodeDataAsCanonicalERC20(decodedData []byte) (CanonicalToken, *big.Int, e
 	}
 
 	return token, big.NewInt(amount), nil
+}
+
+func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, error) {
+	var token CanonicalNFT
+
+	chunks := splitByteArray(decodedData, 32)
+
+	offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[0])), 16, 64)
+
+	if err != nil || offset%32 != 0 {
+		return EventTypeSendETH, token, big.NewInt(0), err
+	}
+
+	canonicalTokenData := decodedData[offset:]
+
+	types := []string{"uint64", "address", "string", "string"}
+	values, err := decodeABI(types, canonicalTokenData)
+
+	if err != nil && len(values) != 4 {
+		return EventTypeSendETH, token, big.NewInt(0), err
+	}
+
+	token.ChainId = values[0].(uint64)
+	token.Addr = values[1].(common.Address)
+	token.Symbol = values[2].(string)
+	token.Name = values[3].(string)
+
+	if offset == 128 {
+		amount := big.NewInt(1)
+
+		return EventTypeSendERC721, token, amount, nil
+	} else if offset == 160 {
+		offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[4])), 16, 64)
+		if err != nil || offset%32 != 0 {
+			return EventTypeSendETH, token, big.NewInt(0), err
+		}
+
+		indexOffset := int64(offset / 32)
+
+		length, err := strconv.ParseInt(common.Bytes2Hex((chunks[indexOffset])), 16, 64)
+
+		if err != nil {
+			return EventTypeSendETH, token, big.NewInt(0), err
+		}
+
+		amount := big.NewInt(0)
+
+		for i := int64(0); i < length; i++ {
+			amountsData := decodedData[(indexOffset+i+1)*32 : (indexOffset+i+2)*32]
+			types := []string{"uint256"}
+			values, err = decodeABI(types, amountsData)
+
+			if err != nil && len(values) != 1 {
+				return EventTypeSendETH, token, big.NewInt(0), err
+			}
+
+			amount = amount.Add(amount, values[0].(*big.Int))
+		}
+
+		return EventTypeSendERC1155, token, amount, nil
+	}
+
+	return EventTypeSendETH, token, big.NewInt(0), nil
 }
 
 func decodeABI(types []string, data []byte) ([]interface{}, error) {
@@ -201,10 +263,18 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 		common.BytesToHash(eventData) != ZeroHash &&
 		len(eventData) > 3 &&
 		common.Bytes2Hex(functionSig) == onMessageInvocationFunctionSig {
-		canonicalToken, amount, err := decodeDataAsCanonicalERC20(eventData[4:])
+		// Try to decode data as ERC20
+		canonicalToken, amount, err := decodeDataAsERC20(eventData[4:])
 
 		if err == nil {
 			return EventTypeSendERC20, canonicalToken, amount, nil
+		}
+
+		// Try to decode data as NFT
+		eventType, canonicalToken, amount, err = decodeDataAsNFT(eventData[4:])
+
+		if err == nil {
+			return eventType, canonicalToken, amount, nil
 		}
 	}
 	/*
