@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { enteredAmount, selectedNFTs } from '$components/Bridge/state';
+  import { enteredAmount, selectedNFTs, tokenBalance } from '$components/Bridge/state';
   import TokenAmountInput from '$components/Bridge/TokenAmountInput.svelte';
   import { ImportMethod } from '$components/Bridge/types';
   import { ActionButton, Button } from '$components/Button';
@@ -23,7 +23,7 @@
   let nftView: NFTView = NFTView.LIST;
   let scanning = false;
 
-  let amountComponent: TokenAmountInput;
+  let tokenAmountInput: TokenAmountInput;
 
   function onScanClick() {
     scanning = true;
@@ -43,37 +43,33 @@
   function onManualImportClick() {
     $selectedImportMethod = ImportMethod.MANUAL;
   }
+
   $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
   $: nftHasAmount = hasSelectedNFT && isERC1155;
 
-  $: validBalance = nftHasAmount && $enteredAmount > 0;
+  $: validBalance = nftHasAmount && $enteredAmount > 0 && $tokenBalance && $tokenBalance.value >= $enteredAmount;
 
   $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0;
 
-  $: if (nftHasAmount && hasSelectedNFT) {
-    if (validBalance) {
-      canProceed = true;
-    } else {
-      canProceed = false;
-    }
+  $: if (nftHasAmount && hasSelectedNFT && $selectedNFTs) {
+    tokenAmountInput?.determineBalance().then(() => {
+      if (validBalance) {
+        canProceed = true;
+      } else {
+        canProceed = false;
+      }
+    });
   } else if (!nftHasAmount && hasSelectedNFT) {
     canProceed = true;
   } else {
     canProceed = false;
   }
 
-  onDestroy(() => {
+  onMount(() => {
     $selectedNFTs = [];
   });
 </script>
 
-{$selectedNFTs?.length} <br />
-validBalance {validBalance} <br />
-$enteredAmount gt 0 {$enteredAmount > 0} <br />
-has amount {nftHasAmount} <br />
-(nftHasAmount ? $enteredAmount gt 0 : true) {nftHasAmount ? $enteredAmount > 0 : true} <br />
-{hasSelectedNFT && (nftHasAmount ? $enteredAmount > 0 : true)}
-<!-- {JSON.stringify($selectedNFTs, (key, value) => (typeof value === 'bigint' ? Number(value) : value))} -->
 <div class="f-col w-full gap-4">
   <section class="space-y-2">
     <div class="flex justify-between items-center w-full">
@@ -105,7 +101,7 @@ has amount {nftHasAmount} <br />
   </section>
   {#if nftHasAmount}
     <section>
-      <TokenAmountInput bind:this={amountComponent} />
+      <TokenAmountInput bind:this={tokenAmountInput} />
     </section>
   {/if}
 

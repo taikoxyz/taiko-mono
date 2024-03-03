@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.9.3](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.2...bridge-ui-v2.9.3) (2024-02-26)
+
+
+### Bug Fixes
+
+* **bridge-ui:** remove nft debug info from ui ([#16067](https://github.com/taikoxyz/taiko-mono/issues/16067)) ([5eddffe](https://github.com/taikoxyz/taiko-mono/commit/5eddffea3180e67c005d510ddaa7ffb90ce0a85a))
+* **bridge-ui:** truncate selected token name to 5 characters ([#16066](https://github.com/taikoxyz/taiko-mono/issues/16066)) ([dc24155](https://github.com/taikoxyz/taiko-mono/commit/dc24155b306e447f0572d29918183570905866be))
+* **bridge-ui:** various small bugfixes ([#16078](https://github.com/taikoxyz/taiko-mono/issues/16078)) ([e610d19](https://github.com/taikoxyz/taiko-mono/commit/e610d1907ef47fb6e25d8bc26e9b7edf3954d886))
+
+## [2.9.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.1...bridge-ui-v2.9.2) (2024-02-23)
+
+
+### Bug Fixes
+
+* **bridge-ui:** add injected provider to connectors ([#16008](https://github.com/taikoxyz/taiko-mono/issues/16008)) ([0496ff4](https://github.com/taikoxyz/taiko-mono/commit/0496ff40e374354b83d17121e4760391fed90a31))
+* **bridge-ui:** renamed configuredCustomToken to configuredCustomTokens ([#15905](https://github.com/taikoxyz/taiko-mono/issues/15905)) ([a9f60b8](https://github.com/taikoxyz/taiko-mono/commit/a9f60b8c114dfd277e8dc227e7fbbe8716698d53))
+
+## [2.9.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.0...bridge-ui-v2.9.1) (2024-02-22)
+
+
+### Bug Fixes
+
+* **bridge-ui:** add dependency ([#15999](https://github.com/taikoxyz/taiko-mono/issues/15999)) ([14484a0](https://github.com/taikoxyz/taiko-mono/commit/14484a00c1d59332361fba32b74d39db2ae4b864))
+* **bridge-ui:** fix wrong balance updates on network switch ([#15980](https://github.com/taikoxyz/taiko-mono/issues/15980)) ([b556e00](https://github.com/taikoxyz/taiko-mono/commit/b556e000b25fc8d5405cba77f3eebb4152dc1497))
+* **bridge-ui:** incorrectly detecting bridged tokens ([#16007](https://github.com/taikoxyz/taiko-mono/issues/16007)) ([b151bcb](https://github.com/taikoxyz/taiko-mono/commit/b151bcb2e159ece03da3c2014e35dbbbed7d8410))
+* **bridge-ui:** transactions view styling  ([#15997](https://github.com/taikoxyz/taiko-mono/issues/15997)) ([620a22d](https://github.com/taikoxyz/taiko-mono/commit/620a22dcb1ce77a9335dff8bbe0546c4c5065b23))
+* fix typos in tests and comments ([#15028](https://github.com/taikoxyz/taiko-mono/issues/15028)) ([54bf597](https://github.com/taikoxyz/taiko-mono/commit/54bf597c89a7f22161eeeffd13c20fe0acb4e2d7))
+
 ## [2.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.8.0...bridge-ui-v2-v2.9.0) (2023-10-18)
 
 

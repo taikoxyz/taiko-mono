@@ -7,6 +7,7 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import { LoadingText } from '$components/LoadingText';
+  import NftInfoDialog from '$components/NFTs/NFTInfoDialog.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import type { BridgeTransaction } from '$libs/bridge';
   import { getChainName } from '$libs/chain';
@@ -27,6 +28,7 @@
   let token: NFT;
   let insufficientModal = false;
   let detailsOpen = false;
+  let nftInfoOpen = false;
   let isDesktopOrLarger = false;
 
   $: claimModalOpen = false;
@@ -52,9 +54,13 @@
   };
 
   const openDetails = () => {
-    if (!isDesktopOrLarger) {
+    if (isDesktopOrLarger) {
       detailsOpen = true;
     }
+  };
+
+  const openNFTInfo = () => {
+    nftInfoOpen = true;
   };
 
   const handleInsufficientFunds = () => {
@@ -95,28 +101,33 @@
   <!-- We disable these warnings as we dynamically add the role -->
   <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
+  <div class="flex items-center text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
-      {#if loading}
-        <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
-          <Spinner />
-        </div>
-        <div class="f-col text-left space-y-1">
-          <LoadingText mask="&nbsp;" class="min-w-[50px] max-w-[50px] h-4" />
-          <LoadingText mask="&nbsp;" class="min-w-[90px] max-w-[90px] h-4" />
-          <LoadingText mask="&nbsp;" class="min-w-[20px] max-w-[20px] h-4" />
-        </div>
-      {:else}
-        <img alt="nft" src={imgUrl} class="rounded-[10px] min-w-[50px] max-w-[50px] bg-neutral self-center" />
-        <div class="f-col text-left">
-          <div class="text-sm">{token?.name ? truncateString(token?.name, 15) : ''}</div>
-          <div class="text-sm text-secondary-content">
-            {token?.metadata?.name ? truncateString(token?.metadata?.name, 15) : ''}
+      <div class="flex md:w-3/12 gap-[8px]">
+        {#if loading}
+          <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
+            <Spinner />
           </div>
-          <div class="text-sm text-secondary-content">{token?.tokenId}</div>
-        </div>
-      {/if}
-
+          <div class="f-col text-left space-y-1">
+            <LoadingText mask="&nbsp;" class="min-w-[50px] max-w-[50px] h-4" />
+            <LoadingText mask="&nbsp;" class="min-w-[90px] max-w-[90px] h-4" />
+            <LoadingText mask="&nbsp;" class="min-w-[20px] max-w-[20px] h-4" />
+          </div>
+        {:else}
+          <button on:click={() => openNFTInfo()}>
+            <img
+              alt="nft"
+              src={imgUrl}
+              class="rounded-[10px] min-w-[50px] max-w-[50px] bg-neutral self-center" /></button>
+          <div class="f-col text-left">
+            <div class="text-sm">{token?.name ? truncateString(token?.name, 15) : 'No Token Name'}</div>
+            <div class="text-sm text-secondary-content">
+              {token?.metadata?.name ? truncateString(token?.metadata?.name, 15) : ''}
+            </div>
+            <div class="text-sm text-secondary-content">{token?.tokenId}</div>
+          </div>
+        {/if}
+      </div>
       <div class="w-2/12 py-2 flex flex-row">
         <ChainSymbolName chainId={item.srcChainId} />
       </div>
@@ -255,6 +266,8 @@
   {detailsOpen}
   selectedItem={item}
   on:insufficientFunds={handleInsufficientFunds} />
+
+<NftInfoDialog nft={token} bind:modalOpen={nftInfoOpen} on:close={closeDetails} viewOnly />
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />
 

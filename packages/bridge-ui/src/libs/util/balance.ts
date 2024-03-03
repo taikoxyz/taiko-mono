@@ -9,7 +9,7 @@ export function renderBalance(balance: Maybe<GetBalanceReturnType>) {
   if (!balance) return '0.00';
   // if (typeof balance === 'bigint') return balance.toString();
   const maxlength = Number(balance.formatted) < 0.000001 ? balance.decimals : 6;
-  return `${truncateString(balance.formatted, maxlength, '')} ${balance.symbol}`;
+  return `${truncateString(balance.formatted, maxlength, '')} ${truncateString(balance.symbol, 5)}`;
 }
 
 export function renderEthBalance(balance: bigint, maxlength = 8): string {

@@ -4,7 +4,7 @@ import { destNetwork } from '$components/Bridge/state';
 import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
-import { metadataCache } from '$stores/metadata';
+import { addMetadataToCache, isMetadataCached } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
 import { getTokenAddresses } from './getTokenAddresses';
@@ -42,18 +42,10 @@ export const fetchNFTImageUrl = async (token: NFT): Promise<NFT> => {
     if (!tokenInfo || !tokenInfo.canonical?.address) return token;
 
     // check cache for existing metadata
-    const cache = get(metadataCache);
-    if (cache.has(tokenInfo.canonical?.address)) {
+    if (isMetadataCached({ address: tokenInfo.canonical?.address, id: token.tokenId })) {
       log('found cached metadata for', tokenInfo.canonical?.address, token.metadata);
       // Update cache
-      metadataCache.update((cache) => {
-        const key = tokenInfo.canonical?.address;
-        if (key && token.metadata) {
-          log('updating cache for', key, token.metadata);
-          cache.set(key, token.metadata);
-        }
-        return cache;
-      });
+      addMetadataToCache({ address: tokenInfo.canonical?.address, id: token.tokenId }, token.metadata);
     }
 
     return token;
