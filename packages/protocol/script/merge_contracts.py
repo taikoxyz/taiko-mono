@@ -1,7 +1,7 @@
 import os
 import argparse
 
-def merge_solidity_files(root_dir, output_file='../out/taiko_protocol.md'):
+def merge_solidity_files(root_dir, output_file='/out/taiko_protocol.md'):
     with open(output_file, 'w') as outfile:
         for subdir, dirs, files in os.walk(root_dir):
             for file in files:
