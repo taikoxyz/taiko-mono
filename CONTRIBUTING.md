@@ -221,7 +221,7 @@ for (uint256 i; i < 100; ++i) {
 
 ```
 
-This is **wrpmg**:
+This is **wrong**:
 
 ```
 for (uint256 i = 0; i < 100; i++) {
