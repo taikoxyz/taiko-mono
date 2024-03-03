@@ -43,7 +43,7 @@ func (srv *Server) GetChartByTask(c echo.Context) error {
 		}
 
 		srv.cache.Set(
-			c.QueryParam("task")+c.QueryParam("fee_token_address")+c.QueryParam("tier"),
+			c.QueryParam("task")+c.QueryParam("start")+c.QueryParam("end")+c.QueryParam("fee_token_address")+c.QueryParam("tier"),
 			chart,
 			cache.DefaultExpiration,
 		)
