@@ -1,6 +1,6 @@
 title: "taiko-geth fork diff" # Define the HTML page title
 footer: | # define the footer with markdown
-  [taiko-geth](https://github.com/taikoxyz/taiko-geth) fork kitty overview created with [Forkdiff](https://github.com/protolambda/forkdiff)
+  [taiko-geth](https://github.com/taikoxyz/taiko-geth) fork kittykatty overview created with [Forkdiff](https://github.com/protolambda/forkdiff)
 base:
   name: ethereum/go-ethereum
   url: https://github.com/ethereum/go-ethereum
