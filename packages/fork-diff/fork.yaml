@@ -29,9 +29,9 @@ def:
     #         - "accounts/*/*/*/*"
 
     - title: "beacon/engine"
-      description: this show modification to beacon files
+      description: This shows modifications to beacon files.
       sub:
-        - title: "files"
+        - title: "Files"
           globs:
             - "beacon/*/*"
 
@@ -49,9 +49,9 @@ def:
     #         - "build/*/*/*"
 
     - title: "cmd"
-      description: This shows modifications to cmd files
+      description: This shows modifications to cmd files.
       sub:
-        - title: "files"
+        - title: "Files"
           description: "These changes are for registering our RPC APIs and custom genesis settings."
           globs:
             - "cmd/*/*"
@@ -67,13 +67,13 @@ def:
     #         - "common/*/*"
 
     - title: "consensus"
-      description: "This shows modifications to consensus files"
+      description: "This shows modifications to consensus files."
       sub:
         # - title: "first layer"
         #   globs:
         #     - "consensus/*"
-        - title: "files"
-          description: "This is our Taiko consensus engine, built for L2 rollup."
+        - title: "Files"
+          description: "This is our Taiko consensus engine, built for the L2 rollup."
           globs:
             - "consensus/*/*"
 
@@ -85,12 +85,12 @@ def:
     #         - "console/*"
 
     - title: "core"
-      description: This shows modifications to core files
+      description: This shows modifications to core files.
       sub:
-        - title: "first layer"
+        - title: "First layer"
           globs:
             - "core/*"
-        - title: "second layer"
+        - title: "Second layer"
           globs:
             - "core/*/*"
 
@@ -124,7 +124,7 @@ def:
     #         - "docs/*/*"
 
     - title: "eth"
-      description: "This shows changes to eth files"
+      description: This shows changes to eth files.
       sub:
         - title: "API Backend Files"
           description: "This is our API backend, it handles l2 node related RPC calls."
@@ -148,9 +148,9 @@ def:
         #     - "eth/*/*/*/*/*/*"
 
     - title: "ethclient"
-      description: "This shows changes to ethclient files"
+      description: This shows changes to ethclient files.
       sub:
-        - title: "files"
+        - title: "Files"
           description: "This provides API calls for L1 and L2 Origins, as well as Throwaway Block Receipts."
           globs:
             - "ethclient/*"
@@ -234,9 +234,9 @@ def:
     #       - "metrics/*/*"
 
     - title: "miner"
-      description: "This shows changes to miner files"
+      description: "This shows changes to miner files."
       sub:
-        - title: "files"
+        - title: "Files"
           description: "This adds Taiko-specific miner changes."
           globs:
             - "miner/*"
@@ -269,10 +269,10 @@ def:
     #         - "p2p/*/*/*"
 
     - title: "params"
-      description: "This shows changes to params files"
+      description: "This shows changes to params files."
       sub:
-        - title: "files"
-          description: "This adds Taiko config values such as chainIds/Network Ids."
+        - title: "Files"
+          description: "This adds Taiko config values such as chain IDs and Network IDs."
           globs:
             - "params/*"
 

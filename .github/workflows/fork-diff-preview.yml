@@ -7,8 +7,8 @@ on:
     branches-ignore:
       - main
       - release-please-*
-    # paths:
-    #   # - "packages/fork-diff/**"
+    paths:
+      - "packages/fork-diff/**"
 
 jobs:
   Deploy-Preview:
