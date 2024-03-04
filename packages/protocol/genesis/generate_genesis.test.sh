@@ -75,7 +75,7 @@ function waitTestNode {
   # Wait till the test node fully started
   RETRIES=120
   i=0
-  until cast chain-id --rpc-url "$1"
+  until cast chain-id --rpc-url "$1" &> /dev/null 2>&1
   do
       sleep 1
       if [ $i -eq $RETRIES ]; then
