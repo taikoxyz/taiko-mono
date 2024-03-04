@@ -1,23 +1,22 @@
-# See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [profile.default]
-solc_version = "0.8.24"
 src = "contracts"
 out = "out"
 test = "test"
 script = "script"
 libs = ["lib"]
-gas_price = 10000000000 # gas price is 10 Gwei
+gas_price = 10_000_000_000         # 10 Gwei
+gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
 ffi = true
-gas_limit = "18446744073709551615"
-memory_limit = 2073741824
+memory_limit = 2_073_741_824
+solc_version = "0.8.24"
 evm_version = "cancun"
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
-block_gas_limit = 80000000 #80M
 # For mainnet_mock tokenomics test we need a huge value to run lots of iterations.
-# Use the above 30M for TaikoL2.t.sol related tests, only use this number with mainnet simulation.
+# Use 30M for TaikoL2.t.sol related tests, only use this number with mainnet simulation.
+block_gas_limit = 80_000_000
 
 fs_permissions = [
   { access = "read", path = "./out" },
@@ -26,17 +25,13 @@ fs_permissions = [
   { access = "read", path = "./genesis" },
 ]
 
-# 2394: transient storage warning
+# 2394: Transient storage warning
 # 3860: Contract initcode size is xxx bytes and exceeds 49152 bytes
 # 5574: Contract code size is xxx bytes and exceeds 24576 byte
-ignored_error_codes = [ 2394, 3860, 5574]
+ignored_error_codes = [2394, 3860, 5574]
 
-fuzz = { runs = 200 }
-
-# Workaround as a fixed fuzz seed.
-# Bug is confirmed, will be fixed soon:
-# https://github.com/foundry-rs/foundry/issues/5913
-seed = 13623721389213
+[fuzz]
+runs = 200
 
 [fmt]
 bracket_spacing = true
