@@ -46,6 +46,9 @@ jobs:
           repository: ethereum/go-ethereum
           ref: ${{ env.TAG_VERSION }}
 
+      - name: Ls
+        run: ls
+
       - name: Replace tag version in configuration file
         run: |
           sed -i "s/{{TAG_VERSION}}/${{ env.TAG_VERSION }}/g" packages/fork-diff/fork.yml
