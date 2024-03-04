@@ -4,7 +4,7 @@ footer: | # define the footer with markdown
 base:
   name: ethereum/go-ethereum
   url: https://github.com/ethereum/go-ethereum
-  ref: refs/tags/v1.13.11
+  ref: refs/tags/TAG_VERSION
 fork:
   name: taikoxyz/taiko-geth
   url: https://github.com/taikoxyz/taiko-geth
@@ -12,7 +12,7 @@ fork:
 def:
   title: "taiko-geth"
   description: | # description in markdown
-    This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`taiko` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`v1.13.11` tag).
+    This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`taiko` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`TAG_VERSION` tag).
   sub:
     # - title: "Changes in accounts"
     #   description: this show mods to accounts files
