@@ -5,61 +5,67 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 func (p *Processor) waitHeaderSynced(
 	ctx context.Context,
-	headerSyncer relayer.HeaderSyncer,
 	ethClient ethClient,
+	hopChainId uint64,
 	blockNum uint64,
-) (uint64, error) {
+) (*relayer.Event, error) {
+	chainId, err := ethClient.ChainID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	ticker := time.NewTicker(time.Duration(p.headerSyncIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return 0, ctx.Err()
+			return nil, ctx.Err()
 		case <-ticker.C:
 			slog.Info("waitHeaderSynced checking if tx is processable",
 				"blockNumber", blockNum,
 			)
-			// get latest synced block has via snippet since not every header is synced from L1 => L2,
-			// and later blocks still have the storage trie proof from previous blocks.
-			latestSyncedSnippet, err := headerSyncer.GetSyncedSnippet(&bind.CallOpts{
-				Context: ctx,
-			}, 0)
-			if err != nil {
-				return 0, errors.Wrap(err, "p.destHeaderSyncer.GetSyncedSnippet")
-			}
 
-			slog.Info("latestSyncedSnippet",
-				"blockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
-				"signalRoot", common.Bytes2Hex(latestSyncedSnippet.SignalRoot[:]),
+			event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
+				ctx,
+				hopChainId,
+				chainId.Uint64(),
+				blockNum,
 			)
-
-			header, err := ethClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
 			if err != nil {
-				return 0, errors.Wrap(err, "ethClient.HeaderByHash")
+				return nil, errors.Wrap(err, "p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater")
 			}
 
-			// header is caught up
-			if header.Number.Uint64() >= blockNum {
-				slog.Info("waitHeaderSynced caughtUp",
-					"blockNum", blockNum,
-					"latestSyncedBlockNum", header.Number.Uint64(),
+			if event != nil {
+				slog.Info("waitHeaderSynced done waiting",
+					"blockNumToWaitToBeSynced", blockNum,
+					"blockNumFromDB", event.BlockID,
+					"eventSyncedBlock", event.SyncedInBlockID,
 				)
 
-				return header.Number.Uint64(), nil
+				return event, nil
+			}
+
+			latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
+				ctx,
+				hopChainId,
+				chainId.Uint64(),
+			)
+			if err != nil {
+				return nil, err
 			}
 
 			slog.Info("waitHeaderSynced waiting to be caughtUp",
-				"blockNum", blockNum,
-				"latestSyncedBlockNum", header.Number.Uint64(),
+				"eventOccuredBlockNum", blockNum,
+				"latestSyncedBlockID", latestBlockID,
+				"srcChainID", chainId.Uint64(),
+				"destChainId", hopChainId,
 			)
 		}
 	}

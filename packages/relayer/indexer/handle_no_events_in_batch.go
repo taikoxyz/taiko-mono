@@ -25,10 +25,11 @@ func (i *Indexer) handleNoEventsInBatch(
 	slog.Info("setting last processed block", "blockNum", blockNumber, "headerHash", header.Hash().Hex())
 
 	if err := i.blockRepo.Save(relayer.SaveBlockOpts{
-		Height:    uint64(blockNumber),
-		Hash:      header.Hash(),
-		ChainID:   chainID,
-		EventName: eventName,
+		Height:      uint64(blockNumber),
+		Hash:        header.Hash(),
+		ChainID:     chainID,
+		DestChainID: i.destChainId,
+		EventName:   i.eventName,
 	}); err != nil {
 		return errors.Wrap(err, "svc.blockRepo.Save")
 	}

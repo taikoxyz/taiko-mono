@@ -26,7 +26,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
@@ -55,7 +54,6 @@ type hop struct {
 	chainID              *big.Int
 	signalServiceAddress common.Address
 	signalService        relayer.SignalService
-	headerSyncer         relayer.HeaderSyncer
 	taikoAddress         common.Address
 	ethClient            ethClient
 	caller               relayer.Caller
@@ -80,7 +78,6 @@ type Processor struct {
 	srcSignalService relayer.SignalService
 
 	destBridge       relayer.Bridge
-	destHeaderSyncer relayer.HeaderSyncer
 	destERC20Vault   relayer.TokenVault
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
@@ -92,7 +89,6 @@ type Processor struct {
 	destNonce               uint64
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
-	destHeaderSyncAddress   common.Address
 
 	confirmations uint64
 
@@ -115,6 +111,8 @@ type Processor struct {
 	taikoL2 *taikol2.TaikoL2
 
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
+
+	cfg *Config
 }
 
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -128,6 +126,8 @@ func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
+	p.cfg = cfg
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
@@ -160,8 +160,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 		var hopChainID *big.Int
 
-		var hopHeaderSyncer *icrosschainsync.ICrossChainSync
-
 		var hopRpcClient *rpc.Client
 
 		var hopSignalService *signalservice.SignalService
@@ -172,14 +170,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 
 		hopChainID, err = hopEthClient.ChainID(context.Background())
-		if err != nil {
-			return err
-		}
-
-		hopHeaderSyncer, err = icrosschainsync.NewICrossChainSync(
-			hopConfig.taikoAddress,
-			hopEthClient,
-		)
 		if err != nil {
 			return err
 		}
@@ -204,7 +194,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 			signalServiceAddress: hopConfig.signalServiceAddress,
 			taikoAddress:         hopConfig.taikoAddress,
 			chainID:              hopChainID,
-			headerSyncer:         hopHeaderSyncer,
 			signalService:        hopSignalService,
 			ethClient:            hopEthClient,
 		})
@@ -213,14 +202,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	srcSignalService, err := signalservice.NewSignalService(
 		cfg.SrcSignalServiceAddress,
 		srcEthClient,
-	)
-	if err != nil {
-		return err
-	}
-
-	destHeaderSyncer, err := icrosschainsync.NewICrossChainSync(
-		cfg.DestTaikoAddress,
-		destEthClient,
 	)
 	if err != nil {
 		return err
@@ -268,7 +249,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	prover, err := proof.New(srcEthClient)
+	prover, err := proof.New(srcEthClient, p.cfg.CacheOption)
 	if err != nil {
 		return err
 	}
@@ -313,7 +294,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
-	p.destHeaderSyncer = destHeaderSyncer
 
 	p.ecdsaKey = cfg.ProcessorPrivateKey
 	p.relayerAddr = relayerAddr
@@ -330,7 +310,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
-	p.destHeaderSyncAddress = cfg.DestTaikoAddress
 
 	p.msgCh = make(chan queue.Message)
 	p.wg = &sync.WaitGroup{}
@@ -400,7 +379,7 @@ func (p *Processor) Start() error {
 }
 
 func (p *Processor) queueName() string {
-	return fmt.Sprintf("%v-%v-queue", p.srcChainId.String(), p.destChainId.String())
+	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), relayer.EventNameMessageSent)
 }
 
 func (p *Processor) eventLoop(ctx context.Context) {
