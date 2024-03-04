@@ -136,7 +136,7 @@
     destChainId = $destNetwork?.id,
   ) {
     const token = value;
-    if (!token || !srcChainId || !destChainId || !userAddress) return;
+    if (!token || !srcChainId || !userAddress) return;
     $computingBalance = true;
     $errorComputingBalance = false;
 
@@ -175,7 +175,7 @@
   const onNetworkChange = () => {
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
-    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
+    if (srcChain) updateBalance($account?.address, srcChain.id, destChain ? destChain.id : undefined);
   };
 
   const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
