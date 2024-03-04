@@ -9,6 +9,8 @@ This package contains:
 
 ## Steps to update the fork diff page
 
+First update `version_config.json` to the geth version you want to compare against the `taiko` branch of `taiko-geth`.
+
 ### Preview release
 
 1. Make any desired changes to `fork.yaml`, and then open a PR.
@@ -24,3 +26,7 @@ This package contains:
 > Delete this step after implementing git tag workflow in taiko-geth.
 
 There is a workflow dispatch you can use to manually trigger a preview or production release via the GitHub UI, because there could be a diff on the `taiko` branch in `taiko-geth`, and we don't use git tags there (yet). If doing a manual workflow dispatch make sure to first do it in preview and make sure it looks good!
+
+> It is possible that state expiry might be unnecessary in a world where Verkle Tries succeed at their goals.
+
+can anyone explain this like im 5. i dont even know what a verkle trie is outside of ppl saying merkle tries r annoying and these r better.
