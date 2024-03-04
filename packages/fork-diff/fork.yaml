@@ -1,4 +1,4 @@
-title: "taiko-geth fork diff" # Define the HTML page title
+title: "Taiko-Geth Fork Diff" # Define the HTML page title
 footer: | # define the footer with markdown
   [taiko-geth](https://github.com/taikoxyz/taiko-geth) fork overview created with [Forkdiff](https://github.com/protolambda/forkdiff)
 base:
@@ -13,6 +13,7 @@ def:
   title: "taiko-geth"
   description: | # description in markdown
     This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`taiko` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`{{ TAG_VERSION }}` tag).
+
   sub:
     # - title: "Changes in accounts"
     #   description: this show mods to accounts files
@@ -28,9 +29,9 @@ def:
     #         - "accounts/*/*/*/*"
 
     - title: "beacon/engine"
-      description: This show modifications to beacon files.
+      description: this show modification to beacon files
       sub:
-        - title: "first layer"
+        - title: "files"
           globs:
             - "beacon/*/*"
 
@@ -48,9 +49,9 @@ def:
     #         - "build/*/*/*"
 
     - title: "cmd"
-      description: This shows modifications to cmd files.
+      description: This shows modifications to cmd files
       sub:
-        - title: "Files"
+        - title: "files"
           description: "These changes are for registering our RPC APIs and custom genesis settings."
           globs:
             - "cmd/*/*"
@@ -66,12 +67,12 @@ def:
     #         - "common/*/*"
 
     - title: "consensus"
-      description: This shows modifications to consensus files.
+      description: "This shows modifications to consensus files"
       sub:
         # - title: "first layer"
         #   globs:
         #     - "consensus/*"
-        - title: "Files"
+        - title: "files"
           description: "This is our Taiko consensus engine, built for L2 rollup."
           globs:
             - "consensus/*/*"
@@ -84,7 +85,7 @@ def:
     #         - "console/*"
 
     - title: "core"
-      description: This shows modifications to core files.
+      description: This shows modifications to core files
       sub:
         - title: "first layer"
           globs:
@@ -123,7 +124,7 @@ def:
     #         - "docs/*/*"
 
     - title: "eth"
-      description: This shows changes to eth files.
+      description: "This shows changes to eth files"
       sub:
         - title: "API Backend Files"
           description: "This is our API backend, it handles l2 node related RPC calls."
@@ -147,9 +148,9 @@ def:
         #     - "eth/*/*/*/*/*/*"
 
     - title: "ethclient"
-      description: This shows changes to ethclient files.
+      description: "This shows changes to ethclient files"
       sub:
-        - title: "Files"
+        - title: "files"
           description: "This provides API calls for L1 and L2 Origins, as well as Throwaway Block Receipts."
           globs:
             - "ethclient/*"
@@ -195,12 +196,12 @@ def:
     #       globs:
     #         - "internal/*/*"
 
-    - title: "les"
-      description: This shows changes to les files.
-      sub:
-        - title: "first layer"
-          globs:
-            - "les/*"
+    # - title: "les"
+    #   description: "This shows changes to les files"
+    #   sub:
+    #     - title: "first layer"
+    #       globs:
+    #         - "les/*"
     #     - title: "second layer"
     #       globs:
     #         - "les/*/*"
@@ -233,10 +234,10 @@ def:
     #       - "metrics/*/*"
 
     - title: "miner"
-      description: This shows changes to miner files.
+      description: "This shows changes to miner files"
       sub:
-        - title: "Files"
-          description: This adds Taiko-specific miner changes.
+        - title: "files"
+          description: "This adds Taiko-specific miner changes."
           globs:
             - "miner/*"
 
@@ -268,9 +269,9 @@ def:
     #         - "p2p/*/*/*"
 
     - title: "params"
-      description: This shows changes to params files.
+      description: "This shows changes to params files"
       sub:
-        - title: "Files"
+        - title: "files"
           description: "This adds Taiko config values such as chainIds/Network Ids."
           globs:
             - "params/*"
@@ -376,14 +377,5 @@ ignore:
   - "*/*/*/*/*/*/*/*/*.mod"
   - "tests"
   - "*.md"
-  - "gen_*.go"
-  - "*/gen_*.go"
-  - "*/*/gen_*.go"
-  - "*/*/*/gen_*.go"
-  - "*/*/*/*/gen_*.go"
-  - "*/*/*/*/*/gen_*.go"
-  - "*/*/*/*/*/*/gen_*.go"
-  - "*/*/*/*/*/*/*/gen_*.go"
-  - "*/*/*/*/*/*/*/*/gen_*.go"
 # *.pb.go
 # *.sum
