@@ -65,4 +65,4 @@ jobs:
       # END go build
 
       - name: Deploy Project Artifacts to Vercel
-        run: vercel packages/fork-diff/ --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel packages/fork-diff/ --token=${{ secrets.VERCEL_TOKEN }}
