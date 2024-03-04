@@ -30,24 +30,14 @@ jobs:
         run: |
           echo "TAG_VERSION=$(jq -r '.tagVersion' workspace/version_config.json)" >> $GITHUB_ENV
 
-      - name: Checkout forkdiff
-        uses: actions/checkout@v4
-        with:
-          repository: protolambda/forkdiff
+      - name: Clone forkdiff
+        run: git clone https://github.com/protolambda/forkdiff.git
 
-      - name: Checkout taiko-geth
-        uses: actions/checkout@v4
-        with:
-          repository: taikoxyz/taiko-geth
+      - name: Clone taiko-geth
+        run: git clone https://github.com/taikoxyz/taiko-geth.git
 
-      - name: Checkout go-ethereum
-        uses: actions/checkout@v4
-        with:
-          repository: ethereum/go-ethereum
-          ref: ${{ env.TAG_VERSION }}
-
-      - name: Cd back to root
-        run: cd ..
+      - name: Clone go-ethereum
+        run: git clone --branch ${{ env.TAG_VERSION }} https://github.com/ethereum/go-ethereum.git
 
       - name: Replace tag version in configuration file
         run: |
