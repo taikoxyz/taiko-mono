@@ -29,5 +29,38 @@ jobs:
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
+      # START go build
+
+      # Set up go
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21.0
+
+      # Clone forkdiff repository
+      - name: Clone forkdiff
+        run: git clone https://github.com/protolambda/forkdiff.git
+
+      # Clone taiko-geth repository
+      - name: Clone taiko-geth
+        run: git clone https://github.com/taikoxyz/taiko-geth.git
+
+      # Clone go-ethereum repository
+      - name: Clone go-ethereum
+        run: git clone https://github.com/ethereum/go-ethereum.git
+
+      # Run the forkdiff command
+      - name: Generate index.html with forkdiff
+        run: |
+          cd forkdiff
+          go run main.go -repo ../taiko-geth/ -upstream-repo ../go-ethereum/
+
+      # Move the generated index.html
+      - name: Move index.html to vercel project root
+        run: |
+          mv forkdiff/index.html packages/fork-diff/index.html
+
+      # END go build
+
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
