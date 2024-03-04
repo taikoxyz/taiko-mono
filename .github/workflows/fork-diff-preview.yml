@@ -35,10 +35,10 @@ jobs:
         run: git clone https://github.com/protolambda/forkdiff.git
 
       - name: Clone taiko-geth
-        run: git clone https://github.com/taikoxyz/taiko-geth.git && git fetch --tags && git checkout ${{ steps.version.outputs.TAG_VERSION }}
+        run: git clone https://github.com/taikoxyz/taiko-geth.git
 
       - name: Clone go-ethereum
-        run: git clone https://github.com/ethereum/go-ethereum.git
+        run: git clone https://github.com/ethereum/go-ethereum.git && git fetch --tags && git checkout ${{ steps.version.outputs.TAG_VERSION }}
 
       - name: Replace tag version in configuration file
         run: |
