@@ -52,6 +52,7 @@ jobs:
       # Run the forkdiff command
       - name: Generate index.html with forkdiff
         run: |
+          cat packages/fork-diff/fork.yaml
           cp packages/fork-diff/fork.yaml forkdiff/fork.yaml
           cd forkdiff
           go run main.go -repo ../taiko-geth/ -upstream-repo ../go-ethereum/
