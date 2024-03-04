@@ -18,3 +18,9 @@ This package contains:
 ### Production release
 
 1. Merge the fork-diff release branch.
+
+### Manual workflow dispatch
+
+> Delete this step after implementing git tag workflow in taiko-geth.
+
+There is a workflow dispatch you can use to manually trigger a preview or production release via the GitHub UI, because there could be a diff on the `taiko` branch in `taiko-geth`, and we don't use git tags there (yet). If doing a manual workflow dispatch make sure to first do it in preview and make sure it looks good!

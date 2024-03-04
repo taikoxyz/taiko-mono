@@ -3,6 +3,7 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FORK_DIFF }}
 
 on:
+  workflow_dispatch:
   push:
     branches-ignore:
       - main
