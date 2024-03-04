@@ -46,8 +46,8 @@ jobs:
           repository: ethereum/go-ethereum
           ref: ${{ env.TAG_VERSION }}
 
-      - name: Ls
-        run: ls
+      - name: Cd back to root
+        run: cd ..
 
       - name: Replace tag version in configuration file
         run: |
