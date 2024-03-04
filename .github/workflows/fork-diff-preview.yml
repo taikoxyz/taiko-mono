@@ -28,7 +28,7 @@ jobs:
 
       - name: Read tag version from JSON
         run: |
-          echo "TAG_VERSION=$(jq -r '.tagVersion' workspace/version_config.json)" >> $GITHUB_ENV
+          echo "TAG_VERSION=$(jq -r '.tagVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
 
       - name: Clone forkdiff
         run: git clone https://github.com/protolambda/forkdiff.git
