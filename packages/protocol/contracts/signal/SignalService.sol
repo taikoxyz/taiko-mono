@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
 import "./ISignalService.sol";
