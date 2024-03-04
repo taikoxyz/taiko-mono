@@ -7,8 +7,8 @@ on:
     branches-ignore:
       - main
       - release-please-*
-    paths:
-      - "packages/fork-diff/**"
+    # paths:
+    #   # - "packages/fork-diff/**"
 
 jobs:
   Deploy-Preview:
@@ -38,6 +38,12 @@ jobs:
 
       - name: Clone go-ethereum
         run: git clone --branch ${{ env.TAG_VERSION }} https://github.com/ethereum/go-ethereum.git
+
+      - name: Ls
+        run: |
+          ls -la
+          ls -la packages
+          ls -la packages/fork-diff
 
       - name: Replace tag version in configuration file
         run: |
