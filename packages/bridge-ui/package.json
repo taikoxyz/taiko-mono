@@ -23,7 +23,7 @@
   "devDependencies": {
     "@playwright/test": "^1.42.1",
     "@sveltejs/adapter-auto": "^2.1.1",
-    "@sveltejs/adapter-static": "^2.0.3",
+    "@sveltejs/adapter-static": "^3.0.1",
     "@sveltejs/kit": "^1.30.4",
     "@types/debug": "^4.1.12",
     "@types/object-hash": "^3.0.6",
