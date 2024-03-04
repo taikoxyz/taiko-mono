@@ -39,15 +39,9 @@ jobs:
       - name: Clone go-ethereum
         run: git clone --branch ${{ env.TAG_VERSION }} https://github.com/ethereum/go-ethereum.git
 
-      - name: Ls
-        run: |
-          ls -la
-          ls -la packages
-          ls -la packages/fork-diff
-
       - name: Replace tag version in configuration file
         run: |
-          sed -i "s/{{TAG_VERSION}}/${{ env.TAG_VERSION }}/g" packages/fork-diff/fork.yml
+          sed -i "s/{{TAG_VERSION}}/${{ env.TAG_VERSION }}/g" packages/fork-diff/fork.yaml
 
       - name: Cat forkdiff/fork.yaml
         run: cat packages/fork-diff/fork.yaml
