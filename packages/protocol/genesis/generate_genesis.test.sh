@@ -2,7 +2,7 @@
 
 set -eou pipefail
 
-DIR=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v docker &> /dev/null 2>&1; then
     echo "ERROR: `docker` command not found"
@@ -17,7 +17,7 @@ fi
 GENESIS_JSON=$(cd "$(dirname "$DIR/../..")"; pwd)/deployments/genesis.json
 TESTNET_CONFIG=$DIR/testnet/docker-compose.yml
 
-touch $GENESIS_JSON
+touch "$GENESIS_JSON"
 
 echo '
 {
@@ -43,7 +43,7 @@ echo '
   "difficulty": "1",
   "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000df08f82de32b8d460adbe8d72043e3a7e25a3b390000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
   "alloc":
-' > $GENESIS_JSON
+' > "$GENESIS_JSON"
 
 echo "Starting generate_genesis tests..."
 
@@ -54,16 +54,16 @@ rm -rf out && pnpm compile
 pnpm run generate:genesis $DIR/test_config.js
 
 # generate complete genesis json
-cat $DIR/../deployments/genesis_alloc.json >> $GENESIS_JSON
+cat "$DIR"/../deployments/genesis_alloc.json >> "$GENESIS_JSON"
 
-echo '}' >> $GENESIS_JSON
+echo '}' >> "$GENESIS_JSON"
 
 # start a geth instance and init with the output genesis json
 echo ""
 echo "Start docker compose network..."
 
-docker compose -f $TESTNET_CONFIG down -v --remove-orphans &> /dev/null
-docker compose -f $TESTNET_CONFIG up -d
+docker compose -f "$TESTNET_CONFIG" down -v --remove-orphans &> /dev/null
+docker compose -f "$TESTNET_CONFIG" up -d
 
 trap "docker compose -f $TESTNET_CONFIG down -v" EXIT INT KILL ERR
 
@@ -75,14 +75,7 @@ function waitTestNode {
   # Wait till the test node fully started
   RETRIES=120
   i=0
-  until curl \
-      --silent \
-      --fail \
-      --noproxy localhost \
-      -X POST \
-      -H "Content-Type: application/json" \
-      -d '{"jsonrpc":"2.0","id":0,"method":"eth_chainId","params":[]}' \
-      $1
+  until cast chain-id --rpc-url "$1"
   do
       sleep 1
       if [ $i -eq $RETRIES ]; then
