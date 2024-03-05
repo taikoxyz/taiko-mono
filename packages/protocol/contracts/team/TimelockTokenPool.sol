@@ -216,7 +216,7 @@ contract TimelockTokenPool is EssentialContract {
         totalAmountWithdrawn += amountToWithdraw;
         totalCostPaid += costToWithdraw;
 
-        IERC20(taikoToken).transferFrom(sharedVault, _to, amountToWithdraw);
+        IERC20(taikoToken).safeTransferFrom(sharedVault, _to, amountToWithdraw);
         IERC20(costToken).safeTransferFrom(_recipient, sharedVault, costToWithdraw);
 
         emit Withdrawn(_recipient, _to, amountToWithdraw, costToWithdraw);
