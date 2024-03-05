@@ -8,7 +8,7 @@ function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[numb
     id: Number(chainId),
     name: chainConfig.name,
     nativeCurrency: {
-      name: 'ETH',
+      name: 'Ether',
       symbol: 'ETH',
       decimals: 18,
     },
