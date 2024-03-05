@@ -47,8 +47,7 @@ contract USDCAdapter is BridgedERC20Base {
     function _burnToken(address _from, uint256 _amount) internal override {
         // We don't need to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
-        // as switching from an old bridged token to a new one can only be performed by the owner
-        // only.
+        // as switching from an old bridged token to a new one can only be performed by the owner.
         usdc.transferFrom(_from, address(this), _amount);
         usdc.burn(_amount);
     }
