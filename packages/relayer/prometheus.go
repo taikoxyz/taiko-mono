@@ -14,6 +14,10 @@ var (
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",
 	})
+	TransactionsSuspended = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "transactions_suspended_ops_total",
+		Help: "The total number of suspended transactions",
+	})
 	BlocksScanned = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_scanned_ops_total",
 		Help: "The total number of scanned blocks. Acts as heartbeat metric.",

@@ -14,9 +14,10 @@ import (
 
 type Config struct {
 	// address configs
-	SrcBridgeAddress  common.Address
-	SrcTaikoAddress   common.Address
-	DestBridgeAddress common.Address
+	SrcBridgeAddress        common.Address
+	SrcSignalServiceAddress common.Address
+	SrcTaikoAddress         common.Address
+	DestBridgeAddress       common.Address
 	// db configs
 	DatabaseUsername        string
 	DatabasePassword        string
@@ -40,6 +41,7 @@ type Config struct {
 	SyncMode                            SyncMode
 	WatchMode                           WatchMode
 	NumLatestBlocksToIgnoreWhenCrawling uint64
+	EventName                           string
 	TargetBlockNumber                   *uint64
 	OpenQueueFunc                       func() (queue.Queue, error)
 	OpenDBFunc                          func() (DB, error)
@@ -50,6 +52,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
 		SrcBridgeAddress:                    common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
 		SrcTaikoAddress:                     common.HexToAddress(c.String(flags.SrcTaikoAddress.Name)),
+		SrcSignalServiceAddress:             common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
 		DestBridgeAddress:                   common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DatabaseUsername:                    c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                    c.String(flags.DatabasePassword.Name),
@@ -71,6 +74,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SyncMode:                            SyncMode(c.String(flags.SyncMode.Name)),
 		ETHClientTimeout:                    c.Uint64(flags.ETHClientTimeout.Name),
 		NumLatestBlocksToIgnoreWhenCrawling: c.Uint64(flags.NumLatestBlocksToIgnoreWhenCrawling.Name),
+		EventName:                           c.String(flags.EventName.Name),
 		TargetBlockNumber: func() *uint64 {
 			if c.IsSet(flags.TargetBlockNumber.Name) {
 				value := c.Uint64(flags.TargetBlockNumber.Name)

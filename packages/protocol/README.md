@@ -68,8 +68,6 @@ This project also integrates with Foundry for building and testing contracts.
 - To compile using foundry: `forge build` or `pnpm compile`
 - To run foundry tests: `forge test --gas-report -vvv` or `pnpm test:foundry`
 
-Note that compiling with foundry uses dependencies inside the `lib` dir (instead of `node_modules`).
-
 ## Generating and Running the L2 Genesis Block
 
 The generation of the L2 genesis block and obtaining its hash involves a series of steps, including constructing the genesis JSON, followed by the actual generation and retrieval of the genesis block hash. A test can be executed to comprehend this process.

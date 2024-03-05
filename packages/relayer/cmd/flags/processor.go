@@ -12,13 +12,6 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"PROCESSOR_PRIVATE_KEY"},
 	}
-	SrcSignalServiceAddress = &cli.StringFlag{
-		Name:     "srcSignalServiceAddress",
-		Usage:    "SignalService address for the source chain",
-		Required: true,
-		Category: processorCategory,
-		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
-	}
 	DestTaikoAddress = &cli.StringFlag{
 		Name:     "destTaikoAddress",
 		Usage:    "Taiko address for the destination chain",
@@ -133,10 +126,17 @@ var (
 		Required: false,
 		EnvVars:  []string{"TARGET_TX_HASH"},
 	}
+	CacheOption = &cli.IntFlag{
+		Name:     "cacheOption",
+		Usage:    "Cache option. Options: 0 - cache nothing, 1 - cache signal root, 2 - cache state root, 3 - cache both",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"CACHE_OPTION"},
+		Value:    3,
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
-	SrcSignalServiceAddress,
 	DestERC721VaultAddress,
 	DestERC1155VaultAddress,
 	DestERC20VaultAddress,
@@ -156,4 +156,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
+	CacheOption,
 })

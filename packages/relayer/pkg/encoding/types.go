@@ -7,6 +7,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+var hopProofsT abi.Type
+var err error
+
+func init() {
+	hopProofsT, err = abi.NewType("tuple[]", "tuple[]", hopComponents)
+	if err != nil {
+		panic(err)
+	}
+}
+
 type Proof struct {
 	AccountProof []byte `abi:"accountProof"`
 	StorageProof []byte `abi:"storageProof"`
@@ -32,50 +42,47 @@ type BlockHeader struct {
 	WithdrawalsRoot  [32]byte       `abi:"withdrawalsRoot"`
 }
 
-type SignalProof struct {
-	CrossChainSync common.Address `abi:"crossChainSync"`
-	Height         uint64         `abi:"height"`
-	StorageProof   []byte         `abi:"storageProof"`
-	Hops           []Hop          `abi:"hops"`
-}
+type CacheOption uint8
 
-type Hop struct {
-	SignalRootRelay common.Address `abi:"signalRootRelay"`
-	SignalRoot      [32]byte       `abi:"signalRoot"`
-	StorageProof    []byte         `abi:"storageProof"`
+const (
+	CACHE_NOTHING     = iota
+	CACHE_SIGNAL_ROOT = iota
+	CACHE_STATE_ROOT  = iota
+	CACHE_BOTH        = iota
+)
+
+type HopProof struct {
+	ChainID      uint64   `abi:"chainId"`
+	BlockID      uint64   `abi:"blockId"`
+	RootHash     [32]byte `abi:"rootHash"`
+	CacheOption  uint8    `abi:"cacheOption"`
+	AccountProof [][]byte `abi:"accountProof"`
+	StorageProof [][]byte `abi:"storageProof"`
 }
 
 var hopComponents = []abi.ArgumentMarshaling{
 	{
-		Name: "signalRootRelay",
-		Type: "address",
-	},
-	{
-		Name: "signalRoot",
-		Type: "bytes32",
-	},
-	{
-		Name: "storageProof",
-		Type: "bytes",
-	},
-}
-
-var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-	{
-		Name: "crossChainSync",
-		Type: "address",
-	},
-	{
-		Name: "height",
+		Name: "chainId",
 		Type: "uint64",
 	},
 	{
-		Name: "storageProof",
-		Type: "bytes",
+		Name: "blockId",
+		Type: "uint64",
 	},
 	{
-		Name:       "hops",
-		Type:       "tuple[]",
-		Components: hopComponents,
+		Name: "rootHash",
+		Type: "bytes32",
 	},
-})
+	{
+		Name: "cacheOption",
+		Type: "uint8",
+	},
+	{
+		Name: "accountProof",
+		Type: "bytes[]",
+	},
+	{
+		Name: "storageProof",
+		Type: "bytes[]",
+	},
+}
