@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getBalance } from '@wagmi/core';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
@@ -17,13 +18,13 @@
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
-  import { OnNetwork } from '$components/OnNetwork';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, fetchBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
+  import { config } from '$libs/wagmi';
   import { type Account, account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
@@ -61,6 +62,7 @@
   const selectToken = async (token: Token) => {
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
+    const user = $account?.address;
     $computingBalance = true;
     closeMenu();
     log('selected token', token);
@@ -80,6 +82,11 @@
     }
     if (!destChain || !destChain.id) {
       warningToast({ title: $t('messages.network.required_dest') });
+      $computingBalance = false;
+      return;
+    }
+    if (!user) {
+      warningToast({ title: $t('messages.account.required') });
       $computingBalance = false;
       return;
     }
@@ -119,8 +126,8 @@
       console.error(error);
     }
     value = token;
-    await updateBalance($account?.address, srcChain.id, destChain.id);
     $computingBalance = false;
+    await updateBalance(user, srcChain.id, destChain.id);
   };
 
   const handleTokenRemoved = (event: { detail: { token: Token } }) => {
@@ -130,13 +137,9 @@
     }
   };
 
-  export async function updateBalance(
-    userAddress = $account?.address,
-    srcChainId = $connectedSourceChain?.id,
-    destChainId = $destNetwork?.id,
-  ) {
+  export async function updateBalance(userAddress: Address, srcChainId: number, destChainId: number) {
     const token = value;
-    if (!token || !srcChainId || !destChainId || !userAddress) return;
+    if (!token || !srcChainId || !userAddress) return;
     $computingBalance = true;
     $errorComputingBalance = false;
 
@@ -172,17 +175,10 @@
     $computingBalance = false;
   }
 
-  const onNetworkChange = () => {
-    const srcChain = $connectedSourceChain;
-    const destChain = $destNetwork;
-    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
-  };
-
-  const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
-    const srcChain = $connectedSourceChain;
-    const destChain = $destNetwork;
-    if (destChain && srcChain && (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount))
-      updateBalance($account?.address, srcChain.id, destChain.id);
+  const onAccountChange = async (newAccount: Account) => {
+    $selectedToken = ETHToken;
+    if (!newAccount?.address) return;
+    $tokenBalance = await getBalance(config, { address: newAccount.address, chainId: newAccount.chainId });
   };
 
   $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
@@ -199,7 +195,7 @@
     $computingBalance = true;
     value = tokens[0];
     $selectedToken = value;
-    await updateBalance($account?.address, srcChain.id, destChain.id);
+    await updateBalance(user, srcChain.id, destChain.id);
     $computingBalance = false;
   });
 </script>
@@ -258,5 +254,4 @@
 
 <div data-modal-uuid={id} />
 
-<OnNetwork change={onNetworkChange} />
 <OnAccount change={onAccountChange} />
