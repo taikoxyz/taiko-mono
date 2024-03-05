@@ -5,6 +5,8 @@ on:
     branches: [main]
     tags:
       - "v*"
+    paths:
+      - "packages/taiko-client/**"
 
 jobs:
   push-docker-image:

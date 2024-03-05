@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "packages/taiko-client/**"
 
 permissions:
   contents: read

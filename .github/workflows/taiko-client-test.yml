@@ -3,7 +3,11 @@ name: "CI"
 on:
   push:
     branches: [main]
+    paths:
+      - "packages/taiko-client/**"
   pull_request:
+    paths:
+      - "packages/taiko-client/**"
 
 jobs:
   lint:
