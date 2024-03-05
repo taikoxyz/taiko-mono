@@ -193,7 +193,8 @@ contract TimelockTokenPool is EssentialContract {
         amountToWithdraw = amountUnlocked - amountWithdrawn;
 
         // Note: precision is maintained at the token level rather than the wei level, otherwise,
-        // `costPaid` must be a uint256.
+        // `costPaid` must be a uint256. Therefore, please ignore
+        // https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
         uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
         costToWithdraw = _amountUnlocked * r.grant.costPerToken - r.costPaid;
     }
