@@ -5,17 +5,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-func EncodeSignalProof(signalProof SignalProof) ([]byte, error) {
+func EncodeHopProofs(hopProofs []HopProof) ([]byte, error) {
 	args := abi.Arguments{
 		{
-			Type: signalProofT,
+			Type: hopProofsT,
 		},
 	}
 
-	encodedSignalProof, err := args.Pack(signalProof)
+	encodedHopProofs, err := args.Pack(hopProofs)
 	if err != nil {
 		return nil, errors.Wrap(err, "args.Pack")
 	}
 
-	return encodedSignalProof, nil
+	return encodedHopProofs, nil
 }
