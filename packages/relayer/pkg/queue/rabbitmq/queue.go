@@ -212,12 +212,26 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 				slog.Error("rabbitmq notify close connection")
 			}
 
+			r.Close(ctx)
+
+			if err := r.connect(); err != nil {
+				slog.Error("error reconnecting to rabbitmq after notify closed", "err", err.Error())
+				return err
+			}
+
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
 			if err != nil {
 				slog.Error("rabbitmq notify close channel", "err", err.Error())
 			} else {
 				slog.Error("rabbitmq notify close channel")
+			}
+
+			r.Close(ctx)
+
+			if err := r.connect(); err != nil {
+				slog.Error("error reconnecting to rabbitmq after notify closed", "err", err.Error())
+				return err
 			}
 
 			return queue.ErrClosed
