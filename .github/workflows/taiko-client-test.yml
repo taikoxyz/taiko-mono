@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          repository: taikoxyz/taiko-client
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -25,30 +23,17 @@ jobs:
           cache: true
 
       - name: Lint
+        working-directory: packages/taiko-client
         run: make lint
 
   integration_tests:
     name: Integration tests
     runs-on: ubuntu-latest
-    env:
-      CLIENT_DIR: taiko-client
-      TAIKO_MONO_DIR: taiko-mono
-
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v3
-        with:
-          repository: taikoxyz/taiko-client
-          path: ${{ env.CLIENT_DIR }}
-
-      - uses: actions/checkout@v3
-        with:
-          repository: taikoxyz/taiko-mono
-          path: ${{ env.TAIKO_MONO_DIR }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -58,7 +43,7 @@ jobs:
         with:
           go-version: 1.21
           cache: true
-          cache-dependency-path: ${{ env.CLIENT_DIR }}/go.sum
+          cache-dependency-path: packages/taiko-client/go.sum
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -87,13 +72,13 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install protocol dependencies
-        working-directory: ${{ env.TAIKO_MONO_DIR }}
-        run: cd ./packages/protocol && pnpm install
+        working-directory: packages/protocol
+        run: pnpm install
 
       - name: Test
-        working-directory: ${{ env.CLIENT_DIR }}
+        working-directory: packages/taiko-client
         run: |
-          TAIKO_MONO_DIR=${GITHUB_WORKSPACE}/${TAIKO_MONO_DIR} make test
+          TAIKO_MONO_DIR=${GITHUB_WORKSPACE} make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v3
