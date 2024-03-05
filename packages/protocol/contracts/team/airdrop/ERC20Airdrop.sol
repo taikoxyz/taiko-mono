@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import "./MerkleClaimable.sol";
 
@@ -9,6 +10,8 @@ import "./MerkleClaimable.sol";
 /// @notice Contract for managing Taiko token airdrop for eligible users.
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Airdrop is MerkleClaimable {
+    using SafeERC20 for IERC20;
+
     /// @notice The address of the token contract.
     address public token;
 
@@ -60,7 +63,7 @@ contract ERC20Airdrop is MerkleClaimable {
         _verifyClaim(abi.encode(user, amount), proof);
 
         // Transfer the tokens
-        IERC20(token).transferFrom(vault, user, amount);
+        IERC20(token).safeTransferFrom(vault, user, amount);
 
         // Delegate the voting power to delegatee.
         // Note that the signature (v,r,s) may not correspond to the user address,

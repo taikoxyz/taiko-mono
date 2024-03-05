@@ -103,7 +103,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
         // as `assignedProver` has provided a signature above to authorize this hook.
-        tko.transferFrom(_blk.assignedProver, taikoL1Address, _blk.livenessBond);
+        tko.safeTransferFrom(_blk.assignedProver, taikoL1Address, _blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, _meta.minTier);
