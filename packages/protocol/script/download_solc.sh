@@ -2,16 +2,16 @@
 
 set -e
 
-protocol_dir=$(realpath "$(dirname $0)/..")
+protocol_dir=$(realpath "$(dirname "$0")/..")
 solc_bin=${protocol_dir}/bin/solc
 
 if [ -f "${solc_bin}" ]; then
   exit 0
 fi
 
-mkdir -p "$(dirname ${solc_bin})"
+mkdir -p "$(dirname "${solc_bin}")"
 
-VERSION=v0.8.18
+VERSION=v0.8.24
 
 if [ "$(uname)" = 'Darwin' ]; then
   SOLC_FILE_NAME=solc-macos
