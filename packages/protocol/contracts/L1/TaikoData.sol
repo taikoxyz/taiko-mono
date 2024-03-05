@@ -107,6 +107,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash; // slot 8
+        address sender; // slot 9
     }
 
     /// @dev Struct representing transition to be proven.

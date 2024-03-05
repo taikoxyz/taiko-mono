@@ -112,7 +112,7 @@ contract AssignmentHook is EssentialContract, IHook {
         } else {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
-                _meta.coinbase, _blk.assignedProver, proverFee
+                _meta.sender, _blk.assignedProver, proverFee
             );
         }
 
