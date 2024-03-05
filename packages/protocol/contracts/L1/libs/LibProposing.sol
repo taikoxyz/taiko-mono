@@ -53,7 +53,6 @@ library LibProposing {
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_OFFSET();
     error L1_TXLIST_SIZE();
-    error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes a Taiko L2 block.
@@ -91,7 +90,6 @@ library LibProposing {
         // ensure that only that specific address has the authority to propose
         // blocks.
         TaikoData.SlotB memory b = _state.slotB;
-        if (!_isProposerPermitted(b, _resolver)) revert L1_UNAUTHORIZED();
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
@@ -294,25 +292,5 @@ library LibProposing {
         returns (bool)
     {
         return _state.reusableBlobs[_blobHash] + _config.blobExpiry > block.timestamp;
-    }
-
-    function _isProposerPermitted(
-        TaikoData.SlotB memory _slotB,
-        IAddressResolver _resolver
-    )
-        private
-        view
-        returns (bool)
-    {
-        if (_slotB.numBlocks == 1) {
-            // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve("proposer_one", true);
-            if (proposerOne != address(0) && msg.sender != proposerOne) {
-                return false;
-            }
-        }
-
-        address proposer = _resolver.resolve("proposer", true);
-        return proposer == address(0) || msg.sender == proposer;
     }
 }
