@@ -346,13 +346,11 @@ func (i *Indexer) filter(ctx context.Context) error {
 			i.processingBlockHeight = *i.targetBlockNumber
 
 			endBlockID = i.processingBlockHeight + 1
-		} else {
+		} else if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
 			// otherwise, we need to set the endBlockID as the greater of the two:
 			// either the endBlockID minus the number of latest blocks to ignore,
 			// or endBlockID.
-			if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
-				endBlockID = endBlockID - i.numLatestBlocksToIgnoreWhenCrawling
-			}
+			endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
 		}
 	}
 

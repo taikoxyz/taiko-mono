@@ -170,6 +170,7 @@ func (i *Indexer) subscribeMessageReceived(
 					relayer.MessageReceivedEventsIndexingErrors.Inc()
 
 					slog.Error("i.subscribe, i.handleMessageReceived", "error", err)
+
 					return
 				}
 
@@ -186,6 +187,7 @@ func (i *Indexer) subscribeMessageReceived(
 					relayer.MessageReceivedEventsIndexingErrors.Inc()
 
 					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
+
 					return
 				}
 
@@ -201,6 +203,7 @@ func (i *Indexer) subscribeMessageReceived(
 						relayer.MessageReceivedEventsIndexingErrors.Inc()
 
 						slog.Error("i.subscribe, i.blockRepo.Save", "error", err)
+
 						return
 					}
 
@@ -247,6 +250,7 @@ func (i *Indexer) subscribeMessageStatusChanged(
 
 			if err := i.handleMessageStatusChangedEvent(ctx, chainID, event); err != nil {
 				slog.Error("i.subscribe, i.handleMessageStatusChangedEvent", "error", err)
+
 				relayer.MessageSentEventsIndexingErrors.Inc()
 			}
 		}
