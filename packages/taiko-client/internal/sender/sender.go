@@ -223,7 +223,12 @@ func (s *Sender) SendTransaction(tx *types.Transaction) (string, error) {
 	}
 
 	if err := s.send(txToConfirm); err != nil && !strings.Contains(err.Error(), "replacement transaction") {
-		log.Error("Failed to send transaction", "id", txID, "hash", tx.Hash(), "err", err)
+		log.Error("Failed to send transaction",
+			"tx_id", txID,
+			"nonce", txToConfirm.CurrentTx.Nonce(),
+			"hash", tx.Hash(),
+			"err", err,
+		)
 		return "", err
 	}
 
@@ -254,20 +259,35 @@ func (s *Sender) send(tx *TxToConfirm) error {
 		if err != nil {
 			if strings.Contains(err.Error(), "nonce too low") {
 				s.AdjustNonce(originalTx)
-				log.Warn("Nonce is incorrect, retry sending the transaction with new nonce", "hash", rawTx.Hash(), "err", err)
+				log.Warn("Nonce is incorrect, retry sending the transaction with new nonce",
+					"tx_id", tx.ID,
+					"nonce", tx.CurrentTx.Nonce(),
+					"hash", rawTx.Hash(),
+					"err", err,
+				)
 				continue
 			}
-			if err.Error() == "replacement transaction underpriced" {
+			if strings.Contains(err.Error(), "replacement transaction underpriced") {
 				s.adjustGas(originalTx)
-				log.Warn("Replacement transaction underpriced", "hash", rawTx.Hash(), "err", err)
+				log.Warn("Replacement transaction underpriced",
+					"tx_id", tx.ID,
+					"nonce", tx.CurrentTx.Nonce(),
+					"hash", rawTx.Hash(),
+					"err", err,
+				)
 				continue
 			}
-			log.Error("Failed to send transaction", "hash", rawTx.Hash(), "err", err)
+			log.Error("Failed to send transaction",
+				"tx_id", tx.ID,
+				"nonce", tx.CurrentTx.Nonce(),
+				"hash", rawTx.Hash(),
+				"err", err,
+			)
 			return err
 		}
-		s.Opts.Nonce = new(big.Int).Add(s.Opts.Nonce, common.Big1)
 		break
 	}
+	s.Opts.Nonce = new(big.Int).Add(s.Opts.Nonce, common.Big1)
 	return nil
 }
 
@@ -323,7 +343,9 @@ func (s *Sender) resendUnconfirmedTxs() {
 		if err := s.send(unconfirmedTx); err != nil {
 			log.Warn(
 				"Failed to resend the transaction",
-				"id", id,
+				"tx_id", id,
+				"nonce", unconfirmedTx.CurrentTx.Nonce(),
+				"hash", unconfirmedTx.CurrentTx.Hash(),
 				"retrys", unconfirmedTx.Retrys,
 				"err", err,
 			)
@@ -341,7 +363,12 @@ func (s *Sender) checkPendingTransactionsConfirmation() {
 			// Ignore the transaction if it is pending.
 			tx, isPending, err := s.client.TransactionByHash(s.ctx, pendingTx.CurrentTx.Hash())
 			if err != nil {
-				log.Warn("Failed to fetch transaction", "hash", pendingTx.CurrentTx.Hash(), "err", err)
+				log.Warn("Failed to fetch transaction",
+					"tx_id", pendingTx.ID,
+					"nonce", pendingTx.CurrentTx.Nonce(),
+					"hash", pendingTx.CurrentTx.Hash(),
+					"err", err,
+				)
 				continue
 			}
 			if isPending {

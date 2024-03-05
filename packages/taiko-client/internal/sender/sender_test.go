@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/sender"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-client/internal/sender"
+	"github.com/taikoxyz/taiko-client/internal/testutils"
 )
 
 type SenderTestSuite struct {

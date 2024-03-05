@@ -15,7 +15,7 @@ import (
 
 	"github.com/taikoxyz/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-client/prover/anchor_tx_validator"
 	proofProducer "github.com/taikoxyz/taiko-client/prover/proof_producer"

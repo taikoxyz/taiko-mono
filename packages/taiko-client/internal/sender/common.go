@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-client/internal/utils"
 )
 
 // adjustGas adjusts the gas fee cap and gas tip cap of the given transaction with the configured

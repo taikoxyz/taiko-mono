@@ -23,8 +23,8 @@ import (
 
 	"github.com/taikoxyz/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
+	"github.com/taikoxyz/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-client/pkg/rpc"
 	guardianproversender "github.com/taikoxyz/taiko-client/prover/guardian_prover_sender"
