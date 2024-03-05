@@ -45,6 +45,7 @@ library LibProposing {
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSABLE();
     error L1_BLOB_REUSE_DISABLED();
+    error L1_INVALID_COINBASE();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
@@ -84,6 +85,18 @@ library LibProposing {
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
+        } else {
+            bytes memory _coinbaseSig = params.coinbaseSig;
+
+            // Reset coinbaseSig before hashing
+            params.coinbaseSig = "";
+            bytes32 hash = keccak256(
+                abi.encode("USE_AS_COINBASE", _config.chainId, address(this), params, _txList)
+            );
+
+            if (!params.coinbase.isValidSignature(hash, _coinbaseSig)) {
+                revert L1_INVALID_COINBASE();
+            }
         }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.

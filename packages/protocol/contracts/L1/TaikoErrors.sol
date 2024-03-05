@@ -18,6 +18,7 @@ abstract contract TaikoErrors {
     error L1_BLOB_REUSE_DISABLED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
+    error L1_INVALID_COINBASE();
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();
     error L1_INVALID_HOOK();
