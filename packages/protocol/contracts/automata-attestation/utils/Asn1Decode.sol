@@ -45,7 +45,7 @@ library Asn1Decode {
     * @return A pointer to the outermost node
     */
     function root(bytes memory der) internal pure returns (uint256) {
-        return readNodeLength(der, 0);
+        return _readNodeLength(der, 0);
     }
 
     /*
@@ -55,7 +55,7 @@ library Asn1Decode {
     */
     function rootOfBitStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] == 0x03, "Not type BIT STRING");
-        return readNodeLength(der, ptr.ixf() + 1);
+        return _readNodeLength(der, ptr.ixf() + 1);
     }
 
     /*
@@ -65,7 +65,7 @@ library Asn1Decode {
     */
     function rootOfOctetStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] == 0x04, "Not type OCTET STRING");
-        return readNodeLength(der, ptr.ixf());
+        return _readNodeLength(der, ptr.ixf());
     }
 
     /*
@@ -75,7 +75,7 @@ library Asn1Decode {
     * @return A pointer to the next sibling node
     */
     function nextSiblingOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
-        return readNodeLength(der, ptr.ixl() + 1);
+        return _readNodeLength(der, ptr.ixl() + 1);
     }
 
     /*
@@ -86,7 +86,7 @@ library Asn1Decode {
     */
     function firstChildOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
         require(der[ptr.ixs()] & 0x20 == 0x20, "Not a constructed type");
-        return readNodeLength(der, ptr.ixf());
+        return _readNodeLength(der, ptr.ixf());
     }
 
     /*
@@ -184,7 +184,7 @@ library Asn1Decode {
         return der.substring(ptr.ixf() + 1, valueLength - 1);
     }
 
-    function readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
+    function _readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
         uint256 length;
         uint80 ixFirstContentByte;
         uint80 ixLastContentByte;

@@ -537,14 +537,14 @@ contract TestTimelockTokenPool is TaikoTest {
         assertEq(amountToWithdraw, 10_000e18);
 
         // 10_000 TKO tokens * strikePrice
-        uint256 payedUsdc = 10_000 * strikePrice;
+        uint256 paidUsdc = 10_000 * strikePrice;
 
         vm.prank(Alice);
-        usdc.approve(address(pool), payedUsdc);
+        usdc.approve(address(pool), paidUsdc);
 
         vm.prank(Alice);
         pool.withdraw();
         assertEq(tko.balanceOf(Alice), 10_000e18);
-        assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - payedUsdc);
+        assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - paidUsdc);
     }
 }
