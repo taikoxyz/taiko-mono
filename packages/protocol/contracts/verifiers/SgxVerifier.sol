@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../L1/ITaikoL1.sol";
 import "../common/EssentialContract.sol";
-import "../thirdparty/optimism/Bytes.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
@@ -151,9 +150,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
         if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
 
-        uint32 id = uint32(bytes4(Bytes.slice(_proof.data, 0, 4)));
-        address newInstance = address(bytes20(Bytes.slice(_proof.data, 4, 20)));
-        bytes memory signature = Bytes.slice(_proof.data, 24);
+        uint32 id = uint32(bytes4(_proof.data[:4]));
+        address newInstance = address(bytes20(_proof.data[4:24]));
+        bytes memory signature = _proof.data[24:];
 
         address oldInstance =
             ECDSA.recover(getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), signature);
