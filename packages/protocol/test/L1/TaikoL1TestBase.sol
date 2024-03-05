@@ -330,7 +330,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = sv.getSignedHash(tran, newInstance, prover, metaHash);
+        uint64 chainId = L1.getConfig().chainId;
+        bytes32 digest =
+            LibProofHash.getProofHash(tran, address(sv), newInstance, prover, metaHash, chainId);
+        //bytes32 digest = sv.getSignedHash(tran, newInstance, prover, metaHash);
 
         uint256 signerPrivateKey;
 

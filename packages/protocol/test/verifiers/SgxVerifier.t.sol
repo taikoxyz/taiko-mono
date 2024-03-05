@@ -202,12 +202,18 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         // TierProof
         address newInstance = address(0x33);
 
-        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.prover, ctx.metaHash);
+        uint64 chainId = L1.getConfig().chainId;
+        bytes32 signedHash = LibProofHash.getProofHash(
+            transition, address(sv), newInstance, ctx.prover, ctx.metaHash, chainId
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(KNOWN_ADDRESS_PRIV_KEY, signedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 100, data: data });
+        // bytes memory data = abi.encodePacked(id, newInstance, signature); -> comment out to avoid
+        // stack too deep.
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 100, data: abi.encodePacked(id, newInstance, signature) });
 
         vm.warp(block.timestamp + 5);
 
@@ -356,7 +362,11 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         // TierProof
         address newInstance = address(0x33);
 
-        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.prover, ctx.metaHash);
+        uint64 chainId = L1.getConfig().chainId;
+        bytes32 signedHash = LibProofHash.getProofHash(
+            transition, address(sv), newInstance, ctx.prover, ctx.metaHash, chainId
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(KNOWN_ADDRESS_PRIV_KEY, signedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -397,7 +407,11 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         uint32 id = 0;
         address newInstance = address(0x33);
 
-        bytes32 signedHash = sv.getSignedHash(transition, newInstance, ctx.prover, ctx.metaHash);
+        uint64 chainId = L1.getConfig().chainId;
+        bytes32 signedHash = LibProofHash.getProofHash(
+            transition, address(sv), newInstance, ctx.prover, ctx.metaHash, chainId
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(KNOWN_ADDRESS_PRIV_KEY, signedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
