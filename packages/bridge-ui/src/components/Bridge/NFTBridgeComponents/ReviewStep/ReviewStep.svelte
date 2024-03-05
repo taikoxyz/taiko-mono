@@ -97,7 +97,7 @@
               <li>
                 <a
                   class="flex justify-start link"
-                  href={`${chainConfig[currentChain].urls.explorer}/token/${nft.addresses[currentChain]}`}
+                  href={`${chainConfig[currentChain]?.blockExplorers?.default.url}/token/${nft.addresses[currentChain]}`}
                   target="_blank">
                   {shortenAddress(nft.addresses[currentChain], 8, 12)}
                   <!-- <Icon type="arrow-top-right" fillClass="fill-primary-link" /> -->
