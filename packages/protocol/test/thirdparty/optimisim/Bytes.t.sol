@@ -2,8 +2,9 @@
 pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
-
+import "../../../contracts/thirdparty/optimism/Bytes.sol";
 /// @author Kirk Baird <kirk@sigmaprime.io>
+
 contract TestBytes is TaikoTest {
     function test_toNibbles() external {
         // 20 Bytes input
