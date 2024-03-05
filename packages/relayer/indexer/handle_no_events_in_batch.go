@@ -10,8 +10,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-// handleNoEventsInBatch is used when an entire batch call has no events in the entire response,
-// and we need to update the latest block processed
+// handleNoEventsInBatch is used when there are no events remaining ian a batch, or
+// the batch itself contained no events.
 func (i *Indexer) handleNoEventsInBatch(
 	ctx context.Context,
 	chainID *big.Int,

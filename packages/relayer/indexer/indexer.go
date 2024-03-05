@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -31,24 +32,38 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
+// WatchMode is a type that determines how the indexer will operate.
 type WatchMode string
 
 var (
-	Filter             WatchMode = "filter"
-	Subscribe          WatchMode = "subscribe"
+	// Filter will filter past blocks, but when catches up to latest block,
+	// will stop.
+	Filter WatchMode = "filter"
+	// Subscribe ignores all past blocks, only subscibes to new events from latest block.
+	Subscribe WatchMode = "subscribe"
+	// FilterAndSubscribe filters up til latest block, then subscribes to new events. This is the
+	// default mode.
 	FilterAndSubscribe WatchMode = "filter-and-subscribe"
-	CrawlPastBlocks    WatchMode = "crawl-past-blocks"
-	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe, CrawlPastBlocks}
+	// CrawlPastBlocks filters through the past N blocks on a loop, when it reaches `latestBlock - N`,
+	// it will recursively start the loop again, filtering for missed events, or ones the
+	// processor failed to process.
+	CrawlPastBlocks WatchMode = "crawl-past-blocks"
+	WatchModes                = []WatchMode{Filter, Subscribe, FilterAndSubscribe, CrawlPastBlocks}
 )
 
+// SyncMode is a type which determines how the indexer will start indexing.
 type SyncMode string
 
 var (
-	Sync   SyncMode = "sync"
+	// Sync grabs the latest processed block in the DB and starts from there.
+	Sync SyncMode = "sync"
+	// Resync starts from genesis, ignoring the database.
 	Resync SyncMode = "resync"
 	Modes           = []SyncMode{Sync, Resync}
 )
 
+// ethClient is a local interface that lets us narrow the large ethclient.Client type
+// from go-ethereum down to a mockable interface for testing.
 type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
@@ -57,11 +72,19 @@ type ethClient interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
+// DB is a local interface that lets us narrow down a database type for testing.
 type DB interface {
 	DB() (*sql.DB, error)
 	GormDB() *gorm.DB
 }
 
+// Indexer is the main struct of this package, containing all dependencies necessary for indexing
+// relayer-related chain data. All database repositories, contract implementations,
+// and configurations will be injected here.
+// An indexer should be configured and deployed for all possible combinations of bridging.
+// IE: an indexer for L1-L2, and another for L2-L1. an L1-L2 indexer will have the L1 configurations
+// as its source, and vice versa for the L2-L1 indexer. They will add messages to a queue
+// specifically for a processor of the same configuration.
 type Indexer struct {
 	eventRepo    relayer.EventRepository
 	blockRepo    relayer.BlockRepository
@@ -103,6 +126,7 @@ type Indexer struct {
 	eventName string
 }
 
+// InitFromCli inits a new Indexer from command line or environment variables.
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
@@ -112,6 +136,7 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 	return InitFromConfig(ctx, i, cfg)
 }
 
+// InitFromConfig inits a new Indexer from a provided Config struct
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
@@ -153,6 +178,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return errors.Wrap(err, "bridge.NewBridge")
 	}
 
+	// taikoL1 will only be set when initializing a L1 - L2 indexer
 	var taikoL1 *taikol1.TaikoL1
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		taikoL1, err = taikol1.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
@@ -215,14 +241,19 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	return nil
 }
 
+// Name implements the SubcommandAction interface
 func (i *Indexer) Name() string {
 	return "indexer"
 }
 
+// Close waits for the wait groups internally to be stopped ,which will be done when the
+// context is stopped externally by cmd/main.go shutdown.
 func (i *Indexer) Close(ctx context.Context) {
 	i.wg.Wait()
 }
 
+// Start starts the indexer, which should initialize the queue, add to wait groups,
+// and start filtering or subscribing depending on the WatchMode provided.
 // nolint: funlen
 func (i *Indexer) Start() error {
 	i.ctx = context.Background()
@@ -262,8 +293,10 @@ func (i *Indexer) Start() error {
 	return nil
 }
 
+// filter is the main function run by Start in the indexer, which should filter on a loop,
+// then if desired to subscribe, start subscriptions to events when done filtering.
 func (i *Indexer) filter(ctx context.Context) error {
-	// if subscribing to new events, skip filtering and subscribe
+	// if subscribing to new events, skip filtering and subscribe only.
 	if i.watchMode == Subscribe {
 		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
@@ -275,31 +308,51 @@ func (i *Indexer) filter(ctx context.Context) error {
 		syncMode = Resync
 	}
 
+	// set the initial processing block, which will vary by sync mode.
 	if err := i.setInitialProcessingBlockByMode(ctx, syncMode, i.srcChainId); err != nil {
 		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
 	}
 
+	// get the latest header
 	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
+	// compare it to the processing block height, set above. if its equal to the latest block,
+	// we dont actually need to filter - we should just subscribe, given our watch mode is not "Filter".
 	if i.processingBlockHeight == header.Number.Uint64() {
+		if i.watchMode == Filter {
+			slog.Info("indexing caught up", "chainID", i.srcChainId.Uint64())
+
+			return nil
+		}
+
 		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", i.srcChainId.Uint64())
+
 		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
 
+	// the end block is the latest header.
 	endBlockID := header.Number.Uint64()
 
-	// ignore latest N blocks, they are probably in queue already
-	// and are not "missed".
+	// ignore latest N blocks if we are crawling past blocks, they are probably in queue already
+	// and are not "missed", have justd not been processed.
 	if i.watchMode == CrawlPastBlocks {
+		// if targetBlockNumber is not nil, we are just going to process a singular block.
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
+
 			i.processingBlockHeight = *i.targetBlockNumber
+
 			endBlockID = i.processingBlockHeight + 1
 		} else {
-			endBlockID = i.numLatestBlocksToIgnoreWhenCrawling
+			// otherwise, we need to set the endBlockID as the greater of the two:
+			// either the endBlockID minus the number of latest blocks to ignore,
+			// or endBlockID.
+			if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
+				endBlockID = endBlockID - i.numLatestBlocksToIgnoreWhenCrawling
+			}
 		}
 	}
 
@@ -311,6 +364,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 		"watchMode", i.watchMode,
 	)
 
+	// iterate through from the starting block (i.processingBlockHeight) through the
+	// latest block (endBlockID) in batches of i.blockBatchSize until we are finished.
 	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
 		end := i.processingBlockHeight + i.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
@@ -337,18 +392,29 @@ func (i *Indexer) filter(ctx context.Context) error {
 			if err := i.indexMessageSentEvents(ctx, filterOpts); err != nil {
 				return errors.Wrap(err, "i.indexMessageSentEvents")
 			}
+
+			// we dont want to watch for message status changed events
+			// when crawling past blocks on a loop. but otherwise,
+			// we want to index all three event types when indexing MessageSent events,
+			// since they are related.
+			if i.watchMode != CrawlPastBlocks {
+				if err := i.indexMessageStatusChangedEvents(ctx, filterOpts); err != nil {
+					return errors.Wrap(err, "i.indexMessageStatusChangedEvents")
+				}
+
+				// we also want to index chain data synced events.
+				if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
+					return errors.Wrap(err, "i.indexChainDataSyncedEvents")
+				}
+			}
 		case relayer.EventNameMessageReceived:
 			if err := i.indexMessageReceivedEvents(ctx, filterOpts); err != nil {
 				return errors.Wrap(err, "i.indexMessageReceivedEvents")
 			}
-		case relayer.EventNameChainDataSynced:
-			if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
-				return errors.Wrap(err, "i.indexChainDataSyncedEvents")
-			}
 		}
 
-		// handle no events remaining, saving the processing block and restarting the for
-		// loop
+		// handle no events remaining, saving the processing block and continuing on
+		// to the next batch.
 		if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 			return errors.Wrap(err, "i.handleNoEventsInBatch")
 		}
@@ -358,6 +424,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 		"indexer fully caught up",
 	)
 
+	// if we are crawling past blocks, we dont want to continue, we want to repeat the loop above
+	// recursively.
 	if i.watchMode == CrawlPastBlocks {
 		slog.Info("restarting filtering from genesis")
 		return i.filter(ctx)
@@ -370,57 +438,34 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
-	latestBlockIDToCompare := latestBlock.Number.Uint64()
-
-	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > i.numLatestBlocksToIgnoreWhenCrawling {
-		latestBlockIDToCompare -= i.numLatestBlocksToIgnoreWhenCrawling
-	}
-
-	if i.processingBlockHeight < latestBlockIDToCompare {
+	if i.processingBlockHeight < latestBlock.Number.Uint64() {
 		slog.Info("header has advanced",
 			"processingBlockHeight", i.processingBlockHeight,
-			"latestBlock", latestBlockIDToCompare,
+			"latestBlock", latestBlock.Number.Uint64(),
 		)
 
 		return i.filter(ctx)
 	}
 
-	// we are caught up and specified not to subscribe, we can return now
+	// we are caught up and specified not to subscribe, we can return now and the indexer
+	// is finished it's job.
 	if i.watchMode == Filter {
 		return nil
 	}
+
+	// otherwise, we subscribe to new events
 
 	slog.Info("processing is caught up to latest block, subscribing to new blocks")
 
 	return i.subscribe(ctx, i.srcChainId, i.destChainId)
 }
 
+// indexMessageSentEvents indexes `MessageSent` events on the bridge contract
+// and stores them to the database, and adds the message to the queue if it has not been
+// seen before.
 func (i *Indexer) indexMessageSentEvents(ctx context.Context,
-	filterOpts *bind.FilterOpts,
-) error {
-	// we dont want to watch for message status changed events
-	// when crawling past blocks on a loop.
-	if i.watchMode != CrawlPastBlocks {
-		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
-		}
-
-		// we don't need to do anything with msgStatus events except save them to the DB.
-		// we don't need to process them. they are for exposing via the API.
-
-		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
-		if err != nil {
-			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
-		}
-
-		// we also want to index chain data synced events.
-		if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
-			return errors.Wrap(err, "i.indexChainDataSyncedEvents")
-		}
-	}
-
-	messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
+	filterOpts *bind.FilterOpts) error {
+	events, err := i.bridge.FilterMessageSent(filterOpts, nil)
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
@@ -428,8 +473,8 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
-	for messageSentEvents.Next() {
-		event := messageSentEvents.Event
+	for events.Next() {
+		event := events.Event
 
 		group.Go(func() error {
 			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event, false)
@@ -453,24 +498,27 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	return nil
 }
 
+// indexMessageReceivedEvents indexes `MessageReceived` events on the bridge contract
+// and stores them to the database, and adds the message to the queue if it has not been
+// seen before.
 func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	messageSentEvents, err := i.bridge.FilterMessageReceived(filterOpts, nil)
+	events, err := i.bridge.FilterMessageReceived(filterOpts, nil)
 	if err != nil {
-		return errors.Wrap(err, "bridge.FilterMessageSent")
+		return errors.Wrap(err, "bridge.FilterMessageReceived")
 	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
-	for messageSentEvents.Next() {
-		event := messageSentEvents.Event
+	for events.Next() {
+		event := events.Event
 
 		group.Go(func() error {
 			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event, false)
 			if err != nil {
-				relayer.ErrorEvents.Inc()
+				relayer.MessageReceivedEventsIndexingErrors.Inc()
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
 			} else {
@@ -489,6 +537,50 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 	return nil
 }
 
+// indexMessageStatusChangedEvents indexes `MessageStatusChanged` events on the bridge contract
+// and stores them to the database. It does not add them to any queue.
+func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts) error {
+	slog.Info("indexing messageStatusChanged events")
+
+	events, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for events.Next() {
+		event := events.Event
+
+		group.Go(func() error {
+			err := i.handleMessageStatusChangedEvent(groupCtx, i.srcChainId, event)
+			if err != nil {
+				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling messageStatusChanged", "err", err.Error())
+			} else {
+				slog.Info("handled messageStatusChanged event successfully")
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	slog.Info("done indexing messageStatusChanged events")
+
+	return nil
+}
+
+// indexChainDataSyncedEvents indexes `ChainDataSynced` events on the bridge contract
+// and stores them to the database. It does not add them to any queue. It only indexes
+// the "STATE_ROOT" kind, not the "SIGNAL_ROOT" kind.
 func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
@@ -496,12 +588,12 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 
 	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(
 		filterOpts,
-		[]uint64{i.destChainId.Uint64()},
+		[]uint64{i.destChainId.Uint64()}, // only index intended events destination chain
 		nil,
-		nil,
+		[][32]byte{crypto.Keccak256Hash([]byte("STATE_ROOT"))}, // only index state root
 	)
 	if err != nil {
-		return errors.Wrap(err, "bridge.FilterMessageSent")
+		return errors.Wrap(err, "bridge.FilterChainDataSynced")
 	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
@@ -513,7 +605,8 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		group.Go(func() error {
 			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event, false)
 			if err != nil {
-				relayer.ErrorEvents.Inc()
+				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling chainDataSynced", "err", err.Error())
 			} else {
@@ -534,6 +627,8 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	return nil
 }
 
+// queueName builds out the name of a queue, in the format the processor will also
+// use to listen to events.
 func (i *Indexer) queueName() string {
 	return fmt.Sprintf("%v-%v-%v-queue", i.srcChainId.String(), i.destChainId.String(), i.eventName)
 }

@@ -12,6 +12,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Config is a struct which should be created from the cli or environment variables, populated,
+// and used to create a new Indexer.
 type Config struct {
 	// address configs
 	SrcBridgeAddress        common.Address

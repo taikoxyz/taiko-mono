@@ -221,7 +221,7 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 		return nil, err
 	}
 
-	relayer.EventsProcessed.Inc()
+	relayer.MessageSentEventsProcessed.Inc()
 
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 
