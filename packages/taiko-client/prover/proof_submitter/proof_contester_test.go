@@ -7,7 +7,7 @@ import (
 
 	"github.com/taikoxyz/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
 func (s *ProofSubmitterTestSuite) TestSubmitContestNoTransition() {

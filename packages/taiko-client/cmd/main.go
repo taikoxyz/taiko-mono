@@ -9,7 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-client/cmd/utils"
 	"github.com/taikoxyz/taiko-client/driver"
-	"github.com/taikoxyz/taiko-client/internal/version"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	"github.com/taikoxyz/taiko-client/proposer"
 	"github.com/taikoxyz/taiko-client/prover"
 )

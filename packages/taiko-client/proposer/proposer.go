@@ -22,8 +22,8 @@ import (
 
 	"github.com/taikoxyz/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-client/internal/sender"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/sender"
 	"github.com/taikoxyz/taiko-client/pkg/rpc"
 	selector "github.com/taikoxyz/taiko-client/proposer/prover_selector"
 )

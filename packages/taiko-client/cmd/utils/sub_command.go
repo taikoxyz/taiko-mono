@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-client/cmd/logger"
-	"github.com/taikoxyz/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
 type SubcommandApplication interface {
