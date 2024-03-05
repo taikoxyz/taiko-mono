@@ -152,10 +152,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address newInstance = address(bytes20(_proof.data[4:24]));
-        bytes memory signature = _proof.data[24:];
-
-        address oldInstance =
-            ECDSA.recover(getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), signature);
+        address oldInstance = ECDSA.recover(
+            getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), _proof.data[24:]
+        );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);
