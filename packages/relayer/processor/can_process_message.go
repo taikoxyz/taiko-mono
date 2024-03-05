@@ -8,6 +8,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+// canProcessMessage determines whether a message is processable by the relayer.
+// there are several conditions which it would not be processable, which include:
+// - the event status is New, and the GasLimit is 0, which means only the user who
+// sent the message can process it.
+// - the event status is not New, which means it is either already processed and succeeded,
+// or its processed, failed, and is in Retriable or Failed state, where the user
+// should finish manually.
 func canProcessMessage(
 	ctx context.Context,
 	eventStatus relayer.EventStatus,
@@ -28,7 +35,7 @@ func canProcessMessage(
 		return true
 	}
 
-	slog.Info("cant process message due to", "eventStatus", eventStatus.String())
+	slog.Info("cant process message", "eventStatus", eventStatus.String())
 
 	return false
 }

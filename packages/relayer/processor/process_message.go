@@ -29,6 +29,8 @@ var (
 	errUnprocessable = errors.New("message is unprocessable")
 )
 
+// eventStatusFromMsgHash will check the event's msgHash/signal, and
+// get it's on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
 	ctx context.Context,
 	gasLimit *big.Int,
@@ -58,11 +60,9 @@ func (p *Processor) eventStatusFromMsgHash(
 	return eventStatus, nil
 }
 
-// processMessage prepares and calls `processMessage` on the bridge.
-// the proof must be generated from the gethclient's eth_getProof via the Prover,
-// then rlp-encoded and combined as a singular byte slice,
-// then abi encoded into a SignalProof struct as the contract
-// expects
+// processMessage prepares and calls `processMessage` on the bridge, given a
+// message from the queue (from the indexer). It will
+// generate a proof, or multiple proofs if hops are needed.
 func (p *Processor) processMessage(
 	ctx context.Context,
 	msg queue.Message,
@@ -89,6 +89,8 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
+	// we need to check the invocation delays and proof receipt to see if
+	// this is currently processable, or we need to wait.
 	invocationDelays, err := p.destBridge.GetInvocationDelays(nil)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.invocationDelays")
@@ -134,10 +136,12 @@ func (p *Processor) processMessage(
 		return err
 	}
 
+	// we need to check the receipt logs to see if we received MessageReceived
+	// or MessageExecuted, because we have a two-step bridge.
 	for _, log := range receipt.Logs {
 		topic := log.Topics[0]
-		// if we have a MessageReceived event, this was not processed,
-		// and we have to wait for the invocation delay.
+		// if we have a MessageReceived event, this was not processed, only
+		// the first step was. now we have to wait for the invocation delay.
 		if topic == bridgeAbi.Events["MessageReceived"].ID {
 			slog.Info("message processing resulted in MessageReceived event",
 				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
@@ -159,6 +163,9 @@ func (p *Processor) processMessage(
 				return errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 			}
 		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
+			// if we got MessageExecuted, the message is finished processing. this occurs
+			// either in one-step bridge processing (no invocation delay), or if this is the second process
+			// message call after the first step was completed.
 			slog.Info("message processing resulted in MessageExecuted event. processing finished")
 		}
 	}
@@ -181,7 +188,7 @@ func (p *Processor) processMessage(
 	}
 
 	// internal will only be set if it's an actual queue message, not a targeted
-	// transaction hash.
+	// transaction hash set via config flag.
 	if msg.Internal != nil {
 		// update message status
 		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
@@ -192,6 +199,9 @@ func (p *Processor) processMessage(
 	return nil
 }
 
+// sendProcessMessageAndWaitForReceipt uses a backoff retry message mechanism
+// to send the onchain processMessage call on the bridge, then wait
+// for the transaction receipt, and save the updated status to the database.
 func (p *Processor) sendProcessMessageAndWaitForReceipt(
 	ctx context.Context,
 	encodedSignalProof []byte,
@@ -241,6 +251,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 	return receipt, nil
 }
 
+// waitForInvocationDelay will return when the invocation delay has been met,
+// if one exists, or return immediately if not.
 func (p *Processor) waitForInvocationDelay(
 	ctx context.Context,
 	invocationDelays struct {
@@ -351,6 +363,9 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
 	}
 
+	// if we have no hops, this is stricly a srcChain => destChain mesage.
+	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
+	// and generate a proof.
 	if len(p.hops) == 0 {
 		latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
 			ctx,
@@ -371,6 +386,8 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			BlockNumber:          latestBlockID,
 		})
 	} else {
+		// otherwise, we should just create the first hop in the array, we will append
+		// the rest of the hops after.
 		hops = append(hops, proof.HopParams{
 			ChainID:              p.destChainId,
 			SignalServiceAddress: p.srcSignalServiceAddress,
@@ -466,6 +483,8 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	return encodedSignalProof, nil
 }
 
+// sendProcessMessageCall calls `bridge.processMessage` with latest nonce
+// after estimating gas, and checking profitability.
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,
 	event *bridge.BridgeMessageSent,
@@ -546,7 +565,9 @@ func (p *Processor) sendProcessMessageCall(
 	return tx, nil
 }
 
-// node is unable to estimate gas correctly for contract deployments, we need to check if the token
+// needsContractDeployment is needed because
+// node is unable to estimate gas correctly for contract deployments,
+// so we need to check if the token
 // is deployed, and always hardcode in this case. we need to check this before calling
 // estimategas, as the node will soemtimes return a gas estimate for a contract deployment, however,
 // it is incorrect and the tx will revert.
@@ -665,10 +686,13 @@ func (p *Processor) hardcodeGasLimit(
 	return nil
 }
 
+// setLatestNonce sets the latest nonce used for the relayer key
 func (p *Processor) setLatestNonce(nonce uint64) {
 	p.destNonce = nonce
 }
 
+// saveMessageStatusChangedEvent writes the MessageStatusChanged event to the
+// database after a message is processed
 func (p *Processor) saveMessageStatusChangedEvent(
 	ctx context.Context,
 	receipt *types.Receipt,
@@ -714,6 +738,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	return nil
 }
 
+// getCost determines the fee of a processMessage call
 func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
 	if auth.GasTipCap != nil {
 		blk, err := p.destEthClient.BlockByNumber(ctx, nil)

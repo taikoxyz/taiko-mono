@@ -16,11 +16,19 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// hopConfig is a config struct that must be provided for an individual
+// hop, when the processor is not configured to only process srcChain => destChain.
+// for instance, when going from L2A to L2B, we have a hop of the shared "L1".
+// the hopConfig in this case should be the L1 signalServiceAddress, taikoAddress,
+// and rpcURL. If we have multiple hops, such as an L3 deployed on L2A to L2B,
+// the hops would be L2A and L1, and multiple configs should be passed in.
 type hopConfig struct {
 	signalServiceAddress common.Address
 	taikoAddress         common.Address
 	rpcURL               string
 }
+
+// Config is a struct used to initialize a processor.
 type Config struct {
 	// address configs
 	SrcSignalServiceAddress common.Address
