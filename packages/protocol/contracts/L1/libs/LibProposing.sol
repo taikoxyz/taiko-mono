@@ -86,7 +86,7 @@ library LibProposing {
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
         } else {
-            bytes memory _coinbaseSig = params.coinbaseSig;
+            bytes memory sig = params.coinbaseSig;
 
             // Reset coinbaseSig before hashing
             params.coinbaseSig = "";
@@ -94,7 +94,7 @@ library LibProposing {
                 abi.encode("USE_AS_COINBASE", _config.chainId, address(this), params, _txList)
             );
 
-            if (!params.coinbase.isValidSignature(hash, _coinbaseSig)) {
+            if (ECDSA.recover(hash, sig) != params.coinbase) {
                 revert L1_INVALID_COINBASE();
             }
         }
