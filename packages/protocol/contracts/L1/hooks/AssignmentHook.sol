@@ -99,7 +99,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Send the liveness bond to the Taiko contract
         IERC20 tko = IERC20(resolve("taiko_token", false));
-        tko.transferFrom(_blk.assignedProver, taikoL1Address, _blk.livenessBond);
+        tko.safeTransferFrom(_blk.assignedProver, taikoL1Address, _blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, _meta.minTier);

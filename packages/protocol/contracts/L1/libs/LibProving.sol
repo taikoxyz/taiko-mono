@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../verifiers/IVerifier.sol";
@@ -15,6 +16,7 @@ import "./LibUtils.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
@@ -193,7 +195,7 @@ library LibProving {
                 && bytes32(_proof.data) == RETURN_LIVENESS_BOND;
 
             if (returnLivenessBond) {
-                tko.transfer(blk.assignedProver, blk.livenessBond);
+                tko.safeTransfer(blk.assignedProver, blk.livenessBond);
                 blk.livenessBond = 0;
             }
         }
@@ -239,7 +241,7 @@ library LibProving {
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
                 // Burn the contest bond from the prover.
-                tko.transferFrom(msg.sender, address(this), tier.contestBond);
+                tko.safeTransferFrom(msg.sender, address(this), tier.contestBond);
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -364,11 +366,11 @@ library LibProving {
             if (_sameTransition) {
                 // The contested transition is proven to be valid, contestor loses the game
                 reward = _ts.contestBond >> 2;
-                _tko.transfer(_ts.prover, _ts.validityBond + reward);
+                _tko.safeTransfer(_ts.prover, _ts.validityBond + reward);
             } else {
                 // The contested transition is proven to be invalid, contestor wins the game
                 reward = _ts.validityBond >> 2;
-                _tko.transfer(_ts.contester, _ts.contestBond + reward);
+                _tko.safeTransfer(_ts.contester, _ts.contestBond + reward);
             }
         } else {
             if (_sameTransition) revert L1_ALREADY_PROVED();
@@ -379,9 +381,9 @@ library LibProving {
 
         unchecked {
             if (reward > _tier.validityBond) {
-                _tko.transfer(msg.sender, reward - _tier.validityBond);
+                _tko.safeTransfer(msg.sender, reward - _tier.validityBond);
             } else {
-                _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
+                _tko.safeTransferFrom(msg.sender, address(this), _tier.validityBond - reward);
             }
         }
 
