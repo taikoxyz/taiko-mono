@@ -4,6 +4,7 @@ extend-exclude = [
     "CHANGELOG.md",
     "*.go",
     "*.html",
+    "*.mod",
     "*.md",
     "*.ts",
     "*.css",
