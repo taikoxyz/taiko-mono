@@ -173,18 +173,18 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
-func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
+func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
 	rmqMsg := msg.Internal.(amqp.Delivery)
 
-	slog.Info("negatively acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
+	slog.Info("negatively acknowledging rabbitmq message", "msgId", rmqMsg.MessageId, "requeue", requeue)
 
-	err := rmqMsg.Nack(false, false)
+	err := rmqMsg.Nack(false, requeue)
 	if err != nil {
 		slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
 		return err
 	}
 
-	slog.Info("negatively acknowledged rabbitmq message", "msgId", rmqMsg.MessageId)
+	slog.Info("negatively acknowledged rabbitmq message", "msgId", rmqMsg.MessageId, "requeue", requeue)
 
 	return nil
 }

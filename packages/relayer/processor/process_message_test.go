@@ -71,8 +71,11 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 		Body: marshalled,
 	}
 
-	err = p.processMessage(context.Background(), msg)
+	shouldRequeue, err := p.processMessage(context.Background(), msg)
+
 	assert.EqualError(t, err, "message is unprocessable")
+
+	assert.Equal(t, false, shouldRequeue)
 }
 
 func Test_ProcessMessage_gasLimit0(t *testing.T) {
@@ -103,100 +106,86 @@ func Test_ProcessMessage_gasLimit0(t *testing.T) {
 		Body: marshalled,
 	}
 
-	err = p.processMessage(context.Background(), msg)
+	shouldRequeue, err := p.processMessage(context.Background(), msg)
+
 	assert.EqualError(t, errors.New("only user can process this, gasLimit set to 0"), err.Error())
+
+	assert.Equal(t, shouldRequeue, false)
 }
 
-// TODO: mock ChainDataSyncedEventByBlockNumberOrGreater alwayas
-// returns nil, nil.
-// Update it to enable Test_ProcessMessage_noChainId and
-// Test_ProcessMessage
-// func Test_ProcessMessage_noChainId(t *testing.T) {
-// 	p := newTestProcessor(true)
+func Test_ProcessMessage_noChainId(t *testing.T) {
+	p := newTestProcessor(true)
 
-// 	body := queue.QueueMessageSentBody{
-// 		Event: &bridge.BridgeMessageSent{
-// 			Message: bridge.IBridgeMessage{
-// 				SrcChainId: mock.MockChainID.Uint64(),
-// 				GasLimit:   big.NewInt(1),
-// 				Id:         big.NewInt(0),
-// 			},
-// 			MsgHash: mock.SuccessMsgHash,
-// 			Raw: types.Log{
-// 				Address: relayer.ZeroAddress,
-// 				Topics: []common.Hash{
-// 					relayer.ZeroHash,
-// 				},
-// 				Data: []byte{0xff},
-// 			},
-// 		},
-// 		ID: 0,
-// 	}
+	body := queue.QueueMessageSentBody{
+		Event: &bridge.BridgeMessageSent{
+			Message: bridge.IBridgeMessage{
+				SrcChainId: mock.MockChainID.Uint64(),
+				GasLimit:   big.NewInt(1),
+				Id:         big.NewInt(0),
+			},
+			MsgHash: mock.SuccessMsgHash,
+			Raw: types.Log{
+				Address: relayer.ZeroAddress,
+				Topics: []common.Hash{
+					relayer.ZeroHash,
+				},
+				Data: []byte{0xff},
+			},
+		},
+		ID: 0,
+	}
 
-// 	marshalled, err := json.Marshal(body)
-// 	assert.Nil(t, err)
+	marshalled, err := json.Marshal(body)
+	assert.Nil(t, err)
 
-// 	msg := queue.Message{
-// 		Body: marshalled,
-// 	}
+	msg := queue.Message{
+		Body: marshalled,
+	}
 
-// 	err = p.processMessage(context.Background(), msg)
-// 	assert.EqualError(t, err, "p.generateEncodedSignalProof: message not received")
-// }
+	shouldRequeue, err := p.processMessage(context.Background(), msg)
 
-// func Test_ProcessMessage(t *testing.T) {
-// 	p := newTestProcessor(true)
+	assert.EqualError(t, err, "p.generateEncodedSignalProof: message not received")
 
-// 	body := queue.QueueMessageSentBody{
-// 		Event: &bridge.BridgeMessageSent{
-// 			Message: bridge.IBridgeMessage{
-// 				GasLimit:    big.NewInt(1),
-// 				DestChainId: mock.MockChainID.Uint64(),
-// 				Fee:         big.NewInt(1000000000),
-// 				SrcChainId:  mock.MockChainID.Uint64(),
-// 				Id:          big.NewInt(1),
-// 			},
-// 			MsgHash: mock.SuccessMsgHash,
-// 			Raw: types.Log{
-// 				Address: relayer.ZeroAddress,
-// 				Topics: []common.Hash{
-// 					relayer.ZeroHash,
-// 				},
-// 				Data: []byte{0xff},
-// 			},
-// 		},
-// 		ID: 0,
-// 	}
+	assert.False(t, shouldRequeue)
+}
 
-// 	marshalled, err := json.Marshal(body)
-// 	assert.Nil(t, err)
+func Test_ProcessMessage(t *testing.T) {
+	p := newTestProcessor(true)
 
-// 	msg := queue.Message{
-// 		Body: marshalled,
-// 	}
+	body := queue.QueueMessageSentBody{
+		Event: &bridge.BridgeMessageSent{
+			Message: bridge.IBridgeMessage{
+				GasLimit:    big.NewInt(1),
+				DestChainId: mock.MockChainID.Uint64(),
+				Fee:         big.NewInt(1000000000),
+				SrcChainId:  mock.MockChainID.Uint64(),
+				Id:          big.NewInt(1),
+			},
+			MsgHash: mock.SuccessMsgHash,
+			Raw: types.Log{
+				Address: relayer.ZeroAddress,
+				Topics: []common.Hash{
+					relayer.ZeroHash,
+				},
+				Data: []byte{0xff},
+			},
+		},
+		ID: 0,
+	}
 
-// 	err = p.processMessage(context.Background(), msg)
+	marshalled, err := json.Marshal(body)
+	assert.Nil(t, err)
 
-// 	assert.Nil(
-// 		t,
-// 		err,
-// 	)
-// }
+	msg := queue.Message{
+		Body: marshalled,
+	}
 
-// func Test_ProcessMessage_unprofitable(t *testing.T) {
-// 	p := newTestProcessor(true)
+	shouldRequeue, err := p.processMessage(context.Background(), msg)
 
-// 	err := p.ProcessMessage(context.Background(), &bridge.BridgeMessageSent{
-// 		Message: bridge.IBridgeMessage{
-// 			GasLimit:    big.NewInt(1),
-// 			DestChainId: mock.MockChainID.Uint64(),
-// 		},
-// 		Signal: mock.SuccessMsgHash,
-// 	}, &relayer.Event{})
+	assert.Nil(
+		t,
+		err,
+	)
 
-// 	assert.EqualError(
-// 		t,
-// 		err,
-// 		"p.sendProcessMessageCall: "+relayer.ErrUnprofitable.Error(),
-// 	)
-// }
+	assert.False(t, shouldRequeue)
+}

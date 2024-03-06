@@ -26,7 +26,7 @@ const (
 	EventStatusRetriable
 	EventStatusDone
 	EventStatusFailed
-	EventStatusNewOnlyOwner // internal used in Relayer only
+	EventStatusRecalled
 )
 
 type EventType int

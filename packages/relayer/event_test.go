@@ -33,9 +33,9 @@ func Test_EventStatus_String(t *testing.T) {
 			"done",
 		},
 		{
-			"newOnlyOwner",
-			EventStatusNewOnlyOwner,
-			"onlyOwner",
+			"recalled",
+			EventStatusRecalled,
+			"recalled",
 		},
 	}
 

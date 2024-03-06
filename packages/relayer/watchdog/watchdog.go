@@ -241,7 +241,7 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 				if err != nil {
 					slog.Error("err checking message", "err", err.Error())
 
-					if err := w.queue.Nack(ctx, msg); err != nil {
+					if err := w.queue.Nack(ctx, msg, true); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
 					}
 				} else {

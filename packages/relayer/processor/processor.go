@@ -404,23 +404,27 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-p.msgCh:
-			go func(msg queue.Message) {
-				err := p.processMessage(ctx, msg)
+			go func(m queue.Message) {
+				shouldRequeue, err := p.processMessage(ctx, m)
 
 				if err != nil {
+					// if the message is unprocessable, we just acknowledge it and move on.
 					if errors.Is(err, errUnprocessable) {
-						if err := p.queue.Ack(ctx, msg); err != nil {
+						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					} else {
 						slog.Error("process message failed", "err", err.Error())
 
-						if err = p.queue.Nack(ctx, msg); err != nil {
+						// we want to negatively acknowledge the message and requeue it if we
+						// encountered an error, but the message is processable.
+						if err = p.queue.Nack(ctx, m, shouldRequeue); err != nil {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
 				} else {
-					if err := p.queue.Ack(ctx, msg); err != nil {
+					// otherwise if no error, we can acknowledge it successfully.
+					if err := p.queue.Ack(ctx, m); err != nil {
 						slog.Error("Err acking message", "err", err.Error())
 					}
 				}
