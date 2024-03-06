@@ -88,7 +88,51 @@ func (r *RabbitMQ) connect() error {
 }
 
 func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
+	dlx := fmt.Sprintf("%v-dlx", queueName)
+
+	dlxExchange := fmt.Sprintf("%v-exchange", dlx)
+
+	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
+
+	// declare the dead letter exchange for when a message is negatively acknowledged
+	// with no requeue
+	if err := r.ch.ExchangeDeclare(
+		dlxExchange,
+		"fanout",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	slog.Info("declaring rabbitmq dlx queue", "queue", dlx)
+
+	// declare the queue on the dead letter exchange they should be routed to
+	if _, err := r.ch.QueueDeclare(
+		dlx,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	slog.Info("binding dlxqueue and queue", "queue", queueName, "dlx", dlx)
+
+	if err := r.ch.QueueBind(dlx, "", queueName, false, nil); err != nil {
+		return err
+	}
+
 	slog.Info("declaring rabbitmq queue", "queue", queueName)
+
+	args := amqp.Table{}
+
+	args["x-dead-letter-exchange"] = dlx
 
 	q, err := r.ch.QueueDeclare(
 		queueName,
@@ -96,7 +140,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		false,
 		false,
 		false,
-		nil,
+		args,
 	)
 	if err != nil {
 		return err
@@ -134,9 +178,10 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 		true,
 		false,
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        msg,
-			MessageId:   uuid.New().String(),
+			ContentType:  "text/plain",
+			Body:         msg,
+			MessageId:    uuid.New().String(),
+			DeliveryMode: 2, // persistent messages, saved to disk to survive server restart
 		})
 	if err != nil {
 		if err == amqp.ErrClosed {
