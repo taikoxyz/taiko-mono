@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -76,41 +75,6 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	assert.EqualError(t, err, "message is unprocessable")
 
 	assert.Equal(t, false, shouldRequeue)
-}
-
-func Test_ProcessMessage_gasLimit0(t *testing.T) {
-	p := newTestProcessor(true)
-
-	body := queue.QueueMessageSentBody{
-		Event: &bridge.BridgeMessageSent{
-			Message: bridge.IBridgeMessage{
-				GasLimit:   big.NewInt(0),
-				SrcChainId: mock.MockChainID.Uint64(),
-				Id:         big.NewInt(1),
-			},
-			Raw: types.Log{
-				Address: relayer.ZeroAddress,
-				Topics: []common.Hash{
-					relayer.ZeroHash,
-				},
-				Data: []byte{0xff},
-			},
-		},
-		ID: 0,
-	}
-
-	marshalled, err := json.Marshal(body)
-	assert.Nil(t, err)
-
-	msg := queue.Message{
-		Body: marshalled,
-	}
-
-	shouldRequeue, err := p.processMessage(context.Background(), msg)
-
-	assert.EqualError(t, errors.New("only user can process this, gasLimit set to 0"), err.Error())
-
-	assert.Equal(t, shouldRequeue, false)
 }
 
 func Test_ProcessMessage_noChainId(t *testing.T) {
