@@ -126,7 +126,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
         initializer
     {
         __Essential_init(_owner);
-        __EIP712_init("Taiko Timelock Token Pool", "1");
+        __EIP712_init("Taiko TimelockTokenPool", "1");
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
