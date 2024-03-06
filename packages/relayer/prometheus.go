@@ -22,6 +22,10 @@ var (
 		Name: "message_sent_events_indexing_errors_ops_total",
 		Help: "The total number of errors indexing MessageSent events",
 	})
+	MessageSentEventsRetries = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_retries_ops_total",
+		Help: "The total number of MessageSent events retries",
+	})
 	MessageReceivedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_received_events_indexing_errors_ops_total",
 		Help: "The total number of errors indexing MessageReceived events",

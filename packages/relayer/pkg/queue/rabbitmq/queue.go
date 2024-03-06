@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
@@ -377,6 +378,10 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 					c := xDeath[0].(amqp.Table)["count"].(int64)
 
 					timesRetried = c
+
+					if timesRetried > 0 {
+						relayer.MessageSentEventsRetries.Inc()
+					}
 				}
 
 				slog.Info("rabbitmq message times retried",
