@@ -337,7 +337,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 	endBlockID := header.Number.Uint64()
 
 	// ignore latest N blocks if we are crawling past blocks, they are probably in queue already
-	// and are not "missed", have justd not been processed.
+	// and are not "missed", have just not been processed.
 	if i.watchMode == CrawlPastBlocks {
 		// if targetBlockNumber is not nil, we are just going to process a singular block.
 		if i.targetBlockNumber != nil {
