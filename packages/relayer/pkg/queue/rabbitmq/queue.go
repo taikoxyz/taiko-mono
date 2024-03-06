@@ -368,9 +368,26 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
 
+				var timesRetried int64 = 0
+
+				xDeath, exists := d.Headers["x-death"].([]interface{})
+
+				if exists {
+					// message was rejected before
+					c := xDeath[0].(amqp.Table)["count"].(int64)
+
+					timesRetried = c
+				}
+
+				slog.Info("rabbitmq message times retried",
+					"msgId", d.MessageId,
+					"timesRetried", timesRetried,
+				)
+
 				msgChan <- queue.Message{
-					Body:     d.Body,
-					Internal: d,
+					Body:         d.Body,
+					Internal:     d,
+					TimesRetried: timesRetried,
 				}
 			} else {
 				slog.Info("nil body message, queue is closed")

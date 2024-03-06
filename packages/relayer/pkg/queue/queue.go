@@ -33,8 +33,9 @@ type QueueMessageReceivedBody struct {
 }
 
 type Message struct {
-	Body     []byte
-	Internal interface{}
+	Body         []byte
+	Internal     interface{}
+	TimesRetried int64
 }
 
 type NewQueueOpts struct {
