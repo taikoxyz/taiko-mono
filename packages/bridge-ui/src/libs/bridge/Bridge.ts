@@ -1,11 +1,11 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
-import { type Hash, UserRejectedRequestError } from 'viem';
+import { type Hash, hexToBigInt, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatusError, ProcessMessageError, ReleaseError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import type { GetProofArgs } from '$libs/proof/types';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -132,25 +132,35 @@ export abstract class Bridge {
     if (!message || !msgHash) throw new ProcessMessageError('Message is not defined');
 
     if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx } satisfies GetProofArgs);
-
+      const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
       try {
-        const { request } = await simulateContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'processMessage',
-          args: [message, proof],
-          gas: message.gasLimit,
-        });
-        log('Simulate contract', request);
+        // const { request } = await simulateContract(config, {
+        //   address: destBridgeAddress,
+        //   abi: bridgeAbi,
+        //   functionName: 'processMessage',
+        //   args: [message, proof],
+        //   gas: message.gasLimit,
+        // });
+        // log('Simulate contract', request);
 
-        txHash = await writeContract(config, {
+        const wallet = await getConnectedWallet();
+        if (!wallet) throw new Error('Could not get public client');
+
+        log(`calling processMessage with bridge ${destBridgeAddress} and client connected to ${wallet.chain.id}`);
+        txHash = await wallet.writeContract({
           address: destBridgeAddress,
           abi: bridgeAbi,
           functionName: 'processMessage',
           args: [message, proof],
-          gas: message.gasLimit,
+          gas: hexToBigInt('0x8a54a'), //TODO calculate GAS!!!
         });
+        // txHash = await writeContract(config, {
+        //   address: destBridgeAddress,
+        //   abi: bridgeAbi,
+        //   functionName: 'processMessage',
+        //   args: [message, proof],
+        //   gas: message.gasLimit,
+        // });
         log('Transaction hash for processMessage call', txHash);
         return txHash;
       } catch (err) {
@@ -177,8 +187,7 @@ export abstract class Bridge {
     if (!message || !msgHash) throw new ReleaseError('Message is not defined');
 
     if (messageStatus === MessageStatus.FAILED) {
-      const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx } satisfies GetProofArgs);
-
+      const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
       try {
         const { request } = await simulateContract(config, {
           address: destBridgeAddress,

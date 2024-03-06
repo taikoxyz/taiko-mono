@@ -1,7 +1,5 @@
 import type { Address, Hash, Hex } from 'viem';
 
-import type { BridgeTransaction } from '$libs/bridge';
-
 export type GenerateProofArgs = {
   msgHash: Hash;
   contractAddress: Address;
@@ -13,7 +11,7 @@ export type GenerateProofArgs = {
 };
 
 export type GetProofArgs = {
-  bridgeTx: BridgeTransaction;
+  srcChainId: bigint;
   blockNumber: bigint;
   key: Hex;
   signalServiceAddress: Address;

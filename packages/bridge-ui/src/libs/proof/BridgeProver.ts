@@ -13,7 +13,9 @@ import {
 
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import type { BridgeTransaction } from '$libs/bridge';
 import { BlockError, ClientError, ProofGenerationError } from '$libs/error';
+import { getFirstAvailableBlockInfo } from '$libs/relayer/getFirstAvailableBlockInfo';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -34,9 +36,9 @@ export class BridgeProver {
     );
   }
 
-  async getEncodedSignalProof(args: GetProofArgs) {
-    const { bridgeTx } = args;
+  async getEncodedSignalProof({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
     const { blockNumber, message, msgHash } = bridgeTx;
+    log('msgHash', msgHash);
     if (!message) throw new ProofGenerationError('Message is not defined');
     const { srcChainId, destChainId } = message;
 
@@ -77,7 +79,7 @@ export class BridgeProver {
         const hopClient = getPublicClient(config, { chainId: Number(currentHop.chainId) });
         if (!hopClient) throw new Error('Could not get public client');
 
-        const block = await hopClient.getBlock({ blockNumber: blockNumber });
+        const block = await hopClient.getBlock({ blockNumber: latestBlockNumber });
         if (block.hash === null || block.number === null) {
           throw new BlockNotFoundError({ blockHash: block.hash, blockNumber: block.number });
         }
@@ -117,24 +119,32 @@ export class BridgeProver {
         previousSrcChainId = BigInt(currentHop.chainId); // Update previousSrcChainId for the next iteration
       }
 
-      return this._encodeAbiParameters(hopProofs);
+      return this.encodeHopProofs(hopProofs);
     } else {
+      log('No hops configured, using default proof generation');
+      const srcChainClient = getPublicClient(config, { chainId: Number(srcChainId) });
+      if (!srcChainClient) throw new ClientError('Could not get public client');
+
+      // Single hop proof
+
+      // Get the signalServiceAddress for the source chain
       const srcSignalServiceAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].signalServiceAddress;
 
-      const latestBlockNumber = await this.getLatestSrcBlockNumber(srcChainId, destChainId);
-      const client = getPublicClient(config, { chainId: Number(srcChainId) });
-      if (!client) throw new ClientError('Could not get public client');
+      // Get the latest synced block number from the relayer
+      const blockInfo = await getFirstAvailableBlockInfo(Number(srcChainId));
+      if (!blockInfo) throw new Error('Could not get latest block number from relayer');
+      const { latestProcessedBlock } = blockInfo;
 
-      const block = await client.getBlock({ blockNumber: blockNumber });
-
+      // Get the block based on the blocknumber from the source chain
+      const block = await srcChainClient.getBlock({ blockNumber });
       if (block.hash === null || block.number === null) {
         throw new BlockNotFoundError({ blockHash: block.hash, blockNumber: block.number });
       }
-      if (latestBlockNumber < block.number) {
-        //TODO handle this earlier somehow?
+      if (latestProcessedBlock < block.number) {
         throw new BlockError('block is not synced yet');
       }
 
+      // Build the signalSlot
       const key = await this.getSignalSlot(
         Number(srcChainId),
         routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress,
@@ -142,116 +152,82 @@ export class BridgeProver {
       );
       log('Storage key', key);
 
+      // Call eth_getProof to get the proof
       const ethProof = await this.getProof({
-        bridgeTx,
-        blockNumber: latestBlockNumber,
+        srcChainId: BigInt(srcChainId),
+        blockNumber: BigInt(latestProcessedBlock),
         key,
         signalServiceAddress: srcSignalServiceAddress,
       });
-
       log('ethProof', ethProof);
-      // const rlpEncodedStorageProof: Hex = toRlp(ethProof.storageProof[0].proof);
-      // const storageHash = ethProof.storageHash;
 
+      // Build the hopProof
       const hopProof: HopProof = {
-        chainId: BigInt(srcChainId),
-        blockId: BigInt(latestBlockNumber),
+        chainId: BigInt(destChainId),
+        blockId: BigInt(blockNumber),
         rootHash: block.stateRoot,
         cacheOption: 0n, // Todo: could be configurable
         accountProof: ethProof.accountProof,
         storageProof: ethProof.storageProof[0].proof,
       };
-
       log('hopProof', hopProof);
 
-      const encodedHopProofs = this._encodeHopProofs([hopProof]);
-
+      // Encode the hopProof
+      const encodedHopProofs = this.encodeHopProofs([hopProof]);
       log('encodedHopProofs', encodedHopProofs);
 
       return encodedHopProofs;
-
-      // const signalProof: SignalProof = {
-      //   crossChainSync: srcCrossChainSyncAddress,
-      //   height: BigInt(latestBlockNumber),
-      //   storageProof: rlpEncodedStorageProof,
-      //   hops: [],
-      // }
-
-      // const params: AbiParameter[] = [
-      //   { type: 'address', name: 'crossChainSync' },
-      //   { type: 'uint256', name: 'height' },
-      //   { type: 'bytes', name: 'storageProof' },
-      //   { type: 'tuple[]', name: 'hops', components: [] },
-      // ];
-
-      // const values: [Address, bigint, Hex, Hex[]] = [
-      //   signalProof.crossChainSync,
-      //   signalProof.height,
-      //   signalProof.storageProof,
-      //   signalProof.hops,
-      // ];
-
-      // const encodedSignalProof = encodeAbiParameters(
-      //   params, values
-      // );
-
-      // console.log('encodedSignalProof', encodedSignalProof);
-
-      // return encodedSignalProof;
-
-      // const proof = {
-      //   chainId: BigInt(srcChainId),
-      //   blockId: BigInt(latestBlockNumber),
-      //   rootHash: block.stateRoot,
-      //   cacheOption: CacheOptions.CACHE_NOTHING, // Todo: could be configurable
-      //   accountProof: hopProof.accountProof,
-      //   storageProof: hopProof.storageProof[0].proof,
-      // };
-      // return this._encodeAbiParameters([proof]);
     }
   }
 
-  _encodeHopProofs = (hopProofs: HopProof[]) => {
+  encodeHopProofs = (hopProofs: HopProof[]) => {
     const params: AbiParameter[] = [
       {
         type: 'tuple[]',
         name: 'hops',
         components: [
           {
-            type: 'uint64',
             name: 'chainId',
-          },
-          {
             type: 'uint64',
+          },
+          {
             name: 'blockId',
+            type: 'uint64',
           },
           {
-            type: 'bytes32',
             name: 'rootHash',
+            type: 'bytes32',
           },
           {
-            type: 'uint256',
             name: 'cacheOption',
+            type: 'uint8',
           },
           {
-            type: 'bytes[]',
             name: 'accountProof',
+            type: 'bytes[]',
           },
           {
-            type: 'bytes[]',
             name: 'storageProof',
+            type: 'bytes[]',
           },
         ],
       },
     ];
-    return encodeAbiParameters(params, [{ hops: hopProofs }]);
+
+    const values = hopProofs.map((hopProof) => [
+      hopProof.chainId,
+      hopProof.blockId,
+      hopProof.rootHash,
+      hopProof.cacheOption,
+      hopProof.accountProof,
+      hopProof.storageProof,
+    ]);
+
+    return encodeAbiParameters(params, [values]);
   };
 
   async getProof(args: GetProofArgs) {
-    const { bridgeTx, blockNumber: latestBlockNumber, key, signalServiceAddress: srcSignalServiceAddress } = args;
-    const { message } = bridgeTx;
-    if (!message) throw new ProofGenerationError('Message is not defined');
-    const { srcChainId } = message;
+    const { srcChainId, blockNumber: latestBlockNumber, key, signalServiceAddress: srcSignalServiceAddress } = args;
 
     let client;
     try {
@@ -298,51 +274,4 @@ export class BridgeProver {
     }
     return latestBlockNumber;
   };
-
-  _encodeAbiParameters(hops: HopProof[]) {
-    return encodeAbiParameters(
-      [
-        {
-          type: 'tuple',
-          components: [
-            {
-              type: 'tuple[]',
-              name: 'hops',
-              components: [
-                {
-                  type: 'uint64',
-                  name: 'chainId',
-                },
-                {
-                  type: 'uint64',
-                  name: 'blockId',
-                },
-                {
-                  type: 'bytes32',
-                  name: 'rootHash',
-                },
-                {
-                  type: 'uint256',
-                  name: 'cacheOption',
-                },
-                {
-                  type: 'bytes[]',
-                  name: 'accountProof',
-                },
-                {
-                  type: 'bytes[]',
-                  name: 'storageProof',
-                },
-              ],
-            },
-          ],
-        },
-      ],
-      [
-        {
-          hops,
-        },
-      ],
-    );
-  }
 }
