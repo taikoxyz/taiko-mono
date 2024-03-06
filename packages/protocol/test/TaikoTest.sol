@@ -20,8 +20,9 @@ import "../contracts/tokenvault/ERC1155Vault.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/verifiers/libs/LibProofHash.sol";
+import "../contracts/verifiers/libs/LibPublicInputHash.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../contracts/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TestnetTierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";

@@ -7,7 +7,7 @@ import "../common/EssentialContract.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
-import "./libs/LibProofHash.sol";
+import "./libs/LibPublicInputHash.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs
@@ -157,7 +157,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint64 chainId = ITaikoL1(resolve("taiko", false)).getConfig().chainId;
 
         address oldInstance = ECDSA.recover(
-            LibProofHash.getProofHash(
+            LibPublicInputHash.hashPublicInputs(
                 _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, chainId
             ),
             _proof.data[24:]

@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../../L1/ITaikoL1.sol";
+import "../../L1/TaikoData.sol";
 
-/// @title LibProofHash
+/// @title LibPublicInputHash
 /// @notice A library for handling hashing the so-called public input hash, used by sgx and zk
 /// proofs.
 /// @custom:security-contact security@taiko.xyz
-library LibProofHash {
-    /// @notice Gets the hash for the proof verification.
+library LibPublicInputHash {
+    /// @notice Hashes the public input for the proof verification.
     /// @param _tran The transition to verify.
+    /// @param _verifierContract The contract address which as current verifier.
     /// @param _newInstance The new instance address. For SGX it is the new signer address, for ZK
-    /// this variable is not used.
+    /// this variable is not used and must have value address(0).
     /// @param _prover The prover address.
     /// @param _metaHash The meta hash.
+    /// @param _chainId The chain id.
     /// @return The public input hash.
-    function getProofHash(
+    function hashPublicInputs(
         TaikoData.Transition memory _tran,
         address _verifierContract,
         address _newInstance,

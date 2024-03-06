@@ -11,6 +11,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
+    RiscZeroVerifier public rv;
     SgxVerifier public sv;
     GuardianVerifier public gv;
     GuardianProver public gp;
@@ -331,8 +332,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
         returns (bytes memory signature)
     {
         uint64 chainId = L1.getConfig().chainId;
-        bytes32 digest =
-            LibProofHash.getProofHash(tran, address(sv), newInstance, prover, metaHash, chainId);
+        bytes32 digest = LibPublicInputHash.hashPublicInputs(
+            tran, address(sv), newInstance, prover, metaHash, chainId
+        );
 
         uint256 signerPrivateKey;
 
