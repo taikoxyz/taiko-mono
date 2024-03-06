@@ -27,15 +27,14 @@ interface ISignalService {
         /// was sent on the source chain.
         uint64 blockId;
         /// @notice The state root or signal root of the source chain at the above blockId. This
-        /// value have been synced to the destination chain.
-        /// @dev To get both the blockId and the rootHash, apps shall subscribe to ChainDataSynced
-        /// event or query `topBlockId` first using the source chain's ID and LibSignals.STATE_ROOT
-        /// to get
-        /// the most recent block ID synced, then call `getSyncedChainData` to read the synchronized
-        /// data.
+        /// value has been synced to the destination chain.
+        /// @dev To get both the blockId and the rootHash, apps should subscribe to the
+        /// ChainDataSynced event or query `topBlockId` first using the source chain's ID and
+        /// LibSignals.STATE_ROOT to get the most recent block ID synced, then call
+        /// `getSyncedChainData` to read the synchronized data.
         bytes32 rootHash;
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the
-        /// curernt chain.
+        /// current chain.
         CacheOption cacheOption;
         /// @notice The signal service's account proof.
         bytes[] accountProof;
