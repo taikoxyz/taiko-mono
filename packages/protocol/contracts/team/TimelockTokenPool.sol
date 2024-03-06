@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
@@ -22,7 +23,8 @@ import "../common/EssentialContract.sol";
 /// - team members, advisors, etc.
 /// - grant program grantees
 /// @custom:security-contact security@taiko.xyz
-contract TimelockTokenPool is EssentialContract {
+contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
+    using ECDSAUpgradeable for bytes32;
     using SafeERC20 for IERC20;
 
     struct Grant {
@@ -53,6 +55,11 @@ contract TimelockTokenPool is EssentialContract {
         uint128 amountWithdrawn;
         uint128 costPaid;
         Grant grant;
+    }
+
+    struct Withdrawal {
+        address recipient;
+        address to;
     }
 
     /// @notice The Taiko token address.
@@ -101,6 +108,7 @@ contract TimelockTokenPool is EssentialContract {
     error ALREADY_GRANTED();
     error INVALID_GRANT();
     error INVALID_PARAM();
+    error INVALID_SIGNATURE();
     error NOTHING_TO_VOID();
 
     /// @notice Initializes the contract.
@@ -118,6 +126,8 @@ contract TimelockTokenPool is EssentialContract {
         initializer
     {
         __Essential_init(_owner);
+        __EIP712_init("Taiko Timelock Token Pool", "1");
+
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 
@@ -162,14 +172,14 @@ contract TimelockTokenPool is EssentialContract {
         _withdraw(msg.sender, msg.sender);
     }
 
-    /// @notice Withdraws all withdrawable tokens.
+    /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
-    /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, bytes memory _sig) external {
+    /// @param _sig Signature provided by the recipient.
+    function withdraw(address _recipient, address _to, bytes memory _sig) external {
         if (_to == address(0)) revert INVALID_PARAM();
-        bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", _to));
-        address recipient = ECDSA.recover(hash, _sig);
-        _withdraw(recipient, _to);
+        if (!verifySignature(Withdrawal(_recipient, _to), _sig)) revert INVALID_SIGNATURE();
+
+        _withdraw(_recipient, _to);
     }
 
     /// @notice Returns the summary of the grant for a given recipient.
@@ -204,6 +214,23 @@ contract TimelockTokenPool is EssentialContract {
     /// @return The grant.
     function getMyGrant(address _recipient) public view returns (Grant memory) {
         return recipients[_recipient].grant;
+    }
+
+    /// @notice Verifies if a withdrawal signature is valid
+    /// @param _withdrawal The withdrawal request.
+    /// @return true if the signature is valid, false otherwise.
+    function verifySignature(
+        Withdrawal memory _withdrawal,
+        bytes memory _sig
+    )
+        public
+        view
+        returns (bool)
+    {
+        bytes32 typed = keccak256("Withdrawal(address recipient,address to)");
+        bytes32 hash =
+            _hashTypedDataV4(keccak256(abi.encode(typed, _withdrawal.recipient, _withdrawal.to)));
+        return hash.recover(_sig) == _withdrawal.recipient;
     }
 
     function _withdraw(address _recipient, address _to) private {
