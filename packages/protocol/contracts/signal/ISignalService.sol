@@ -18,11 +18,28 @@ interface ISignalService {
     }
 
     struct HopProof {
+        /// @notice This hop's destination chain ID. If there is a next hop, this ID is the next
+        /// hop's source chain ID.
         uint64 chainId;
+        /// @notice The ID of a source chain block whose state root has been synced to the hop's
+        /// destination chain.
+        /// Note that this block ID must be greater than or equal to the block ID where the signal
+        /// was sent on the source chain.
         uint64 blockId;
+        /// @notice The state root or signal root of the source chain at the above blockId. This
+        /// value has been synced to the destination chain.
+        /// @dev To get both the blockId and the rootHash, apps should subscribe to the
+        /// ChainDataSynced event or query `topBlockId` first using the source chain's ID and
+        /// LibSignals.STATE_ROOT to get the most recent block ID synced, then call
+        /// `getSyncedChainData` to read the synchronized data.
         bytes32 rootHash;
+        /// @notice Options to cache either the state roots or signal roots of middle-hops to the
+        /// current chain.
         CacheOption cacheOption;
+        /// @notice The signal service's account proof. If this value is empty, then `rootHash` will
+        /// be used as the signal root, otherwise, `rootHash` will be used as the state root.
         bytes[] accountProof;
+        /// @notice The signal service's storage proof.
         bytes[] storageProof;
     }
 
