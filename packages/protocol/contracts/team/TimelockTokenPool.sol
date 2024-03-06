@@ -173,7 +173,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
 
     /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
-    /// @param _sig Signature provided by the recipient.
+    /// @param _sig Signature provided by the grant recipient.
     function withdraw(address _to, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
 
