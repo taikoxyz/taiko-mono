@@ -62,15 +62,21 @@ func (r *RabbitMQ) connect() error {
 			Heartbeat: 1 * time.Second,
 		})
 	if err != nil {
+		relayer.QueueConnectionInstantiatedErrors.Inc()
+
 		return err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
+		relayer.QueueConnectionInstantiatedErrors.Inc()
+
 		return err
 	}
 
 	if err := ch.Qos(int(r.opts.PrefetchCount), 0, false); err != nil {
+		relayer.QueueConnectionInstantiatedErrors.Inc()
+
 		return err
 	}
 
@@ -84,6 +90,8 @@ func (r *RabbitMQ) connect() error {
 	r.subscriptionCtx, r.subscriptionCancel = context.WithCancel(context.Background())
 
 	slog.Info("connected to rabbitmq")
+
+	relayer.QueueConnectionInstantiated.Inc()
 
 	return nil
 }
@@ -185,6 +193,8 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 			DeliveryMode: 2, // persistent messages, saved to disk to survive server restart
 		})
 	if err != nil {
+		relayer.QueueMessagePublishedErrors.Inc()
+
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
 
@@ -198,6 +208,8 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 			return err
 		}
 	}
+
+	relayer.QueueMessagePublished.Inc()
 
 	return nil
 }
@@ -262,6 +274,8 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 				slog.Error("rabbitmq notify close connection")
 			}
 
+			relayer.QueueConnectionNotifyClosed.Inc()
+
 			r.Close(ctx)
 
 			if err := r.connect(); err != nil {
@@ -276,6 +290,8 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			} else {
 				slog.Error("rabbitmq notify close channel")
 			}
+
+			relayer.QueueChannelNotifyClosed.Inc()
 
 			r.Close(ctx)
 

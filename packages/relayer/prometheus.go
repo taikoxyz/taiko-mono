@@ -14,6 +14,30 @@ var (
 		Name: "queue_message_negatively_acknowledged_ops_total",
 		Help: "The total number of negatively acknowledged queue events",
 	})
+	QueueChannelNotifyClosed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_channel_notify_closed_ops_total",
+		Help: "The total number of times a queue channel was notified as closed",
+	})
+	QueueConnectionNotifyClosed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_connection_notify_closed_ops_total",
+		Help: "The total number of times a queue connection was notified as closed",
+	})
+	QueueMessagePublished = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_message_published_ops_total",
+		Help: "The total number of times a queue message was published",
+	})
+	QueueMessagePublishedErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_message_published_errors_ops_total",
+		Help: "The total number of times a queue message was published with an error",
+	})
+	QueueConnectionInstantiated = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_connection_instantiated_ops_total",
+		Help: "The total number of times a queue connection was instantiated",
+	})
+	QueueConnectionInstantiatedErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_connection_instantiated_errors_ops_total",
+		Help: "The total number of times a queue connection was instantiated with an error",
+	})
 	ChainDataSyncedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "chain_data_synced_events_indexed_ops_total",
 		Help: "The total number of ChainDataSynced indexed events",
