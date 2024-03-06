@@ -1,4 +1,5 @@
 import { getBlock, readContract } from '@wagmi/core';
+import { hexToBigInt } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -18,6 +19,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   // Any other status that's not NEW we assume this bridge tx
   // has already been processed (was processable)
   // TODO: do better job here as this is to make the UI happy
+
   if (status !== MessageStatus.NEW) return true;
 
   const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].crossChainSyncAddress;
@@ -31,7 +33,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
       abi: crossChainSyncABI,
       functionName: 'getSyncedSnippet',
       args: [BigInt(0)],
-      chainId: Number(srcChainId),
+      chainId: Number(destChainId),
     });
 
     const srcBlock = await getBlock(config, {
@@ -39,7 +41,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
       chainId: Number(srcChainId),
     });
 
-    return srcBlock.number !== null && receipt.blockNumber <= srcBlock.number;
+    return srcBlock.number !== null && hexToBigInt(receipt.blockNumber) <= srcBlock.number;
   } catch (error) {
     return false;
   }
