@@ -176,6 +176,9 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
         _withdraw(recipient, _to);
     }
 
+    /// @notice Gets the hash to be signed to authorize an withdrawal.
+    /// @param _to The destination address.
+    /// @return The hash to be signed.
     function getWithdrawalHash(address _to) public view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to)));
     }
