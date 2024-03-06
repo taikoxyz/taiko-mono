@@ -145,12 +145,6 @@ func (i *Indexer) eventStatusFromMsgHash(
 	}
 
 	eventStatus = relayer.EventStatus(messageStatus)
-	if eventStatus == relayer.EventStatusNew {
-		if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
-			// if gasLimit is 0, relayer can not process this.
-			eventStatus = relayer.EventStatusNewOnlyOwner
-		}
-	}
 
 	return eventStatus, nil
 }
