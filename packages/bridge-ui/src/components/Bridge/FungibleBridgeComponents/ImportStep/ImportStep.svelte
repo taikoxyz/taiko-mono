@@ -6,9 +6,11 @@
 
   let validInput = false;
 
+  export let hasEnoughEth: boolean = false;
+
   $: $importDone = validInput;
 </script>
 
 <ChainSelector type={ChainSelectorType.COMBINED} />
 
-<TokenInput bind:validInput />
+<TokenInput bind:validInput bind:hasEnoughEth />
