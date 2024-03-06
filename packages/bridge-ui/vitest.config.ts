@@ -4,6 +4,7 @@ import { defineProject } from 'vitest/config';
 export default defineProject({
   test: {
     environment: 'jsdom',
+    // setupFiles: ['./../../setup.ts'],
     setupFiles: ['./src/tests/setup.ts'],
     globals: true,
     include: ['./**/*.{test,spec}.{js,ts}'],
