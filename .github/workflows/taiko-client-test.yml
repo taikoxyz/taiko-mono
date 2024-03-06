@@ -55,10 +55,9 @@ jobs:
 
       - name: Test
         working-directory: packages/taiko-client
-        run: |
-          TAIKO_MONO_DIR=${GITHUB_WORKSPACE} make test
+        run: make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v3
         with:
-          files: ${{ env.CLIENT_DIR }}/coverage.out
+          files: packages/taiko-client/coverage.out

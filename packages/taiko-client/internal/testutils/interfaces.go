@@ -5,8 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-client/cmd/utils"
-	"github.com/taikoxyz/taiko-client/internal/sender"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/sender"
 )
 
 type CalldataSyncer interface {

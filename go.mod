@@ -35,7 +35,6 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.4
 	github.com/swaggo/swag v1.16.3
-	github.com/taikoxyz/taiko-client v0.19.0
 	github.com/testcontainers/testcontainers-go v0.28.0
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
@@ -301,3 +300,5 @@ require (
 )
 
 replace github.com/ethereum/go-ethereum v1.13.14 => github.com/taikoxyz/taiko-geth v0.0.0-20240228040257-a00cd0963e60
+
+replace github.com/uber/jaeger-client-go => github.com/uber/jaeger-client-go v2.25.0+incompatible

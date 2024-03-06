@@ -51,9 +51,5 @@ Ensure you have Docker running, and pnpm installed.
 Then, run the integration tests:
 
 1. Start Docker locally
-2. Perform a `pnpm install` in `taiko-mono/packages/protocol`
-3. Replace `<PATH_TO_TAIKO_MONO_REPO>` and execute:
-
-```sh
-TAIKO_MONO_DIR=<PATH_TO_TAIKO_MONO_REPO> make test
-```
+2. Perform a `pnpm install`
+3. Execute `make test`
