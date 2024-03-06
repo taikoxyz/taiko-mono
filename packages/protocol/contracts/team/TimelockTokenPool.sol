@@ -142,7 +142,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// This transaction should happen on a regular basis, e.g., quarterly.
     /// @param _recipient The grant recipient address.
     /// @param _grant The grant struct.
-    function grant(address _recipient, Grant memory _grant) external onlyOwner {
+    function grant(address _recipient, Grant memory _grant) external onlyOwner nonReentrant {
         if (_recipient == address(0)) revert INVALID_PARAM();
         if (recipients[_recipient].grant.amount != 0) revert ALREADY_GRANTED();
 
@@ -157,7 +157,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
     /// @param _recipient The grant recipient address.
-    function void(address _recipient) external onlyOwner {
+    function void(address _recipient) external onlyOwner nonReentrant {
         Recipient storage r = recipients[_recipient];
         uint128 amountVoided = _voidGrant(r.grant);
 
@@ -168,14 +168,14 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw() external {
+    function withdraw() external nonReentrant {
         _withdraw(msg.sender, msg.sender);
     }
 
     /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
     /// @param _sig Signature provided by the recipient.
-    function withdraw(address _recipient, address _to, bytes memory _sig) external {
+    function withdraw(address _recipient, address _to, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
         if (!verifySignature(Withdrawal(_recipient, _to), _sig)) revert INVALID_SIGNATURE();
 
