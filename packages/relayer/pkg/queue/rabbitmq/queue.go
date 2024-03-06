@@ -216,6 +216,8 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 	slog.Info("acknowledged rabbitmq message", "msgId", rmqMsg.MessageId)
 
+	relayer.QueueMessageAcknowledged.Inc()
+
 	return nil
 }
 
@@ -231,6 +233,8 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message, requeue bool) er
 	}
 
 	slog.Info("negatively acknowledged rabbitmq message", "msgId", rmqMsg.MessageId, "requeue", requeue)
+
+	relayer.QueueMessageNegativelyAcknowledged.Inc()
 
 	return nil
 }

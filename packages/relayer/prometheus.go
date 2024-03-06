@@ -6,6 +6,14 @@ import (
 )
 
 var (
+	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_message_acknowledged_ops_total",
+		Help: "The total number of acknowledged queue events",
+	})
+	QueueMessageNegativelyAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "queue_message_negatively_acknowledged_ops_total",
+		Help: "The total number of negatively acknowledged queue events",
+	})
 	ChainDataSyncedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "chain_data_synced_events_indexed_ops_total",
 		Help: "The total number of ChainDataSynced indexed events",
