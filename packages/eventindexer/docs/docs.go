@@ -69,6 +69,20 @@ const docTemplate = `{
                         "name": "task",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "start date to query",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "end date to query",
+                        "name": "end",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -316,6 +330,12 @@ const docTemplate = `{
         "paginate.Page": {
             "type": "object",
             "properties": {
+                "error": {
+                    "type": "boolean"
+                },
+                "error_message": {
+                    "type": "string"
+                },
                 "first": {
                     "type": "boolean"
                 },

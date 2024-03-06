@@ -16,6 +16,8 @@ import (
 //			@Summary		Get time series data for displaying charts
 //			@ID			   	get-charts-by-task
 //		    @Param			task	query		string		true	"task to query"
+//		    @Param			start	query		string		false	"start date to query"	format(date)
+//		    @Param			end		query		string		false	"end date to query"		format(date)
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} eventindexer.ChartResponse
