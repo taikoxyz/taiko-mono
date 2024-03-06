@@ -1,151 +1,143 @@
 {
-    "swagger": "2.0",
-    "info": {
-        "title": "Taiko Prover Server API",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "url": "https://community.taiko.xyz/",
-            "email": "info@taiko.xyz"
-        },
-        "license": {
-            "name": "MIT",
-            "url": "https://github.com/taikoxyz/taiko-client/blob/main/LICENSE.md"
-        },
-        "version": "1.0"
+  "swagger": "2.0",
+  "info": {
+    "title": "Taiko Prover Server API",
+    "termsOfService": "http://swagger.io/terms/",
+    "contact": {
+      "name": "API Support",
+      "url": "https://community.taiko.xyz/",
+      "email": "info@taiko.xyz"
     },
-    "paths": {
-        "/assignment": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Try to accept a block proof assignment",
-                "parameters": [
-                    {
-                        "description": "assignment request body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/server.CreateAssignmentRequestBody"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.ProposeBlockResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "prover does not have capacity",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/status": {
-            "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get current prover server status",
-                "operationId": "get-status",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.Status"
-                        }
-                    }
-                }
-            }
-        }
+    "license": {
+      "name": "MIT",
+      "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
     },
-    "definitions": {
-        "big.Int": {
-            "type": "object"
-        },
-        "encoding.TierFee": {
-            "type": "object",
-            "properties": {
-                "fee": {
-                    "$ref": "#/definitions/big.Int"
-                },
-                "tier": {
-                    "type": "integer"
-                }
+    "version": "1.0"
+  },
+  "paths": {
+    "/assignment": {
+      "post": {
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "summary": "Try to accept a block proof assignment",
+        "parameters": [
+          {
+            "description": "assignment request body",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/server.CreateAssignmentRequestBody"
             }
-        },
-        "server.CreateAssignmentRequestBody": {
-            "type": "object",
-            "properties": {
-                "expiry": {
-                    "type": "integer"
-                },
-                "feeToken": {
-                    "type": "string"
-                },
-                "tierFees": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/encoding.TierFee"
-                    }
-                },
-                "txListHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/server.ProposeBlockResponse"
             }
-        },
-        "server.ProposeBlockResponse": {
-            "type": "object",
-            "properties": {
-                "maxBlockID": {
-                    "type": "integer"
-                },
-                "maxProposedIn": {
-                    "type": "integer"
-                },
-                "prover": {
-                    "type": "string"
-                },
-                "signedPayload": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
+          },
+          "422": {
+            "description": "prover does not have capacity",
+            "schema": {
+              "type": "string"
             }
-        },
-        "server.Status": {
-            "type": "object",
-            "properties": {
-                "maxExpiry": {
-                    "type": "integer"
-                },
-                "minOptimisticTierFee": {
-                    "type": "integer"
-                },
-                "minSgxTierFee": {
-                    "type": "integer"
-                },
-                "prover": {
-                    "type": "string"
-                }
-            }
+          }
         }
+      }
+    },
+    "/status": {
+      "get": {
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "summary": "Get current prover server status",
+        "operationId": "get-status",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/server.Status"
+            }
+          }
+        }
+      }
     }
+  },
+  "definitions": {
+    "big.Int": {
+      "type": "object"
+    },
+    "encoding.TierFee": {
+      "type": "object",
+      "properties": {
+        "fee": {
+          "$ref": "#/definitions/big.Int"
+        },
+        "tier": {
+          "type": "integer"
+        }
+      }
+    },
+    "server.CreateAssignmentRequestBody": {
+      "type": "object",
+      "properties": {
+        "expiry": {
+          "type": "integer"
+        },
+        "feeToken": {
+          "type": "string"
+        },
+        "tierFees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/encoding.TierFee"
+          }
+        },
+        "txListHash": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "server.ProposeBlockResponse": {
+      "type": "object",
+      "properties": {
+        "maxBlockID": {
+          "type": "integer"
+        },
+        "maxProposedIn": {
+          "type": "integer"
+        },
+        "prover": {
+          "type": "string"
+        },
+        "signedPayload": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "server.Status": {
+      "type": "object",
+      "properties": {
+        "maxExpiry": {
+          "type": "integer"
+        },
+        "minOptimisticTierFee": {
+          "type": "integer"
+        },
+        "minSgxTierFee": {
+          "type": "integer"
+        },
+        "prover": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }
