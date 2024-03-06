@@ -58,7 +58,6 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     }
 
     struct Withdrawal {
-        address recipient;
         address to;
     }
 
@@ -175,11 +174,15 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
     /// @param _sig Signature provided by the recipient.
-    function withdraw(address _recipient, address _to, bytes memory _sig) external nonReentrant {
+    function withdraw(address _to, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
-        if (!verifySignature(Withdrawal(_recipient, _to), _sig)) revert INVALID_SIGNATURE();
 
-        _withdraw(_recipient, _to);
+        bytes32 typed = keccak256("Withdrawal(address to)");
+        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(typed, _to)));
+        address recipient = hash.recover(_sig);
+        if (recipient == address(0)) revert INVALID_SIGNATURE();
+
+        _withdraw(recipient, _to);
     }
 
     /// @notice Returns the summary of the grant for a given recipient.
@@ -214,23 +217,6 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @return The grant.
     function getMyGrant(address _recipient) public view returns (Grant memory) {
         return recipients[_recipient].grant;
-    }
-
-    /// @notice Verifies if a withdrawal signature is valid
-    /// @param _withdrawal The withdrawal request.
-    /// @return true if the signature is valid, false otherwise.
-    function verifySignature(
-        Withdrawal memory _withdrawal,
-        bytes memory _sig
-    )
-        public
-        view
-        returns (bool)
-    {
-        bytes32 typed = keccak256("Withdrawal(address recipient,address to)");
-        bytes32 hash =
-            _hashTypedDataV4(keccak256(abi.encode(typed, _withdrawal.recipient, _withdrawal.to)));
-        return hash.recover(_sig) == _withdrawal.recipient;
     }
 
     function _withdraw(address _recipient, address _to) private {
