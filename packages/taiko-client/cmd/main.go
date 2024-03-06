@@ -6,12 +6,12 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/taikoxyz/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-client/cmd/utils"
-	"github.com/taikoxyz/taiko-client/driver"
-	"github.com/taikoxyz/taiko-client/internal/version"
-	"github.com/taikoxyz/taiko-client/proposer"
-	"github.com/taikoxyz/taiko-client/prover"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover"
 )
 
 func main() {
