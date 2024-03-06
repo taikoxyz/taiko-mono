@@ -21,7 +21,7 @@ import (
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} eventindexer.ChartResponse
-//			@Router			/chartByTask [get]
+//			@Router			/chart/chartByTask [get]
 func (srv *Server) GetChartByTask(c echo.Context) error {
 	cached, found := srv.cache.Get(c.QueryParam("task") + c.QueryParam("fee_token_address") + c.QueryParam("tier"))
 

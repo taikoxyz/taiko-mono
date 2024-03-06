@@ -52,7 +52,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/chartByTask": {
+        "/chart/chartByTask": {
             "get": {
                 "consumes": [
                     "application/json"

@@ -117,7 +117,7 @@ paths:
           schema:
             $ref: '#/definitions/paginate.Page'
       summary: Get assigned blocks by prover address
-  /chartByTask:
+  /chart/chartByTask:
     get:
       consumes:
       - application/json
