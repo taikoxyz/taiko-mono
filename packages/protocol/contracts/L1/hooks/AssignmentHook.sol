@@ -99,6 +99,10 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Send the liveness bond to the Taiko contract
         IERC20 tko = IERC20(resolve("taiko_token", false));
+
+        // Note that we don't have to worry about
+        // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
+        // as `assignedProver` has provided a signature above to authorize this hook.
         tko.safeTransferFrom(_blk.assignedProver, taikoL1Address, _blk.livenessBond);
 
         // Find the prover fee using the minimal tier
@@ -112,7 +116,7 @@ contract AssignmentHook is EssentialContract, IHook {
         } else {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
-                _meta.coinbase, _blk.assignedProver, proverFee
+                _meta.sender, _blk.assignedProver, proverFee
             );
         }
 
