@@ -1,5 +1,5 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
-import { type Hash, hexToBigInt, UserRejectedRequestError } from 'viem';
+import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -134,14 +134,28 @@ export abstract class Bridge {
     if (messageStatus === MessageStatus.NEW) {
       const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
       try {
-        // const { request } = await simulateContract(config, {
-        //   address: destBridgeAddress,
-        //   abi: bridgeAbi,
-        //   functionName: 'processMessage',
-        //   args: [message, proof],
-        //   gas: message.gasLimit,
-        // });
-        // log('Simulate contract', request);
+        const client = await getConnectedWallet();
+        if (!client) throw new Error('Client not found');
+
+        const bridgeContract = await getContract({
+          client,
+          abi: bridgeAbi,
+          address: destBridgeAddress,
+        });
+
+        const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], {
+          account: client.account,
+        });
+        log('Estimated gas', estimatedGas);
+
+        const { request } = await simulateContract(config, {
+          address: destBridgeAddress,
+          abi: bridgeAbi,
+          functionName: 'processMessage',
+          args: [message, proof],
+          gas: estimatedGas,
+        });
+        log('Simulate contract', request);
 
         const wallet = await getConnectedWallet();
         if (!wallet) throw new Error('Could not get public client');
@@ -152,7 +166,7 @@ export abstract class Bridge {
           abi: bridgeAbi,
           functionName: 'processMessage',
           args: [message, proof],
-          gas: hexToBigInt('0x8a54a'), //TODO calculate GAS!!!
+          gas: estimatedGas, //TODO calculate GAS!!!
         });
         // txHash = await writeContract(config, {
         //   address: destBridgeAddress,
