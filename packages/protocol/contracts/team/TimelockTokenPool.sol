@@ -24,7 +24,7 @@ import "../common/EssentialContract.sol";
 /// - grant program grantees
 /// @custom:security-contact security@taiko.xyz
 contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
-    using ECDSAUpgradeable for bytes32;
+    using ECDSA for bytes32;
     using SafeERC20 for IERC20;
 
     struct Grant {
