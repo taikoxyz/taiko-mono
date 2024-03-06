@@ -133,7 +133,8 @@ library LibProposing {
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
-                parentMetaHash: parentMetaHash
+                parentMetaHash: parentMetaHash,
+                sender: msg.sender
             });
         }
 

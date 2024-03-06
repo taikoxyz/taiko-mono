@@ -57,4 +57,3 @@ Assuming you are in this directory.
 ### Understanding the Outcome
 
 The parameters set in the `test_eip1559_math` test simulate approximations of possible mainnet scenarios (e.g., 10x the Ethereum gas target). Run the commands as described above to become familiar with the simulation outcome and generated plots.
-

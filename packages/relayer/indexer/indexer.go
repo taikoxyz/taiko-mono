@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -28,10 +29,6 @@ import (
 
 var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-)
-
-var (
-	eventName = relayer.EventNameMessageSent
 )
 
 type WatchMode string
@@ -75,6 +72,8 @@ type Indexer struct {
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
 
+	signalService relayer.SignalService
+
 	blockBatchSize      uint64
 	numGoroutines       int
 	subscriptionBackoff time.Duration
@@ -100,6 +99,8 @@ type Indexer struct {
 	ctx context.Context
 
 	mu *sync.Mutex
+
+	eventName string
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -160,6 +161,14 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		}
 	}
 
+	var signalService relayer.SignalService
+	if cfg.SrcSignalServiceAddress != ZeroAddress {
+		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "signalservice.NewSignalService")
+		}
+	}
+
 	srcChainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "srcEthClient.ChainID")
@@ -176,6 +185,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.bridge = srcBridge
 	i.destBridge = destBridge
+	i.signalService = signalService
 	i.taikol1 = taikoL1
 
 	i.blockBatchSize = cfg.BlockBatchSize
@@ -199,6 +209,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.targetBlockNumber = cfg.TargetBlockNumber
 
 	i.mu = &sync.Mutex{}
+
+	i.eventName = cfg.EventName
 
 	return nil
 }
@@ -253,7 +265,7 @@ func (i *Indexer) Start() error {
 func (i *Indexer) filter(ctx context.Context) error {
 	// if subscribing to new events, skip filtering and subscribe
 	if i.watchMode == Subscribe {
-		return i.subscribe(ctx, i.srcChainId)
+		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
 
 	syncMode := i.syncMode
@@ -274,7 +286,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	if i.processingBlockHeight == header.Number.Uint64() {
 		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", i.srcChainId.Uint64())
-		return i.subscribe(ctx, i.srcChainId)
+		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
 
 	endBlockID := header.Number.Uint64()
@@ -320,51 +332,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 			Context: ctx,
 		}
 
-		// we dont want to watch for message status changed events
-		// when crawling past blocks on a loop.
-		if i.watchMode != CrawlPastBlocks {
-			messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		switch i.eventName {
+		case relayer.EventNameMessageSent:
+			if err := i.indexMessageSentEvents(ctx, filterOpts); err != nil {
+				return errors.Wrap(err, "i.indexMessageSentEvents")
 			}
-
-			// we don't need to do anything with msgStatus events except save them to the DB.
-			// we don't need to process them. they are for exposing via the API.
-
-			err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
-			if err != nil {
-				return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		case relayer.EventNameMessageReceived:
+			if err := i.indexMessageReceivedEvents(ctx, filterOpts); err != nil {
+				return errors.Wrap(err, "i.indexMessageReceivedEvents")
 			}
-		}
-
-		messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "bridge.FilterMessageSent")
-		}
-
-		group, groupCtx := errgroup.WithContext(ctx)
-		group.SetLimit(i.numGoroutines)
-
-		for messageSentEvents.Next() {
-			event := messageSentEvents.Event
-
-			group.Go(func() error {
-				err := i.handleEvent(groupCtx, i.srcChainId, event)
-				if err != nil {
-					relayer.ErrorEvents.Inc()
-					// log error but always return nil to keep other goroutines active
-					slog.Error("error handling event", "err", err.Error())
-				} else {
-					slog.Info("handled event successfully")
-				}
-
-				return nil
-			})
-		}
-
-		// wait for the last of the goroutines to finish
-		if err := group.Wait(); err != nil {
-			return errors.Wrap(err, "group.Wait")
+		case relayer.EventNameChainDataSynced:
+			if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
+				return errors.Wrap(err, "i.indexChainDataSyncedEvents")
+			}
 		}
 
 		// handle no events remaining, saving the processing block and restarting the for
@@ -412,9 +392,148 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	slog.Info("processing is caught up to latest block, subscribing to new blocks")
 
-	return i.subscribe(ctx, i.srcChainId)
+	return i.subscribe(ctx, i.srcChainId, i.destChainId)
+}
+
+func (i *Indexer) indexMessageSentEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	// we dont want to watch for message status changed events
+	// when crawling past blocks on a loop.
+	if i.watchMode != CrawlPastBlocks {
+		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		}
+
+		// we don't need to do anything with msgStatus events except save them to the DB.
+		// we don't need to process them. they are for exposing via the API.
+
+		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
+		if err != nil {
+			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		}
+
+		// we also want to index chain data synced events.
+		if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
+			return errors.Wrap(err, "i.indexChainDataSyncedEvents")
+		}
+	}
+
+	messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for messageSentEvents.Next() {
+		event := messageSentEvents.Event
+
+		group.Go(func() error {
+			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event, false)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+			} else {
+				slog.Info("handled messagesent event successfully")
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	messageSentEvents, err := i.bridge.FilterMessageReceived(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for messageSentEvents.Next() {
+		event := messageSentEvents.Event
+
+		group.Go(func() error {
+			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event, false)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+			} else {
+				slog.Info("handled message received event successfully")
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	slog.Info("indexing chainDataSynced events")
+
+	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(
+		filterOpts,
+		[]uint64{i.destChainId.Uint64()},
+		nil,
+		nil,
+	)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for chainDataSyncedEvents.Next() {
+		event := chainDataSyncedEvents.Event
+
+		group.Go(func() error {
+			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event, false)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling chainDataSynced", "err", err.Error())
+			} else {
+				slog.Info("handled chainDataSynced event successfully")
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	slog.Info("done indexing chainDataSynced events")
+
+	return nil
 }
 
 func (i *Indexer) queueName() string {
-	return fmt.Sprintf("%v-%v-queue", i.srcChainId.String(), i.destChainId.String())
+	return fmt.Sprintf("%v-%v-%v-queue", i.srcChainId.String(), i.destChainId.String(), i.eventName)
 }

@@ -132,3 +132,20 @@ func (r *EventRepository) Delete(
 
 	return nil
 }
+
+func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
+	ctx context.Context,
+	srcChainId uint64,
+	syncedChainId uint64,
+	blockNumber uint64,
+) (*relayer.Event, error) {
+	return nil, nil
+}
+
+func (r *EventRepository) LatestChainDataSyncedEvent(
+	ctx context.Context,
+	srcChainId uint64,
+	syncedChainId uint64,
+) (uint64, error) {
+	return 5, nil
+}

@@ -22,8 +22,13 @@ type Queue interface {
 	Nack(ctx context.Context, msg Message) error
 }
 
-type QueueMessageBody struct {
+type QueueMessageSentBody struct {
 	Event *bridge.BridgeMessageSent
+	ID    int
+}
+
+type QueueMessageReceivedBody struct {
+	Event *bridge.BridgeMessageReceived
 	ID    int
 }
 

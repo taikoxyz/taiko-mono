@@ -13,6 +13,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
+// processSingle is used to process a single message, when we are
+// targeting a specific message via config flag
 func (p *Processor) processSingle(ctx context.Context) error {
 	slog.Info("processing single", "txHash", common.Hash(*p.targetTxHash).Hex())
 
@@ -35,7 +37,7 @@ func (p *Processor) processSingle(ctx context.Context) error {
 				return err
 			}
 
-			msg := queue.QueueMessageBody{
+			msg := queue.QueueMessageSentBody{
 				ID:    0,
 				Event: event,
 			}
