@@ -363,7 +363,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
 	}
 
-	// if we have no hops, this is stricly a srcChain => destChain mesage.
+	// if we have no hops, this is strictly a srcChain => destChain message.
 	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
 	// and generate a proof.
 	if len(p.hops) == 0 {
