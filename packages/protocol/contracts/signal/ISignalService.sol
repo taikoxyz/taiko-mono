@@ -36,7 +36,8 @@ interface ISignalService {
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the
         /// current chain.
         CacheOption cacheOption;
-        /// @notice The signal service's account proof.
+        /// @notice The signal service's account proof. If this value is empty, then `rootHash` will
+        /// be used as the signal root, otherwise, `rootHash` will be used as the state root.
         bytes[] accountProof;
         /// @notice The signal service's storage proof.
         bytes[] storageProof;
