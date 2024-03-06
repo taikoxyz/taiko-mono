@@ -24,7 +24,6 @@ import "../common/EssentialContract.sol";
 /// - grant program grantees
 /// @custom:security-contact security@taiko.xyz
 contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
-    using ECDSA for bytes32;
     using SafeERC20 for IERC20;
 
     struct Grant {
@@ -60,6 +59,8 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     struct Withdrawal {
         address to;
     }
+
+    bytes32 public TYPED_HASH = keccak256("Withdrawal(address to)");
 
     /// @notice The Taiko token address.
     address public taikoToken;
@@ -107,7 +108,6 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     error ALREADY_GRANTED();
     error INVALID_GRANT();
     error INVALID_PARAM();
-    error INVALID_SIGNATURE();
     error NOTHING_TO_VOID();
 
     /// @notice Initializes the contract.
@@ -176,13 +176,8 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @param _sig Signature provided by the grant recipient.
     function withdraw(address _to, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
-
-        bytes32 typed = keccak256("Withdrawal(address to)");
-        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(typed, _to)));
-
-        address recipient = hash.recover(_sig);
-        if (recipient == address(0)) revert INVALID_SIGNATURE();
-
+        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to)));
+        address recipient = ECDSA.recover(hash, _sig);
         _withdraw(recipient, _to);
     }
 
