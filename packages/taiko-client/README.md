@@ -13,7 +13,7 @@ Taiko protocol's client software implementation in Go. Learn more about Taiko no
 | `cmd/`              | Main executable for this project                                                                                                         |
 | `docs/`             | Documentation                                                                                                                            |
 | `driver/`           | Driver sub-command                                                                                                                       |
-| `integration_test/` | Scripts to do the integration testing of all client software                                                                            |
+| `integration_test/` | Scripts to do the integration testing of all client software                                                                             |
 | `metrics/`          | Metrics related                                                                                                                          |
 | `pkg/`              | Library code which used by all sub-commands                                                                                              |
 | `proposer/`         | Proposer sub-command                                                                                                                     |
@@ -51,9 +51,5 @@ Ensure you have Docker running, and pnpm installed.
 Then, run the integration tests:
 
 1. Start Docker locally
-2. Perform a `pnpm install` in `taiko-mono/packages/protocol`
-3. Replace `<PATH_TO_TAIKO_MONO_REPO>` and execute:
-
-```sh
-TAIKO_MONO_DIR=<PATH_TO_TAIKO_MONO_REPO> make test
-```
+2. Perform a `pnpm install`
+3. Execute: `make test`

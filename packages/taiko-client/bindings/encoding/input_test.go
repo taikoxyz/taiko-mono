@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
 func TestEncodeProverAssignmentPayload(t *testing.T) {

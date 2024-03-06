@@ -19,7 +19,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pborman/uuid"
 
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (

@@ -15,16 +15,16 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/taikoxyz/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	anchorTxConstructor "github.com/taikoxyz/taiko-client/driver/anchor_tx_constructor"
-	"github.com/taikoxyz/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-client/driver/state"
-	txlistfetcher "github.com/taikoxyz/taiko-client/driver/txlist_fetcher"
-	"github.com/taikoxyz/taiko-client/internal/metrics"
-	eventIterator "github.com/taikoxyz/taiko-client/pkg/chain_iterator/event_iterator"
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
-	txListValidator "github.com/taikoxyz/taiko-client/pkg/txlistvalidator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	txlistfetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	txListValidator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/txlistvalidator"
 )
 
 var (

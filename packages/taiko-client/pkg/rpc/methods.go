@@ -19,8 +19,8 @@ import (
 	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 )
 
 var (

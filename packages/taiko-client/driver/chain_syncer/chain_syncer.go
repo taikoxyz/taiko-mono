@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-client/driver/chain_syncer/calldata"
-	"github.com/taikoxyz/taiko-client/driver/state"
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/calldata"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // L2ChainSyncer is responsible for keeping the L2 execution engine's local chain in sync with the one

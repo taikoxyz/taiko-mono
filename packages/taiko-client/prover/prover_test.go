@@ -17,15 +17,15 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-client/driver"
-	"github.com/taikoxyz/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-client/pkg/jwt"
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-client/proposer"
-	guardianproversender "github.com/taikoxyz/taiko-client/prover/guardian_prover_sender"
-	producer "github.com/taikoxyz/taiko-client/prover/proof_producer"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
+	guardianproversender "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_sender"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 type ProverTestSuite struct {
