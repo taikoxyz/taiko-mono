@@ -176,9 +176,12 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @param _sig Signature provided by the grant recipient.
     function withdraw(address _to, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
-        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to)));
-        address recipient = ECDSA.recover(hash, _sig);
+        address recipient = ECDSA.recover(getWithdrawalHash(_to), _sig);
         _withdraw(recipient, _to);
+    }
+
+    function getWithdrawalHash(address _to) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to)));
     }
 
     /// @notice Returns the summary of the grant for a given recipient.
