@@ -6,9 +6,37 @@ import (
 )
 
 var (
-	EventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "events_processed_ops_total",
-		Help: "The total number of processed events",
+	ChainDataSyncedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "chain_data_synced_events_indexed_ops_total",
+		Help: "The total number of ChainDataSynced indexed events",
+	})
+	MessageSentEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_processed_ops_total",
+		Help: "The total number of MessageSent processed events",
+	})
+	MessageSentEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_indexed_ops_total",
+		Help: "The total number of MessageSent indexed events",
+	})
+	MessageSentEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_indexing_errors_ops_total",
+		Help: "The total number of errors indexing MessageSent events",
+	})
+	MessageReceivedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_received_events_indexing_errors_ops_total",
+		Help: "The total number of errors indexing MessageReceived events",
+	})
+	MessageStatusChangedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_status_changed_events_indexed_ops_total",
+		Help: "The total number of MessageStatusChanged indexed events",
+	})
+	MessageStatusChangedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_status_changed_events_indexing_errors_ops_total",
+		Help: "The total number of errors indexing MessageStatusChanged events",
+	})
+	ChainDataSyncedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "chain_data_synced_events_indexing_errors_ops_total",
+		Help: "The total number of errors indexing ChainDataSynced events",
 	})
 	BlocksProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_processed_ops_total",

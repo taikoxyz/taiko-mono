@@ -121,6 +121,8 @@ func (i *Indexer) handleMessageSentEvent(
 		return errors.Wrap(err, "i.queue.Publish")
 	}
 
+	relayer.MessageSentEventsIndexed.Inc()
+
 	return nil
 }
 

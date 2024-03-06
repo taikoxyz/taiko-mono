@@ -74,5 +74,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 
 	slog.Info("chainDataSynced event saved")
 
+	relayer.ChainDataSyncedEventsIndexed.Inc()
+
 	return nil
 }
