@@ -179,6 +179,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
 
         bytes32 typed = keccak256("Withdrawal(address to)");
         bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(typed, _to)));
+
         address recipient = hash.recover(_sig);
         if (recipient == address(0)) revert INVALID_SIGNATURE();
 
