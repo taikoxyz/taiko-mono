@@ -144,7 +144,7 @@
                 <div class="f-row min-w-1/2 text-primary-content">
                   <a
                     class="flex justify-start link"
-                    href={`${chainConfig[canonicalChain].urls.explorer}/token/${canonicalAddress}`}
+                    href={`${chainConfig[canonicalChain]?.blockExplorers?.default.url}/token/${canonicalAddress}`}
                     target="_blank">
                     {shortenAddress(canonicalAddress, 6, 8)}
                   </a>
@@ -162,7 +162,7 @@
                   {#if bridgedChain && bridgedAddress}
                     <a
                       class="flex justify-start link"
-                      href={`${chainConfig[bridgedChain].urls.explorer}/token/${bridgedAddress}`}
+                      href={`${chainConfig[bridgedChain]?.blockExplorers?.default.url}/token/${bridgedAddress}`}
                       target="_blank">
                       {shortenAddress(bridgedAddress, 6, 8)}
                       <Icon type="arrow-top-right" fillClass="fill-primary-link" />
@@ -195,7 +195,7 @@
             <h4 class="text-secondary-content">{$t('transactions.header.explorer')}</h4>
             <a
               class="flex justify-start content-center link"
-              href={`${chainConfig[Number(selectedItem.srcChainId)].urls.explorer}/tx/${selectedItem.hash}`}
+              href={`${chainConfig[Number(selectedItem.srcChainId)]?.blockExplorers?.default.url}/tx/${selectedItem.hash}`}
               target="_blank">
               {$t('transactions.link.explorer')}
               <Icon type="arrow-top-right" />
