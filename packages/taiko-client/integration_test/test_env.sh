@@ -3,11 +3,8 @@
 source internal/docker/docker_env.sh
 source scripts/common.sh
 
-# make sure environment variables are set.
-check_env "TAIKO_MONO_DIR"
-
 # get deployed contract address.
-DEPLOYMENT_JSON=$(cat "$TAIKO_MONO_DIR"/packages/protocol/deployments/deploy_l1.json)
+DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
 export TAIKO_L1_ADDRESS=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export TAIKO_L2_ADDRESS=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN_ADDRESS=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
@@ -26,7 +23,6 @@ export VERBOSITY=3
 # show the integration test environment variables.
 # L1_BEACON_HTTP_ENDPOINT=$L1_BEACON_HTTP_ENDPOINT
 echo "RUN_TESTS=true
-TAIKO_MONO_DIR=$TAIKO_MONO_DIR
 L1_NODE_HTTP_ENDPOINT=$L1_NODE_HTTP_ENDPOINT
 L1_NODE_WS_ENDPOINT=$L1_NODE_WS_ENDPOINT
 L2_SUGGESTED_FEE_RECIPIENT=$L2_SUGGESTED_FEE_RECIPIENT
