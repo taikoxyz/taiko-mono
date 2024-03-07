@@ -9,6 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+// saveEventToDB is used to save any type of event to the database
 func (i *Indexer) saveEventToDB(
 	ctx context.Context,
 	marshalledEvent []byte,

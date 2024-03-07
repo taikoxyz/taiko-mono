@@ -47,7 +47,7 @@ func (p *Processor) processSingle(ctx context.Context) error {
 				return err
 			}
 
-			if err := p.processMessage(ctx, queue.Message{
+			if _, err := p.processMessage(ctx, queue.Message{
 				Body: marshalledMsg,
 			}); err != nil {
 				return err

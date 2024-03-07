@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -21,6 +22,8 @@ func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int, destChainID *
 
 	errChan := make(chan error)
 
+	// we want to subscribe to all 3 events related to MessageSent
+	// if thats our desired event.
 	if i.eventName == relayer.EventNameMessageSent {
 		go i.subscribeMessageSent(ctx, chainID, destChainID, errChan)
 
@@ -28,6 +31,8 @@ func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int, destChainID *
 
 		go i.subscribeChainDataSynced(ctx, chainID, destChainID, errChan)
 	} else if i.eventName == relayer.EventNameMessageReceived {
+		// otherwise, we are running as a watchdog for MessageReceived, and only
+		// care about that one.
 		go i.subscribeMessageReceived(ctx, chainID, destChainID, errChan)
 	}
 
@@ -38,7 +43,7 @@ func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int, destChainID *
 			slog.Info("context finished")
 			return nil
 		case err := <-errChan:
-			slog.Info("error encountered durign subscription", "error", err)
+			slog.Info("error encountered during subscription", "error", err)
 
 			relayer.ErrorsEncounteredDuringSubscription.Inc()
 
@@ -79,10 +84,12 @@ func (i *Indexer) subscribeMessageSent(
 		case event := <-sink:
 			go func() {
 				slog.Info("new message sent event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
-				err := i.handleMessageSentEvent(ctx, chainID, event, true)
 
-				if err != nil {
+				if err := i.handleMessageSentEvent(ctx, chainID, event, true); err != nil {
 					slog.Error("i.subscribe, i.handleMessageSentEvent", "error", err)
+
+					relayer.MessageSentEventsIndexingErrors.Inc()
+
 					return
 				}
 
@@ -97,19 +104,24 @@ func (i *Indexer) subscribeMessageSent(
 				)
 				if err != nil {
 					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
+
+					relayer.MessageSentEventsIndexingErrors.Inc()
+
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = i.blockRepo.Save(relayer.SaveBlockOpts{
+					if err := i.blockRepo.Save(relayer.SaveBlockOpts{
 						Height:      event.Raw.BlockNumber,
 						Hash:        event.Raw.BlockHash,
 						ChainID:     chainID,
 						DestChainID: destChainID,
 						EventName:   relayer.EventNameMessageSent,
-					})
-					if err != nil {
+					}); err != nil {
 						slog.Error("i.subscribe, i.blockRepo.Save", "error", err)
+
+						relayer.MessageSentEventsIndexingErrors.Inc()
+
 						return
 					}
 
@@ -155,7 +167,10 @@ func (i *Indexer) subscribeMessageReceived(
 				err := i.handleMessageReceivedEvent(ctx, chainID, event, true)
 
 				if err != nil {
+					relayer.MessageReceivedEventsIndexingErrors.Inc()
+
 					slog.Error("i.subscribe, i.handleMessageReceived", "error", err)
+
 					return
 				}
 
@@ -169,7 +184,10 @@ func (i *Indexer) subscribeMessageReceived(
 					destChainID,
 				)
 				if err != nil {
+					relayer.MessageReceivedEventsIndexingErrors.Inc()
+
 					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
+
 					return
 				}
 
@@ -182,7 +200,10 @@ func (i *Indexer) subscribeMessageReceived(
 						EventName:   relayer.EventNameMessageReceived,
 					})
 					if err != nil {
+						relayer.MessageReceivedEventsIndexingErrors.Inc()
+
 						slog.Error("i.subscribe, i.blockRepo.Save", "error", err)
+
 						return
 					}
 
@@ -227,8 +248,10 @@ func (i *Indexer) subscribeMessageStatusChanged(
 				"chainID", chainID.String(),
 			)
 
-			if err := i.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
-				slog.Error("i.subscribe, i.saveMessageStatusChangedEvent", "error", err)
+			if err := i.handleMessageStatusChangedEvent(ctx, chainID, event); err != nil {
+				slog.Error("i.subscribe, i.handleMessageStatusChangedEvent", "error", err)
+
+				relayer.MessageSentEventsIndexingErrors.Inc()
 			}
 		}
 	}
@@ -250,7 +273,10 @@ func (i *Indexer) subscribeChainDataSynced(
 
 		return i.signalService.WatchChainDataSynced(&bind.WatchOpts{
 			Context: ctx,
-		}, sink, []uint64{destChainID.Uint64()}, nil, nil)
+		}, sink,
+			[]uint64{destChainID.Uint64()},
+			nil,
+			[][32]byte{crypto.Keccak256Hash([]byte("STATE_ROOT"))})
 	})
 
 	defer sub.Unsubscribe()
@@ -272,10 +298,9 @@ func (i *Indexer) subscribeChainDataSynced(
 
 			if err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event, true); err != nil {
 				slog.Error("error handling chainDataSynced event", "error", err)
-				continue
-			}
 
-			slog.Info("chainDataSynced event saved")
+				relayer.ChainDataSyncedEventsIndexingErrors.Inc()
+			}
 		}
 	}
 }

@@ -5,9 +5,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "propertyNames": {
-          "pattern": "^[0-9]+$"
-        },
         "additionalProperties": {
           "type": "object",
           "properties": {
@@ -20,20 +17,59 @@
             "type": {
               "type": "string"
             },
-            "urls": {
+            "rpcUrls": {
               "type": "object",
               "properties": {
-                "rpc": {
-                  "type": "string"
-                },
-                "explorer": {
-                  "type": "string"
+                "default": {
+                  "type": "object",
+                  "properties": {
+                    "http": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["http"]
                 }
               },
-              "required": ["rpc", "explorer"]
+              "required": ["default"]
+            },
+            "nativeCurrency": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                },
+                "decimals": {
+                  "type": "integer"
+                }
+              },
+              "required": ["name", "symbol", "decimals"]
+            },
+            "blockExplorers": {
+              "type": "object",
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["name", "url"]
+                }
+              },
+              "required": ["default"]
             }
           },
-          "required": ["name", "icon", "type", "urls"]
+          "required": ["name", "icon", "type", "rpcUrls", "nativeCurrency", "blockExplorers"]
         }
       }
     }

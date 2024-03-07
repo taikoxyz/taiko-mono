@@ -19,7 +19,7 @@ type Queue interface {
 	Notify(ctx context.Context, wg *sync.WaitGroup) error
 	Subscribe(ctx context.Context, msgs chan<- Message, wg *sync.WaitGroup) error
 	Ack(ctx context.Context, msg Message) error
-	Nack(ctx context.Context, msg Message) error
+	Nack(ctx context.Context, msg Message, requeue bool) error
 }
 
 type QueueMessageSentBody struct {
@@ -33,8 +33,9 @@ type QueueMessageReceivedBody struct {
 }
 
 type Message struct {
-	Body     []byte
-	Internal interface{}
+	Body         []byte
+	Internal     interface{}
+	TimesRetried int64
 }
 
 type NewQueueOpts struct {
