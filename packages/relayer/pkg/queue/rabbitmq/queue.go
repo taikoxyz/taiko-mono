@@ -111,7 +111,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	// with no requeue
 	if err := r.ch.ExchangeDeclare(
 		dlxExchange,
-		"fanout",
+		"direct",
 		true,
 		false,
 		false,

@@ -420,7 +420,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 						// we want to negatively acknowledge the message and requeue it if we
 						// encountered an error, but the message is processable.
-						if err = p.queue.Nack(ctx, m, shouldRequeue); err != nil {
+						if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
