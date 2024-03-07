@@ -72,9 +72,9 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 
 	shouldRequeue, err := p.processMessage(context.Background(), msg)
 
-	assert.Nil(t, nil)
+	assert.Nil(t, err)
 
-	assert.Equal(t, err, shouldRequeue)
+	assert.Equal(t, false, shouldRequeue)
 }
 
 func Test_ProcessMessage_noChainId(t *testing.T) {
