@@ -144,7 +144,10 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		false,
 		false,
 		false,
-		nil,
+		map[string]interface{}{
+			"x-dead-letter-exchange":    exchange,
+			"x-dead-letter-routing-key": routingKey,
+		},
 	); err != nil {
 		return err
 	}
