@@ -1,12 +1,23 @@
 <script lang="ts">
-  import { importDone } from '$components/Bridge/state';
+  import { onMount } from 'svelte';
+  import { processingFeeMethod, recipientAddress, importDone } from '$components/Bridge/state';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
+  import { ProcessingFeeMethod } from '$libs/fee';
 
   import TokenInput from './TokenInput/TokenInput.svelte';
 
   let validInput = false;
 
   export let hasEnoughEth: boolean = false;
+
+  const reset = () => {
+    $recipientAddress = null;
+    $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  };
+
+  onMount(async () => {
+    reset();
+  });
 
   $: $importDone = validInput;
 </script>
