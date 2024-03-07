@@ -1,3 +1,5 @@
+import type { Chain } from 'viem';
+
 export type ChainID = bigint;
 
 export enum LayerType {
@@ -6,14 +8,7 @@ export enum LayerType {
   L3 = 'L3',
 }
 
-export type Urls = {
-  rpc: string;
-  explorer: string;
-};
-
-export type ChainConfig = {
-  name: string;
-  urls: Urls;
+export type ChainConfig = Omit<Chain, 'id'> & {
   icon: string;
   type: LayerType;
 };

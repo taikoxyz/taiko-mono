@@ -87,7 +87,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
 
     /// @notice External withdraw function
     /// @param user User address
-    function withdraw(address user) external ongoingWithdrawals {
+    function withdraw(address user) external ongoingWithdrawals nonReentrant {
         (, uint256 amount) = getBalance(user);
         withdrawnAmount[user] += amount;
         IERC20(token).safeTransferFrom(vault, user, amount);

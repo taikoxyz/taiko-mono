@@ -105,7 +105,7 @@
             <li>
               <LinkButton
                 href={$connectedSourceChain
-                  ? chainConfig[$connectedSourceChain.id].urls.explorer
+                  ? chainConfig[$connectedSourceChain.id]?.blockExplorers?.default.url
                   : PUBLIC_DEFAULT_EXPLORER}
                 external>
                 <Icon type="explorer" />

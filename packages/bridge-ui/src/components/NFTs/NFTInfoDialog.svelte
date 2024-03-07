@@ -119,7 +119,7 @@
             {:else if canonicalChain && canonicalAddress}
               <a
                 class="flex justify-start link"
-                href={`${chainConfig[canonicalChain].urls.explorer}/token/${canonicalAddress}`}
+                href={`${chainConfig[canonicalChain]?.blockExplorers?.default.url}/token/${canonicalAddress}`}
                 target="_blank">
                 {shortenAddress(canonicalAddress, 6, 8)}
                 <Icon type="arrow-top-right" fillClass="fill-primary-link" />
@@ -138,7 +138,7 @@
               {#if bridgedChain && bridgedAddress}
                 <a
                   class="flex justify-start link"
-                  href={`${chainConfig[bridgedChain].urls.explorer}/token/${bridgedAddress}`}
+                  href={`${chainConfig[bridgedChain]?.blockExplorers?.default.url}/token/${bridgedAddress}`}
                   target="_blank">
                   {shortenAddress(bridgedAddress, 6, 8)}
                   <Icon type="arrow-top-right" fillClass="fill-primary-link" />
