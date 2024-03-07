@@ -103,7 +103,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	dlxExchange := "messages-dlx"
 
-	routingKey := "process"
+	routingKey := fmt.Sprintf("%v-process", queueName)
 
 	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
 
@@ -121,7 +121,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		return err
 	}
 
-	slog.Info("declaring rabbitmq  exchange", "exchange", exchange)
+	slog.Info("declaring rabbitmq exchange", "exchange", exchange)
 
 	if err := r.ch.ExchangeDeclare(
 		exchange,
