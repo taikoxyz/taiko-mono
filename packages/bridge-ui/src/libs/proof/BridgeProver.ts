@@ -5,6 +5,7 @@ import {
   encodeAbiParameters,
   encodePacked,
   type Hex,
+  hexToBigInt,
   keccak256,
   numberToHex,
   toBytes,
@@ -14,8 +15,7 @@ import {
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction } from '$libs/bridge';
-import { BlockError, ClientError, ProofGenerationError } from '$libs/error';
-import { getFirstAvailableBlockInfo } from '$libs/relayer/getFirstAvailableBlockInfo';
+import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -38,6 +38,7 @@ export class BridgeProver {
 
   async getEncodedSignalProof({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
     const { blockNumber, message, msgHash } = bridgeTx;
+
     log('msgHash', msgHash);
     if (!message) throw new ProofGenerationError('Message is not defined');
     const { srcChainId, destChainId } = message;
@@ -121,27 +122,43 @@ export class BridgeProver {
 
       return this.encodeHopProofs(hopProofs);
     } else {
+      // Single hop proof
       log('No hops configured, using default proof generation');
       const srcChainClient = getPublicClient(config, { chainId: Number(srcChainId) });
       if (!srcChainClient) throw new ClientError('Could not get public client');
 
-      // Single hop proof
-
       // Get the signalServiceAddress for the source chain
       const srcSignalServiceAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].signalServiceAddress;
+      const destSignalServiceAddress =
+        routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
 
-      // Get the latest synced block number from the relayer
-      const blockInfo = await getFirstAvailableBlockInfo(Number(srcChainId));
-      if (!blockInfo) throw new Error('Could not get latest block number from relayer');
-      const { latestProcessedBlock } = blockInfo;
+      const syncedChainData = await readContract(config, {
+        address: destSignalServiceAddress,
+        abi: signalServiceAbi,
+        functionName: 'getSyncedChainData',
+        args: [srcChainId, keccak256(toBytes('STATE_ROOT')), 0n],
+        chainId: Number(destChainId),
+      });
+
+      log('syncedChainData', syncedChainData);
+
+      const latestSyncedblock = syncedChainData[0];
+
+      const synced = latestSyncedblock >= hexToBigInt(blockNumber);
+      log('synced', synced, latestSyncedblock, hexToBigInt(blockNumber));
+      if (!synced) {
+        throw new BlockNotSyncedError('block is not synced yet');
+      }
 
       // Get the block based on the blocknumber from the source chain
-      const block = await srcChainClient.getBlock({ blockNumber });
-      if (block.hash === null || block.number === null) {
-        throw new BlockNotFoundError({ blockHash: block.hash, blockNumber: block.number });
-      }
-      if (latestProcessedBlock < block.number) {
-        throw new BlockError('block is not synced yet');
+      let block;
+      try {
+        block = await srcChainClient.getBlock({ blockNumber: latestSyncedblock });
+        if (!block || block.hash === null || block.number === null) {
+          throw new BlockNotFoundError({ blockNumber: latestSyncedblock });
+        }
+      } catch {
+        throw new BlockNotFoundError({ blockNumber: latestSyncedblock });
       }
 
       // Build the signalSlot
@@ -150,21 +167,23 @@ export class BridgeProver {
         routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress,
         msgHash,
       );
+
       log('Storage key', key);
 
       // Call eth_getProof to get the proof
       const ethProof = await this.getProof({
         srcChainId: BigInt(srcChainId),
-        blockNumber: BigInt(latestProcessedBlock),
+        blockNumber: BigInt(latestSyncedblock),
         key,
         signalServiceAddress: srcSignalServiceAddress,
       });
+
       log('ethProof', ethProof);
 
       // Build the hopProof
       const hopProof: HopProof = {
         chainId: BigInt(destChainId),
-        blockId: BigInt(blockNumber),
+        blockId: BigInt(block.number),
         rootHash: block.stateRoot,
         cacheOption: 0n, // Todo: could be configurable
         accountProof: ethProof.accountProof,

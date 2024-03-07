@@ -70,8 +70,8 @@ export class MintError extends Error {
   name = 'MintError';
 }
 
-export class BlockError extends Error {
-  name = 'BlockError';
+export class BlockNotSyncedError extends Error {
+  name = 'BlockNotSyncedError';
 }
 
 export class PendingBlockError extends Error {
