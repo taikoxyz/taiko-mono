@@ -112,7 +112,7 @@
       // Step 5: Call claim() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
-      const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
+      const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
 
       infoToast({
         title: $t('transactions.actions.claim.tx.title'),
@@ -202,7 +202,7 @@
       // Step 4: Call release() method on the bridge
       const txHash = await bridge.release({ msgHash, message, wallet });
 
-      const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
+      const explorer = chainConfig[Number(bridgeTx.srcChainId)]?.blockExplorers?.default.url;
 
       infoToast({
         title: $t('transactions.actions.release.tx.title'),

@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
 import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
@@ -15,6 +16,7 @@ import "./LibUtils.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerifying {
     using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
@@ -186,7 +188,7 @@ library LibVerifying {
                 }
 
                 IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
-                tko.transfer(ts.prover, bondToReturn);
+                tko.safeTransfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist

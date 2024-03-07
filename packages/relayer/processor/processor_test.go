@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 )
@@ -16,6 +17,7 @@ func newTestProcessor(profitableOnly bool) *Processor {
 
 	prover, _ := proof.New(
 		&mock.Blocker{},
+		encoding.CACHE_NOTHING,
 	)
 
 	return &Processor{
@@ -27,7 +29,6 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		srcSignalService:          &mock.SignalService{},
 		mu:                        &sync.Mutex{},
 		ecdsaKey:                  privateKey,
-		destHeaderSyncer:          &mock.HeaderSyncer{},
 		prover:                    prover,
 		srcCaller:                 &mock.Caller{},
 		profitableOnly:            profitableOnly,
@@ -38,5 +39,7 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		backOffRetryInterval:      1 * time.Second,
 		backOffMaxRetries:         1,
 		ethClientTimeout:          10 * time.Second,
+		srcChainId:                mock.MockChainID,
+		destChainId:               mock.MockChainID,
 	}
 }
