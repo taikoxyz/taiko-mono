@@ -99,6 +99,8 @@ func (r *RabbitMQ) connect() error {
 func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	dlx := fmt.Sprintf("%v-dlx", queueName)
 
+	exchange := "messages"
+
 	dlxExchange := fmt.Sprintf("%v-exchange", dlx)
 
 	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
@@ -108,7 +110,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	if err := r.ch.ExchangeDeclare(
 		dlxExchange,
 		"fanout",
-		false,
+		true,
 		false,
 		false,
 		false,
@@ -122,6 +124,26 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	// declare the queue on the dead letter exchange they should be routed to
 	if _, err := r.ch.QueueDeclare(
 		dlx,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	slog.Info("binding dlx exchange and queue")
+
+	if err := r.ch.QueueBind(dlx, "", dlxExchange, false, nil); err != nil {
+		return err
+	}
+
+	slog.Info("declaring rabbitmq  exchange", "exchange", exchange)
+
+	if err := r.ch.ExchangeDeclare(
+		exchange,
+		"direct",
 		true,
 		false,
 		false,
@@ -149,9 +171,9 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		return err
 	}
 
-	slog.Info("binding dlxqueue and queue", "queue", queueName, "dlx", dlx)
+	slog.Info("binding queue and exchange", "queue", queueName, "dlx", dlx)
 
-	if err := r.ch.QueueBind(queueName, "", dlxExchange, false, nil); err != nil {
+	if err := r.ch.QueueBind(queueName, "", exchange, false, nil); err != nil {
 		return err
 	}
 
