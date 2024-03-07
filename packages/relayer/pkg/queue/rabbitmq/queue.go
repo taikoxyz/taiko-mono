@@ -133,7 +133,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	slog.Info("binding dlxqueue and queue", "queue", queueName, "dlx", dlx)
 
-	if err := r.ch.QueueBind(dlx, "", queueName, false, nil); err != nil {
+	if err := r.ch.QueueBind(queueName, "", dlxExchange, false, nil); err != nil {
 		return err
 	}
 
