@@ -409,6 +409,8 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 				if timesRetried >= int64(maxRetries) {
 					slog.Info("msg has reached max retries", "id", d.MessageId)
 
+					relayer.MessageSentEventsMaxRetriesReached.Inc()
+
 					if err := d.Ack(false); err != nil {
 						slog.Error("error acking msg after max retries")
 					}
