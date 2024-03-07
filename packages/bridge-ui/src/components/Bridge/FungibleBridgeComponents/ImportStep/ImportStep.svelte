@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { processingFeeMethod, recipientAddress, importDone } from '$components/Bridge/state';
+
+  import { importDone, processingFeeMethod, recipientAddress } from '$components/Bridge/state';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
   import { ProcessingFeeMethod } from '$libs/fee';
 
