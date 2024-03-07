@@ -54,7 +54,7 @@
   };
 
   const openDetails = () => {
-    if (isDesktopOrLarger) {
+    if (!isDesktopOrLarger) {
       detailsOpen = true;
     }
   };
