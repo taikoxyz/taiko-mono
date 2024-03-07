@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 /// @notice Verifier interface for RISC Zero receipts of execution.
 /// https://github.com/risc0/risc0-ethereum/blob/release-0.7/contracts/src/IRiscZeroVerifier.sol
-interface IRiscZeroRemoteVerifier {
+interface IRiscZeroReceiptVerifier {
     /// @notice Verify that the given seal is a valid RISC Zero proof of execution with the
     /// given image ID, post-state digest, and journal digest.
     /// @dev This method additionally ensures that the input hash is all-zeros (i.e. no

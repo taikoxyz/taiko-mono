@@ -3,11 +3,11 @@ pragma solidity 0.8.24;
 
 import "../../L1/TaikoData.sol";
 
-/// @title LibPublicInputHash
+/// @title LibPublicInput
 /// @notice A library for handling hashing the so-called public input hash, used by sgx and zk
 /// proofs.
 /// @custom:security-contact security@taiko.xyz
-library LibPublicInputHash {
+library LibPublicInput {
     /// @notice Hashes the public input for the proof verification.
     /// @param _tran The transition to verify.
     /// @param _verifierContract The contract address which as current verifier.

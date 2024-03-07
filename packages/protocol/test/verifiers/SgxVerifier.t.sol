@@ -203,7 +203,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         address newInstance = address(0x33);
 
         uint64 chainId = L1.getConfig().chainId;
-        bytes32 signedHash = LibPublicInputHash.hashPublicInputs(
+        bytes32 signedHash = LibPublicInput.hashPublicInputs(
             transition, address(sv), newInstance, ctx.prover, ctx.metaHash, chainId
         );
 
@@ -363,7 +363,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         address newInstance = address(0x33);
 
         uint64 chainId = L1.getConfig().chainId;
-        bytes32 signedHash = LibPublicInputHash.hashPublicInputs(
+        bytes32 signedHash = LibPublicInput.hashPublicInputs(
             transition, address(sv), newInstance, ctx.prover, ctx.metaHash, chainId
         );
 
@@ -408,7 +408,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         address newInstance = address(0x33);
 
         uint64 chainId = L1.getConfig().chainId;
-        bytes32 signedHash = LibPublicInputHash.hashPublicInputs(
+        bytes32 signedHash = LibPublicInput.hashPublicInputs(
             transition, address(sv), newInstance, ctx.prover, ctx.metaHash, chainId
         );
 
