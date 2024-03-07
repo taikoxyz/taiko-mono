@@ -197,6 +197,8 @@ func (w *Watchdog) Start() error {
 	w.cancel = cancel
 
 	if err := w.queue.Start(ctx, w.queueName()); err != nil {
+		slog.Error("error starting queue", "error", err)
+
 		return err
 	}
 

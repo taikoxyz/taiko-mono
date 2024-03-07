@@ -135,7 +135,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	args := amqp.Table{}
 
-	args["x-dead-letter-exchange"] = dlx
+	args["x-dead-letter-exchange"] = dlxExchange
 
 	q, err := r.ch.QueueDeclare(
 		queueName,

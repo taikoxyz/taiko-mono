@@ -364,6 +364,8 @@ func (p *Processor) Start() error {
 	// via eventloop.
 
 	if err := p.queue.Start(ctx, p.queueName()); err != nil {
+		slog.Error("error starting queue", "error", err)
+
 		return err
 	}
 
