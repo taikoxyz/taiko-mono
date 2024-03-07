@@ -103,7 +103,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	dlxExchange := "messages-dlx"
 
-	routingKey := "routing-key"
+	routingKey := "process"
 
 	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
 
