@@ -391,6 +391,8 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 				var timesRetried int64 = 0
 
+				var maxRetries int64 = 3
+
 				xDeath, exists := d.Headers["x-death"].([]interface{})
 
 				if exists {
@@ -404,15 +406,23 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 					}
 				}
 
-				slog.Info("rabbitmq message times retried",
-					"msgId", d.MessageId,
-					"timesRetried", timesRetried,
-				)
+				if timesRetried >= int64(maxRetries) {
+					slog.Info("msg has reached max retries", "id", d.MessageId)
 
-				msgChan <- queue.Message{
-					Body:         d.Body,
-					Internal:     d,
-					TimesRetried: timesRetried,
+					if err := d.Ack(false); err != nil {
+						slog.Error("error acking msg after max retries")
+					}
+				} else {
+					slog.Info("rabbitmq message times retried",
+						"msgId", d.MessageId,
+						"timesRetried", timesRetried,
+					)
+
+					msgChan <- queue.Message{
+						Body:         d.Body,
+						Internal:     d,
+						TimesRetried: timesRetried,
+					}
 				}
 			} else {
 				slog.Info("nil body message, queue is closed")
