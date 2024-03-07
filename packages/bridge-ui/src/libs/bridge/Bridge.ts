@@ -157,24 +157,7 @@ export abstract class Bridge {
         });
         log('Simulate contract', request);
 
-        const wallet = await getConnectedWallet();
-        if (!wallet) throw new Error('Could not get public client');
-
-        log(`calling processMessage with bridge ${destBridgeAddress} and client connected to ${wallet.chain.id}`);
-        txHash = await wallet.writeContract({
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'processMessage',
-          args: [message, proof],
-          gas: estimatedGas, //TODO calculate GAS!!!
-        });
-        // txHash = await writeContract(config, {
-        //   address: destBridgeAddress,
-        //   abi: bridgeAbi,
-        //   functionName: 'processMessage',
-        //   args: [message, proof],
-        //   gas: message.gasLimit,
-        // });
+        txHash = await writeContract(config, request);
         log('Transaction hash for processMessage call', txHash);
         return txHash;
       } catch (err) {
