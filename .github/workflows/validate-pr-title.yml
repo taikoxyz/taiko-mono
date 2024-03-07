@@ -30,6 +30,7 @@ jobs:
             main
             deps
             deps-dev
+            blob-catcher
             branding
             bridge-ui
             eventindexer
