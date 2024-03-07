@@ -57,6 +57,9 @@ export type RelayerMessage = {
   Memo: string;
 };
 
+// viem expects a bigint, but the receipt.blockNumber is a hex string
+export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'> & { blockNumber: Hex };
+
 export type BridgeTransaction = {
   hash: Hash;
   from: Address;
@@ -71,7 +74,7 @@ export type BridgeTransaction = {
   timestamp?: number;
 
   status?: MessageStatus;
-  receipt?: TransactionReceipt;
+  receipt?: ModifiedTransactionReceipt;
   msgHash?: Hash;
   message?: Message;
 };
