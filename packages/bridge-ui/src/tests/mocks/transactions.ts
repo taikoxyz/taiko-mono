@@ -1,4 +1,4 @@
-import { zeroHash } from 'viem';
+import { numberToHex, zeroHash } from 'viem';
 
 import type { BridgeTransaction } from '$libs/bridge';
 import type { TokenType } from '$libs/token';
@@ -19,6 +19,6 @@ export const MOCK_BRIDGE_TX_1 = {
   srcChainId: BigInt(L1_CHAIN_ID),
   destChainId: BigInt(L2_CHAIN_ID),
   tokenType: 'ERC20' as TokenType,
-  blockNumber: BLOCK_NUMBER_1,
+  blockNumber: numberToHex(BLOCK_NUMBER_1),
   message: MOCK_MESSAGE_L1_L2,
 } satisfies BridgeTransaction;

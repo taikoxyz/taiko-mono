@@ -35,7 +35,7 @@ export type TransactionData = {
     address: Address;
     transactionHash: Hex;
     transactionIndex: string;
-    blockNumber: bigint;
+    blockNumber: Hex;
   };
 };
 
