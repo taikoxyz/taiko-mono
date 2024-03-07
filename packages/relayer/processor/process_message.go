@@ -79,7 +79,7 @@ func (p *Processor) processMessage(
 		p.relayerAddr,
 		msgBody.Event.Message.GasLimit,
 	) {
-		return false, errUnprocessable
+		return false, nil
 	}
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
