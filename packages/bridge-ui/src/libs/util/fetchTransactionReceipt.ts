@@ -4,7 +4,7 @@ import { chains } from '$libs/chain';
 
 export async function fetchTransactionReceipt(transactionHash: Hash, chainId: number) {
   try {
-    const nodeUrl = chains.find((c) => c.id === chainId)?.rpcUrls?.public?.http[0];
+    const nodeUrl = chains.find((c) => c.id === chainId)?.rpcUrls?.default?.http[0];
     if (!nodeUrl) {
       throw new Error('Node URL not found');
     }
