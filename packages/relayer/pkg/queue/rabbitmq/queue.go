@@ -131,12 +131,6 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		return err
 	}
 
-	slog.Info("binding dlxqueue and queue", "queue", queueName, "dlx", dlx)
-
-	if err := r.ch.QueueBind(queueName, "", dlxExchange, false, nil); err != nil {
-		return err
-	}
-
 	slog.Info("declaring rabbitmq queue", "queue", queueName)
 
 	args := amqp.Table{}
@@ -152,6 +146,12 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		args,
 	)
 	if err != nil {
+		return err
+	}
+
+	slog.Info("binding dlxqueue and queue", "queue", queueName, "dlx", dlx)
+
+	if err := r.ch.QueueBind(queueName, "", dlxExchange, false, nil); err != nil {
 		return err
 	}
 
