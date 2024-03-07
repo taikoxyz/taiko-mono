@@ -362,3 +362,4 @@ If you are looking for some more guidance on creating content, you can consult t
 4. Add a package.json with an initial version `0.1.0`
 5. Add the package to `release-please-config.json` and the initial version to `.release-please-manifest.json`
 6. Ensure the repo has a README
+7. Add repo to monorepo README project structure
