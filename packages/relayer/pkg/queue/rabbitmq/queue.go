@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
@@ -61,15 +62,21 @@ func (r *RabbitMQ) connect() error {
 			Heartbeat: 1 * time.Second,
 		})
 	if err != nil {
+		relayer.QueueConnectionInstantiatedErrors.Inc()
+
 		return err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
+		relayer.QueueConnectionInstantiatedErrors.Inc()
+
 		return err
 	}
 
 	if err := ch.Qos(int(r.opts.PrefetchCount), 0, false); err != nil {
+		relayer.QueueConnectionInstantiatedErrors.Inc()
+
 		return err
 	}
 
@@ -84,11 +91,78 @@ func (r *RabbitMQ) connect() error {
 
 	slog.Info("connected to rabbitmq")
 
+	relayer.QueueConnectionInstantiated.Inc()
+
 	return nil
 }
 
 func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
+	dlxQueue := fmt.Sprintf("dlx-%v", queueName)
+
+	exchange := "messages"
+
+	dlxExchange := "messages-dlx"
+
+	routingKey := fmt.Sprintf("%v-process", queueName)
+
+	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
+
+	// declare the dead letter exchange for when a message is negatively acknowledged
+	// with no requeue
+	if err := r.ch.ExchangeDeclare(
+		dlxExchange,
+		"direct",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	slog.Info("declaring rabbitmq exchange", "exchange", exchange)
+
+	if err := r.ch.ExchangeDeclare(
+		exchange,
+		"direct",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	slog.Info("declaring rabbitmq dlx queue", "queue", dlxQueue)
+
+	// declare the queue on the dead letter exchange they should be routed to
+	if _, err := r.ch.QueueDeclare(
+		dlxQueue,
+		true,
+		false,
+		false,
+		false,
+		map[string]interface{}{
+			"x-dead-letter-exchange":    exchange,
+			"x-dead-letter-routing-key": routingKey,
+		},
+	); err != nil {
+		return err
+	}
+
+	slog.Info("binding dlx exchange and dlx exchange")
+
+	if err := r.ch.QueueBind(dlxQueue, routingKey, dlxExchange, false, nil); err != nil {
+		return err
+	}
+
 	slog.Info("declaring rabbitmq queue", "queue", queueName)
+
+	args := amqp.Table{}
+
+	args["x-dead-letter-exchange"] = dlxExchange
 
 	q, err := r.ch.QueueDeclare(
 		queueName,
@@ -96,9 +170,15 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		false,
 		false,
 		false,
-		nil,
+		args,
 	)
 	if err != nil {
+		return err
+	}
+
+	slog.Info("binding queue and exchange", "queue", queueName, "dlx", dlxQueue)
+
+	if err := r.ch.QueueBind(queueName, routingKey, exchange, false, nil); err != nil {
 		return err
 	}
 
@@ -134,11 +214,14 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 		true,
 		false,
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        msg,
-			MessageId:   uuid.New().String(),
+			ContentType:  "text/plain",
+			Body:         msg,
+			MessageId:    uuid.New().String(),
+			DeliveryMode: 2, // persistent messages, saved to disk to survive server restart
 		})
 	if err != nil {
+		relayer.QueueMessagePublishedErrors.Inc()
+
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
 
@@ -152,6 +235,8 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 			return err
 		}
 	}
+
+	relayer.QueueMessagePublished.Inc()
 
 	return nil
 }
@@ -170,21 +255,25 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 	slog.Info("acknowledged rabbitmq message", "msgId", rmqMsg.MessageId)
 
+	relayer.QueueMessageAcknowledged.Inc()
+
 	return nil
 }
 
-func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
+func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
 	rmqMsg := msg.Internal.(amqp.Delivery)
 
-	slog.Info("negatively acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
+	slog.Info("negatively acknowledging rabbitmq message", "msgId", rmqMsg.MessageId, "requeue", requeue)
 
-	err := rmqMsg.Nack(false, false)
+	err := rmqMsg.Nack(false, requeue)
 	if err != nil {
 		slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
 		return err
 	}
 
-	slog.Info("negatively acknowledged rabbitmq message", "msgId", rmqMsg.MessageId)
+	slog.Info("negatively acknowledged rabbitmq message", "msgId", rmqMsg.MessageId, "requeue", requeue)
+
+	relayer.QueueMessageNegativelyAcknowledged.Inc()
 
 	return nil
 }
@@ -212,6 +301,8 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 				slog.Error("rabbitmq notify close connection")
 			}
 
+			relayer.QueueConnectionNotifyClosed.Inc()
+
 			r.Close(ctx)
 
 			if err := r.connect(); err != nil {
@@ -226,6 +317,8 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			} else {
 				slog.Error("rabbitmq notify close channel")
 			}
+
+			relayer.QueueChannelNotifyClosed.Inc()
 
 			r.Close(ctx)
 
@@ -323,9 +416,42 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
 
-				msgChan <- queue.Message{
-					Body:     d.Body,
-					Internal: d,
+				var timesRetried int64 = 0
+
+				var maxRetries int64 = 3
+
+				xDeath, exists := d.Headers["x-death"].([]interface{})
+
+				if exists {
+					// message was rejected before
+					c := xDeath[0].(amqp.Table)["count"].(int64)
+
+					timesRetried = c
+
+					if timesRetried > 0 {
+						relayer.MessageSentEventsRetries.Inc()
+					}
+				}
+
+				if timesRetried >= int64(maxRetries) {
+					slog.Info("msg has reached max retries", "id", d.MessageId)
+
+					relayer.MessageSentEventsMaxRetriesReached.Inc()
+
+					if err := d.Ack(false); err != nil {
+						slog.Error("error acking msg after max retries")
+					}
+				} else {
+					slog.Info("rabbitmq message times retried",
+						"msgId", d.MessageId,
+						"timesRetried", timesRetried,
+					)
+
+					msgChan <- queue.Message{
+						Body:         d.Body,
+						Internal:     d,
+						TimesRetried: timesRetried,
+					}
 				}
 			} else {
 				slog.Info("nil body message, queue is closed")

@@ -259,6 +259,7 @@ func (i *Indexer) Start() error {
 	i.ctx = context.Background()
 
 	if err := i.queue.Start(i.ctx, i.queueName()); err != nil {
+		slog.Error("error starting queue", "error", err)
 		return err
 	}
 

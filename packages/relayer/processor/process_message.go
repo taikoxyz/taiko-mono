@@ -50,12 +50,6 @@ func (p *Processor) eventStatusFromMsgHash(
 	}
 
 	eventStatus = relayer.EventStatus(messageStatus)
-	if eventStatus == relayer.EventStatusNew {
-		if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
-			// if gasLimit is 0, relayer can not process this.
-			eventStatus = relayer.EventStatusNewOnlyOwner
-		}
-	}
 
 	return eventStatus, nil
 }
@@ -63,42 +57,45 @@ func (p *Processor) eventStatusFromMsgHash(
 // processMessage prepares and calls `processMessage` on the bridge, given a
 // message from the queue (from the indexer). It will
 // generate a proof, or multiple proofs if hops are needed.
+// it returns a boolean of whether we should requeue the message or not.
 func (p *Processor) processMessage(
 	ctx context.Context,
 	msg queue.Message,
-) error {
+) (bool, error) {
 	msgBody := &queue.QueueMessageSentBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
-		return errors.Wrap(err, "json.Unmarshal")
-	}
-
-	if msgBody.Event.Message.GasLimit == nil || msgBody.Event.Message.GasLimit.Cmp(common.Big0) == 0 {
-		return errors.New("only user can process this, gasLimit set to 0")
+		return false, errors.Wrap(err, "json.Unmarshal")
 	}
 
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.Message.GasLimit, msgBody.Event.MsgHash)
 	if err != nil {
-		return errors.Wrap(err, "p.eventStatusFromMsgHash")
+		return false, errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
 
-	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.SrcOwner, p.relayerAddr) {
-		return errUnprocessable
+	if !canProcessMessage(
+		ctx,
+		eventStatus,
+		msgBody.Event.Message.SrcOwner,
+		p.relayerAddr,
+		msgBody.Event.Message.GasLimit,
+	) {
+		return false, nil
 	}
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
-		return errors.Wrap(err, "p.waitForConfirmations")
+		return false, errors.Wrap(err, "p.waitForConfirmations")
 	}
 
 	// we need to check the invocation delays and proof receipt to see if
 	// this is currently processable, or we need to wait.
 	invocationDelays, err := p.destBridge.GetInvocationDelays(nil)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.invocationDelays")
+		return false, errors.Wrap(err, "p.destBridge.invocationDelays")
 	}
 
 	proofReceipt, err := p.destBridge.ProofReceipt(nil, msgBody.Event.MsgHash)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.ProofReceipt")
+		return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
 	}
 
 	slog.Info("proofReceipt",
@@ -113,7 +110,7 @@ func (p *Processor) processMessage(
 	if proofReceipt.ReceivedAt == 0 {
 		encodedSignalProof, err = p.generateEncodedSignalProof(ctx, msgBody.Event)
 		if err != nil {
-			return errors.Wrap(err, "p.generateEncodedSignalProof")
+			return false, errors.Wrap(err, "p.generateEncodedSignalProof")
 		}
 	} else {
 		// proof has been submitted
@@ -121,19 +118,19 @@ func (p *Processor) processMessage(
 		// preferred exeuctor, if it wasnt us
 		// who proved it, there is an extra delay.
 		if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
-			return errors.Wrap(err, "p.waitForInvocationDelay")
+			return false, errors.Wrap(err, "p.waitForInvocationDelay")
 		}
 	}
 
 	receipt, err := p.sendProcessMessageAndWaitForReceipt(ctx, encodedSignalProof, msgBody)
 
 	if err != nil {
-		return errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
+		return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 	}
 
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// we need to check the receipt logs to see if we received MessageReceived
@@ -152,15 +149,15 @@ func (p *Processor) processMessage(
 
 			proofReceipt, err := p.destBridge.ProofReceipt(nil, msgBody.Event.MsgHash)
 			if err != nil {
-				return errors.Wrap(err, "p.destBridge.ProofReceipt")
+				return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
 			}
 
 			if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
-				return errors.Wrap(err, "p.waitForInvocationDelay")
+				return false, errors.Wrap(err, "p.waitForInvocationDelay")
 			}
 
 			if _, err := p.sendProcessMessageAndWaitForReceipt(ctx, nil, msgBody); err != nil {
-				return errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
+				return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 			}
 		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
 			// if we got MessageExecuted, the message is finished processing. this occurs
@@ -172,7 +169,7 @@ func (p *Processor) processMessage(
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{}, msgBody.Event.MsgHash)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
+		return false, errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
 	slog.Info(
@@ -192,11 +189,11 @@ func (p *Processor) processMessage(
 	if msg.Internal != nil {
 		// update message status
 		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("p.eventRepo.UpdateStatus, id: %v", msgBody.ID))
+			return false, errors.Wrap(err, fmt.Sprintf("p.eventRepo.UpdateStatus, id: %v", msgBody.ID))
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 // sendProcessMessageAndWaitForReceipt uses a backoff retry message mechanism
