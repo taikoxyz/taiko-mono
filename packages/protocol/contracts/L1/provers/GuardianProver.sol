@@ -127,10 +127,10 @@ contract GuardianProver is EssentialContract {
     {
         if (_proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
         bytes32 hash = keccak256(abi.encode(_meta, _tran));
-        approved_ = approve(_meta.id, hash);
+        approved_ = _approve(_meta.id, hash);
 
         if (approved_) {
-            deleteApproval(hash);
+            _deleteApproval(hash);
             ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
         }
 
@@ -166,7 +166,7 @@ contract GuardianProver is EssentialContract {
             lastGuardian = guardian;
         }
 
-        deleteApproval(hash);
+        _deleteApproval(hash);
         ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
 
         emit GuardianApproval(address(0), _meta.id, _tran.blockHash, true);
@@ -176,7 +176,7 @@ contract GuardianProver is EssentialContract {
     /// @param _hash The hash to check
     /// @return true if the hash is approved
     function isApproved(bytes32 _hash) public view returns (bool) {
-        return isApproved(_approvals[version][_hash]);
+        return _isApproved(_approvals[version][_hash]);
     }
 
     /// @notice Returns the number of guardians
@@ -185,7 +185,7 @@ contract GuardianProver is EssentialContract {
         return guardians.length;
     }
 
-    function approve(uint256 _metaId, bytes32 _hash) internal returns (bool approved_) {
+    function _approve(uint256 _metaId, bytes32 _hash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
@@ -194,15 +194,15 @@ contract GuardianProver is EssentialContract {
         }
 
         uint256 _approval = _approvals[version][_hash];
-        approved_ = isApproved(_approval);
+        approved_ = _isApproved(_approval);
         emit Approved(_metaId, _approval, approved_);
     }
 
-    function deleteApproval(bytes32 _hash) internal {
+    function _deleteApproval(bytes32 _hash) internal {
         delete _approvals[version][_hash];
     }
 
-    function isApproved(uint256 _approvalBits) internal view returns (bool) {
+    function _isApproved(uint256 _approvalBits) internal view returns (bool) {
         uint256 count;
         uint256 bits = _approvalBits;
         uint256 guardiansLength = guardians.length;

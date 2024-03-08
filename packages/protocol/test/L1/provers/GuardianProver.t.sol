@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../TaikoTest.sol";
+import "../../TaikoTest.sol";
 
 contract DummyGuardianProver is GuardianProver {
-    uint256 public operationId;
+    uint256 public metaId;
 
     function init() external initializer {
         __Essential_init(address(0));
     }
 
     function approve(bytes32 hash) public returns (bool) {
-        return approve(operationId++, hash);
+        return _approve(metaId++, hash);
     }
 }
 
-contract TestSignalService is TaikoTest {
+contract TestGuardianProver is TaikoTest {
     DummyGuardianProver target;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
