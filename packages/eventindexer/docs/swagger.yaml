@@ -64,6 +64,10 @@ definitions:
     type: object
   paginate.Page:
     properties:
+      error:
+        type: boolean
+      error_message:
+        type: string
       first:
         type: boolean
       items: {}
@@ -113,7 +117,7 @@ paths:
           schema:
             $ref: "#/definitions/paginate.Page"
       summary: Get assigned blocks by prover address
-  /chartByTask:
+  /chart/chartByTask:
     get:
       consumes:
         - application/json
@@ -122,6 +126,16 @@ paths:
         - description: task to query
           in: query
           name: task
+          required: true
+          type: string
+        - description: start date
+          in: query
+          name: start
+          required: true
+          type: string
+        - description: end date
+          in: query
+          name: end
           required: true
           type: string
       produces:
