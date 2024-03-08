@@ -46,6 +46,7 @@ abstract contract Guardians is EssentialContract {
     error INVALID_GUARDIAN_SET();
     error INVALID_MIN_GUARDIANS();
     error INVALID_PROOF();
+    error INVALID_SIGNATURES();
 
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
@@ -63,10 +64,9 @@ abstract contract Guardians is EssentialContract {
         if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
             revert INVALID_GUARDIAN_SET();
         }
-        // Minimum number of guardians to approve is at least equal or greater than half the
-        // guardians (rounded up) and less or equal than the total number of guardians
-        if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
-        {
+        // Minimum number of guardians to approve is non zero and not greater than the total number
+        // of guardians.
+        if (_minGuardians == 0 || _minGuardians > _newGuardians.length) {
             revert INVALID_MIN_GUARDIANS();
         }
 
@@ -108,7 +108,7 @@ abstract contract Guardians is EssentialContract {
         return guardians.length;
     }
 
-    function approve(uint256 _operationId, bytes32 _hash) internal returns (bool approved_) {
+    function approve(uint256 _metaId, bytes32 _hash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
@@ -118,7 +118,7 @@ abstract contract Guardians is EssentialContract {
 
         uint256 _approval = _approvals[version][_hash];
         approved_ = isApproved(_approval);
-        emit Approved(_operationId, _approval, approved_);
+        emit Approved(_metaId, _approval, approved_);
     }
 
     function deleteApproval(bytes32 _hash) internal {
