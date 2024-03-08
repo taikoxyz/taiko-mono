@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import "../../common/EssentialContract.sol";
+
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title TaikoGovernor
 /// @custom:security-contact security@taiko.xyz
 contract TaikoGovernor is
-    EssentialContract,
+    Ownable2StepUpgradeable,
     GovernorCompatibilityBravoUpgradeable,
-    GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
     GovernorTimelockControlUpgradeable
 {
@@ -36,9 +34,8 @@ contract TaikoGovernor is
         external
         initializer
     {
-        __Essential_init(_owner);
+        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __Governor_init("TaikoGovernor");
-        __GovernorCompatibilityBravo_init();
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4);
         __GovernorTimelockControl_init(_timelock);
@@ -56,33 +53,6 @@ contract TaikoGovernor is
         returns (uint256)
     {
         return super.propose(_targets, _values, _calldatas, _description);
-    }
-
-    /// @notice An overwrite of GovernorCompatibilityBravoUpgradeable's propose() as that one does
-    /// not check that the length of signatures equal the calldata.
-    /// @dev See vulnerability description here:
-    /// https://github.com/taikoxyz/taiko-mono/security/dependabot/114
-    /// See fix in OZ 4.8.3 here (URL broken down for readability):
-    /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/
-    /// 0a25c1940ca220686588c4af3ec526f725fe2582/contracts/governance/compatibility/GovernorCompatibilityBravo.sol#L72
-    /// See {GovernorCompatibilityBravoUpgradeable-propose}
-    function propose(
-        address[] memory _targets,
-        uint256[] memory _values,
-        string[] memory _signatures,
-        bytes[] memory _calldatas,
-        string memory _description
-    )
-        public
-        virtual
-        override(GovernorCompatibilityBravoUpgradeable)
-        returns (uint256)
-    {
-        if (_signatures.length != _calldatas.length) revert TG_INVALID_SIGNATURES_LENGTH();
-
-        return GovernorCompatibilityBravoUpgradeable.propose(
-            _targets, _values, _signatures, _calldatas, _description
-        );
     }
 
     /// @dev See {GovernorUpgradeable-supportsInterface}
