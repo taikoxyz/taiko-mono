@@ -45,7 +45,7 @@ library LibAddress {
         sendEther(_to, _amount, gasleft());
     }
 
-    /// @dev Sends Ether to the specified address.
+    /// @dev Sends Ether to the specified trusted address.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     function unsafeSendEther(address _to, uint256 _amount) internal {
