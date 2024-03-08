@@ -292,11 +292,11 @@ contract Bridge is EssentialContract, IBridge {
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEther(_message.fee + refundAmount);
+                refundTo.safeSendEther(_message.fee + refundAmount);
             } else {
                 // If sender is another address, reward it and refund the rest
                 msg.sender.sendEther(_message.fee);
-                refundTo.sendEther(refundAmount);
+                refundTo.safeSendEther(refundAmount);
             }
             emit MessageExecuted(msgHash);
         } else if (!isMessageProven) {
