@@ -15,11 +15,11 @@ library LibAddress {
 
     error ETH_TRANSFER_FAILED();
 
-    /// @dev Sends Ether to the specified address.
+    /// @dev Sends Ether to a thirdparty address.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
-    function sendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
+    function safeSendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 
@@ -31,6 +31,21 @@ library LibAddress {
             64, // return max 64 bytes
             ""
         );
+
+        // Ensure the transfer was successful
+        if (!success) revert ETH_TRANSFER_FAILED();
+    }
+
+    /// @dev Sends Ether to the specified address.
+    /// @param _to The recipient address.
+    /// @param _amount The amount of Ether to send in wei.
+    /// @param _gasLimit The max amount gas to pay for this transaction.
+    function sendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
+        // Check for zero-address transactions
+        if (_to == address(0)) revert ETH_TRANSFER_FAILED();
+
+        // Attempt to send Ether to the recipient address
+        (bool success,) = payable(_to).call{ value: _amount }("");
 
         // Ensure the transfer was successful
         if (!success) revert ETH_TRANSFER_FAILED();
