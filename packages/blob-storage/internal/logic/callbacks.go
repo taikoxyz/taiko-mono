@@ -9,14 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -37,18 +35,18 @@ type Response struct {
 // Callback functions
 
 // BlockProposedCallback is a callback for the "BlockProposed" event.
-func BlockProposedCallback(rpcURL, beaconURL, networkName string, log types.Log) {
+func BlockProposedCallback(rpcURL, beaconURL, networkName string, eventLog types.Log) {
 
-	contractAbi, err := abi.JSON(strings.NewReader(taikol1.TaikoL1ABI))
+	contractAbi, err := taikol1.TaikoL1MetaData.GetAbi()
 	if err != nil {
-		fmt.Println("Could not initiate reader")
+		log.Println("Could not initiate reader")
 	}
 
 	eventData := taikol1.TaikoL1BlockProposed{}
 
-	err = contractAbi.UnpackIntoInterface(&eventData, "BlockProposed", log.Data)
+	err = contractAbi.UnpackIntoInterface(&eventData, "BlockProposed", eventLog.Data)
 	if err != nil {
-		fmt.Println("Could not unpack log.Data")
+		log.Println("Could not unpack eventLog.Data")
 	}
 
 	// Some debug logs for now.
@@ -102,7 +100,7 @@ func storeBlob(rpcURL, beaconURL, networkName, blockID, blobHashInMeta string) e
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
@@ -125,22 +123,22 @@ func storeBlob(rpcURL, beaconURL, networkName, blockID, blobHashInMeta string) e
 
 			blockNrBig, ok := n.SetString(blockID, 10)
 			if !ok {
-				fmt.Println("SetString: error")
+				log.Println("SetString: error")
 				return errors.New("SetString: error")
 			}
 			blockTs, err := getBlockTimestamp(rpcURL, blockNrBig)
 
 			if err != nil {
-				fmt.Println("TIMESTAMP issue")
+				log.Println("TIMESTAMP issue")
 				return errors.New("TIMESTAMP issue")
 			}
 			// Debug prints
-			fmt.Println("The blobHash:", ("0x" + blobHashInMeta))
+			//fmt.Println("The blobHash:", ("0x" + blobHashInMeta))
 			// fmt.Println("The block:", blockNrBig)
 			// fmt.Println("The kzg commitment:", data.KzgCommitment)
 			// fmt.Println("The corresponding timestamp:", blockTs)
 			// fmt.Println("The blob:", data.Blob[0:100])
-			fmt.Println("The networkName:", networkName)
+			//fmt.Println("The networkName:", networkName)
 			// Store blob data in MongoDB
 			err = storeBlobMongoDB(cfg, blockID, ("0x" + blobHashInMeta), data.KzgCommitment, data.Blob, blockTs)
 			if err != nil {
