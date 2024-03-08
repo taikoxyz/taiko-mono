@@ -81,9 +81,6 @@ export type BridgeTransaction = {
 
   status?: MessageStatus;
   receipt?: ModifiedTransactionReceipt;
-
-  msgHash?: Hash;
-  message?: Message;
 };
 
 interface BaseBridgeTransferOp {
