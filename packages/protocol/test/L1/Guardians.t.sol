@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract DummyGuardians is Guardians {
+contract DummyGuardianProver is GuardianProver {
     uint256 public operationId;
 
     function init() external initializer {
@@ -11,12 +11,12 @@ contract DummyGuardians is Guardians {
     }
 
     function approve(bytes32 hash) public returns (bool) {
-        return super.approve(operationId++, hash);
+        return approve(operationId++, hash);
     }
 }
 
 contract TestSignalService is TaikoTest {
-    DummyGuardians target;
+    DummyGuardianProver target;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
         signers = new address[](numGuardians);
@@ -27,34 +27,34 @@ contract TestSignalService is TaikoTest {
     }
 
     function setUp() public {
-        target = DummyGuardians(
+        target = DummyGuardianProver(
             deployProxy({
                 name: "guardians",
-                impl: address(new DummyGuardians()),
-                data: abi.encodeCall(DummyGuardians.init, ())
+                impl: address(new DummyGuardianProver()),
+                data: abi.encodeCall(DummyGuardianProver.init, ())
             })
         );
     }
 
     function test_guardians_set_guardians() public {
-        vm.expectRevert(Guardians.INVALID_GUARDIAN_SET.selector);
+        vm.expectRevert(GuardianProver.INVALID_GUARDIAN_SET.selector);
         target.setGuardians(getSigners(0), 0);
 
-        vm.expectRevert(Guardians.INVALID_MIN_GUARDIANS.selector);
+        vm.expectRevert(GuardianProver.INVALID_MIN_GUARDIANS.selector);
         target.setGuardians(getSigners(5), 0);
 
-        vm.expectRevert(Guardians.INVALID_MIN_GUARDIANS.selector);
+        vm.expectRevert(GuardianProver.INVALID_MIN_GUARDIANS.selector);
         target.setGuardians(getSigners(5), 6);
     }
 
     function test_guardians_set_guardians2() public {
         address[] memory signers = getSigners(5);
         signers[0] = address(0);
-        vm.expectRevert(Guardians.INVALID_GUARDIAN.selector);
+        vm.expectRevert(GuardianProver.INVALID_GUARDIAN.selector);
         target.setGuardians(signers, 4);
 
         signers[0] = signers[1];
-        vm.expectRevert(Guardians.INVALID_GUARDIAN_SET.selector);
+        vm.expectRevert(GuardianProver.INVALID_GUARDIAN_SET.selector);
         target.setGuardians(signers, 4);
     }
 
