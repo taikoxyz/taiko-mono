@@ -9,8 +9,6 @@ import "./Guardians.sol";
 /// @title GuardianProver
 /// @custom:security-contact security@taiko.xyz
 contract GuardianProver is Guardians {
-    using ECDSA for bytes32;
-
     uint256[50] private __gap;
 
     /// @notice Emitted when a guardian proof is approved.
@@ -79,7 +77,7 @@ contract GuardianProver is Guardians {
         address lastGuardian;
 
         for (uint256 i; i < MIN_NUM_GUARDIANS; ++i) {
-            address guardian = hash.recover(_signatures[i]);
+            address guardian = ECDSA.recover(hash, _signatures[i]);
             if (uint160(guardian) <= uint160(lastGuardian) || guardianIds[guardian] == 0) {
                 revert INVALID_SIGNATURES();
             }
