@@ -1,22 +1,16 @@
 import type { Chain } from 'viem';
 
 import { chainConfig } from '$chainConfig';
-import type { ChainConfigMap } from '$libs/chain';
+import type { ChainConfig } from '$libs/chain';
 
-function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[number]): Chain {
+function mapChainConfigToChain(chainId: string, chainConfig: ChainConfig): Chain {
   return {
     id: Number(chainId),
     name: chainConfig.name,
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    rpcUrls: {
-      public: { http: [chainConfig.urls.rpc] },
-      default: { http: [chainConfig.urls.rpc] },
-    },
-  } as const satisfies Chain;
+    rpcUrls: chainConfig.rpcUrls,
+    nativeCurrency: chainConfig.nativeCurrency,
+    blockExplorers: chainConfig.blockExplorers,
+  };
 }
 
 export const chainIdToChain = (chainId: number): Chain => {

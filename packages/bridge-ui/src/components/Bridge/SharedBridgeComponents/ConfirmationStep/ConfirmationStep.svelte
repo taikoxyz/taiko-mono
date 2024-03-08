@@ -58,7 +58,7 @@
     const userAccount = $account?.address;
     if (!currentChain || !destinationChain || !userAccount) return; //TODO error handling
 
-    const explorer = chainConfig[currentChain].urls.explorer;
+    const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
 
     await pendingTransactions.add(txHash, currentChain);
 
@@ -92,7 +92,7 @@
     const userAccount = $account?.address;
     if (!currentChain || !destinationChain || !userAccount || !$selectedToken) return; //TODO error handling
 
-    const { explorer } = chainConfig[currentChain].urls;
+    const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
 
     infoToast({
       title: $t('bridge.actions.approve.tx.title'),

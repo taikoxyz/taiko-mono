@@ -6,6 +6,7 @@ import { bridgeService } from '$config';
 import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -133,4 +134,5 @@ export class ETHBridge extends Bridge {
       throw new SendMessageError('failed to bridge ETH', { cause: err });
     }
   }
+
 }

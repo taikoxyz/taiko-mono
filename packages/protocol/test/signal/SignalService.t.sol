@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
+import "forge-std/src/console2.sol";
 
 contract MockSignalService is SignalService {
     function _verifyHopProof(

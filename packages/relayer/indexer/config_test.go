@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -24,6 +25,7 @@ var (
 	subscriptionBackoff     = "30"
 	syncMode                = "sync"
 	watchMode               = "filter"
+	eventName               = relayer.EventNameMessageSent
 )
 
 func setupApp() *cli.App {
@@ -65,6 +67,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(30), c.SubscriptionBackoff)
 		assert.Equal(t, SyncMode(syncMode), c.SyncMode)
 		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
+		assert.Equal(t, eventName, c.EventName)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -103,5 +106,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
 		"--" + flags.SyncMode.Name, syncMode,
 		"--" + flags.WatchMode.Name, watchMode,
+		"--" + flags.EventName.Name, eventName,
 	}))
 }

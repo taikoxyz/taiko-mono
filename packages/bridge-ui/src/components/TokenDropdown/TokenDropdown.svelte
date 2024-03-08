@@ -227,7 +227,7 @@
               <svelte:component this={Erc20} size={20} />
             </i>
           {/if}
-          <span class={textClass}>{truncateString(value.symbol, 5)}</span>
+          <span class={textClass}>{truncateString(value.symbol, 6)}</span>
         </div>
       {/if}
     </div>

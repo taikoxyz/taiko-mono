@@ -1,5 +1,5 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
-import { type Address, getContract, type Hash } from 'viem';
+import { type Address, getContract, type Hash, hexToBigInt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -152,7 +152,7 @@ export class BridgeTxService {
         userAddress: address,
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
-        blockNumber: Number(receipt.blockNumber),
+        blockNumber: Number(hexToBigInt(receipt.blockNumber)),
       });
     } catch (error) {
       //TODO: handle error

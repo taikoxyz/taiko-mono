@@ -10,8 +10,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-// handleNoEventsInBatch is used when an entire batch call has no events in the entire response,
-// and we need to update the latest block processed
+// handleNoEventsInBatch is used when there are no events remaining in a batch, or
+// the batch itself contained no events.
 func (i *Indexer) handleNoEventsInBatch(
 	ctx context.Context,
 	chainID *big.Int,
@@ -25,10 +25,11 @@ func (i *Indexer) handleNoEventsInBatch(
 	slog.Info("setting last processed block", "blockNum", blockNumber, "headerHash", header.Hash().Hex())
 
 	if err := i.blockRepo.Save(relayer.SaveBlockOpts{
-		Height:    uint64(blockNumber),
-		Hash:      header.Hash(),
-		ChainID:   chainID,
-		EventName: eventName,
+		Height:      uint64(blockNumber),
+		Hash:        header.Hash(),
+		ChainID:     chainID,
+		DestChainID: i.destChainId,
+		EventName:   i.eventName,
 	}); err != nil {
 		return errors.Wrap(err, "svc.blockRepo.Save")
 	}
