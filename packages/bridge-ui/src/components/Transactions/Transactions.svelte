@@ -103,7 +103,7 @@
   $: $account?.address && $account.isConnected, refresh();
 
   $: statusFilteredTransactions =
-    selectedStatus !== null ? transactions.filter((tx) => tx.status === selectedStatus) : transactions;
+    selectedStatus !== null ? transactions.filter((tx) => tx.msgStatus === selectedStatus) : transactions;
 
   $: tokenAndStatusFilteredTransactions = statusFilteredTransactions.filter((tx) =>
     displayTokenTypesBasedOnType.includes(tx.tokenType),

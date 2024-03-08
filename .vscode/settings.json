@@ -15,5 +15,14 @@
   "i18n-ally.localesPaths": [
     "packages/bridge-ui/src/i18n",
     "packages/guardian-prover-health-check-ui/src/i18n"
-  ]
+  ],
+  "workbench.colorCustomizations": {
+    "tab.activeBorder": "#694164",
+    "tab.activeBackground": "#694164",
+    "titleBar.activeBackground": "#694164",
+    "titleBar.activeForeground": "#ffffff",
+    "statusBar.background": "#694164",
+    "statusBar.foreground": "#ffffff"
+  },
+  "window.title": "~[BRIDGE UI]~${separator}${separator}${separator}${separator}${separator}${separator}${separator}${separator}${separator}${separator}${separator}${separator}${activeEditorShort}${separator}${rootName}${separator}${profileName}"
 }

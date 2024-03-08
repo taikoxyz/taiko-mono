@@ -47,7 +47,7 @@ const hashIntervalMap: Record<Hash, Interval> = {};
  * }
  */
 export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false) {
-  const { hash, srcChainId, destChainId, msgHash, status } = bridgeTx;
+  const { hash, srcChainId, destChainId, msgHash, msgStatus } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
   // that can be handled in the UI
@@ -57,7 +57,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
 
   // It could happen that the transaction has already been claimed
   // by the time we want to start polling, in which case we're already done
-  if (status === MessageStatus.DONE) return;
+  if (msgStatus === MessageStatus.DONE) return;
 
   // We want to notify whoever is calling this function of different
   // events: PollingEvent

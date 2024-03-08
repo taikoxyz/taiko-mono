@@ -8,6 +8,7 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
+  ONLY_OWNER,
 }
 
 // Bridge sendMessage()
@@ -73,8 +74,9 @@ export type BridgeTransaction = {
   destChainId: ChainID;
   tokenType: TokenType;
   blockNumber: Hex;
-  message?: Message;
   msgHash: Hash;
+  message?: Message;
+  msgStatus?: MessageStatus;
 
   // Used for sorting local ones
   timestamp?: number;

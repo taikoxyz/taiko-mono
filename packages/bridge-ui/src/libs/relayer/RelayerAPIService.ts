@@ -223,15 +223,14 @@ export class RelayerAPIService {
 
       if (!msgHash) return; //todo: handle this case
 
-      const status = await RelayerAPIService._getBridgeMessageStatus({
+      const msgStatus = await RelayerAPIService._getBridgeMessageStatus({
         msgHash,
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
       });
 
       // Update the status
-      bridgeTx.status = status;
-
+      bridgeTx.msgStatus = msgStatus;
       return bridgeTx;
     });
 

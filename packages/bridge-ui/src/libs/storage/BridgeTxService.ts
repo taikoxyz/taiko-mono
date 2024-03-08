@@ -179,7 +179,7 @@ export class BridgeTxService {
       destChainId: Number(destChainId),
     });
 
-    bridgeTx.status = status;
+    bridgeTx.msgStatus = status;
     return bridgeTx;
   }
 
@@ -197,15 +197,15 @@ export class BridgeTxService {
 
     // Place new transactions at the top of the list
     enhancedTxs.sort((tx1, tx2) => {
-      if (tx1.status === MessageStatus.NEW && tx2.status !== MessageStatus.NEW) {
+      if (tx1.msgStatus === MessageStatus.NEW && tx2.msgStatus !== MessageStatus.NEW) {
         return -1; // tx1 is newer
       }
 
-      if (tx1.status !== MessageStatus.NEW && tx2.status === MessageStatus.NEW) {
+      if (tx1.msgStatus !== MessageStatus.NEW && tx2.msgStatus === MessageStatus.NEW) {
         return 1; // tx2 is newer
       }
 
-      if (tx1.status === MessageStatus.NEW && tx2.status === MessageStatus.NEW) {
+      if (tx1.msgStatus === MessageStatus.NEW && tx2.msgStatus === MessageStatus.NEW) {
         // If both are new, sort by timestamp
         return tx2.timestamp && tx1.timestamp ? tx2.timestamp - tx1.timestamp : 0;
       }

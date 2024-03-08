@@ -34,6 +34,9 @@
   import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
+  // import ClaimDialog from '../Dialogs/ClaimDialog/ClaimDialog.svelte';
+  // import RetryDialog from '../Dialogs/RetryDialog/RetryDialog.svelte';
+
   export let bridgeTx: BridgeTransaction;
 
   const log = getLogger('components:Status');
@@ -58,7 +61,7 @@
 
   function onStatusChange(status: MessageStatus) {
     // Keeping model and UI in sync
-    bridgeTxStatus = bridgeTx.status = status;
+    bridgeTxStatus = bridgeTx.msgStatus = status;
   }
 
   async function ensureCorrectChain(currentChainId: number, wannaBeChainId: number) {
@@ -77,6 +80,10 @@
     if (balance.value < parseEther(String(statusComponent.minimumEthToClaim))) {
       throw new InsufficientBalanceError('user has insufficient balance');
     }
+  }
+
+  async function retry() {
+    dispatch('retry', { tx: bridgeTx });
   }
 
   async function claim() {
@@ -254,7 +261,7 @@
 
   onMount(async () => {
     if (bridgeTx) {
-      bridgeTxStatus = bridgeTx.status; // get the current status
+      bridgeTxStatus = bridgeTx.msgStatus; // get the current status
 
       // Can we start claiming/retrying/releasing?
       processable = await isTransactionProcessable(bridgeTx);
@@ -297,7 +304,7 @@
       {$t('transactions.button.claim')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
-    <button class="status-btn" on:click={claim}>
+    <button class="status-btn" on:click={retry}>
       {$t('transactions.button.retry')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
