@@ -20,6 +20,8 @@ contract GuardianProver is Guardians {
         address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
     );
 
+    error INVALID_SIGNATURES();
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
