@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
-contract MockRiscZeroRemoteVerifier {
+contract MockRiscZeroRemoteVerifier is IRiscZeroReceiptVerifier {
     // To simulate failing and succeeding
     bool public verifying;
 
@@ -65,25 +65,6 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         // to be front run.
         vm.startPrank(Alice);
 
-        // Context
-        IVerifier.Context memory ctx = IVerifier.Context({
-            metaHash: bytes32("ab"),
-            blobHash: bytes32("cd"),
-            prover: address(0),
-            msgSender: address(0),
-            blockId: 10,
-            isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
-        });
-
         bytes memory seal = hex"00";
         bytes32 imageId = bytes32("11");
         bytes32 postStateDigest = bytes32("22");
@@ -93,6 +74,9 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
             TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
 
         vm.warp(block.timestamp + 5);
+
+        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
+            _getDummyContextAndTransition();
 
         // `verifyProof()`
         rv.verifyProof(ctx, transition, proof);
@@ -107,25 +91,6 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         // to be front run.
         vm.startPrank(Alice);
 
-        // Context
-        IVerifier.Context memory ctx = IVerifier.Context({
-            metaHash: bytes32("ab"),
-            blobHash: bytes32("cd"),
-            prover: address(0),
-            msgSender: address(0),
-            blockId: 10,
-            isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
-        });
-
         bytes memory seal = hex"00";
         bytes32 imageId = bytes32("121");
         bytes32 postStateDigest = bytes32("22");
@@ -135,6 +100,9 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
             TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
 
         vm.warp(block.timestamp + 5);
+
+        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
+            _getDummyContextAndTransition();
 
         vm.expectRevert(RiscZeroVerifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
         rv.verifyProof(ctx, transition, proof);
@@ -150,25 +118,6 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         // to be front run.
         vm.startPrank(Alice);
 
-        // Context
-        IVerifier.Context memory ctx = IVerifier.Context({
-            metaHash: bytes32("ab"),
-            blobHash: bytes32("cd"),
-            prover: address(0),
-            msgSender: address(0),
-            blockId: 10,
-            isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
-        });
-
         bytes memory seal = hex"00";
         bytes32 imageId = bytes32("11");
         bytes32 postStateDigest = bytes32("22");
@@ -179,9 +128,37 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         vm.warp(block.timestamp + 5);
 
+        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
+            _getDummyContextAndTransition();
+
         vm.expectRevert(RiscZeroVerifier.RISC_ZERO_INVALID_PROOF.selector);
         rv.verifyProof(ctx, transition, proof);
 
         vm.stopPrank();
+    }
+
+    function _getDummyContextAndTransition()
+        internal
+        pure
+        returns (IVerifier.Context memory ctx, TaikoData.Transition memory transition)
+    {
+        // Context
+        ctx = IVerifier.Context({
+            metaHash: bytes32("ab"),
+            blobHash: bytes32("cd"),
+            prover: address(0),
+            msgSender: address(0),
+            blockId: 10,
+            isContesting: false,
+            blobUsed: false
+        });
+
+        // Transition
+        transition = TaikoData.Transition({
+            parentHash: bytes32("12"),
+            blockHash: bytes32("34"),
+            stateRoot: bytes32("56"),
+            graffiti: bytes32("78")
+        });
     }
 }

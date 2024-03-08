@@ -11,7 +11,8 @@ import "../thirdparty/risczero/IRiscZeroReceiptVerifier.sol";
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
 contract RiscZeroVerifier is EssentialContract, IVerifier {
-    /// @notice RISC Zero remote verifier contract address.
+    /// @notice RISC Zero remote verifier contract address, e.g.:
+    /// https://sepolia.etherscan.io/address/0x83c2e9cd64b2a16d3908e94c7654f3864212e2f8
     IRiscZeroReceiptVerifier public receiptVerifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
