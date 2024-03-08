@@ -6,8 +6,7 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { uid } from '$libs/util/uid';
 
-  import DialogStep from './DialogStep.svelte';
-  import DialogStepper from './DialogStepper.svelte';
+  import { DialogStep, DialogStepper } from '../Stepper';
 
   const dialogId = `dialog-${uid()}`;
   export let dialogOpen = false;

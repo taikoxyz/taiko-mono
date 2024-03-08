@@ -17,7 +17,6 @@
   import { truncateString } from '$libs/util/truncateString';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
-  import ClaimDialog from './ClaimDialog/ClaimDialog.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import { Status } from './Status';
@@ -31,7 +30,9 @@
   let nftInfoOpen = false;
   let isDesktopOrLarger = false;
 
-  $: claimModalOpen = false;
+  // $: claimModalOpen = false;
+
+  // $: retryModalOpen = false;
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 
@@ -254,7 +255,7 @@
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
       </a>
     </div>
-    <button on:click={() => (claimModalOpen = true)}>test</button>
+    <!-- <button on:click={() => (claimModalOpen = true)}>test</button> -->
   </div>
 {/if}
 
@@ -270,5 +271,3 @@
 <NftInfoDialog nft={token} bind:modalOpen={nftInfoOpen} on:close={closeDetails} viewOnly />
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />
-
-<ClaimDialog {item} bind:dialogOpen={claimModalOpen} />
