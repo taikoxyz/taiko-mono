@@ -160,6 +160,8 @@ contract GuardianProver is EssentialContract {
 
         for (uint256 i; i < minGuardians; ++i) {
             address guardian = ECDSA.recover(hash, _signatures[i]);
+
+            // This makes sure there are not duplicate addresses
             if (uint160(guardian) <= uint160(lastGuardian) || guardianIds[guardian] == 0) {
                 revert INVALID_SIGNATURES();
             }
