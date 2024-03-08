@@ -124,12 +124,7 @@ contract TaikoGovernor is
         return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
     }
 
-    /**
-     * @dev Cancel a proposal with GovernorBravo logic. At any moment a proposal can be cancelled,
-     * either by the
-     * proposer, or by third parties if the proposer's voting power has dropped below the proposal
-     * threshold.
-     */
+    /// @dev Cancel a proposal with GovernorBravo logic.
     function cancel(
         address[] memory targets,
         uint256[] memory values,

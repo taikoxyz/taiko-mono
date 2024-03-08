@@ -265,11 +265,11 @@ importers:
   packages/protocol:
     dependencies:
       '@openzeppelin/contracts':
-        specifier: 4.9.3
-        version: 4.9.3
+        specifier: 4.9.6
+        version: 4.9.6
       '@openzeppelin/contracts-upgradeable':
-        specifier: 4.9.3
-        version: 4.9.3
+        specifier: 4.9.6
+        version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
@@ -3301,12 +3301,12 @@ packages:
       fastq: 1.17.1
     dev: true
 
-  /@openzeppelin/contracts-upgradeable@4.9.3:
-    resolution: {integrity: sha512-jjaHAVRMrE4UuZNfDwjlLGDxTHWIOwTJS2ldnc278a0gevfXfPr8hxKEVBGFBE96kl2G3VHDZhUimw/+G3TG2A==}
+  /@openzeppelin/contracts-upgradeable@4.9.6:
+    resolution: {integrity: sha512-m4iHazOsOCv1DgM7eD7GupTJ+NFVujRZt1wzddDPSVGpWdKq1SKkla5htKG7+IS4d2XOCtzkUNwRZ7Vq5aEUMA==}
     dev: false
 
-  /@openzeppelin/contracts@4.9.3:
-    resolution: {integrity: sha512-He3LieZ1pP2TNt5JbkPA4PNT9WC3gOTOlDcFGJW4Le4QKqwmiNJCRt44APfxMxvq7OugU/cqYuPcSBzOw38DAg==}
+  /@openzeppelin/contracts@4.9.6:
+    resolution: {integrity: sha512-xSmezSupL+y9VkHZJGDoCBpmnB2ogM13ccaYDWqJTfS3dbuHkgjuwDFUmaFauBCboQMGB/S5UqUl2y54X99BmA==}
     dev: false
 
   /@parcel/watcher-android-arm64@2.4.0:
