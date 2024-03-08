@@ -268,7 +268,7 @@ contract ERC20Vault is BaseVault {
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, amount);
-        to.safeSendEther(msg.value);
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -301,7 +301,7 @@ contract ERC20Vault is BaseVault {
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, _message.srcOwner, amount);
-        _message.srcOwner.safeSendEther(_message.value);
+        _message.srcOwner.sendEther(_message.value);
 
         emit TokenReleased({
             msgHash: _msgHash,

@@ -20,7 +20,7 @@ library LibAddress {
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
-    function safeSendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
+    function sendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 
@@ -41,14 +41,14 @@ library LibAddress {
     /// 64 bytes of data for security reasons.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    function safeSendEther(address _to, uint256 _amount) internal {
-        safeSendEther(_to, _amount, gasleft());
+    function sendEther(address _to, uint256 _amount) internal {
+        sendEther(_to, _amount, gasleft());
     }
 
     /// @dev Sends Ether to the specified address.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    function sendEther(address _to, uint256 _amount) internal {
+    function unsafeSendEther(address _to, uint256 _amount) internal {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 

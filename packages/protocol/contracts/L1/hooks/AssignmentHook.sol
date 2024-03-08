@@ -112,7 +112,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Ether or ERC20 tokens.
         if (assignment.feeToken == address(0)) {
             // Paying Ether
-            _blk.assignedProver.safeSendEther(proverFee, MAX_GAS_PAYING_PROVER);
+            _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
@@ -122,12 +122,12 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // block.coinbase can be address(0) in tests
         if (input.tip != 0 && block.coinbase != address(0)) {
-            address(block.coinbase).safeSendEther(input.tip);
+            address(block.coinbase).sendEther(input.tip);
         }
 
         // Send all remaining Ether back to TaikoL1 contract
         if (address(this).balance > 0) {
-            taikoL1Address.sendEther(address(this).balance);
+            taikoL1Address.unsafeSendEther(address(this).balance);
         }
 
         emit BlockAssigned(_blk.assignedProver, _meta, assignment);

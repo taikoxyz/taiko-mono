@@ -259,7 +259,7 @@ library LibProposing {
             }
             // Refund Ether
             if (address(this).balance != 0) {
-                msg.sender.safeSendEther(address(this).balance);
+                msg.sender.sendEther(address(this).balance);
             }
 
             // Check that after hooks, the Taiko Token balance of this contract
