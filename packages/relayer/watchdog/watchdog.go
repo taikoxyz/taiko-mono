@@ -148,7 +148,10 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 
 	watchdogAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	var q queue.Queue
+	q, err := cfg.OpenQueueFunc()
+	if err != nil {
+		return err
+	}
 
 	w.eventRepo = eventRepository
 	w.suspendedTxRepo = suspendedTxRepo

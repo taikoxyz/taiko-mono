@@ -86,6 +86,12 @@ func (i *Indexer) handleMessageSentEvent(
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
+	// only add messages with new status to queue
+	if eventStatus != relayer.EventStatusNew {
+		slog.Info("event status is not new, skipping")
+		return nil
+	}
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
