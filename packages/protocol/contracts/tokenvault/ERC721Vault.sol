@@ -92,7 +92,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, tokenIds);
-        to.sendEther(msg.value);
+        to.safeSendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -126,7 +126,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, _message.srcOwner, tokenIds);
-        _message.srcOwner.sendEther(_message.value);
+        _message.srcOwner.safeSendEther(_message.value);
 
         emit TokenReleased({
             msgHash: _msgHash,

@@ -171,7 +171,7 @@ contract TaikoL2 is CrossChainOwned {
     {
         if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {
-            _to.sendEther(address(this).balance);
+            _to.safeSendEther(address(this).balance);
         } else {
             IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
         }
