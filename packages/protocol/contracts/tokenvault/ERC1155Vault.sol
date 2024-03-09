@@ -109,7 +109,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, tokenIds, amounts);
-        to.safeSendEther(msg.value);
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -143,7 +143,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, message.srcOwner, tokenIds, amounts);
-        message.srcOwner.safeSendEther(message.value);
+        message.srcOwner.sendEther(message.value);
 
         // Emit TokenReleased event
         emit TokenReleased({
