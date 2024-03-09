@@ -411,7 +411,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_GuardianProverCanAlwaysOverwriteTheProof() external {
+    function test_L1_GuardianVerifier_CanAlwaysOverwriteTheProof() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -482,7 +482,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_GuardianProverFailsWithInvalidBlockHash() external {
+    function test_L1_GuardianVerifier_FailsWithInvalidBlockHash() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -532,7 +532,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
+    function test_L1_GuardianVerifier_CanOverwriteIfNotSameProof() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -809,11 +809,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 uint256 balanceBeforeReimbursement = tko.balanceOf(Bob);
 
                 vm.prank(David, David);
-                gp.approve(meta, tran, proof);
+                gv.approve(meta, tran, proof);
                 vm.prank(Emma, Emma);
-                gp.approve(meta, tran, proof);
+                gv.approve(meta, tran, proof);
                 vm.prank(Frank, Frank);
-                gp.approve(meta, tran, proof);
+                gv.approve(meta, tran, proof);
 
                 // // Credited back the bond (not transferred to the user
                 // wallet,

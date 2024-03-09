@@ -13,7 +13,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
     uint256 internal logCount;
     SgxVerifier public sv;
     GuardianVerifier public gv;
-    GuardianProver public gp;
     TestnetTierProvider public cp;
     Bridge public bridge;
 
@@ -72,15 +71,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             })
         );
 
-        gp = GuardianProver(
-            deployProxy({
-                name: "guardian_prover",
-                impl: address(new GuardianProver()),
-                data: abi.encodeCall(GuardianProver.init, (address(0), address(addressManager)))
-            })
-        );
-
-        setupGuardianProverMultisig();
+        setupGuardianVerifierMultisig();
 
         cp = TestnetTierProvider(
             deployProxy({
@@ -114,7 +105,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         registerAddress("tier_guardian", address(gv));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
-        registerAddress("guardian_prover", address(gp));
         registerL2Address("taiko", address(L2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(L2));
@@ -243,18 +233,18 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve(meta, tran, proof);
+            gv.approve(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approve(meta, tran, proof);
+            gv.approve(meta, tran, proof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approve(meta, tran, proof);
+                gv.approve(meta, tran, proof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approve(meta, tran, proof);
+                gv.approve(meta, tran, proof);
             }
         } else {
             if (revertReason != "") {
@@ -272,7 +262,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         L1.verifyBlocks(count);
     }
 
-    function setupGuardianProverMultisig() internal {
+    function setupGuardianVerifierMultisig() internal {
         address[] memory initMultiSig = new address[](5);
         initMultiSig[0] = David;
         initMultiSig[1] = Emma;
@@ -280,7 +270,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
 
-        gp.setGuardians(initMultiSig, 3);
+        gv.setGuardians(initMultiSig, 3);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

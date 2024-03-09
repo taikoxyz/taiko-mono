@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../L1/TaikoL1TestBase.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
-contract TestGuardianVerifier is TaikoL1TestBase {
+contract TestGuardianVerifier2 is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
@@ -21,8 +21,8 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),
             blobHash: bytes32(0),
-            prover: address(gp),
-            msgSender: address(gp),
+            prover: address(gv),
+            msgSender: address(gv),
             blockId: 10,
             isContesting: false,
             blobUsed: false
