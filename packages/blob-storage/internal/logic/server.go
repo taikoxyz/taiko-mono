@@ -3,7 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -23,7 +23,7 @@ func NewServer(cfg *Config) *Server {
 }
 
 func (s *Server) Start() error {
-	fmt.Println("Server started!")
+	slog.Info("Server started!")
 	r := mux.NewRouter()
 
 	// Handler functions

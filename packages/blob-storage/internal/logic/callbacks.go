@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -41,14 +42,14 @@ func BlockProposedCallback(rpcURL, beaconURL, networkName string, log types.Log)
 
 	contractAbi, err := abi.JSON(strings.NewReader(taikol1.TaikoL1ABI))
 	if err != nil {
-		fmt.Println("Could not initiate reader")
+		slog.Error("Could not initiate reader")
 	}
 
 	eventData := taikol1.TaikoL1BlockProposed{}
 
 	err = contractAbi.UnpackIntoInterface(&eventData, "BlockProposed", log.Data)
 	if err != nil {
-		fmt.Println("Could not unpack log.Data")
+		slog.Error("Could not unpack log.Data")
 	}
 
 	// Some debug logs for now.
@@ -60,7 +61,9 @@ func BlockProposedCallback(rpcURL, beaconURL, networkName string, log types.Log)
 		l1BlobHeight := eventData.Meta.L1Height + 1
 		blobHash := hex.EncodeToString(eventData.Meta.BlobHash[:])
 
-		storeBlob(rpcURL, beaconURL, networkName, strconv.Itoa(int(l1BlobHeight)), blobHash)
+		if err = storeBlob(rpcURL, beaconURL, networkName, strconv.Itoa(int(l1BlobHeight)), blobHash); err != nil {
+			slog.Error("Error storing blob:", err)
+		}
 	}
 }
 
@@ -125,22 +128,22 @@ func storeBlob(rpcURL, beaconURL, networkName, blockID, blobHashInMeta string) e
 
 			blockNrBig, ok := n.SetString(blockID, 10)
 			if !ok {
-				fmt.Println("SetString: error")
+				slog.Info("SetString: error")
 				return errors.New("SetString: error")
 			}
 			blockTs, err := getBlockTimestamp(rpcURL, blockNrBig)
 
 			if err != nil {
-				fmt.Println("TIMESTAMP issue")
+				slog.Info("TIMESTAMP issue")
 				return errors.New("TIMESTAMP issue")
 			}
 			// Debug prints
-			fmt.Println("The blobHash:", ("0x" + blobHashInMeta))
+			slog.Info("The blobHash:", ("0x" + blobHashInMeta))
 			// fmt.Println("The block:", blockNrBig)
 			// fmt.Println("The kzg commitment:", data.KzgCommitment)
 			// fmt.Println("The corresponding timestamp:", blockTs)
 			// fmt.Println("The blob:", data.Blob[0:100])
-			fmt.Println("The networkName:", networkName)
+			slog.Info("The networkName:", networkName)
 			// Store blob data in MongoDB
 			err = storeBlobMongoDB(cfg, blockID, ("0x" + blobHashInMeta), data.KzgCommitment, data.Blob, blockTs)
 			if err != nil {

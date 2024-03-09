@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/big"
 
@@ -38,7 +37,7 @@ func NewIndexer(rpcURL, beaconURL, networkName, contractAddress string, pastEven
 		startBlockNumber = header.Number
 	}
 
-	fmt.Println(client.Client())
+	slog.Info(client.Client())
 
 	return &Indexer{
 		rpcURL:          rpcURL,
