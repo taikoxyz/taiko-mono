@@ -47,6 +47,43 @@ func (s *Subscription) Err() <-chan error {
 
 func (s *Subscription) Unsubscribe() {}
 
+func (b *Bridge) SuspendMessages(
+	opts *bind.TransactOpts,
+	_msgHashes [][32]byte,
+	_toSuspend bool,
+) (*types.Transaction, error) {
+	return ProcessMessageTx, nil
+}
+
+func (b *Bridge) IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessage) (bool, error) {
+	return false, nil
+}
+
+func (b *Bridge) GetInvocationDelays(opts *bind.CallOpts) (struct {
+	InvocationDelay      *big.Int
+	InvocationExtraDelay *big.Int
+}, error) {
+	return struct {
+		InvocationDelay      *big.Int
+		InvocationExtraDelay *big.Int
+	}{
+		InvocationDelay:      common.Big0,
+		InvocationExtraDelay: common.Big0,
+	}, nil
+}
+func (b *Bridge) ProofReceipt(opts *bind.CallOpts, msgHash [32]byte) (struct {
+	ReceivedAt        uint64
+	PreferredExecutor common.Address
+}, error) {
+	return struct {
+		ReceivedAt        uint64
+		PreferredExecutor common.Address
+	}{
+		ReceivedAt:        0,
+		PreferredExecutor: relayer.ZeroAddress,
+	}, nil
+}
+
 func (b *Bridge) WatchMessageSent(
 	opts *bind.WatchOpts,
 	sink chan<- *bridge.BridgeMessageSent,
@@ -80,6 +117,48 @@ func (b *Bridge) WatchMessageSent(
 	}(s.errChan)
 
 	return s, nil
+}
+
+func (b *Bridge) WatchMessageReceived(
+	opts *bind.WatchOpts,
+	sink chan<- *bridge.BridgeMessageReceived,
+	msgHash [][32]byte,
+) (event.Subscription, error) {
+	s := &Subscription{
+		errChan: make(chan error),
+	}
+
+	go func(sink chan<- *bridge.BridgeMessageReceived) {
+		<-time.After(2 * time.Second)
+
+		sink <- &bridge.BridgeMessageReceived{
+			Message: bridge.IBridgeMessage{
+				SrcChainId:  1,
+				DestChainId: MockChainID.Uint64(),
+			},
+		}
+
+		b.MessagesSent++
+	}(sink)
+
+	go func(errChan chan error) {
+		<-time.After(5 * time.Second)
+
+		errChan <- errors.New("fail")
+
+		s.done = true
+
+		b.ErrorsSent++
+	}(s.errChan)
+
+	return s, nil
+}
+
+func (b *Bridge) FilterMessageReceived(
+	opts *bind.FilterOpts,
+	msgHash [][32]byte,
+) (*bridge.BridgeMessageReceivedIterator, error) {
+	return &bridge.BridgeMessageReceivedIterator{}, nil
 }
 
 func (b *Bridge) FilterMessageSent(
@@ -140,14 +219,18 @@ func (b *Bridge) MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, er
 
 func (b *Bridge) ProcessMessage(
 	opts *bind.TransactOpts,
-	message bridge.IBridgeMessage,
-	proof []byte,
+	_message bridge.IBridgeMessage,
+	_proof []byte,
 ) (*types.Transaction, error) {
 	return ProcessMessageTx, nil
 }
 
-func (b *Bridge) ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridgeMessage, proof []byte) (bool, error) {
-	if message.Id.Uint64() == SuccessId.Uint64() {
+func (b *Bridge) ProveMessageReceived(
+	opts *bind.CallOpts,
+	_message bridge.IBridgeMessage,
+	_proof []byte,
+) (bool, error) {
+	if _message.Id.Uint64() == SuccessId.Uint64() {
 		return true, nil
 	}
 

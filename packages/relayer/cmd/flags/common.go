@@ -8,6 +8,7 @@ var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
 	processorCategory = "PROCESSOR"
+	watchdogCategory  = "WATCHDOG"
 )
 
 var (
@@ -91,6 +92,12 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
+	SrcSignalServiceAddress = &cli.StringFlag{
+		Name:     "srcSignalServiceAddress",
+		Usage:    "SignalService address for the source chain",
+		Category: commonCategory,
+		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
+	}
 )
 
 // All common flags.
@@ -108,6 +115,7 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
 	ETHClientTimeout,
+	SrcSignalServiceAddress,
 }
 
 // MergeFlags merges the given flag slices.

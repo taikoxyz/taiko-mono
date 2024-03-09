@@ -30,7 +30,7 @@ func (r *Queue) Ack(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
-func (r *Queue) Nack(ctx context.Context, msg queue.Message) error {
+func (r *Queue) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
 	return nil
 }
 

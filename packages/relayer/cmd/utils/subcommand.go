@@ -28,17 +28,18 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
+		_, startMetrics := metrics.Serve(ctx, c)
+
+		go func() {
+			if err := startMetrics(); err != nil {
+				slog.Error("Starting metrics server error", "error", err)
+			}
+		}()
+
 		slog.Info("Starting Taiko relayer application", "name", app.Name())
 
 		if err := app.Start(); err != nil {
 			slog.Error("Starting application error", "name", app.Name(), "error", err)
-			return err
-		}
-
-		_, startMetrics := metrics.Serve(ctx, c)
-
-		if err := startMetrics(); err != nil {
-			slog.Error("Starting metrics server error", "error", err)
 			return err
 		}
 

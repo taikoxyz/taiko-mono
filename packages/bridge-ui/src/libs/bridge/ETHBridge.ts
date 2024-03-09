@@ -7,6 +7,7 @@ import { bridgeService } from '$config';
 import { BridgePausedError, ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -141,8 +142,22 @@ export class ETHBridge extends Bridge {
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
+    const client = await getConnectedWallet();
+    if (!client) throw new Error('Client not found');
+
+    const bridgeContract = await getContract({
+      client,
+      abi: bridgeABI,
+      address: destBridgeAddress,
+    });
+
     if (messageStatus === MessageStatus.NEW) {
       const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
+
+      const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], {
+        account: client.account,
+      });
+      log('Estimated gas', estimatedGas);
 
       try {
         const { request } = await simulateContract(config, {
@@ -150,7 +165,7 @@ export class ETHBridge extends Bridge {
           abi: bridgeABI,
           functionName: 'processMessage',
           args: [message, proof],
-          gas: message.gasLimit,
+          gas: estimatedGas,
         });
         log('Simulate contract', request);
 
@@ -159,7 +174,7 @@ export class ETHBridge extends Bridge {
           abi: bridgeABI,
           functionName: 'processMessage',
           args: [message, proof],
-          gas: message.gasLimit,
+          gas: estimatedGas,
         });
         return txHash;
         log('Transaction hash for processMessage call', txHash);

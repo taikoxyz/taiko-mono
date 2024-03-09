@@ -49,7 +49,7 @@
 
   // Clear the input field
   export const clearAddress = (): void => {
-    inputElement.value = '';
+    if (inputElement) inputElement.value = '';
     ethereumAddress = '';
     state = State.DEFAULT;
   };

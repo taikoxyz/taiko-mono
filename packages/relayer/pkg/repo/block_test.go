@@ -52,10 +52,11 @@ func TestIntegration_Block_Save(t *testing.T) {
 		{
 			"success",
 			relayer.SaveBlockOpts{
-				ChainID:   big.NewInt(1),
-				Height:    100,
-				Hash:      common.HexToHash("0x1234"),
-				EventName: relayer.EventNameMessageSent,
+				ChainID:     big.NewInt(1),
+				DestChainID: big.NewInt(2),
+				Height:      100,
+				Hash:        common.HexToHash("0x1234"),
+				EventName:   relayer.EventNameMessageSent,
 			},
 			nil,
 		},
@@ -78,22 +79,28 @@ func TestIntegration_Block_GetLatestBlockProcessedForEvent(t *testing.T) {
 	blockRepo, err := NewBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
-		name      string
-		eventName string
-		chainID   *big.Int
-		wantErr   error
+		name        string
+		eventName   string
+		chainID     *big.Int
+		destChainID *big.Int
+		wantErr     error
 	}{
 		{
 			"success",
 			relayer.EventNameMessageSent,
 			big.NewInt(1),
+			big.NewInt(2),
 			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := blockRepo.GetLatestBlockProcessedForEvent(tt.eventName, tt.chainID)
+			_, err := blockRepo.GetLatestBlockProcessedForEvent(
+				tt.eventName,
+				tt.chainID,
+				tt.destChainID,
+			)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}

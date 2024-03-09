@@ -51,7 +51,7 @@
   };
 
   const openDetails = () => {
-    if (isDesktopOrLarger) {
+    if (!isDesktopOrLarger) {
       detailsOpen = true;
     }
   };
@@ -182,7 +182,7 @@
     <div class="hidden md:flex grow py-2 flex flex-col justify-center">
       <a
         class="flex justify-center py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
+        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.hash}`}
         target="_blank">
         {$t('transactions.link.explorer')}
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
@@ -245,7 +245,7 @@
     <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
       <a
         class="flex justify-start py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
+        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.hash}`}
         target="_blank">
         {$t('transactions.link.explorer')}
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />

@@ -9,6 +9,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
+// isProfitable determines whether a message is profitable or not. It should
+// check the processing fee, if one does not exist at all, it is definitely not
+// profitable. Otherwise, we compare it to the estimated cost.
 func (p *Processor) isProfitable(
 	ctx context.Context, message bridge.IBridgeMessage, cost *big.Int) (bool, error) {
 	processingFee := message.Fee

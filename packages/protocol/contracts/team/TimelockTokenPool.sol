@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
@@ -22,7 +23,7 @@ import "../common/EssentialContract.sol";
 /// - team members, advisors, etc.
 /// - grant program grantees
 /// @custom:security-contact security@taiko.xyz
-contract TimelockTokenPool is EssentialContract {
+contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     using SafeERC20 for IERC20;
 
     struct Grant {
@@ -54,6 +55,8 @@ contract TimelockTokenPool is EssentialContract {
         uint128 costPaid;
         Grant grant;
     }
+
+    bytes32 public constant TYPED_HASH = keccak256("Withdrawal(address to)");
 
     /// @notice The Taiko token address.
     address public taikoToken;
@@ -118,6 +121,8 @@ contract TimelockTokenPool is EssentialContract {
         initializer
     {
         __Essential_init(_owner);
+        __EIP712_init("Taiko TimelockTokenPool", "1");
+
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 
@@ -132,7 +137,7 @@ contract TimelockTokenPool is EssentialContract {
     /// This transaction should happen on a regular basis, e.g., quarterly.
     /// @param _recipient The grant recipient address.
     /// @param _grant The grant struct.
-    function grant(address _recipient, Grant memory _grant) external onlyOwner {
+    function grant(address _recipient, Grant memory _grant) external onlyOwner nonReentrant {
         if (_recipient == address(0)) revert INVALID_PARAM();
         if (recipients[_recipient].grant.amount != 0) revert ALREADY_GRANTED();
 
@@ -147,7 +152,7 @@ contract TimelockTokenPool is EssentialContract {
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
     /// @param _recipient The grant recipient address.
-    function void(address _recipient) external onlyOwner {
+    function void(address _recipient) external onlyOwner nonReentrant {
         Recipient storage r = recipients[_recipient];
         uint128 amountVoided = _voidGrant(r.grant);
 
@@ -158,18 +163,24 @@ contract TimelockTokenPool is EssentialContract {
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw() external {
+    function withdraw() external nonReentrant {
         _withdraw(msg.sender, msg.sender);
     }
 
-    /// @notice Withdraws all withdrawable tokens.
+    /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
     /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, bytes memory _sig) external {
+    function withdraw(address _to, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
-        bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", _to));
-        address recipient = ECDSA.recover(hash, _sig);
+        address recipient = ECDSA.recover(getWithdrawalHash(_to), _sig);
         _withdraw(recipient, _to);
+    }
+
+    /// @notice Gets the hash to be signed to authorize an withdrawal.
+    /// @param _to The destination address.
+    /// @return The hash to be signed.
+    function getWithdrawalHash(address _to) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to)));
     }
 
     /// @notice Returns the summary of the grant for a given recipient.
@@ -193,7 +204,8 @@ contract TimelockTokenPool is EssentialContract {
         amountToWithdraw = amountUnlocked - amountWithdrawn;
 
         // Note: precision is maintained at the token level rather than the wei level, otherwise,
-        // `costPaid` must be a uint256.
+        // `costPaid` must be a uint256. Therefore, please ignore
+        // https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
         uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
         costToWithdraw = _amountUnlocked * r.grant.costPerToken - r.costPaid;
     }
@@ -216,7 +228,7 @@ contract TimelockTokenPool is EssentialContract {
         totalAmountWithdrawn += amountToWithdraw;
         totalCostPaid += costToWithdraw;
 
-        IERC20(taikoToken).transferFrom(sharedVault, _to, amountToWithdraw);
+        IERC20(taikoToken).safeTransferFrom(sharedVault, _to, amountToWithdraw);
         IERC20(costToken).safeTransferFrom(_recipient, sharedVault, costToWithdraw);
 
         emit Withdrawn(_recipient, _to, amountToWithdraw, costToWithdraw);
