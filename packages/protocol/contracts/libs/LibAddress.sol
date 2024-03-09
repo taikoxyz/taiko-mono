@@ -15,15 +15,7 @@ library LibAddress {
 
     error ETH_TRANSFER_FAILED();
 
-    /// @dev Sends Ether to a thirdparty address without copying any data back.
-    /// 64 bytes of data for security reasons.
-    /// @param _to The recipient address.
-    /// @param _amount The amount of Ether to send in wei.
-    function sendEther(address _to, uint256 _amount) internal {
-        sendEther(_to, _amount, gasleft());
-    }
-
-    /// @dev Sends Ether to a thirdparty address without copying any data back.
+    /// @dev Sends Ether to the specified address.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
@@ -36,6 +28,13 @@ library LibAddress {
 
         // Ensure the transfer was successful
         if (!success) revert ETH_TRANSFER_FAILED();
+    }
+
+    /// @dev Sends Ether to the specified address.
+    /// @param _to The recipient address.
+    /// @param _amount The amount of Ether to send in wei.
+    function sendEther(address _to, uint256 _amount) internal {
+        sendEther(_to, _amount, gasleft());
     }
 
     function supportsInterface(
