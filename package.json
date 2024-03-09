@@ -3,7 +3,7 @@
   "version": "0.23.0",
   "private": true,
   "devDependencies": {
-    "lefthook": "^1.6.4",
+    "lefthook": "^1.6.5",
     "prettier": "^3.2.5"
   }
 }
