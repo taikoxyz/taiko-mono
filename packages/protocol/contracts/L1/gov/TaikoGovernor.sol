@@ -7,7 +7,6 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title TaikoGovernor
