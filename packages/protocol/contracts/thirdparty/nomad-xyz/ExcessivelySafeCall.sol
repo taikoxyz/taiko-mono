@@ -3,9 +3,6 @@
 pragma solidity 0.8.24;
 
 library ExcessivelySafeCall {
-    uint256 constant LOW_28_MASK =
-        0x00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-
     /// @notice Use when you _really_ really _really_ don't trust the called
     /// contract. This prevents the called contract from causing reversion of
     /// the caller in as many ways as we can.
