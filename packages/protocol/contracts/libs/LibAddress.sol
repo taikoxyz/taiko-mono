@@ -21,6 +21,7 @@ library LibAddress {
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
+    /// @return success_ true if the call is successful, false otherwise.
     function sendEther(
         address _to,
         uint256 _amount,
@@ -55,7 +56,9 @@ library LibAddress {
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
     function sendEtherAndVerify(address _to, uint256 _amount, uint256 _gasLimit) internal {
-        if (sendEther(_to, _amount, _gasLimit, "")) revert ETH_TRANSFER_FAILED();
+        if (!sendEther(_to, _amount, _gasLimit, "")) {
+            revert ETH_TRANSFER_FAILED();
+        }
     }
 
     /// @dev Sends Ether to the specified address. This method will revert if sending ether fails.
