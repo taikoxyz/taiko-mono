@@ -19,30 +19,15 @@ library LibAddress {
     /// 64 bytes of data for security reasons.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    /// @param _gasLimit The max amount gas to pay for this transaction.
-    function safeSendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
+    function safeSendEther(address _to, uint256 _amount) internal {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 
         // Attempt to send Ether to the recipient address
-        (bool success,) = ExcessivelySafeCall.excessivelySafeCall(
-            _to,
-            _gasLimit,
-            _amount,
-            64, // return max 64 bytes
-            ""
-        );
+        (bool success,) = ExcessivelySafeCall.excessivelySafeCall(_to, gasleft(), _amount, 0, "");
 
         // Ensure the transfer was successful
         if (!success) revert ETH_TRANSFER_FAILED();
-    }
-
-    /// @dev Sends Ether to a thirdparty address. Note that the message call can only return up to
-    /// 64 bytes of data for security reasons.
-    /// @param _to The recipient address.
-    /// @param _amount The amount of Ether to send in wei.
-    function safeSendEther(address _to, uint256 _amount) internal {
-        safeSendEther(_to, _amount, gasleft());
     }
 
     /// @dev Sends Ether to the specified trusted address.

@@ -495,11 +495,7 @@ contract Bridge is EssentialContract, IBridge {
             success_ = false;
         } else {
             (success_,) = ExcessivelySafeCall.excessivelySafeCall(
-                _message.to,
-                _gasLimit,
-                _message.value,
-                64, // return max 64 bytes
-                _message.data
+                _message.to, _gasLimit, _message.value, 0, _message.data
             );
         }
 
