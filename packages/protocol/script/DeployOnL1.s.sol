@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TestnetTierProvider.sol";
 import "../contracts/L1/tiers/MainnetTierProvider.sol";
@@ -319,7 +318,7 @@ contract DeployOnL1 is DeployCapability {
             registerTo: rollupAddressManager
         });
 
-        deployProxy({
+        address guardianVerifier = deployProxy({
             name: "tier_guardian",
             impl: address(new GuardianVerifier()),
             data: abi.encodeCall(GuardianVerifier.init, (timelock, rollupAddressManager)),
@@ -333,17 +332,10 @@ contract DeployOnL1 is DeployCapability {
             registerTo: rollupAddressManager
         });
 
-        address guardianProver = deployProxy({
-            name: "guardian_prover",
-            impl: address(new GuardianProver()),
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
-
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
-        GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
-        GuardianProver(guardianProver).transferOwnership(timelock);
+        GuardianVerifier(guardianVerifier).setGuardians(guardians, minGuardians);
+        GuardianVerifier(guardianVerifier).transferOwnership(timelock);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
