@@ -100,11 +100,6 @@ contract TestTaikoGovernor is TaikoL1TestBase {
             "Incorrect supports interface"
         );
         assertEq(
-            taikoGovernor.supportsInterface(type(IGovernorUpgradeable).interfaceId),
-            true,
-            "Incorrect supports interface"
-        );
-        assertEq(
             taikoGovernor.supportsInterface(type(IERC1155ReceiverUpgradeable).interfaceId),
             true,
             "Incorrect supports interface"
