@@ -9,6 +9,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+// scanBlocks is used as a liveness to make sure we are seeing new blocks, unrelated
+// to events coming in.
 func scanBlocks(ctx context.Context, ethClient ethClient, chainID *big.Int, wg *sync.WaitGroup) error {
 	wg.Add(1)
 

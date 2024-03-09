@@ -9,6 +9,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+// waitForConfirmations waits for the given transaction to reach N confs
+// before returning
 func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
 	ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(p.confTimeoutInSeconds)*time.Second)
 
