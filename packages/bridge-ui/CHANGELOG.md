@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v3.0.0) (2024-03-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324))
+
+### Bug Fixes
+
+* **bridge-ui:** fix ETH self claiming ([#16344](https://github.com/taikoxyz/taiko-mono/issues/16344)) ([4271f0d](https://github.com/taikoxyz/taiko-mono/commit/4271f0d2b01da8179d604a0fbff0816a0d72e547))
+* **bridge-ui:** manual import not resetting correctly ([#16347](https://github.com/taikoxyz/taiko-mono/issues/16347)) ([87398fe](https://github.com/taikoxyz/taiko-mono/commit/87398fe9606cf73ce66ed4f8321368fe8ac8fbb4))
+* **bridge-ui:** preserve custom processing fee selection across components ([#16346](https://github.com/taikoxyz/taiko-mono/issues/16346)) ([9cf6b3a](https://github.com/taikoxyz/taiko-mono/commit/9cf6b3ae0981d1755d253cd7d6238771898fc3f4))
+* **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324)) ([d6ef79e](https://github.com/taikoxyz/taiko-mono/commit/d6ef79eae0836a9dabd481cd0953bc03eea9bf7a))
+
 ## [2.9.3](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.2...bridge-ui-v2.9.3) (2024-02-26)
 
 

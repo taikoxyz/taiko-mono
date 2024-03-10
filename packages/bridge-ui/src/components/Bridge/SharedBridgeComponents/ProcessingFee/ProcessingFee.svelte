@@ -19,7 +19,7 @@
 
   export let small = false;
   export let textOnly = false;
-  export let hasEnoughEth = false;
+  export let hasEnoughEth: boolean = false;
   export let disabled = false;
 
   let dialogId = `dialog-${uid()}`;
@@ -113,7 +113,7 @@
   }
 
   function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
-    if (method === ProcessingFeeMethod.NONE && !enoughEth) {
+    if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
       // We need to manually trigger this update because we are already in an update
