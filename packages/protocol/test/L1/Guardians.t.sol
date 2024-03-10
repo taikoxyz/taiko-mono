@@ -15,7 +15,7 @@ contract DummyGuardians is Guardians {
     }
 }
 
-contract TestSignalService is TaikoTest {
+contract TestGuardianProver is TaikoTest {
     DummyGuardians target;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
