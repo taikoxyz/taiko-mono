@@ -31,6 +31,8 @@ contract AssignmentHook is EssentialContract, IHook {
         uint256 tip; // A tip to L1 block builder
     }
 
+    event EtherPaymentFailed(address to, uint256 maxGas);
+
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
@@ -113,7 +115,8 @@ contract AssignmentHook is EssentialContract, IHook {
         if (assignment.feeToken == address(0)) {
             // Paying Ether
             // Note that this payment may fail if it cost more gas
-            _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+            bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+            if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
         } else {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
