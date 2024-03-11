@@ -1,91 +1,95 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'viem';
 
   import { CloseButton } from '$components/Button';
+  import { errorToast, warningToast } from '$components/NotificationToast';
+  import { getInvoationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
   import type { BridgeTransaction } from '$libs/bridge/types';
-  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
+  import {
+    InsufficientBalanceError,
+    InvalidProofError,
+    NotConnectedError,
+    ProcessMessageError,
+    RetryError,
+  } from '$libs/error';
   import { uid } from '$libs/util/uid';
 
   import { DialogStep, DialogStepper } from '../Stepper';
+  import Claim from './Claim.svelte';
+  import ClaimStepNavigation from './ClaimStepNavigation.svelte';
+  import ClaimConfirmStep from './ClaimSteps/ClaimConfirmStep.svelte';
+  import ClaimInfoStep from './ClaimSteps/ClaimInfoStep.svelte';
+  import ClaimReviewStep from './ClaimSteps/ClaimReviewStep.svelte';
+  import { ClaimSteps } from './types';
 
   const dialogId = `dialog-${uid()}`;
+  const dispatch = createEventDispatcher();
+
   export let dialogOpen = false;
+
+  export let loading = false;
 
   const closeDialog = () => {
     dialogOpen = false;
+    reset();
   };
 
-  const enum ClaimSteps {
-    INFO,
-    REVIEW,
-    CONFIRM,
-  }
+  let ClaimComponent: Claim;
 
-  // const enum ClaimStatus {
-  //   PENDING,
-  //   INITIAL,
-  //   FINAL,
-  // }
+  export const handleClaimClick = async () => {};
+
   export let activeStep: ClaimSteps = ClaimSteps.INFO;
-  // export let validatingImport = false;
-
-  // export let claimStatus: ClaimStatus;
 
   export let item: BridgeTransaction;
 
-  let nextStepButtonText: string;
-
-  const getStepText = () => {
-    if (activeStep === ClaimSteps.INFO) {
-      return $t('common.confirm');
-    }
-    if (activeStep === ClaimSteps.REVIEW) {
-      return $t('common.ok');
-    } else {
-      return $t('common.continue');
+  //TODO: update this to display info alongside toasts
+  const handleClaimError = (event: CustomEvent<{ error: Error }>) => {
+    const err = event.detail;
+    switch (true) {
+      case err instanceof NotConnectedError:
+        warningToast({ title: $t('messages.account.required') });
+        break;
+      case err instanceof UserRejectedRequestError:
+        warningToast({ title: $t('transactions.actions.claim.rejected.title') });
+        break;
+      case err instanceof InsufficientBalanceError:
+        dispatch('insufficientFunds', { tx: item });
+        break;
+      case err instanceof InvalidProofError:
+        errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
+        break;
+      case err instanceof ProcessMessageError:
+        errorToast({ title: $t('bridge.errors.process_message_error') });
+        break;
+      case err instanceof RetryError:
+        errorToast({ title: $t('bridge.errors.retry_error') });
+        break;
+      default:
+        errorToast({
+          title: $t('bridge.errors.unknown_error.title'),
+          message: $t('bridge.errors.unknown_error.message'),
+        });
+        break;
     }
   };
 
-  const handleNextStep = () => {
-    if (activeStep === ClaimSteps.INFO) {
-      activeStep = ClaimSteps.REVIEW;
-    } else if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.CONFIRM;
-    } else if (activeStep === ClaimSteps.CONFIRM) {
-      activeStep = ClaimSteps.INFO;
-    }
+  const reset = () => {
+    activeStep = ClaimSteps.INFO;
   };
 
-  const handlePreviousStep = () => {
-    if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.INFO;
-    } else if (activeStep === ClaimSteps.CONFIRM) {
-      activeStep = ClaimSteps.REVIEW;
-    }
-  };
-
-  // $: disabled = !$account || !$account.isConnected;
-
-  // $: showStepNavigation = true;
-
-  $: {
-    nextStepButtonText = getStepText();
-  }
+  $: nextStepDisabled = activeStep === ClaimSteps.CONFIRM && loading;
 </script>
 
-<dialog
-  id={dialogId}
-  class="modal"
-  class:modal-open={dialogOpen}
-  use:closeOnEscapeOrOutsideClick={{ enabled: dialogOpen, callback: closeDialog, uuid: dialogId }}>
+<dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute">
     <CloseButton onClick={closeDialog} />
-    {item}
     <div class="w-full">
-      <h3 class="title-body-bold mb-7">{$t('token_dropdown.label')}</h3>
-      <DialogStepper on:click={() => handlePreviousStep()}>
+      <h3 class="title-body-bold mb-7">Claim your assets</h3>
+      <DialogStepper>
         <DialogStep stepIndex={ClaimSteps.INFO} currentStepIndex={activeStep} isActive={activeStep === ClaimSteps.INFO}
-          >{$t('bridge.step.import.title')}</DialogStep>
+          >TODO: Basic info step</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.REVIEW}
           currentStepIndex={activeStep}
@@ -95,16 +99,24 @@
           currentStepIndex={activeStep}
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
-      <p>
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. A inventore, beatae aliquid quidem consectetur fuga?
-        Inventore ab dolorum reprehenderit possimus quidem voluptatem, rem repellat, laudantium fugit doloribus
-        aspernatur esse perferendis!
-      </p>
-      <div class="f-col text-left">
-        <button on:click={handleNextStep} class="btn btn-primary mt-5">{nextStepButtonText}</button>
-        <button on:click={handlePreviousStep} class="link mt-5 ml-3">{$t('common.back')}</button>
+
+      {#if activeStep === ClaimSteps.INFO}
+        <ClaimInfoStep />
+      {:else if activeStep === ClaimSteps.REVIEW}
+        <ClaimReviewStep />
+      {:else if activeStep === ClaimSteps.CONFIRM}
+        <ClaimConfirmStep />
+      {/if}
+
+      <button class="btn" on:click={() => handleClaimClick()}>Test claim</button>
+      <button class="btn" on:click={() => getInvoationDelayForTx(item)}>Get delays</button>
+
+      <div class="f-col text-left gap-4">
+        <ClaimStepNavigation bind:activeStep bind:loading bind:nextStepDisabled on:closeDialog={closeDialog} />
       </div>
     </div>
   </div>
   <button class="overlay-backdrop" data-modal-uuid={dialogId} />
 </dialog>
+
+<Claim bind:bridgeTx={item} bind:this={ClaimComponent} on:error={handleClaimError} claiming={loading} />
