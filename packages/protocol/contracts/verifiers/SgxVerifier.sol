@@ -6,8 +6,8 @@ import "../L1/ITaikoL1.sol";
 import "../common/EssentialContract.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
+import "./IVerifier.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs
