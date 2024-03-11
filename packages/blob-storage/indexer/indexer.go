@@ -92,15 +92,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
-	defer func() {
-		i.wg.Done()
-	}()
-
 	if i.startHeight == nil {
-		go func() {
-			i.subscribe(i.ctx)
-		}()
-		return nil
+		return i.subscribe(i.ctx)
 	}
 
 	// get the latest header
@@ -156,6 +149,10 @@ func (i *Indexer) Start() error {
 }
 
 func (i *Indexer) subscribe(ctx context.Context) error {
+	defer func() {
+		i.wg.Done()
+	}()
+
 	slog.Info("subscribing to new events")
 
 	errChan := make(chan error)
