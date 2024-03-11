@@ -2,11 +2,10 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../thirdparty/risczero/IRiscZeroReceiptVerifier.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
-
-import "../thirdparty/risczero/IRiscZeroReceiptVerifier.sol";
 
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
