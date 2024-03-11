@@ -12,25 +12,19 @@ Prerequisite is to have docker engine up and running.
 cd local_docker && docker-compose up -d
 ```
 
-2. Start the `blob-catcher`
+2. Start the `indexer`
 
 ```bash
-cd cmd/blob_catcher && go run .
+ENV_FILE=.default.indexer.env run cmd/main.go indexer
 ```
 
-By default the above command starts the app from the latest block height. If we want to specifiy a previous blockheight, we can run it like:
+By default the above command starts the app from the latest block height. If we want to specifiy a previous blockheight, we can run change it from the `.default.indexer.env` file, by adding a `STARTING_BLOCK_ID` variable.
+
+2. Start the `server`.
 
 ```bash
-cd cmd/blob_catcher && go run . -past_events=true -start_block=117452
+ENV_FILE=.default.server.env run cmd/main.go server
 ```
-
-2. Start the `server` - by default it listens on port `27001` (sets in `config.go`)
-
-```bash
-cd cmd/server && go run .
-```
-
-It uses the config from `internal/logic/config.go`.
 
 ## how to test / use ?
 
