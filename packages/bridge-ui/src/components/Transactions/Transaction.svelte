@@ -30,10 +30,6 @@
   let nftInfoOpen = false;
   let isDesktopOrLarger = false;
 
-  // $: claimModalOpen = false;
-
-  // $: retryModalOpen = false;
-
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 
   const placeholderUrl = '/placeholder.svg';
