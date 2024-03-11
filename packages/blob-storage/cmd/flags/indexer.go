@@ -9,13 +9,6 @@ var (
 )
 
 var (
-	IndexPastBlocks = &cli.BoolFlag{
-		Name:     "indexPastEvents",
-		Usage:    "Index past events",
-		Value:    false,
-		Category: indexerCategory,
-		EnvVars:  []string{"INDEX_PAST_EVENTS"},
-	}
 	StartingBlockID = &cli.Uint64Flag{
 		Name:     "startingBlockID",
 		Usage:    "Block ID to start indexing from",
@@ -43,20 +36,11 @@ var (
 		Required: true,
 		EnvVars:  []string{"TAIKO_L1_CONTRACT_ADDRESS"},
 	}
-	EventHash = &cli.StringFlag{
-		Name:     "eventHash",
-		Usage:    "Event Hash",
-		Category: indexerCategory,
-		Required: true,
-		EnvVars:  []string{"EVENT_HASH"},
-	}
 )
 
 var IndexerFlags = MergeFlags(DatabaseFlags, []cli.Flag{
-	IndexPastBlocks,
 	StartingBlockID,
 	RPCUrl,
 	BeaconURL,
 	ContractAddress,
-	EventHash,
 })

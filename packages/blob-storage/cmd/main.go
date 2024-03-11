@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/indexer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/utils"
 	"github.com/urfave/cli/v2"
 )
 
@@ -36,14 +36,14 @@ func main() {
 	// All supported sub commands.
 	app.Commands = []*cli.Command{
 		{
-			Name:        "server",
+			Name:        "indexer",
 			Flags:       flags.IndexerFlags,
 			Usage:       "Starts the blobcatcher software",
 			Description: "Taiko relayer blobcatcher software",
 			Action:      utils.SubcommandAction(new(indexer.Indexer)),
 		},
 		// {
-		// 	Name:        "blob-catcher",
+		// 	Name:        "server",
 		// 	Flags:       flags.ServerFlags,
 		// 	Usage:       "Starts the server software",
 		// 	Description: "Taiko relayer server software",

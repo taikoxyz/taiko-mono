@@ -36,10 +36,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DBPassword:      c.String(flags.DBPassword.Name),
 		DBDatabase:      c.String(flags.DBDatabase.Name),
 		StartingBlockID: startBlockId,
-		IndexPastBlocks: c.Bool(flags.IndexPastBlocks.Name),
 		RPCURL:          c.String(flags.RPCUrl.Name),
 		BeaconURL:       c.String(flags.BeaconURL.Name),
 		ContractAddress: common.HexToAddress(c.String(flags.ContractAddress.Name)),
-		EventHash:       c.String(flags.EventHash.Name),
 	}, nil
 }

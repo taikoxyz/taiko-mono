@@ -10,12 +10,14 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"strconv"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/bindings/taikol1"
 	mongodb "github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db"
 	"github.com/urfave/cli/v2"
@@ -40,6 +42,7 @@ type Indexer struct {
 	taikoL1     *taikol1.TaikoL1
 	db          *mongodb.MongoDBClient
 	cfg         *Config
+	wg          *sync.WaitGroup
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -79,25 +82,70 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.taikoL1 = taikoL1
 	i.startHeight = cfg.StartingBlockID
 	i.db = db
+	i.wg = &sync.WaitGroup{}
 
 	return nil
 }
 
 func (i *Indexer) Start() error {
-	var opts *bind.FilterOpts
+	if i.startHeight == nil {
+		i.wg.Add(1)
 
-	if i.startHeight != nil {
-		opts = &bind.FilterOpts{
-			Start: *i.startHeight,
-		}
+		go func() {
+			i.subscribe(context.Background())
+		}()
+		return nil
 	}
 
-	iter, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
+	opts := &bind.FilterOpts{
+		Start: *i.startHeight,
+	}
+
+	_, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (i *Indexer) subscribe(ctx context.Context) {
+	defer func() {
+		i.wg.Done()
+	}()
+
+	sink := make(chan *taikol1.TaikoL1BlockProposed)
+
+	sub := event.ResubscribeErr(1*time.Second, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			slog.Error("event.ResubscribeErr", "error", err)
+		}
+
+		slog.Info("resubscribing to TaikoL1BlockProposed events")
+
+		return i.taikoL1.WatchBlockProposed(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context finished")
+			return
+		case err := <-sub.Err():
+			slog.Error("error encountered during subscription", "error", err)
+		case e := <-sink:
+			go func() {
+				if err := i.storeBlob(e); err != nil {
+					slog.Error("error countered storing blob", "error", err)
+				}
+			}()
+		}
+	}
+
 }
 
 func (i *Indexer) Close(ctx context.Context) {
@@ -108,15 +156,10 @@ func (i *Indexer) Name() string {
 	return "indexer"
 }
 
-func (i *Indexer) onBlockProposed(rpcURL string, beaconURL string, event *taikol1.TaikoL1BlockProposed) error {
+func (i *Indexer) onBlockProposed(event *taikol1.TaikoL1BlockProposed) error {
 	slog.Info("blockProposed event", "blobUsed", event.Meta.BlobUsed, "l1BlobHeight", event.Meta.L1Height+1)
 	if event.Meta.BlobUsed {
-		// in LibPropose we assign block.height-1 to l1Height, which is the parent block.
-		l1BlobHeight := event.Meta.L1Height + 1
-
-		blobHash := hex.EncodeToString(event.Meta.BlobHash[:])
-
-		if err := i.storeBlob(rpcURL, beaconURL, strconv.Itoa(int(l1BlobHeight)), blobHash); err != nil {
+		if err := i.storeBlob(event); err != nil {
 			slog.Error("Error storing blob", "error", err)
 			return err
 		}
@@ -125,14 +168,8 @@ func (i *Indexer) onBlockProposed(rpcURL string, beaconURL string, event *taikol
 	return nil
 }
 
-func getBlockTimestamp(rpcURL string, blockNumber *big.Int) (uint64, error) {
-	client, err := ethclient.Dial(rpcURL)
-	if err != nil {
-		return 0, err
-	}
-	defer client.Close()
-
-	block, err := client.BlockByNumber(context.Background(), blockNumber)
+func (i *Indexer) getBlockTimestamp(rpcURL string, blockNumber *big.Int) (uint64, error) {
+	block, err := i.ethClient.BlockByNumber(context.Background(), blockNumber)
 	if err != nil {
 		return 0, err
 	}
@@ -160,8 +197,9 @@ func calculateBlobHash(commitmentStr string) string {
 	return blobHashString
 }
 
-func (i *Indexer) storeBlob(rpcURL, beaconURL, blockID, blobHashInMeta string) error {
-	url := fmt.Sprintf("%s/%s", beaconURL, blockID)
+func (i *Indexer) storeBlob(event *taikol1.TaikoL1BlockProposed) error {
+	blockID := event.Meta.L1Height + 1
+	url := fmt.Sprintf("%s/%s", i.beaconURL, blockID)
 	response, err := http.Get(url)
 	if err != nil {
 		return err
@@ -184,25 +222,18 @@ func (i *Indexer) storeBlob(rpcURL, beaconURL, blockID, blobHashInMeta string) e
 			return err
 		}
 
+		metaBlobHash := hex.EncodeToString(event.Meta.BlobHash[:])
 		// Comparing the hex strings of meta.blobHash (blobHash)
-		if calculateBlobHash(data.KzgCommitment) == blobHashInMeta {
-			n := new(big.Int)
-
-			blockNrBig, ok := n.SetString(blockID, 10)
-			if !ok {
-				slog.Info("SetString: error")
-				return errors.New("SetString: error")
-			}
-
-			blockTs, err := getBlockTimestamp(rpcURL, blockNrBig)
+		if calculateBlobHash(data.KzgCommitment) == metaBlobHash {
+			blockTs, err := i.getBlockTimestamp(i.cfg.RPCURL, new(big.Int).SetUint64(blockID))
 			if err != nil {
 				slog.Info("error getting block timestamp", "error", err)
 				return err
 			}
 
-			slog.Info("blockHash", "blobHash", fmt.Sprintf("%v%v", "0x", blobHashInMeta))
+			slog.Info("blockHash", "blobHash", fmt.Sprintf("%v%v", "0x", metaBlobHash))
 
-			err = i.storeBlobMongoDB(blockID, fmt.Sprintf("%v%v", "0x", blobHashInMeta), data.KzgCommitment, data.Blob, blockTs)
+			err = i.storeBlobMongoDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs)
 			if err != nil {
 				slog.Error("Error storing blob in MongoDB", "error", err)
 				return err
@@ -215,13 +246,12 @@ func (i *Indexer) storeBlob(rpcURL, beaconURL, blockID, blobHashInMeta string) e
 	return errors.New("BLOB not found")
 }
 
-func (i *Indexer) storeBlobMongoDB(blockID, blobHashInMeta, kzgCommitment, blob string, blockTs uint64) error {
+func (i *Indexer) storeBlobMongoDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64) error {
 	// Get MongoDB collection
 	collection := i.db.Client.Database(i.cfg.DBDatabase).Collection("blobs")
 
 	// Insert blob data into MongoDB
 	_, err := collection.InsertOne(context.Background(), bson.M{
-		//"block_id":       blockID, -> Not needed
 		"blob_hash":      blobHashInMeta,
 		"kzg_commitment": kzgCommitment,
 		"timestamp":      blockTs,

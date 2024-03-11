@@ -19,21 +19,21 @@ var (
 	DBPort = &cli.StringFlag{
 		Name:     "db.port",
 		Usage:    "Database port",
-		Required: true,
+		Value:    "27017",
 		Category: dbCategory,
 		EnvVars:  []string{"DB_PORT"},
 	}
 	DBUsername = &cli.StringFlag{
 		Name:     "db.username",
 		Usage:    "Database username",
-		Required: true,
+		Value:    "",
 		Category: dbCategory,
 		EnvVars:  []string{"DB_USERNAME"},
 	}
 	DBPassword = &cli.StringFlag{
 		Name:     "db.password",
 		Usage:    "Database password",
-		Required: true,
+		Value:    "",
 		Category: dbCategory,
 		EnvVars:  []string{"DB_PASSWORD"},
 	}
