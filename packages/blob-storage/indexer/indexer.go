@@ -209,6 +209,10 @@ func (i *Indexer) subscribeBlockProposed(ctx context.Context, errChan chan error
 }
 
 func (i *Indexer) Close(ctx context.Context) {
+	if err := i.db.Close(ctx); err != nil {
+		slog.Error("error closing db connection", "error", err)
+	}
+
 	i.wg.Wait()
 }
 

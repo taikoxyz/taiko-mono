@@ -72,7 +72,9 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Close(ctx context.Context) {
-
+	if err := s.db.Close(ctx); err != nil {
+		slog.Error("error closing db connection", "error", err)
+	}
 }
 
 func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
