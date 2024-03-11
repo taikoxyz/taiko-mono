@@ -38,7 +38,7 @@ var (
 	}
 )
 
-var IndexerFlags = MergeFlags(DatabaseFlags, []cli.Flag{
+var IndexerFlags = MergeFlags(DatabaseFlags, CommonFlags, []cli.Flag{
 	StartingBlockID,
 	RPCUrl,
 	BeaconURL,

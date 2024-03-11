@@ -17,6 +17,6 @@ var (
 	}
 )
 
-var ServerFlags = MergeFlags(DatabaseFlags, []cli.Flag{
+var ServerFlags = MergeFlags(DatabaseFlags, CommonFlags, []cli.Flag{
 	Port,
 })
