@@ -7,17 +7,13 @@ import "./BytesUtils.sol";
 /// @title SigVerifyLib
 /// @custom:security-contact security@taiko.xyz
 // Library for verifying signatures
-// Supports verifying signatures with the following algorithms:
-// - RS256
-// - ES256
-// - RS1
 contract SigVerifyLib is ISigVerifyLib {
     using BytesUtils for bytes;
 
-    address private ES256VERIFIER;
+    address private __es256Verifier;
 
     constructor(address es256Verifier) {
-        ES256VERIFIER = es256Verifier;
+        __es256Verifier = es256Verifier;
     }
 
     function verifyES256Signature(
@@ -44,7 +40,7 @@ contract SigVerifyLib is ISigVerifyLib {
 
         // Verify signature
         bytes memory args = abi.encode(sha256(tbs), r, s, gx, gy);
-        (bool success, bytes memory ret) = ES256VERIFIER.staticcall(args);
+        (bool success, bytes memory ret) = __es256Verifier.staticcall(args);
         assert(success); // never reverts, always returns 0 or 1
 
         return abi.decode(ret, (uint256)) == 1;
