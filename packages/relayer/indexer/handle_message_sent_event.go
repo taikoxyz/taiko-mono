@@ -86,6 +86,12 @@ func (i *Indexer) handleMessageSentEvent(
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
+	// only add messages with new status to queue
+	if eventStatus != relayer.EventStatusNew {
+		slog.Info("event status is not new, skipping")
+		return nil
+	}
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -121,6 +127,8 @@ func (i *Indexer) handleMessageSentEvent(
 		return errors.Wrap(err, "i.queue.Publish")
 	}
 
+	relayer.MessageSentEventsIndexed.Inc()
+
 	return nil
 }
 
@@ -143,12 +151,6 @@ func (i *Indexer) eventStatusFromMsgHash(
 	}
 
 	eventStatus = relayer.EventStatus(messageStatus)
-	if eventStatus == relayer.EventStatusNew {
-		if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
-			// if gasLimit is 0, relayer can not process this.
-			eventStatus = relayer.EventStatusNewOnlyOwner
-		}
-	}
 
 	return eventStatus, nil
 }

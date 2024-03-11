@@ -5,48 +5,13 @@ import (
 	"encoding/json"
 	"math/big"
 
-	"log/slog"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
-func (i *Indexer) saveMessageStatusChangedEvents(
-	ctx context.Context,
-	chainID *big.Int,
-	events *bridge.BridgeMessageStatusChangedIterator,
-) error {
-	if !events.Next() || events.Event == nil {
-		slog.Info("no messageStatusChanged events")
-		return nil
-	}
-
-	for {
-		event := events.Event
-
-		slog.Info("messageStatusChanged", "msgHash", common.Hash(event.MsgHash).Hex())
-
-		if err := i.detectAndHandleReorg(
-			ctx,
-			relayer.EventNameMessageStatusChanged,
-			common.Hash(event.MsgHash).Hex(),
-		); err != nil {
-			return errors.Wrap(err, "i.detectAndHandleReorg")
-		}
-
-		if err := i.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
-			return errors.Wrap(err, "i.saveMessageStatusChangedEvent")
-		}
-
-		if !events.Next() {
-			return nil
-		}
-	}
-}
-
-func (i *Indexer) saveMessageStatusChangedEvent(
+func (i *Indexer) handleMessageStatusChangedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageStatusChanged,
@@ -80,6 +45,8 @@ func (i *Indexer) saveMessageStatusChangedEvent(
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.Save")
 	}
+
+	relayer.MessageStatusChangedEventsIndexed.Inc()
 
 	return nil
 }

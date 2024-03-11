@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +20,7 @@ func Test_canProcessMessage(t *testing.T) {
 		eventStatus    relayer.EventStatus
 		messageOwner   common.Address
 		relayerAddress common.Address
+		gasLimit       *big.Int
 		want           bool
 	}{
 		{
@@ -26,6 +28,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusNew,
 			relayerAddr,
 			relayerAddr,
+			big.NewInt(5),
 			true,
 		},
 		{
@@ -33,6 +36,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusDone,
 			relayerAddr,
 			relayerAddr,
+			big.NewInt(5),
 			false,
 		},
 		{
@@ -40,13 +44,15 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusRetriable,
 			relayerAddr,
 			relayerAddr,
+			big.NewInt(5),
 			false,
 		},
 		{
-			"cantProcess, eventStatusNewOnlyOwner and relayer is not owner",
-			relayer.EventStatusNewOnlyOwner,
+			"cantProcess, eventStatusNew , gasLimit 0, and relayer is not owner",
+			relayer.EventStatusNew,
 			common.HexToAddress("0x"),
 			relayerAddr,
+			big.NewInt(0),
 			false,
 		},
 		{
@@ -54,13 +60,15 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusFailed,
 			common.HexToAddress("0x"),
 			relayerAddr,
+			big.NewInt(5),
 			false,
 		},
 		{
-			"canProcess, eventStatusOnlyOwner and relayer address is owner",
-			relayer.EventStatusNewOnlyOwner,
+			"canProcess, eventStatusNew, gasLimit 0, and relayer address is owner",
+			relayer.EventStatusNew,
 			relayerAddr,
 			relayerAddr,
+			big.NewInt(0),
 			true,
 		},
 	}
@@ -72,6 +80,7 @@ func Test_canProcessMessage(t *testing.T) {
 				tt.eventStatus,
 				tt.messageOwner,
 				tt.relayerAddress,
+				tt.gasLimit,
 			)
 
 			assert.Equal(t, tt.want, canProcess)

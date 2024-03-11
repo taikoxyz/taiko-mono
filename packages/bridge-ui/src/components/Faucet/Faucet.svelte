@@ -64,7 +64,8 @@
 
     try {
       const txHash = await mint(selectedToken, $connectedSourceChain.id);
-      const explorer = chainConfig[$connectedSourceChain.id].urls.explorer;
+
+      const explorer = chainConfig[$connectedSourceChain.id]?.blockExplorers?.default.url;
 
       infoToast({
         title: $t('faucet.mint.tx.title'),

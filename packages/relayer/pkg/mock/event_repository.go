@@ -139,7 +139,10 @@ func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 	syncedChainId uint64,
 	blockNumber uint64,
 ) (*relayer.Event, error) {
-	return nil, nil
+	return &relayer.Event{
+		ID:      rand.Int(), // nolint: gosec
+		ChainID: MockChainID.Int64(),
+	}, nil
 }
 
 func (r *EventRepository) LatestChainDataSyncedEvent(

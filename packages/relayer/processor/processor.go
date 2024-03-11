@@ -38,6 +38,8 @@ type DB interface {
 	GormDB() *gorm.DB
 }
 
+// ethClient is a slimmed down interface of a go-ethereum ethclient.Client
+// we can use for mocking and testing
 type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
@@ -50,6 +52,9 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 }
 
+// hop is a struct which needs to be created based on the config parameters
+// for a hop. Each hop is an intermediary hop - if we are just processing
+// srcChain to destChain, we should have no hops.
 type hop struct {
 	chainID              *big.Int
 	signalServiceAddress common.Address
@@ -60,6 +65,8 @@ type hop struct {
 	blockNum             uint64
 }
 
+// Processor is the main struct which handles message processing and queue
+// instantiation
 type Processor struct {
 	cancel context.CancelFunc
 
@@ -115,6 +122,7 @@ type Processor struct {
 	cfg *Config
 }
 
+// InitFromCli creates a new processor from a cli context
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
@@ -155,6 +163,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	hops := []hop{}
 
+	// iteraate over all the hop configs and create a hop struct
+	// which can be used to generate hop proofs
 	for _, hopConfig := range cfg.hopConfigs {
 		var hopEthClient *ethclient.Client
 
@@ -354,6 +364,8 @@ func (p *Processor) Start() error {
 	// via eventloop.
 
 	if err := p.queue.Start(ctx, p.queueName()); err != nil {
+		slog.Error("error starting queue", "error", err)
+
 		return err
 	}
 
@@ -382,6 +394,8 @@ func (p *Processor) queueName() string {
 	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), relayer.EventNameMessageSent)
 }
 
+// eventLoop is the main event loop of a Processor which should read
+// messages from a queue and then process them.
 func (p *Processor) eventLoop(ctx context.Context) {
 	defer func() {
 		p.wg.Done()
@@ -392,23 +406,27 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-p.msgCh:
-			go func(msg queue.Message) {
-				err := p.processMessage(ctx, msg)
+			go func(m queue.Message) {
+				shouldRequeue, err := p.processMessage(ctx, m)
 
 				if err != nil {
+					// if the message is unprocessable, we just acknowledge it and move on.
 					if errors.Is(err, errUnprocessable) {
-						if err := p.queue.Ack(ctx, msg); err != nil {
+						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					} else {
 						slog.Error("process message failed", "err", err.Error())
 
-						if err = p.queue.Nack(ctx, msg); err != nil {
+						// we want to negatively acknowledge the message and requeue it if we
+						// encountered an error, but the message is processable.
+						if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
 				} else {
-					if err := p.queue.Ack(ctx, msg); err != nil {
+					// otherwise if no error, we can acknowledge it successfully.
+					if err := p.queue.Ack(ctx, m); err != nil {
 						slog.Error("Err acking message", "err", err.Error())
 					}
 				}

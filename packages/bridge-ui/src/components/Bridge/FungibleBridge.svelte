@@ -45,7 +45,7 @@
     <div class="space-y-[30px] mt-[30px]">
       {#if activeStep === BridgeSteps.IMPORT}
         <!-- IMPORT STEP -->
-        <ImportStep />
+        <ImportStep bind:hasEnoughEth />
       {:else if activeStep === BridgeSteps.REVIEW}
         <!-- REVIEW STEP -->
         <ReviewStep

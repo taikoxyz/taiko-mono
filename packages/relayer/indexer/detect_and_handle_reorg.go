@@ -8,6 +8,8 @@ import (
 	"log/slog"
 )
 
+// detectAndHandleReorg will look up an event in the database to see if we have seen this event
+// before. If we have , we need to delete it before re-indexing.
 func (i *Indexer) detectAndHandleReorg(ctx context.Context, eventType string, msgHash string) error {
 	// dont check on crawling past blocks, it will be a secondary indexer.
 	// we expect to see duplicates in this mode.

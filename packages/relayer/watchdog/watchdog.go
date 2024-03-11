@@ -148,7 +148,10 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 
 	watchdogAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	var q queue.Queue
+	q, err := cfg.OpenQueueFunc()
+	if err != nil {
+		return err
+	}
 
 	w.eventRepo = eventRepository
 	w.suspendedTxRepo = suspendedTxRepo
@@ -197,6 +200,8 @@ func (w *Watchdog) Start() error {
 	w.cancel = cancel
 
 	if err := w.queue.Start(ctx, w.queueName()); err != nil {
+		slog.Error("error starting queue", "error", err)
+
 		return err
 	}
 
@@ -241,7 +246,7 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 				if err != nil {
 					slog.Error("err checking message", "err", err.Error())
 
-					if err := w.queue.Nack(ctx, msg); err != nil {
+					if err := w.queue.Nack(ctx, msg, true); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
 					}
 				} else {

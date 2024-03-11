@@ -8,6 +8,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+// setInitialProcessingBlockByMode takes in a SyncMode and determines how we should
+// start our indexing
 func (i *Indexer) setInitialProcessingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
