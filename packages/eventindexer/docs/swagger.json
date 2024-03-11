@@ -40,7 +40,7 @@
         }
       }
     },
-    "/chartByTask": {
+    "/chart/chartByTask": {
       "get": {
         "consumes": ["application/json"],
         "produces": ["application/json"],
@@ -51,6 +51,20 @@
             "type": "string",
             "description": "task to query",
             "name": "task",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "start date",
+            "name": "start",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "end date",
+            "name": "end",
             "in": "query",
             "required": true
           }
@@ -280,6 +294,12 @@
     "paginate.Page": {
       "type": "object",
       "properties": {
+        "error": {
+          "type": "boolean"
+        },
+        "error_message": {
+          "type": "string"
+        },
         "first": {
           "type": "boolean"
         },

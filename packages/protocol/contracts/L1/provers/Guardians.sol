@@ -7,9 +7,6 @@ import "../../common/EssentialContract.sol";
 /// @notice A contract that manages a set of guardians and their approvals.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Guardians is EssentialContract {
-    /// @notice The minimum number of guardians
-    uint256 public constant MIN_NUM_GUARDIANS = 5;
-
     /// @notice Contains the index of the guardian in `guardians` plus one (zero means not a
     /// guardian)
     /// @dev Slot 1
@@ -58,15 +55,13 @@ abstract contract Guardians is EssentialContract {
         onlyOwner
         nonReentrant
     {
-        // We need at least MIN_NUM_GUARDIANS and at most 255 guardians (so the approval bits fit in
-        // a uint256)
-        if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
+        // We need at most 255 guardians (so the approval bits fit in a uint256)
+        if (_newGuardians.length == 0 || _newGuardians.length > type(uint8).max) {
             revert INVALID_GUARDIAN_SET();
         }
         // Minimum number of guardians to approve is at least equal or greater than half the
         // guardians (rounded up) and less or equal than the total number of guardians
-        if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
-        {
+        if (_minGuardians == 0 || _minGuardians > _newGuardians.length) {
             revert INVALID_MIN_GUARDIANS();
         }
 
