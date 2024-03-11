@@ -36,6 +36,6 @@ To adjust the slope of the curve to satisfy $R == basefee(2T)/basefee(T)$, we si
 
 ## Implementation Difference
 
-Our implementation computes the basefee prior to applying the gas used by the most recent block (indicated by the blue line in the image below), in contrast to Vitalik's concept, which calculates the average basefee using the gas consumption of the latest block (represented by the red line).
+Our implementation computes the basefee prior to applying the gas used by the current block (indicated by the blue line in the image below), in contrast to Vitalik's concept, which calculates the average basefee by also taking into account the gas consumption of the current block (represented by the red line).
 
 ![Merkle Proof](./images/1559.png)
