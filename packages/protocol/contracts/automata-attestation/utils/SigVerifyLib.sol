@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../interfaces/ISigVerifyLib.sol";
-import "./RsaVerify.sol";
 import "./BytesUtils.sol";
 
 /// @title SigVerifyLib
