@@ -33,3 +33,9 @@ It turns out the initial value of gasExcess doesn't really matter for the above 
 ## Adjust the slope
 
 To adjust the slope of the curve to satisfy $R == basefee(2T)/basefee(T)$, we simply need to choose $M$ and $b_0$. $b_0$ is simply to decide -- if we believe the cost of a L2 transaction is $1/n$ of the same L1 transaction, we simply use the current L1 base fee divided by $n$. Then we can simply tune $M$ to make sure $R == basefee(2T)/basefee(T)$ holds. This is very simply manually a try-and-adjust approach as shown in `Lib1559Math.t.sol`. The TaikoL1 contract will check if $R == basefee(2T)/basefee(T)$ holds but will not calculate $M$ for us.
+
+## Implementation Difference
+
+Our implementation computes the basefee prior to applying the gas used by the most recent block (indicated by the blue line in the image below), in contrast to Vitalik's concept, which calculates the average basefee using the gas consumption of the latest block (represented by the red line).
+
+![Merkle Proof](./images/1559.png)
