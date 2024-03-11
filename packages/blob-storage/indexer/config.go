@@ -7,12 +7,10 @@ import (
 )
 
 type Config struct {
-	IndexPastBlocks bool
 	StartingBlockID *uint64
 	RPCURL          string
 	BeaconURL       string
 	ContractAddress common.Address
-	EventHash       string
 	DBHost          string
 	DBPort          int
 	DBUsername      string

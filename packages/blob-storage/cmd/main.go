@@ -9,6 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/indexer"
+	"github.com/taikoxyz/taiko-mono/packages/blob-storage/server"
 	"github.com/urfave/cli/v2"
 )
 
@@ -39,16 +40,16 @@ func main() {
 			Name:        "indexer",
 			Flags:       flags.IndexerFlags,
 			Usage:       "Starts the blobcatcher software",
-			Description: "Taiko relayer blobcatcher software",
+			Description: "Taiko blobcatcher indexer software",
 			Action:      utils.SubcommandAction(new(indexer.Indexer)),
 		},
-		// {
-		// 	Name:        "server",
-		// 	Flags:       flags.ServerFlags,
-		// 	Usage:       "Starts the server software",
-		// 	Description: "Taiko relayer server software",
-		// 	Action:      utils.SubcommandAction(new(server.Server)),
-		// },
+		{
+			Name:        "server",
+			Flags:       flags.ServerFlags,
+			Usage:       "Starts the server software",
+			Description: "Taiko blobcatcher server software",
+			Action:      utils.SubcommandAction(new(server.Server)),
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {

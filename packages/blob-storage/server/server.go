@@ -1,4 +1,4 @@
-package http
+package server
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	mongodb "github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db"
+	"github.com/urfave/cli/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -29,16 +30,38 @@ type Server struct {
 	port   int
 }
 
-func NewServer(db *mongodb.MongoDBClient, dbName string, port int) *Server {
-	return &Server{
-		db:     db,
-		dbName: dbName,
-		port:   port,
+func (s *Server) InitFromCli(ctx context.Context, c *cli.Context) error {
+	cfg, err := NewConfigFromCliContext(c)
+	if err != nil {
+		return err
 	}
+
+	return InitFromConfig(ctx, s, cfg)
+}
+
+// InitFromConfig inits a new Server from a provided Config struct
+func InitFromConfig(ctx context.Context, s *Server, cfg *Config) (err error) {
+	db, err := mongodb.NewMongoDBClient(mongodb.MongoDBConfig{
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		Username: cfg.DBUsername,
+		Password: cfg.DBPassword,
+		Database: cfg.DBDatabase,
+	})
+	if err != nil {
+		return err
+	}
+
+	s.db = db
+	s.dbName = cfg.DBDatabase
+	s.port = int(cfg.Port)
+
+	return nil
 }
 
 func (s *Server) Start() error {
 	slog.Info("Server started!")
+
 	r := mux.NewRouter()
 
 	// Handler functions
@@ -46,6 +69,10 @@ func (s *Server) Start() error {
 
 	http.Handle("/", r)
 	return http.ListenAndServe(fmt.Sprintf(":%v", s.port), nil)
+}
+
+func (s *Server) Close(ctx context.Context) {
+
 }
 
 func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +102,10 @@ func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) Name() string {
+	return "server"
 }
 
 // getBlobData retrieves blob data from MongoDB based on blobHashes.

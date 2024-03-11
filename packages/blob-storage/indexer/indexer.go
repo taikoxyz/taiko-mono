@@ -43,6 +43,7 @@ type Indexer struct {
 	db          *mongodb.MongoDBClient
 	cfg         *Config
 	wg          *sync.WaitGroup
+	ctx         context.Context
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -83,37 +84,99 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.startHeight = cfg.StartingBlockID
 	i.db = db
 	i.wg = &sync.WaitGroup{}
+	i.ctx = ctx
 
 	return nil
 }
 
 func (i *Indexer) Start() error {
-	if i.startHeight == nil {
-		i.wg.Add(1)
+	i.wg.Add(1)
 
-		go func() {
-			i.subscribe(context.Background())
-		}()
-		return nil
-	}
-
-	opts := &bind.FilterOpts{
-		Start: *i.startHeight,
-	}
-
-	_, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (i *Indexer) subscribe(ctx context.Context) {
 	defer func() {
 		i.wg.Done()
 	}()
 
+	if i.startHeight == nil {
+		go func() {
+			i.subscribe(i.ctx)
+		}()
+		return nil
+	}
+
+	// get the latest header
+	header, err := i.ethClient.HeaderByNumber(i.ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// the end block is the latest header.
+	endBlockID := header.Number.Uint64()
+
+	var defaultBlockBatchSize uint64 = 50
+
+	slog.Info("fetching batch block events",
+		"startHeight", i.startHeight,
+		"endblock", endBlockID,
+		"batchsize", defaultBlockBatchSize,
+	)
+	processingBlockHeight := *i.startHeight
+
+	for j := processingBlockHeight; j < endBlockID; j += defaultBlockBatchSize {
+		end := processingBlockHeight + uint64(defaultBlockBatchSize)
+		// if the end of the batch is greater than the latest block number, set end
+		// to the latest block number
+		if end > endBlockID {
+			end = endBlockID
+		}
+
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
+		filterEnd := end - 1
+
+		slog.Info("block batch", "start", j, "end", filterEnd)
+
+		opts := &bind.FilterOpts{
+			Start:   processingBlockHeight,
+			End:     &filterEnd,
+			Context: i.ctx,
+		}
+
+		_, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	slog.Info(
+		"indexer fully caught up",
+	)
+
+	return i.subscribe(context.Background())
+}
+
+func (i *Indexer) subscribe(ctx context.Context) error {
+	slog.Info("subscribing to new events")
+
+	errChan := make(chan error)
+
+	go i.subscribeBlockProposed(ctx, errChan)
+
+	// nolint: gosimple
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context finished")
+			return nil
+		case err := <-errChan:
+			slog.Info("error encountered during subscription", "error", err)
+
+			return err
+		}
+	}
+}
+
+func (i *Indexer) subscribeBlockProposed(ctx context.Context, errChan chan error) {
 	sink := make(chan *taikol1.TaikoL1BlockProposed)
 
 	sub := event.ResubscribeErr(1*time.Second, func(ctx context.Context, err error) (event.Subscription, error) {
@@ -136,8 +199,9 @@ func (i *Indexer) subscribe(ctx context.Context) {
 			slog.Info("context finished")
 			return
 		case err := <-sub.Err():
-			slog.Error("error encountered during subscription", "error", err)
+			errChan <- err
 		case e := <-sink:
+			slog.Info("blockProposed event found", "blockId", e.BlockId, "blobUsed", e.Meta.BlobUsed)
 			go func() {
 				if err := i.storeBlob(e); err != nil {
 					slog.Error("error countered storing blob", "error", err)
@@ -145,11 +209,10 @@ func (i *Indexer) subscribe(ctx context.Context) {
 			}()
 		}
 	}
-
 }
 
 func (i *Indexer) Close(ctx context.Context) {
-
+	i.wg.Wait()
 }
 
 func (i *Indexer) Name() string {
