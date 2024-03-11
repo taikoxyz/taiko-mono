@@ -156,7 +156,7 @@ func (i *Indexer) Start() error {
 
 		// wait for the last of the goroutines to finish
 		if err := group.Wait(); err != nil {
-			return errors.Wrap(err, "group.Wait")
+			return err
 		}
 
 	}
@@ -219,7 +219,7 @@ func (i *Indexer) subscribeBlockProposed(ctx context.Context, errChan chan error
 		case e := <-sink:
 			slog.Info("blockProposed event found", "blockId", e.BlockId, "blobUsed", e.Meta.BlobUsed)
 			go func() {
-				if err := i.storeBlob(e); err != nil {
+				if err := i.storeBlob(ctx, e); err != nil {
 					slog.Error("error countered storing blob", "error", err)
 				}
 			}()
@@ -239,10 +239,10 @@ func (i *Indexer) Name() string {
 	return "indexer"
 }
 
-func (i *Indexer) onBlockProposed(event *taikol1.TaikoL1BlockProposed) error {
+func (i *Indexer) onBlockProposed(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
 	slog.Info("blockProposed event", "blobUsed", event.Meta.BlobUsed, "l1BlobHeight", event.Meta.L1Height+1)
 	if event.Meta.BlobUsed {
-		if err := i.storeBlob(event); err != nil {
+		if err := i.storeBlob(ctx, event); err != nil {
 			slog.Error("Error storing blob", "error", err)
 			return err
 		}
