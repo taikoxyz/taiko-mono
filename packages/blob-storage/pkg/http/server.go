@@ -1,24 +1,39 @@
-package logic
+package http
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	mongodb "github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type Server struct {
-	cfg *Config
+type resp struct {
+	Data []blobData `json:"data"`
 }
 
-func NewServer(cfg *Config) *Server {
+type blobData struct {
+	Blob          string `json:"blob"`
+	KzgCommitment string `json:"kzg_commitment"`
+}
+
+type Server struct {
+	db     *mongodb.MongoDBClient
+	dbName string
+	port   int
+}
+
+func NewServer(db *mongodb.MongoDBClient, dbName string, port int) *Server {
 	return &Server{
-		cfg: cfg,
+		db:     db,
+		dbName: dbName,
+		port:   port,
 	}
 }
 
@@ -30,7 +45,7 @@ func (s *Server) Start() error {
 	r.HandleFunc("/getBlob", s.getBlobHandler).Methods("GET")
 
 	http.Handle("/", r)
-	return http.ListenAndServe(s.cfg.Server.Port, nil)
+	return http.ListenAndServe(fmt.Sprintf(":%v", s.port), nil)
 }
 
 func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,54 +55,36 @@ func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := GetBlobData(s.cfg, strings.Split(blobHashes[0], ","))
+	data, err := s.getBlobData(strings.Split(blobHashes[0], ","))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 
-	response := struct {
-		Data []struct {
-			Blob          string `json:"blob"`
-			KzgCommitment string `json:"kzg_commitment"`
-		} `json:"data"`
-	}{}
+	response := resp{
+		Data: make([]blobData, 0),
+	}
 
 	// Convert data to the correct type
 	for _, d := range data {
-		response.Data = append(response.Data, struct {
-			Blob          string `json:"blob"`
-			KzgCommitment string `json:"kzg_commitment"`
-		}{Blob: d.Blob, KzgCommitment: d.KzgCommitment})
+		response.Data = append(response.Data, blobData{
+			Blob:          d.Blob,
+			KzgCommitment: d.KzgCommitment,
+		},
+		)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetBlobData retrieves blob data from MongoDB based on blobHashes.
-func GetBlobData(cfg *Config, blobHashes []string) ([]struct {
-	Blob          string `bson:"blob_data"`
-	KzgCommitment string `bson:"kzg_commitment"`
-}, error) {
-	mongoClient, err := NewMongoDBClient(cfg.MongoDB)
-	if err != nil {
-		return nil, err
-	}
-	defer mongoClient.Close()
+// getBlobData retrieves blob data from MongoDB based on blobHashes.
+func (s *Server) getBlobData(blobHashes []string) ([]blobData, error) {
+	collection := s.db.Client.Database(s.dbName).Collection("blobs")
 
-	collection := mongoClient.Client.Database(cfg.MongoDB.Database).Collection("blobs")
-
-	var results []struct {
-		Blob          string `bson:"blob_data"`
-		KzgCommitment string `bson:"kzg_commitment"`
-	}
+	var results []blobData
 
 	for _, blobHash := range blobHashes {
-		var result struct {
-			Blob          string `bson:"blob_data"`
-			KzgCommitment string `bson:"kzg_commitment"`
-		}
+		var result blobData
 
 		if err := collection.FindOne(context.Background(), bson.M{"blob_hash": blobHash}).Decode(&result); err != nil {
 			if err == mongo.ErrNoDocuments {

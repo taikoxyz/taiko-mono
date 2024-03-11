@@ -1,17 +1,26 @@
-package logic
+package mongodb
 
 import (
 	"context"
-	"log"
 	"strconv"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/exp/slog"
 )
 
 // MongoDBClient holds the MongoDB client instance.
 type MongoDBClient struct {
 	Client *mongo.Client
+}
+
+// MongoDBConfig holds the configuration for MongoDB.
+type MongoDBConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	Database string
 }
 
 // NewMongoDBClient creates a new MongoDB client.
@@ -37,15 +46,22 @@ func NewMongoDBClient(cfg MongoDBConfig) (*MongoDBClient, error) {
 		return nil, err
 	}
 
-	log.Println("Connected to MongoDB")
+	slog.Info("Connected to MongoDB")
 
 	return &MongoDBClient{Client: client}, nil
 }
 
 // Close closes the MongoDB client connection.
-func (mc *MongoDBClient) Close() {
+func (mc *MongoDBClient) Close(ctx context.Context) error {
 	if mc.Client != nil {
-		mc.Client.Disconnect(context.Background())
-		log.Println("Disconnected from MongoDB")
+		if err := mc.Client.Disconnect(ctx); err != nil {
+			slog.Error("error disconnecting from mongodb", "error", err)
+
+			return err
+		}
+
+		slog.Info("Disconnected from MongoDB")
 	}
+
+	return nil
 }
