@@ -23,6 +23,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/exp/slog"
+	"golang.org/x/sync/errgroup"
 )
 
 type Response struct {
@@ -135,12 +136,30 @@ func (i *Indexer) Start() error {
 			Context: i.ctx,
 		}
 
-		_, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
+		group, groupCtx := errgroup.WithContext(i.ctx)
+
+		events, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
 		if err != nil {
 			return err
 		}
-	}
 
+		for events.Next() {
+			event := events.Event
+			group.Go(func() error {
+				if err := i.storeBlob(groupCtx, event); err != nil {
+					slog.Error("error storing blob", "error", err)
+				}
+
+				return nil
+			})
+		}
+
+		// wait for the last of the goroutines to finish
+		if err := group.Wait(); err != nil {
+			return errors.Wrap(err, "group.Wait")
+		}
+
+	}
 	slog.Info(
 		"indexer fully caught up",
 	)
@@ -261,7 +280,9 @@ func calculateBlobHash(commitmentStr string) string {
 	return blobHashString
 }
 
-func (i *Indexer) storeBlob(event *taikol1.TaikoL1BlockProposed) error {
+func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
+	slog.Info("storing blob", "blockID", event.Meta.L1Height+1)
+
 	blockID := event.Meta.L1Height + 1
 	url := fmt.Sprintf("%s/%s", i.beaconURL, blockID)
 	response, err := http.Get(url)
