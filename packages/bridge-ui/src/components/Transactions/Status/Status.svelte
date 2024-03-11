@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { getBalance, switchChain } from '@wagmi/core';
-  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { switchChain } from '@wagmi/core';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Address, parseEther, UserRejectedRequestError } from 'viem';
+  import { UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import {
@@ -13,19 +13,10 @@
   } from '$components/NotificationToast/NotificationToast.svelte';
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
-  import { statusComponent } from '$config';
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
-  import {
-    BridgePausedError,
-    InsufficientBalanceError,
-    InvalidProofError,
-    NotConnectedError,
-    ProcessMessageError,
-    ReleaseError,
-    RetryError,
-  } from '$libs/error';
+  import { BridgePausedError, InvalidProofError, NotConnectedError, ReleaseError } from '$libs/error';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { getLogger } from '$libs/util/logger';
@@ -34,29 +25,23 @@
   import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
-  // import ClaimDialog from '../Dialogs/ClaimDialog/ClaimDialog.svelte';
+  import ClaimDialog from '../Dialogs/ClaimDialog/ClaimDialog.svelte';
   // import RetryDialog from '../Dialogs/RetryDialog/RetryDialog.svelte';
 
   export let bridgeTx: BridgeTransaction;
 
   const log = getLogger('components:Status');
-  const dispatch = createEventDispatcher();
 
   let polling: ReturnType<typeof startPolling>;
 
   // UI state
-  let processable = false; // bridge tx state to be processed: claimed/retried/released
+  let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
   let bridgeTxStatus: Maybe<MessageStatus>;
 
-  enum LoadingState {
-    CLAIMING = 'claiming',
-    RELEASING = 'releasing',
-  }
-
-  let loading: LoadingState | false = false;
+  let loading = false;
 
   function onProcessable(isTxProcessable: boolean) {
-    processable = isTxProcessable;
+    isProcessable = isTxProcessable;
   }
 
   function onStatusChange(status: MessageStatus) {
@@ -75,15 +60,8 @@
     }
   }
 
-  async function checkEnoughBalance(address: Address) {
-    const balance = await getBalance(config, { address });
-    if (balance.value < parseEther(String(statusComponent.minimumEthToClaim))) {
-      throw new InsufficientBalanceError('user has insufficient balance');
-    }
-  }
-
   async function retry() {
-    dispatch('retry', { tx: bridgeTx });
+    // retryModalOpen = true;
   }
 
   async function claim() {
@@ -91,92 +69,7 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-
-    loading = LoadingState.CLAIMING;
-
-    try {
-      const { msgHash, message } = bridgeTx;
-
-      if (!msgHash || !message) {
-        throw new Error('Missing msgHash or message');
-      }
-
-      // Step 1: make sure the user is on the correct chain
-      await ensureCorrectChain(Number($connectedSourceChain.id), Number(bridgeTx.destChainId));
-
-      // Step 2: make sure the user has enough balance on the destination chain
-      await checkEnoughBalance($account.address);
-
-      // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
-      const bridge = bridges[bridgeTx.tokenType];
-
-      // Step 4: get the user's wallet
-      // TODO: do we really need to pass the chainId here? we are already on the dest chain
-      const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
-
-      log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
-
-      // Step 5: Call claim() method on the bridge
-      const txHash = await bridge.claim({ wallet, bridgeTx });
-
-      const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
-
-      infoToast({
-        title: $t('transactions.actions.claim.tx.title'),
-        message: $t('transactions.actions.claim.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      });
-
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-
-      //Todo: just because we have a claim tx doesn't mean it was successful
-      successToast({
-        title: $t('transactions.actions.claim.success.title'),
-        message: $t('transactions.actions.claim.success.message', {
-          values: {
-            network: $connectedSourceChain.name,
-          },
-        }),
-      });
-
-      // We trigger this event to manually to update the UI
-      onStatusChange(MessageStatus.DONE);
-    } catch (err) {
-      console.error(err);
-
-      switch (true) {
-        case err instanceof NotConnectedError:
-          warningToast({ title: $t('messages.account.required') });
-          break;
-        case err instanceof UserRejectedRequestError:
-          warningToast({ title: $t('transactions.actions.claim.rejected.title') });
-          break;
-        case err instanceof InsufficientBalanceError:
-          dispatch('insufficientFunds', { tx: bridgeTx });
-          break;
-        case err instanceof InvalidProofError:
-          errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
-          break;
-        case err instanceof ProcessMessageError:
-          errorToast({ title: $t('bridge.errors.process_message_error') });
-          break;
-        case err instanceof RetryError:
-          errorToast({ title: $t('bridge.errors.retry_error') });
-          break;
-        default:
-          errorToast({
-            title: $t('bridge.errors.unknown_error.title'),
-            message: $t('bridge.errors.unknown_error.message'),
-          });
-          break;
-      }
-    } finally {
-      loading = false;
-    }
+    claimModalOpen = true;
   }
 
   async function release() {
@@ -184,8 +77,6 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-
-    loading = LoadingState.RELEASING;
 
     try {
       const { msgHash, message } = bridgeTx;
@@ -259,12 +150,16 @@
     }
   }
 
+  $: claimModalOpen = false;
+
+  // $: retryModalOpen = false;
+
   onMount(async () => {
-    if (bridgeTx) {
-      bridgeTxStatus = bridgeTx.msgStatus; // get the current status
+    if (bridgeTx && $account?.address) {
+      bridgeTxStatus = bridgeTx.msgStatus;
 
       // Can we start claiming/retrying/releasing?
-      processable = await isTransactionProcessable(bridgeTx);
+      isProcessable = await isTransactionProcessable(bridgeTx);
 
       try {
         polling = startPolling(bridgeTx);
@@ -291,7 +186,7 @@
 </script>
 
 <div class="Status f-items-center space-x-1">
-  {#if !processable}
+  {#if !isProcessable}
     <StatusDot type="pending" />
     <span>{$t('transactions.status.processing.name')}</span>
   {:else if loading}
@@ -320,3 +215,6 @@
     <span>{$t('transactions.status.error.name')}</span>
   {/if}
 </div>
+
+<!-- <RetryDialog item={bridgeTx} bind:loading bind:dialogOpen={retryModalOpen} /> -->
+<ClaimDialog item={bridgeTx} bind:loading bind:dialogOpen={claimModalOpen} />
