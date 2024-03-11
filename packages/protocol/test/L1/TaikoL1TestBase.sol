@@ -124,7 +124,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
+                    TaikoToken.init,
+                    (address(0), "Taiko Token", "TTKOk", address(this), address(addressManager))
                     ),
                 registerTo: address(addressManager)
             })

@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -15,32 +14,58 @@ library LibAddress {
 
     error ETH_TRANSFER_FAILED();
 
-    /// @dev Sends Ether to the specified address.
+    /// @dev Sends Ether to the specified address. This method will not revert even if sending ether
+    /// fails.
+    /// This function is inspired by
+    /// https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
-    function sendEther(address _to, uint256 _amount, uint256 _gasLimit) internal {
+    /// @return success_ true if the call is successful, false otherwise.
+    function sendEther(
+        address _to,
+        uint256 _amount,
+        uint256 _gasLimit,
+        bytes memory _calldata
+    )
+        internal
+        returns (bool success_)
+    {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
-
-        // Attempt to send Ether to the recipient address
-        (bool success,) = ExcessivelySafeCall.excessivelySafeCall(
-            _to,
-            _gasLimit,
-            _amount,
-            64, // return max 64 bytes
-            ""
-        );
-
-        // Ensure the transfer was successful
-        if (!success) revert ETH_TRANSFER_FAILED();
+        // dispatch message to recipient
+        // by assembly calling "handle" function
+        // we call via assembly to avoid memcopying a very large returndata
+        // returned by a malicious contract
+        assembly {
+            success_ :=
+                call(
+                    _gasLimit, // gas
+                    _to, // recipient
+                    _amount, // ether value
+                    add(_calldata, 0x20), // inloc
+                    mload(_calldata), // inlen
+                    0, // outloc
+                    0 // outlen
+                )
+        }
     }
 
-    /// @dev Sends Ether to the specified address.
+    /// @dev Sends Ether to the specified address. This method will revert if sending ether fails.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    function sendEther(address _to, uint256 _amount) internal {
-        sendEther(_to, _amount, gasleft());
+    /// @param _gasLimit The max amount gas to pay for this transaction.
+    function sendEtherAndVerify(address _to, uint256 _amount, uint256 _gasLimit) internal {
+        if (!sendEther(_to, _amount, _gasLimit, "")) {
+            revert ETH_TRANSFER_FAILED();
+        }
+    }
+
+    /// @dev Sends Ether to the specified address. This method will revert if sending ether fails.
+    /// @param _to The recipient address.
+    /// @param _amount The amount of Ether to send in wei.
+    function sendEtherAndVerify(address _to, uint256 _amount) internal {
+        sendEtherAndVerify(_to, _amount, gasleft());
     }
 
     function supportsInterface(

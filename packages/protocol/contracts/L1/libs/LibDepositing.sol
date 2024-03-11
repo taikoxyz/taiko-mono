@@ -38,7 +38,7 @@ library LibDepositing {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        _resolver.resolve("bridge", false).sendEther(msg.value);
+        _resolver.resolve("bridge", false).sendEtherAndVerify(msg.value);
 
         // Append the deposit to the queue.
         address recipient_ = _recipient == address(0) ? msg.sender : _recipient;
