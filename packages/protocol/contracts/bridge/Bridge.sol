@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
-import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
@@ -203,7 +202,7 @@ contract Bridge is EssentialContract, IBridge {
                 // Must reset the context after the message call
                 _resetContext();
             } else {
-                _message.srcOwner.sendEther(_message.value);
+                _message.srcOwner.sendEtherAndVerify(_message.value);
             }
             emit MessageRecalled(msgHash);
         } else if (!isMessageProven) {
@@ -292,11 +291,11 @@ contract Bridge is EssentialContract, IBridge {
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEther(_message.fee + refundAmount);
+                refundTo.sendEtherAndVerify(_message.fee + refundAmount);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEther(_message.fee);
-                refundTo.sendEther(refundAmount);
+                msg.sender.sendEtherAndVerify(_message.fee);
+                refundTo.sendEtherAndVerify(refundAmount);
             }
             emit MessageExecuted(msgHash);
         } else if (!isMessageProven) {
@@ -494,13 +493,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             success_ = false;
         } else {
-            (success_,) = ExcessivelySafeCall.excessivelySafeCall(
-                _message.to,
-                _gasLimit,
-                _message.value,
-                64, // return max 64 bytes
-                _message.data
-            );
+            success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         }
 
         // Must reset the context after the message call
