@@ -214,7 +214,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         }
 
         msgData_ = abi.encodeCall(
-            this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds)
+            IMessageInvocable.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds)
         );
     }
 

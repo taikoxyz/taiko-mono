@@ -44,12 +44,12 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     /// @notice Burns tokens from the specified address.
     /// @param _from The address to burn tokens from.
     /// @param _amount The amount of tokens to burn.
-    function burn(address _from, uint256 _amount) public onlyOwner {
+    function burn(address _from, uint256 _amount) public payable onlyOwner {
         _burn(_from, _amount);
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() public onlyFromOwnerOrNamed("snapshooter") {
+    function snapshot() public payable onlyFromOwnerOrNamed("snapshooter") {
         _snapshot();
     }
 

@@ -278,7 +278,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
         msgData_ = abi.encodeCall(
-            this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds, _op.amounts)
+            IMessageInvocable.onMessageInvocation,
+            abi.encode(ctoken_, _user, _op.to, _op.tokenIds, _op.amounts)
         );
     }
 

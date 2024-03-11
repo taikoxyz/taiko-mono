@@ -76,12 +76,12 @@ contract BridgedERC20 is
 
     /// @notice Set the snapshoter address.
     /// @param _snapshooter snapshooter address.
-    function setSnapshoter(address _snapshooter) external onlyOwner {
+    function setSnapshoter(address _snapshooter) external payable onlyOwner {
         snapshooter = _snapshooter;
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() external onlyOwnerOrSnapshooter {
+    function snapshot() external payable onlyOwnerOrSnapshooter {
         _snapshot();
     }
 

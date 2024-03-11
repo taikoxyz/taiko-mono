@@ -381,7 +381,7 @@ contract ERC20Vault is BaseVault {
         }
 
         msgData_ = abi.encodeCall(
-            this.onMessageInvocation, abi.encode(ctoken_, _user, _to, balanceChange_)
+            IMessageInvocable.onMessageInvocation, abi.encode(ctoken_, _user, _to, balanceChange_)
         );
     }
 

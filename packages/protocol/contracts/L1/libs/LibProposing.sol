@@ -18,7 +18,7 @@ library LibProposing {
     /// @notice The maximum number of bytes allowed per blob.
     /// @dev According to EIP4844, each blob has up to 4096 field elements, and each
     /// field element has 32 bytes.
-    uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
+    uint256 public constant MAX_BYTES_PER_BLOB = 4096 << 5; // same as * 32
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.

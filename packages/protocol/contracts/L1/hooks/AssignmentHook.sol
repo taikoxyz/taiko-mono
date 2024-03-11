@@ -130,7 +130,7 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         // Send all remaining Ether back to TaikoL1 contract
-        if (address(this).balance > 0) {
+        if (address(this).balance != 0) {
             taikoL1Address.sendEtherAndVerify(address(this).balance);
         }
 

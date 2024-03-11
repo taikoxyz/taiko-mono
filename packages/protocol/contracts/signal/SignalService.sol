@@ -52,7 +52,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
     /// @param _addr The address to be authorized or deauthorized.
     /// @param _authorize True if authorize, false otherwise.
-    function authorize(address _addr, bool _authorize) external onlyOwner {
+    function authorize(address _addr, bool _authorize) external payable onlyOwner {
         if (isAuthorized[_addr] == _authorize) revert SS_INVALID_STATE();
         isAuthorized[_addr] = _authorize;
         emit Authorized(_addr, _authorize);
@@ -116,7 +116,7 @@ contract SignalService is EssentialContract, ISignalService {
                 signalService = resolve(hop.chainId, "signal_service", false);
             }
 
-            bool isFullProof = hop.accountProof.length > 0;
+            bool isFullProof = hop.accountProof.length != 0;
 
             _cacheChainData(hop, chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
 

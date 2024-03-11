@@ -137,7 +137,15 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// This transaction should happen on a regular basis, e.g., quarterly.
     /// @param _recipient The grant recipient address.
     /// @param _grant The grant struct.
-    function grant(address _recipient, Grant memory _grant) external onlyOwner nonReentrant {
+    function grant(
+        address _recipient,
+        Grant memory _grant
+    )
+        external
+        payable
+        onlyOwner
+        nonReentrant
+    {
         if (_recipient == address(0)) revert INVALID_PARAM();
         if (recipients[_recipient].grant.amount != 0) revert ALREADY_GRANTED();
 
@@ -152,7 +160,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
     /// @param _recipient The grant recipient address.
-    function void(address _recipient) external onlyOwner nonReentrant {
+    function void(address _recipient) external payable onlyOwner nonReentrant {
         Recipient storage r = recipients[_recipient];
         uint128 amountVoided = _voidGrant(r.grant);
 
@@ -284,9 +292,9 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
 
     function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
         if (_start == 0 || _period == 0) {
-            if (_cliff > 0) revert INVALID_GRANT();
+            if (_cliff != 0) revert INVALID_GRANT();
         } else {
-            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+            if (_cliff != 0 && _cliff <= _start) revert INVALID_GRANT();
             if (_cliff >= _start + _period) revert INVALID_GRANT();
         }
     }

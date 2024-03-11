@@ -191,7 +191,7 @@ library LibProving {
         if (isTopTier) {
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
-            bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
+            bool returnLivenessBond = blk.livenessBond != 0 && _proof.data.length == 32
                 && bytes32(_proof.data) == RETURN_LIVENESS_BOND;
 
             if (returnLivenessBond) {
@@ -251,7 +251,7 @@ library LibProving {
                 // doesn't have any significance.
                 ts.contestBond = tier.contestBond;
                 ts.contester = msg.sender;
-                ts.contestations += 1;
+                ts.contestations = ts.contestations + 1;
 
                 emit TransitionContested({
                     blockId: blk.blockId,
@@ -376,7 +376,7 @@ library LibProving {
             if (_sameTransition) revert L1_ALREADY_PROVED();
             // Contest the existing transition and prove it to be invalid
             reward = _ts.validityBond >> 1;
-            _ts.contestations += 1;
+            _ts.contestations = _ts.contestations + 1;
         }
 
         unchecked {
