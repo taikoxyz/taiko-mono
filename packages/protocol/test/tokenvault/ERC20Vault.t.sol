@@ -85,21 +85,22 @@ contract TestERC20Vault is TaikoTest {
         vm.deal(Carol, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        tko = TaikoToken(
-            deployProxy({
-                name: "taiko_token",
-                impl: address(new TaikoToken()),
-                data: abi.encodeCall(
-                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
-                    )
-            })
-        );
-
         addressManager = AddressManager(
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: abi.encodeCall(AddressManager.init, (address(0)))
+            })
+        );
+
+        tko = TaikoToken(
+            deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: abi.encodeCall(
+                    TaikoToken.init,
+                    (address(0), "Taiko Token", "TTKOk", address(this), address(addressManager))
+                    )
             })
         );
 
