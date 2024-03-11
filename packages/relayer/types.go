@@ -129,8 +129,6 @@ func splitByteArray(data []byte, chunkSize int) [][]byte {
 		}
 
 		chunks = append(chunks, data[i:end])
-
-		slog.Info(common.Bytes2Hex(data[i:end]))
 	}
 
 	return chunks
