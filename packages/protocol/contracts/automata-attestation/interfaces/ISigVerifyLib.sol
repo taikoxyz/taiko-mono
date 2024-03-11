@@ -35,44 +35,6 @@ interface ISigVerifyLib {
         RS1
     }
 
-    function verifyAttStmtSignature(
-        bytes memory tbs,
-        bytes memory signature,
-        PublicKey memory publicKey,
-        Algorithm alg
-    )
-        external
-        view
-        returns (bool);
-
-    function verifyCertificateSignature(
-        bytes memory tbs,
-        bytes memory signature,
-        PublicKey memory publicKey,
-        CertSigAlgorithm alg
-    )
-        external
-        view
-        returns (bool);
-
-    function verifyRS256Signature(
-        bytes memory tbs,
-        bytes memory signature,
-        bytes memory publicKey
-    )
-        external
-        view
-        returns (bool sigValid);
-
-    function verifyRS1Signature(
-        bytes memory tbs,
-        bytes memory signature,
-        bytes memory publicKey
-    )
-        external
-        view
-        returns (bool sigValid);
-
     function verifyES256Signature(
         bytes memory tbs,
         bytes memory signature,
