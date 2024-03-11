@@ -5,8 +5,8 @@ pragma solidity 0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibSignals {
     /// @notice Keccak hash of the string "STATE_ROOT".
-    bytes32 public constant STATE_ROOT = keccak256("STATE_ROOT");
+    bytes32 internal constant STATE_ROOT = keccak256("STATE_ROOT");
 
     /// @notice Keccak hash of the string "SIGNAL_ROOT".
-    bytes32 public constant SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
+    bytes32 internal constant SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
 }

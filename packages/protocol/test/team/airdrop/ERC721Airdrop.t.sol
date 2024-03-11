@@ -67,7 +67,7 @@ contract TestERC721Airdrop is TaikoTest {
 
     uint256 public mintSupply = 5;
 
-    bytes32 public constant merkleRoot = bytes32(uint256(1));
+    bytes32 private constant merkleRoot = bytes32(uint256(1));
     bytes32[] public merkleProof;
     uint64 public claimStart;
     uint64 public claimEnd;

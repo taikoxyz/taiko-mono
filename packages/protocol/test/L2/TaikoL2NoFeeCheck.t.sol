@@ -15,7 +15,7 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
     // Initial salt for semi-random generation
     uint256 salt = 2_195_684_615_435_261_315_311;
     // same as `block_gas_limit` in foundry.toml
-    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
+    uint32 private constant BLOCK_GAS_LIMIT = 30_000_000;
 
     address public addressManager;
     SkipBasefeeCheckL2 public L2;

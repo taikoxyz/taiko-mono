@@ -37,7 +37,7 @@ contract AssignmentHook is EssentialContract, IHook {
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
     /// the prover's job to make sure it can get paid within this limit.
-    uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
+    uint256 private constant MAX_GAS_PAYING_PROVER = 50_000;
 
     uint256[50] private __gap;
 

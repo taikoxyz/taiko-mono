@@ -4,8 +4,8 @@
 pragma solidity 0.8.24;
 
 library LibFixedPointMath {
-    uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
-    uint256 public constant SCALING_FACTOR = 1e18; // For fixed point representation factor
+    uint128 internal constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
+    uint256 internal constant SCALING_FACTOR = 1e18; // For fixed point representation factor
 
     error Overflow();
 

@@ -44,13 +44,13 @@ abstract contract BaseNFTVault is BaseVault {
     }
 
     /// @notice ERC1155 interface ID.
-    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 internal constant ERC1155_INTERFACE_ID = 0xd9b67a26;
 
     /// @notice ERC721 interface ID.
-    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+    bytes4 internal constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
     /// @notice Maximum number of tokens that can be transferred per transaction.
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
+    uint256 internal constant MAX_TOKEN_PER_TXN = 10;
 
     /// @notice Mapping to store bridged NFTs and their canonical counterparts.
     mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;

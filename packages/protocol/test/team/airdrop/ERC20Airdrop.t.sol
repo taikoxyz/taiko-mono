@@ -67,7 +67,7 @@ contract TestERC20Airdrop is TaikoTest {
     // Private Key: 0x1dc880d28041a41132437eae90c9e09c3b9e13438c2d0f6207804ceece623395
     address public Lily = 0x3447b15c1b0a27D339C812b98881eC64051068b3;
 
-    bytes32 public constant merkleRoot = bytes32(uint256(1));
+    bytes32 private constant merkleRoot = bytes32(uint256(1));
     bytes32[] public merkleProof;
     uint64 public claimStart;
     uint64 public claimEnd;

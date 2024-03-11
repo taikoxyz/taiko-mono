@@ -16,7 +16,7 @@ contract MockMerkleClaimable is MerkleClaimable {
 contract TestMerkleClaimable is TaikoTest {
     bytes public data = abi.encode(Alice, 100);
 
-    bytes32 public constant merkleRoot =
+    bytes32 private constant merkleRoot =
         0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
     bytes32[] public merkleProof;
     uint64 public claimStart;

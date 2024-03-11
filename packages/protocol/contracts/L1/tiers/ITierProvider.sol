@@ -36,14 +36,14 @@ interface ITierProvider {
 /// @dev Tier ID cannot be zero!
 library LibTiers {
     /// @notice Optimistic tier ID.
-    uint16 public constant TIER_OPTIMISTIC = 100;
+    uint16 internal constant TIER_OPTIMISTIC = 100;
 
     /// @notice SGX tier ID.
-    uint16 public constant TIER_SGX = 200;
+    uint16 internal constant TIER_SGX = 200;
 
     /// @notice SGX + ZKVM tier ID.
-    uint16 public constant TIER_SGX_ZKVM = 300;
+    uint16 internal constant TIER_SGX_ZKVM = 300;
 
     /// @notice Guardian tier ID.
-    uint16 public constant TIER_GUARDIAN = 1000;
+    uint16 internal constant TIER_GUARDIAN = 1000;
 }

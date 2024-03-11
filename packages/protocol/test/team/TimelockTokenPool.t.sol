@@ -25,7 +25,7 @@ contract TestTimelockTokenPool is TaikoTest {
     ERC20 tko = new MyERC20(Vault);
     ERC20 usdc = new USDC(Alice);
 
-    uint128 public constant ONE_TKO_UNIT = 1e18;
+    uint128 private constant ONE_TKO_UNIT = 1e18;
 
     // 0.01 USDC if decimals are 6 (as in our test)
     uint64 strikePrice1 = uint64(10 ** usdc.decimals() / 100);

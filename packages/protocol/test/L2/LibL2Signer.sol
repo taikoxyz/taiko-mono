@@ -8,8 +8,8 @@ import "../thirdparty/LibUint512Math.sol";
 /// @dev It uses precomputed values for optimized signature creation.
 library LibL2Signer {
     // Constants related to the golden touch signature.
-    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant GOLDEN_TOUCH_PRIVATEKEY =
+    address private constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+    uint256 private constant GOLDEN_TOUCH_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
     // Precomputed curve constants.

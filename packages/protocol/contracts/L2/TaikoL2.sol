@@ -32,7 +32,7 @@ contract TaikoL2 is CrossChainOwned {
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
     /// @notice The number of L2 blocks to wait before syncing L1 block details.
-    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
+    uint8 private constant BLOCK_SYNC_THRESHOLD = 5;
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.

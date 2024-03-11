@@ -26,11 +26,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @notice The expiry time for the SGX instance.
-    uint64 public constant INSTANCE_EXPIRY = 180 days;
+    uint64 private constant INSTANCE_EXPIRY = 180 days;
 
     /// @notice A security feature, a delay until an instance is enabled when using onchain RA
     /// verification
-    uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
+    uint64 private constant INSTANCE_VALIDITY_DELAY = 1 days;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
     /// set a new pub key, just write storage once.

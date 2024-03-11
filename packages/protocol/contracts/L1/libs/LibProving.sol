@@ -19,10 +19,10 @@ library LibProving {
     using SafeERC20 for IERC20;
 
     /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
-    bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
+    bytes32 private constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
 
     /// @notice The tier name for optimistic proofs.
-    bytes32 public constant TIER_OP = bytes32("tier_optimistic");
+    bytes32 private constant TIER_OP = bytes32("tier_optimistic");
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a transition is proved.

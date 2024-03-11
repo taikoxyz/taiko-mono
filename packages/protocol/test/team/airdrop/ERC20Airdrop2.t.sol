@@ -27,7 +27,7 @@ contract MockERC20Airdrop2 is ERC20Airdrop2 {
 contract TestERC20Airdrop2 is TaikoTest {
     address public owner = randAddress();
 
-    bytes32 public constant merkleRoot = bytes32(uint256(1));
+    bytes32 private constant merkleRoot = bytes32(uint256(1));
     bytes32[] public merkleProof;
     uint64 public claimStart;
     uint64 public claimEnd;

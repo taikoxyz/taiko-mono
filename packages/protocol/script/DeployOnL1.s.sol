@@ -36,9 +36,9 @@ import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployOnL1 is DeployCapability {
-    uint256 public constant NUM_GUARDIANS = 5;
+    uint256 private constant NUM_GUARDIANS = 5;
 
-    address public constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd;
+    address private constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd;
 
     address securityCouncil =
         block.chainid == 1 ? MAINNET_SECURITY_COUNCIL : vm.envAddress("SECURITY_COUNCIL");

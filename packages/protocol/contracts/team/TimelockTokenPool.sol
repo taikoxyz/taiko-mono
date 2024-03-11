@@ -56,7 +56,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
         Grant grant;
     }
 
-    bytes32 public constant TYPED_HASH = keccak256("Withdrawal(address to)");
+    bytes32 private constant TYPED_HASH = keccak256("Withdrawal(address to)");
 
     /// @notice The Taiko token address.
     address public taikoToken;
