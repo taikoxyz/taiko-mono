@@ -16,12 +16,19 @@ import (
 //			@Summary		Get time series data for displaying charts
 //			@ID			   	get-charts-by-task
 //		    @Param			task	query		string		true	"task to query"
+//		    @Param			start	query		string		true	"start date"
+//		    @Param			end	query		string		true	"end date"
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} eventindexer.ChartResponse
-//			@Router			/chartByTask [get]
+//			@Router			/chart/chartByTask [get]
 func (srv *Server) GetChartByTask(c echo.Context) error {
-	cached, found := srv.cache.Get(c.QueryParam("task") + c.QueryParam("fee_token_address") + c.QueryParam("tier"))
+	cacheKey := c.QueryParam("task") +
+		c.QueryParam("fee_token_address") +
+		c.QueryParam("tier") +
+		c.QueryParam("start") +
+		c.QueryParam("end")
+	cached, found := srv.cache.Get(cacheKey)
 
 	var chart *eventindexer.ChartResponse
 
@@ -43,7 +50,7 @@ func (srv *Server) GetChartByTask(c echo.Context) error {
 		}
 
 		srv.cache.Set(
-			c.QueryParam("task")+c.QueryParam("fee_token_address")+c.QueryParam("tier"),
+			cacheKey,
 			chart,
 			cache.DefaultExpiration,
 		)

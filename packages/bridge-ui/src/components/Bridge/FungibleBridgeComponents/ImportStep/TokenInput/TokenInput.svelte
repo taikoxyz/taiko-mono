@@ -38,6 +38,7 @@
   const log = getLogger('TokenInput');
 
   export let validInput = false;
+  export let hasEnoughEth: boolean = false;
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
@@ -280,7 +281,7 @@
       <div class="f-row items-center gap-1">
         <Icon type="info-circle" size={15} fillClass="fill-tertiary-content" /><span
           class="text-sm text-tertiary-content"
-          >{$t('recipient.label')} <ProcessingFee textOnly class="text-tertiary-content" /></span>
+          >{$t('recipient.label')} <ProcessingFee textOnly class="text-tertiary-content" bind:hasEnoughEth /></span>
       </div>
     {:else if showInsufficientBalanceAlert}
       <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />

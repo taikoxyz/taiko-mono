@@ -5,7 +5,8 @@ import "../thirdparty/solmate/LibFixedPointMath.sol";
 
 /// @title Lib1559Math
 /// @notice Implements e^(x) based bonding curve for EIP-1559
-/// @dev See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
+/// @dev See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082 but some minor
+/// difference as stated in docs/eip1559_on_l2.md.
 /// @custom:security-contact security@taiko.xyz
 library Lib1559Math {
     error EIP1559_INVALID_PARAMS();
