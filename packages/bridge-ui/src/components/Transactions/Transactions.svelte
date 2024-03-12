@@ -100,7 +100,12 @@
     loadingTxs = false;
   };
 
-  $: $account?.address && $account.isConnected, refresh();
+  let previousAccount: Account | null = null;
+  // refresh only if previous account is different from current account
+  $: if (($account && previousAccount && $account.address !== previousAccount.address) || !previousAccount) {
+    refresh();
+    previousAccount = $account;
+  }
 
   $: statusFilteredTransactions =
     selectedStatus !== null ? transactions.filter((tx) => tx.msgStatus === selectedStatus) : transactions;
