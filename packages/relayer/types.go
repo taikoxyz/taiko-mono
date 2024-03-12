@@ -74,8 +74,6 @@ var (
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain, or context is cancelled.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	slog.Info("beginning waiting for confirmations", "txHash", txHash.Hex())
-
 	checkConfs := func() error {
 		receipt, err := confirmer.TransactionReceipt(ctx, txHash)
 		if err != nil {
@@ -88,19 +86,10 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		}
 
 		want := receipt.BlockNumber.Uint64() + confirmations
-		slog.Info(
-			"waiting for confirmations",
-			"txHash", txHash.Hex(),
-			"confirmations", confirmations,
-			"blockNumWillbeConfirmed", want,
-			"latestBlockNum", latest,
-		)
 
-		if latest < receipt.BlockNumber.Uint64()+confirmations {
+		if latest < want {
 			return errStillWaiting
 		}
-
-		slog.Info("done waiting for confirmations", "txHash", txHash.Hex(), "confirmations", confirmations)
 
 		return nil
 	}

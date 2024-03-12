@@ -48,6 +48,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Kind:                   opts.Kind,
 		SyncedInBlockID:        opts.SyncedInBlockID,
 		BlockID:                opts.BlockID,
+		EmittedBlockID:         opts.EmittedBlockID,
 	}
 
 	if err := r.db.GormDB().Create(e).Error; err != nil {
@@ -213,12 +214,12 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(block_id), 0)
+	q := `SELECT COALESCE(MAX(block_id), 0) 
 	FROM events WHERE chain_id = ? AND dest_chain_id = ? AND event = ?`
 
 	var b uint64
 
-	if err := r.db.GormDB().Table("events").Raw(q).Scan(&b).Error; err != nil {
+	if err := r.db.GormDB().Table("events").Raw(q, srcChainID, destChainID, event).Scan(&b).Error; err != nil {
 		return 0, err
 	}
 

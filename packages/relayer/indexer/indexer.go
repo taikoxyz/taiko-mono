@@ -233,6 +233,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.cfg = cfg
 
+	i.ctx = ctx
+
 	return nil
 }
 
@@ -251,8 +253,6 @@ func (i *Indexer) Close(ctx context.Context) {
 // and start filtering or subscribing depending on the WatchMode provided.
 // nolint: funlen
 func (i *Indexer) Start() error {
-	i.ctx = context.Background()
-
 	if err := i.queue.Start(i.ctx, i.queueName()); err != nil {
 		slog.Error("error starting queue", "error", err)
 		return err
@@ -309,6 +309,8 @@ func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
 			}
 
 			filtering = true
+
+			slog.Info("event loop ticker")
 
 			if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
 				return err
@@ -421,7 +423,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
 
-	group, groupCtx := errgroup.WithContext(ctx)
+	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
 	first := true
@@ -438,13 +440,13 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 		}
 
 		group.Go(func() error {
-			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event, true)
+			err := i.handleMessageSentEvent(ctx, i.srcChainId, event, true)
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
-			} else {
-				slog.Info("handled messagesent event successfully")
+
+				return err
 			}
 
 			return nil
@@ -485,7 +487,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterMessageReceived")
 	}
 
-	group, groupCtx := errgroup.WithContext(ctx)
+	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
 	first := true
@@ -502,13 +504,13 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 		}
 
 		group.Go(func() error {
-			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event, true)
+			err := i.handleMessageReceivedEvent(ctx, i.srcChainId, event, true)
 			if err != nil {
 				relayer.MessageReceivedEventsIndexingErrors.Inc()
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
-			} else {
-				slog.Info("handled message received event successfully")
+
+				return err
 			}
 
 			return nil
@@ -534,20 +536,20 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 	}
 
-	group, groupCtx := errgroup.WithContext(ctx)
+	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
 	for events.Next() {
 		event := events.Event
 
 		group.Go(func() error {
-			err := i.handleMessageStatusChangedEvent(groupCtx, i.srcChainId, event)
+			err := i.handleMessageStatusChangedEvent(ctx, i.srcChainId, event)
 			if err != nil {
 				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling messageStatusChanged", "err", err.Error())
-			} else {
-				slog.Info("handled messageStatusChanged event successfully")
+
+				return err
 			}
 
 			return nil
@@ -558,8 +560,6 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}
-
-	slog.Info("done indexing messageStatusChanged events")
 
 	return nil
 }
@@ -582,21 +582,21 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterChainDataSynced")
 	}
 
-	group, groupCtx := errgroup.WithContext(ctx)
+	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
 	for chainDataSyncedEvents.Next() {
 		event := chainDataSyncedEvents.Event
 
 		group.Go(func() error {
-			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event, true)
+			err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event, true)
 			if err != nil {
 				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
 
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling chainDataSynced", "err", err.Error())
-			} else {
-				slog.Info("handled chainDataSynced event successfully")
+
+				return err
 			}
 
 			return nil
@@ -607,8 +607,6 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}
-
-	slog.Info("done indexing chainDataSynced events")
 
 	return nil
 }

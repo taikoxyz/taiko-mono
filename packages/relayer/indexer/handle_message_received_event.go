@@ -43,11 +43,6 @@ func (i *Indexer) handleMessageReceivedEvent(
 		return nil
 	}
 
-	// check if we have seen this event and msgHash before - if we have, it is being reorged.
-	if err := i.detectAndHandleReorg(ctx, i.eventName, common.Hash(event.MsgHash).Hex()); err != nil {
-		return errors.Wrap(err, "svc.detectAndHandleReorg")
-	}
-
 	// we should never see an empty msgHash, but if we do, we dont process.
 	if event.MsgHash == relayer.ZeroHash {
 		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
