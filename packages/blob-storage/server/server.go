@@ -16,12 +16,12 @@ import (
 )
 
 type resp struct {
-	Data []blobData `json:"data"`
+	Data []blobData `bson:"data" json:"data"`
 }
 
 type blobData struct {
-	Blob          string `json:"blob"`
-	KzgCommitment string `json:"kzg_commitment"`
+	Blob          string `bson:"blob_hash" json:"blob_hash"`
+	KzgCommitment string `bson:"kzg_commitment" json:"kzg_commitment"`
 }
 
 type Server struct {
