@@ -41,6 +41,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 		if latestProcessedBlock.Height != 0 {
 			startingBlock = latestProcessedBlock.Height - 1
 		}
+	case Resync:
 	default:
 		return relayer.ErrInvalidMode
 	}
