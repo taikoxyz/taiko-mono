@@ -5,6 +5,7 @@
 
   import { CloseButton } from '$components/Button';
   import { errorToast, warningToast } from '$components/NotificationToast';
+  import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
   import {
@@ -30,6 +31,13 @@
   export let dialogOpen = false;
 
   export let loading = false;
+  export const handleClaimClick = async () => {
+    ClaimComponent.claim();
+  };
+
+  const handleAccountChange = () => {
+    activeStep = ClaimSteps.INFO;
+  };
 
   let claimingDone = false;
 
@@ -41,10 +49,6 @@
   };
 
   let ClaimComponent: Claim;
-
-  export const handleClaimClick = async () => {
-    ClaimComponent.claim();
-  };
 
   export let activeStep: ClaimSteps = ClaimSteps.INFO;
 
@@ -99,13 +103,13 @@
 </script>
 
 <dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
-  <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute">
+  <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute md:min-h-[600px]">
     <CloseButton onClick={closeDialog} />
-    <div class="w-full">
+    <div class="w-full h-full f-col">
       <h3 class="title-body-bold mb-7">Claim your assets</h3>
       <DialogStepper>
         <DialogStep stepIndex={ClaimSteps.INFO} currentStepIndex={activeStep} isActive={activeStep === ClaimSteps.INFO}
-          >TODO: Basic info step</DialogStep>
+          >Prerequisites</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.REVIEW}
           currentStepIndex={activeStep}
@@ -124,7 +128,7 @@
         <ClaimConfirmStep tx={item} on:claim={handleClaimClick} />
       {/if}
 
-      <div class="f-col text-left gap-4">
+      <div class="f-col text-left gap-4 self-end w-full absolute bottom-0 left-0 px-[24px] py-[35px]">
         <ClaimStepNavigation
           bind:activeStep
           bind:loading
@@ -143,3 +147,5 @@
   on:error={handleClaimError}
   claiming={loading}
   bind:claimingDone />
+
+<OnAccount change={handleAccountChange} />

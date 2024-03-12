@@ -36,15 +36,6 @@
     }
   }
 
-  // async function checkEnoughBalance(address: Address) {
-
-  //   // const balance = await getBalance(config, { address });
-  //   // TODO!!!#
-  //   // if (balance.value < parseEther(String(statusComponent.minimumEthToClaim))) {
-  //   //   throw new InsufficientBalanceError('user has insufficient balance');
-  //   // }
-  // }
-
   export const claim = async () => {
     if (!$account.address) {
       throw new NotConnectedError('User is not connected');
@@ -62,18 +53,15 @@
       // Step 1: make sure the user is on the correct chain
       await ensureCorrectChain(Number($connectedSourceChain.id), Number(bridgeTx.destChainId));
 
-      // Step 2: make sure the user has enough balance on the destination chain
-      // await checkEnoughBalance($account.address);
-
-      // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
+      // Step 2: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
       const bridge = bridges[bridgeTx.tokenType];
 
-      // Step 4: get the user's wallet
+      // Step 3: get the user's wallet
       const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
 
       log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
-      // Step 5: Call claim() method on the bridge
+      // Step 4: Call claim() method on the bridge
       const txHash = await bridge.claim({ wallet, bridgeTx });
 
       const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
