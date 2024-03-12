@@ -12,7 +12,7 @@ func Test_Start(t *testing.T) {
 	svc, bridge := newTestService(Sync, FilterAndSubscribe)
 	b := bridge.(*mock.Bridge)
 
-	svc.processingBlockHeight = 0
+	svc.latestIndexedBlockNumber = 0
 
 	go func() {
 		_ = svc.Start()
@@ -44,7 +44,7 @@ func Test_Start_alreadyCaughtUp(t *testing.T) {
 	svc, bridge := newTestService(Sync, FilterAndSubscribe)
 	b := bridge.(*mock.Bridge)
 
-	svc.processingBlockHeight = mock.LatestBlockNumber.Uint64()
+	svc.latestIndexedBlockNumber = mock.LatestBlockNumber.Uint64()
 
 	go func() {
 		_ = svc.Start()

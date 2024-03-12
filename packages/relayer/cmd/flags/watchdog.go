@@ -19,8 +19,6 @@ var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	// optional
 	Confirmations,
 	ConfirmationTimeout,
-	BackOffRetryInterval,
-	BackOffMaxRetrys,
 	QueuePrefetchCount,
 	DestBridgeAddress,
 	SrcBridgeAddress,

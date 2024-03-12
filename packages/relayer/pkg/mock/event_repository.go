@@ -152,3 +152,17 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 ) (uint64, error) {
 	return 5, nil
 }
+
+// DeleteAllAfterBlockID is used when a reorg is detected
+func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error {
+	return nil
+}
+
+// GetLatestBlockID get latest block id
+func (r *EventRepository) FindLatestBlockID(
+	event string,
+	srcChainID uint64,
+	destChainID uint64,
+) (uint64, error) {
+	return 5, nil
+}

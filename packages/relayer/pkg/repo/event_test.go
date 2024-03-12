@@ -120,6 +120,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 			relayer.SaveEventOpts{
 				Name:                   "test",
 				ChainID:                big.NewInt(1),
+				DestChainID:            big.NewInt(2),
 				Data:                   "{\"data\":\"something\"}",
 				EventType:              relayer.EventType(relayer.EventTypeSendETH),
 				CanonicalTokenAddress:  "0x1",
@@ -130,6 +131,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 				MsgHash:                "0x1",
 				MessageOwner:           "0x1",
 				Event:                  relayer.EventNameMessageSent,
+				EmittedBlockID:         1,
 			},
 			nil,
 		},
@@ -179,6 +181,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 					relayer.SaveEventOpts{
 						Name:                   "test",
 						ChainID:                big.NewInt(1),
+						DestChainID:            big.NewInt(2),
 						Data:                   "{\"data\":\"something\"}",
 						EventType:              relayer.EventTypeSendETH,
 						CanonicalTokenAddress:  "0x1",
@@ -189,6 +192,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 						MsgHash:                "0x1",
 						MessageOwner:           "0x1",
 						Event:                  relayer.EventNameMessageSent,
+						EmittedBlockID:         1,
 					},
 				)
 				assert.Equal(t, nil, err)
@@ -217,6 +221,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		Name:                   "name",
 		Data:                   fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
 		ChainID:                big.NewInt(1),
+		DestChainID:            big.NewInt(2),
 		Status:                 relayer.EventStatusDone,
 		EventType:              relayer.EventTypeSendETH,
 		CanonicalTokenAddress:  "0x1",
@@ -227,6 +232,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		MsgHash:                "0x1",
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageSent,
+		EmittedBlockID:         1,
 	})
 
 	assert.Equal(t, nil, err)
@@ -235,6 +241,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		Name:                   "name",
 		Data:                   fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
 		ChainID:                big.NewInt(1),
+		DestChainID:            big.NewInt(2),
 		Status:                 relayer.EventStatusDone,
 		EventType:              relayer.EventTypeSendERC20,
 		CanonicalTokenAddress:  "0x1",
@@ -245,6 +252,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		MsgHash:                "0x1",
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageSent,
+		EmittedBlockID:         1,
 	})
 	assert.Equal(t, nil, err)
 
@@ -252,6 +260,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		Name:                   "name",
 		Data:                   fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
 		ChainID:                big.NewInt(1),
+		DestChainID:            big.NewInt(2),
 		Status:                 relayer.EventStatusDone,
 		EventType:              relayer.EventTypeSendERC20,
 		CanonicalTokenAddress:  "0x2",
@@ -262,6 +271,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		MsgHash:                "0x2",
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageStatusChanged,
+		EmittedBlockID:         1,
 	})
 	assert.Equal(t, nil, err)
 
@@ -431,6 +441,7 @@ func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 		Name:                   "name",
 		Data:                   fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
 		ChainID:                big.NewInt(1),
+		DestChainID:            big.NewInt(2),
 		Status:                 relayer.EventStatusDone,
 		EventType:              relayer.EventTypeSendETH,
 		CanonicalTokenAddress:  "0x1",
@@ -440,6 +451,7 @@ func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 		Amount:                 "1",
 		MsgHash:                "0x1",
 		MessageOwner:           addr.Hex(),
+		EmittedBlockID:         1,
 	})
 	assert.Equal(t, nil, err)
 	tests := []struct {

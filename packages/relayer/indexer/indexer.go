@@ -90,7 +90,7 @@ type Indexer struct {
 	blockRepo    relayer.BlockRepository
 	srcEthClient ethClient
 
-	processingBlockHeight uint64
+	latestIndexedBlockNumber uint64
 
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
@@ -124,6 +124,8 @@ type Indexer struct {
 	mu *sync.Mutex
 
 	eventName string
+
+	cfg *Config
 }
 
 // InitFromCli inits a new Indexer from command line or environment variables.
@@ -238,6 +240,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.eventName = cfg.EventName
 
+	i.cfg = cfg
+
 	return nil
 }
 
@@ -263,45 +267,6 @@ func (i *Indexer) Start() error {
 		return err
 	}
 
-	i.wg.Add(1)
-
-	go func() {
-		defer func() {
-			i.wg.Done()
-		}()
-
-		if err := i.filter(i.ctx); err != nil {
-			slog.Error("error filtering blocks", "error", err.Error())
-		}
-	}()
-
-	go func() {
-		if err := backoff.Retry(func() error {
-			return scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
-			slog.Error("scan blocks backoff retry", "error", err)
-		}
-	}()
-
-	go func() {
-		if err := backoff.Retry(func() error {
-			return i.queue.Notify(i.ctx, i.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
-			slog.Error("queue notify backoff retry", "error", err)
-		}
-	}()
-
-	return nil
-}
-
-// filter is the main function run by Start in the indexer, which should filter on a loop,
-// then if desired to subscribe, start subscriptions to events when done filtering.
-func (i *Indexer) filter(ctx context.Context) error {
-	// if subscribing to new events, skip filtering and subscribe only.
-	if i.watchMode == Subscribe {
-		return i.subscribe(ctx, i.srcChainId, i.destChainId)
-	}
-
 	syncMode := i.syncMode
 
 	// always use Resync when crawling past blocks
@@ -310,28 +275,66 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	// set the initial processing block, which will vary by sync mode.
-	if err := i.setInitialProcessingBlockByMode(ctx, syncMode, i.srcChainId); err != nil {
-		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
+	if err := i.setInitialIndexingBlockByMode(i.ctx, syncMode, i.srcChainId); err != nil {
+		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
+
+	i.wg.Add(1)
+
+	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
+
+	return nil
+}
+
+func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
+	defer func() {
+		i.wg.Done()
+	}()
+
+	t := time.NewTicker(10 * time.Second)
+
+	defer t.Stop()
+
+	var filtering bool = false
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("event loop context done")
+			return nil
+		case <-t.C:
+			func() {
+				defer func() {
+					filtering = false
+				}()
+			}()
+
+			if filtering {
+				continue
+			}
+
+			filtering = true
+
+			if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// filter is the main function run by Start in the indexer
+func (i *Indexer) filter(ctx context.Context) error {
+	n, err := i.eventRepo.FindLatestBlockID(i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	if err != nil {
+		return err
+	}
+
+	i.latestIndexedBlockNumber = n
 
 	// get the latest header
 	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
-	}
-
-	// compare it to the processing block height, set above. if its equal to the latest block,
-	// we dont actually need to filter - we should just subscribe, given our watch mode is not "Filter".
-	if i.processingBlockHeight == header.Number.Uint64() {
-		if i.watchMode == Filter {
-			slog.Info("indexing caught up", "chainID", i.srcChainId.Uint64())
-
-			return nil
-		}
-
-		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", i.srcChainId.Uint64())
-
-		return i.subscribe(ctx, i.srcChainId, i.destChainId)
 	}
 
 	// the end block is the latest header.
@@ -344,9 +347,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
 
-			i.processingBlockHeight = *i.targetBlockNumber
+			i.latestIndexedBlockNumber = *i.targetBlockNumber
 
-			endBlockID = i.processingBlockHeight + 1
+			endBlockID = i.latestIndexedBlockNumber + 1
 		} else if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
 			// otherwise, we need to set the endBlockID as the greater of the two:
 			// either the endBlockID minus the number of latest blocks to ignore,
@@ -357,38 +360,33 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	slog.Info("fetching batch block events",
 		"chainID", i.srcChainId.Uint64(),
-		"processingBlockHeight", i.processingBlockHeight,
+		"latestIndexedBlockNumber", i.latestIndexedBlockNumber,
 		"endblock", endBlockID,
 		"batchsize", i.blockBatchSize,
 		"watchMode", i.watchMode,
 	)
 
-	// iterate through from the starting block (i.processingBlockHeight) through the
+	// iterate through from the starting block (i.latestIndexedBlockNumber) through the
 	// latest block (endBlockID) in batches of i.blockBatchSize until we are finished.
-	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
-		end := i.processingBlockHeight + i.blockBatchSize
+	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
+		end := i.latestIndexedBlockNumber + i.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > endBlockID {
 			end = endBlockID
 		}
 
-		// filter exclusive of the end block.
-		// we use "end" as the next starting point of the batch, and
-		// process up to end - 1 for this batch.
-		filterEnd := end - 1
-
-		slog.Info("block batch", "start", j, "end", filterEnd)
+		slog.Info("block batch", "start", j, "end", end)
 
 		filterOpts := &bind.FilterOpts{
-			Start:   i.processingBlockHeight,
-			End:     &filterEnd,
+			Start:   i.latestIndexedBlockNumber,
+			End:     &end,
 			Context: ctx,
 		}
 
 		switch i.eventName {
 		case relayer.EventNameMessageSent:
-			if err := i.indexMessageSentEvents(ctx, filterOpts); err != nil {
+			if err := i.withRetry(func() error { return i.indexMessageSentEvents(ctx, filterOpts) }); err != nil {
 				return errors.Wrap(err, "i.indexMessageSentEvents")
 			}
 
@@ -397,66 +395,25 @@ func (i *Indexer) filter(ctx context.Context) error {
 			// we want to index all three event types when indexing MessageSent events,
 			// since they are related.
 			if i.watchMode != CrawlPastBlocks {
-				if err := i.indexMessageStatusChangedEvents(ctx, filterOpts); err != nil {
+				if err := i.withRetry(func() error { return i.indexMessageStatusChangedEvents(ctx, filterOpts) }); err != nil {
 					return errors.Wrap(err, "i.indexMessageStatusChangedEvents")
 				}
 
 				// we also want to index chain data synced events.
-				if err := i.indexChainDataSyncedEvents(ctx, filterOpts); err != nil {
+				if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
 					return errors.Wrap(err, "i.indexChainDataSyncedEvents")
 				}
 			}
 		case relayer.EventNameMessageReceived:
-			if err := i.indexMessageReceivedEvents(ctx, filterOpts); err != nil {
+			if err := i.withRetry(func() error { return i.indexMessageReceivedEvents(ctx, filterOpts) }); err != nil {
 				return errors.Wrap(err, "i.indexMessageReceivedEvents")
 			}
 		}
 
-		// handle no events remaining, saving the processing block and continuing on
-		// to the next batch.
-		if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
-			return errors.Wrap(err, "i.handleNoEventsInBatch")
-		}
+		i.latestIndexedBlockNumber = end
 	}
 
-	slog.Info(
-		"indexer fully caught up",
-	)
-
-	// if we are crawling past blocks, we dont want to continue, we want to repeat the loop above
-	// recursively.
-	if i.watchMode == CrawlPastBlocks {
-		slog.Info("restarting filtering from genesis")
-		return i.filter(ctx)
-	}
-
-	slog.Info("getting latest block to see if header has advanced")
-
-	latestBlock, err := i.srcEthClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
-	}
-
-	if i.processingBlockHeight < latestBlock.Number.Uint64() {
-		slog.Info("header has advanced",
-			"processingBlockHeight", i.processingBlockHeight,
-			"latestBlock", latestBlock.Number.Uint64(),
-		)
-
-		return i.filter(ctx)
-	}
-
-	// we are caught up and specified not to subscribe, we can return now and the indexer
-	// is finished it's job.
-	if i.watchMode == Filter {
-		return nil
-	}
-
-	// otherwise, we subscribe to new events
-
-	slog.Info("processing is caught up to latest block, subscribing to new blocks")
-
-	return i.subscribe(ctx, i.srcChainId, i.destChainId)
+	return nil
 }
 
 // indexMessageSentEvents indexes `MessageSent` events on the bridge contract
@@ -472,11 +429,20 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
+	first := true
+
 	for events.Next() {
 		event := events.Event
 
+		if first {
+			first = false
+			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				return err
+			}
+		}
+
 		group.Go(func() error {
-			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event, false)
+			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event, true)
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				// log error but always return nil to keep other goroutines active
@@ -497,6 +463,21 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	return nil
 }
 
+func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) error {
+	n, err := i.eventRepo.FindLatestBlockID(i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	if err != nil {
+		return err
+	}
+
+	if n >= emittedInBlockNumber {
+		slog.Info("reorg detected", "event emitted in", emittedInBlockNumber, "latest emitted block id from db", n)
+		// reorg detected, we have seen a higher block number than this already.
+		return i.eventRepo.DeleteAllAfterBlockID(emittedInBlockNumber, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	}
+
+	return nil
+}
+
 // indexMessageReceivedEvents indexes `MessageReceived` events on the bridge contract
 // and stores them to the database, and adds the message to the queue if it has not been
 // seen before.
@@ -511,11 +492,20 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
+	first := true
+
 	for events.Next() {
 		event := events.Event
 
+		if first {
+			first = false
+			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				return err
+			}
+		}
+
 		group.Go(func() error {
-			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event, false)
+			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event, true)
 			if err != nil {
 				relayer.MessageReceivedEventsIndexingErrors.Inc()
 				// log error but always return nil to keep other goroutines active
@@ -602,7 +592,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		event := chainDataSyncedEvents.Event
 
 		group.Go(func() error {
-			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event, false)
+			err := i.handleChainDataSyncedEvent(groupCtx, i.srcChainId, event, true)
 			if err != nil {
 				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
 
@@ -630,4 +620,18 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 // use to listen to events.
 func (i *Indexer) queueName() string {
 	return fmt.Sprintf("%v-%v-%v-queue", i.srcChainId.String(), i.destChainId.String(), i.eventName)
+}
+
+// withRetry retries the given function with prover backoff policy.
+func (i *Indexer) withRetry(f func() error) error {
+	return backoff.Retry(
+		func() error {
+			if i.ctx.Err() != nil {
+				slog.Error("Context is done, aborting", "error", i.ctx.Err())
+				return nil
+			}
+			return f()
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
+	)
 }

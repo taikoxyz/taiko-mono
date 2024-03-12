@@ -8,9 +8,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-// setInitialProcessingBlockByMode takes in a SyncMode and determines how we should
+// setInitialIndexingBlockByMode takes in a SyncMode and determines how we should
 // start our indexing
-func (i *Indexer) setInitialProcessingBlockByMode(
+func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 	chainID *big.Int,
@@ -23,7 +23,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 			return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
 		}
 
-		startingBlock = stateVars.A.GenesisHeight
+		startingBlock = stateVars.A.GenesisHeight - 1
 	}
 
 	switch mode {
@@ -39,16 +39,13 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 		}
 
 		if latestProcessedBlock.Height != 0 {
-			startingBlock = latestProcessedBlock.Height
+			startingBlock = latestProcessedBlock.Height - 1
 		}
-
-		i.processingBlockHeight = startingBlock
-
-		return nil
-	case Resync:
-		i.processingBlockHeight = startingBlock
-		return nil
 	default:
 		return relayer.ErrInvalidMode
 	}
+
+	i.latestIndexedBlockNumber = startingBlock
+
+	return nil
 }

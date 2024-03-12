@@ -98,6 +98,18 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
 	}
+	BackOffRetryInterval = &cli.Uint64Flag{
+		Name:     "backoff.retryInterval",
+		Usage:    "Retry interval in seconds when there is an error",
+		Category: processorCategory,
+		Value:    12,
+	}
+	BackOffMaxRetrys = &cli.Uint64Flag{
+		Name:     "backoff.maxRetrys",
+		Usage:    "Max retry times when there is an error",
+		Category: processorCategory,
+		Value:    3,
+	}
 )
 
 // All common flags.
@@ -116,6 +128,8 @@ var CommonFlags = []cli.Flag{
 	MetricsHTTPPort,
 	ETHClientTimeout,
 	SrcSignalServiceAddress,
+	BackOffMaxRetrys,
+	BackOffRetryInterval,
 }
 
 // MergeFlags merges the given flag slices.

@@ -25,8 +25,8 @@ func (indxr *Indexer) filterThenSubscribe(
 		return indxr.subscribe(ctx, chainID)
 	}
 
-	if err := indxr.setInitialProcessingBlockByMode(ctx, indxr.syncMode, chainID); err != nil {
-		return errors.Wrap(err, "indxr.setInitialProcessingBlockByMode")
+	if err := indxr.setInitialIndexingBlockByMode(ctx, indxr.syncMode, chainID); err != nil {
+		return errors.Wrap(err, "indxr.setInitialIndexingBlockByMode")
 	}
 
 	header, err := indxr.ethClient.HeaderByNumber(ctx, nil)

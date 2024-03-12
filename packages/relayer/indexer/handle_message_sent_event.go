@@ -106,6 +106,7 @@ func (i *Indexer) handleMessageSentEvent(
 		event.Message.SrcOwner.Hex(),
 		event.Message.Data,
 		event.Message.Value,
+		event.Raw.BlockNumber,
 	)
 	if err != nil {
 		return errors.Wrap(err, "i.saveEventToDB")
