@@ -32,10 +32,10 @@ type Config struct {
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
-		DatabaseHost:            c.String(flags.DBHost.Name),
-		DatabaseUsername:        c.String(flags.DBUsername.Name),
-		DatabasePassword:        c.String(flags.DBPassword.Name),
-		DatabaseName:            c.String(flags.DBDatabase.Name),
+		DatabaseHost:            c.String(flags.DatabaseHost.Name),
+		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
+		DatabasePassword:        c.String(flags.DatabasePassword.Name),
+		DatabaseName:            c.String(flags.DatabaseName.Name),
 		DatabaseMaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 		DatabaseMaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),

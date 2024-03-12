@@ -42,13 +42,13 @@ func (r *BlobHashRepository) FindLatestBlockID() (uint64, error) {
 	q := `SELECT COALESCE(MAX(block_id), 0)
 	FROM blob_hashes`
 
-	var b *blobstorage.BlobHash
+	var b uint64
 
 	if err := r.startQuery().Raw(q).Scan(&b).Error; err != nil {
 		return 0, err
 	}
 
-	return b.BlockID, nil
+	return b, nil
 }
 
 func (r *BlobHashRepository) FirstByBlobHash(blobHash string) (*blobstorage.BlobHash, error) {
