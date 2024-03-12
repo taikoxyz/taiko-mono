@@ -572,10 +572,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        returns (bool)
+        returns (bool success_)
     {
-        return ISignalService(_signalService).proveSignalReceived(
-            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
+        bytes memory data = abi.encodeCall(
+            ISignalService.proveSignalReceived,
+            (_chainId, resolve(_chainId, "bridge", false), _signal, _proof)
         );
+        (success_,) = _signalService.sendEther(0, gasleft(), data);
     }
 }
