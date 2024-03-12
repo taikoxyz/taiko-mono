@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,10 +30,6 @@ func (p *Processor) waitHeaderSynced(
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-ticker.C:
-			slog.Info("waitHeaderSynced checking if tx is processable",
-				"blockNumber", blockNum,
-			)
-
 			event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
 				ctx,
 				hopChainId,
@@ -46,30 +41,8 @@ func (p *Processor) waitHeaderSynced(
 			}
 
 			if event != nil {
-				slog.Info("waitHeaderSynced done waiting",
-					"blockNumToWaitToBeSynced", blockNum,
-					"blockNumFromDB", event.BlockID,
-					"eventSyncedBlock", event.SyncedInBlockID,
-				)
-
 				return event, nil
 			}
-
-			latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
-				ctx,
-				hopChainId,
-				chainId.Uint64(),
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			slog.Info("waitHeaderSynced waiting to be caughtUp",
-				"eventOccuredBlockNum", blockNum,
-				"latestSyncedBlockID", latestBlockID,
-				"srcChainID", chainId.Uint64(),
-				"destChainId", hopChainId,
-			)
 		}
 	}
 }
