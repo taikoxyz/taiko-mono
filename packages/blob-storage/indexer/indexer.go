@@ -217,7 +217,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 			}
 
 			group.Go(func() error {
-				if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
+				if err := i.withRetry(func() error { return i.filter(groupCtx) }); err != nil {
 					return err
 				}
 
