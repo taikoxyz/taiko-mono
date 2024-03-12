@@ -214,7 +214,7 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(block_id), 0) 
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
 	FROM events WHERE chain_id = ? AND dest_chain_id = ? AND event = ?`
 
 	var b uint64
