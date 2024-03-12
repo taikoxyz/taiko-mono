@@ -36,7 +36,7 @@ contract FairMintRewardToken is ERC20 {
         return START_MINT_AMOUNT * (END_BLOCK - block.number) / (END_BLOCK - START_BLOCK);
     }
 
-    function transfer(address, uint256) public virtual override returns (bool) {
+    function transfer(address, uint256) public override returns (bool) {
         revert UNSUPPORTED();
     }
 }
