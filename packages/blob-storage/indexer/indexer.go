@@ -284,7 +284,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	slog.Info("storing blob", "blockID", event.Meta.L1Height+1)
 
 	blockID := event.Meta.L1Height + 1
-	url := fmt.Sprintf("%s/%s", i.beaconURL, blockID)
+	url := fmt.Sprintf("%s/%v", i.beaconURL, blockID)
 	response, err := http.Get(url)
 	if err != nil {
 		return err

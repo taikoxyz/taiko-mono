@@ -627,6 +627,11 @@
             "name": "parentMetaHash",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       },
@@ -1047,6 +1052,11 @@
             "name": "parentMetaHash",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       },
@@ -1178,6 +1188,11 @@
             "name": "parentMetaHash",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       },
