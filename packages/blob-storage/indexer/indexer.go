@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/event"
 	blobstorage "github.com/taikoxyz/taiko-mono/packages/blob-storage"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/bindings/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/repo"
@@ -37,15 +37,16 @@ type Response struct {
 
 // Indexer struct holds the configuration and state for the Ethereum chain listener.
 type Indexer struct {
-	beaconURL    string
-	ethClient    *ethclient.Client
-	startHeight  *uint64
-	taikoL1      *taikol1.TaikoL1
-	db           DB
-	blobHashRepo blobstorage.BlobHashRepository
-	cfg          *Config
-	wg           *sync.WaitGroup
-	ctx          context.Context
+	beaconURL                string
+	ethClient                *ethclient.Client
+	startHeight              *uint64
+	taikoL1                  *taikol1.TaikoL1
+	db                       DB
+	blobHashRepo             blobstorage.BlobHashRepository
+	cfg                      *Config
+	wg                       *sync.WaitGroup
+	ctx                      context.Context
+	latestIndexedBlockNumber uint64
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -95,18 +96,77 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
-	var processingBlockHeight uint64
+	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
 
-	if i.startHeight != nil {
-		processingBlockHeight = *i.startHeight
-	} else {
-		n, err := i.blobHashRepo.FindLatestBlockID()
-		if err != nil {
-			return err
+	return nil
+}
+
+// eventLoop runs on an interval ticker, every N seconds we will check
+// the latest processed block, and the latest header, and filter every block in between
+// for BlockProposed events, if we are not already filtering. This lets us avoid
+// unreliable subscription issues.
+func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
+	defer func() {
+		i.wg.Done()
+	}()
+
+	t := time.NewTicker(10 * time.Second)
+	defer t.Stop()
+
+	var filtering bool = false
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("event loop context done")
+			return nil
+		case <-t.C:
+			func() {
+				defer func() {
+					filtering = false
+				}()
+			}()
+
+			slog.Info("event loop ticker")
+			if filtering {
+				continue
+			}
+
+			filtering = true
+
+			i.withRetry(func() error { return i.filter(ctx) })
 		}
-
-		processingBlockHeight = n
 	}
+}
+
+// withRetry retries the given function with prover backoff policy.
+func (i *Indexer) withRetry(f func() error) {
+	i.wg.Add(1)
+	go func() {
+		defer i.wg.Done()
+		err := backoff.Retry(
+			func() error {
+				if i.ctx.Err() != nil {
+					slog.Error("Context is done, aborting", "error", i.ctx.Err())
+					return nil
+				}
+				return f()
+			},
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
+		)
+		if err != nil {
+			slog.Error("Operation failed", "error", err)
+		}
+	}()
+}
+
+func (i *Indexer) filter(ctx context.Context) error {
+	n, err := i.blobHashRepo.FindLatestBlockID()
+	if err != nil {
+		return err
+	}
+
+	i.latestIndexedBlockNumber = n
 
 	// get the latest header
 	header, err := i.ethClient.HeaderByNumber(i.ctx, nil)
@@ -120,29 +180,24 @@ func (i *Indexer) Start() error {
 	var defaultBlockBatchSize uint64 = 50
 
 	slog.Info("fetching batch block events",
-		"startHeight", processingBlockHeight,
+		"latestIndexBlockNumber", i.latestIndexedBlockNumber,
 		"endblock", endBlockID,
 		"batchsize", defaultBlockBatchSize,
 	)
 
-	for j := processingBlockHeight; j < endBlockID; j += defaultBlockBatchSize {
-		end := processingBlockHeight + uint64(defaultBlockBatchSize)
+	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += defaultBlockBatchSize {
+		end := j + uint64(defaultBlockBatchSize)
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > endBlockID {
 			end = endBlockID
 		}
 
-		// filter exclusive of the end block.
-		// we use "end" as the next starting point of the batch, and
-		// process up to end - 1 for this batch.
-		filterEnd := end - 1
-
-		slog.Info("block batch", "start", j, "end", filterEnd)
+		slog.Info("block batch", "start", j, "end", end)
 
 		opts := &bind.FilterOpts{
-			Start:   processingBlockHeight,
-			End:     &filterEnd,
+			Start:   j,
+			End:     &end,
 			Context: i.ctx,
 		}
 
@@ -153,12 +208,19 @@ func (i *Indexer) Start() error {
 			return err
 		}
 
+		first := true
+
 		for events.Next() {
 			event := events.Event
-			group.Go(func() error {
-				if err := i.storeBlob(groupCtx, event); err != nil {
-					slog.Error("error storing blob", "error", err)
+			if first {
+				first = false
+				if err := i.checkReorg(ctx, event); err != nil {
+					return err
 				}
+			}
+
+			group.Go(func() error {
+				i.withRetry(func() error { return i.storeBlob(groupCtx, event) })
 
 				return nil
 			})
@@ -169,73 +231,10 @@ func (i *Indexer) Start() error {
 			return err
 		}
 
-		processingBlockHeight += defaultBlockBatchSize
+		i.latestIndexedBlockNumber = end
 	}
-	slog.Info(
-		"indexer fully caught up",
-	)
 
-	return i.subscribe(context.Background())
-}
-
-func (i *Indexer) subscribe(ctx context.Context) error {
-	defer func() {
-		i.wg.Done()
-	}()
-
-	slog.Info("subscribing to new events")
-
-	errChan := make(chan error)
-
-	go i.subscribeBlockProposed(ctx, errChan)
-
-	// nolint: gosimple
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("context finished")
-			return nil
-		case err := <-errChan:
-			slog.Info("error encountered during subscription", "error", err)
-
-			return err
-		}
-	}
-}
-
-func (i *Indexer) subscribeBlockProposed(ctx context.Context, errChan chan error) {
-	sink := make(chan *taikol1.TaikoL1BlockProposed)
-
-	sub := event.ResubscribeErr(1*time.Second, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("event.ResubscribeErr", "error", err)
-		}
-
-		slog.Info("resubscribing to TaikoL1BlockProposed events")
-
-		return i.taikoL1.WatchBlockProposed(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil, nil)
-	})
-
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("context finished")
-			return
-		case err := <-sub.Err():
-			errChan <- err
-		case e := <-sink:
-			slog.Info("blockProposed event found", "blockId", e.BlockId, "blobUsed", e.Meta.BlobUsed)
-			go func() {
-				if err := i.storeBlob(ctx, e); err != nil {
-					slog.Error("error countered storing blob", "error", err)
-				}
-			}()
-		}
-	}
+	return nil
 }
 
 func (i *Indexer) Close(ctx context.Context) {
@@ -244,18 +243,6 @@ func (i *Indexer) Close(ctx context.Context) {
 
 func (i *Indexer) Name() string {
 	return "indexer"
-}
-
-func (i *Indexer) onBlockProposed(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	slog.Info("blockProposed event", "blobUsed", event.Meta.BlobUsed, "l1BlobHeight", event.Meta.L1Height+1)
-	if event.Meta.BlobUsed {
-		if err := i.storeBlob(ctx, event); err != nil {
-			slog.Error("Error storing blob", "error", err)
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (i *Indexer) getBlockTimestamp(rpcURL string, blockNumber *big.Int) (uint64, error) {
@@ -287,8 +274,27 @@ func calculateBlobHash(commitmentStr string) string {
 	return blobHashString
 }
 
+func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
+	n, err := i.blobHashRepo.FindLatestBlockID()
+	if err != nil {
+		return err
+	}
+
+	if n >= event.Raw.BlockNumber {
+		slog.Info("reorg detected", "event emitted in", event.Raw.BlockNumber, "latest emitted block id from db", n)
+		// reorg detected, we have seen a higher block number than this already.
+		return i.blobHashRepo.DeleteAllAfterBlockID(event.Raw.BlockNumber)
+	}
+
+	return nil
+}
+
 func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	slog.Info("storing blob", "blockID", event.Meta.L1Height+1)
+	slog.Info("blockProposed event found", "blockID", event.Meta.L1Height+1, "emittedIn", event.Raw.BlockNumber, "blobUsed", event.Meta.BlobUsed)
+
+	if !event.Meta.BlobUsed {
+		return nil
+	}
 
 	blockID := event.Meta.L1Height + 1
 	url := fmt.Sprintf("%s/%v", i.beaconURL, blockID)
@@ -325,7 +331,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 
 			slog.Info("blockHash", "blobHash", fmt.Sprintf("%v%v", "0x", metaBlobHash))
 
-			err = i.storeBlobInDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64())
+			err = i.storeBlobInDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64(), event.Raw.BlockNumber)
 			if err != nil {
 				slog.Error("Error storing blob in MongoDB", "error", err)
 				return err
@@ -338,12 +344,13 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	return errors.New("BLOB not found")
 }
 
-func (i *Indexer) storeBlobInDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64, blockID uint64) error {
+func (i *Indexer) storeBlobInDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64, blockID uint64, emittedBlockID uint64) error {
 	return i.blobHashRepo.Save(blobstorage.SaveBlobHashOpts{
 		BlobHash:       blobHashInMeta,
 		KzgCommitment:  kzgCommitment,
 		BlockID:        blockID,
 		BlobData:       blob,
 		BlockTimestamp: blockTs,
+		EmittedBlockID: emittedBlockID,
 	})
 }

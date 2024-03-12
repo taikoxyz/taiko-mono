@@ -30,6 +30,7 @@ func (r *BlobHashRepository) Save(opts blobstorage.SaveBlobHashOpts) error {
 		BlockTimestamp: opts.BlockTimestamp,
 		BlobData:       opts.BlobData,
 		BlockID:        opts.BlockID,
+		EmittedBlockID: opts.EmittedBlockID,
 	}
 	if err := r.startQuery().Create(b).Error; err != nil {
 		return err
@@ -39,7 +40,7 @@ func (r *BlobHashRepository) Save(opts blobstorage.SaveBlobHashOpts) error {
 }
 
 func (r *BlobHashRepository) FindLatestBlockID() (uint64, error) {
-	q := `SELECT COALESCE(MAX(block_id), 0)
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
 	FROM blob_hashes`
 
 	var b uint64

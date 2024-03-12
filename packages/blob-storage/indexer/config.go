@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/flags"
@@ -30,6 +31,8 @@ type Config struct {
 	DatabaseMaxIdleConns    uint64
 	DatabaseMaxOpenConns    uint64
 	DatabaseMaxConnLifetime uint64
+	BackOffMaxRetries       uint64
+	BackOffRetryInterval    time.Duration
 	OpenDBFunc              func() (DB, error)
 }
 
@@ -50,6 +53,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 		DatabaseMaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
+		BackOffMaxRetries:       c.Uint64(flags.BackOffMaxRetrys.Name),
+		BackOffRetryInterval:    c.Duration(flags.BackOffRetryInterval.Name),
 		StartingBlockID:         startBlockId,
 		RPCURL:                  c.String(flags.RPCUrl.Name),
 		BeaconURL:               c.String(flags.BeaconURL.Name),

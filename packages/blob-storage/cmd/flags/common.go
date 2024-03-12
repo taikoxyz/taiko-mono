@@ -1,6 +1,8 @@
 package flags
 
-import "github.com/urfave/cli/v2"
+import (
+	"github.com/urfave/cli/v2"
+)
 
 var (
 	commonCategory string = "COMMON"

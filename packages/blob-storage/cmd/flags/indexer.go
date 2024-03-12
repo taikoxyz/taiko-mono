@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -36,6 +38,20 @@ var (
 		Required: true,
 		EnvVars:  []string{"TAIKO_L1_CONTRACT_ADDRESS"},
 	}
+	BackOffMaxRetrys = &cli.Uint64Flag{
+		Name:     "backoff.maxRetrys",
+		Usage:    "Max retry times when there is an error",
+		Category: commonCategory,
+		Value:    10,
+		EnvVars:  []string{"BACKOFF_MAX_RETRIES"},
+	}
+	BackOffRetryInterval = &cli.DurationFlag{
+		Name:     "backoff.retryInterval",
+		Usage:    "Retry interval in seconds when there is an error",
+		Category: commonCategory,
+		Value:    12 * time.Second,
+		EnvVars:  []string{"BACKOFF_RETRY_INTERVAL"},
+	}
 )
 
 var IndexerFlags = MergeFlags(DatabaseFlags, CommonFlags, []cli.Flag{
@@ -43,4 +59,6 @@ var IndexerFlags = MergeFlags(DatabaseFlags, CommonFlags, []cli.Flag{
 	RPCUrl,
 	BeaconURL,
 	ContractAddress,
+	BackOffMaxRetrys,
+	BackOffRetryInterval,
 })
