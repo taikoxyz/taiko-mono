@@ -353,7 +353,6 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         public
-        view
         returns (bool)
     {
         if (_message.srcChainId != block.chainid) return false;
@@ -375,7 +374,6 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         public
-        view
         returns (bool)
     {
         if (_message.destChainId != block.chainid) return false;
@@ -566,7 +564,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    /// @return success_ True if the message was received.
+    /// @return true if the message was received.
     function _proveSignalReceived(
         address _signalService,
         bytes32 _signal,
@@ -574,13 +572,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        view
-        returns (bool success_)
+        returns (bool)
     {
         bytes memory data = abi.encodeCall(
             ISignalService.proveSignalReceived,
             (_chainId, resolve(_chainId, "bridge", false), _signal, _proof)
         );
-        (success_,) = _signalService.staticcall(data);
+        return _signalService.sendEther(0, gasleft(), data);
     }
 }
