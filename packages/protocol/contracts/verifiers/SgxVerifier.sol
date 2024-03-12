@@ -6,6 +6,7 @@ import "../L1/ITaikoL1.sol";
 import "../common/EssentialContract.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "./libs/LibPublicInput.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
@@ -152,42 +153,18 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address newInstance = address(bytes20(_proof.data[4:24]));
+
+        uint64 chainId = ITaikoL1(resolve("taiko", false)).getConfig().chainId;
+
         address oldInstance = ECDSA.recover(
-            getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), _proof.data[24:]
+            LibPublicInput.hashPublicInputs(
+                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, chainId
+            ),
+            _proof.data[24:]
         );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);
-    }
-
-    /// @notice Gets the signed hash for the proof verification.
-    /// @param _tran The transition to verify.
-    /// @param _newInstance The new instance address.
-    /// @param _prover The prover address.
-    /// @param _metaHash The meta hash.
-    /// @return The signed hash.
-    function getSignedHash(
-        TaikoData.Transition memory _tran,
-        address _newInstance,
-        address _prover,
-        bytes32 _metaHash
-    )
-        public
-        view
-        returns (bytes32)
-    {
-        address taikoL1 = resolve("taiko", false);
-        return keccak256(
-            abi.encode(
-                "VERIFY_PROOF",
-                ITaikoL1(taikoL1).getConfig().chainId,
-                address(this),
-                _tran,
-                _newInstance,
-                _prover,
-                _metaHash
-            )
-        );
     }
 
     function _addInstances(
