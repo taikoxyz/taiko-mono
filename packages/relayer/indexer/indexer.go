@@ -431,7 +431,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	for events.Next() {
 		event := events.Event
 
-		if first {
+		if i.watchMode != CrawlPastBlocks && first {
 			first = false
 
 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
@@ -495,7 +495,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 	for events.Next() {
 		event := events.Event
 
-		if first {
+		if i.watchMode != CrawlPastBlocks && first {
 			first = false
 
 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
