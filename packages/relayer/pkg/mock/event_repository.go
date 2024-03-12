@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/rand"
 	"net/http"
 
@@ -26,6 +27,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Data:         datatypes.JSON(opts.Data),
 		Status:       opts.Status,
 		ChainID:      opts.ChainID.Int64(),
+		DestChainID:  opts.DestChainID.Int64(),
 		Name:         opts.Name,
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
@@ -164,5 +166,9 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	return LatestBlockNumber.Uint64(), nil
+	if srcChainID == MockChainID.Uint64() {
+		return LatestBlockNumber.Uint64(), nil
+	}
+
+	return 0, errors.New("invalid")
 }
