@@ -18,6 +18,7 @@
   const dispatch = createEventDispatcher();
 
   export let bridgeTx: BridgeTransaction;
+  export let claimingDone = false;
 
   // export let isProcessable = false;
   // export let bridgeTxStatus: Maybe<MessageStatus>;
@@ -86,7 +87,7 @@
           },
         }),
       });
-
+      claimingDone = true;
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
       //Todo: just because we have a claim tx doesn't mean it was successful

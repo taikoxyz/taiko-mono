@@ -3,7 +3,6 @@
   import { t } from 'svelte-i18n';
 
   import { ActionButton } from '$components/Button';
-  import { StepBack } from '$components/Stepper';
 
   import { ClaimSteps } from './types';
 
@@ -11,7 +10,8 @@
 
   export let activeStep: ClaimSteps;
   export let loading = false;
-  export let nextStepDisabled = false;
+  export let canContinue = false;
+  export let claimingDone = false;
 
   const getNextStepText = (step: ClaimSteps) => {
     if (step === ClaimSteps.REVIEW) {
@@ -59,11 +59,15 @@
     getPrevStepText(activeStep);
     getNextStepText(activeStep);
   }
+
+  $: isNextStepEnabled = !canContinue || loading || (activeStep === ClaimSteps.CONFIRM && !claimingDone);
 </script>
 
-{activeStep}
-
-<ActionButton priority="primary" disabled={nextStepDisabled} {loading} on:click={handleNextStep} class="mt-5"
-  >{nextStepButtonText} {activeStep}</ActionButton>
-
-<StepBack on:click={handlePreviousStep}>{prevStepButtonText}</StepBack>
+<div class="f-row gap-2 mt-[20px]">
+  {#if !claimingDone}
+    <ActionButton onPopup priority="secondary" disabled={loading} on:click={handlePreviousStep}
+      >{prevStepButtonText}</ActionButton>
+  {/if}
+  <ActionButton onPopup priority="primary" disabled={isNextStepEnabled} {loading} on:click={handleNextStep}
+    >{nextStepButtonText}</ActionButton>
+</div>

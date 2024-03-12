@@ -5,8 +5,8 @@
 
   import { CloseButton } from '$components/Button';
   import { errorToast, warningToast } from '$components/NotificationToast';
-  import { getInvoationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
-  import type { BridgeTransaction } from '$libs/bridge/types';
+  import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
+  import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
   import {
     InsufficientBalanceError,
     InvalidProofError,
@@ -31,6 +31,10 @@
 
   export let loading = false;
 
+  let claimingDone = false;
+
+  let proofReceipt: GetProofReceiptResponse;
+
   const closeDialog = () => {
     dialogOpen = false;
     reset();
@@ -38,7 +42,9 @@
 
   let ClaimComponent: Claim;
 
-  export const handleClaimClick = async () => {};
+  export const handleClaimClick = async () => {
+    ClaimComponent.claim();
+  };
 
   export let activeStep: ClaimSteps = ClaimSteps.INFO;
 
@@ -79,7 +85,17 @@
     activeStep = ClaimSteps.INFO;
   };
 
-  $: nextStepDisabled = activeStep === ClaimSteps.CONFIRM && loading;
+  let canContinue = false;
+
+  $: if (dialogOpen) {
+    getProofReceiptForMsgHash({
+      msgHash: item.hash,
+      srcChainId: item.srcChainId,
+      destChainId: item.destChainId,
+    }).then((reciepts) => {
+      proofReceipt = reciepts;
+    });
+  }
 </script>
 
 <dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
@@ -101,22 +117,29 @@
       </DialogStepper>
 
       {#if activeStep === ClaimSteps.INFO}
-        <ClaimInfoStep />
+        <ClaimInfoStep tx={item} bind:canContinue />
       {:else if activeStep === ClaimSteps.REVIEW}
-        <ClaimReviewStep />
+        <ClaimReviewStep tx={item} {proofReceipt} />
       {:else if activeStep === ClaimSteps.CONFIRM}
-        <ClaimConfirmStep />
+        <ClaimConfirmStep tx={item} on:claim={handleClaimClick} />
       {/if}
 
-      <button class="btn" on:click={() => handleClaimClick()}>Test claim</button>
-      <button class="btn" on:click={() => getInvoationDelayForTx(item)}>Get delays</button>
-
       <div class="f-col text-left gap-4">
-        <ClaimStepNavigation bind:activeStep bind:loading bind:nextStepDisabled on:closeDialog={closeDialog} />
+        <ClaimStepNavigation
+          bind:activeStep
+          bind:loading
+          bind:canContinue
+          on:closeDialog={closeDialog}
+          bind:claimingDone />
       </div>
     </div>
   </div>
   <button class="overlay-backdrop" data-modal-uuid={dialogId} />
 </dialog>
 
-<Claim bind:bridgeTx={item} bind:this={ClaimComponent} on:error={handleClaimError} claiming={loading} />
+<Claim
+  bind:bridgeTx={item}
+  bind:this={ClaimComponent}
+  on:error={handleClaimError}
+  claiming={loading}
+  bind:claimingDone />
