@@ -127,37 +127,34 @@ func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
 				}()
 			}()
 
-			slog.Info("event loop ticker")
 			if filtering {
 				continue
 			}
 
 			filtering = true
 
-			i.withRetry(func() error { return i.filter(ctx) })
+			if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
+				return err
+			}
 		}
 	}
 }
 
 // withRetry retries the given function with prover backoff policy.
-func (i *Indexer) withRetry(f func() error) {
-	i.wg.Add(1)
-	go func() {
-		defer i.wg.Done()
-		err := backoff.Retry(
-			func() error {
-				if i.ctx.Err() != nil {
-					slog.Error("Context is done, aborting", "error", i.ctx.Err())
-					return nil
-				}
-				return f()
-			},
-			backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
-		)
-		if err != nil {
-			slog.Error("Operation failed", "error", err)
-		}
-	}()
+func (i *Indexer) withRetry(f func() error) error {
+	err := backoff.Retry(
+		func() error {
+			if i.ctx.Err() != nil {
+				slog.Error("Context is done, aborting", "error", i.ctx.Err())
+				return nil
+			}
+			return f()
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
+	)
+	if err != nil {
+		slog.Error("Operation failed", "error", err)
+	}
 }
 
 func (i *Indexer) filter(ctx context.Context) error {
@@ -220,7 +217,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 			}
 
 			group.Go(func() error {
-				i.withRetry(func() error { return i.storeBlob(groupCtx, event) })
+				if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
+					return err
+				}
 
 				return nil
 			})
