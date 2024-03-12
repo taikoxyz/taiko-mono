@@ -485,6 +485,7 @@ func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 				Amount:                 "1",
 				MsgHash:                "0x1",
 				MessageOwner:           addr.Hex(),
+				EmittedBlockID:         1,
 			},
 			nil,
 		},
