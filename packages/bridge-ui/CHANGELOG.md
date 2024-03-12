@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v3.0.0...bridge-ui-v3.1.0) (2024-03-12)
+
+
+### Features
+
+* **protocol:** risc0 verifier contract ([#16331](https://github.com/taikoxyz/taiko-mono/issues/16331)) ([17abc18](https://github.com/taikoxyz/taiko-mono/commit/17abc189ca3d2752beb5400c036a650fd5b9c895))
+
 ## [3.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v3.0.0) (2024-03-08)
 
 
