@@ -52,13 +52,13 @@ func (r *BlobHashRepository) FindLatestBlockID() (uint64, error) {
 }
 
 func (r *BlobHashRepository) FirstByBlobHash(blobHash string) (*blobstorage.BlobHash, error) {
-	var b *blobstorage.BlobHash
+	var b blobstorage.BlobHash
 
-	if err := r.startQuery().Where("blob_hash = ?", blobHash).First(b).Error; err != nil {
+	if err := r.startQuery().Where("blob_hash = ?", blobHash).First(&b).Error; err != nil {
 		return nil, err
 	}
 
-	return b, nil
+	return &b, nil
 }
 
 // DeleteAllAfterBlockID is used when a reorg is detected
