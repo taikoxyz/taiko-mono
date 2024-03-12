@@ -275,9 +275,6 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 
 	onMessageInvocationFunctionSig := "7f07c947"
 
-	slog.Info("DecodeMessageData")
-	slog.Info(common.Bytes2Hex(eventData))
-
 	// Check if eventData is valid
 	if len(eventData) > 3 &&
 		common.Bytes2Hex(eventData[:4]) == onMessageInvocationFunctionSig {
