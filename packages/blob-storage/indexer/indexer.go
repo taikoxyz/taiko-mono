@@ -22,6 +22,8 @@ import (
 	mongodb "github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db"
 	"github.com/urfave/cli/v2"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 )
@@ -94,8 +96,17 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
-	if i.startHeight == nil {
-		return i.subscribe(i.ctx)
+	var processingBlockHeight uint64
+
+	if i.startHeight != nil {
+		processingBlockHeight = *i.startHeight
+	} else {
+		n, err := i.getLatestBlockID()
+		if err != nil {
+			return err
+		}
+
+		processingBlockHeight = n
 	}
 
 	// get the latest header
@@ -110,11 +121,10 @@ func (i *Indexer) Start() error {
 	var defaultBlockBatchSize uint64 = 50
 
 	slog.Info("fetching batch block events",
-		"startHeight", i.startHeight,
+		"startHeight", processingBlockHeight,
 		"endblock", endBlockID,
 		"batchsize", defaultBlockBatchSize,
 	)
-	processingBlockHeight := *i.startHeight
 
 	for j := processingBlockHeight; j < endBlockID; j += defaultBlockBatchSize {
 		end := processingBlockHeight + uint64(defaultBlockBatchSize)
@@ -160,6 +170,7 @@ func (i *Indexer) Start() error {
 			return err
 		}
 
+		processingBlockHeight += defaultBlockBatchSize
 	}
 	slog.Info(
 		"indexer fully caught up",
@@ -319,7 +330,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 
 			slog.Info("blockHash", "blobHash", fmt.Sprintf("%v%v", "0x", metaBlobHash))
 
-			err = i.storeBlobMongoDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs)
+			err = i.storeBlobMongoDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64())
 			if err != nil {
 				slog.Error("Error storing blob in MongoDB", "error", err)
 				return err
@@ -332,7 +343,30 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	return errors.New("BLOB not found")
 }
 
-func (i *Indexer) storeBlobMongoDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64) error {
+func (i *Indexer) getLatestBlockID() (uint64, error) {
+	var result struct {
+		BlockID uint64 `bson:"block_id"`
+	}
+
+	// Create a descending sort option on the "block_id" field
+	findOptions := options.FindOne().SetSort(bson.D{{Key: "block_id", Value: -1}})
+
+	collection := i.db.Client.Database(i.cfg.DBDatabase).Collection("blobs")
+
+	// Perform the query to find the latest document
+	err := collection.FindOne(context.Background(), bson.D{}, findOptions).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return 0, nil
+		}
+
+		return 0, err
+	}
+
+	return result.BlockID, nil
+}
+
+func (i *Indexer) storeBlobMongoDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64, blockID uint64) error {
 	// Get MongoDB collection
 	collection := i.db.Client.Database(i.cfg.DBDatabase).Collection("blobs")
 
@@ -342,6 +376,7 @@ func (i *Indexer) storeBlobMongoDB(blobHashInMeta, kzgCommitment, blob string, b
 		"kzg_commitment": kzgCommitment,
 		"timestamp":      blockTs,
 		"blob_data":      blob, // Assuming this is the blob data field
+		"block_id":       blockID,
 	})
 	if err != nil {
 		return err
