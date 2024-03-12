@@ -84,18 +84,13 @@ library V3Parser {
         V3Struct.EnclaveReport memory pckSignedQeReport = v3Quote.v3AuthData.pckSignedQeReport;
 
         if (
-            !(
-                localEnclaveReport.reserved3.length == 96
-                    && localEnclaveReport.reserved4.length == 60
-                    && localEnclaveReport.reportData.length == 64
-            )
+            localEnclaveReport.reserved3.length != 96 || localEnclaveReport.reserved4.length != 60
+                || localEnclaveReport.reportData.length != 64
         ) revert V3PARSER_INVALID_QUOTE_MEMBER_LENGTN();
 
         if (
-            !(
-                pckSignedQeReport.reserved3.length == 96 && pckSignedQeReport.reserved4.length == 60
-                    && pckSignedQeReport.reportData.length == 64
-            )
+            pckSignedQeReport.reserved3.length != 96 || pckSignedQeReport.reserved4.length != 60
+                || pckSignedQeReport.reportData.length != 64
         ) {
             revert V3PARSER_INVALID_QEREPORT_LENGTN();
         }
@@ -109,11 +104,9 @@ library V3Parser {
         }
 
         if (
-            !(
-                v3Quote.v3AuthData.ecdsa256BitSignature.length == 64
-                    && v3Quote.v3AuthData.ecdsaAttestationKey.length == 64
-                    && v3Quote.v3AuthData.qeReportSignature.length == 64
-            )
+            v3Quote.v3AuthData.ecdsa256BitSignature.length != 64
+                || v3Quote.v3AuthData.ecdsaAttestationKey.length != 64
+                || v3Quote.v3AuthData.qeReportSignature.length != 64
         ) {
             revert V3PARSER_INVALID_ECDSA_SIGNATURE();
         }
