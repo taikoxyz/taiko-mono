@@ -44,8 +44,6 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	slog.Info("waiting for transaction receipt", "txHash", txHash.Hex())
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -59,8 +57,6 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			if receipt.Status != types.ReceiptStatusSuccessful {
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
-
-			slog.Info("transaction receipt found", "txHash", txHash.Hex())
 
 			return receipt, nil
 		}

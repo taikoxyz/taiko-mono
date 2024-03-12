@@ -433,6 +433,13 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 					}
 				}
 
+				if timesRetried > 0 {
+					slog.Info("rabbitmq message times retried",
+						"msgId", d.MessageId,
+						"timesRetried", timesRetried,
+					)
+				}
+
 				if timesRetried >= int64(maxRetries) {
 					slog.Info("msg has reached max retries", "id", d.MessageId)
 
@@ -442,11 +449,6 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 						slog.Error("error acking msg after max retries")
 					}
 				} else {
-					slog.Info("rabbitmq message times retried",
-						"msgId", d.MessageId,
-						"timesRetried", timesRetried,
-					)
-
 					msgChan <- queue.Message{
 						Body:         d.Body,
 						Internal:     d,
