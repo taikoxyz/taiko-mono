@@ -142,7 +142,7 @@ func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
 
 // withRetry retries the given function with prover backoff policy.
 func (i *Indexer) withRetry(f func() error) error {
-	err := backoff.Retry(
+	return backoff.Retry(
 		func() error {
 			if i.ctx.Err() != nil {
 				slog.Error("Context is done, aborting", "error", i.ctx.Err())
@@ -152,9 +152,6 @@ func (i *Indexer) withRetry(f func() error) error {
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
 	)
-	if err != nil {
-		slog.Error("Operation failed", "error", err)
-	}
 }
 
 func (i *Indexer) filter(ctx context.Context) error {
