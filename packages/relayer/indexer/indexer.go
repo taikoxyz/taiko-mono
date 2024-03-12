@@ -376,7 +376,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		slog.Info("block batch", "start", j, "end", end)
 
 		filterOpts := &bind.FilterOpts{
-			Start:   i.latestIndexedBlockNumber,
+			Start:   j,
 			End:     &end,
 			Context: ctx,
 		}
