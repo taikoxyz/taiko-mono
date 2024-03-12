@@ -358,7 +358,10 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcChainId != block.chainid) return false;
 
         return _proveSignalReceived(
-            signalForFailedMessage(hashMessage(_message)), _message.destChainId, _proof
+            resolve("signal_service", false),
+            signalForFailedMessage(hashMessage(_message)),
+            _message.destChainId,
+            _proof
         );
     }
 
@@ -374,7 +377,9 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         if (_message.destChainId != block.chainid) return false;
-        return _proveSignalReceived(hashMessage(_message), _message.srcChainId, _proof);
+        return _proveSignalReceived(
+            resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
+        );
     }
 
     /// @notice Checks if the destination chain is enabled.
@@ -555,11 +560,13 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Checks if the signal was received.
+    /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
     /// @return success_ True if the message was received.
     function _proveSignalReceived(
+        address _signalService,
         bytes32 _signal,
         uint64 _chainId,
         bytes calldata _proof
@@ -567,7 +574,7 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool)
     {
-        return ISignalService(resolve("signal_service", false)).proveSignalReceived(
+        return ISignalServcice(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         );
     }
