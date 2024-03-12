@@ -191,7 +191,7 @@ library LibProving {
         if (isTopTier) {
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
-            bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
+            bool returnLivenessBond = blk.livenessBond != 0 && _proof.data.length == 32
                 && bytes32(_proof.data) == RETURN_LIVENESS_BOND;
 
             if (returnLivenessBond) {

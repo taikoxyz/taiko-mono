@@ -250,12 +250,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data)
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-    {
+    function onMessageInvocation(bytes calldata _data) public payable nonReentrant whenNotPaused {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(_data, (CanonicalERC20, address, address, uint256));
 
