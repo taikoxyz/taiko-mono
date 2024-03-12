@@ -40,6 +40,7 @@ var testEvents = []relayer.Event{
 		MsgHash:                testMsgHash,
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageSent,
+		EmittedBlockID:         1,
 	},
 	{
 		ID:   2,
@@ -58,6 +59,7 @@ var testEvents = []relayer.Event{
 		MsgHash:                testMsgHash,
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageSent,
+		EmittedBlockID:         1,
 	},
 	{
 		ID:   3,
@@ -76,6 +78,7 @@ var testEvents = []relayer.Event{
 		MsgHash:                testSecondMsgHash,
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageStatusChanged,
+		EmittedBlockID:         1,
 	},
 }
 
