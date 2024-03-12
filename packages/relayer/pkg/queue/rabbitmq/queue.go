@@ -244,8 +244,6 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	rmqMsg := msg.Internal.(amqp.Delivery)
 
-	slog.Info("acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
-
 	err := rmqMsg.Ack(false)
 
 	if err != nil {
@@ -262,8 +260,6 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
 	rmqMsg := msg.Internal.(amqp.Delivery)
-
-	slog.Info("negatively acknowledging rabbitmq message", "msgId", rmqMsg.MessageId, "requeue", requeue)
 
 	err := rmqMsg.Nack(false, requeue)
 	if err != nil {
