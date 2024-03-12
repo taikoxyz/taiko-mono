@@ -8,7 +8,9 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
-  ONLY_OWNER,
+  TOO_EARLY, // ONLY UI: If the invaction is too early
+  ONLY_OWNER, // ONLY UI: Gas limit is 0, so only the user can claim
+  PROVEN, // ONLY UI: Claim step 1 of 2
 }
 
 // Bridge sendMessage()
@@ -233,4 +235,18 @@ export type GetContractAddressType = {
   destChainId: number;
   tokenType: TokenType;
   contractType: ContractType;
+};
+
+export type GetProofReceiptParams = {
+  msgHash: Hash;
+  destChainId: bigint;
+  srcChainId: bigint;
+};
+
+// timestamp, preferred claimer address
+export type GetProofReceiptResponse = readonly [bigint, Address];
+
+export type DetermineTransactionStatusArgs = {
+  tx: BridgeTransaction;
+  claimer: Maybe<Address>;
 };
