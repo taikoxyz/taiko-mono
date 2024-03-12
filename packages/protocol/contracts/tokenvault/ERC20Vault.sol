@@ -177,7 +177,7 @@ contract ERC20Vault is BaseVault {
                     || keccak256(bytes(ctoken.name)) != keccak256(bytes(_ctoken.name))
             ) revert VAULT_CTOKEN_MISMATCH();
 
-            delete bridgedToCanonical[_btokenNew];
+            delete bridgedToCanonical[btokenOld_];
             btokenBlacklist[btokenOld_] = true;
 
             // Start the migration
