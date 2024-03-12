@@ -217,7 +217,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 
-            nextInstanceId++;
+            ++nextInstanceId;
         }
     }
 

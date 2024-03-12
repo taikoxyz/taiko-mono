@@ -259,7 +259,7 @@ contract TaikoL2 is CrossChainOwned {
         returns (uint256 basefee_, uint64 gasExcess_)
     {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
-        if (gasExcess > 0) {
+        if (gasExcess != 0) {
             // We always add the gas used by parent block to the gas excess
             // value as this has already happened
             uint256 excess = uint256(gasExcess) + _parentGasUsed;
@@ -272,11 +272,11 @@ contract TaikoL2 is CrossChainOwned {
             // and the difference between the L1 height would be extremely big,
             // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
-            if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
+            if (lastSyncedBlock != 0 && _l1BlockId > lastSyncedBlock) {
                 numL1Blocks = _l1BlockId - lastSyncedBlock;
             }
 
-            if (numL1Blocks > 0) {
+            if (numL1Blocks != 0) {
                 uint256 issuance = numL1Blocks * _config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
