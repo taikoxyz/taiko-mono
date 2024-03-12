@@ -29,17 +29,17 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	switch mode {
 	case Sync:
 		// get most recently processed block height from the DB
-		latestProcessedBlock, err := i.blockRepo.GetLatestBlockProcessedForEvent(
+		latest, err := i.eventRepo.FindLatestBlockID(
 			i.eventName,
-			chainID,
-			i.destChainId,
+			chainID.Uint64(),
+			i.destChainId.Uint64(),
 		)
 		if err != nil {
-			return errors.Wrap(err, "svc.blockRepo.GetLatestBlock()")
+			return errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
 		}
 
-		if latestProcessedBlock.Height != 0 {
-			startingBlock = latestProcessedBlock.Height - 1
+		if latest != 0 {
+			startingBlock = latest - 1
 		}
 	case Resync:
 	default:

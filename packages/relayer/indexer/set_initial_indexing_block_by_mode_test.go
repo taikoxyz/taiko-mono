@@ -29,7 +29,7 @@ func Test_setInitialIndexingBlockByMode(t *testing.T) {
 			Sync,
 			mock.MockChainID,
 			false,
-			mock.LatestBlock.Height - 1,
+			mock.LatestBlockNumber.Uint64() - 1,
 		},
 		{
 			"sync error getting latest block",

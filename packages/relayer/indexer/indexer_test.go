@@ -13,7 +13,6 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 	b := &mock.Bridge{}
 
 	return &Indexer{
-		blockRepo:     &mock.BlockRepository{},
 		eventRepo:     &mock.EventRepository{},
 		bridge:        b,
 		destBridge:    b,

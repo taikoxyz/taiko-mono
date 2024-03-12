@@ -164,5 +164,5 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	return 5, nil
+	return LatestBlockNumber.Uint64(), nil
 }

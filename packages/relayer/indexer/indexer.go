@@ -85,7 +85,6 @@ type DB interface {
 // specifically for a processor of the same configuration.
 type Indexer struct {
 	eventRepo    relayer.EventRepository
-	blockRepo    relayer.BlockRepository
 	srcEthClient ethClient
 
 	latestIndexedBlockNumber uint64
@@ -148,11 +147,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
-	blockRepository, err := repo.NewBlockRepository(db)
-	if err != nil {
-		return err
-	}
-
 	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
 	if err != nil {
 		return err
@@ -205,7 +199,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return errors.Wrap(err, "destEthClient.ChainID")
 	}
 
-	i.blockRepo = blockRepository
 	i.eventRepo = eventRepository
 	i.srcEthClient = srcEthClient
 
