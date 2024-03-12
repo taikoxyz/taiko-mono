@@ -281,7 +281,11 @@ func (i *Indexer) Start() error {
 
 	i.wg.Add(1)
 
-	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
+	go func() {
+		if err := i.eventLoop(i.ctx, i.latestIndexedBlockNumber); err != nil {
+			slog.Error("error in event loop", "error", err)
+		}
+	}()
 
 	return nil
 }
@@ -436,6 +440,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 
 		if first {
 			first = false
+
 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
 				return err
 			}
@@ -499,6 +504,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 
 		if first {
 			first = false
+
 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
 				return err
 			}
@@ -628,8 +634,10 @@ func (i *Indexer) withRetry(f func() error) error {
 		func() error {
 			if i.ctx.Err() != nil {
 				slog.Error("Context is done, aborting", "error", i.ctx.Err())
+
 				return nil
 			}
+
 			return f()
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
