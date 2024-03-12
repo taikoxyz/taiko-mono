@@ -18,12 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
+	blobstorage "github.com/taikoxyz/taiko-mono/packages/blob-storage"
 	"github.com/taikoxyz/taiko-mono/packages/blob-storage/bindings/taikol1"
-	mongodb "github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db"
+	"github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/repo"
 	"github.com/urfave/cli/v2"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 )
@@ -39,14 +37,15 @@ type Response struct {
 
 // Indexer struct holds the configuration and state for the Ethereum chain listener.
 type Indexer struct {
-	beaconURL   string
-	ethClient   *ethclient.Client
-	startHeight *uint64
-	taikoL1     *taikol1.TaikoL1
-	db          *mongodb.MongoDBClient
-	cfg         *Config
-	wg          *sync.WaitGroup
-	ctx         context.Context
+	beaconURL    string
+	ethClient    *ethclient.Client
+	startHeight  *uint64
+	taikoL1      *taikol1.TaikoL1
+	db           DB
+	blobHashRepo blobstorage.BlobHashRepository
+	cfg          *Config
+	wg           *sync.WaitGroup
+	ctx          context.Context
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -60,6 +59,16 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // InitFromConfig inits a new Indexer from a provided Config struct
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
+	db, err := cfg.OpenDBFunc()
+	if err != nil {
+		return err
+	}
+
+	blobHashRepo, err := repo.NewBlobHashRepository(db)
+	if err != nil {
+		return err
+	}
+
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return err
@@ -70,17 +79,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
-	db, err := mongodb.NewMongoDBClient(mongodb.MongoDBConfig{
-		Host:     cfg.DBHost,
-		Port:     cfg.DBPort,
-		Username: cfg.DBUsername,
-		Password: cfg.DBPassword,
-		Database: cfg.DBDatabase,
-	})
-	if err != nil {
-		return err
-	}
-
+	i.blobHashRepo = blobHashRepo
 	i.ethClient = client
 	i.beaconURL = cfg.BeaconURL
 	i.taikoL1 = taikoL1
@@ -101,7 +100,7 @@ func (i *Indexer) Start() error {
 	if i.startHeight != nil {
 		processingBlockHeight = *i.startHeight
 	} else {
-		n, err := i.getLatestBlockID()
+		n, err := i.blobHashRepo.FindLatestBlockID()
 		if err != nil {
 			return err
 		}
@@ -240,10 +239,6 @@ func (i *Indexer) subscribeBlockProposed(ctx context.Context, errChan chan error
 }
 
 func (i *Indexer) Close(ctx context.Context) {
-	if err := i.db.Close(ctx); err != nil {
-		slog.Error("error closing db connection", "error", err)
-	}
-
 	i.wg.Wait()
 }
 
@@ -330,7 +325,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 
 			slog.Info("blockHash", "blobHash", fmt.Sprintf("%v%v", "0x", metaBlobHash))
 
-			err = i.storeBlobMongoDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64())
+			err = i.storeBlobInDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64())
 			if err != nil {
 				slog.Error("Error storing blob in MongoDB", "error", err)
 				return err
@@ -343,46 +338,12 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	return errors.New("BLOB not found")
 }
 
-func (i *Indexer) getLatestBlockID() (uint64, error) {
-	var result struct {
-		BlockID uint64 `bson:"block_id"`
-	}
-
-	// Create a descending sort option on the "block_id" field
-	findOptions := options.FindOne().SetSort(bson.D{{Key: "block_id", Value: -1}})
-
-	collection := i.db.Client.Database(i.cfg.DBDatabase).Collection("blobs")
-
-	// Perform the query to find the latest document
-	err := collection.FindOne(context.Background(), bson.D{}, findOptions).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return 0, nil
-		}
-
-		return 0, err
-	}
-
-	return result.BlockID, nil
-}
-
-func (i *Indexer) storeBlobMongoDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64, blockID uint64) error {
-	// Get MongoDB collection
-	collection := i.db.Client.Database(i.cfg.DBDatabase).Collection("blobs")
-
-	// Insert blob data into MongoDB
-	_, err := collection.InsertOne(context.Background(), bson.M{
-		"blob_hash":      blobHashInMeta,
-		"kzg_commitment": kzgCommitment,
-		"timestamp":      blockTs,
-		"blob_data":      blob, // Assuming this is the blob data field
-		"block_id":       blockID,
+func (i *Indexer) storeBlobInDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64, blockID uint64) error {
+	return i.blobHashRepo.Save(blobstorage.SaveBlobHashOpts{
+		BlobHash:       blobHashInMeta,
+		KzgCommitment:  kzgCommitment,
+		BlockID:        blockID,
+		BlobData:       blob,
+		BlockTimestamp: blockTs,
 	})
-	if err != nil {
-		return err
-	}
-
-	slog.Info("Blob data inserted into MongoDB successfully")
-
-	return err
 }

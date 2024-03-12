@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	mongodb "github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db"
+	blobstorage "github.com/taikoxyz/taiko-mono/packages/blob-storage"
+	"github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/repo"
 	"github.com/urfave/cli/v2"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
 type resp struct {
@@ -25,9 +25,8 @@ type blobData struct {
 }
 
 type Server struct {
-	db     *mongodb.MongoDBClient
-	dbName string
-	port   int
+	blobHashRepo blobstorage.BlobHashRepository
+	port         int
 }
 
 func (s *Server) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -41,19 +40,18 @@ func (s *Server) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // InitFromConfig inits a new Server from a provided Config struct
 func InitFromConfig(ctx context.Context, s *Server, cfg *Config) (err error) {
-	db, err := mongodb.NewMongoDBClient(mongodb.MongoDBConfig{
-		Host:     cfg.DBHost,
-		Port:     cfg.DBPort,
-		Username: cfg.DBUsername,
-		Password: cfg.DBPassword,
-		Database: cfg.DBDatabase,
-	})
+	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
 	}
 
-	s.db = db
-	s.dbName = cfg.DBDatabase
+	blobHashRepo, err := repo.NewBlobHashRepository(db)
+	if err != nil {
+		return err
+	}
+
+	s.blobHashRepo = blobHashRepo
+
 	s.port = int(cfg.Port)
 
 	return nil
@@ -72,9 +70,6 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Close(ctx context.Context) {
-	if err := s.db.Close(ctx); err != nil {
-		slog.Error("error closing db connection", "error", err)
-	}
 }
 
 func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
@@ -112,15 +107,15 @@ func (s *Server) Name() string {
 
 // getBlobData retrieves blob data from MongoDB based on blobHashes.
 func (s *Server) getBlobData(blobHashes []string) ([]blobData, error) {
-	collection := s.db.Client.Database(s.dbName).Collection("blobs")
-
 	var results []blobData
 
 	for _, blobHash := range blobHashes {
 		var result blobData
 
-		if err := collection.FindOne(context.Background(), bson.M{"blob_hash": blobHash}).Decode(&result); err != nil {
-			if err == mongo.ErrNoDocuments {
+		bh, err := s.blobHashRepo.FirstByBlobHash(blobHash)
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				// Handle case where blob hash is not found
 				result.Blob = "NOT_FOUND"
 				result.KzgCommitment = "NOT_FOUND"
@@ -128,9 +123,12 @@ func (s *Server) getBlobData(blobHashes []string) ([]blobData, error) {
 				// Return error for other types of errors
 				return nil, err
 			}
-		}
+		} else {
+			result.Blob = bh.BlobHash
+			result.KzgCommitment = bh.KzgCommitment
 
-		results = append(results, result)
+			results = append(results, result)
+		}
 	}
 
 	return results, nil
