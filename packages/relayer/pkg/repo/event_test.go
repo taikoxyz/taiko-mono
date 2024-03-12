@@ -472,6 +472,7 @@ func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 				// nolint lll
 				Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 				ChainID:                1,
+				DestChainID:            2,
 				Status:                 relayer.EventStatusDone,
 				EventType:              relayer.EventTypeSendETH,
 				CanonicalTokenAddress:  "0x1",
