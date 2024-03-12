@@ -86,6 +86,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.db = db
 	i.wg = &sync.WaitGroup{}
 	i.ctx = ctx
+	i.cfg = cfg
 
 	return nil
 }
