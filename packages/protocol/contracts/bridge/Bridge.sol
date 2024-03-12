@@ -574,7 +574,7 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool)
     {
-        return ISignalServcice(_signalService).proveSignalReceived(
+        return ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         );
     }
