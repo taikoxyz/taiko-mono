@@ -3,39 +3,39 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+interface ITaikoL2 {
+    function parentTimestamp() external view returns (uint64);
+}
+
+/// @title ProposerFairmintPass
+/// @dev A token that can be fair-minted by block proposers (block.coinbase) if this block is
+/// proposed no early than 12 seconds after its parent block.
+/// This token then can be used for rewarding block proposers for Taiko L2's liveness.
+/// @custom:security-contact security@taiko.xyz
+/// TODO (dnaiel): we probably want to mint NFTs rather than ERC20 tokens.
 contract ProposerFairmintPass is ERC20 {
+    address public constant TAIKO_L2 = 0x1670080000000000000000000000000000010001;
     uint256 public constant LAST_MINT_BLOCK = 50_000_000;
+    uint256 public constant MIN_BLOCK_TIME = 12 seconds;
+
     uint64 public lastMintBlock;
-    uint192 public minDifficulty;
 
-    error UNABLE_TO_MINT();
-    error UNSUPPORTED();
-    error INVALID_SALT();
+    error MINT_DISALLOWED();
 
-    constructor() ERC20("Taiko Proposer Fairmint Pass", "TPFP") {
-        minDifficulty = type(uint192).max;
-    }
+    constructor() ERC20("Taiko Proposer Fairmint Pass", "TPFP") { }
 
-    function mint(uint256 _salt) public {
-        uint256 value = uint256(keccak256(abi.encode("MINT", _salt)));
-        if (value >= minDifficulty) revert INVALID_SALT();
-
+    function mint() public {
         uint256 amount = nextMintAmount();
-        if (amount == 0 || block.number <= lastMintBlock) {
-            revert UNABLE_TO_MINT();
+
+        if (
+            amount == 0 || block.number <= lastMintBlock
+                || block.timestamp < ITaikoL2(TAIKO_L2).parentTimestamp() + MIN_BLOCK_TIME
+        ) {
+            revert MINT_DISALLOWED();
         }
 
         lastMintBlock = uint64(block.number);
         _mint(block.coinbase, amount);
-    }
-
-    function _calcDifficulty(uint256 _oldDifficulty, uint256 _actualMiningTime, uint256 _expectedMiningTime)
-        private
-        pure
-        returns (uint256 newDifficulty)
-    {
-        // To avoid floating point operations, we use multiplication before division
-        return (oldDifficulty * actualMiningTime) / expectedMiningTime;
     }
 
     function nextMintAmount() public view returns (uint256) {
