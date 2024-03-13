@@ -56,6 +56,7 @@ library LibAddress {
     /// @param _amount The amount of Ether to send in wei.
     /// @param _gasLimit The max amount gas to pay for this transaction.
     function sendEtherAndVerify(address _to, uint256 _amount, uint256 _gasLimit) internal {
+        if (_amount == 0) return;
         if (!sendEther(_to, _amount, _gasLimit, "")) {
             revert ETH_TRANSFER_FAILED();
         }
