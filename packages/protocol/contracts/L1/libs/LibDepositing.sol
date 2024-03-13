@@ -59,7 +59,7 @@ library LibDepositing {
         // - uint64 can store up to ~1.8 * 1e19, which can represent 584K years
         // if we are depositing at every second
         unchecked {
-            _state.slotA.numEthDeposits++;
+            ++_state.slotA.numEthDeposits;
         }
     }
 
@@ -113,7 +113,7 @@ library LibDepositing {
             // - uint64 can store up to ~1.8 * 1e19, which can represent 584K
             // years if we are depositing at every second
             unchecked {
-                _state.slotA.numEthDeposits++;
+                ++_state.slotA.numEthDeposits;
             }
         }
     }

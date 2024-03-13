@@ -116,7 +116,7 @@ contract SignalService is EssentialContract, ISignalService {
                 signalService = resolve(hop.chainId, "signal_service", false);
             }
 
-            bool isFullProof = hop.accountProof.length > 0;
+            bool isFullProof = hop.accountProof.length != 0;
 
             _cacheChainData(hop, chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
 
