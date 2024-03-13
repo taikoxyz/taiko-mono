@@ -278,7 +278,7 @@ contract Bridge is EssentialContract, IBridge {
                 // use remaining gas
                 uint256 gasLimit = msg.sender == _message.destOwner ? gasleft() : _message.gasLimit;
 
-                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
+                if (gasLimit != 0 && _invokeMessageCall(_message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
                 } else {
                     _updateMessageStatus(msgHash, Status.RETRIABLE);
