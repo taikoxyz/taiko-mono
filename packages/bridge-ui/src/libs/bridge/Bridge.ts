@@ -168,10 +168,40 @@ export abstract class Bridge {
         throw new ProcessMessageError('failed to claim ETH', { cause: err });
       }
     } else if (messageStatus === MessageStatus.RETRIABLE) {
-      // MessageStatus.RETRIABLE
-      //TODO IMPLEMENT RETRY
-      throw new ProcessMessageError('Not implemented');
-      // txHash = await super.retryClaim(message, destBridgeContract);
+      try {
+        const client = await getConnectedWallet();
+        if (!client) throw new Error('Client not found');
+
+        const bridgeContract = await getContract({
+          client,
+          abi: bridgeAbi,
+          address: destBridgeAddress,
+        });
+
+        const estimatedGas = await bridgeContract.estimateGas.retryMessage([message, false], {
+          account: client.account,
+        });
+        log('Estimated gas', estimatedGas);
+
+        const { request } = await simulateContract(config, {
+          address: destBridgeAddress,
+          abi: bridgeAbi,
+          functionName: 'retryMessage',
+          args: [message, false],
+          gas: estimatedGas,
+        });
+        log('Simulate contract', request);
+
+        txHash = await writeContract(config, request);
+        log('Transaction hash for retry call', txHash);
+        return txHash;
+      } catch (err) {
+        console.error(err);
+        if (`${err}`.includes('denied transaction signature')) {
+          throw new UserRejectedRequestError(err as Error);
+        }
+        throw new ProcessMessageError('failed to claim ETH again', { cause: err });
+      }
     }
     throw new ProcessMessageError('Message status not supported for claiming.');
   }
@@ -214,25 +244,4 @@ export abstract class Bridge {
     }
     throw new ReleaseError('Message status not supported for release');
   }
-
-  // protected async retryClaim(message: Message, bridgeContract: GetContractResult<typeof bridgeABI, WalletClient>) {
-  //   log('Retrying message', message);
-
-  //   try {
-  //     // Last attempt to send the message: isLastAttempt = true
-  //     const txHash = await bridgeContract.write.retryMessage([message, true]);
-
-  //     log('Transaction hash for retryMessage call', txHash);
-
-  //     return txHash;
-  //   } catch (err) {
-  //     console.error(err);
-
-  //     if (`${err}`.includes('denied transaction signature')) {
-  //       throw new UserRejectedRequestError(err as Error);
-  //     }
-
-  //     throw new RetryError('failed to retry message', { cause: err });
-  //   }
-  // }
 }

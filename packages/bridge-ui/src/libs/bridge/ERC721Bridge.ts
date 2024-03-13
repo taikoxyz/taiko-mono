@@ -175,13 +175,7 @@ export class ERC721Bridge extends Bridge {
       });
       log('Simulate contract', request);
 
-      const txHash = await writeContract(config, {
-        address: tokenAddress,
-        abi: erc721Abi,
-        functionName: 'approve',
-        args: [spenderAddress, tokenId],
-        chainId: wallet.chain.id,
-      });
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for approve call', txHash);
 
