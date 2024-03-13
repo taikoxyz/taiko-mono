@@ -27,8 +27,12 @@
     { value: MessageStatus.FAILED, label: $t('transactions.filter.failed') },
   ];
   const toggleMenu = () => {
-    menuOpen = !menuOpen;
-    flipped = !flipped;
+    if (menuOpen) {
+      closeMenu();
+    } else {
+      menuOpen = true;
+      flipped = !flipped;
+    }
   };
 
   const select = (option: (typeof options)[0]) => {
