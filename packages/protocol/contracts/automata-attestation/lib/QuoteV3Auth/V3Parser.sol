@@ -18,6 +18,15 @@ library V3Parser {
     bytes4 internal constant SUPPORTED_TEE_TYPE = 0;
     bytes16 internal constant VALID_QE_VENDOR_ID = 0x939a7233f79c4ca9940a0db3957f0607;
 
+    error V3PARSER_INVALID_QUOTE_LENGTN();
+    error V3PARSER_INVALID_QUOTE_MEMBER_LENGTN();
+    error V3PARSER_INVALID_QEREPORT_LENGTN();
+    error V3PARSER_UNSUPPORT_CERTIFICATION_TYPE();
+    error V3PARSER_INVALID_CERTIFICATION_CHAIN_SIZE();
+    error V3PARSER_INVALID_CERTIFICATION_CHAIN_DATA();
+    error V3PARSER_INVALID_ECDSA_SIGNATURE();
+    error V3PARSER_INVALID_QEAUTHDATA_SIZE();
+
     function parseInput(
         bytes memory quote,
         address pemCertLibAddr
@@ -74,34 +83,40 @@ library V3Parser {
         localEnclaveReport = v3Quote.localEnclaveReport;
         V3Struct.EnclaveReport memory pckSignedQeReport = v3Quote.v3AuthData.pckSignedQeReport;
 
-        require(
-            localEnclaveReport.reserved3.length == 96 && localEnclaveReport.reserved4.length == 60
-                && localEnclaveReport.reportData.length == 64,
-            "local QE report has wrong length"
-        );
-        require(
-            pckSignedQeReport.reserved3.length == 96 && pckSignedQeReport.reserved4.length == 60
-                && pckSignedQeReport.reportData.length == 64,
-            "QE report has wrong length"
-        );
-        require(
-            v3Quote.v3AuthData.certification.certType == 5,
-            "certType must be 5: Concatenated PCK Cert Chain (PEM formatted)"
-        );
-        require(
-            v3Quote.v3AuthData.certification.decodedCertDataArray.length == 3, "3 certs in chain"
-        );
-        require(
-            v3Quote.v3AuthData.ecdsa256BitSignature.length == 64
-                && v3Quote.v3AuthData.ecdsaAttestationKey.length == 64
-                && v3Quote.v3AuthData.qeReportSignature.length == 64,
-            "Invalid ECDSA signature format"
-        );
-        require(
+        if (
+            localEnclaveReport.reserved3.length != 96 || localEnclaveReport.reserved4.length != 60
+                || localEnclaveReport.reportData.length != 64
+        ) revert V3PARSER_INVALID_QUOTE_MEMBER_LENGTN();
+
+        if (
+            pckSignedQeReport.reserved3.length != 96 || pckSignedQeReport.reserved4.length != 60
+                || pckSignedQeReport.reportData.length != 64
+        ) {
+            revert V3PARSER_INVALID_QEREPORT_LENGTN();
+        }
+
+        if (v3Quote.v3AuthData.certification.certType != 5) {
+            revert V3PARSER_UNSUPPORT_CERTIFICATION_TYPE();
+        }
+
+        if (v3Quote.v3AuthData.certification.decodedCertDataArray.length != 3) {
+            revert V3PARSER_INVALID_CERTIFICATION_CHAIN_SIZE();
+        }
+
+        if (
+            v3Quote.v3AuthData.ecdsa256BitSignature.length != 64
+                || v3Quote.v3AuthData.ecdsaAttestationKey.length != 64
+                || v3Quote.v3AuthData.qeReportSignature.length != 64
+        ) {
+            revert V3PARSER_INVALID_ECDSA_SIGNATURE();
+        }
+
+        if (
             v3Quote.v3AuthData.qeAuthData.parsedDataSize
-                == v3Quote.v3AuthData.qeAuthData.data.length,
-            "Invalid QEAuthData size"
-        );
+                != v3Quote.v3AuthData.qeAuthData.data.length
+        ) {
+            revert V3PARSER_INVALID_QEAUTHDATA_SIZE();
+        }
 
         uint32 totalQuoteSize = 48 // header
             + 384 // local QE report
@@ -113,7 +128,9 @@ library V3Parser {
             + v3Quote.v3AuthData.qeAuthData.parsedDataSize + 2 // sizeof(v3Quote.v3AuthData.certification.certType)
             + 4 // sizeof(v3Quote.v3AuthData.certification.certDataSize)
             + v3Quote.v3AuthData.certification.certDataSize;
-        require(totalQuoteSize >= MINIMUM_QUOTE_LENGTH, "Invalid quote size");
+        if (totalQuoteSize < MINIMUM_QUOTE_LENGTH) {
+            revert V3PARSER_INVALID_QUOTE_LENGTN();
+        }
 
         header = v3Quote.header;
         bytes memory headerBytes = abi.encodePacked(
@@ -276,7 +293,9 @@ library V3Parser {
         IPEMCertChainLib.ECSha256Certificate[] memory parsedQuoteCerts;
         (bool certParsedSuccessfully, bytes[] memory quoteCerts) =
             pemCertLib.splitCertificateChain(certBytes, 3);
-        require(certParsedSuccessfully, "splitCertificateChain failed");
+        if (!certParsedSuccessfully) {
+            revert V3PARSER_INVALID_CERTIFICATION_CHAIN_DATA();
+        }
         parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
         for (uint256 i; i < 3; ++i) {
             quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
