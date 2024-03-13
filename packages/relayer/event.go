@@ -57,7 +57,9 @@ type Event struct {
 	Status                 EventStatus    `json:"status"`
 	EventType              EventType      `json:"eventType"`
 	ChainID                int64          `json:"chainID"`
+	DestChainID            int64          `json:"destChainID"`
 	SyncedChainID          uint64         `json:"syncedChainID"`
+	EmittedBlockID         uint64         `json:"emittedBlockID"`
 	BlockID                uint64         `json:"blockID"`
 	SyncedInBlockID        uint64         `json:"syncedInBlockID"`
 	SyncData               string         `json:"syncData"`
@@ -77,6 +79,7 @@ type SaveEventOpts struct {
 	Name                   string
 	Data                   string
 	ChainID                *big.Int
+	DestChainID            *big.Int
 	Status                 EventStatus
 	EventType              EventType
 	CanonicalTokenAddress  string
@@ -89,6 +92,7 @@ type SaveEventOpts struct {
 	Event                  string
 	SyncedChainID          uint64
 	BlockID                uint64
+	EmittedBlockID         uint64
 	SyncData               string
 	Kind                   string
 	SyncedInBlockID        uint64
@@ -131,5 +135,11 @@ type EventRepository interface {
 		ctx context.Context,
 		srcChainId uint64,
 		syncedChainId uint64,
+	) (uint64, error)
+	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error
+	FindLatestBlockID(
+		event string,
+		srcChainID uint64,
+		destChainID uint64,
 	) (uint64, error)
 }

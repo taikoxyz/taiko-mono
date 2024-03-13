@@ -9,7 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
-func (indxr *Indexer) setInitialProcessingBlockByMode(
+func (indxr *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 	chainID *big.Int,

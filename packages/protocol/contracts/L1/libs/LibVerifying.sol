@@ -211,7 +211,7 @@ library LibVerifying {
                 ++numBlocksVerified;
             }
 
-            if (numBlocksVerified > 0) {
+            if (numBlocksVerified != 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
                 // Update protocol level state variables

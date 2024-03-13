@@ -284,9 +284,9 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
 
     function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
         if (_start == 0 || _period == 0) {
-            if (_cliff > 0) revert INVALID_GRANT();
+            if (_cliff != 0) revert INVALID_GRANT();
         } else {
-            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+            if (_cliff != 0 && _cliff <= _start) revert INVALID_GRANT();
             if (_cliff >= _start + _period) revert INVALID_GRANT();
         }
     }
