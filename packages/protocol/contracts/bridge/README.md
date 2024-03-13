@@ -23,25 +23,29 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
 
 ```
     struct Message {
-        // Message ID.
-        uint256 id;
-        // Message sender address.
+        // Message ID whose value is automatically assigned.
+        uint128 id;
+        // The address, EOA or contract, that interacts with this bridge.
+        // The value is automatically assigned.
         address from;
-        // Source chain ID.
+        // Source chain ID whose value is automatically assigned.
         uint64 srcChainId;
         // Destination chain ID where the `to` address lives.
         uint64 destChainId;
-        // User address of the bridged asset.
-        address user;
-        // Destination user address.
+        // The owner of the message on the source chain.
+        address srcOwner;
+        // The owner of the message on the destination chain.
+        address destOwner;
+        // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund. If blank, defaults to user.
-        address refundAddress;
+        // Alternate address to send any refund on the destination chain.
+        // If blank, defaults to destOwner.
+        address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer. Zero if user will process themselves.
+        // Processing fee for the relayer.
         uint256 fee;
-        // gasLimit to invoke on the destination chain.
+        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can process the message.
         uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;
