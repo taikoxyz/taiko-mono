@@ -38,7 +38,7 @@ export const bridgeTransactionPoller = {
   interval: 20_000,
 };
 
-export const statusComponent = {
+export const claimConfig = {
   minimumEthToClaim: 0.0001,
 };
 
