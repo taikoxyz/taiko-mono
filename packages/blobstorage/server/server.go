@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	blobstorage "github.com/taikoxyz/taiko-mono/packages/blob-storage"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/repo"
+	blobstorage "github.com/taikoxyz/taiko-mono/packages/blobstorage"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/pkg/repo"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 )

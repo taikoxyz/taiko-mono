@@ -1,7 +1,7 @@
 package repo
 
 import (
-	blobstorage "github.com/taikoxyz/taiko-mono/packages/blob-storage"
+	blobstorage "github.com/taikoxyz/taiko-mono/packages/blobstorage"
 	"gorm.io/gorm"
 )
 

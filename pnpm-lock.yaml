@@ -15,7 +15,7 @@ importers:
         specifier: ^3.2.5
         version: 3.2.5
 
-  packages/blob-storage: {}
+  packages/blobstorage: {}
 
   packages/branding: {}
 

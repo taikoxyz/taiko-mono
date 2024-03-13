@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/utils"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/indexer"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/server"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/indexer"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/server"
 	"github.com/urfave/cli/v2"
 )
 

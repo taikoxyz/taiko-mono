@@ -3,8 +3,8 @@ package server
 import (
 	"database/sql"
 
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/pkg/db/db"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/pkg/db/db"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

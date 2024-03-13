@@ -7,7 +7,7 @@ import (
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"github.com/taikoxyz/taiko-mono/packages/blob-storage/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/flags"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/slog"
 )

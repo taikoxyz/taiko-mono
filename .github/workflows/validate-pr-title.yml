@@ -30,7 +30,7 @@ jobs:
             main
             deps
             deps-dev
-            blob-storage
+            blobstorage
             branding
             bridge-ui
             eventindexer
