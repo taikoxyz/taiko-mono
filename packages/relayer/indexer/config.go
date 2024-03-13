@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
@@ -45,6 +47,8 @@ type Config struct {
 	NumLatestBlocksToIgnoreWhenCrawling uint64
 	EventName                           string
 	TargetBlockNumber                   *uint64
+	BackOffRetryInterval                time.Duration
+	BackOffMaxRetries                   uint64
 	OpenQueueFunc                       func() (queue.Queue, error)
 	OpenDBFunc                          func() (DB, error)
 }
@@ -77,6 +81,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:                    c.Uint64(flags.ETHClientTimeout.Name),
 		NumLatestBlocksToIgnoreWhenCrawling: c.Uint64(flags.NumLatestBlocksToIgnoreWhenCrawling.Name),
 		EventName:                           c.String(flags.EventName.Name),
+		BackOffMaxRetries:                   c.Uint64(flags.BackOffMaxRetrys.Name),
+		BackOffRetryInterval:                c.Duration(flags.BackOffRetryInterval.Name),
 		TargetBlockNumber: func() *uint64 {
 			if c.IsSet(flags.TargetBlockNumber.Name) {
 				value := c.Uint64(flags.TargetBlockNumber.Name)

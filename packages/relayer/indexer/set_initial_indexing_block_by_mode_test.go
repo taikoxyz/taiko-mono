@@ -9,7 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
-func Test_SetInitialProcessingBlockByMode(t *testing.T) {
+func Test_setInitialIndexingBlockByMode(t *testing.T) {
 	tests := []struct {
 		name       string
 		mode       SyncMode
@@ -29,7 +29,7 @@ func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 			Sync,
 			mock.MockChainID,
 			false,
-			mock.LatestBlock.Height,
+			mock.LatestBlockNumber.Uint64() - 1,
 		},
 		{
 			"sync error getting latest block",
@@ -50,7 +50,7 @@ func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, _ := newTestService(tt.mode, FilterAndSubscribe)
-			err := svc.setInitialProcessingBlockByMode(
+			err := svc.setInitialIndexingBlockByMode(
 				context.Background(),
 				tt.mode,
 				tt.chainID,
@@ -58,7 +58,7 @@ func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 
 			assert.Equal(t, tt.wantErr, err != nil)
 
-			assert.Equal(t, tt.wantHeight, svc.processingBlockHeight)
+			assert.Equal(t, tt.wantHeight, svc.latestIndexedBlockNumber)
 		})
 	}
 }

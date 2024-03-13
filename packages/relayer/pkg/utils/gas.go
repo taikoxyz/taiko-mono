@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slog"
 )
 
 var (
@@ -77,8 +76,6 @@ func EstimateGas(
 	if err != nil {
 		return 0, errors.Wrap(err, "p.destBridge.SuspendMessages")
 	}
-
-	slog.Info("estimated gas", "gas", tx.Gas())
 
 	return tx.Gas(), nil
 }

@@ -45,11 +45,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 		return err
 	}
 
-	blockRepository, err := repo.NewBlockRepository(db)
-	if err != nil {
-		return err
-	}
-
 	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
 	if err != nil {
 		return err
@@ -66,7 +61,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 		CorsOrigins:   cfg.CORSOrigins,
 		SrcEthClient:  srcEthClient,
 		DestEthClient: destEthClient,
-		BlockRepo:     blockRepository,
 	})
 	if err != nil {
 		return err

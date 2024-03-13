@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -43,8 +44,6 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	slog.Info("waiting for transaction receipt", "txHash", txHash.Hex())
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -59,17 +58,43 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
-			slog.Info("transaction receipt found", "txHash", txHash.Hex())
-
 			return receipt, nil
 		}
 	}
 }
 
+var (
+	errStillWaiting = errors.New("still waiting")
+)
+
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain, or context is cancelled.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	slog.Info("beginning waiting for confirmations", "txHash", txHash.Hex())
+	checkConfs := func() error {
+		receipt, err := confirmer.TransactionReceipt(ctx, txHash)
+		if err != nil {
+			return err
+		}
+
+		latest, err := confirmer.BlockNumber(ctx)
+		if err != nil {
+			return err
+		}
+
+		want := receipt.BlockNumber.Uint64() + confirmations
+
+		if latest < want {
+			return errStillWaiting
+		}
+
+		return nil
+	}
+
+	if err := checkConfs(); err != nil && err != ethereum.NotFound && err != errStillWaiting {
+		slog.Error("encountered error getting receipt", "txHash", txHash.Hex(), "error", err)
+
+		return err
+	}
 
 	ticker := time.NewTicker(10 * time.Second)
 
@@ -80,9 +105,8 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			receipt, err := confirmer.TransactionReceipt(ctx, txHash)
-			if err != nil {
-				if err == ethereum.NotFound {
+			if err := checkConfs(); err != nil {
+				if err == ethereum.NotFound || err == errStillWaiting {
 					continue
 				}
 
@@ -90,26 +114,6 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 
 				return err
 			}
-
-			latest, err := confirmer.BlockNumber(ctx)
-			if err != nil {
-				return err
-			}
-
-			want := receipt.BlockNumber.Uint64() + confirmations
-			slog.Info(
-				"waiting for confirmations",
-				"txHash", txHash.Hex(),
-				"confirmations", confirmations,
-				"blockNumWillbeConfirmed", want,
-				"latestBlockNum", latest,
-			)
-
-			if latest < receipt.BlockNumber.Uint64()+confirmations {
-				continue
-			}
-
-			slog.Info("done waiting for confirmations", "txHash", txHash.Hex(), "confirmations", confirmations)
 
 			return nil
 		}
@@ -266,9 +270,6 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 	var amount *big.Int = value
 
 	onMessageInvocationFunctionSig := "7f07c947"
-
-	slog.Info("DecodeMessageData")
-	slog.Info(common.Bytes2Hex(eventData))
 
 	// Check if eventData is valid
 	if len(eventData) > 3 &&
