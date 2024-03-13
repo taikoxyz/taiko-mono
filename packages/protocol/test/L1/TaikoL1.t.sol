@@ -304,6 +304,28 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(false, L1.isBlobReusable(bytes32("AA")));
     }
 
+    function test_burn() external {
+        uint256 balanceBeforeBurn = tko.balanceOf(address(this));
+        vm.prank(tko.owner(), tko.owner());
+        tko.burn(address(this), 1 ether);
+        uint256 balanceAfterBurn = tko.balanceOf(address(this));
+
+        assertEq(balanceBeforeBurn - 1 ether, balanceAfterBurn);
+    }
+
+    function test_snapshot() external {
+        vm.prank(tko.owner(), tko.owner());
+        tko.snapshot();
+
+        uint256 totalSupplyAtSnapshot = tko.totalSupplyAt(1);
+
+        vm.prank(tko.owner(), tko.owner());
+        tko.burn(address(this), 1 ether);
+
+        // At snapshot date vs. now, the total supply differs
+        assertEq(totalSupplyAtSnapshot, tko.totalSupply() + 1 ether);
+    }
+
     function proposeButRevert(
         address proposer,
         address prover,
