@@ -326,6 +326,16 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(totalSupplyAtSnapshot, tko.totalSupply() + 1 ether);
     }
 
+    function test_getTierIds() external {
+        uint16[] memory tiers = cp.getTierIds();
+        assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
+        assertEq(tiers[1], LibTiers.TIER_SGX);
+        assertEq(tiers[2], LibTiers.TIER_GUARDIAN);
+
+        vm.expectRevert();
+        cp.getTier(123);
+    }
+
     function proposeButRevert(
         address proposer,
         address prover,
