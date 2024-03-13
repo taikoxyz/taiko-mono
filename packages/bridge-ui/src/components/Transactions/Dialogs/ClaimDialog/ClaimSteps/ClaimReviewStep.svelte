@@ -15,13 +15,17 @@
 
   $: invocationDelay = 0n;
 
-  onMount(async () => {
+  const handleDelays = async () => {
     const delays = await getInvocationDelaysForDestBridge(tx);
     // if we already have an initial proof, the delay applies
     if (delays[0] !== 0n && proofReceipt[0] !== 0n) {
       displayDelays = true;
       invocationDelay = delays[0]; // we only care about the preferred one
     }
+  };
+
+  onMount(async () => {
+    await handleDelays();
   });
 </script>
 
