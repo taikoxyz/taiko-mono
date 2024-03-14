@@ -46,7 +46,6 @@ library LibProposing {
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_OFFSET();
     error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
@@ -124,7 +123,6 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                txListByteOffset: 0, // to be initialized below
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
@@ -146,11 +144,10 @@ library LibProposing {
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
             // Check that the txList data range is within the max size of a blob
-            if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
-                revert L1_TXLIST_OFFSET();
+            if (params.txListByteSize > MAX_BYTES_PER_BLOB) {
+                revert L1_TXLIST_SIZE();
             }
 
-            meta_.txListByteOffset = params.txListByteOffset;
             meta_.txListByteSize = params.txListByteSize;
         } else {
             // The proposer must be an Externally Owned Account (EOA) for
@@ -159,13 +156,7 @@ library LibProposing {
             // Taiko node software.
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
-            // The txList is the full byte array without any offset
-            if (params.txListByteOffset != 0) {
-                revert L1_INVALID_PARAM();
-            }
-
             meta_.blobHash = keccak256(_txList);
-            meta_.txListByteOffset = 0;
             meta_.txListByteSize = uint24(_txList.length);
         }
 

@@ -75,7 +75,6 @@ library TaikoData {
         address assignedProver;
         address coinbase;
         bytes32 extraData;
-        uint24 txListByteOffset;
         uint24 txListByteSize;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
@@ -96,7 +95,6 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;
-        uint24 txListByteOffset;
         uint24 txListByteSize;
         uint16 minTier;
         bool blobUsed;
