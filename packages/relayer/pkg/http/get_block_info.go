@@ -79,19 +79,19 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestProcessedSrcBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(
+	latestProcessedSrcBlock, err := srv.eventRepo.FindLatestBlockID(
 		relayer.EventNameMessageSent,
-		srcChainID,
-		destChainID,
+		srcChainID.Uint64(),
+		destChainID.Uint64(),
 	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestProcessedDestBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(
+	latestProcessedDestBlock, err := srv.eventRepo.FindLatestBlockID(
 		relayer.EventNameMessageSent,
-		destChainID,
-		srcChainID,
+		destChainID.Uint64(),
+		srcChainID.Uint64(),
 	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
@@ -101,12 +101,12 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 		Data: []blockInfo{
 			{
 				ChainID:              srcChainID.Int64(),
-				LatestProcessedBlock: int64(latestProcessedSrcBlock.Height),
+				LatestProcessedBlock: int64(latestProcessedSrcBlock),
 				LatestBlock:          int64(latestSrcBlock),
 			},
 			{
 				ChainID:              destChainID.Int64(),
-				LatestProcessedBlock: int64(latestProcessedDestBlock.Height),
+				LatestProcessedBlock: int64(latestProcessedDestBlock),
 				LatestBlock:          int64(latestDestBlock),
 			},
 		},

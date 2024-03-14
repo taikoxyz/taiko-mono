@@ -19,6 +19,7 @@ func (i *Indexer) saveEventToDB(
 	msgOwner string,
 	eventData []byte,
 	eventValue *big.Int,
+	emittedBlockNumber uint64,
 ) (int, error) {
 	eventType, canonicalToken, amount, err := relayer.DecodeMessageData(eventData, eventValue)
 	if err != nil {
@@ -42,15 +43,17 @@ func (i *Indexer) saveEventToDB(
 	// for the processor to be able to fetch it.
 	if existingEvent == nil {
 		opts := relayer.SaveEventOpts{
-			Name:         i.eventName,
-			Data:         string(marshalledEvent),
-			ChainID:      chainID,
-			Status:       eventStatus,
-			EventType:    eventType,
-			Amount:       amount.String(),
-			MsgHash:      msgHash,
-			MessageOwner: msgOwner,
-			Event:        i.eventName,
+			Name:           i.eventName,
+			Data:           string(marshalledEvent),
+			ChainID:        chainID,
+			DestChainID:    i.destChainId,
+			Status:         eventStatus,
+			EventType:      eventType,
+			Amount:         amount.String(),
+			MsgHash:        msgHash,
+			MessageOwner:   msgOwner,
+			Event:          i.eventName,
+			EmittedBlockID: emittedBlockNumber,
 		}
 
 		if canonicalToken != nil {

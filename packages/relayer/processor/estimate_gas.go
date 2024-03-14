@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"log/slog"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -33,8 +32,6 @@ func (p *Processor) estimateGas(
 	if err != nil {
 		return 0, errors.Wrap(err, "p.destBridge.ProcessMessage")
 	}
-
-	slog.Info("estimated gas", "gas", tx.Gas(), "paddingAmt", gasPaddingAmt)
 
 	return tx.Gas() + gasPaddingAmt, nil
 }

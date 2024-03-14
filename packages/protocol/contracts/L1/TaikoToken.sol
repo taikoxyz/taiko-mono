@@ -47,7 +47,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     /// @param _from The address to burn tokens from.
     /// @param _amount The amount of tokens to burn.
     function burn(address _from, uint256 _amount) public onlyOwner {
-        _burn(_from, _amount);
+        return _burn(_from, _amount);
     }
 
     /// @notice Creates a new token snapshot.
@@ -90,7 +90,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
     {
-        super._beforeTokenTransfer(_from, _to, _amount);
+        return super._beforeTokenTransfer(_from, _to, _amount);
     }
 
     function _afterTokenTransfer(
@@ -101,7 +101,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._afterTokenTransfer(_from, _to, _amount);
+        return super._afterTokenTransfer(_from, _to, _amount);
     }
 
     function _mint(
@@ -111,7 +111,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._mint(_to, _amount);
+        return super._mint(_to, _amount);
     }
 
     function _burn(
@@ -121,6 +121,6 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._burn(_from, _amount);
+        return super._burn(_from, _amount);
     }
 }

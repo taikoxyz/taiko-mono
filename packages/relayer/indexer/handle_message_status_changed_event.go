@@ -34,13 +34,15 @@ func (i *Indexer) handleMessageStatusChangedEvent(
 	}
 
 	_, err = i.eventRepo.Save(ctx, relayer.SaveEventOpts{
-		Name:         relayer.EventNameMessageStatusChanged,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Status:       relayer.EventStatus(event.Status),
-		MessageOwner: e.MessageOwner,
-		MsgHash:      common.Hash(event.MsgHash).Hex(),
-		Event:        relayer.EventNameMessageStatusChanged,
+		Name:           relayer.EventNameMessageStatusChanged,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		DestChainID:    i.destChainId,
+		Status:         relayer.EventStatus(event.Status),
+		MessageOwner:   e.MessageOwner,
+		MsgHash:        common.Hash(event.MsgHash).Hex(),
+		Event:          relayer.EventNameMessageStatusChanged,
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.Save")

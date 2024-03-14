@@ -49,6 +49,12 @@ contract TaikoL2 is CrossChainOwned {
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
 
+    /// @notice The parent block's timestamp.
+    uint64 public parentTimestamp;
+
+    /// @notice The current block's timestamp.
+    uint64 private __currentBlockTimestamp;
+
     uint256[47] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
@@ -95,6 +101,7 @@ contract TaikoL2 is CrossChainOwned {
 
         gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
+        __currentBlockTimestamp = uint64(block.timestamp);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -153,6 +160,9 @@ contract TaikoL2 is CrossChainOwned {
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         publicInputHash = publicInputHashNew;
+
+        parentTimestamp = __currentBlockTimestamp;
+        __currentBlockTimestamp = uint64(block.timestamp);
 
         emit Anchored(blockhash(parentId), gasExcess);
     }
