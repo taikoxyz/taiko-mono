@@ -37,7 +37,7 @@ library LibProposing {
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
-    error L1_BLOB_FOR_DA_DISABLED();
+    error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSABLE();
     error L1_INVALID_HOOK();
@@ -133,14 +133,13 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!_config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
+            if (block.chainid != 1) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
             // L1 transaction, these multiple L2 blocks will share the same
             // blob.
             meta_.blobHash = blobhash(0);
-
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
             // Check that the txList data range is within the max size of a blob

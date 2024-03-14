@@ -12,7 +12,7 @@ abstract contract TaikoErrors {
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
-    error L1_BLOB_FOR_DA_DISABLED();
+    error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSABLE();
     error L1_BLOCK_MISMATCH();

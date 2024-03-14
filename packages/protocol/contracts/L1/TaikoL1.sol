@@ -196,7 +196,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // and right now txList is still saved in calldata, so we set it
             // to 120KB.
             blockMaxTxListBytes: 120_000,
-            blobAllowedForDA: false,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,

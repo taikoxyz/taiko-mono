@@ -26,8 +26,6 @@ library TaikoData {
         uint32 blockMaxGasLimit;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
-        // True if EIP-4844 is enabled for DA
-        bool blobAllowedForDA;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
