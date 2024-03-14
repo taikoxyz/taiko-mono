@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
   import { CloseButton } from '$components/Button';
   import { errorToast, warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import { getInvocationDelaysForDestBridge } from '$libs/bridge/getInvocationDelaysForDestBridge';
+  import Claim from '$components/Transactions/Dialogs/Claim.svelte';
   import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
   import {
@@ -20,13 +20,11 @@
   import { uid } from '$libs/util/uid';
 
   import { DialogStep, DialogStepper } from '../Stepper';
-  import Claim from './Claim.svelte';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
   import ClaimConfirmStep from './ClaimSteps/ClaimConfirmStep.svelte';
-  import ClaimInfoStep from './ClaimSteps/ClaimInfoStep.svelte';
   import ClaimPreCheck from './ClaimSteps/ClaimPreCheck.svelte';
   import ClaimReviewStep from './ClaimSteps/ClaimReviewStep.svelte';
-  import { ClaimSteps } from './types';
+  import { ClaimSteps, ClaimTypes } from './types';
 
   const dialogId = `dialog-${uid()}`;
   const dispatch = createEventDispatcher();
@@ -67,8 +65,9 @@
   export let item: BridgeTransaction;
 
   //TODO: update this to display info alongside toasts
-  const handleClaimError = (event: CustomEvent<{ error: Error }>) => {
+  const handleClaimError = (event: CustomEvent<{ error: Error; type: ClaimTypes }>) => {
     const err = event.detail;
+    // const claimType = err.type;
     switch (true) {
       case err instanceof NotConnectedError:
         warningToast({ title: $t('messages.account.required') });
@@ -98,35 +97,35 @@
   };
 
   const reset = () => {
-    activeStep = ClaimSteps.INFO;
+    activeStep = INITIAL_STEP;
   };
 
   let canContinue = false;
 
-  $: displayDelayInfoStep = false;
+  // $: displayDelayInfoStep = false;
 
-  $: invocationDelay = 0n;
+  // $: invocationDelay = 0n;
 
-  const fetchDelayInfo = async () => {
-    const delays = await getInvocationDelaysForDestBridge(item);
-    // if we already have an initial proof, the delay may apply
-    if (delays[0] !== 0n && proofReceipt[0] !== 0n) {
-      displayDelayInfoStep = true;
-      invocationDelay = delays[0]; // we only care about the delay of the preferred claimer
-    }
-  };
+  // const fetchDelayInfo = async () => {
+  //   const delays = await getInvocationDelaysForDestBridge(item);
+  //   // if we already have an initial proof, the delay may apply
+  //   if (delays[0] !== 0n && proofReceipt[0] !== 0n) {
+  //     displayDelayInfoStep = true;
+  //     invocationDelay = delays[0]; // we only care about the delay of the preferred claimer
+  //   }
+  // };
 
-  onMount(async () => {
-    await fetchDelayInfo();
-  });
+  // onMount(async () => {
+  //   await fetchDelayInfo();
+  // });
 
   $: if (dialogOpen) {
     getProofReceiptForMsgHash({
       msgHash: item.hash,
       srcChainId: item.srcChainId,
       destChainId: item.destChainId,
-    }).then((reciepts) => {
-      proofReceipt = reciepts;
+    }).then((receipts) => {
+      proofReceipt = receipts;
     });
   }
 </script>
@@ -137,15 +136,10 @@
     <div class="w-full h-full f-col">
       <h3 class="title-body-bold mb-7">Claim your assets</h3>
       <DialogStepper>
-        <DialogStep stepIndex={ClaimSteps.CHECK} currentStepIndex={activeStep} isActive={activeStep === ClaimSteps.INFO}
-          >Prerequisites</DialogStep>
-        TODO: {invocationDelay}
-        {#if displayDelayInfoStep}
-          <DialogStep
-            stepIndex={ClaimSteps.INFO}
-            currentStepIndex={activeStep}
-            isActive={activeStep === ClaimSteps.REVIEW}>Two Step Claim</DialogStep>
-        {/if}
+        <DialogStep
+          stepIndex={ClaimSteps.CHECK}
+          currentStepIndex={activeStep}
+          isActive={activeStep === ClaimSteps.CHECK}>Prerequisites(todo)</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.REVIEW}
           currentStepIndex={activeStep}
@@ -158,8 +152,6 @@
 
       {#if activeStep === ClaimSteps.CHECK}
         <ClaimPreCheck tx={item} bind:canContinue />
-      {:else if activeStep === ClaimSteps.INFO}
-        <ClaimInfoStep tx={item} />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ClaimReviewStep tx={item} {proofReceipt} />
       {:else if activeStep === ClaimSteps.CONFIRM}

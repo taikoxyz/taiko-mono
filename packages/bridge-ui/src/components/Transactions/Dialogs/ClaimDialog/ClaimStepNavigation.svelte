@@ -13,6 +13,8 @@
   export let canContinue = false;
   export let claimingDone = false;
 
+  const INITIAL_STEP = ClaimSteps.CHECK;
+
   const getNextStepText = (step: ClaimSteps) => {
     if (step === ClaimSteps.REVIEW) {
       return $t('common.confirm');
@@ -25,14 +27,14 @@
   };
 
   const getPrevStepText = (step: ClaimSteps) => {
-    if (step === ClaimSteps.INFO) {
+    if (step === INITIAL_STEP) {
       return $t('common.cancel');
     }
     return $t('common.back');
   };
 
   const handleNextStep = () => {
-    if (activeStep === ClaimSteps.INFO) {
+    if (activeStep === INITIAL_STEP) {
       activeStep = ClaimSteps.REVIEW;
     } else if (activeStep === ClaimSteps.REVIEW) {
       activeStep = ClaimSteps.CONFIRM;
@@ -42,11 +44,11 @@
   };
 
   const handlePreviousStep = () => {
-    if (activeStep === ClaimSteps.INFO) {
+    if (activeStep === INITIAL_STEP) {
       dispatch('closeDialog');
     }
     if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.INFO;
+      activeStep = ClaimSteps.CHECK;
     } else if (activeStep === ClaimSteps.CONFIRM) {
       activeStep = ClaimSteps.REVIEW;
     }

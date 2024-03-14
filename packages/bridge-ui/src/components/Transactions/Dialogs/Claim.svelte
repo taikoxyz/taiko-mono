@@ -91,7 +91,9 @@
       // We trigger this event to manually to update the UI
       // onStatusChange(MessageStatus.DONE); //TODO:
     } catch (err) {
-      dispatch('error', err);
+      // TODO: handle different errors for the different claim actions (retry, claim, release)
+
+      dispatch('error', { error: err, action: 'claim' });
     } finally {
       claiming = false;
     }
