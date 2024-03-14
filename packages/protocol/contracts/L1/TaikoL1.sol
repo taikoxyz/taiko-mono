@@ -192,10 +192,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // Can be overridden by the tier config.
             maxBlocksToVerifyPerProposal: 10,
             blockMaxGasLimit: 15_000_000,
-            // Each go-ethereum transaction has a size limit of 128KB,
-            // and right now txList is still saved in calldata, so we set it
-            // to 120KB.
-            blockMaxTxListBytes: 120_000,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,

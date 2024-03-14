@@ -15,11 +15,6 @@ import "./LibDepositing.sol";
 library LibProposing {
     using LibAddress for address;
 
-    /// @notice The maximum number of bytes allowed per blob.
-    /// @dev According to EIP4844, each blob has up to 4096 field elements, and each
-    /// field element has 32 bytes.
-    uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -46,7 +41,6 @@ library LibProposing {
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
 
@@ -123,7 +117,6 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
@@ -141,13 +134,6 @@ library LibProposing {
             // blob.
             meta_.blobHash = blobhash(0);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
-
-            // Check that the txList data range is within the max size of a blob
-            if (params.txListByteSize > MAX_BYTES_PER_BLOB) {
-                revert L1_TXLIST_SIZE();
-            }
-
-            meta_.txListByteSize = params.txListByteSize;
         } else {
             // The proposer must be an Externally Owned Account (EOA) for
             // calldata usage. This ensures that the transaction is not an
@@ -156,12 +142,6 @@ library LibProposing {
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
             meta_.blobHash = keccak256(_txList);
-            meta_.txListByteSize = uint24(_txList.length);
-        }
-
-        // Check that the tx length is non-zero and within the supported range
-        if (meta_.txListByteSize == 0 || meta_.txListByteSize > _config.blockMaxTxListBytes) {
-            revert L1_TXLIST_SIZE();
         }
 
         // Following the Merge, the L1 mixHash incorporates the
