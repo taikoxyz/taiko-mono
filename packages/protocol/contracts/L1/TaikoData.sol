@@ -26,12 +26,8 @@ library TaikoData {
         uint32 blockMaxGasLimit;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
-        // The max period in seconds that a blob can be reused for DA.
-        uint24 blobExpiry;
         // True if EIP-4844 is enabled for DA
         bool blobAllowedForDA;
-        // True if blob can be reused
-        bool blobReuseEnabled;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -79,10 +75,8 @@ library TaikoData {
         address assignedProver;
         address coinbase;
         bytes32 extraData;
-        bytes32 blobHash;
         uint24 txListByteOffset;
         uint24 txListByteSize;
-        bool cacheBlobForReuse;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
     }
@@ -189,10 +183,8 @@ library TaikoData {
             ) transitions;
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositAmount) ethDeposits;
-        // Reusable blobs
-        mapping(bytes32 blobHash => uint256 since) reusableBlobs;
-        SlotA slotA; // slot 6
-        SlotB slotB; // slot 7
-        uint256[43] __gap;
+        SlotA slotA; // slot 5
+        SlotB slotB; // slot 6
+        uint256[44] __gap;
     }
 }

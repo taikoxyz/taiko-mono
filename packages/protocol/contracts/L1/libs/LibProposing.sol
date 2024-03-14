@@ -36,15 +36,10 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
-    /// @notice Emitted when a blob is cached.
-    /// @param blobHash The hash of the cached blob.
-    event BlobCached(bytes32 blobHash);
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSABLE();
-    error L1_BLOB_REUSE_DISABLED();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
@@ -142,31 +137,13 @@ library LibProposing {
         if (meta_.blobUsed) {
             if (!_config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
 
-            if (params.blobHash != 0) {
-                if (!_config.blobReuseEnabled) revert L1_BLOB_REUSE_DISABLED();
+            // Always use the first blob in this transaction. If the
+            // proposeBlock functions are called more than once in the same
+            // L1 transaction, these multiple L2 blocks will share the same
+            // blob.
+            meta_.blobHash = blobhash(0);
 
-                // We try to reuse an old blob
-                if (!isBlobReusable(_state, _config, params.blobHash)) {
-                    revert L1_BLOB_NOT_REUSABLE();
-                }
-                meta_.blobHash = params.blobHash;
-            } else {
-                // Always use the first blob in this transaction. If the
-                // proposeBlock functions are called more than once in the same
-                // L1 transaction, these multiple L2 blocks will share the same
-                // blob.
-                meta_.blobHash = blobhash(0);
-
-                if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
-
-                // Depends on the blob data price, it may not make sense to
-                // cache the blob which costs 20,000 (sstore) + 631 (event)
-                // extra gas.
-                if (_config.blobReuseEnabled && params.cacheBlobForReuse) {
-                    _state.reusableBlobs[meta_.blobHash] = block.timestamp;
-                    emit BlobCached(meta_.blobHash);
-                }
-            }
+            if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
             // Check that the txList data range is within the max size of a blob
             if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
@@ -278,23 +255,6 @@ library LibProposing {
             meta: meta_,
             depositsProcessed: deposits_
         });
-    }
-
-    /// @notice Checks if a blob is reusable.
-    /// @param _state Current TaikoData.State.
-    /// @param _config The TaikoData.Config.
-    /// @param _blobHash The blob hash
-    /// @return true if the blob is reusable, false otherwise.
-    function isBlobReusable(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        bytes32 _blobHash
-    )
-        internal
-        view
-        returns (bool)
-    {
-        return _state.reusableBlobs[_blobHash] + _config.blobExpiry > block.timestamp;
     }
 
     function _isProposerPermitted(
