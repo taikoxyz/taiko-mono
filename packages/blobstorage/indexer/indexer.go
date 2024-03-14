@@ -96,7 +96,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
-	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
+	go func() {
+		if err := i.eventLoop(i.ctx, i.latestIndexedBlockNumber); err != nil {
+			slog.Error("error in event loop", "error", err)
+		}
+	}()
 
 	return nil
 }
