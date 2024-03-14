@@ -61,7 +61,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVOCATION_TOO_EARLY();
 
     modifier sameChain(uint64 _chainId) {
-        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
+        if (_chainId != uint64(block.chainid)) revert B_INVALID_CHAINID();
         _;
     }
 
