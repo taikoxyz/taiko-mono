@@ -158,8 +158,8 @@ func (b *Bridge) Start() error {
 }
 
 func (b *Bridge) submitBridge(ctx context.Context) error {
-
 	slog.Info("Submit bridge")
+	// bridge-ui/src/libs/bridge/ETHBridge.ts
 
 	return nil
 }

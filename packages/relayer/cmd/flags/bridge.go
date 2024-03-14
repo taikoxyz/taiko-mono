@@ -9,19 +9,11 @@ var (
 		Name:     "bridgePrivateKey",
 		Usage:    "Private key to send a bridge",
 		Required: true,
-		Category: watchdogCategory,
+		Category: bridegCategory,
 		EnvVars:  []string{"BRIDGE_PRIVATE_KEY"},
 	}
 )
 
 var BridgeFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	BridgePrivateKey,
-	// optional
-	Confirmations,
-	ConfirmationTimeout,
-	BackOffRetryInterval,
-	BackOffMaxRetrys,
-	QueuePrefetchCount,
-	DestBridgeAddress,
-	SrcBridgeAddress,
 })
