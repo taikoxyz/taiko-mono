@@ -28,7 +28,7 @@ contract CalldataReceiver {
 
 /// @notice The reason we call LibAddress.sendEther this way is - and not directly inside of a
 /// test_sendEther() because this way the coverage adds up if you call functions agains initiated
-/// contracts, so basicaly it is a workaround making the library test 'count' towards the coverage.
+/// contracts, so basically it is a workaround making the library test 'count' towards the coverage.
 /// @dev The EtherSenderContract in live environment is the Bridge.
 contract EtherSenderContract {
     function sendEther(
