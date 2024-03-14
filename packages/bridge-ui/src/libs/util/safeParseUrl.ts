@@ -1,11 +1,14 @@
-export const safeParseUrl = (uri: string) => {
+export enum IPFSGateway {
+  IPFS_IO = 'https://ipfs.io/ipfs/',
+  CLOUDFLARE_IPFS_COM = 'https://cloudflare-ipfs.com/ipfs/',
+}
+
+export const safeParseUrl = (uri: string, gateway: IPFSGateway | string = IPFSGateway.IPFS_IO) => {
   const IPFS_PREFIX = 'ipfs://';
 
   if (uri && uri.startsWith(IPFS_PREFIX)) {
-    // todo: multiple configurable ipfs gateways as fallback
     const ipfsPath = uri.replace(IPFS_PREFIX, '');
-    return `https://ipfs.io/ipfs/${ipfsPath}`;
+    return `${gateway}${ipfsPath}`;
   }
-
   return uri;
 };
