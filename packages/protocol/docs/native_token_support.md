@@ -4,7 +4,7 @@
 
 Taiko's briding concept is a lock-and-mint type. It simply means (the red path above) on the canonical chain we take custody of the assets and on the destination chain we mint the wrapped counterpart. When someone wants to bridge back (from destination to canonical) it will first burn the tokens, then release the funds on the canonical chain.
 
-But there might be some incentives (e.g.: adoption, liquidity fragmentation, etc.) when deploying a native token on the destination chain is beneficial. For this reason Taiko introduced the possibilty of deploying the canonical assets (together with all their sub/parent/proxy contracts) and plug it into our ERC20Vault via adapters (green path).
+But there might be some incentives (e.g.: adoption, liquidity fragmentation, etc.) when deploying a native token on the destination chain is beneficial. For this reason Taiko introduced the possibility of deploying the canonical assets (together with all their sub/parent/proxy contracts) and plug it into our ERC20Vault via adapters (green path).
 
 Important to note that while wrapped asset briding is 'automatical', the native one requires the willingness and efforts from Taiko side (and maybe also original token issuer green light to recognise officially as "native"), to support that type of asset-transfer.
 
