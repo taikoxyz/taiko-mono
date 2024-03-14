@@ -216,11 +216,11 @@ contract TaikoL2 is CrossChainOwned {
     /// @notice Returns EIP1559 related configurations.
     /// @return config_ struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config_) {
-        // 4x Ethereum gas target, if we assume most of the time, L2 block time
-        // is 3s, and each block is full (gasUsed is 15_000_000), then its
-        // ~60_000_000, if the  network is congester than that, the base fee
+        // 40x Ethereum gas target, if we assume most of the time, L2 block time
+        // is 3s, and each block is full (gasUsed is 150_000_000), then its
+        // ~600_000_000, if the  network is congester than that, the base fee
         // will increase.
-        config_.gasTargetPerL1Block = 15 * 1e6 * 4;
+        config_.gasTargetPerL1Block = 15 * 1e7 * 4;
         config_.basefeeAdjustmentQuotient = 8;
     }
 
