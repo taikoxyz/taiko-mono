@@ -11,7 +11,7 @@ var (
 var (
 	Port = &cli.UintFlag{
 		Name:     "port",
-		Usage:    "Block ID to start indexing from",
+		Usage:    "Port to run server on",
 		Category: indexerCategory,
 		EnvVars:  []string{"PORT"},
 	}

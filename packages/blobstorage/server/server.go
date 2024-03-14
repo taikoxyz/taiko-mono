@@ -65,11 +65,17 @@ func (s *Server) Start() error {
 	// Handler functions
 	r.HandleFunc("/getBlob", s.getBlobHandler).Methods("GET")
 
+	r.HandleFunc("/healthz", s.healthzHandler).Methods("GET")
+
 	http.Handle("/", r)
 	return http.ListenAndServe(fmt.Sprintf(":%v", s.port), nil)
 }
 
 func (s *Server) Close(ctx context.Context) {
+}
+
+func (s *Server) healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) getBlobHandler(w http.ResponseWriter, r *http.Request) {
