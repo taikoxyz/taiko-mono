@@ -629,6 +629,9 @@ func (i *Indexer) withRetry(f func() error) error {
 
 			return f()
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
+		backoff.WithContext(
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
+			i.ctx,
+		),
 	)
 }
