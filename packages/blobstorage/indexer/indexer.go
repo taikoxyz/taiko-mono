@@ -326,7 +326,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		if calculateBlobHash(data.KzgCommitment) == metaBlobHash {
 			blockTs, err := i.getBlockTimestamp(i.cfg.RPCURL, new(big.Int).SetUint64(blockID))
 			if err != nil {
-				slog.Info("error getting block timestamp", "error", err)
+				slog.Error("error getting block timestamp", "error", err)
 				return err
 			}
 
@@ -334,7 +334,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 
 			err = i.storeBlobInDB(fmt.Sprintf("%v%v", "0x", metaBlobHash), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64(), event.Raw.BlockNumber)
 			if err != nil {
-				slog.Error("Error storing blob in MongoDB", "error", err)
+				slog.Error("Error storing blob in DB", "error", err)
 				return err
 			}
 
