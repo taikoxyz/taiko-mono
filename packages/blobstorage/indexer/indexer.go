@@ -200,7 +200,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 			Context: i.ctx,
 		}
 
-		group, groupCtx := errgroup.WithContext(i.ctx)
+		group, _ := errgroup.WithContext(i.ctx)
 
 		events, err := i.taikoL1.FilterBlockProposed(opts, nil, nil)
 		if err != nil {
@@ -219,7 +219,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 			}
 
 			group.Go(func() error {
-				if err := i.withRetry(func() error { return i.filter(groupCtx) }); err != nil {
+				if err := i.withRetry(func() error { return i.storeBlob(ctx, event) }); err != nil {
 					return err
 				}
 
