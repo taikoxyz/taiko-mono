@@ -221,9 +221,10 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 		return nil
 	}
 
-	if err := backoff.Retry(sendTx, backoff.WithMaxRetries(
-		backoff.NewConstantBackOff(p.backOffRetryInterval),
-		p.backOffMaxRetries),
+	if err := backoff.Retry(sendTx, backoff.WithContext(
+		backoff.WithMaxRetries(
+			backoff.NewConstantBackOff(p.backOffRetryInterval),
+			p.backOffMaxRetries), ctx),
 	); err != nil {
 		return nil, err
 	}
