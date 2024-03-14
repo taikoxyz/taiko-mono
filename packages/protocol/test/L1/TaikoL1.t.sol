@@ -297,13 +297,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         proposeBlock(Alice, Bob, 1_000_000, 1024);
     }
 
-    function test_isBlobReusable() external {
-        // Need to go ahead in the future, after config's blob expiry time.
-        vm.warp(block.timestamp + 2 days);
-        // non existing, so not reusable
-        assertEq(false, L1.isBlobReusable(bytes32("AA")));
-    }
-
     function test_burn() external {
         uint256 balanceBeforeBurn = tko.balanceOf(address(this));
         vm.prank(tko.owner(), tko.owner());
@@ -352,7 +345,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
         L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, 0, 0, false, 0, hookcalls)),
+            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls)),
             new bytes(txListSize)
         );
     }
