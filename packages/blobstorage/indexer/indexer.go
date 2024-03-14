@@ -167,7 +167,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		"batchsize", defaultBlockBatchSize,
 	)
 
-	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += defaultBlockBatchSize {
+	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += defaultBlockBatchSize + 1 {
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		end := utils.Min(j+defaultBlockBatchSize, endBlockID)
@@ -246,7 +246,7 @@ func calculateBlobHash(commitmentStr string) common.Hash {
 		&commitment,
 	)
 
-	return common.Hash(blobHash[:])
+	return common.BytesToHash(blobHash[:])
 }
 
 func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
@@ -292,7 +292,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	for _, data := range responseData.Data {
 		data.KzgCommitmentHex = common.FromHex(data.KzgCommitment)
 
-		metaBlobHash := common.Hash(event.Meta.BlobHash[:])
+		metaBlobHash := common.BytesToHash(event.Meta.BlobHash[:])
 		// Comparing the hex strings of meta.blobHash (blobHash)
 		if calculateBlobHash(data.KzgCommitment) == metaBlobHash {
 			blockTs, err := i.getBlockTimestamp(i.cfg.RPCURL, new(big.Int).SetUint64(blockID))
