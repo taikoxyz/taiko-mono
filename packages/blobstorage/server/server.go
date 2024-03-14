@@ -58,8 +58,6 @@ func InitFromConfig(ctx context.Context, s *Server, cfg *Config) (err error) {
 }
 
 func (s *Server) Start() error {
-	slog.Info("Server started!")
-
 	r := mux.NewRouter()
 
 	// Handler functions
@@ -68,6 +66,9 @@ func (s *Server) Start() error {
 	r.HandleFunc("/healthz", s.healthzHandler).Methods("GET")
 
 	http.Handle("/", r)
+
+	slog.Info("starting server on port", "port", s.port)
+
 	return http.ListenAndServe(fmt.Sprintf(":%v", s.port), nil)
 }
 
