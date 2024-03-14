@@ -81,8 +81,8 @@ contract BridgedERC20 is
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() external onlyOwnerOrSnapshooter {
-        _snapshot();
+    function snapshot() external onlyOwnerOrSnapshooter returns (uint256) {
+        return _snapshot();
     }
 
     /// @notice Gets the name of the token.
@@ -126,11 +126,11 @@ contract BridgedERC20 is
     }
 
     function _mintToken(address _account, uint256 _amount) internal override {
-        _mint(_account, _amount);
+        return _mint(_account, _amount);
     }
 
     function _burnToken(address _from, uint256 _amount) internal override {
-        _burn(_from, _amount);
+        return _burn(_from, _amount);
     }
 
     /// @dev For ERC20SnapshotUpgradeable and ERC20VotesUpgradeable, need to implement the following
@@ -145,7 +145,7 @@ contract BridgedERC20 is
     {
         if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
-        super._beforeTokenTransfer(_from, _to, _amount);
+        return super._beforeTokenTransfer(_from, _to, _amount);
     }
 
     function _afterTokenTransfer(
@@ -156,7 +156,7 @@ contract BridgedERC20 is
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._afterTokenTransfer(_from, _to, _amount);
+        return super._afterTokenTransfer(_from, _to, _amount);
     }
 
     function _mint(
@@ -166,7 +166,7 @@ contract BridgedERC20 is
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._mint(_to, _amount);
+        return super._mint(_to, _amount);
     }
 
     function _burn(
@@ -176,6 +176,6 @@ contract BridgedERC20 is
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
-        super._burn(_from, _amount);
+        return super._burn(_from, _amount);
     }
 }
