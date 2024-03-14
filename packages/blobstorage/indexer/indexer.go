@@ -137,7 +137,7 @@ func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
 
 			filtering = true
 
-			if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
+			if err := i.filter(ctx); err != nil {
 				slog.Error("error filtering", "error", err)
 				return err
 			}
