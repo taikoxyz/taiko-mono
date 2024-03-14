@@ -13,7 +13,6 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 	b := &mock.Bridge{}
 
 	return &Indexer{
-		blockRepo:     &mock.BlockRepository{},
 		eventRepo:     &mock.EventRepository{},
 		bridge:        b,
 		destBridge:    b,
@@ -21,8 +20,8 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		srcEthClient:  &mock.EthClient{},
 		numGoroutines: 10,
 
-		processingBlockHeight: 0,
-		blockBatchSize:        100,
+		latestIndexedBlockNumber: 0,
+		blockBatchSize:           100,
 
 		queue: &mock.Queue{},
 
