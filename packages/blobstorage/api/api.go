@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	nethttp "net/http"
+
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/pkg/http"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/pkg/repo"
@@ -54,7 +56,7 @@ func InitFromConfig(ctx context.Context, a *API, cfg *Config) (err error) {
 
 func (a *API) Start() error {
 	go func() {
-		if err := a.srv.Start(fmt.Sprintf(":%v", a.port)); err != nil {
+		if err := a.srv.Start(fmt.Sprintf(":%v", a.port)); err != nil && err != nethttp.ErrServerClosed {
 			slog.Error("error starting server", "error", err)
 		}
 	}()
