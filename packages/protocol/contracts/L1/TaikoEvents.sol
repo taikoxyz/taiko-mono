@@ -72,10 +72,6 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    /// @dev Emitted when a blob is cached for reuse.
-    /// @param blobHash The blobHash cached.
-    event BlobCached(bytes32 blobHash);
-
     /// @dev Emitted when proving has been paused
     /// @param paused True if paused, false if unpaused.
     event ProvingPaused(bool paused);
