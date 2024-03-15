@@ -23,7 +23,7 @@ contract TaikoL2 is CrossChainOwned {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-    uint32 private constant _LGAS_TARGET_PER_L1_BLOCK = 15_000_000;
+    uint32 private constant _GAS_TARGET_PER_L1_BLOCK = 15_000_000;
 
     struct Config {
         uint32 gasTargetPerL1Block;
@@ -219,7 +219,7 @@ contract TaikoL2 is CrossChainOwned {
     /// @return config_ struct containing configuration parameters.
     function getConfig() public view virtual returns (Config memory config_) {
         // We assume we can sell 10 more block space than L1.
-        config_.gasTargetPerL1Block = _LGAS_TARGET_PER_L1_BLOCK * 10;
+        config_.gasTargetPerL1Block = _GAS_TARGET_PER_L1_BLOCK * 10;
         config_.basefeeAdjustmentQuotient = 8;
     }
 
