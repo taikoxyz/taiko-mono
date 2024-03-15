@@ -120,7 +120,7 @@ contract TaikoGovernor is
         internal
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
     {
-        super._execute(_proposalId, _targets, _values, _calldatas, _descriptionHash);
+        return super._execute(_proposalId, _targets, _values, _calldatas, _descriptionHash);
     }
 
     function _cancel(
