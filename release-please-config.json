@@ -1,6 +1,7 @@
 {
   "draft": true,
   "packages": {
+    "packages/blob-catcher": {},
     "packages/branding": {},
     "packages/bridge-ui": {},
     "packages/eventindexer": {},
