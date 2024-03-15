@@ -221,7 +221,7 @@
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
       {:else if value}
         <div class="flex f-space-between space-x-2 items-center text-secondary-content">
-          <!-- Only match icons to configurd tokens -->
+          <!-- Only match icons to configured tokens -->
           {#if symbolToIconMap[value.symbol] && !value.imported}
             <i role="img" aria-label={value.name}>
               <svelte:component this={symbolToIconMap[value.symbol]} size={20} />
