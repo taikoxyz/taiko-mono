@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/taikoxyz/taiko-mono/packages/blobstorage/api"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/indexer"
-	"github.com/taikoxyz/taiko-mono/packages/blobstorage/server"
 	"github.com/urfave/cli/v2"
 )
 
@@ -45,10 +45,10 @@ func main() {
 		},
 		{
 			Name:        "server",
-			Flags:       flags.ServerFlags,
+			Flags:       flags.APIFlags,
 			Usage:       "Starts the server software",
 			Description: "Taiko blobcatcher server software",
-			Action:      utils.SubcommandAction(new(server.Server)),
+			Action:      utils.SubcommandAction(new(api.API)),
 		},
 	}
 

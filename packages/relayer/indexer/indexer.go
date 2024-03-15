@@ -272,48 +272,26 @@ func (i *Indexer) Start() error {
 
 	i.wg.Add(1)
 
-	go func() {
-		if err := i.eventLoop(i.ctx, i.latestIndexedBlockNumber); err != nil {
-			slog.Error("error in event loop", "error", err)
-		}
-	}()
+	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
 
 	return nil
 }
 
-func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) error {
-	defer func() {
-		i.wg.Done()
-	}()
+func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
+	defer i.wg.Done()
 
 	t := time.NewTicker(10 * time.Second)
 
 	defer t.Stop()
 
-	var filtering bool = false
-
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("event loop context done")
-			return nil
+			return
 		case <-t.C:
-			func() {
-				defer func() {
-					filtering = false
-				}()
-			}()
-
-			if filtering {
-				continue
-			}
-
-			filtering = true
-
-			slog.Info("event loop ticker")
-
-			if err := i.withRetry(func() error { return i.filter(ctx) }); err != nil {
-				return err
+			if err := i.filter(ctx); err != nil {
+				slog.Error("error filtering", "error", err)
 			}
 		}
 	}
