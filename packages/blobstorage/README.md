@@ -18,9 +18,9 @@ cd local_docker && docker-compose up -d
 ENV_FILE=.default.indexer.env go run cmd/main.go indexer
 ```
 
-By default the above command starts the app from the latest block height. If we want to specifiy a previous blockheight, we can run change it from the `.default.indexer.env` file, by adding a `STARTING_BLOCK_ID` variable.
+By default the above command starts the app from the latest block height. If we want to specify a previous blockheight, we can run change it from the `.default.indexer.env` file, by adding a `STARTING_BLOCK_ID` variable.
 
-2. Start the `server`.
+3. Start the `server`.
 
 ```bash
 ENV_FILE=.default.server.env go run cmd/main.go server
@@ -28,7 +28,7 @@ ENV_FILE=.default.server.env go run cmd/main.go server
 
 ## how to test / use ?
 
-When the `DB`, `blob-catcher` and `server` is running, the `blob-catcher` is outputting the `blobHash` to the terminal (with the `networkName` variable too, tho it is not written into the DB). Use that `blobHash` (including the 0x) in
+When the `DB`, `blob-catcher` and `server` are running, the `blob-catcher` is outputting the `blobHash` to the terminal (with the `networkName` variable too, though it is not written into the DB). Use that `blobHash` (including the 0x) in
 
 1. Either in a curl command like this (you can query multiple blobHashes - comma separated - with one go and the result will be a respective array):
 
@@ -52,4 +52,4 @@ python3 python_query.py
 
 What is still missing is:
 
-- small refinements and DevOps (prod-grade DB with creditentials, proper containerization)
+- small refinements and DevOps (prod-grade DB with credentials, proper containerization)
