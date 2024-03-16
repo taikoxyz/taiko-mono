@@ -218,10 +218,6 @@ func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
 	go func() {
-		defer func() {
-			i.wg.Done()
-		}()
-
 		if err := i.filter(i.ctx); err != nil {
 			slog.Error("error filtering blocks", "error", err.Error())
 		}
@@ -334,6 +330,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
 			// use "end" not "filterEnd" here, because it will be used as the start
 			// of the next batch.
+
 			if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 				return errors.Wrap(err, "i.handleNoEventsInBatch")
 			}
@@ -370,6 +367,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 				// loop
 				if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 					return errors.Wrap(err, "i.handleNoEventsInBatch")
+
 				}
 
 				break
