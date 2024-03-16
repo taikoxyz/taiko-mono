@@ -62,19 +62,25 @@ Ensure your `.default.indexer.env` and `.default.server.env` files are configure
 
 When the `DB`, `blob-catcher` and `server` are running, the `blob-catcher` is outputting the `blobHash` to the terminal (with the `networkName` variable too, though it is not written into the DB). Use that `blobHash` (including the 0x) in
 
-1. Either in a curl command like this (you can query multiple blobHashes - comma separated - with one go and the result will be a respective array):
+1. **Querying Blob Data via HTTP Request**:
+
+   To retrieve blob data, you can execute a `curl` command. This allows for querying multiple `blobHashes` simultaneously, separated by commas. A single request can yield an array of results:
 
 ```bash
 curl -X GET "http://localhost:3282/getBlob?blobHash=0x01a2a1cdc7ad221934061642a79a760776a013d0e6fa1a1c6b642ace009c372a,0xWRONG_HASH"
 ```
 
-The result will be something like this:
+**Expected Output**:
 
 ```bash
 {"data":[{"blob":"0x123...00","kzg_commitment":"0xabd68b406920aa74b83cf19655f1179d373b5a8cba21b126b2c18baf2096c8eb9ab7116a89b375546a3c30038485939e"}, {"blob":"NOT_FOUND","kzg_commitment":"NOT_FOUND"}]}
 ```
 
-2. Or to backtest, use the simple python script below, after overwriting the `blob_hash` variable:
+2. **Backtesting with a Python Script**:
+
+This script facilitates querying the database directly based on a specified `blob_hash`. Modify the `blob_hash` variable in the script to match the hash you wish to query.
+
+To run the script:
 
 ```bash
 python3 python_query.py
