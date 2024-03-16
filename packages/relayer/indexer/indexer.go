@@ -349,8 +349,6 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
 					slog.Error("error handling event", "err", err.Error())
-				} else {
-					slog.Info("handled event successfully")
 				}
 
 				return nil
