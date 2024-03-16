@@ -15,7 +15,7 @@ cd local_docker && docker-compose up -d
 2. Start the `indexer`
 
 ```bash
-ENV_FILE=.default.indexer.env run cmd/main.go indexer
+ENV_FILE=.default.indexer.env go run cmd/main.go indexer
 ```
 
 By default the above command starts the app from the latest block height. If we want to specifiy a previous blockheight, we can run change it from the `.default.indexer.env` file, by adding a `STARTING_BLOCK_ID` variable.
@@ -23,7 +23,7 @@ By default the above command starts the app from the latest block height. If we 
 2. Start the `server`.
 
 ```bash
-ENV_FILE=.default.server.env run cmd/main.go server
+ENV_FILE=.default.server.env go run cmd/main.go server
 ```
 
 ## how to test / use ?
