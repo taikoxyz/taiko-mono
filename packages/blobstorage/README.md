@@ -1,39 +1,71 @@
 # blob-storage
 
-Repo for BLOB storage (archive and serve data)
+Repository for BLOB storage (archive and serve data)
 
-## how to run ?
+## Prerequisites
 
-Prerequisite is to have docker engine up and running.
+- Docker engine up and running.
+- Go installed on your system.
 
-1. Start the mongoDB
+## Configuration and Setup
 
-```bash
-cd local_docker && docker-compose up -d
-```
+### Setting up MySQL
 
-2. Start the `indexer`
+1. **Start MySQL**:
 
-```bash
-ENV_FILE=.default.indexer.env go run cmd/main.go indexer
-```
+   Navigate to the `docker-compose` directory and start the MySQL service:
 
-By default the above command starts the app from the latest block height. If we want to specify a previous blockheight, we can run change it from the `.default.indexer.env` file, by adding a `STARTING_BLOCK_ID` variable.
+   ```bash
+   cd ./docker-compose
+   docker-compose up -d
+   ```
 
-3. Start the `server`.
+   This command starts your MySQL instance as defined in your `docker-compose.yml` file.
 
-```bash
-ENV_FILE=.default.server.env go run cmd/main.go server
-```
+2. **Migrate Database Schema**:
 
-## how to test / use ?
+   Navigate to the `migrations` directory to apply database migrations:
+
+   ```bash
+   cd ./migrations
+   goose mysql "root:passw00d@tcp(localhost:3306)/blobs" status
+   goose mysql "root:passw00d@tcp(localhost:3306)/blobs" up
+   ```
+
+   These commands apply migrations to the `blobs` database.
+
+### Environment Configuration
+
+Ensure your `.default.indexer.env` and `.default.server.env` files are configured with the correct database credentials, host, and any other necessary environment variables.
+
+## Running the Application
+
+1. **Start the Indexer**:
+
+   With the environment file configured, start the indexer:
+
+   ```bash
+   ENV_FILE=.default.indexer.env go run cmd/main.go indexer
+   ```
+
+   This starts the app from the latest block height by default. Adjust the `STARTING_BLOCK_ID` in the environment file if needed.
+
+2. **Start the Server**:
+
+   Similarly, start the server:
+
+   ```bash
+   ENV_FILE=.default.server.env go run cmd/main.go server
+   ```
+
+## Testing and Usage
 
 When the `DB`, `blob-catcher` and `server` are running, the `blob-catcher` is outputting the `blobHash` to the terminal (with the `networkName` variable too, though it is not written into the DB). Use that `blobHash` (including the 0x) in
 
 1. Either in a curl command like this (you can query multiple blobHashes - comma separated - with one go and the result will be a respective array):
 
 ```bash
-curl -X GET "http://localhost:27001/getBlob?blobHash=0x01a2a1cdc7ad221934061642a79a760776a013d0e6fa1a1c6b642ace009c372a,0xWRONG_HASH"
+curl -X GET "http://localhost:3282/getBlob?blobHash=0x01a2a1cdc7ad221934061642a79a760776a013d0e6fa1a1c6b642ace009c372a,0xWRONG_HASH"
 ```
 
 The result will be something like this:
@@ -48,7 +80,7 @@ The result will be something like this:
 python3 python_query.py
 ```
 
-## todos
+## Todos
 
 What is still missing is:
 
