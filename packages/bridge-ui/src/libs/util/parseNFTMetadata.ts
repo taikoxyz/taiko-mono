@@ -10,6 +10,8 @@ import { getLogger } from './logger';
 
 const log = getLogger('libs:token:parseNFTMetadata');
 
+const request = axios.create({ timeout: apiService.timeout });
+
 export const parseNFTMetadata = async (token: NFT): Promise<NFTMetadata | null> => {
   if (token.type !== TokenType.ERC721 && token.type !== TokenType.ERC1155) throw new Error('Not a NFT');
 
@@ -27,7 +29,7 @@ export const parseNFTMetadata = async (token: NFT): Promise<NFTMetadata | null> 
   let json;
 
   try {
-    json = await axios.get(url, { timeout: apiService.timeout });
+    json = await request.get(url);
   } catch (err) {
     const error = err as AxiosError;
     log(`error fetching metadata for ${token.name} id: ${token.tokenId}`, error);
@@ -76,7 +78,7 @@ const retry = async (url: string, tokenId: number): Promise<AxiosResponse | Erro
 const retryRequest = async (newUrl: string): Promise<AxiosResponse | Error> => {
   try {
     log(`retrying with ${newUrl}`);
-    return await axios.get(newUrl);
+    return await request.get(newUrl);
   } catch (error) {
     log('retrying failed', error);
     throw new Error(`No metadata found for ${newUrl}`);
