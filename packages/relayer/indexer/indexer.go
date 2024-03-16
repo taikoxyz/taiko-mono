@@ -368,6 +368,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 					return errors.Wrap(err, "i.handleNoEventsInBatch")
 
 				}
+
 				break
 			}
 		}
