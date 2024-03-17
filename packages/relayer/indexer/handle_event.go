@@ -29,8 +29,8 @@ func (i *Indexer) handleEvent(
 	event *bridge.BridgeMessageSent,
 ) error {
 	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
-	// if the destinatio chain doesnt match, we dont process it in this indexer.
 
+	// if the destinatio chain doesnt match, we dont process it in this indexer.
 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
@@ -142,6 +142,7 @@ func (i *Indexer) handleEvent(
 			// If the status from contract matches the existing event status,
 			// we can return early as this message has been processed as expected.
 			slog.Info("crawler returning early", "eventStatus", eventStatus, "existingEvent.Status", existingEvent.Status)
+
 			return nil
 		}
 
