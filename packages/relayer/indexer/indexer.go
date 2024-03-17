@@ -218,14 +218,24 @@ func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
 	go func() {
-		if err := i.filter(i.ctx); err != nil {
-			slog.Error("error filtering blocks", "error", err.Error())
+		if err := backoff.Retry(func() error {
+			err := i.filter(i.ctx)
+			if err != nil {
+				slog.Error("filter failed, will retry", "error", err)
+			}
+			return err
+		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			slog.Error("error after retrying filter with backoff", "error", err)
 		}
 	}()
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
+			err := scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
+			if err != nil {
+				slog.Error("scanBlocks failed, will retry", "error", err)
+			}
+			return err
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
@@ -233,9 +243,13 @@ func (i *Indexer) Start() error {
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return i.queue.Notify(i.ctx, i.wg)
+			err := i.queue.Notify(i.ctx, i.wg)
+			if err != nil {
+				slog.Error("i.queue.Notify failed, will retry", "error", err)
+			}
+			return err
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
-			slog.Error("queue notify backoff retry", "error", err)
+			slog.Error("i.queue.Notify backoff retry", "error", err)
 		}
 	}()
 
@@ -349,6 +363,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
 					slog.Error("error handling event", "err", err.Error())
+				} else {
+					slog.Info("handled event successfully")
 				}
 
 				return nil
@@ -364,7 +380,6 @@ func (i *Indexer) filter(ctx context.Context) error {
 				// loop
 				if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 					return errors.Wrap(err, "i.handleNoEventsInBatch")
-
 				}
 
 				break

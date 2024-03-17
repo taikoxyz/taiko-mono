@@ -28,8 +28,9 @@ func (i *Indexer) handleEvent(
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
-	// slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
+	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 	// if the destinatio chain doesnt match, we dont process it in this indexer.
+
 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
@@ -92,8 +93,6 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
-	// TODO(xiaodino): Change to batch query
-
 	// check if we have an existing event already. this is mostly likely only true
 	// in the case of us crawling past blocks.
 	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(
@@ -142,7 +141,7 @@ func (i *Indexer) handleEvent(
 		if i.watchMode == CrawlPastBlocks && eventStatus == existingEvent.Status {
 			// If the status from contract matches the existing event status,
 			// we can return early as this message has been processed as expected.
-			// slog.Info("crawler returning early", "eventStatus", eventStatus, "existingEvent.Status", existingEvent.Status)
+			slog.Info("crawler returning early", "eventStatus", eventStatus, "existingEvent.Status", existingEvent.Status)
 			return nil
 		}
 
