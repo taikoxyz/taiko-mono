@@ -393,6 +393,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	if i.watchMode == CrawlPastBlocks {
 		slog.Info("restarting filtering from genesis")
+
+		i.processingBlockHeight = 0
+
 		return i.filter(ctx)
 	}
 

@@ -43,7 +43,12 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 
 		return nil
 	case Resync:
+		if i.watchMode == CrawlPastBlocks && i.processingBlockHeight > startingBlock {
+			return nil
+		}
+
 		i.processingBlockHeight = startingBlock
+
 		return nil
 	default:
 		return relayer.ErrInvalidMode
