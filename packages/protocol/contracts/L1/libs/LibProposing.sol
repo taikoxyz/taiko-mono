@@ -125,7 +125,7 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (block.chainid != 1) revert L1_BLOB_NOT_AVAILABLE();
+            // if (block.chainid != 1) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
