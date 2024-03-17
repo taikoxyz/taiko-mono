@@ -9,7 +9,14 @@ import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
-import { type BridgeArgs, type ClaimArgs, MessageStatus, type ReleaseArgs } from './types';
+import {
+  type BridgeArgs,
+  type ClaimArgs,
+  MessageStatus,
+  type ProcessMessageType,
+  type ReleaseArgs,
+  type RetryMessageArgs,
+} from './types';
 
 const log = getLogger('bridge:Bridge');
 
@@ -118,130 +125,143 @@ export abstract class Bridge {
     if (messageStatus !== MessageStatus.FAILED) {
       throw new MessageStatusError('message must fail to release funds');
     }
-    return { messageStatus, destBridgeAddress };
+    return;
   }
 
   abstract estimateGas(args: BridgeArgs): Promise<bigint>;
   abstract bridge(args: BridgeArgs): Promise<Hash>;
 
-  async claim(args: ClaimArgs) {
+  async claim(args: ClaimArgs): Promise<Hash> {
     const { messageStatus, destBridgeAddress } = await this.beforeClaiming(args);
 
-    let txHash: Hash;
     const { message, msgHash } = args.bridgeTx;
     if (!message || !msgHash) throw new ProcessMessageError('Message is not defined');
 
-    if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
-      try {
-        const client = await getConnectedWallet();
-        if (!client) throw new Error('Client not found');
+    const client = await getConnectedWallet();
+    if (!client) throw new Error('Client not found');
 
-        const bridgeContract = await getContract({
-          client,
-          abi: bridgeAbi,
-          address: destBridgeAddress,
-        });
+    const bridgeContract = await getContract({
+      client,
+      abi: bridgeAbi,
+      address: destBridgeAddress,
+    });
 
-        const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], {
-          account: client.account,
-        });
-        log('Estimated gas', estimatedGas);
-
-        const { request } = await simulateContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'processMessage',
-          args: [message, proof],
-          gas: estimatedGas,
-        });
-        log('Simulate contract', request);
-
-        txHash = await writeContract(config, request);
-        log('Transaction hash for processMessage call', txHash);
-        return txHash;
-      } catch (err) {
-        console.error(err);
-        if (`${err}`.includes('denied transaction signature')) {
-          throw new UserRejectedRequestError(err as Error);
-        }
-        throw new ProcessMessageError('failed to claim ETH', { cause: err });
+    try {
+      let txHash: Hash;
+      if (messageStatus === MessageStatus.NEW) {
+        txHash = await this.processNewMessage({ ...args, bridgeContract, client });
+      } else if (messageStatus === MessageStatus.RETRIABLE) {
+        txHash = await this.retryMessage({ ...args, bridgeContract, client });
+      } else if (messageStatus === MessageStatus.FAILED) {
+        txHash = await this.release({ ...args, bridgeContract, client });
+      } else {
+        throw new ProcessMessageError('Message status not supported for claiming.');
       }
-    } else if (messageStatus === MessageStatus.RETRIABLE) {
-      try {
-        const client = await getConnectedWallet();
-        if (!client) throw new Error('Client not found');
-
-        const bridgeContract = await getContract({
-          client,
-          abi: bridgeAbi,
-          address: destBridgeAddress,
-        });
-
-        const estimatedGas = await bridgeContract.estimateGas.retryMessage([message, false], {
-          account: client.account,
-        });
-        log('Estimated gas', estimatedGas);
-
-        const { request } = await simulateContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'retryMessage',
-          args: [message, false],
-          gas: estimatedGas,
-        });
-        log('Simulate contract', request);
-
-        txHash = await writeContract(config, request);
-        log('Transaction hash for retry call', txHash);
-        return txHash;
-      } catch (err) {
+      return txHash;
+    } catch (err) {
+      if (`${err}`.includes('denied transaction signature')) {
         console.error(err);
-        if (`${err}`.includes('denied transaction signature')) {
-          throw new UserRejectedRequestError(err as Error);
-        }
-        throw new ProcessMessageError('failed to claim ETH again', { cause: err });
+        throw new UserRejectedRequestError(err as Error);
       }
+      throw err;
     }
-    throw new ProcessMessageError('Message status not supported for claiming.');
   }
 
-  async release(args: ReleaseArgs) {
-    const { messageStatus, destBridgeAddress } = await this.beforeReleasing(args);
+  private async processNewMessage(args: ProcessMessageType): Promise<Hash> {
+    const { bridgeTx, bridgeContract, client } = args;
+    const { message } = bridgeTx;
+    if (!message) throw new ProcessMessageError('Message is not defined');
+    const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
+    log('Estimated gas for processMessage', estimatedGas);
 
-    let txHash: Hash;
-    const { message, msgHash } = args.bridgeTx;
-    if (!message || !msgHash) throw new ReleaseError('Message is not defined');
+    const { request } = await simulateContract(config, {
+      address: bridgeContract.address,
+      abi: bridgeContract.abi,
+      functionName: 'processMessage',
+      args: [message, proof],
+      gas: estimatedGas,
+    });
+    log('Simulate contract for processMessage', request);
 
-    if (messageStatus === MessageStatus.FAILED) {
-      const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
-      try {
-        const { request } = await simulateContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'recallMessage',
-          args: [message, proof],
-          gas: message.gasLimit,
-        });
-        log('Simulate contract', request);
+    return await writeContract(config, request);
+  }
 
-        txHash = await writeContract(config, {
-          address: destBridgeAddress,
-          abi: bridgeAbi,
-          functionName: 'recallMessage',
-          args: [message, proof],
-          gas: message.gasLimit,
-        });
-        log('Transaction hash for recallMessage call', txHash);
-        return txHash;
-      } catch (err) {
-        console.error(err);
-        if (`${err}`.includes('denied transaction signature')) {
-          throw new UserRejectedRequestError(err as Error);
-        }
-        throw new ReleaseError('failed to release ETH', { cause: err });
-      }
-    }
-    throw new ReleaseError('Message status not supported for release');
+  private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
+    const { bridgeTx, bridgeContract, client } = args;
+    const isFinalAttempt = args.lastAttempt || false;
+    const { message } = bridgeTx;
+
+    isFinalAttempt ? log('Retrying message for the last time') : log('Retrying message');
+
+    if (!message) throw new ProcessMessageError('Message is not defined');
+
+    const estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
+      account: client.account,
+    });
+
+    log('Estimated gas for retryMessage', estimatedGas);
+
+    const { request } = await simulateContract(config, {
+      address: bridgeContract.address,
+      abi: bridgeContract.abi,
+      functionName: 'retryMessage',
+      args: [message, isFinalAttempt],
+      gas: estimatedGas,
+    });
+    log('Simulate contract for retryMessage', request);
+
+    return await writeContract(config, request);
+  }
+
+  private async release(args: ReleaseArgs) {
+    await this.beforeReleasing(args);
+
+    const { bridgeTx, bridgeContract, client } = args;
+    const { message } = bridgeTx;
+    if (!message) throw new ReleaseError('Message is not defined');
+    const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    const estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
+    log('Estimated gas for processMessage', estimatedGas);
+
+    const { request } = await simulateContract(config, {
+      address: bridgeContract.address,
+      abi: bridgeContract.abi,
+      functionName: 'recallMessage',
+      args: [message, proof],
+      gas: estimatedGas,
+    });
+    log('Simulate contract for processMessage', request);
+
+    return await writeContract(config, request);
+    //   let txHash: Hash;
+    //   const { message, msgHash } = args.bridgeTx;
+    //   if (!message || !msgHash) throw new ReleaseError('Message is not defined');
+
+    //   if (messageStatus === MessageStatus.FAILED) {
+    //     const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
+    //     try {
+    //       const { request } = await simulateContract(config, {
+    //         address: destBridgeAddress,
+    //         abi: bridgeAbi,
+    //         functionName: 'recallMessage',
+    //         args: [message, proof],
+    //         gas: message.gasLimit,
+    //       });
+    //       log('Simulate contract', request);
+
+    //       txHash = await writeContract(config, request);
+    //       log('Transaction hash for recallMessage call', txHash);
+    //       return txHash;
+    //     } catch (err) {
+    //       console.error(err);
+    //       if (`${err}`.includes('denied transaction signature')) {
+    //         throw new UserRejectedRequestError(err as Error);
+    //       }
+    //       throw new ReleaseError('failed to release ETH', { cause: err });
+    //     }
+    //   }
+    //   throw new ReleaseError('Message status not supported for release');
+    // }
   }
 }
