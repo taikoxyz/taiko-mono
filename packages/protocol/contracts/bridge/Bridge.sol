@@ -435,7 +435,7 @@ contract Bridge is EssentialContract, IBridge {
             return (30 minutes, 384 seconds);
         } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
             // For all Taiko internal devnets
-            return (5 minutes, 384 seconds);
+            return (15 minutes, 384 seconds);
         } else {
             // This is a Taiko L2 chain where no deleys are applied.
             return (0, 0);
