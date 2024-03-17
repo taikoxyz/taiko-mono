@@ -1,20 +1,20 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { zeroAddress } from 'viem';
+  import { createEventDispatcher } from 'svelte';
+  import { t } from 'svelte-i18n';
 
   import ActionButton from '$components/Button/ActionButton.svelte';
-  import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge';
-  import { getInvocationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
-  import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
-  import { PollingEvent, type startPolling } from '$libs/polling/messageStatusPoller';
-
-  export let tx: BridgeTransaction;
-
-  export let delays: readonly bigint[];
+  import { Icon, type IconType } from '$components/Icon';
+  import { Spinner } from '$components/Spinner';
+  import { ClaimStatus } from '$components/Transactions/Dialogs/ClaimDialog/types';
+  import { theme } from '$stores/theme';
 
   export let canClaim = false;
 
-  export let polling: ReturnType<typeof startPolling>;
+  let claimStatus: ClaimStatus = ClaimStatus.PENDING;
+
+  export let claimingDone = false;
+
+  export let claiming = false;
 
   const dispatch = createEventDispatcher();
 
@@ -22,62 +22,54 @@
     dispatch('claim');
   };
 
-  $: preferredDelay = 0n;
+  $: bridgeIcon = `bridge-${$theme}` as IconType;
+  $: successIcon = `success-${$theme}` as IconType;
 
-  const convertSecondsToTime = (seconds: bigint): string => {
-    if (seconds <= 0n) {
-      canClaim = true;
-      return 'You can claim now';
-    }
+  $: statusTitle = '';
+  $: statusDescription = '';
 
-    const minutes = seconds / 60n;
-    const hours = minutes / 60n;
-    const remainingMinutes = minutes % 60n;
-
-    if (hours > 0n) {
-      const hoursPart = hours === 1n ? '1 hour' : `${hours} hours`;
-      const minutesPart = remainingMinutes > 0n ? `, ${remainingMinutes} min` : '';
-      return `${hoursPart}${minutesPart} until you can claim`;
-    } else if (minutes > 0n) {
-      return minutes === 1n ? '1 minute until you can claim' : `${minutes} minutes until you can claim`;
-    } else {
-      return 'less than a minute until you can claim';
-    }
-  };
-
-  $: remaining = delays && preferredDelay - delays[0] > 0n ? preferredDelay - delays[0] : 0n;
-
-  const onDelayChange = (remainingDelayInSeconds: bigint[]) => {
-    preferredDelay = remainingDelayInSeconds[0];
-  };
-
-  let proofReceipt: GetProofReceiptResponse;
-  onMount(async () => {
-    if (polling?.emitter) {
-      proofReceipt = await getProofReceiptForMsgHash({
-        msgHash: tx.hash,
-        srcChainId: tx.srcChainId,
-        destChainId: tx.destChainId,
-      });
-
-      // The following listeners will trigger change in the UI
-      polling.emitter.on(PollingEvent.DELAY, onDelayChange);
-    }
-    convertSecondsToTime(preferredDelay);
-  });
+  $: claimDisabled = !canClaim || claiming;
 </script>
 
-<h1>Confirm! TODO</h1>
 <div class="space-y-[18px]">
-  {#if proofReceipt && proofReceipt[1] !== zeroAddress}
-    {delays[0]} vs {preferredDelay} vs {remaining}
-
-    <progress class="progress progress-primary w-full" value={Number(delays[0] - remaining)} max={Number(remaining)}
-    ></progress>
-  {/if}
-
-  <ActionButton onPopup priority="primary" on:click={() => handleClaimClick()} disabled={!canClaim}
-    >Claim now</ActionButton>
-  <!-- <button class="btn" on:click={() => handleClaimClick()}>Test claim</button> -->
-  <button class="btn" on:click={() => getInvocationDelayForTx(tx)}>Get delays</button>
+  <div class="mt-[30px]">
+    <section id="txStatus">
+      {claimStatus}
+      <div class="flex flex-col justify-content-center items-center">
+        {#if claimingDone}
+          <Icon type={successIcon} size={160} />
+          <div id="text" class="f-col my-[30px] text-center">
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <h1>{@html statusTitle}</h1>
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <span class="">{@html statusDescription}</span>
+          </div>
+        {:else if claiming && !claimingDone}
+          <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
+          <div id="text" class="f-col my-[30px] text-center">
+            <h1 class="mb-[16px]">{$t('bridge.step.confirm.processing')}</h1>
+            <span>{$t('bridge.step.confirm.approve.pending')}</span>
+          </div>
+        {:else if !claiming && !claimingDone}
+          <Icon type={bridgeIcon} size={160} />
+          <div id="text" class="f-col my-[30px] text-center">
+            <h1 class="mb-[16px]">Todo: Proceed to claim</h1>
+            <span>Todo: claimable!</span>
+          </div>
+        {/if}
+      </div>
+    </section>
+    {claimingDone}
+    {#if !claimingDone}
+      <section id="actions" class="f-col w-full">
+        <div class="h-sep mb-[30px]" />
+        <ActionButton
+          onPopup
+          priority="primary"
+          loading={claiming}
+          on:click={() => handleClaimClick()}
+          disabled={claimDisabled}>Claim now</ActionButton>
+      </section>
+    {/if}
+  </div>
 </div>

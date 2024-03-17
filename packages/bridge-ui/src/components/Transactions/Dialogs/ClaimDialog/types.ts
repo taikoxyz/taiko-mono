@@ -11,3 +11,8 @@ export const enum ClaimTypes {
   RETRY,
   RELEASE,
 }
+
+export const enum ClaimStatus {
+  PENDING,
+  DONE,
+}
