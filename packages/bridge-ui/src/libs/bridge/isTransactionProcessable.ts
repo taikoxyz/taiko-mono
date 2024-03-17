@@ -4,9 +4,11 @@ import { hexToBigInt, keccak256, toBytes } from 'viem';
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { chains } from '$libs/chain';
+import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { type BridgeTransaction, MessageStatus } from './types';
+const log = getLogger('libs:bridge:isTransactionProcessable');
 
 export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   const { receipt, message, srcChainId, destChainId, msgStatus } = bridgeTx;
@@ -39,7 +41,13 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
     const latestSyncedblock = syncedChainData[0];
 
     const synced = latestSyncedblock >= hexToBigInt(receipt.blockNumber);
-
+    log('isTransactionProcessable', {
+      from: srcChainId,
+      to: destChainId,
+      latestSyncedblock,
+      receiptBlockNumber: hexToBigInt(receipt.blockNumber),
+      synced,
+    });
     return synced;
   } catch (error) {
     console.error('Error checking if transaction is processable', error);

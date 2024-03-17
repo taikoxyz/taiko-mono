@@ -1,5 +1,6 @@
-import type { Address, Hash, Hex, TransactionReceipt, WalletClient } from 'viem';
+import type { Address, GetContractReturnType, Hash, Hex, TransactionReceipt, WalletClient } from 'viem';
 
+import type { bridgeAbi } from '$abi';
 import type { ChainID } from '$libs/chain';
 import type { TokenType } from '$libs/token';
 
@@ -186,9 +187,18 @@ export type RequireApprovalArgs = {
 export type ClaimArgs = {
   bridgeTx: BridgeTransaction;
   wallet: WalletClient;
+  lastAttempt?: boolean; // used for retrying
 };
 
-export type ReleaseArgs = ClaimArgs;
+export type ProcessMessageType = ClaimArgs & {
+  bridgeContract: GetContractReturnType<typeof bridgeAbi, WalletClient>;
+  client: WalletClient;
+};
+
+export type RetryMessageArgs = ProcessMessageType;
+
+export type ReleaseArgs = ProcessMessageType;
+
 export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
   bridge(args: BridgeArgs): Promise<Hex>;

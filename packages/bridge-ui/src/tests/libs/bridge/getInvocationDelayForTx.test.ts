@@ -1,4 +1,4 @@
-import { getInvoationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
+import { getInvocationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
 import { getInvocationDelaysForDestBridge } from '$libs/bridge/getInvocationDelaysForDestBridge';
 import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
 import { getLatestBlockTimestamp } from '$libs/util/getLatestBlockTimestamp';
@@ -35,7 +35,7 @@ describe('getInvocationDelayForTx()', () => {
     vi.mocked(getProofReceiptForMsgHash).mockResolvedValue([MOCK_RECIEPT_TIMESTAMP, ALICE]);
 
     //When
-    const result = await getInvoationDelayForTx(MOCK_BRIDGE_TX_1);
+    const result = await getInvocationDelayForTx(MOCK_BRIDGE_TX_1);
 
     //Then
     expect(result).toStrictEqual({

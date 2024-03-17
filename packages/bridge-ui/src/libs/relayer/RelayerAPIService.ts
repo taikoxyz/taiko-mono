@@ -291,22 +291,3 @@ const _eventToTokenType = (eventType: RelayerEventType): TokenType => {
       return TokenType.ETH;
   }
 };
-
-// function _checkType(bridgeTx: BridgeTransaction): TokenType {
-//   const to = bridgeTx.message?.to;
-
-//   switch (to?.toLowerCase()) {
-//     case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc20VaultAddress.toLowerCase():
-//       return TokenType.ERC20;
-//     case routingContractsMap[Number(bridgeTx.destChainId)][
-//       Number(bridgeTx.srcChainId)
-//     ].erc721VaultAddress.toLowerCase():
-//       return TokenType.ERC721;
-//     case routingContractsMap[Number(bridgeTx.destChainId)][
-//       Number(bridgeTx.srcChainId)
-//     ].erc1155VaultAddress.toLowerCase():
-//       return TokenType.ERC1155;
-//     default:
-//       return TokenType.ETH;
-//   }
-// }
