@@ -216,7 +216,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs
 	i.layer = cfg.Layer
-	i.first = true
 
 	return nil
 }

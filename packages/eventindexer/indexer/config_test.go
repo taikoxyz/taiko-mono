@@ -22,7 +22,6 @@ var (
 	blockBatchSize          = "100"
 	subscriptionBackoff     = "30"
 	syncMode                = "sync"
-	watchMode               = "filter"
 	layer                   = "l1"
 	rpcUrl                  = "rpcUrl"
 )
