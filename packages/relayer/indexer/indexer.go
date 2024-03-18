@@ -218,28 +218,38 @@ func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
 	go func() {
-		defer func() {
-			i.wg.Done()
-		}()
-
-		if err := i.filter(i.ctx); err != nil {
-			slog.Error("error filtering blocks", "error", err.Error())
+		if err := backoff.Retry(func() error {
+			err := i.filter(i.ctx)
+			if err != nil {
+				slog.Error("filter failed, will retry", "error", err)
+			}
+			return err
+		}, backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)); err != nil {
+			slog.Error("error after retrying filter with backoff", "error", err)
 		}
 	}()
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			err := scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
+			if err != nil {
+				slog.Error("scanBlocks failed, will retry", "error", err)
+			}
+			return err
+		}, backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
 	}()
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return i.queue.Notify(i.ctx, i.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
-			slog.Error("queue notify backoff retry", "error", err)
+			err := i.queue.Notify(i.ctx, i.wg)
+			if err != nil {
+				slog.Error("i.queue.Notify failed, will retry", "error", err)
+			}
+			return err
+		}, backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)); err != nil {
+			slog.Error("i.queue.Notify backoff retry", "error", err)
 		}
 	}()
 
@@ -383,6 +393,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	if i.watchMode == CrawlPastBlocks {
 		slog.Info("restarting filtering from genesis")
+
+		i.processingBlockHeight = 0
+
 		return i.filter(ctx)
 	}
 
