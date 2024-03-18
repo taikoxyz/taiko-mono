@@ -150,7 +150,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
-	chainID, err := i.ethClient.ChainID(ctx)
+	chainID, err := ethClient.ChainID(ctx)
 	if err != nil {
 		return errors.Wrap(err, "i.ethClient.ChainID()")
 	}
