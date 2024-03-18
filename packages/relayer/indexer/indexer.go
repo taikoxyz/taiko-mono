@@ -224,7 +224,7 @@ func (i *Indexer) Start() error {
 				slog.Error("filter failed, will retry", "error", err)
 			}
 			return err
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+		}, backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)); err != nil {
 			slog.Error("error after retrying filter with backoff", "error", err)
 		}
 	}()
@@ -236,7 +236,7 @@ func (i *Indexer) Start() error {
 				slog.Error("scanBlocks failed, will retry", "error", err)
 			}
 			return err
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+		}, backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
 	}()
@@ -248,7 +248,7 @@ func (i *Indexer) Start() error {
 				slog.Error("i.queue.Notify failed, will retry", "error", err)
 			}
 			return err
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+		}, backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)); err != nil {
 			slog.Error("i.queue.Notify backoff retry", "error", err)
 		}
 	}()
