@@ -23,6 +23,9 @@
   }
 
   const btnClass = 'btn btn-xs btn-ghost';
+
+  $: isFirstPage = currentPage === 1;
+  $: isLastPage = currentPage === totalPages;
 </script>
 
 {#if totalPages > 1}
@@ -31,7 +34,7 @@
     If we can fit all the items in one page, there is no need.
   -->
   <div class="pagination btn-group pt-4">
-    {#if currentPage !== 1}
+    {#if !isFirstPage}
       <button class={btnClass} on:click={() => goToPage(currentPage - 1)}> <Icon type="chevron-left" /></button>
     {/if}
     Page
@@ -44,9 +47,10 @@
       on:keydown={handleKeydown}
       on:blur={() => goToPage(currentPage)} />
     of {totalPages}
-    <button
-      class={btnClass + (currentPage === totalPages ? ' invisible' : '')}
-      on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
+    <!-- The chevron-right displays as far as the current page is not the last page -->
+    {#if !isLastPage}
+      <button class={btnClass} on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
+    {/if}
   </div>
 {/if}
 
@@ -57,9 +61,5 @@
     gap: 10px;
     display: flex;
     align-items: center;
-  }
-  .invisible {
-    opacity: 0;
-    pointer-events: none;
   }
 </style>
