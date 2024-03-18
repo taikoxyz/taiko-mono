@@ -74,17 +74,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SYNC_MODE"},
 	}
-	WatchMode = &cli.StringFlag{
-		Name: "watchMode",
-		Usage: `Mode of watching the chain. Options are:
-		filter: only filter the chain, when caught up, exit
-		subscribe: do not filter the chain, only subscribe to new events
-		filter-and-subscribe: the default behavior, filter the chain and subscribe when caught up
-		`,
-		Value:    "filter-and-subscribe",
-		Category: indexerCategory,
-		EnvVars:  []string{"SYNC_MODE"},
-	}
 	IndexNFTs = &cli.BoolFlag{
 		Name:     "indexNfts",
 		Usage:    "Whether to index nft transfer events orn ot",
@@ -105,6 +94,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
-	WatchMode,
 	IndexNFTs,
 })
