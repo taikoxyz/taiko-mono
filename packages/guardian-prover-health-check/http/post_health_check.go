@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	echo "github.com/labstack/echo/v4"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
@@ -15,7 +16,7 @@ var (
 
 type healthCheckReq struct {
 	ProverAddress      string `json:"prover"`
-	HeartBeatSignature string `json:"heartBeatSignature"`
+	HeartBeatSignature []byte `json:"heartBeatSignature"`
 	LatestL1Block      uint64 `json:"latestL1Block"`
 	LatestL2Block      uint64 `json:"latestL2Block"`
 }
@@ -41,7 +42,7 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 
 	recoveredGuardianProver, err := guardianproverhealthcheck.SignatureToGuardianProver(
 		msg,
-		req.HeartBeatSignature,
+		common.Bytes2Hex(req.HeartBeatSignature),
 		srv.guardianProvers,
 	)
 
@@ -59,7 +60,7 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		Alive:            true,
 		ExpectedAddress:  recoveredGuardianProver.Address.Hex(),
 		RecoveredAddress: recoveredGuardianProver.Address.Hex(),
-		SignedResponse:   req.HeartBeatSignature,
+		SignedResponse:   common.Bytes2Hex(req.HeartBeatSignature),
 		LatestL1Block:    req.LatestL1Block,
 		LatestL2Block:    req.LatestL2Block,
 	}); err != nil {
