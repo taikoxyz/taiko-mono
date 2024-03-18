@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"log/slog"
@@ -148,13 +147,13 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 		return token, big.NewInt(0), fmt.Errorf("data too short")
 	}
 
-	offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16, 64)
+	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
 
-	if err != nil {
-		return token, big.NewInt(0), err
+	if !ok {
+		return token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset+canonicalTokenDataStartingindex*32:]
+	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
 
 	types := []string{"uint64", "address", "uint8", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -169,12 +168,12 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 	token.Symbol = values[3].(string)
 	token.Name = values[4].(string)
 
-	amount, err := strconv.ParseInt(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+3])), 16, 64)
-	if err != nil {
-		return token, big.NewInt(0), err
+	amount, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+3])), 16)
+	if !ok {
+		return token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 	}
 
-	return token, big.NewInt(amount), nil
+	return token, amount, nil
 }
 
 func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, error) {
@@ -183,19 +182,16 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	canonicalTokenDataStartingindex := int64(2)
 	chunks := splitByteArray(decodedData, 32)
 
-	offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16, 64)
+	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
 
-	if err != nil || offset%32 != 0 {
-		return EventTypeSendETH, token, big.NewInt(0), err
+	if !ok || offset.Int64()%32 != 0 {
+		return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset+canonicalTokenDataStartingindex*32:]
+	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
 
 	types := []string{"uint64", "address", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
-
-	slog.Info("decodeDataAsNFT after decodeABI")
-	fmt.Println(len(values))
 
 	if err != nil && len(values) != 4 {
 		return EventTypeSendETH, token, big.NewInt(0), err
@@ -206,27 +202,26 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	token.Symbol = values[2].(string)
 	token.Name = values[3].(string)
 
-	if offset == 128 {
+	if offset.Int64() == 128 {
 		amount := big.NewInt(1)
 
 		return EventTypeSendERC721, token, amount, nil
-	} else if offset == 160 {
-		offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+4])), 16, 64)
-		if err != nil || offset%32 != 0 {
-			return EventTypeSendETH, token, big.NewInt(0), err
+	} else if offset.Int64() == 160 {
+		offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+4])), 16)
+		if !ok || offset.Int64()%32 != 0 {
+			return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 		}
 
-		indexOffset := canonicalTokenDataStartingindex + int64(offset/32)
+		indexOffset := canonicalTokenDataStartingindex + int64(offset.Int64()/32)
 
-		length, err := strconv.ParseInt(common.Bytes2Hex((chunks[indexOffset])), 16, 64)
-
-		if err != nil {
-			return EventTypeSendETH, token, big.NewInt(0), err
+		length, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[indexOffset])), 16)
+		if !ok {
+			return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 		}
 
 		amount := big.NewInt(0)
 
-		for i := int64(0); i < length; i++ {
+		for i := int64(0); i < length.Int64(); i++ {
 			amountsData := decodedData[(indexOffset+i+1)*32 : (indexOffset+i+2)*32]
 			types := []string{"uint256"}
 			values, err = decodeABI(types, amountsData)
