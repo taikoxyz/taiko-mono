@@ -18,7 +18,12 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
-      goToPage(currentPage);
+       const nextPage = parseInt((event.target as HTMLInputElement).value, 10);
+
+      // Check if input is within the valid range, otherwise do nothing
+      if (nextPage > 0 && nextPage <= totalPages) {
+        goToPage(nextPage);
+      }
     }
   }
 
