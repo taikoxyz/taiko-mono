@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	echo "github.com/labstack/echo/v4"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
@@ -16,7 +15,7 @@ var (
 
 type healthCheckReq struct {
 	ProverAddress      string `json:"prover"`
-	HeartBeatSignature []byte `json:"heartBeatSignature"`
+	HeartBeatSignature string `json:"heartBeatSignature"`
 	LatestL1Block      uint64 `json:"latestL1Block"`
 	LatestL2Block      uint64 `json:"latestL2Block"`
 }
@@ -37,20 +36,24 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 
 	// bind incoming request
 	if err := c.Bind(req); err != nil {
-		slog.Error("error binding incoming heartbeat req", "error", err)
+		slog.Error("error binding incoming heartbeat req",
+			"error", err, "signature", req.HeartBeatSignature,
+		)
 
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	recoveredGuardianProver, err := guardianproverhealthcheck.SignatureToGuardianProver(
 		msg,
-		common.Bytes2Hex(req.HeartBeatSignature),
+		req.HeartBeatSignature,
 		srv.guardianProvers,
 	)
 
 	// if not, we want to return an error
 	if err != nil {
-		slog.Error("error recovering guardian prover", "error", err)
+		slog.Error("error recovering guardian prover",
+			"error", err, "signature", req.HeartBeatSignature,
+		)
 
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -64,11 +67,14 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		Alive:            true,
 		ExpectedAddress:  recoveredGuardianProver.Address.Hex(),
 		RecoveredAddress: recoveredGuardianProver.Address.Hex(),
-		SignedResponse:   common.Bytes2Hex(req.HeartBeatSignature),
+		SignedResponse:   req.HeartBeatSignature,
 		LatestL1Block:    req.LatestL1Block,
 		LatestL2Block:    req.LatestL2Block,
 	}); err != nil {
-		slog.Error("error saving health check", "error", err)
+		slog.Error("error saving health check",
+			"error", err,
+			"signature", req.HeartBeatSignature,
+		)
 
 		return c.JSON(http.StatusBadRequest, err)
 	}
