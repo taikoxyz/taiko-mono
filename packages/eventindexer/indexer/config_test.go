@@ -89,7 +89,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.BlockBatchSize.Name, blockBatchSize,
 		"--" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
 		"--" + flags.SyncMode.Name, syncMode,
-		"--" + flags.WatchMode.Name, watchMode,
 		"--" + flags.IndexNFTs.Name,
 		"--" + flags.Layer.Name, layer,
 		"--" + flags.IndexerRPCUrl.Name, rpcUrl,
