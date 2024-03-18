@@ -34,6 +34,7 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 	// bind incoming request
 	if err := c.Bind(req); err != nil {
 		slog.Error("error binding request", "error", err)
+
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
@@ -46,6 +47,7 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 	// if not, we want to return an error
 	if err != nil {
 		slog.Error("error recovering guardian prover", "error", err)
+
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
