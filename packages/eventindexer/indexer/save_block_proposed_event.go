@@ -27,10 +27,6 @@ func (i *Indexer) saveBlockProposedEvents(
 	for {
 		event := events.Event
 
-		if err := i.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "i.detectAndHandleReorg")
-		}
-
 		tx, _, err := i.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 		if err != nil {
 			return errors.Wrap(err, "i.ethClient.TransactionByHash")

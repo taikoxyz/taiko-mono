@@ -26,14 +26,6 @@ func (i *Indexer) saveTransitionContestedEvents(
 	for {
 		event := events.Event
 
-		if err := i.detectAndHandleReorg(
-			ctx,
-			eventindexer.EventNameTransitionContested,
-			event.BlockId.Int64(),
-		); err != nil {
-			return errors.Wrap(err, "i.detectAndHandleReorg")
-		}
-
 		if err := i.saveTransitionContestedEvent(ctx, chainID, event); err != nil {
 			eventindexer.TransitionContestedEventsProcessedError.Inc()
 

@@ -32,10 +32,6 @@ func (i *Indexer) saveTransitionProvedEvents(
 	for {
 		event := events.Event
 
-		if err := i.detectAndHandleReorg(ctx, eventindexer.EventNameTransitionProved, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "i.detectAndHandleReorg")
-		}
-
 		if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
 			eventindexer.TransitionProvedEventsProcessedError.Inc()
 

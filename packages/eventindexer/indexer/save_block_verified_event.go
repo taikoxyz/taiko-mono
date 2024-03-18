@@ -26,10 +26,6 @@ func (i *Indexer) saveBlockVerifiedEvents(
 	for {
 		event := events.Event
 
-		if err := i.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "i.detectAndHandleReorg")
-		}
-
 		if err := i.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockVerifiedEventsProcessedError.Inc()
 
