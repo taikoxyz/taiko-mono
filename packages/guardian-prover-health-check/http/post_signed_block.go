@@ -66,6 +66,7 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 		}
 
 		slog.Error("error saving signed block to db", "error", err)
+
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
