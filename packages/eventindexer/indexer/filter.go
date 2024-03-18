@@ -14,7 +14,7 @@ import (
 type FilterFunc func(
 	ctx context.Context,
 	chainID *big.Int,
-	indxr *Indexer,
+	i *Indexer,
 	filterOpts *bind.FilterOpts,
 ) error
 
@@ -22,116 +22,116 @@ type FilterFunc func(
 func filterFunc(
 	ctx context.Context,
 	chainID *big.Int,
-	indxr *Indexer,
+	i *Indexer,
 	filterOpts *bind.FilterOpts,
 ) error {
 	wg, ctx := errgroup.WithContext(ctx)
 
-	if indxr.taikol1 != nil {
+	if i.taikol1 != nil {
 		wg.Go(func() error {
-			transitionProvedEvents, err := indxr.taikol1.FilterTransitionProved(filterOpts, nil)
+			transitionProvedEvents, err := i.taikol1.FilterTransitionProved(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "indxr.taikol1.FilterTransitionProved")
+				return errors.Wrap(err, "i.taikol1.FilterTransitionProved")
 			}
 
-			err = indxr.saveTransitionProvedEvents(ctx, chainID, transitionProvedEvents)
+			err = i.saveTransitionProvedEvents(ctx, chainID, transitionProvedEvents)
 			if err != nil {
-				return errors.Wrap(err, "indxr.saveBlockProvenEvents")
+				return errors.Wrap(err, "i.saveBlockProvenEvents")
 			}
 
 			return nil
 		})
 
 		wg.Go(func() error {
-			transitionContestedEvents, err := indxr.taikol1.FilterTransitionContested(filterOpts, nil)
+			transitionContestedEvents, err := i.taikol1.FilterTransitionContested(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "indxr.taikol1.FilterTransitionContested")
+				return errors.Wrap(err, "i.taikol1.FilterTransitionContested")
 			}
 
-			err = indxr.saveTransitionContestedEvents(ctx, chainID, transitionContestedEvents)
+			err = i.saveTransitionContestedEvents(ctx, chainID, transitionContestedEvents)
 			if err != nil {
-				return errors.Wrap(err, "indxr.saveTransitionContestedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			blockProposedEvents, err := indxr.taikol1.FilterBlockProposed(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "indxr.taikol1.FilterBlockProposed")
-			}
-
-			err = indxr.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
-			if err != nil {
-				return errors.Wrap(err, "indxr.saveBlockProposedEvents")
+				return errors.Wrap(err, "i.saveTransitionContestedEvents")
 			}
 
 			return nil
 		})
 
 		wg.Go(func() error {
-			blockVerifiedEvents, err := indxr.taikol1.FilterBlockVerified(filterOpts, nil, nil, nil)
+			blockProposedEvents, err := i.taikol1.FilterBlockProposed(filterOpts, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "indxr.taikol1.FilterBlockVerified")
+				return errors.Wrap(err, "i.taikol1.FilterBlockProposed")
 			}
 
-			err = indxr.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
+			err = i.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
 			if err != nil {
-				return errors.Wrap(err, "indxr.saveBlockVerifiedEvents")
+				return errors.Wrap(err, "i.saveBlockProposedEvents")
 			}
 
 			return nil
 		})
-	}
 
-	if indxr.bridge != nil {
 		wg.Go(func() error {
-			messagesSent, err := indxr.bridge.FilterMessageSent(filterOpts, nil)
+			blockVerifiedEvents, err := i.taikol1.FilterBlockVerified(filterOpts, nil, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "indxr.bridge.FilterMessageSent")
+				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
 			}
 
-			err = indxr.saveMessageSentEvents(ctx, chainID, messagesSent)
+			err = i.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
 			if err != nil {
-				return errors.Wrap(err, "indxr.saveMessageSentEvents")
+				return errors.Wrap(err, "i.saveBlockVerifiedEvents")
 			}
 
 			return nil
 		})
 	}
 
-	if indxr.assignmentHook != nil {
+	if i.bridge != nil {
 		wg.Go(func() error {
-			blocksAssigned, err := indxr.assignmentHook.FilterBlockAssigned(filterOpts, nil)
+			messagesSent, err := i.bridge.FilterMessageSent(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "indxr.assignmentHook.FilterBlockAssigned")
+				return errors.Wrap(err, "i.bridge.FilterMessageSent")
 			}
 
-			err = indxr.saveBlockAssignedEvents(ctx, chainID, blocksAssigned)
+			err = i.saveMessageSentEvents(ctx, chainID, messagesSent)
 			if err != nil {
-				return errors.Wrap(err, "indxr.saveBlockAssignedEvents")
+				return errors.Wrap(err, "i.saveMessageSentEvents")
 			}
 
 			return nil
 		})
 	}
 
-	if indxr.swaps != nil {
-		for _, s := range indxr.swaps {
+	if i.assignmentHook != nil {
+		wg.Go(func() error {
+			blocksAssigned, err := i.assignmentHook.FilterBlockAssigned(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "i.assignmentHook.FilterBlockAssigned")
+			}
+
+			err = i.saveBlockAssignedEvents(ctx, chainID, blocksAssigned)
+			if err != nil {
+				return errors.Wrap(err, "i.saveBlockAssignedEvents")
+			}
+
+			return nil
+		})
+	}
+
+	if i.swaps != nil {
+		for _, s := range i.swaps {
 			swap := s
 
 			wg.Go(func() error {
 				swaps, err := swap.FilterSwap(filterOpts, nil, nil)
 				if err != nil {
-					return errors.Wrap(err, "indxr.bridge.FilterSwap")
+					return errors.Wrap(err, "i.bridge.FilterSwap")
 				}
 
 				// only save ones above 0.01 ETH, this is only for Galaxe
 				// and we dont care about the rest
-				err = indxr.saveSwapEvents(ctx, chainID, swaps)
+				err = i.saveSwapEvents(ctx, chainID, swaps)
 				if err != nil {
-					return errors.Wrap(err, "indxr.saveSwapEvents")
+					return errors.Wrap(err, "i.saveSwapEvents")
 				}
 
 				return nil
@@ -141,14 +141,14 @@ func filterFunc(
 				liquidityAdded, err := swap.FilterMint(filterOpts, nil)
 
 				if err != nil {
-					return errors.Wrap(err, "indxr.bridge.FilterMint")
+					return errors.Wrap(err, "i.bridge.FilterMint")
 				}
 
 				// only save ones above 0.1 ETH, this is only for Galaxe
 				// and we dont care about the rest
-				err = indxr.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
+				err = i.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
 				if err != nil {
-					return errors.Wrap(err, "indxr.saveLiquidityAddedEvents")
+					return errors.Wrap(err, "i.saveLiquidityAddedEvents")
 				}
 
 				return nil
@@ -157,8 +157,8 @@ func filterFunc(
 	}
 
 	wg.Go(func() error {
-		if err := indxr.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-			return errors.Wrap(err, "indxr.indexRawBlockData")
+		if err := i.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+			return errors.Wrap(err, "i.indexRawBlockData")
 		}
 		return nil
 	})

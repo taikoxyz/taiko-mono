@@ -13,7 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
-func (indxr *Indexer) saveTransitionContestedEvents(
+func (i *Indexer) saveTransitionContestedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1TransitionContestedIterator,
@@ -26,18 +26,18 @@ func (indxr *Indexer) saveTransitionContestedEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.detectAndHandleReorg(
+		if err := i.detectAndHandleReorg(
 			ctx,
 			eventindexer.EventNameTransitionContested,
 			event.BlockId.Int64(),
 		); err != nil {
-			return errors.Wrap(err, "indxr.detectAndHandleReorg")
+			return errors.Wrap(err, "i.detectAndHandleReorg")
 		}
 
-		if err := indxr.saveTransitionContestedEvent(ctx, chainID, event); err != nil {
+		if err := i.saveTransitionContestedEvent(ctx, chainID, event); err != nil {
 			eventindexer.TransitionContestedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveBlockProvenEvent")
+			return errors.Wrap(err, "i.saveBlockProvenEvent")
 		}
 
 		if !events.Next() {
@@ -46,7 +46,7 @@ func (indxr *Indexer) saveTransitionContestedEvents(
 	}
 }
 
-func (indxr *Indexer) saveTransitionContestedEvent(
+func (i *Indexer) saveTransitionContestedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1TransitionContested,
@@ -65,23 +65,24 @@ func (indxr *Indexer) saveTransitionContestedEvent(
 
 	blockID := event.BlockId.Int64()
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameTransitionContested,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Event:        eventindexer.EventNameTransitionContested,
-		Address:      event.Contester.Hex(),
-		BlockID:      &blockID,
-		TransactedAt: time.Unix(int64(block.Time()), 0),
-		Tier:         &event.Tier,
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameTransitionContested,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameTransitionContested,
+		Address:        event.Contester.Hex(),
+		BlockID:        &blockID,
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		Tier:           &event.Tier,
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.TransitionContestedEventsProcessed.Inc()
