@@ -3,6 +3,7 @@ package http
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	echo "github.com/labstack/echo/v4"
@@ -56,6 +57,12 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 		Signature:        req.Signature,
 		RecoveredAddress: recoveredGuardianProver.Address.Hex(),
 	}); err != nil {
+		// if its a duplicate entry, we just return empty response with
+		// status 200 instead of an error.
+		if strings.Contains(err.Error(), "Duplicate entry") {
+			return c.JSON(http.StatusOK, nil)
+		}
+
 		slog.Error("error saving signed block to db", "error", err)
 		return c.JSON(http.StatusBadRequest, err)
 	}
