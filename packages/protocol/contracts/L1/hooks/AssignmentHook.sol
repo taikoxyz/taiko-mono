@@ -31,6 +31,8 @@ contract AssignmentHook is EssentialContract, IHook {
         uint256 tip; // A tip to L1 block builder
     }
 
+    event EtherPaymentFailed(address to, uint256 maxGas);
+
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
@@ -112,7 +114,9 @@ contract AssignmentHook is EssentialContract, IHook {
         // Ether or ERC20 tokens.
         if (assignment.feeToken == address(0)) {
             // Paying Ether
-            _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
+            // Note that this payment may fail if it cost more gas
+            bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+            if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
         } else {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
@@ -122,12 +126,12 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // block.coinbase can be address(0) in tests
         if (input.tip != 0 && block.coinbase != address(0)) {
-            address(block.coinbase).sendEther(input.tip);
+            address(block.coinbase).sendEtherAndVerify(input.tip);
         }
 
         // Send all remaining Ether back to TaikoL1 contract
-        if (address(this).balance > 0) {
-            taikoL1Address.sendEther(address(this).balance);
+        if (address(this).balance != 0) {
+            taikoL1Address.sendEtherAndVerify(address(this).balance);
         }
 
         emit BlockAssigned(_blk.assignedProver, _meta, assignment);

@@ -1,14 +1,11 @@
 package mock
 
 import (
-	"errors"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
@@ -31,21 +28,7 @@ var ProcessMessageTx = types.NewTransaction(
 )
 
 type Bridge struct {
-	MessagesSent           int
-	MessageStatusesChanged int
-	ErrorsSent             int
 }
-
-type Subscription struct {
-	errChan chan error
-	done    bool
-}
-
-func (s *Subscription) Err() <-chan error {
-	return s.errChan
-}
-
-func (s *Subscription) Unsubscribe() {}
 
 func (b *Bridge) SuspendMessages(
 	opts *bind.TransactOpts,
@@ -84,76 +67,6 @@ func (b *Bridge) ProofReceipt(opts *bind.CallOpts, msgHash [32]byte) (struct {
 	}, nil
 }
 
-func (b *Bridge) WatchMessageSent(
-	opts *bind.WatchOpts,
-	sink chan<- *bridge.BridgeMessageSent,
-	msgHash [][32]byte,
-) (event.Subscription, error) {
-	s := &Subscription{
-		errChan: make(chan error),
-	}
-
-	go func(sink chan<- *bridge.BridgeMessageSent) {
-		<-time.After(2 * time.Second)
-
-		sink <- &bridge.BridgeMessageSent{
-			Message: bridge.IBridgeMessage{
-				SrcChainId:  1,
-				DestChainId: MockChainID.Uint64(),
-			},
-		}
-
-		b.MessagesSent++
-	}(sink)
-
-	go func(errChan chan error) {
-		<-time.After(5 * time.Second)
-
-		errChan <- errors.New("fail")
-
-		s.done = true
-
-		b.ErrorsSent++
-	}(s.errChan)
-
-	return s, nil
-}
-
-func (b *Bridge) WatchMessageReceived(
-	opts *bind.WatchOpts,
-	sink chan<- *bridge.BridgeMessageReceived,
-	msgHash [][32]byte,
-) (event.Subscription, error) {
-	s := &Subscription{
-		errChan: make(chan error),
-	}
-
-	go func(sink chan<- *bridge.BridgeMessageReceived) {
-		<-time.After(2 * time.Second)
-
-		sink <- &bridge.BridgeMessageReceived{
-			Message: bridge.IBridgeMessage{
-				SrcChainId:  1,
-				DestChainId: MockChainID.Uint64(),
-			},
-		}
-
-		b.MessagesSent++
-	}(sink)
-
-	go func(errChan chan error) {
-		<-time.After(5 * time.Second)
-
-		errChan <- errors.New("fail")
-
-		s.done = true
-
-		b.ErrorsSent++
-	}(s.errChan)
-
-	return s, nil
-}
-
 func (b *Bridge) FilterMessageReceived(
 	opts *bind.FilterOpts,
 	msgHash [][32]byte,
@@ -166,36 +79,6 @@ func (b *Bridge) FilterMessageSent(
 	signal [][32]byte,
 ) (*bridge.BridgeMessageSentIterator, error) {
 	return &bridge.BridgeMessageSentIterator{}, nil
-}
-
-func (b *Bridge) WatchMessageStatusChanged(
-	opts *bind.WatchOpts,
-	sink chan<- *bridge.BridgeMessageStatusChanged,
-	msgHash [][32]byte,
-) (event.Subscription, error) {
-	s := &Subscription{
-		errChan: make(chan error),
-	}
-
-	go func(sink chan<- *bridge.BridgeMessageStatusChanged) {
-		<-time.After(2 * time.Second)
-
-		sink <- &bridge.BridgeMessageStatusChanged{}
-
-		b.MessageStatusesChanged++
-	}(sink)
-
-	go func(errChan chan error) {
-		<-time.After(5 * time.Second)
-
-		errChan <- errors.New("fail")
-
-		s.done = true
-
-		b.ErrorsSent++
-	}(s.errChan)
-
-	return s, nil
 }
 
 func (b *Bridge) FilterMessageStatusChanged(

@@ -28,33 +28,23 @@ func (i *Indexer) handleMessageSentEvent(
 	event *bridge.BridgeMessageSent,
 	waitForConfirmations bool,
 ) error {
+	// if the destinatio chain doesnt match, we dont process it in this indexer.
+	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
+		return nil
+	}
+
 	slog.Info("MessageSent event found for msgHash",
 		"msgHash",
 		common.Hash(event.MsgHash).Hex(),
 		"txHash",
 		event.Raw.TxHash.Hex(),
+		"srcChainId", event.Message.SrcChainId,
+		"destChainId", event.Message.DestChainId,
 	)
-
-	// if the destinatio chain doesnt match, we dont process it in this indexer.
-	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
-		slog.Info("skipping event, wrong chainID",
-			"messageDestChainID",
-			event.Message.DestChainId,
-			"indexerDestChainID",
-			i.destChainId.Uint64(),
-		)
-
-		return nil
-	}
 
 	if event.Raw.Removed {
 		slog.Info("event is removed")
 		return nil
-	}
-
-	// check if we have seen this event and msgHash before - if we have, it is being reorged.
-	if err := i.detectAndHandleReorg(ctx, i.eventName, common.Hash(event.MsgHash).Hex()); err != nil {
-		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
 
 	// we should never see an empty msgHash, but if we do, we dont process.
@@ -86,12 +76,6 @@ func (i *Indexer) handleMessageSentEvent(
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
-	// only add messages with new status to queue
-	if eventStatus != relayer.EventStatusNew {
-		slog.Info("event status is not new, skipping")
-		return nil
-	}
-
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -106,9 +90,15 @@ func (i *Indexer) handleMessageSentEvent(
 		event.Message.SrcOwner.Hex(),
 		event.Message.Data,
 		event.Message.Value,
+		event.Raw.BlockNumber,
 	)
 	if err != nil {
 		return errors.Wrap(err, "i.saveEventToDB")
+	}
+
+	// only add messages with new status to queue
+	if eventStatus != relayer.EventStatusNew {
+		return nil
 	}
 
 	msg := queue.QueueMessageSentBody{

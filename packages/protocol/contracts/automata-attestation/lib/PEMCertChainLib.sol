@@ -53,7 +53,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
 
         for (uint256 i; i < size; ++i) {
             string memory input;
-            if (i > 0) {
+            if (i != 0) {
                 input = LibString.slice(pemChainStr, index, index + len);
             } else {
                 input = pemChainStr;

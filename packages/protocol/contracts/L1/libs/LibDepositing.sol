@@ -38,7 +38,7 @@ library LibDepositing {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        _resolver.resolve("bridge", false).sendEther(msg.value);
+        _resolver.resolve("bridge", false).sendEtherAndVerify(msg.value);
 
         // Append the deposit to the queue.
         address recipient_ = _recipient == address(0) ? msg.sender : _recipient;
@@ -59,7 +59,7 @@ library LibDepositing {
         // - uint64 can store up to ~1.8 * 1e19, which can represent 584K years
         // if we are depositing at every second
         unchecked {
-            _state.slotA.numEthDeposits++;
+            ++_state.slotA.numEthDeposits;
         }
     }
 
@@ -113,7 +113,7 @@ library LibDepositing {
             // - uint64 can store up to ~1.8 * 1e19, which can represent 584K
             // years if we are depositing at every second
             unchecked {
-                _state.slotA.numEthDeposits++;
+                ++_state.slotA.numEthDeposits;
             }
         }
     }

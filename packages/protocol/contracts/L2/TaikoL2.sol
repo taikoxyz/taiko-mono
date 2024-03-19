@@ -49,6 +49,12 @@ contract TaikoL2 is CrossChainOwned {
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
 
+    /// @notice The parent block's timestamp.
+    uint64 public parentTimestamp;
+
+    /// @notice The current block's timestamp.
+    uint64 private __currentBlockTimestamp;
+
     uint256[47] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
@@ -95,6 +101,7 @@ contract TaikoL2 is CrossChainOwned {
 
         gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
+        __currentBlockTimestamp = uint64(block.timestamp);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -154,6 +161,9 @@ contract TaikoL2 is CrossChainOwned {
         l2Hashes[parentId] = blockhash(parentId);
         publicInputHash = publicInputHashNew;
 
+        parentTimestamp = __currentBlockTimestamp;
+        __currentBlockTimestamp = uint64(block.timestamp);
+
         emit Anchored(blockhash(parentId), gasExcess);
     }
 
@@ -171,7 +181,7 @@ contract TaikoL2 is CrossChainOwned {
     {
         if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {
-            _to.sendEther(address(this).balance);
+            _to.sendEtherAndVerify(address(this).balance);
         } else {
             IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
         }
@@ -259,7 +269,7 @@ contract TaikoL2 is CrossChainOwned {
         returns (uint256 basefee_, uint64 gasExcess_)
     {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
-        if (gasExcess > 0) {
+        if (gasExcess != 0) {
             // We always add the gas used by parent block to the gas excess
             // value as this has already happened
             uint256 excess = uint256(gasExcess) + _parentGasUsed;
@@ -272,11 +282,11 @@ contract TaikoL2 is CrossChainOwned {
             // and the difference between the L1 height would be extremely big,
             // reverting the initial gas excess value back to 0.
             uint256 numL1Blocks;
-            if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
+            if (lastSyncedBlock != 0 && _l1BlockId > lastSyncedBlock) {
                 numL1Blocks = _l1BlockId - lastSyncedBlock;
             }
 
-            if (numL1Blocks > 0) {
+            if (numL1Blocks != 0) {
                 uint256 issuance = numL1Blocks * _config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }

@@ -211,7 +211,7 @@ library LibVerifying {
                 ++numBlocksVerified;
             }
 
-            if (numBlocksVerified > 0) {
+            if (numBlocksVerified != 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
                 // Update protocol level state variables
@@ -249,10 +249,8 @@ library LibVerifying {
             _config.chainId <= 1 || _config.chainId == block.chainid //
                 || _config.blockMaxProposals == 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
-                || _config.blockMaxGasLimit == 0 || _config.blockMaxTxListBytes == 0
-                || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
-                || _config.livenessBond == 0 || _config.ethDepositRingBufferSize <= 1
-                || _config.ethDepositMinCountPerBlock == 0
+                || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
+                || _config.ethDepositRingBufferSize <= 1 || _config.ethDepositMinCountPerBlock == 0
             // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
             // TaikoL1.sol) costs 72_502 gas.
             || _config.ethDepositMaxCountPerBlock > 32
