@@ -19,7 +19,7 @@ var (
 	minTradeAmount = big.NewInt(10000000000000000)
 )
 
-func (indxr *Indexer) saveSwapEvents(
+func (i *Indexer) saveSwapEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *swap.SwapSwapIterator,
@@ -32,10 +32,10 @@ func (indxr *Indexer) saveSwapEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.saveSwapEvent(ctx, chainID, event); err != nil {
+		if err := i.saveSwapEvent(ctx, chainID, event); err != nil {
 			eventindexer.SwapEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveSwapEvent")
+			return errors.Wrap(err, "i.saveSwapEvent")
 		}
 
 		if !events.Next() {
@@ -44,7 +44,7 @@ func (indxr *Indexer) saveSwapEvents(
 	}
 }
 
-func (indxr *Indexer) saveSwapEvent(
+func (i *Indexer) saveSwapEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *swap.SwapSwap,
@@ -69,21 +69,22 @@ func (indxr *Indexer) saveSwapEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameSwap,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Event:        eventindexer.EventNameSwap,
-		Address:      fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
-		TransactedAt: time.Unix(int64(block.Time()), 0),
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameSwap,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameSwap,
+		Address:        fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.SwapEventsProcessed.Inc()

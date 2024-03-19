@@ -29,12 +29,13 @@ func NewEventRepository(db eventindexer.DB) (*EventRepository, error) {
 
 func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventOpts) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{
-		Data:         datatypes.JSON(opts.Data),
-		ChainID:      opts.ChainID.Int64(),
-		Name:         opts.Name,
-		Event:        opts.Event,
-		Address:      opts.Address,
-		TransactedAt: opts.TransactedAt,
+		Data:           datatypes.JSON(opts.Data),
+		ChainID:        opts.ChainID.Int64(),
+		Name:           opts.Name,
+		Event:          opts.Event,
+		Address:        opts.Address,
+		TransactedAt:   opts.TransactedAt,
+		EmittedBlockID: opts.EmittedBlockID,
 	}
 
 	if opts.Tier != nil {
@@ -249,4 +250,29 @@ func (r *EventRepository) GetAssignedBlocksByProverAddress(
 	page := reqCtx.Request(req).Response(&[]eventindexer.Event{})
 
 	return page, nil
+}
+
+// DeleteAllAfterBlockID is used when a reorg is detected
+func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64) error {
+	query := `
+DELETE FROM events
+WHERE block_id >= ? AND chain_id = ?`
+
+	return r.db.GormDB().Table("events").Exec(query, blockID, srcChainID).Error
+}
+
+// GetLatestBlockID get latest block id
+func (r *EventRepository) FindLatestBlockID(
+	srcChainID uint64,
+) (uint64, error) {
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	FROM events WHERE chain_id = ?`
+
+	var b uint64
+
+	if err := r.db.GormDB().Table("events").Raw(q, srcChainID).Scan(&b).Error; err != nil {
+		return 0, err
+	}
+
+	return b, nil
 }

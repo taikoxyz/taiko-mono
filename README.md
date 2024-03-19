@@ -36,7 +36,7 @@ taiko-mono/
 ├── <a href="./LICENSE.md">LICENSE.md</a>
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/branding">blob-storage</a>: Blob storage service.
+│   ├── <a href="./packages/blobstorage">blob-storage</a>: Blob storage service.
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI.
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.

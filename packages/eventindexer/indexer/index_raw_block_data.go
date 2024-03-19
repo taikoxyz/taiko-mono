@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (indxr *Indexer) indexRawBlockData(
+func (i *Indexer) indexRawBlockData(
 	ctx context.Context,
 	chainID *big.Int,
 	start uint64,
@@ -23,43 +23,39 @@ func (indxr *Indexer) indexRawBlockData(
 	slog.Info("indexRawBlockData", "start", start, "end", end)
 
 	// only index block/transaction data on L2
-	if indxr.layer == Layer2 {
-		for i := start; i < end; i++ {
-			id := i
+	if i.layer == Layer2 {
+		for j := start; j < end; j++ {
+			id := j
 
 			wg.Go(func() error {
 				slog.Info("processing block data", "blockNum", id)
 
-				block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(id)))
+				block, err := i.ethClient.BlockByNumber(ctx, big.NewInt(int64(id)))
 
 				if err != nil {
-					return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
-				}
-
-				if err := indxr.blockRepo.Save(ctx, block, chainID); err != nil {
-					return errors.Wrap(err, "indxr.blockRepo.Save")
+					return errors.Wrap(err, "i.ethClient.BlockByNumber")
 				}
 
 				txs := block.Transactions()
 
 				for _, tx := range txs {
 					slog.Info("transaction found", "hash", tx.Hash())
-					receipt, err := indxr.ethClient.TransactionReceipt(ctx, tx.Hash())
+					receipt, err := i.ethClient.TransactionReceipt(ctx, tx.Hash())
 
 					if err != nil {
 						return err
 					}
 
-					sender, err := indxr.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
+					sender, err := i.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
 					if err != nil {
 						return err
 					}
 
-					if err := indxr.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
+					if err := i.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
 						return err
 					}
 
-					if err := indxr.txRepo.Save(ctx,
+					if err := i.txRepo.Save(ctx,
 						tx,
 						sender,
 						block.Number(),
@@ -81,15 +77,15 @@ func (indxr *Indexer) indexRawBlockData(
 		ToBlock:   big.NewInt(int64(end)),
 	}
 
-	logs, err := indxr.ethClient.FilterLogs(ctx, query)
+	logs, err := i.ethClient.FilterLogs(ctx, query)
 	if err != nil {
 		return err
 	}
 
 	// index NFT transfers
-	if indxr.indexNfts {
+	if i.indexNfts {
 		wg.Go(func() error {
-			if err := indxr.indexNFTTransfers(ctx, chainID, logs); err != nil {
+			if err := i.indexNFTTransfers(ctx, chainID, logs); err != nil {
 				return errors.Wrap(err, "svc.indexNFTTransfers")
 			}
 
