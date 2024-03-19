@@ -19,7 +19,7 @@ var (
 	oracleProver = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-func (indxr *Indexer) saveTransitionProvedEvents(
+func (i *Indexer) saveTransitionProvedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1TransitionProvedIterator,
@@ -32,14 +32,10 @@ func (indxr *Indexer) saveTransitionProvedEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameTransitionProved, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "indxr.detectAndHandleReorg")
-		}
-
-		if err := indxr.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
+		if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
 			eventindexer.TransitionProvedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveBlockProvenEvent")
+			return errors.Wrap(err, "i.saveBlockProvenEvent")
 		}
 
 		if !events.Next() {
@@ -48,7 +44,7 @@ func (indxr *Indexer) saveTransitionProvedEvents(
 	}
 }
 
-func (indxr *Indexer) saveTransitionProvedEvent(
+func (i *Indexer) saveTransitionProvedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1TransitionProved,
@@ -64,38 +60,39 @@ func (indxr *Indexer) saveTransitionProvedEvent(
 
 	blockID := event.BlockId.Int64()
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameTransitionProved,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Event:        eventindexer.EventNameTransitionProved,
-		Address:      event.Prover.Hex(),
-		BlockID:      &blockID,
-		TransactedAt: time.Unix(int64(block.Time()), 0),
-		Tier:         &event.Tier,
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameTransitionProved,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameTransitionProved,
+		Address:        event.Prover.Hex(),
+		BlockID:        &blockID,
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		Tier:           &event.Tier,
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.TransitionProvedEventsProcessed.Inc()
 
 	if event.Prover.Hex() != systemProver.Hex() && event.Prover.Hex() != oracleProver.Hex() {
-		if err := indxr.updateAverageProofTime(ctx, event); err != nil {
-			return errors.Wrap(err, "indxr.updateAverageProofTime")
+		if err := i.updateAverageProofTime(ctx, event); err != nil {
+			return errors.Wrap(err, "i.updateAverageProofTime")
 		}
 	}
 
 	return nil
 }
 
-func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1TransitionProved) error {
-	block, err := indxr.taikol1.GetBlock(nil, event.BlockId.Uint64())
+func (i *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1TransitionProved) error {
+	block, err := i.taikol1.GetBlock(nil, event.BlockId.Uint64())
 	// will be unable to GetBlock for older blocks, just return nil, we dont
 	// care about averageProofTime that much to be honest for older blocks
 	if err != nil {
@@ -104,14 +101,14 @@ func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1
 		return nil
 	}
 
-	eventBlock, err := indxr.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
+	eventBlock, err := i.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByHash")
+		return errors.Wrap(err, "i.ethClient.BlockByHash")
 	}
 
-	stat, err := indxr.statRepo.Find(ctx, eventindexer.StatTypeProofTime, nil)
+	stat, err := i.statRepo.Find(ctx, eventindexer.StatTypeProofTime, nil)
 	if err != nil {
-		return errors.Wrap(err, "indxr.statRepo.Find")
+		return errors.Wrap(err, "i.statRepo.Find")
 	}
 
 	proposedAt := block.Blk.ProposedAt
@@ -148,12 +145,12 @@ func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1
 		newAverageProofTime.String(),
 	)
 
-	_, err = indxr.statRepo.Save(ctx, eventindexer.SaveStatOpts{
+	_, err = i.statRepo.Save(ctx, eventindexer.SaveStatOpts{
 		ProofTime: newAverageProofTime,
 		StatType:  eventindexer.StatTypeProofTime,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.statRepo.Save")
+		return errors.Wrap(err, "i.statRepo.Save")
 	}
 
 	return nil

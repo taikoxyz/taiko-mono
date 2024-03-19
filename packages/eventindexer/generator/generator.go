@@ -638,25 +638,6 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 		}
 
 		result = tsdResult.Decimal.Add(dailyAccountsCount.Decimal)
-	case tasks.BlocksPerDay:
-		query := `SELECT COUNT(*) FROM blocks WHERE DATE(transacted_at) = ?`
-		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
-	case tasks.TotalBlocks:
-		var dailyBlockCount decimal.NullDecimal
-
-		query := `SELECT COUNT(*) FROM blocks WHERE DATE(transacted_at) = ?`
-
-		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyBlockCount).Error
-		if err != nil {
-			return err
-		}
-
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
-		if err != nil {
-			return err
-		}
-
-		result = tsdResult.Decimal.Add(dailyBlockCount.Decimal)
 	case tasks.TransactionsPerDay:
 		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS events (
     data JSON NOT NULL,
     address VARCHAR(42) NOT NULL DEFAULT "",
     block_id int DEFAULT NULL,
+    emitted_block_id BIGINT NOT NULL,
     amount DECIMAL(65, 0) DEFAULT NULL,
     proof_reward VARCHAR(255) DEFAULT NULL,
     proposer_reward VARCHAR(255) DEFAULT NULL,

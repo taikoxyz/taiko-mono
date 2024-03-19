@@ -13,7 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
-func (indxr *Indexer) saveBlockVerifiedEvents(
+func (i *Indexer) saveBlockVerifiedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1BlockVerifiedIterator,
@@ -26,14 +26,10 @@ func (indxr *Indexer) saveBlockVerifiedEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "indxr.detectAndHandleReorg")
-		}
-
-		if err := indxr.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
+		if err := i.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockVerifiedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveBlockVerifiedEvent")
+			return errors.Wrap(err, "i.saveBlockVerifiedEvent")
 		}
 
 		if !events.Next() {
@@ -42,7 +38,7 @@ func (indxr *Indexer) saveBlockVerifiedEvents(
 	}
 }
 
-func (indxr *Indexer) saveBlockVerifiedEvent(
+func (i *Indexer) saveBlockVerifiedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockVerified,
@@ -56,22 +52,23 @@ func (indxr *Indexer) saveBlockVerifiedEvent(
 
 	blockID := event.BlockId.Int64()
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBlockVerified,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Event:        eventindexer.EventNameBlockVerified,
-		Address:      "",
-		BlockID:      &blockID,
-		TransactedAt: time.Unix(int64(block.Time()), 0),
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameBlockVerified,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameBlockVerified,
+		Address:        "",
+		BlockID:        &blockID,
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.BlockVerifiedEventsProcessed.Inc()
