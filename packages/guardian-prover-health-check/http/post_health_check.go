@@ -36,6 +36,10 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 
 	// bind incoming request
 	if err := c.Bind(req); err != nil {
+		slog.Error("error binding incoming heartbeat req",
+			"error", err, "signature", req.HeartBeatSignature,
+		)
+
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
@@ -47,6 +51,10 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 
 	// if not, we want to return an error
 	if err != nil {
+		slog.Error("error recovering guardian prover",
+			"error", err, "signature", req.HeartBeatSignature,
+		)
+
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
@@ -63,6 +71,11 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		LatestL1Block:    req.LatestL1Block,
 		LatestL2Block:    req.LatestL2Block,
 	}); err != nil {
+		slog.Error("error saving health check",
+			"error", err,
+			"signature", req.HeartBeatSignature,
+		)
+
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
