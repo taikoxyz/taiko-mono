@@ -12,7 +12,7 @@ import { config } from '$libs/wagmi';
 import { BLOCK_NUMBER_1, L1_ADDRESSES, L1_CHAIN_ID, L2_CHAIN_ID, STORAGE_KEY_1 } from '$mocks';
 
 vi.mock('@wagmi/core');
-vi.mock('../../../generated/customTokenConfig', () => {
+vi.mock('../../generated/customTokenConfig', () => {
   const mockERC20 = {
     name: 'MockERC20',
     addresses: { '1': zeroAddress },
