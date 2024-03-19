@@ -12,6 +12,7 @@
     errorComputingBalance,
     insufficientAllowance,
     insufficientBalance,
+    processingFee,
     recipientAddress,
     selectedToken,
     tokenBalance,
@@ -134,10 +135,9 @@
           to: $account.address,
           token: $selectedToken,
           balance: $tokenBalance.value,
-          fee: 0n,
           srcChainId: $connectedSourceChain.id,
           destChainId: $destNetwork.id,
-          amount: BigInt(1), // whatever amount to estimate the cost
+          fee: $processingFee,
         });
 
         // Update state
