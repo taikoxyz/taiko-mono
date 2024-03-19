@@ -1,38 +1,18 @@
-import type { Address } from 'viem';
-
 import { routingContractsMap } from '$bridgeConfig';
-import { type Token, TokenType } from '$libs/token';
+import { TokenType } from '$libs/token';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 
 import { bridges } from './bridges';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
-import type { ETHBridgeArgs } from './types';
-
-type GetMaxToBridgeArgs = {
-  to: Address;
-  token: Token;
-  balance: bigint;
-  amount?: bigint;
-  srcChainId?: number;
-  destChainId?: number;
-  fee?: bigint;
-};
+import type { ETHBridgeArgs, GetMaxToBridgeArgs } from './types';
 
 const log = getLogger('bridge:getMaxAmountToBridge');
 
-export async function getMaxAmountToBridge({
-  to,
-  token,
-  amount,
-  balance,
-  srcChainId,
-  destChainId,
-  fee,
-}: GetMaxToBridgeArgs) {
+export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId, destChainId }: GetMaxToBridgeArgs) {
   // For ERC20 tokens, we can bridge the whole balance
   let maxAmount = balance;
-  log('Max amount to bridge', maxAmount, 'with balance', balance, 'and amount', amount, token);
+  log('Max amount to bridge', maxAmount, 'with balance', balance, 'for token', token);
   if (token.type === TokenType.ETH) {
     // We cannot really compute the cost of bridging ETH without
     if (!to || !srcChainId || !destChainId) {
@@ -42,9 +22,10 @@ export async function getMaxAmountToBridge({
     const wallet = await getConnectedWallet();
     const { bridgeAddress } = routingContractsMap[srcChainId][destChainId];
 
+    // We need to estimate the cost of bridging
     const bridgeArgs = {
       to,
-      amount,
+      amount: 1n, // any amount will do
       wallet,
       srcChainId,
       destChainId,

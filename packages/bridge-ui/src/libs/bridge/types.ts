@@ -2,7 +2,7 @@ import type { Address, GetContractReturnType, Hash, Hex, TransactionReceipt, Wal
 
 import type { bridgeAbi } from '$abi';
 import type { ChainID } from '$libs/chain';
-import type { TokenType } from '$libs/token';
+import type { Token, TokenType } from '$libs/token';
 
 export enum MessageStatus {
   NEW,
@@ -259,4 +259,13 @@ export type GetProofReceiptResponse = readonly [bigint, Address];
 export type DetermineTransactionStatusArgs = {
   tx: BridgeTransaction;
   claimer: Maybe<Address>;
+};
+
+export type GetMaxToBridgeArgs = {
+  to: Address;
+  token: Token;
+  balance: bigint;
+  fee: bigint;
+  srcChainId: number;
+  destChainId: number;
 };
