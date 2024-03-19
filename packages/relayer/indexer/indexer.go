@@ -299,13 +299,6 @@ func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
 
 // filter is the main function run by Start in the indexer
 func (i *Indexer) filter(ctx context.Context) error {
-	n, err := i.eventRepo.FindLatestBlockID(i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
-	if err != nil {
-		return err
-	}
-
-	i.latestIndexedBlockNumber = n
-
 	// get the latest header
 	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
 	if err != nil {
