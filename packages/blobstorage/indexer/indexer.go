@@ -96,7 +96,36 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 func (i *Indexer) Start() error {
 	i.wg.Add(1)
+
 	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
+
+	return nil
+}
+
+func (i *Indexer) setInitialIndexingBlock(
+	ctx context.Context,
+) error {
+	// get most recently processed block height from the DB
+	latest, err := i.blobHashRepo.FindLatestBlockID()
+	if err != nil {
+		return err
+	}
+
+	// if its non-zero ,we use that. if it is zero, it means we havent
+	// processed any blobs, so we should get the state variables below.
+	if latest != 0 {
+		i.latestIndexedBlockNumber = latest
+
+		return nil
+	}
+
+	// and then start from the genesis height.
+	stateVars, err := i.taikoL1.GetStateVariables(nil)
+	if err != nil {
+		return err
+	}
+
+	i.latestIndexedBlockNumber = stateVars.A.GenesisHeight - 1
 
 	return nil
 }
@@ -143,12 +172,9 @@ func (i *Indexer) withRetry(f func() error) error {
 }
 
 func (i *Indexer) filter(ctx context.Context) error {
-	n, err := i.blobHashRepo.FindLatestBlockID()
-	if err != nil {
+	if err := i.setInitialIndexingBlock(i.ctx); err != nil {
 		return err
 	}
-
-	i.latestIndexedBlockNumber = n
 
 	// get the latest header
 	header, err := i.ethClient.HeaderByNumber(i.ctx, nil)
