@@ -14,7 +14,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
-func (indxr *Indexer) saveBlockProposedEvents(
+func (i *Indexer) saveBlockProposedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1BlockProposedIterator,
@@ -27,24 +27,20 @@ func (indxr *Indexer) saveBlockProposedEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "indxr.detectAndHandleReorg")
-		}
-
-		tx, _, err := indxr.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
+		tx, _, err := i.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 		if err != nil {
-			return errors.Wrap(err, "indxr.ethClient.TransactionByHash")
+			return errors.Wrap(err, "i.ethClient.TransactionByHash")
 		}
 
-		sender, err := indxr.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
+		sender, err := i.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
 		if err != nil {
-			return errors.Wrap(err, "indxr.ethClient.TransactionSender")
+			return errors.Wrap(err, "i.ethClient.TransactionSender")
 		}
 
-		if err := indxr.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
+		if err := i.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
 			eventindexer.BlockProposedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveBlockProposedEvent")
+			return errors.Wrap(err, "i.saveBlockProposedEvent")
 		}
 
 		if !events.Next() {
@@ -53,7 +49,7 @@ func (indxr *Indexer) saveBlockProposedEvents(
 	}
 }
 
-func (indxr *Indexer) saveBlockProposedEvent(
+func (i *Indexer) saveBlockProposedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockProposed,
@@ -70,12 +66,12 @@ func (indxr *Indexer) saveBlockProposedEvent(
 
 	assignedProver := event.AssignedProver.Hex()
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:           eventindexer.EventNameBlockProposed,
 		Data:           string(marshaled),
 		ChainID:        chainID,
@@ -84,9 +80,10 @@ func (indxr *Indexer) saveBlockProposedEvent(
 		BlockID:        &blockID,
 		AssignedProver: &assignedProver,
 		TransactedAt:   time.Unix(int64(block.Time()), 0).UTC(),
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.BlockProposedEventsProcessed.Inc()
