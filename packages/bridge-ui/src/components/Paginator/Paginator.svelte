@@ -7,12 +7,12 @@
   export let totalItems = 0;
   export let pageSize = 5;
 
-  $: totalPages = Math.ceil(totalItems / pageSize);
+  $: totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const dispatch = createEventDispatcher<{ pageChange: number }>();
 
   function goToPage(page: number) {
-    currentPage = page;
+    currentPage = Math.min(totalPages, Math.max(1, page));
     dispatch('pageChange', page);
   }
 
