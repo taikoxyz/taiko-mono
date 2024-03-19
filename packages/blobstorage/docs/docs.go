@@ -31,7 +31,7 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Get blob and KZG commitment",
+                "summary": "Get blob(s) and KZG commitment(s)",
                 "operationId": "get-blob",
                 "parameters": [
                     {

@@ -43,5 +43,5 @@ paths:
           description: OK
           schema:
             $ref: "#/definitions/http.getBlobResponse"
-      summary: Get blob and KZG commitment
+      summary: Get blob(s) and KZG commitment(s)
 swagger: "2.0"
