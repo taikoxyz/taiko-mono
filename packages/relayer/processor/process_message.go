@@ -221,9 +221,10 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 		return nil
 	}
 
-	if err := backoff.Retry(sendTx, backoff.WithMaxRetries(
-		backoff.NewConstantBackOff(p.backOffRetryInterval),
-		p.backOffMaxRetries),
+	if err := backoff.Retry(sendTx, backoff.WithContext(
+		backoff.WithMaxRetries(
+			backoff.NewConstantBackOff(p.backOffRetryInterval),
+			p.backOffMaxRetries), ctx),
 	); err != nil {
 		return nil, err
 	}
@@ -719,13 +720,15 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
 
 		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
-			Name:         relayer.EventNameMessageStatusChanged,
-			Data:         data,
-			ChainID:      new(big.Int).SetUint64(event.Message.DestChainId),
-			Status:       relayer.EventStatus(m["status"].(uint8)),
-			MsgHash:      common.Hash(event.MsgHash).Hex(),
-			MessageOwner: event.Message.SrcOwner.Hex(),
-			Event:        relayer.EventNameMessageStatusChanged,
+			Name:           relayer.EventNameMessageStatusChanged,
+			Data:           data,
+			EmittedBlockID: event.Raw.BlockNumber,
+			ChainID:        new(big.Int).SetUint64(event.Message.SrcChainId),
+			DestChainID:    new(big.Int).SetUint64(event.Message.DestChainId),
+			Status:         relayer.EventStatus(m["status"].(uint8)),
+			MsgHash:        common.Hash(event.MsgHash).Hex(),
+			MessageOwner:   event.Message.SrcOwner.Hex(),
+			Event:          relayer.EventNameMessageStatusChanged,
 		})
 		if err != nil {
 			return errors.Wrap(err, "svc.eventRepo.Save")

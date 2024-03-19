@@ -32,6 +32,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Data:                   datatypes.JSON(opts.Data),
 		Status:                 opts.Status,
 		ChainID:                opts.ChainID.Int64(),
+		DestChainID:            opts.DestChainID.Int64(),
 		Name:                   opts.Name,
 		EventType:              opts.EventType,
 		CanonicalTokenAddress:  opts.CanonicalTokenAddress,
@@ -47,6 +48,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Kind:                   opts.Kind,
 		SyncedInBlockID:        opts.SyncedInBlockID,
 		BlockID:                opts.BlockID,
+		EmittedBlockID:         opts.EmittedBlockID,
 	}
 
 	if err := r.db.GormDB().Create(e).Error; err != nil {
@@ -195,4 +197,31 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	}
 
 	return uint64(blockID), nil
+}
+
+// DeleteAllAfterBlockID is used when a reorg is detected
+func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error {
+	query := `
+DELETE FROM events
+WHERE block_id >= ? AND chain_id = ? AND dest_chain_id = ?`
+
+	return r.db.GormDB().Table("events").Exec(query, blockID, srcChainID, destChainID).Error
+}
+
+// GetLatestBlockID get latest block id
+func (r *EventRepository) FindLatestBlockID(
+	event string,
+	srcChainID uint64,
+	destChainID uint64,
+) (uint64, error) {
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	FROM events WHERE chain_id = ? AND dest_chain_id = ? AND event = ?`
+
+	var b uint64
+
+	if err := r.db.GormDB().Table("events").Raw(q, srcChainID, destChainID, event).Scan(&b).Error; err != nil {
+		return 0, err
+	}
+
+	return b, nil
 }

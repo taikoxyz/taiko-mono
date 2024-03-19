@@ -1,19 +1,6 @@
 [
   {
     "type": "function",
-    "name": "MIN_NUM_GUARDIANS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
@@ -92,16 +79,6 @@
             "internalType": "uint64"
           },
           {
-            "name": "txListByteOffset",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "txListByteSize",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
             "name": "minTier",
             "type": "uint16",
             "internalType": "uint16"
@@ -115,6 +92,11 @@
             "name": "parentMetaHash",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       },

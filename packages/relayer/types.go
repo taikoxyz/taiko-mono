@@ -2,9 +2,9 @@ package relayer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"log/slog"
@@ -43,8 +43,6 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	slog.Info("waiting for transaction receipt", "txHash", txHash.Hex())
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -59,17 +57,43 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
-			slog.Info("transaction receipt found", "txHash", txHash.Hex())
-
 			return receipt, nil
 		}
 	}
 }
 
+var (
+	errStillWaiting = errors.New("still waiting")
+)
+
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain, or context is cancelled.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	slog.Info("beginning waiting for confirmations", "txHash", txHash.Hex())
+	checkConfs := func() error {
+		receipt, err := confirmer.TransactionReceipt(ctx, txHash)
+		if err != nil {
+			return err
+		}
+
+		latest, err := confirmer.BlockNumber(ctx)
+		if err != nil {
+			return err
+		}
+
+		want := receipt.BlockNumber.Uint64() + confirmations
+
+		if latest < want {
+			return errStillWaiting
+		}
+
+		return nil
+	}
+
+	if err := checkConfs(); err != nil && err != ethereum.NotFound && err != errStillWaiting {
+		slog.Error("encountered error getting receipt", "txHash", txHash.Hex(), "error", err)
+
+		return err
+	}
 
 	ticker := time.NewTicker(10 * time.Second)
 
@@ -80,9 +104,8 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			receipt, err := confirmer.TransactionReceipt(ctx, txHash)
-			if err != nil {
-				if err == ethereum.NotFound {
+			if err := checkConfs(); err != nil {
+				if err == ethereum.NotFound || err == errStillWaiting {
 					continue
 				}
 
@@ -90,26 +113,6 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 
 				return err
 			}
-
-			latest, err := confirmer.BlockNumber(ctx)
-			if err != nil {
-				return err
-			}
-
-			want := receipt.BlockNumber.Uint64() + confirmations
-			slog.Info(
-				"waiting for confirmations",
-				"txHash", txHash.Hex(),
-				"confirmations", confirmations,
-				"blockNumWillbeConfirmed", want,
-				"latestBlockNum", latest,
-			)
-
-			if latest < receipt.BlockNumber.Uint64()+confirmations {
-				continue
-			}
-
-			slog.Info("done waiting for confirmations", "txHash", txHash.Hex(), "confirmations", confirmations)
 
 			return nil
 		}
@@ -137,14 +140,20 @@ func splitByteArray(data []byte, chunkSize int) [][]byte {
 func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 	var token CanonicalERC20
 
+	canonicalTokenDataStartingindex := int64(2)
 	chunks := splitByteArray(decodedData, 32)
-	offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[0])), 16, 64)
 
-	if err != nil {
-		return token, big.NewInt(0), err
+	if len(chunks) < 4 {
+		return token, big.NewInt(0), fmt.Errorf("data too short")
 	}
 
-	canonicalTokenData := decodedData[offset:]
+	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
+
+	if !ok {
+		return token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
+	}
+
+	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
 
 	types := []string{"uint64", "address", "uint8", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -159,26 +168,27 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 	token.Symbol = values[3].(string)
 	token.Name = values[4].(string)
 
-	amount, err := strconv.ParseInt(common.Bytes2Hex((chunks[3])), 16, 64)
-	if err != nil {
-		return token, big.NewInt(0), err
+	amount, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+3])), 16)
+	if !ok {
+		return token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 	}
 
-	return token, big.NewInt(amount), nil
+	return token, amount, nil
 }
 
 func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, error) {
 	var token CanonicalNFT
 
+	canonicalTokenDataStartingindex := int64(2)
 	chunks := splitByteArray(decodedData, 32)
 
-	offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[0])), 16, 64)
+	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
 
-	if err != nil || offset%32 != 0 {
-		return EventTypeSendETH, token, big.NewInt(0), err
+	if !ok || offset.Int64()%32 != 0 {
+		return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset:]
+	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
 
 	types := []string{"uint64", "address", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -192,27 +202,26 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	token.Symbol = values[2].(string)
 	token.Name = values[3].(string)
 
-	if offset == 128 {
+	if offset.Int64() == 128 {
 		amount := big.NewInt(1)
 
 		return EventTypeSendERC721, token, amount, nil
-	} else if offset == 160 {
-		offset, err := strconv.ParseInt(common.Bytes2Hex((chunks[4])), 16, 64)
-		if err != nil || offset%32 != 0 {
-			return EventTypeSendETH, token, big.NewInt(0), err
+	} else if offset.Int64() == 160 {
+		offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+4])), 16)
+		if !ok || offset.Int64()%32 != 0 {
+			return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 		}
 
-		indexOffset := int64(offset / 32)
+		indexOffset := canonicalTokenDataStartingindex + int64(offset.Int64()/32)
 
-		length, err := strconv.ParseInt(common.Bytes2Hex((chunks[indexOffset])), 16, 64)
-
-		if err != nil {
-			return EventTypeSendETH, token, big.NewInt(0), err
+		length, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[indexOffset])), 16)
+		if !ok {
+			return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
 		}
 
 		amount := big.NewInt(0)
 
-		for i := int64(0); i < length; i++ {
+		for i := int64(0); i < length.Int64(); i++ {
 			amountsData := decodedData[(indexOffset+i+1)*32 : (indexOffset+i+2)*32]
 			types := []string{"uint256"}
 			values, err = decodeABI(types, amountsData)
@@ -258,9 +267,7 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 	onMessageInvocationFunctionSig := "7f07c947"
 
 	// Check if eventData is valid
-	if eventData != nil &&
-		common.BytesToHash(eventData) != ZeroHash &&
-		len(eventData) > 3 &&
+	if len(eventData) > 3 &&
 		common.Bytes2Hex(eventData[:4]) == onMessageInvocationFunctionSig {
 		// Try to decode data as ERC20
 		canonicalToken, amount, err := decodeDataAsERC20(eventData[4:])

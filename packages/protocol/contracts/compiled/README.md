@@ -14,11 +14,11 @@ According to this document:
 >
 > Build the FiatToken contracts from source. In this case, the compiler metadata must be published or made available to support full contract verification. Various suggested compiler settings that Circle uses can be found here, which will allow the third-party team to reach the same bytecode if followed consistently.
 
-Following the recommendations the contracts were built with the same compiler settings (version + optimization) and they have bytecode equivalance with the other contracts (mentioned in the doc, and can be found on links below (Arbitrum, Scroll, Polygon, etc.)).
+Following the recommendations the contracts were built with the same compiler settings (version + optimization) and they have bytecode equivalence with the other contracts (mentioned in the doc, and can be found on links below (Arbitrum, Scroll, Polygon, etc.)).
 
 For reference, here are Arbitrum's proxy + token contracts:
 
 - Proxy: https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831#code
 - Implementation: https://arbiscan.io/address/0x0f4fb9474303d10905AB86aA8d5A65FE44b6E04A#code
 
-As a cross-reference, one can compare the bytecode of the ones present on arbiscan and here in the .json files (under bytcode key), the additional (meta)data could be helpful for contracts verfication.
+As a cross-reference, one can compare the bytecode of the ones present on arbiscan and here in the .json files (under bytcode key), the additional (meta)data could be helpful for contracts verification.

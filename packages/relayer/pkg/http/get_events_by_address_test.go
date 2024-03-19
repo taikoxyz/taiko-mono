@@ -18,10 +18,11 @@ func Test_GetEventsByAddress(t *testing.T) {
 	srv := newTestServer("")
 
 	_, err := srv.eventRepo.Save(context.Background(), relayer.SaveEventOpts{
-		Name:    "name",
-		Data:    `{"Owner": "0x0000000000000000000000000000000000000123"}`,
-		ChainID: big.NewInt(167001),
-		Status:  relayer.EventStatusNew,
+		Name:        "name",
+		Data:        `{"Owner": "0x0000000000000000000000000000000000000123"}`,
+		ChainID:     big.NewInt(167001),
+		DestChainID: big.NewInt(167002),
+		Status:      relayer.EventStatusNew,
 	})
 
 	assert.Equal(t, nil, err)

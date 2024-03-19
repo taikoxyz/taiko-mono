@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/rand"
 	"net/http"
 
@@ -26,6 +27,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Data:         datatypes.JSON(opts.Data),
 		Status:       opts.Status,
 		ChainID:      opts.ChainID.Int64(),
+		DestChainID:  opts.DestChainID.Int64(),
 		Name:         opts.Name,
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
@@ -151,4 +153,22 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	syncedChainId uint64,
 ) (uint64, error) {
 	return 5, nil
+}
+
+// DeleteAllAfterBlockID is used when a reorg is detected
+func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error {
+	return nil
+}
+
+// GetLatestBlockID get latest block id
+func (r *EventRepository) FindLatestBlockID(
+	event string,
+	srcChainID uint64,
+	destChainID uint64,
+) (uint64, error) {
+	if srcChainID == MockChainID.Uint64() {
+		return LatestBlockNumber.Uint64(), nil
+	}
+
+	return 0, errors.New("invalid")
 }

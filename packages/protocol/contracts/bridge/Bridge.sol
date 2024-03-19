@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
-import "../thirdparty/nomad-xyz/ExcessivelySafeCall.sol";
 import "./IBridge.sol";
 
 /// @title Bridge
@@ -203,7 +202,7 @@ contract Bridge is EssentialContract, IBridge {
                 // Must reset the context after the message call
                 _resetContext();
             } else {
-                _message.srcOwner.sendEther(_message.value);
+                _message.srcOwner.sendEtherAndVerify(_message.value);
             }
             emit MessageRecalled(msgHash);
         } else if (!isMessageProven) {
@@ -292,11 +291,11 @@ contract Bridge is EssentialContract, IBridge {
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEther(_message.fee + refundAmount);
+                refundTo.sendEtherAndVerify(_message.fee + refundAmount);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEther(_message.fee);
-                refundTo.sendEther(refundAmount);
+                msg.sender.sendEtherAndVerify(_message.fee);
+                refundTo.sendEtherAndVerify(refundAmount);
             }
             emit MessageExecuted(msgHash);
         } else if (!isMessageProven) {
@@ -354,7 +353,6 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         public
-        view
         returns (bool)
     {
         if (_message.srcChainId != block.chainid) return false;
@@ -376,7 +374,6 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         public
-        view
         returns (bool)
     {
         if (_message.destChainId != block.chainid) return false;
@@ -494,13 +491,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             success_ = false;
         } else {
-            (success_,) = ExcessivelySafeCall.excessivelySafeCall(
-                _message.to,
-                _gasLimit,
-                _message.value,
-                64, // return max 64 bytes
-                _message.data
-            );
+            success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         }
 
         // Must reset the context after the message call
@@ -573,7 +564,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    /// @return success_ True if the message was received.
+    /// @return true if the message was received.
     function _proveSignalReceived(
         address _signalService,
         bytes32 _signal,
@@ -581,13 +572,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        view
-        returns (bool success_)
+        returns (bool)
     {
         bytes memory data = abi.encodeCall(
             ISignalService.proveSignalReceived,
             (_chainId, resolve(_chainId, "bridge", false), _signal, _proof)
         );
-        (success_,) = _signalService.staticcall(data);
+        return _signalService.sendEther(0, gasleft(), data);
     }
 }

@@ -15,11 +15,6 @@ import "./LibDepositing.sol";
 library LibProposing {
     using LibAddress for address;
 
-    /// @notice The maximum number of bytes allowed per blob.
-    /// @dev According to EIP4844, each blob has up to 4096 field elements, and each
-    /// field element has 32 bytes.
-    uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -36,23 +31,15 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
-    /// @notice Emitted when a blob is cached.
-    /// @param blobHash The hash of the cached blob.
-    event BlobCached(bytes32 blobHash);
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
-    error L1_BLOB_FOR_DA_DISABLED();
+    error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
-    error L1_BLOB_NOT_REUSABLE();
-    error L1_BLOB_REUSE_DISABLED();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_OFFSET();
-    error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
 
@@ -129,8 +116,6 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                txListByteOffset: 0, // to be initialized below
-                txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
@@ -140,41 +125,14 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!_config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
+            if (block.chainid != 1) revert L1_BLOB_NOT_AVAILABLE();
 
-            if (params.blobHash != 0) {
-                if (!_config.blobReuseEnabled) revert L1_BLOB_REUSE_DISABLED();
-
-                // We try to reuse an old blob
-                if (!isBlobReusable(_state, _config, params.blobHash)) {
-                    revert L1_BLOB_NOT_REUSABLE();
-                }
-                meta_.blobHash = params.blobHash;
-            } else {
-                // Always use the first blob in this transaction. If the
-                // proposeBlock functions are called more than once in the same
-                // L1 transaction, these multiple L2 blocks will share the same
-                // blob.
-                meta_.blobHash = blobhash(0);
-
-                if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
-
-                // Depends on the blob data price, it may not make sense to
-                // cache the blob which costs 20,000 (sstore) + 631 (event)
-                // extra gas.
-                if (_config.blobReuseEnabled && params.cacheBlobForReuse) {
-                    _state.reusableBlobs[meta_.blobHash] = block.timestamp;
-                    emit BlobCached(meta_.blobHash);
-                }
-            }
-
-            // Check that the txList data range is within the max size of a blob
-            if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
-                revert L1_TXLIST_OFFSET();
-            }
-
-            meta_.txListByteOffset = params.txListByteOffset;
-            meta_.txListByteSize = params.txListByteSize;
+            // Always use the first blob in this transaction. If the
+            // proposeBlock functions are called more than once in the same
+            // L1 transaction, these multiple L2 blocks will share the same
+            // blob.
+            meta_.blobHash = blobhash(0);
+            if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             // The proposer must be an Externally Owned Account (EOA) for
             // calldata usage. This ensures that the transaction is not an
@@ -182,19 +140,7 @@ library LibProposing {
             // Taiko node software.
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
-            // The txList is the full byte array without any offset
-            if (params.txListByteOffset != 0) {
-                revert L1_INVALID_PARAM();
-            }
-
             meta_.blobHash = keccak256(_txList);
-            meta_.txListByteOffset = 0;
-            meta_.txListByteSize = uint24(_txList.length);
-        }
-
-        // Check that the tx length is non-zero and within the supported range
-        if (meta_.txListByteSize == 0 || meta_.txListByteSize > _config.blockMaxTxListBytes) {
-            revert L1_TXLIST_SIZE();
         }
 
         // Following the Merge, the L1 mixHash incorporates the
@@ -259,7 +205,7 @@ library LibProposing {
             }
             // Refund Ether
             if (address(this).balance != 0) {
-                msg.sender.sendEther(address(this).balance);
+                msg.sender.sendEtherAndVerify(address(this).balance);
             }
 
             // Check that after hooks, the Taiko Token balance of this contract
@@ -278,23 +224,6 @@ library LibProposing {
             meta: meta_,
             depositsProcessed: deposits_
         });
-    }
-
-    /// @notice Checks if a blob is reusable.
-    /// @param _state Current TaikoData.State.
-    /// @param _config The TaikoData.Config.
-    /// @param _blobHash The blob hash
-    /// @return true if the blob is reusable, false otherwise.
-    function isBlobReusable(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        bytes32 _blobHash
-    )
-        internal
-        view
-        returns (bool)
-    {
-        return _state.reusableBlobs[_blobHash] + _config.blobExpiry > block.timestamp;
     }
 
     function _isProposerPermitted(
