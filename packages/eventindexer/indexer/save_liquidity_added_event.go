@@ -18,7 +18,7 @@ var (
 	minLiquidityAddedAmount = big.NewInt(100000000000000000)
 )
 
-func (indxr *Indexer) saveLiquidityAddedEvents(
+func (i *Indexer) saveLiquidityAddedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *swap.SwapMintIterator,
@@ -31,10 +31,10 @@ func (indxr *Indexer) saveLiquidityAddedEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.saveLiquidityAddedEvent(ctx, chainID, event); err != nil {
+		if err := i.saveLiquidityAddedEvent(ctx, chainID, event); err != nil {
 			eventindexer.LiquidityAddedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveSwapEvent")
+			return errors.Wrap(err, "i.saveSwapEvent")
 		}
 
 		if !events.Next() {
@@ -43,12 +43,12 @@ func (indxr *Indexer) saveLiquidityAddedEvents(
 	}
 }
 
-func (indxr *Indexer) saveLiquidityAddedEvent(
+func (i *Indexer) saveLiquidityAddedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *swap.SwapMint,
 ) error {
-	tx, _, err := indxr.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
+	tx, _, err := i.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 	if err != nil {
 		return err
 	}
@@ -79,21 +79,22 @@ func (indxr *Indexer) saveLiquidityAddedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameMint,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Event:        eventindexer.EventNameMint,
-		Address:      from.Hex(),
-		TransactedAt: time.Unix(int64(block.Time()), 0),
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameMint,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameMint,
+		Address:        from.Hex(),
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.LiquidityAddedEventsProcessed.Inc()

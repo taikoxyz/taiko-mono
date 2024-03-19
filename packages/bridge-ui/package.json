@@ -63,7 +63,7 @@
     "@wagmi/core": "^2.6.5",
     "@walletconnect/ethereum-provider": "^2.11.2",
     "@walletconnect/modal": "^2.6.2",
-    "@web3modal/wagmi": "^4.0.9",
+    "@web3modal/wagmi": "^4.1.1",
     "@zerodevx/svelte-toast": "^0.9.5",
     "axios": "^1.6.7",
     "buffer": "^6.0.3",
