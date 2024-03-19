@@ -17,18 +17,19 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 }
 
-// @title Taiko Relayer API
-// @version 1.0
-// @termsOfService http://swagger.io/terms/
+//	@title			Taiko Blobstorage API
+//	@version		1.0
+//	@termsOfService	http://swagger.io/terms/
 
-// @contact.name API Support
-// @contact.url https://community.taiko.xyz/
-// @contact.email info@taiko.xyz
+//	@contact.name	API Support
+//	@contact.url	https://community.taiko.xyz/
+//	@contact.email	info@taiko.xyz
 
-// @license.name MIT
+//	@license.name	MIT
 
-// @host relayer.katla.taiko.xyz
-// Server represents an relayer http server instance.
+//	@host	blobs.internal.taiko.xyz
+//
+// Server represents an blobstorage http server instance.
 type Server struct {
 	echo         *echo.Echo
 	blobHashRepo blobstorage.BlobHashRepository
