@@ -92,6 +92,13 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             verifyBlock(Alice, 2);
+
+            (TaikoData.Block memory blk, TaikoData.TransitionState memory ts) = L1.getBlock(meta.id);
+            assertEq(meta.id, blk.blockId);
+
+            ts = L1.getTransition(meta.id, parentHash);
+            assertEq(ts.prover, Bob);
+
             parentHash = blockHash;
         }
         printVariables("");
@@ -208,6 +215,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Henry, 0, maxAmount + 1 ether);
 
         // So after this point we have 8 deposits
+
+        vm.prank(Alice, Alice);
+        bool canAliceDeposit = L1.canDepositEthToL2(1 ether);
+        assertEq(true, canAliceDeposit);
         vm.prank(Alice, Alice);
         L1.depositEtherToL2{ value: 1 ether }(address(0));
         vm.prank(Bob, Bob);
@@ -244,6 +255,98 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(
             keccak256(abi.encode(depositsProcessed)),
             0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e
+        );
+    }
+
+    function test_pauseProving() external {
+        L1.pauseProving(true);
+
+        TaikoData.BlockMetadata memory meta;
+
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+
+        // Proposing is still possible
+        (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        // Proving is not, so supply the revert reason to proveBlock
+        proveBlock(
+            Bob,
+            Bob,
+            meta,
+            GENESIS_BLOCK_HASH,
+            bytes32("01"),
+            bytes32("02"),
+            meta.minTier,
+            TaikoErrors.L1_PROVING_PAUSED.selector
+        );
+    }
+
+    function test_unpause() external {
+        L1.pause();
+
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+
+        // Proposing is also not possible
+        proposeButRevert(Alice, Bob, 1024, EssentialContract.INVALID_PAUSE_STATUS.selector);
+
+        // unpause
+        L1.unpause();
+
+        // Proposing is possible again
+        proposeBlock(Alice, Bob, 1_000_000, 1024);
+    }
+
+    function test_burn() external {
+        uint256 balanceBeforeBurn = tko.balanceOf(address(this));
+        vm.prank(tko.owner(), tko.owner());
+        tko.burn(address(this), 1 ether);
+        uint256 balanceAfterBurn = tko.balanceOf(address(this));
+
+        assertEq(balanceBeforeBurn - 1 ether, balanceAfterBurn);
+    }
+
+    function test_snapshot() external {
+        vm.prank(tko.owner(), tko.owner());
+        tko.snapshot();
+
+        uint256 totalSupplyAtSnapshot = tko.totalSupplyAt(1);
+
+        vm.prank(tko.owner(), tko.owner());
+        tko.burn(address(this), 1 ether);
+
+        // At snapshot date vs. now, the total supply differs
+        assertEq(totalSupplyAtSnapshot, tko.totalSupply() + 1 ether);
+    }
+
+    function test_getTierIds() external {
+        uint16[] memory tiers = cp.getTierIds();
+        assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
+        assertEq(tiers[1], LibTiers.TIER_SGX);
+        assertEq(tiers[2], LibTiers.TIER_GUARDIAN);
+
+        vm.expectRevert();
+        cp.getTier(123);
+    }
+
+    function proposeButRevert(
+        address proposer,
+        address prover,
+        uint24 txListSize,
+        bytes4 revertReason
+    )
+        internal
+    {
+        uint256 msgValue = 2 ether;
+        AssignmentHook.ProverAssignment memory assignment;
+        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
+        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
+
+        vm.prank(proposer, proposer);
+        vm.expectRevert(revertReason);
+        L1.proposeBlock{ value: msgValue }(
+            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls)),
+            new bytes(txListSize)
         );
     }
 }

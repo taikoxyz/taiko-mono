@@ -565,6 +565,70 @@ contract BridgeTest is TaikoTest {
         assertEq(status == IBridge.Status.DONE, true);
     }
 
+    function test_Bridge_suspend_messages() public {
+        vm.startPrank(Alice);
+        (IBridge.Message memory message, bytes memory proof) =
+            setUpPredefinedSuccessfulProcessMessageCall();
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32[] memory messageHashes = new bytes32[](1);
+        messageHashes[0] = msgHash;
+
+        vm.stopPrank();
+        // Suspend
+        vm.prank(destChainBridge.owner(), destChainBridge.owner());
+        destChainBridge.suspendMessages(messageHashes, true);
+
+        vm.startPrank(Alice);
+        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
+        destChainBridge.processMessage(message, proof);
+
+        vm.stopPrank();
+        // Unsuspend
+        vm.prank(destChainBridge.owner(), destChainBridge.owner());
+        destChainBridge.suspendMessages(messageHashes, false);
+
+        vm.startPrank(Alice);
+        destChainBridge.processMessage(message, proof);
+
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+
+        assertEq(status == IBridge.Status.DONE, true);
+    }
+
+    function test_Bridge_ban_address() public {
+        vm.startPrank(Alice);
+        (IBridge.Message memory message, bytes memory proof) =
+            setUpPredefinedSuccessfulProcessMessageCall();
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32[] memory messageHashes = new bytes32[](1);
+        messageHashes[0] = msgHash;
+
+        vm.stopPrank();
+        // Ban address
+        vm.prank(destChainBridge.owner(), destChainBridge.owner());
+        destChainBridge.banAddress(message.to, true);
+
+        vm.startPrank(Alice);
+        // processMessage() still marks it DONE but dont call the invokeMessageCall on them
+        destChainBridge.processMessage(message, proof);
+
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+
+        assertEq(status == IBridge.Status.DONE, true);
+    }
+
+    function test_Bridge_prove_message_received() public {
+        vm.startPrank(Alice);
+        (IBridge.Message memory message, bytes memory proof) =
+            setUpPredefinedSuccessfulProcessMessageCall();
+
+        bool received = destChainBridge.proveMessageReceived(message, proof);
+
+        assertEq(received, true);
+    }
+
     // test with a known good merkle proof / message since we cant generate
     // proofs via rpc
     // in foundry
