@@ -27,15 +27,6 @@ var (
 	Layer2 = "l2"
 )
 
-type WatchMode string
-
-var (
-	Filter             WatchMode = "filter"
-	Subscribe          WatchMode = "subscribe"
-	FilterAndSubscribe WatchMode = "filter-and-subscribe"
-	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe}
-)
-
 type SyncMode string
 
 var (
@@ -45,17 +36,16 @@ var (
 )
 
 type Indexer struct {
-	accountRepo        eventindexer.AccountRepository
-	blockRepo          eventindexer.BlockRepository
-	eventRepo          eventindexer.EventRepository
-	processedBlockRepo eventindexer.ProcessedBlockRepository
-	statRepo           eventindexer.StatRepository
-	nftBalanceRepo     eventindexer.NFTBalanceRepository
-	txRepo             eventindexer.TransactionRepository
+	accountRepo    eventindexer.AccountRepository
+	eventRepo      eventindexer.EventRepository
+	statRepo       eventindexer.StatRepository
+	nftBalanceRepo eventindexer.NFTBalanceRepository
+	txRepo         eventindexer.TransactionRepository
 
-	ethClient *ethclient.Client
+	ethClient  *ethclient.Client
+	srcChainID uint64
 
-	processingBlockHeight uint64
+	latestIndexedBlockNumber uint64
 
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
@@ -71,44 +61,56 @@ type Indexer struct {
 	wg  *sync.WaitGroup
 	ctx context.Context
 
-	watchMode WatchMode
-	syncMode  SyncMode
+	syncMode SyncMode
 
 	blockSaveMutex *sync.Mutex
 }
 
-func (indxr *Indexer) Start() error {
-	indxr.ctx = context.Background()
+func (i *Indexer) Start() error {
+	i.ctx = context.Background()
 
-	indxr.wg.Add(1)
+	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
+		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
+	}
 
-	go func() {
-		defer func() {
-			indxr.wg.Done()
-		}()
+	i.wg.Add(1)
 
-		if err := indxr.filterThenSubscribe(
-			indxr.ctx,
-			filterFunc,
-		); err != nil {
-			slog.Error("error filtering and subscribing", "err", err.Error())
-		}
-	}()
+	go i.eventLoop(i.ctx)
 
 	return nil
 }
 
-func (indxr *Indexer) Name() string {
+func (i *Indexer) eventLoop(ctx context.Context) {
+	defer i.wg.Done()
+
+	t := time.NewTicker(10 * time.Second)
+
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("event loop context done")
+			return
+		case <-t.C:
+			if err := i.filter(ctx, filterFunc); err != nil {
+				slog.Error("error filtering", "error", err)
+			}
+		}
+	}
+}
+
+func (i *Indexer) Name() string {
 	return "indexer"
 }
 
-func (indxr *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
+func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
 		return err
 	}
 
-	return InitFromConfig(ctx, indxr, cfg)
+	return InitFromConfig(ctx, i, cfg)
 }
 
 // nolint: funlen
@@ -124,16 +126,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	}
 
 	eventRepository, err := repo.NewEventRepository(db)
-	if err != nil {
-		return err
-	}
-
-	processedBlockRepository, err := repo.NewProcessedBlockRepository(db)
-	if err != nil {
-		return err
-	}
-
-	blockRepository, err := repo.NewBlockRepository(db)
 	if err != nil {
 		return err
 	}
@@ -156,6 +148,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	ethClient, err := ethclient.Dial(cfg.RPCUrl)
 	if err != nil {
 		return err
+	}
+
+	chainID, err := ethClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "i.ethClient.ChainID()")
 	}
 
 	var taikoL1 *taikol1.TaikoL1
@@ -201,11 +198,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
-	i.processedBlockRepo = processedBlockRepository
 	i.statRepo = statRepository
 	i.nftBalanceRepo = nftBalanceRepository
 	i.txRepo = txRepository
-	i.blockRepo = blockRepository
+
+	i.srcChainID = chainID.Uint64()
 
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
@@ -217,13 +214,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
-	i.watchMode = cfg.WatchMode
 	i.indexNfts = cfg.IndexNFTs
 	i.layer = cfg.Layer
 
 	return nil
 }
 
-func (indxr *Indexer) Close(ctx context.Context) {
-	indxr.wg.Wait()
+func (i *Indexer) Close(ctx context.Context) {
+	i.wg.Wait()
 }
