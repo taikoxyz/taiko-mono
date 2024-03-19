@@ -22,7 +22,7 @@ export async function startWatching() {
       onChange(data) {
         checkForPausedContracts();
         log('Account changed', data);
-        account.set(data);
+
         refreshUserBalance();
         const { chain } = data;
 
@@ -37,6 +37,7 @@ export async function startWatching() {
           // the source chain.
           connectedSourceChain.set(chain);
         }
+        account.set(data);
       },
     });
 
