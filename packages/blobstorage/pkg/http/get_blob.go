@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type resp struct {
+type getBlobResponse struct {
 	Data []blobData `bson:"data" json:"data"`
 }
 
@@ -19,6 +19,17 @@ type blobData struct {
 	KzgCommitment string `bson:"kzg_commitment" json:"kzg_commitment"`
 }
 
+// GetBlob
+//
+//	 returns blob and kzg commitment by blobHash or multiple comma-separated blobHashes
+//
+//	@Summary	Get blob(s) and KZG commitment(s)
+//	@ID			get-blob
+//	@Param		blobHash	query	string	true "blobHash to query"
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	getBlobResponse
+//	@Router		/getBlob [get]
 func (srv *Server) GetBlob(c echo.Context) error {
 	blobHashes := c.QueryParam("blobHash")
 	if blobHashes == "" {
@@ -30,7 +41,7 @@ func (srv *Server) GetBlob(c echo.Context) error {
 		return webutils.LogAndRenderErrors(c, http.StatusBadRequest, err)
 	}
 
-	response := resp{
+	response := getBlobResponse{
 		Data: make([]blobData, 0),
 	}
 
@@ -46,7 +57,7 @@ func (srv *Server) GetBlob(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-// getBlobData retrieves blob data from MongoDB based on blobHashes.
+// getBlobData retrieves blob data from MySQL based on blobHashes.
 func (srv *Server) getBlobData(blobHashes []string) ([]blobData, error) {
 	var results []blobData
 
