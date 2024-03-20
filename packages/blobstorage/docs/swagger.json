@@ -1,0 +1,68 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Taiko Blobstorage API",
+    "termsOfService": "http://swagger.io/terms/",
+    "contact": {
+      "name": "API Support",
+      "url": "https://community.taiko.xyz/",
+      "email": "info@taiko.xyz"
+    },
+    "license": {
+      "name": "MIT"
+    },
+    "version": "1.0"
+  },
+  "host": "blobs.internal.taiko.xyz",
+  "paths": {
+    "/getBlob": {
+      "get": {
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "summary": "Get blob(s) and KZG commitment(s)",
+        "operationId": "get-blob",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "blobHash to query",
+            "name": "blobHash",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/http.getBlobResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "http.blobData": {
+      "type": "object",
+      "properties": {
+        "blob_hash": {
+          "type": "string"
+        },
+        "kzg_commitment": {
+          "type": "string"
+        }
+      }
+    },
+    "http.getBlobResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/http.blobData"
+          }
+        }
+      }
+    }
+  }
+}
