@@ -35,7 +35,7 @@ export function generateChainConfig() {
         }
         // Decode base64 encoded JSON string
         configuredChainsConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CHAINS || '');
-        // Valide JSON against schema
+        // Valid JSON against schema
         const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
 
         if (!isValid) {

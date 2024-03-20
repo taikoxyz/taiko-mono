@@ -1,7 +1,5 @@
 package flags
 
-import "github.com/urfave/cli/v2"
-
 // required flags
 var (
 	IndexerRPCUrl = &cli.StringFlag{
@@ -76,7 +74,7 @@ var (
 	}
 	IndexNFTs = &cli.BoolFlag{
 		Name:     "indexNfts",
-		Usage:    "Whether to index nft transfer events orn ot",
+		Usage:    "Whether to index nft transfer events or not",
 		Required: false,
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},

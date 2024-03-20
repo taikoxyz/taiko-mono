@@ -10,7 +10,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/indexer"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -28,7 +27,7 @@ func main() {
 	_ = godotenv.Load(envFile)
 
 	app.Name = "Taiko Blob Catcher"
-	app.Usage = "The taiko blob catcher softwares command line interface"
+	app.Usage = "The taiko blob catcher software command line interface"
 	app.Copyright = "Copyright 2021-2024 Taiko Labs"
 	app.Description = "Blob catcher implementation in Golang for Taiko protocol"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}

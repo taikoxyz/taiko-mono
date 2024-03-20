@@ -41,7 +41,7 @@ export function generateRelayerConfig() {
         // Decode base64 encoded JSON string
         configuredRelayerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_RELAYER || '');
 
-        // Valide JSON against schema
+        // Valid JSON against schema
         const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
         if (!isValid) {
           throw new Error('encoded configuredRelayer.json is not valid.');

@@ -12,7 +12,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/processor"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/watchdog"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -30,7 +29,7 @@ func main() {
 	_ = godotenv.Load(envFile)
 
 	app.Name = "Taiko Relayer"
-	app.Usage = "The taiko relayer softwares command line interface"
+	app.Usage = "The taiko relayer software command line interface"
 	app.Copyright = "Copyright 2021-2024 Taiko Labs"
 	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}

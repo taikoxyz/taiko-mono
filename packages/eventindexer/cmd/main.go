@@ -11,7 +11,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/generator"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/indexer"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -29,7 +28,7 @@ func main() {
 	_ = godotenv.Load(envFile)
 
 	app.Name = "Taiko EventIndexer"
-	app.Usage = "The taiko eventindexing softwares command line interface"
+	app.Usage = "The taiko eventindexing software command line interface"
 	app.Copyright = "Copyright 2021-2023 Taiko Labs"
 	app.Description = "Eventindexer implementation in Golang for Taiko protocol"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
