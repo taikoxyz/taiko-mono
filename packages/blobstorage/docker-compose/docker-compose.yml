@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  db:
+    image: mysql:8.0
+    cap_add:
+      - SYS_NICE
+    restart: always
+    environment:
+      - MYSQL_DATABASE=blobs
+      - MYSQL_ROOT_PASSWORD=passw00d
+    ports:
+      - "3306:3306"
+    volumes:
+      - ~/.docker-conf/mysql/data/:/var/lib/mysql

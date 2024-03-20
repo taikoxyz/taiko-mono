@@ -1,20 +1,27 @@
-from pymongo import MongoClient
+import mysql.connector
 
 def query_blob_hash(collection_name, blob_hash):
-    # Connect to MongoDB
-    client = MongoClient('localhost', 27017)
 
-    # Access the database
-    db = client['blob_storage']
+    # Connect to MySQL
+    connection = mysql.connector.connect(
+        host='localhost',
+        user='root',  # Update with your username
+        password='passw00d',  # Update with your password
+        database='blobs'  # Update with your database name
+    )
 
-    # Access the collection
-    collection = db[collection_name]
+    cursor = connection.cursor(dictionary=True)
 
-    # Query the collection for the blobHash
-    result = collection.find_one({'blob_hash': blob_hash})
+    # Query the table for the blobHash
+    query = f"SELECT * FROM blob_hashes WHERE blob_hash = %s"
+    cursor.execute(query, (blob_hash,))
 
-    # Close the connection
-    client.close()
+    # Fetch one result
+    result = cursor.fetchone()
+
+    # Close the cursor and connection
+    cursor.close()
+    connection.close()
 
     return result
 
