@@ -133,9 +133,12 @@ export abstract class Bridge {
 
   async claim(args: ClaimArgs): Promise<Hash> {
     const { messageStatus, destBridgeAddress } = await this.beforeClaiming(args);
-
+    const { blockNumber } = args.bridgeTx;
     const { message, msgHash } = args.bridgeTx;
-    if (!message || !msgHash) throw new ProcessMessageError('Message is not defined');
+    if (!message || !msgHash || !blockNumber)
+      throw new ProcessMessageError(
+        `message, msgHash or blocknumber is not defined, ${message}, ${msgHash}, ${blockNumber}`,
+      );
 
     const client = await getConnectedWallet();
     if (!client) throw new Error('Client not found');

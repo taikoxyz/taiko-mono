@@ -1,10 +1,11 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
-import { type Address, getContract, type Hash, hexToBigInt } from 'viem';
+import { type Address, type Hash, hexToBigInt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
 import { type BridgeTransaction, MessageStatus, type ModifiedTransactionReceipt } from '$libs/bridge';
+import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
 import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
@@ -13,12 +14,6 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 const log = getLogger('storage:BridgeTxService');
-
-type BridgeMessageParams = {
-  msgHash: Hash;
-  srcChainId: number;
-  destChainId: number;
-};
 
 export class BridgeTxService {
   private readonly storage: Storage;
@@ -87,21 +82,6 @@ export class BridgeTxService {
     }
   }
 
-  private static async _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
-    // Gets the status of the message from the destination bridge contract
-    const bridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-    const client = await getPublicClient(config, { chainId: destChainId });
-
-    if (!client) throw new Error('Could not get public client');
-    const bridgeContract = getContract({
-      client,
-      abi: bridgeAbi,
-      address: bridgeAddress,
-    });
-
-    return bridgeContract.read.messageStatus([msgHash]) as Promise<MessageStatus>;
-  }
-
   constructor(storage: Storage) {
     this.storage = storage;
   }
@@ -112,7 +92,7 @@ export class BridgeTxService {
     return txs;
   }
 
-  private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx = false) {
+  private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx: boolean) {
     // Filters out the transactions that are not from the current address
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
@@ -173,7 +153,7 @@ export class BridgeTxService {
     bridgeTx.msgHash = msgHash;
     bridgeTx.message = message;
 
-    const status = await BridgeTxService._getBridgeMessageStatus({
+    const status = await getMessageStatusForMsgHash({
       msgHash: msgHash,
       srcChainId: Number(srcChainId),
       destChainId: Number(destChainId),
@@ -188,7 +168,7 @@ export class BridgeTxService {
 
     log('Bridge transactions from storage', txs);
 
-    const enhancedTxPromises = txs.map((tx) => this._enhanceTx(tx, address));
+    const enhancedTxPromises = txs.map((tx) => this._enhanceTx(tx, address, true));
 
     const resolvedTxs = await Promise.all(enhancedTxPromises);
 
