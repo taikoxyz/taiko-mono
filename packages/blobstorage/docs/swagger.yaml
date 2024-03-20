@@ -1,0 +1,47 @@
+definitions:
+  http.blobData:
+    properties:
+      blob_hash:
+        type: string
+      kzg_commitment:
+        type: string
+    type: object
+  http.getBlobResponse:
+    properties:
+      data:
+        items:
+          $ref: "#/definitions/http.blobData"
+        type: array
+    type: object
+host: blobs.internal.taiko.xyz
+info:
+  contact:
+    email: info@taiko.xyz
+    name: API Support
+    url: https://community.taiko.xyz/
+  license:
+    name: MIT
+  termsOfService: http://swagger.io/terms/
+  title: Taiko Blobstorage API
+  version: "1.0"
+paths:
+  /getBlob:
+    get:
+      consumes:
+        - application/json
+      operationId: get-blob
+      parameters:
+        - description: blobHash to query
+          in: query
+          name: blobHash
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/http.getBlobResponse"
+      summary: Get blob(s) and KZG commitment(s)
+swagger: "2.0"
