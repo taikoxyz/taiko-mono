@@ -221,6 +221,8 @@
     "name": "Name",
     "not_available_short": "N/A",
     "ok": "Okay",
+    "recipient": "Recipient",
+    "sender": "Sender",
     "status": "Status",
     "success": "Success",
     "symbol": "Symbol",
@@ -332,10 +334,10 @@
     "faucet": "Faucet",
     "guide": "Guide",
     "nft": "NFT",
+    "swap": "Swap",
     "theme": "Theme",
     "token": "Token",
-    "transactions": "Transactions",
-    "swap": "Swap"
+    "transactions": "Transactions"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communcation channels for more information. ",
@@ -425,8 +427,16 @@
     },
     "button": {
       "claim": "Claim",
+      "prove": "Prove",
       "release": "Release",
       "retry": "Retry"
+    },
+    "claim": {
+      "steps": {
+        "review": {
+          "title": "Claim Transaction details"
+        }
+      }
     },
     "description": "Track your bridge transactions here.",
     "details_dialog": {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Hash } from 'viem';
 
@@ -11,7 +12,8 @@
   import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
   import type { startPolling } from '$libs/polling/messageStatusPoller';
-  import { noop } from '$libs/util/noop';
+  import type { NFT } from '$libs/token';
+  import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
@@ -23,8 +25,10 @@
   import ClaimReviewStep from './ClaimSteps/ClaimReviewStep.svelte';
   import { ClaimSteps, ClaimTypes } from './types';
 
+  const log = getLogger('ClaimDialog');
+
   const dialogId = `dialog-${uid()}`;
-  // const dispatch = createEventDispatcher();
+  const dispatch = createEventDispatcher();
 
   const INITIAL_STEP = ClaimSteps.CHECK;
 
@@ -34,8 +38,14 @@
 
   export let delays: readonly bigint[];
 
+  export let loading = false;
+
+  export let nft: NFT | null = null;
+
   export const handleClaimClick = async () => {
-    ClaimComponent.claim();
+    claiming = true;
+    await ClaimComponent.claim();
+    // claiming = false;
   };
 
   const handleAccountChange = () => {
@@ -44,7 +54,7 @@
 
   let canContinue = false;
 
-  let proofReceipt: GetProofReceiptResponse;
+  export let proofReceipt: GetProofReceiptResponse;
 
   let claiming: boolean;
   let claimingDone = false;
@@ -58,38 +68,43 @@
 
   export let activeStep: ClaimSteps = INITIAL_STEP;
 
-  export let item: BridgeTransaction;
+  export let bridgeTx: BridgeTransaction;
 
   const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; type: ClaimTypes }>) => {
-    claimingDone = true;
-
     const { txHash, type } = event.detail;
-    const explorer = chainConfig[Number(item.destChainId)]?.blockExplorers?.default.url;
+    log('handle claim tx sent', txHash, type);
+    claiming = true;
+
+    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
 
     if (type === ClaimTypes.CLAIM) {
       infoToast({
         title: $t('transactions.actions.claim.tx.title'),
         message: $t('transactions.actions.claim.tx.message', {
           values: {
-            token: item.symbol,
+            token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
       });
-      await pendingTransactions.add(txHash, Number(item.destChainId));
+      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
     } else {
       // TODO!
       infoToast({
         title: $t('transactions.actions.claim.tx.title'),
         message: $t('transactions.actions.claim.tx.message', {
           values: {
-            token: item.symbol,
+            token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
       });
-      await pendingTransactions.add(txHash, Number(item.destChainId));
+      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
     }
+
+    claimingDone = true;
+
+    dispatch('claimingDone');
 
     //TODO: this could be just step 1 of 2, change text accordingly
     successToast({
@@ -100,34 +115,54 @@
         },
       }),
     });
+    // claiming = false;
   };
 
-  const handleClaimError = () => noop;
-  // const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimTypes }>) => {
-  //   //TODO: update this to display info alongside toasts
-
-  // };
+  // const handleClaimError = () => noop;
+  const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimTypes }>) => {
+    //TODO: update this to display info alongside toasts
+    console.error(event.detail.error);
+    claiming = false;
+  };
 
   const reset = () => {
     activeStep = INITIAL_STEP;
+    // claiming = false;
   };
 
-  const fetchDelayInfo = async () => {
-    delays = await getInvocationDelaysForDestBridge(item);
+  let checkingPrerequisites: boolean;
+  const fetchDelayAndReceipt = async () => {
+    checkingPrerequisites = true;
+
+    if (!proofReceipt) {
+      const receipt = await getProofReceiptForMsgHash({
+        msgHash: bridgeTx.msgHash,
+        srcChainId: bridgeTx.srcChainId,
+        destChainId: bridgeTx.destChainId,
+      });
+
+      if (receipt) {
+        proofReceipt = receipt;
+      }
+    }
+
+    if (!delays) {
+      delays = await getInvocationDelaysForDestBridge({
+        srcChainId: bridgeTx.srcChainId,
+        destChainId: bridgeTx.destChainId,
+      });
+    }
+    checkingPrerequisites = false;
   };
 
-  $: loading = claiming;
-
-  $: if (dialogOpen) {
-    getProofReceiptForMsgHash({
-      msgHash: item.hash,
-      srcChainId: item.srcChainId,
-      destChainId: item.destChainId,
-    }).then((receipts) => {
-      proofReceipt = receipts;
-    });
+  let previousStep: ClaimSteps;
+  $: if (activeStep !== previousStep) {
+    previousStep = activeStep;
+    fetchDelayAndReceipt();
   }
-  fetchDelayInfo();
+  $: if (dialogOpen) {
+    fetchDelayAndReceipt();
+  }
 </script>
 
 <dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
@@ -151,9 +186,9 @@
       </DialogStepper>
 
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={item} bind:canContinue {polling} {delays} {proofReceipt} />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:proofReceipt {polling} {delays} {checkingPrerequisites} />
       {:else if activeStep === ClaimSteps.REVIEW}
-        <ClaimReviewStep tx={item} />
+        <ClaimReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
         <ClaimConfirmStep on:claim={handleClaimClick} bind:claiming bind:canClaim={canContinue} bind:claimingDone />
       {/if}
@@ -173,11 +208,6 @@
   <button class="overlay-backdrop" data-modal-uuid={dialogId} />
 </dialog>
 
-<Claim
-  bind:bridgeTx={item}
-  bind:this={ClaimComponent}
-  on:error={handleClaimError}
-  bind:claiming
-  on:claimingTxSent={handleClaimTxSent} />
+<Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleClaimError} on:claimingTxSent={handleClaimTxSent} />
 
 <OnAccount change={handleAccountChange} />

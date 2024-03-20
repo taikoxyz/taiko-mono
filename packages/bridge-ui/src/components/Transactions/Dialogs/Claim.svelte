@@ -3,27 +3,25 @@
   import { log } from 'debug';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
-  import { successToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { bridges, type BridgeTransaction } from '$libs/bridge';
-  import { NotConnectedError } from '$libs/error';
+  import {
+    InsufficientBalanceError,
+    InvalidProofError,
+    NotConnectedError,
+    ProcessMessageError,
+    RetryError,
+  } from '$libs/error';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   const dispatch = createEventDispatcher();
 
   export let bridgeTx: BridgeTransaction;
-  export let claimingDone = false;
-
-  // export let isProcessable = false;
-  // export let bridgeTxStatus: Maybe<MessageStatus>;
-
-  export let claiming = false;
 
   async function ensureCorrectChain(currentChainId: number, wannaBeChainId: number) {
     const isCorrectChain = currentChainId === wannaBeChainId;
@@ -48,8 +46,6 @@
         throw new Error('Missing msgHash or message');
       }
 
-      claiming = true;
-
       // Step 1: make sure the user is on the correct chain
       await ensureCorrectChain(Number($connectedSourceChain.id), Number(bridgeTx.destChainId));
 
@@ -64,38 +60,70 @@
       // Step 4: Call claim() method on the bridge
       const txHash = await bridge.claim({ wallet, bridgeTx });
 
-      const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
+      dispatch('claimingTxSent', { txHash, type: 'claim' });
 
-      infoToast({
-        title: $t('transactions.actions.claim.tx.title'),
-        message: $t('transactions.actions.claim.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      });
-      claimingDone = true;
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
+      // infoToast({
+      //   title: $t('transactions.actions.claim.tx.title'),
+      //   message: $t('transactions.actions.claim.tx.message', {
+      //     values: {
+      //       token: bridgeTx.symbol,
+      //       url: `${explorer}/tx/${txHash}`,
+      //     },
+      //   }),
+      // });
+      // await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
+      // dispatch('claimingDone');
 
-      //Todo: just because we have a claim tx doesn't mean it was successful
-      successToast({
-        title: $t('transactions.actions.claim.success.title'),
-        message: $t('transactions.actions.claim.success.message', {
-          values: {
-            network: $connectedSourceChain.name,
-          },
-        }),
-      });
+      // //Todo: just because we have a claim tx doesn't mean it was successful
+      // successToast({
+      //   title: $t('transactions.actions.claim.success.title'),
+      //   message: $t('transactions.actions.claim.success.message', {
+      //     values: {
+      //       network: $connectedSourceChain.name,
+      //     },
+      //   }),
+      // });
 
       // We trigger this event to manually to update the UI
       // onStatusChange(MessageStatus.DONE); //TODO:
     } catch (err) {
       // TODO: handle different errors for the different claim actions (retry, claim, release)
+      //TODO: update this to display info alongside toasts
+      handleClaimError(err);
 
       dispatch('error', { error: err, action: 'claim' });
-    } finally {
-      claiming = false;
+    }
+  };
+
+  const handleClaimError = (err: unknown) => {
+    switch (true) {
+      case err instanceof NotConnectedError:
+        warningToast({ title: $t('messages.account.required') });
+        break;
+      case err instanceof UserRejectedRequestError:
+        warningToast({ title: $t('transactions.actions.claim.rejected.title') });
+        break;
+      case err instanceof InsufficientBalanceError:
+        dispatch('insufficientFunds', { tx: bridgeTx });
+        break;
+      case err instanceof InvalidProofError:
+        errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
+        break;
+      case err instanceof ProcessMessageError:
+        errorToast({ title: $t('bridge.errors.process_message_error') });
+        break;
+      case err instanceof RetryError:
+        errorToast({ title: $t('bridge.errors.retry_error') });
+        break;
+      case err instanceof ContractFunctionExecutionError:
+        console.error('!========= ContractFunctionExecutionError', err);
+        break;
+      default:
+        errorToast({
+          title: $t('bridge.errors.unknown_error.title'),
+          message: $t('bridge.errors.unknown_error.message'),
+        });
+        break;
     }
   };
 </script>

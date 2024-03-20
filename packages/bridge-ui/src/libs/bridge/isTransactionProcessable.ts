@@ -41,6 +41,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
     const latestSyncedblock = syncedChainData[0];
 
     const synced = latestSyncedblock >= hexToBigInt(receipt.blockNumber);
+
     log('isTransactionProcessable', {
       from: srcChainId,
       to: destChainId,
@@ -48,6 +49,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
       receiptBlockNumber: hexToBigInt(receipt.blockNumber),
       synced,
     });
+
     return synced;
   } catch (error) {
     console.error('Error checking if transaction is processable', error);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getBalance, switchChain } from '@wagmi/core';
-  import { type Address, parseEther } from 'viem';
+  import { type Address, parseEther, zeroAddress } from 'viem';
 
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
@@ -21,15 +21,7 @@
   export let delays: readonly bigint[];
   export let proofReceipt: GetProofReceiptResponse;
 
-  $: txDestChainName = getChainName(Number(tx.destChainId));
-
-  $: correctChain = Number(tx.destChainId) === $connectedSourceChain.id;
-
-  $: if (correctChain && !checking && hasEnoughEth && $account && preferredDelayInSeconds <= 0) {
-    canContinue = true;
-  } else {
-    canContinue = false;
-  }
+  let proofReceiptAddress: Address;
 
   const switchChains = async () => {
     $switchingNetwork = true;
@@ -42,25 +34,23 @@
     }
   };
 
-  $: $account && tx.destChainId, checkEnoughBalance($account.address, Number(tx.destChainId));
-
-  let checking: boolean;
+  export let checkingPrerequisites: boolean;
 
   const checkEnoughBalance = async (address: Maybe<Address>, chainId: number) => {
     if (!address) {
       return false;
     }
-    checking = true;
+    checkingPrerequisites = true;
 
     const balance = await getBalance(config, { address, chainId });
 
     if (balance.value < parseEther(String(claimConfig.minimumEthToClaim))) {
       hasEnoughEth = false;
-      checking = false;
+      checkingPrerequisites = false;
       throw new InsufficientBalanceError('user has insufficient balance');
     }
     hasEnoughEth = true;
-    checking = false;
+    checkingPrerequisites = false;
   };
 
   const convertSecondsToTime = (sec: number): { hours: number; minutes: number; seconds: number } => {
@@ -96,13 +86,29 @@
     return 'No delay';
   };
 
-  const onDelayChange = (remainingDelayInSeconds: bigint) => {
+  const onDelayChange = ({ remainingDelayInSeconds }: { remainingDelayInSeconds: bigint }) => {
     if (remainingDelayInSeconds >= 0n) {
       preferredDelayInSeconds = Number(remainingDelayInSeconds);
     } else {
       preferredDelayInSeconds = 0;
     }
   };
+
+  $: if (proofReceipt) {
+    proofReceiptAddress = proofReceipt[1];
+  }
+
+  $: txDestChainName = getChainName(Number(tx.destChainId));
+
+  $: correctChain = Number(tx.destChainId) === $connectedSourceChain.id;
+
+  $: if (correctChain && !checkingPrerequisites && hasEnoughEth && $account && preferredDelayInSeconds <= 0) {
+    canContinue = true;
+  } else {
+    canContinue = false;
+  }
+
+  $: $account && tx.destChainId, checkEnoughBalance($account.address, Number(tx.destChainId));
 
   $: {
     if (polling?.emitter) {
@@ -126,7 +132,6 @@
   <div>
     <!-- Two step claim process -->
     {#if twoStepBridge}
-      {preferredDelayInSeconds}
       <div class="h-sep" />
       <span>
         As you are claiming from L2->L1 there is additional security in the form a two step claim process. Please refer
@@ -137,27 +142,29 @@
       </span>
       <div class="f-between-center mt-[20px]">
         <div>Claim step</div>
-        {#if checking}
+        {#if checkingPrerequisites}
           <Spinner />
-        {:else if proofReceipt}
-          {proofReceipt[0]}/2
+        {:else if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
+          2/2
         {:else}
           1/2
         {/if}
       </div>
-      <div class="f-between-center">
-        <div>Remaining delay</div>
-        {#if checking}
-          <Spinner />
-        {:else}
-          {remainingDelayString}
-        {/if}
-      </div>
+      {#if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
+        <div class="f-between-center">
+          <div>Remaining delay</div>
+          {#if checkingPrerequisites}
+            <Spinner />
+          {:else}
+            {remainingDelayString}
+          {/if}
+        </div>
+      {/if}
       <div class="h-sep" />
     {/if}
     <div class="f-between-center">
       <div>Connected to the correct chain:</div>
-      {#if checking}
+      {#if checkingPrerequisites}
         <Spinner />
       {:else if correctChain}
         <Icon type="check-circle" fillClass="fill-positive-sentiment" />
@@ -167,7 +174,7 @@
     </div>
     <div class="f-between-center">
       <div>Enough funds to claim</div>
-      {#if checking}
+      {#if checkingPrerequisites}
         <Spinner />
       {:else if hasEnoughEth}
         <Icon type="check-circle" fillClass="fill-positive-sentiment" />
@@ -175,9 +182,10 @@
         <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
       {/if}
     </div>
-    {#if correctChain}
+    {#if canContinue}
+      <div class="h-sep" />
       You can continue with the claim process!
-    {:else if tx.srcChainId && tx.destChainId && $connectedSourceChain.id}
+    {:else if !canContinue && !correctChain}
       <div class="h-sep" />
       <div class="f-col space-y-[16px]">
         <div>
@@ -194,8 +202,6 @@
             switchChains();
           }}>Switch to {txDestChainName}</ActionButton>
       </div>
-    {:else if preferredDelayInSeconds > 0n}
-      todo progressbar?
     {/if}
   </div>
 </div>

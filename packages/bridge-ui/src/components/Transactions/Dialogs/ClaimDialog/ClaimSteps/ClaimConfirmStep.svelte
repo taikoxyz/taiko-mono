@@ -5,12 +5,12 @@
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon, type IconType } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
-  import { ClaimStatus } from '$components/Transactions/Dialogs/ClaimDialog/types';
+  // import { ClaimStatus } from '$components/Transactions/Dialogs/ClaimDialog/types';
   import { theme } from '$stores/theme';
 
   export let canClaim = false;
 
-  let claimStatus: ClaimStatus = ClaimStatus.PENDING;
+  // let claimStatus: ClaimStatus = ClaimStatus.PENDING;
 
   export let claimingDone = false;
 
@@ -34,7 +34,6 @@
 <div class="space-y-[18px]">
   <div class="mt-[30px]">
     <section id="txStatus">
-      {claimStatus}
       <div class="flex flex-col justify-content-center items-center">
         {#if claimingDone}
           <Icon type={successIcon} size={160} />
@@ -44,7 +43,7 @@
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             <span class="">{@html statusDescription}</span>
           </div>
-        {:else if claiming && !claimingDone}
+        {:else if claiming}
           <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
           <div id="text" class="f-col my-[30px] text-center">
             <h1 class="mb-[16px]">{$t('bridge.step.confirm.processing')}</h1>
@@ -59,7 +58,6 @@
         {/if}
       </div>
     </section>
-    {claimingDone}
     {#if !claimingDone}
       <section id="actions" class="f-col w-full">
         <div class="h-sep mb-[30px]" />

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { createPublicClient, getContract, type Hash, http } from 'viem';
+import { createPublicClient, getContract, type Hash, http, zeroAddress } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -20,6 +20,7 @@ export enum PollingEvent {
   STOP = 'stop',
   STATUS = 'status', // emits MessageStatus
   DELAY = 'remainingDelayInSeconds', // emits remaining claim delay in seconds
+  PROOFRECEIPT = 'proofReceipt', // emits proof receipt
 
   // Whether or not the tx can be clamied/retried/released
   PROCESSABLE = 'processable',
@@ -55,7 +56,7 @@ const hashProofReceiptMap: Record<Hash, GetProofReceiptResponse> = {};
  *   // something really bad with this bridgeTx
  * }
  */
-export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false) {
+export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true) {
   const { hash, srcChainId, destChainId, msgHash, msgStatus } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
@@ -128,17 +129,24 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
           destChainId,
           srcChainId,
         });
-      }
-      if (proofReceipts && proofReceipts.length > 0 && proofReceipts[0] !== 0n) {
         hashProofReceiptMap[hash] = proofReceipts;
+      }
+      if (
+        hashProofReceiptMap[hash] !== undefined &&
+        hashProofReceiptMap[hash] !== null &&
+        hashProofReceiptMap[hash][1] !== zeroAddress
+      ) {
         log('Proof receipt found for message hash, checking delays', msgHash);
-        if (hashDelayMap[hash] > 0n || hashDelayMap[hash] === null || hashDelayMap[hash] === undefined) {
+        emitter.emit(PollingEvent.PROOFRECEIPT, { proofReceipt: hashProofReceiptMap[hash] });
+        if (hashDelayMap[hash] <= 0n) {
+          log(`Delay for hash ${hash} is already 0 or negative. Skipping.`);
+        } else if (hashDelayMap[hash] > 0n || hashDelayMap[hash] === null || hashDelayMap[hash] === undefined) {
           try {
             const txDelays = await getInvocationDelayForTx(bridgeTx);
             const remainingDelayInSeconds = txDelays.preferredDelay;
             log('Remaining delay in seconds', remainingDelayInSeconds);
             hashDelayMap[hash] = remainingDelayInSeconds;
-            emitter.emit(PollingEvent.DELAY, remainingDelayInSeconds);
+            emitter.emit(PollingEvent.DELAY, { remainingDelayInSeconds });
 
             if (remainingDelayInSeconds === 0n) {
               log(`Delay for hash ${hash} is 0, will not fetch again.`);
@@ -152,10 +160,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
             }
           }
         }
-      } else if (hashDelayMap[hash] <= 0n) {
-        log(`Delay for hash ${hash} is already 0 or negative. Skipping.`);
       }
-
       if (messageStatus === MessageStatus.DONE) {
         log(`Poller has picked up the change of status to DONE for hash ${hash}.`);
         stopPolling();

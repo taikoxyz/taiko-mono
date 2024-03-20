@@ -9,14 +9,11 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
-  TOO_EARLY, // ONLY UI: If the invaction is too early
-  ONLY_OWNER, // ONLY UI: Gas limit is 0, so only the user can claim
-  PROVEN, // ONLY UI: Claim step 1 of 2
 }
 
 // Bridge sendMessage()
 // Claim/Retry processMessage()/retryMessage()
-// Release releaseEthe()/releaseERC20()
+// Release releaseEther()/releaseERC20()
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
