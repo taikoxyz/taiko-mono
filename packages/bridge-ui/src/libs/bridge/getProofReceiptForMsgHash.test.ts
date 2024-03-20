@@ -6,7 +6,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
 import type { GetProofReceiptParams } from '$libs/bridge/types';
 import { config } from '$libs/wagmi';
-import { MOCK_BRIDGE_TX_1 } from '$mocks';
+import { ALICE, MOCK_BRIDGE_TX_1 } from '$mocks';
 
 vi.mock('$libs/bridge/readContract');
 vi.mock('$customToken', () => {
@@ -37,6 +37,8 @@ describe('getProofReceiptForMsgHash()', () => {
     const mockDestBridgeAddress =
       routingContractsMap[Number(mockArgs.destChainId)][Number(mockArgs.srcChainId)].bridgeAddress;
 
+    vi.mocked(readContract).mockResolvedValue([0n, ALICE]);
+
     await getProofReceiptForMsgHash(mockArgs);
 
     expect(readContract).toHaveBeenCalledWith(config, {
@@ -49,12 +51,12 @@ describe('getProofReceiptForMsgHash()', () => {
   });
 
   it('should return the result from readContract', async () => {
-    const mockResult = 'mockResult';
+    const mockResult = [0n, ALICE];
 
     vi.mocked(readContract).mockResolvedValue(mockResult);
 
     const result = await getProofReceiptForMsgHash(mockArgs);
 
-    expect(result).toBe(mockResult);
+    expect(result).toStrictEqual(mockResult);
   });
 });

@@ -17,6 +17,7 @@ export const getInvocationDelaysForDestBridge = async ({
   srcChainId: bigint;
   destChainId: bigint;
 }) => {
+  log('getting invocation delays for dest bridge', srcChainId, '->', destChainId);
   const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
   const delay = await readContract(config, {
     abi: bridgeAbi,
