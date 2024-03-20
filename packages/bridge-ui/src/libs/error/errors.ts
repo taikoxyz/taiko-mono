@@ -142,6 +142,9 @@ export class NoTokenInfoFoundError extends Error {
   name = 'NoTokenInfoFoundError';
 }
 
+export class FetchMetadataError extends Error {
+  name = 'FetchMetadataError';
+}
 export class NoMetadataFoundError extends Error {
   name = 'NoMetadataFoundError';
 }
