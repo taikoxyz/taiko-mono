@@ -22,23 +22,25 @@ export async function startWatching() {
       onChange(data) {
         checkForPausedContracts();
         log('Account changed', data);
-        const { chainId } = data;
-        account.set(data);
+
+        refreshUserBalance();
+        const { chain } = data;
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if (chainId && !isSupportedChain(Number(chainId))) {
-          log('Unsupported chain', chainId);
+        if (chain && !isSupportedChain(Number(chain))) {
+          log('Unsupported chain', chain);
           switchChainModal.set(true);
           return;
-        } else if (chainId) {
+        } else if (chain) {
           // When we switch networks, we are actually selecting
           // the source chain.
-          const srcChain = chains.find((c) => c.id === Number(chainId));
+          const srcChain = chains.find((c) => c.id === Number(chain));
           if (srcChain) connectedSourceChain.set(srcChain);
 
           refreshUserBalance();
         }
+        account.set(data);
       },
     });
 

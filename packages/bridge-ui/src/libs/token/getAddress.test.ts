@@ -70,7 +70,7 @@ describe('getAddress', () => {
       ).toEqual(BridgedHORSEToken.addresses[PUBLIC_L2_CHAIN_ID]);
     });
 
-    it('should return undefined if ERC20 and has no address on the source chain and no destination chain is is passed in', async () => {
+    it('should return undefined if ERC20 and has no address on the source chain and no destination chain is passed in', async () => {
       expect(await getAddress({ token: HORSEToken, srcChainId: Number(PUBLIC_L2_CHAIN_ID) })).toBeUndefined();
     });
   });

@@ -74,7 +74,6 @@
     }
 
     // In order to select a token, we only need the source chain to be selected,
-    // unless it's an imported token...
     if (!srcChain) {
       warningToast({ title: $t('messages.network.required') });
       $computingBalance = false;
@@ -90,10 +89,6 @@
       $computingBalance = false;
       return;
     }
-    // if it is an imported Token, chances are we do not yet have the bridged address
-    // for the destination chain, so we need to fetch it
-    // if (token.imported) {
-    //   // ... in the case of imported tokens, we also require the destination chain to be selected.
 
     try {
       const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
@@ -126,8 +121,9 @@
       console.error(error);
     }
     value = token;
+
+    await updateBalance();
     $computingBalance = false;
-    await updateBalance(user, srcChain.id, destChain.id);
   };
 
   const handleTokenRemoved = (event: { detail: { token: Token } }) => {
@@ -137,7 +133,10 @@
     }
   };
 
-  export async function updateBalance(userAddress: Address, srcChainId: number, destChainId: number) {
+  async function updateBalance() {
+    const userAddress = $account?.address;
+    const srcChainId = $connectedSourceChain?.id;
+    const destChainId = $destNetwork?.id;
     const token = value;
     if (!token || !srcChainId || !userAddress) return;
     $computingBalance = true;
@@ -195,7 +194,7 @@
     $computingBalance = true;
     value = tokens[0];
     $selectedToken = value;
-    await updateBalance(user, srcChain.id, destChain.id);
+    await updateBalance();
     $computingBalance = false;
   });
 </script>
@@ -217,7 +216,7 @@
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
       {:else if value}
         <div class="flex f-space-between space-x-2 items-center text-secondary-content">
-          <!-- Only match icons to configurd tokens -->
+          <!-- Only match icons to configured tokens -->
           {#if symbolToIconMap[value.symbol] && !value.imported}
             <i role="img" aria-label={value.name}>
               <svelte:component this={symbolToIconMap[value.symbol]} size={20} />

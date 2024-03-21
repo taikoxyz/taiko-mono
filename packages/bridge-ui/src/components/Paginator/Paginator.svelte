@@ -7,31 +7,38 @@
   export let totalItems = 0;
   export let pageSize = 5;
 
-  $: totalPages = Math.ceil(totalItems / pageSize);
+  $: totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const dispatch = createEventDispatcher<{ pageChange: number }>();
 
   function goToPage(page: number) {
-    currentPage = page;
+    currentPage = Math.min(totalPages, Math.max(1, page));
     dispatch('pageChange', page);
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
-      goToPage(currentPage);
+      const nextPage = parseInt((event.target as HTMLInputElement).value, 10);
+
+      // Check if input is within the valid range, otherwise do nothing
+      if (nextPage > 0 && nextPage <= totalPages) {
+        goToPage(nextPage);
+      }
     }
   }
 
   const btnClass = 'btn btn-xs btn-ghost';
+
+  // Computed flags for first and last page
+  $: isFirstPage = currentPage === 1;
+  $: isLastPage = currentPage === totalPages;
 </script>
 
 {#if totalPages > 1}
-  <!-- 
-    We only want to show the buttons if we actually need them.
-    If we can fit all the items in one page, there is no need.
-  -->
+  <!-- Show pagination buttons if needed -->
   <div class="pagination btn-group pt-4">
-    {#if currentPage !== 1}
+    {#if !isFirstPage}
+      <!-- Button to go to previous page -->
       <button class={btnClass} on:click={() => goToPage(currentPage - 1)}> <Icon type="chevron-left" /></button>
     {/if}
     Page
@@ -44,9 +51,10 @@
       on:keydown={handleKeydown}
       on:blur={() => goToPage(currentPage)} />
     of {totalPages}
-    <button
-      class={btnClass + (currentPage === totalPages ? ' invisible' : '')}
-      on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
+    <!-- Button to go to next page -->
+    {#if !isLastPage}
+      <button class={btnClass} on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
+    {/if}
   </div>
 {/if}
 
@@ -57,9 +65,5 @@
     gap: 10px;
     display: flex;
     align-items: center;
-  }
-  .invisible {
-    opacity: 0;
-    pointer-events: none;
   }
 </style>
