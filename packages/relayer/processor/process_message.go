@@ -273,20 +273,36 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 func (p *Processor) increaseGas(ctx context.Context, auth *bind.TransactOpts) {
 	slog.Info("increasing gas fee for retry",
-		"gasFeeCap", auth.GasFeeCap.Int64(),
-		"gasTipCap", auth.GasTipCap.Int64(),
+		"gasFeeCap", auth.GasFeeCap,
+		"gasTipCap", auth.GasTipCap,
 	)
 
 	// Increase the gas price by at least 10%
-	gasFeeCap := auth.GasFeeCap.Int64()
-	gasFeeCap += gasFeeCap * int64(p.gasIncreaseRate) / 100
-	auth.GasFeeCap = big.NewInt(gasFeeCap)
+	if auth.GasFeeCap != nil {
+		gasFeeCap := auth.GasFeeCap.Int64()
+		gasFeeCap += gasFeeCap * int64(p.gasIncreaseRate) / 100
+		auth.GasFeeCap = big.NewInt(gasFeeCap)
+	}
 
-	gasTipCap := auth.GasTipCap.Int64()
-	gasTipCap += gasTipCap * int64(p.gasIncreaseRate) / 100
-	auth.GasTipCap = big.NewInt(gasTipCap)
+	if auth.GasTipCap != nil {
+		gasTipCap := auth.GasTipCap.Int64()
+		gasTipCap += gasTipCap * int64(p.gasIncreaseRate) / 100
+		auth.GasTipCap = big.NewInt(gasTipCap)
+	}
 
-	slog.Info("updated gas", "gasFeeCap", auth.GasFeeCap.Int64(), "gasTipCap", auth.GasTipCap.Int64())
+	if auth.GasPrice != nil {
+		gasPrice := auth.GasPrice.Int64()
+		gasPrice += gasPrice * int64(p.gasIncreaseRate) / 100
+		auth.GasTipCap = big.NewInt(gasPrice)
+	}
+
+	slog.Info("updated gas",
+		"gasFeeCap",
+		auth.GasFeeCap,
+		"gasTipCap",
+		auth.GasTipCap,
+		"gasPrice", auth.GasPrice,
+	)
 }
 
 // waitForInvocationDelay will return when the invocation delay has been met,
