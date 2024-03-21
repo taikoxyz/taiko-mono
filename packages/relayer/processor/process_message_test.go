@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 
 	_, err := p.sendProcessMessageCall(
 		context.Background(),
+		&bind.TransactOpts{},
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				DestChainId: mock.MockChainID.Uint64(),
