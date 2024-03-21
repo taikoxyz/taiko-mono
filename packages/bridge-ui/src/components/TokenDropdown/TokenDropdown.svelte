@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { getBalance } from '@wagmi/core';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
@@ -24,7 +23,6 @@
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
-  import { config } from '$libs/wagmi';
   import { type Account, account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
@@ -62,7 +60,6 @@
   const selectToken = async (token: Token) => {
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
-    const user = $account?.address;
     $computingBalance = true;
     closeMenu();
     log('selected token', token);
@@ -84,12 +81,6 @@
       $computingBalance = false;
       return;
     }
-    if (!user) {
-      warningToast({ title: $t('messages.account.required') });
-      $computingBalance = false;
-      return;
-    }
-
     try {
       const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
       if (!tokenInfo) {
@@ -173,10 +164,8 @@
     $computingBalance = false;
   }
 
-  const onAccountChange = async (newAccount: Account) => {
-    $selectedToken = ETHToken;
-    if (!newAccount?.address) return;
-    $tokenBalance = await getBalance(config, { address: newAccount.address, chainId: newAccount.chainId });
+  const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
+    if (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount) updateBalance();
   };
 
   $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
