@@ -1,3 +1,4 @@
+import { decodeBase64ToJson } from 'scripts/utils/decodeBase64ToJson';
 import { get } from 'svelte/store';
 
 import { destNetwork } from '$components/Bridge/state';
@@ -62,12 +63,18 @@ const fetchImageUrl = async (url: string): Promise<string> => {
     return url;
   } else {
     log('fetchImageUrl failed to load image');
-    const newUrl = await resolveIPFSUri(url);
-    if (newUrl) {
-      const gatewayImageLoaded = await testImageLoad(newUrl);
-      if (gatewayImageLoaded) {
-        return newUrl;
+    if (url.startsWith('ipfs://')) {
+      const newUrl = await resolveIPFSUri(url);
+      if (newUrl) {
+        const gatewayImageLoaded = await testImageLoad(newUrl);
+        if (gatewayImageLoaded) {
+          return newUrl;
+        }
       }
+    } else if (url.startsWith('data:image/svg+xml;base64,')) {
+      const base64 = url.replace('data:image/svg+xml;base64,', '');
+      const decodedImage = decodeBase64ToJson(base64);
+      return decodedImage;
     }
   }
   throw new Error(`No image found for ${url}`);
