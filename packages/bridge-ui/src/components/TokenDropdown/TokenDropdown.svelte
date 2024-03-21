@@ -121,7 +121,6 @@
       console.error(error);
     }
     value = token;
-
     await updateBalance();
     $computingBalance = false;
   };
