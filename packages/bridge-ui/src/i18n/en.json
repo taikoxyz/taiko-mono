@@ -70,6 +70,12 @@
         "title": "Request to approve rejected by user"
       },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
+      "claim": {
+        "too_early": {
+          "message": "You need to wait for the delay to pass before claiming",
+          "title": "Too early"
+        }
+      },
       "custom_token": {
         "not_found": {
           "message": "Token not found. Are you on the right network?"
@@ -155,6 +161,12 @@
         },
         "checking_status": "Checking the approval status",
         "processing": "Processing...",
+        "success": {
+          "claim": "Claimed successfully",
+          "claim_description": "You",
+          "prove": "Proof submitted",
+          "prove_description": "You have submitted your proof. Wait for the delay to pass, then you can claim your funds"
+        },
         "title": "Confirm"
       },
       "import": {
@@ -225,6 +237,7 @@
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
+    "switch_to": "Switch to",
     "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
@@ -433,9 +446,31 @@
     },
     "claim": {
       "steps": {
+        "confirm": {
+          "claim_button": "Claim now",
+          "claim_description": "You can now claim your assets",
+          "proceed": "Proceed to claim",
+          "prove": "Submit proof",
+          "prove_description": "After successfully submitting your proof, wait for the cooldown delay. Then you can claim your funds."
+        },
+        "pre_check": {
+          "chain_check": "Connected to the correct chain",
+          "funds_check": "Enough funds to claim",
+          "no_delay": "No delay",
+          "ready": "You can continue with the claim process!",
+          "remaining_delay": "Remaining delay",
+          "step": "Claim step",
+          "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
+          "title": "Prerequisites",
+          "two_step_claim": {
+            "description": " As you are claiming from L2->L1 there is additional security in the form a two step claim process. Please refer to our documentation for more information. You first have to submit a proof, then after a delay of <span class=\"font-bold text-primary\" >{delay}</span> you can proceed to claim your assets."
+          }
+        },
         "review": {
+          "name": "Prerequisites",
           "title": "Claim Transaction details"
-        }
+        },
+        "title": "Claim your assets"
       }
     },
     "description": "Track your bridge transactions here.",

@@ -16,3 +16,8 @@ export const enum ClaimStatus {
   PENDING,
   DONE,
 }
+
+export const enum TWO_STEP_STATE {
+  PROVE,
+  CLAIM,
+}

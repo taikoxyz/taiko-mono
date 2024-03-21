@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getBalance, switchChain } from '@wagmi/core';
+  import { t } from 'svelte-i18n';
   import { type Address, parseEther, zeroAddress } from 'viem';
 
   import { ActionButton } from '$components/Button';
@@ -7,6 +8,7 @@
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { claimConfig } from '$config';
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge';
+  import { getInvocationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
   import { getChainName } from '$libs/chain';
   import { InsufficientBalanceError } from '$libs/error';
   import { PollingEvent, type startPolling } from '$libs/polling/messageStatusPoller';
@@ -18,7 +20,7 @@
   export let polling: ReturnType<typeof startPolling>;
   export let canContinue = false;
 
-  export let delays: readonly bigint[];
+  export let bridgeDelays: readonly bigint[];
   export let proofReceipt: GetProofReceiptResponse;
 
   let proofReceiptAddress: Address;
@@ -72,6 +74,10 @@
     minutes: number;
     seconds: number;
   }): string => {
+    if (hours < 0 || minutes < 0 || seconds < 0) {
+      return $t('transactions.claim.steps.pre_check.no_delay');
+    }
+
     if (hours > 0) {
       // If hours are present, include hours and minutes in the output
       return `~${hours}h ${minutes.toString().padStart(2, '0')}min`;
@@ -83,7 +89,7 @@
       return `~${seconds}sec`;
     }
     // If none of the above, it means no delay
-    return 'No delay';
+    return $t('transactions.claim.steps.pre_check.no_delay');
   };
 
   const onDelayChange = ({ remainingDelayInSeconds }: { remainingDelayInSeconds: bigint }) => {
@@ -91,6 +97,18 @@
       preferredDelayInSeconds = Number(remainingDelayInSeconds);
     } else {
       preferredDelayInSeconds = 0;
+    }
+  };
+
+  const checkTxDelay = async () => {
+    const invocationDelaysForTx = await getInvocationDelayForTx(tx);
+    preferredDelayInSeconds = Number(invocationDelaysForTx.preferredDelay);
+  };
+
+  const checkConditions = async () => {
+    await checkEnoughBalance($account.address, Number(tx.destChainId));
+    if (bridgeDelays && bridgeDelays[0] > 0n) {
+      await checkTxDelay();
     }
   };
 
@@ -108,7 +126,7 @@
     canContinue = false;
   }
 
-  $: $account && tx.destChainId, checkEnoughBalance($account.address, Number(tx.destChainId));
+  $: $account && tx.destChainId, checkConditions();
 
   $: {
     if (polling?.emitter) {
@@ -118,30 +136,29 @@
     remainingDelayString = formatTimeToString(convertSecondsToTime(Number(preferredDelayInSeconds)));
   }
   $: remainingDelayString = '';
-  $: invocationDelayString = delays && formatTimeToString(convertSecondsToTime(Number(delays[0])));
+  $: invocationDelayString = bridgeDelays && formatTimeToString(convertSecondsToTime(Number(bridgeDelays[0])));
   $: preferredDelayInSeconds = 0;
   $: hasEnoughEth = false;
 
-  $: twoStepBridge = delays && delays[0] > 0n ? true : false;
+  $: twoStepBridge = bridgeDelays && bridgeDelays[0] > 0n ? true : false;
 </script>
 
 <div class="container mx-auto inline-block align-middle space-y-[25px] w-full mt-[20px]">
   <div class="flex justify-between mb-2 items-center">
-    <div class="font-bold text-primary-content">Prerequisites</div>
+    <div class="font-bold text-primary-content">{$t('transactions.claim.steps.pre_check.title')}</div>
   </div>
   <div>
     <!-- Two step claim process -->
     {#if twoStepBridge}
       <div class="h-sep" />
       <span>
-        As you are claiming from L2->L1 there is additional security in the form a two step claim process. Please refer
-        to our documentation for more information. You will need to claim twice with a delay of <span
-          class="font-bold text-primary"
-          >{invocationDelayString}
-        </span>after the first claim.
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        {@html $t('transactions.claim.steps.pre_check.two_step_claim.description', {
+          values: { delay: invocationDelayString },
+        })}
       </span>
       <div class="f-between-center mt-[20px]">
-        <div>Claim step</div>
+        <div>{$t('transactions.claim.steps.pre_check.step')}</div>
         {#if checkingPrerequisites}
           <Spinner />
         {:else if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
@@ -152,7 +169,7 @@
       </div>
       {#if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
         <div class="f-between-center">
-          <div>Remaining delay</div>
+          <div>{$t('transactions.claim.steps.pre_check.remaining_delay')}</div>
           {#if checkingPrerequisites}
             <Spinner />
           {:else}
@@ -163,7 +180,7 @@
       <div class="h-sep" />
     {/if}
     <div class="f-between-center">
-      <div>Connected to the correct chain:</div>
+      <div>{$t('transactions.claim.steps.pre_check.chain_check')}:</div>
       {#if checkingPrerequisites}
         <Spinner />
       {:else if correctChain}
@@ -173,7 +190,7 @@
       {/if}
     </div>
     <div class="f-between-center">
-      <div>Enough funds to claim</div>
+      <div>{$t('transactions.claim.steps.pre_check.funds_check')}</div>
       {#if checkingPrerequisites}
         <Spinner />
       {:else if hasEnoughEth}
@@ -184,13 +201,15 @@
     </div>
     {#if canContinue}
       <div class="h-sep" />
-      You can continue with the claim process!
+      {$t('transactions.claim.steps.pre_check.ready')}
     {:else if !canContinue && !correctChain}
       <div class="h-sep" />
       <div class="f-col space-y-[16px]">
         <div>
-          This transaction is bridging to <span class="font-bold text-primary">{txDestChainName}</span> You need to be connected
-          to this chain
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+          {@html $t('transactions.claim.steps.pre_check.switch_chain', {
+            values: { chain: txDestChainName },
+          })}
         </div>
 
         <ActionButton
@@ -200,7 +219,7 @@
           loading={$switchingNetwork}
           on:click={() => {
             switchChains();
-          }}>Switch to {txDestChainName}</ActionButton>
+          }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
       </div>
     {/if}
   </div>

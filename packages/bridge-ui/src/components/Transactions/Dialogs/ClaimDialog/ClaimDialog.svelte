@@ -1,11 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Hash } from 'viem';
+  import { ContractFunctionExecutionError, type Hash, zeroAddress } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
-  import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import Claim from '$components/Transactions/Dialogs/Claim.svelte';
   import { getInvocationDelaysForDestBridge } from '$libs/bridge/getInvocationDelaysForDestBridge';
@@ -23,7 +23,7 @@
   import ClaimConfirmStep from './ClaimSteps/ClaimConfirmStep.svelte';
   import ClaimPreCheck from './ClaimSteps/ClaimPreCheck.svelte';
   import ClaimReviewStep from './ClaimSteps/ClaimReviewStep.svelte';
-  import { ClaimSteps, ClaimTypes } from './types';
+  import { ClaimSteps, ClaimTypes, TWO_STEP_STATE } from './types';
 
   const log = getLogger('ClaimDialog');
 
@@ -89,7 +89,7 @@
       });
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
     } else {
-      // TODO!
+      // TODO, retry, release etc.
       infoToast({
         title: $t('transactions.actions.claim.tx.title'),
         message: $t('transactions.actions.claim.tx.message', {
@@ -106,28 +106,54 @@
 
     dispatch('claimingDone');
 
+    if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
+      successToast({
+        title: $t('transactions.actions.claim.success.title'),
+        message: $t('transactions.actions.claim.success.message', {
+          values: {
+            network: $connectedSourceChain.name,
+          },
+        }),
+      });
+    } else if (proveOrClaimStep === TWO_STEP_STATE.CLAIM) {
+      successToast({
+        title: $t('transactions.actions.claim.success.title'),
+        message: $t('transactions.actions.claim.success.message', {
+          values: {
+            network: $connectedSourceChain.name,
+          },
+        }),
+      });
+    }
+
     //TODO: this could be just step 1 of 2, change text accordingly
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.success.message', {
-        values: {
-          network: $connectedSourceChain.name,
-        },
-      }),
-    });
+
     // claiming = false;
   };
 
-  // const handleClaimError = () => noop;
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimTypes }>) => {
     //TODO: update this to display info alongside toasts
-    console.error(event.detail.error);
+    const error = event.detail.error;
+    if (error instanceof ContractFunctionExecutionError) {
+      if (error.message.includes('B_INVOCATION_TOO_EARLY')) {
+        errorToast({
+          title: $t('bridge.errors.claim.too_early.title'),
+          message: $t('bridge.errors.claim.too_early.message'),
+        });
+      } else {
+        errorToast({
+          title: $t('bridge.errors.unknown_error.title'),
+          message: $t('bridge.errors.unknown_error.message'),
+        });
+      }
+    } else {
+      console.error(event.detail.error);
+    }
     claiming = false;
   };
 
   const reset = () => {
     activeStep = INITIAL_STEP;
-    // claiming = false;
   };
 
   let checkingPrerequisites: boolean;
@@ -163,34 +189,51 @@
   $: if (dialogOpen) {
     fetchDelayAndReceipt();
   }
+
+  $: proveOrClaimStep =
+    proofReceipt && proofReceipt[1] !== zeroAddress
+      ? TWO_STEP_STATE.CLAIM
+      : delays && delays[0] > 0n
+        ? TWO_STEP_STATE.PROVE
+        : TWO_STEP_STATE.CLAIM;
 </script>
 
 <dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute md:min-h-[500px]">
     <CloseButton onClick={closeDialog} />
     <div class="w-full h-full f-col">
-      <h3 class="title-body-bold mb-7">Claim your assets</h3>
+      <h3 class="title-body-bold mb-7">{$t('transactions.claim.steps.title')}</h3>
       <DialogStepper>
         <DialogStep
           stepIndex={ClaimSteps.CHECK}
           currentStepIndex={activeStep}
-          isActive={activeStep === ClaimSteps.CHECK}>Prerequisites(todo)</DialogStep>
+          isActive={activeStep === ClaimSteps.CHECK}>{$t('transactions.claim.steps.pre_check.title')}</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.REVIEW}
           currentStepIndex={activeStep}
-          isActive={activeStep === ClaimSteps.REVIEW}>{$t('bridge.step.review.title')}</DialogStep>
+          isActive={activeStep === ClaimSteps.REVIEW}>{$t('transactions.claim.steps.review.name')}</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.CONFIRM}
           currentStepIndex={activeStep}
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
-
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:proofReceipt {polling} {delays} {checkingPrerequisites} />
+        <ClaimPreCheck
+          tx={bridgeTx}
+          bind:canContinue
+          bind:proofReceipt
+          {polling}
+          bridgeDelays={delays}
+          {checkingPrerequisites} />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ClaimReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
-        <ClaimConfirmStep on:claim={handleClaimClick} bind:claiming bind:canClaim={canContinue} bind:claimingDone />
+        <ClaimConfirmStep
+          on:claim={handleClaimClick}
+          bind:claiming
+          bind:canClaim={canContinue}
+          bind:claimingDone
+          bind:proveOrClaimStep />
       {/if}
       <div class="f-col text-left self-end h-full w-full">
         <div class="f-col gap-4 mt-[20px]">

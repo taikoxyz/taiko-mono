@@ -11,6 +11,8 @@
 
   export let item: BridgeTransaction;
 
+  // export let loading = false;
+
   const dialogId = `dialog-${uid()}`;
 
   const closeDialog = () => {

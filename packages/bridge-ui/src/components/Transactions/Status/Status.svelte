@@ -1,36 +1,29 @@
 <script lang="ts">
-  import { switchChain } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { zeroAddress } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
-  import {
-    errorToast,
-    infoToast,
-    successToast,
-    warningToast,
-  } from '$components/NotificationToast/NotificationToast.svelte';
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
-  import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { type BridgeTransaction, type GetProofReceiptResponse, MessageStatus } from '$libs/bridge';
+  import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
+  import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
-  import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
-  import { BridgePausedError, InvalidProofError, NotConnectedError, ReleaseError } from '$libs/error';
+  import { BridgePausedError } from '$libs/error';
+  import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
+  import type { NFT } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
-  import { getLogger } from '$libs/util/logger';
-  import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import ClaimDialog from '../Dialogs/ClaimDialog/ClaimDialog.svelte';
   // import RetryDialog from '../Dialogs/RetryDialog/RetryDialog.svelte';
 
   export let bridgeTx: BridgeTransaction;
+  export let nft: NFT | null = null;
 
-  const log = getLogger('components:Status');
+  let delays: readonly bigint[];
+  let proofReceipt: GetProofReceiptResponse;
 
   let polling: ReturnType<typeof startPolling>;
 
@@ -44,113 +37,61 @@
     isProcessable = isTxProcessable;
   }
 
+  async function claimingDone() {
+    // As the msg status for 2step remains on NEW we need to manually update it by fetching the proof receipt
+    proofReceipt = await getProofReceiptForMsgHash({
+      msgHash: bridgeTx.msgHash,
+      srcChainId: bridgeTx.srcChainId,
+      destChainId: bridgeTx.destChainId,
+    });
+
+    // Keeping model and UI in sync
+    bridgeTx.msgStatus = await getMessageStatusForMsgHash({
+      msgHash: bridgeTx.msgHash,
+      srcChainId: Number(bridgeTx.srcChainId),
+      destChainId: Number(bridgeTx.destChainId),
+    });
+    bridgeTxStatus = bridgeTx.msgStatus;
+  }
+
   function onStatusChange(status: MessageStatus) {
     // Keeping model and UI in sync
     bridgeTxStatus = bridgeTx.msgStatus = status;
-  }
-
-  async function ensureCorrectChain(currentChainId: number, wannaBeChainId: number) {
-    const isCorrectChain = currentChainId === wannaBeChainId;
-    log(`Are we on the correct chain? ${isCorrectChain}`);
-
-    if (!isCorrectChain) {
-      // TODO: shouldn't we inform the user about this change? wallet will popup,
-      //       but it's not clear why
-      await switchChain(config, { chainId: wannaBeChainId });
-    }
   }
 
   async function retry() {
     // retryModalOpen = true;
   }
 
-  async function claim() {
+  async function handleClaimClick() {
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
+
     claimModalOpen = true;
   }
+
+  const onReceiptChange = ({ proofReceipt: p }: { proofReceipt: GetProofReceiptResponse }) => {
+    proofReceipt = p;
+  };
 
   async function release() {
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-
-    try {
-      const { msgHash, message } = bridgeTx;
-
-      if (!msgHash || !message) {
-        throw new Error('Missing msgHash or message');
-      }
-
-      // Step 1: make sure the user is on the correct chain
-      await ensureCorrectChain(Number($connectedSourceChain.id), Number(bridgeTx.srcChainId));
-
-      // Step 2: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
-      const bridge = bridges[bridgeTx.tokenType];
-
-      // Step 3: get the user's wallet
-      // TODO: might not be needed to pass the chainId here
-      const wallet = await getConnectedWallet(Number(bridgeTx.srcChainId));
-
-      log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
-
-      // Step 4: Call release() method on the bridge
-      const txHash = await bridge.release({ bridgeTx, wallet });
-
-      const explorer = chainConfig[Number(bridgeTx.srcChainId)]?.blockExplorers?.default.url;
-
-      infoToast({
-        title: $t('transactions.actions.release.tx.title'),
-        message: $t('transactions.actions.release.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      });
-
-      await pendingTransactions.add(txHash, Number(bridgeTx.srcChainId));
-
-      successToast({
-        title: $t('transactions.actions.release.success.title'),
-        message: $t('transactions.actions.release.success.message', {
-          values: {
-            network: $connectedSourceChain.name,
-          },
-        }),
-      });
-    } catch (err) {
-      console.error(err);
-
-      switch (true) {
-        case err instanceof NotConnectedError:
-          warningToast({ title: $t('messages.account.required') });
-          break;
-        case err instanceof UserRejectedRequestError:
-          warningToast({ title: $t('transactions.actions.release.rejected.title') });
-          break;
-        case err instanceof InvalidProofError:
-          errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
-          break;
-        case err instanceof ReleaseError:
-          errorToast({ title: $t('bridge.errors.release_error.message') });
-          break;
-        default:
-          errorToast({
-            title: $t('bridge.errors.unknown_error.title'),
-            message: $t('bridge.errors.unknown_error.message'),
-          });
-          break;
-      }
-    } finally {
-      loading = false;
-    }
+    // TODO: implement release handling
   }
 
   $: claimModalOpen = false;
+
+  $: hasValidProofReceipt = proofReceipt && proofReceipt[1] !== zeroAddress ? true : false;
+
+  $: chainHasDelays = delays && delays[0] > 0n ? true : false;
+
+  // if the chain has delays and no validProof receipt it= true, otherwise false
+  $: needsConfirmation = chainHasDelays ? (hasValidProofReceipt ? false : true) : false;
 
   // $: retryModalOpen = false;
 
@@ -170,6 +111,7 @@
           // The following listeners will trigger change in the UI
           polling.emitter.on(PollingEvent.PROCESSABLE, onProcessable);
           polling.emitter.on(PollingEvent.STATUS, onStatusChange);
+          polling.emitter.on(PollingEvent.PROOFRECEIPT, onReceiptChange);
         }
       } catch (err) {
         console.error(err);
@@ -194,9 +136,13 @@
       <Spinner />
       <span>{$t(`transactions.status.${loading}`)}</span>
     </div>
-  {:else if bridgeTxStatus === MessageStatus.NEW}
-    <button class="status-btn" on:click={claim}>
+  {:else if bridgeTxStatus === MessageStatus.NEW && !needsConfirmation}
+    <button class="status-btn" on:click={handleClaimClick}>
       {$t('transactions.button.claim')}
+    </button>
+  {:else if bridgeTxStatus === MessageStatus.NEW && needsConfirmation}
+    <button class="status-btn" on:click={handleClaimClick}>
+      {$t('transactions.button.prove')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
     <button class="status-btn" on:click={retry}>
@@ -217,4 +163,12 @@
 </div>
 
 <!-- <RetryDialog item={bridgeTx} bind:loading bind:dialogOpen={retryModalOpen} /> -->
-<ClaimDialog item={bridgeTx} bind:loading bind:dialogOpen={claimModalOpen} />
+<ClaimDialog
+  {bridgeTx}
+  bind:polling
+  bind:loading
+  bind:dialogOpen={claimModalOpen}
+  bind:proofReceipt
+  bind:delays
+  {nft}
+  on:claimingDone={() => claimingDone()} />

@@ -61,34 +61,7 @@
       const txHash = await bridge.claim({ wallet, bridgeTx });
 
       dispatch('claimingTxSent', { txHash, type: 'claim' });
-
-      // infoToast({
-      //   title: $t('transactions.actions.claim.tx.title'),
-      //   message: $t('transactions.actions.claim.tx.message', {
-      //     values: {
-      //       token: bridgeTx.symbol,
-      //       url: `${explorer}/tx/${txHash}`,
-      //     },
-      //   }),
-      // });
-      // await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-      // dispatch('claimingDone');
-
-      // //Todo: just because we have a claim tx doesn't mean it was successful
-      // successToast({
-      //   title: $t('transactions.actions.claim.success.title'),
-      //   message: $t('transactions.actions.claim.success.message', {
-      //     values: {
-      //       network: $connectedSourceChain.name,
-      //     },
-      //   }),
-      // });
-
-      // We trigger this event to manually to update the UI
-      // onStatusChange(MessageStatus.DONE); //TODO:
     } catch (err) {
-      // TODO: handle different errors for the different claim actions (retry, claim, release)
-      //TODO: update this to display info alongside toasts
       handleClaimError(err);
 
       dispatch('error', { error: err, action: 'claim' });

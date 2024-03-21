@@ -5,16 +5,18 @@
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon, type IconType } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
-  // import { ClaimStatus } from '$components/Transactions/Dialogs/ClaimDialog/types';
+  import { connectedSourceChain } from '$stores/network';
   import { theme } from '$stores/theme';
 
-  export let canClaim = false;
+  import { TWO_STEP_STATE } from '../types';
 
-  // let claimStatus: ClaimStatus = ClaimStatus.PENDING;
+  export let canClaim = false;
 
   export let claimingDone = false;
 
   export let claiming = false;
+
+  export let proveOrClaimStep: TWO_STEP_STATE;
 
   const dispatch = createEventDispatcher();
 
@@ -22,11 +24,42 @@
     dispatch('claim');
   };
 
+  const getSuccessTitle = () => {
+    if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
+      return $t('bridge.step.confirm.success.prove');
+    }
+
+    return $t('bridge.step.confirm.success.claim');
+  };
+
+  const getSuccessDescription = () => {
+    if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
+      return $t('bridge.step.confirm.success.prove_description');
+    }
+
+    return $t('transactions.actions.claim.success.message', { values: { network: $connectedSourceChain.name } });
+  };
+
+  $: claimOrProveActionButton =
+    proveOrClaimStep === TWO_STEP_STATE.CLAIM
+      ? $t('transactions.claim.steps.confirm.claim_button')
+      : $t('transactions.claim.steps.confirm.prove');
+
+  $: proceedText =
+    proveOrClaimStep === TWO_STEP_STATE.CLAIM
+      ? $t('transactions.claim.steps.confirm.proceed')
+      : $t('transactions.claim.steps.confirm.prove');
+
+  $: proceedDescription =
+    proveOrClaimStep === TWO_STEP_STATE.CLAIM
+      ? $t('transactions.claim.steps.confirm.claim_description')
+      : $t('transactions.claim.steps.confirm.prove_description');
+
   $: bridgeIcon = `bridge-${$theme}` as IconType;
   $: successIcon = `success-${$theme}` as IconType;
 
-  $: statusTitle = '';
-  $: statusDescription = '';
+  $: statusTitle = getSuccessTitle();
+  $: statusDescription = getSuccessDescription();
 
   $: claimDisabled = !canClaim || claiming;
 </script>
@@ -52,8 +85,8 @@
         {:else if !claiming && !claimingDone}
           <Icon type={bridgeIcon} size={160} />
           <div id="text" class="f-col my-[30px] text-center">
-            <h1 class="mb-[16px]">Todo: Proceed to claim</h1>
-            <span>Todo: claimable!</span>
+            <h1 class="mb-[16px]">{proceedText}</h1>
+            <span>{proceedDescription}</span>
           </div>
         {/if}
       </div>
@@ -66,7 +99,7 @@
           priority="primary"
           loading={claiming}
           on:click={() => handleClaimClick()}
-          disabled={claimDisabled}>Claim now</ActionButton>
+          disabled={claimDisabled}>{claimOrProveActionButton}</ActionButton>
       </section>
     {/if}
   </div>
