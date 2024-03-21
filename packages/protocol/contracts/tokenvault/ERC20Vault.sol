@@ -177,7 +177,7 @@ contract ERC20Vault is BaseVault {
                     || keccak256(bytes(ctoken.name)) != keccak256(bytes(_ctoken.name))
             ) revert VAULT_CTOKEN_MISMATCH();
 
-            delete bridgedToCanonical[_btokenNew];
+            delete bridgedToCanonical[btokenOld_];
             btokenBlacklist[btokenOld_] = true;
 
             // Start the migration
@@ -250,12 +250,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data)
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-    {
+    function onMessageInvocation(bytes calldata _data) public payable nonReentrant whenNotPaused {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(_data, (CanonicalERC20, address, address, uint256));
 
@@ -268,7 +263,7 @@ contract ERC20Vault is BaseVault {
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, amount);
-        to.sendEther(msg.value);
+        to.sendEtherAndVerify(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -301,7 +296,7 @@ contract ERC20Vault is BaseVault {
 
         // Transfer the ETH and tokens back to the owner
         address token = _transferTokens(ctoken, _message.srcOwner, amount);
-        _message.srcOwner.sendEther(_message.value);
+        _message.srcOwner.sendEtherAndVerify(_message.value);
 
         emit TokenReleased({
             msgHash: _msgHash,

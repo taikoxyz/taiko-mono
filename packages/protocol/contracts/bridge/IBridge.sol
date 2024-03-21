@@ -35,9 +35,10 @@ interface IBridge {
         address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer. Zero if owner will process themself.
+        // Processing fee for the relayer.
         uint256 fee;
-        // gasLimit to invoke on the destination chain.
+        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
+        // process the message.
         uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;

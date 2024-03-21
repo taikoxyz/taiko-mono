@@ -5,6 +5,7 @@
 - [Make a contribution](#make-a-contribution)
 - [Coding standards](#coding-standards)
 - [Documentation standards](#documentation-standards)
+- [Engineering tasks](#engineering-tasks)
 
 ## Make a contribution
 
@@ -211,6 +212,7 @@ struct Some {
 ```
 
 #### For-loop
+
 The variable in the for-loop shall not be initialized with 0, and we enforce using `++var` instead of `var++``.
 
 This is **correct**:
@@ -349,3 +351,15 @@ For consistency throughout the project, please use **American English**.
 If you are interested in creating some content (video, blog post, tweet thread, visuals, etc.), you are absolutely free to do so. It's useful to get a peer review on these, if you need a peer review please reach out to the community / team on the [Taiko Discord](https://discord.gg/taikoxyz).
 
 If you are looking for some more guidance on creating content, you can consult the [Taiko content guide](https://hackmd.io/@taikolabs/BJurgF1bn).
+
+## Engineering tasks
+
+### Adding a new repo to the monorepo
+
+1. Add the repo to `packages/*`
+2. Integrate the repo into the monorepos root dependencies (we use a root go modules and pnpm workspace)
+3. Add the repo scope to the `validate-pr-title.yml` workflow
+4. Add a package.json with an initial version `0.1.0`
+5. Add the package to `release-please-config.json` and the initial version to `.release-please-manifest.json`
+6. Ensure the repo has a README
+7. Add repo to monorepo README project structure

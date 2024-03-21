@@ -2,24 +2,21 @@ package indexer
 
 import (
 	"context"
-	"log/slog"
-	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
-func (indxr *Indexer) setInitialProcessingBlockByMode(
+func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
-	chainID *big.Int,
 ) error {
 	var startingBlock uint64 = 0
 	// only check stateVars on L1, otherwise sync from 0
-	if indxr.taikol1 != nil {
-		stateVars, err := indxr.taikol1.GetStateVariables(nil)
+	if i.taikol1 != nil {
+		stateVars, err := i.taikol1.GetStateVariables(nil)
 		if err != nil {
-			return errors.Wrap(err, "indxr.taikoL1.GetStateVariables")
+			return errors.Wrap(err, "i.taikoL1.GetStateVariables")
 		}
 
 		startingBlock = stateVars.A.GenesisHeight
@@ -27,26 +24,24 @@ func (indxr *Indexer) setInitialProcessingBlockByMode(
 
 	switch mode {
 	case Sync:
-		latestProcessedBlock, err := indxr.processedBlockRepo.GetLatestBlockProcessed(
-			chainID,
+		// get most recently processed block height from the DB
+		latest, err := i.eventRepo.FindLatestBlockID(
+			i.srcChainID,
 		)
 		if err != nil {
-			return errors.Wrap(err, "indxr.processedBlockRepo.GetLatestBlock()")
+			return errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
 		}
 
-		if latestProcessedBlock.Height != 0 {
-			startingBlock = latestProcessedBlock.Height
+		if latest != 0 {
+			startingBlock = latest - 1
 		}
 
-		slog.Info("set processingBlockHeight", "startingBlock", startingBlock)
-
-		indxr.processingBlockHeight = startingBlock
-
-		return nil
 	case Resync:
-		indxr.processingBlockHeight = startingBlock
-		return nil
 	default:
 		return eventindexer.ErrInvalidMode
 	}
+
+	i.latestIndexedBlockNumber = startingBlock
+
+	return nil
 }

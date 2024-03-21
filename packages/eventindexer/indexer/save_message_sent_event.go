@@ -13,7 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 )
 
-func (indxr *Indexer) saveMessageSentEvents(
+func (i *Indexer) saveMessageSentEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *bridge.BridgeMessageSentIterator,
@@ -28,10 +28,10 @@ func (indxr *Indexer) saveMessageSentEvents(
 
 		slog.Info("new messageSent event", "owner", event.Message.From.Hex())
 
-		if err := indxr.saveMessageSentEvent(ctx, chainID, event); err != nil {
+		if err := i.saveMessageSentEvent(ctx, chainID, event); err != nil {
 			eventindexer.MessageSentEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveMessageSentEvent")
+			return errors.Wrap(err, "i.saveMessageSentEvent")
 		}
 
 		if !events.Next() {
@@ -40,7 +40,7 @@ func (indxr *Indexer) saveMessageSentEvents(
 	}
 }
 
-func (indxr *Indexer) saveMessageSentEvent(
+func (i *Indexer) saveMessageSentEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
@@ -50,21 +50,22 @@ func (indxr *Indexer) saveMessageSentEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameMessageSent,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Event:        eventindexer.EventNameMessageSent,
-		Address:      event.Message.From.Hex(),
-		TransactedAt: time.Unix(int64(block.Time()), 0),
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameMessageSent,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameMessageSent,
+		Address:        event.Message.From.Hex(),
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		EmittedBlockID: event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.MessageSentEventsProcessed.Inc()

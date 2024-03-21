@@ -13,7 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
 )
 
-func (indxr *Indexer) saveBlockAssignedEvents(
+func (i *Indexer) saveBlockAssignedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *assignmenthook.AssignmentHookBlockAssignedIterator,
@@ -26,10 +26,10 @@ func (indxr *Indexer) saveBlockAssignedEvents(
 	for {
 		event := events.Event
 
-		if err := indxr.saveBlockAssignedEvent(ctx, chainID, event); err != nil {
+		if err := i.saveBlockAssignedEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockAssignedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "indxr.saveBlockAssignedEvent")
+			return errors.Wrap(err, "i.saveBlockAssignedEvent")
 		}
 
 		if !events.Next() {
@@ -38,7 +38,7 @@ func (indxr *Indexer) saveBlockAssignedEvents(
 	}
 }
 
-func (indxr *Indexer) saveBlockAssignedEvent(
+func (i *Indexer) saveBlockAssignedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *assignmenthook.AssignmentHookBlockAssigned,
@@ -52,19 +52,19 @@ func (indxr *Indexer) saveBlockAssignedEvent(
 
 	assignedProver := event.AssignedProver.Hex()
 
-	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
 	}
 
-	proverReward, err := indxr.updateAverageProverReward(ctx, event)
+	proverReward, err := i.updateAverageProverReward(ctx, event)
 	if err != nil {
-		return errors.Wrap(err, "indxr.updateAverageProverReward")
+		return errors.Wrap(err, "i.updateAverageProverReward")
 	}
 
 	feeToken := event.Assignment.FeeToken.Hex()
 
-	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:            eventindexer.EventNameBlockAssigned,
 		Data:            string(marshaled),
 		ChainID:         chainID,
@@ -75,9 +75,10 @@ func (indxr *Indexer) saveBlockAssignedEvent(
 		Amount:          proverReward,
 		ProofReward:     proverReward,
 		FeeTokenAddress: &feeToken,
+		EmittedBlockID:  event.Raw.BlockNumber,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
 	eventindexer.BlockProposedEventsProcessed.Inc()
@@ -85,15 +86,15 @@ func (indxr *Indexer) saveBlockAssignedEvent(
 	return nil
 }
 
-func (indxr *Indexer) updateAverageProverReward(
+func (i *Indexer) updateAverageProverReward(
 	ctx context.Context,
 	event *assignmenthook.AssignmentHookBlockAssigned,
 ) (*big.Int, error) {
 	feeToken := event.Assignment.FeeToken.Hex()
 
-	stat, err := indxr.statRepo.Find(ctx, eventindexer.StatTypeProofReward, &feeToken)
+	stat, err := i.statRepo.Find(ctx, eventindexer.StatTypeProofReward, &feeToken)
 	if err != nil {
-		return nil, errors.Wrap(err, "indxr.statRepo.Find")
+		return nil, errors.Wrap(err, "i.statRepo.Find")
 	}
 
 	avg, ok := new(big.Int).SetString(stat.AverageProofReward, 10)
@@ -134,13 +135,13 @@ func (indxr *Indexer) updateAverageProverReward(
 		newAverageProofReward.String(),
 	)
 
-	_, err = indxr.statRepo.Save(ctx, eventindexer.SaveStatOpts{
+	_, err = i.statRepo.Save(ctx, eventindexer.SaveStatOpts{
 		ProofReward:     newAverageProofReward,
 		StatType:        eventindexer.StatTypeProofReward,
 		FeeTokenAddress: &feeToken,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "indxr.statRepo.Save")
+		return nil, errors.Wrap(err, "i.statRepo.Save")
 	}
 
 	return big.NewInt(0), nil

@@ -36,14 +36,15 @@ taiko-mono/
 ├── <a href="./LICENSE.md">LICENSE.md</a>
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
+│   ├── <a href="./packages/blobstorage">blob-storage</a>: Blob storage service.
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI.
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
 │   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page.
 │   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check service.
 │   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI.
-│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
-│   └── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
+│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol smart contracts.
+│   └── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
 ...
 </pre>
 
