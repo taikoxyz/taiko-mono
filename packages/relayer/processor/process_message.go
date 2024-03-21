@@ -208,6 +208,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 	var err error
 
+	var updateGas bool = true
+
 	auth, err := bind.NewKeyedTransactorWithChainID(
 		p.ecdsaKey,
 		new(big.Int).SetUint64(msgBody.Event.Message.DestChainId))
@@ -220,7 +222,7 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 			return nil
 		}
 
-		tx, err = p.sendProcessMessageCall(ctx, auth, msgBody.Event, encodedSignalProof)
+		tx, err = p.sendProcessMessageCall(ctx, auth, msgBody.Event, encodedSignalProof, updateGas)
 		if err != nil {
 			if strings.Contains(err.Error(), "transaction underpriced") {
 				slog.Warn(
@@ -231,6 +233,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 				)
 
 				p.increaseGas(ctx, auth)
+
+				updateGas = false
 			}
 
 			return err
@@ -524,6 +528,7 @@ func (p *Processor) sendProcessMessageCall(
 	auth *bind.TransactOpts,
 	event *bridge.BridgeMessageSent,
 	proof []byte,
+	updateGas bool,
 ) (*types.Transaction, error) {
 	auth.Context = ctx
 
@@ -568,8 +573,10 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	if err = utils.SetGasTipOrPrice(ctx, auth, p.destEthClient); err != nil {
-		return nil, errors.Wrap(err, "p.setGasTipOrPrice")
+	if updateGas {
+		if err = utils.SetGasTipOrPrice(ctx, auth, p.destEthClient); err != nil {
+			return nil, errors.Wrap(err, "p.setGasTipOrPrice")
+		}
 	}
 
 	cost, err = p.getCost(ctx, auth)
