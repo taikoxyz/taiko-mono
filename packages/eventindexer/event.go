@@ -45,6 +45,7 @@ type Event struct {
 	FeeTokenAddress string              `json:"feeTokenAddress"`
 	TransactedAt    time.Time           `json:"transactedAt"`
 	Tier            sql.NullInt16       `json:"tier"`
+	EmittedBlockID  uint64              `json:"emittedBlockID"`
 }
 
 // SaveEventOpts
@@ -65,6 +66,7 @@ type SaveEventOpts struct {
 	FeeTokenAddress *string
 	TransactedAt    time.Time
 	Tier            *uint16
+	EmittedBlockID  uint64
 }
 
 type UniqueProversResponse struct {
@@ -111,4 +113,8 @@ type EventRepository interface {
 		req *http.Request,
 		address string,
 	) (paginate.Page, error)
+	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64) error
+	FindLatestBlockID(
+		srcChainID uint64,
+	) (uint64, error)
 }

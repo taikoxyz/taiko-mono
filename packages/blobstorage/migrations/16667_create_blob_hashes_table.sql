@@ -1,10 +1,13 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS blocks (
+CREATE TABLE IF NOT EXISTS blob_hashes (
     id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    chain_id int not null,
-    block_id int not null unique,
-    transacted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    block_id BIGINT NOT NULL,
+    emitted_block_id BIGINT NOT NULL,
+    blob_hash VARCHAR(100) NOT NULL,
+    kzg_commitment LONGTEXT NOT NULL,
+    block_timestamp BIGINT NOT NULL,
+    blob_data LONGTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -12,5 +15,5 @@ CREATE TABLE IF NOT EXISTS blocks (
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE blocks;
+DROP TABLE blob_hashes;
 -- +goose StatementEnd

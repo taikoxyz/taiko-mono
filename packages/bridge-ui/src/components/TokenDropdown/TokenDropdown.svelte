@@ -17,7 +17,6 @@
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
-  import { OnNetwork } from '$components/OnNetwork';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, fetchBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
@@ -72,7 +71,6 @@
     }
 
     // In order to select a token, we only need the source chain to be selected,
-    // unless it's an imported token...
     if (!srcChain) {
       warningToast({ title: $t('messages.network.required') });
       $computingBalance = false;
@@ -83,11 +81,6 @@
       $computingBalance = false;
       return;
     }
-    // if it is an imported Token, chances are we do not yet have the bridged address
-    // for the destination chain, so we need to fetch it
-    // if (token.imported) {
-    //   // ... in the case of imported tokens, we also require the destination chain to be selected.
-
     try {
       const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
       if (!tokenInfo) {
@@ -119,7 +112,7 @@
       console.error(error);
     }
     value = token;
-    await updateBalance($account?.address, srcChain.id, destChain.id);
+    await updateBalance();
     $computingBalance = false;
   };
 
@@ -130,11 +123,10 @@
     }
   };
 
-  export async function updateBalance(
-    userAddress = $account?.address,
-    srcChainId = $connectedSourceChain?.id,
-    destChainId = $destNetwork?.id,
-  ) {
+  async function updateBalance() {
+    const userAddress = $account?.address;
+    const srcChainId = $connectedSourceChain?.id;
+    const destChainId = $destNetwork?.id;
     const token = value;
     if (!token || !srcChainId || !destChainId || !userAddress) return;
     $computingBalance = true;
@@ -172,17 +164,8 @@
     $computingBalance = false;
   }
 
-  const onNetworkChange = () => {
-    const srcChain = $connectedSourceChain;
-    const destChain = $destNetwork;
-    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
-  };
-
   const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
-    const srcChain = $connectedSourceChain;
-    const destChain = $destNetwork;
-    if (destChain && srcChain && (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount))
-      updateBalance($account?.address, srcChain.id, destChain.id);
+    if (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount) updateBalance();
   };
 
   $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
@@ -199,7 +182,7 @@
     $computingBalance = true;
     value = tokens[0];
     $selectedToken = value;
-    await updateBalance($account?.address, srcChain.id, destChain.id);
+    await updateBalance();
     $computingBalance = false;
   });
 </script>
@@ -221,7 +204,7 @@
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
       {:else if value}
         <div class="flex f-space-between space-x-2 items-center text-secondary-content">
-          <!-- Only match icons to configurd tokens -->
+          <!-- Only match icons to configured tokens -->
           {#if symbolToIconMap[value.symbol] && !value.imported}
             <i role="img" aria-label={value.name}>
               <svelte:component this={symbolToIconMap[value.symbol]} size={20} />
@@ -258,5 +241,4 @@
 
 <div data-modal-uuid={id} />
 
-<OnNetwork change={onNetworkChange} />
 <OnAccount change={onAccountChange} />

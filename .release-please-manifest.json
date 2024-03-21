@@ -1,4 +1,5 @@
 {
+  "packages/blob-catcher": "0.1.0",
   "packages/branding": "0.3.0",
   "packages/bridge-ui": "3.0.0",
   "packages/eventindexer": "0.13.0",

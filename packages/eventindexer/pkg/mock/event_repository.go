@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -143,4 +144,20 @@ func (r *EventRepository) GetAssignedBlocksByProverAddress(
 	return paginate.Page{
 		Items: events,
 	}, nil
+}
+
+// DeleteAllAfterBlockID is used when a reorg is detected
+func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64) error {
+	return nil
+}
+
+// GetLatestBlockID get latest block id
+func (r *EventRepository) FindLatestBlockID(
+	srcChainID uint64,
+) (uint64, error) {
+	if srcChainID == MockChainID.Uint64() {
+		return LatestBlockNumber.Uint64(), nil
+	}
+
+	return 0, errors.New("invalid")
 }

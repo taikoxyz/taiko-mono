@@ -378,7 +378,7 @@ func (p *Processor) Start() error {
 			}
 
 			return nil
-		}, backoff.NewConstantBackOff(1*time.Second)); err != nil {
+		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()
