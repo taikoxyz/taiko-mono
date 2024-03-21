@@ -237,34 +237,5 @@ export abstract class Bridge {
     log('Simulate contract for processMessage', request);
 
     return await writeContract(config, request);
-    //   let txHash: Hash;
-    //   const { message, msgHash } = args.bridgeTx;
-    //   if (!message || !msgHash) throw new ReleaseError('Message is not defined');
-
-    //   if (messageStatus === MessageStatus.FAILED) {
-    //     const proof = await this._prover.getEncodedSignalProof({ bridgeTx: args.bridgeTx });
-    //     try {
-    //       const { request } = await simulateContract(config, {
-    //         address: destBridgeAddress,
-    //         abi: bridgeAbi,
-    //         functionName: 'recallMessage',
-    //         args: [message, proof],
-    //         gas: message.gasLimit,
-    //       });
-    //       log('Simulate contract', request);
-
-    //       txHash = await writeContract(config, request);
-    //       log('Transaction hash for recallMessage call', txHash);
-    //       return txHash;
-    //     } catch (err) {
-    //       console.error(err);
-    //       if (`${err}`.includes('denied transaction signature')) {
-    //         throw new UserRejectedRequestError(err as Error);
-    //       }
-    //       throw new ReleaseError('failed to release ETH', { cause: err });
-    //     }
-    //   }
-    //   throw new ReleaseError('Message status not supported for release');
-    // }
   }
 }
