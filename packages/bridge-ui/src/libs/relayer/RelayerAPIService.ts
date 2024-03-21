@@ -1,7 +1,7 @@
-import { readContract } from '@wagmi/core';
+import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import type { Address, Hash, Hex } from 'viem';
+import type { Address, Hash, Hex, TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -9,7 +9,6 @@ import { apiService } from '$config';
 import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
-import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -38,7 +37,7 @@ export class RelayerAPIService {
   //Todo: duplicate code in BridgeTxService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
     try {
-      return await fetchTransactionReceipt(hash, chainId);
+      return await getTransactionReceipt(config, { chainId, hash });
     } catch (error) {
       log(`Error getting transaction receipt for ${hash}: ${error}`);
       return null;
@@ -217,9 +216,11 @@ export class RelayerAPIService {
       const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), hash);
 
       // TODO: do we want to show these transactions?
-      if (!receipt) return;
+      if (!receipt || receipt === null) {
+        log('Transaction not mined yet', { hash, srcChainId });
+      }
 
-      bridgeTx.receipt = receipt;
+      bridgeTx.receipt = receipt as TransactionReceipt;
 
       if (!msgHash) return; //todo: handle this case
 

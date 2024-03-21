@@ -9,6 +9,7 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
+  PROVEN, // UI ONLY
 }
 
 // Bridge sendMessage()
@@ -82,7 +83,7 @@ export type BridgeTransaction = {
   timestamp?: number;
 
   status?: MessageStatus;
-  receipt?: ModifiedTransactionReceipt;
+  receipt?: TransactionReceipt;
 };
 
 interface BaseBridgeTransferOp {

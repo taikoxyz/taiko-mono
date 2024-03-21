@@ -1,5 +1,5 @@
 import { readContract } from '@wagmi/core';
-import { hexToBigInt, keccak256, toBytes } from 'viem';
+import { keccak256, toBytes } from 'viem';
 
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -40,13 +40,13 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
 
     const latestSyncedblock = syncedChainData[0];
 
-    const synced = latestSyncedblock >= hexToBigInt(receipt.blockNumber);
+    const synced = latestSyncedblock >= receipt.blockNumber;
 
     log('isTransactionProcessable', {
       from: srcChainId,
       to: destChainId,
       latestSyncedblock,
-      receiptBlockNumber: hexToBigInt(receipt.blockNumber),
+      receiptBlockNumber: receipt.blockNumber,
       synced,
     });
 

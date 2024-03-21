@@ -1,10 +1,10 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
-import { type Address, type Hash, hexToBigInt } from 'viem';
+import type { Address, Hash, TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
-import { type BridgeTransaction, MessageStatus, type ModifiedTransactionReceipt } from '$libs/bridge';
+import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
@@ -103,15 +103,15 @@ export class BridgeTxService {
     // Ignore transactions from chains not supported by the bridge
     if (!isSupportedChain(Number(srcChainId))) return;
 
-    let receipt: ModifiedTransactionReceipt | null = null;
+    let receipt: TransactionReceipt | null = null;
 
     if (waitForTx) {
       // We might want to wait for the transaction to be mined
-      receipt = (await waitForTransactionReceipt(config, {
+      receipt = await waitForTransactionReceipt(config, {
         hash,
         chainId: Number(srcChainId),
         timeout: pendingTransaction.waitTimeout,
-      })) as unknown as ModifiedTransactionReceipt;
+      });
     } else {
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
@@ -132,7 +132,7 @@ export class BridgeTxService {
         userAddress: address,
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
-        blockNumber: Number(hexToBigInt(receipt.blockNumber)),
+        blockNumber: Number(receipt.blockNumber),
       });
     } catch (error) {
       //TODO: handle error
