@@ -204,6 +204,9 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 	encodedSignalProof []byte,
 	msgBody *queue.QueueMessageSentBody,
 ) (*types.Receipt, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	var tx *types.Transaction
 
 	var err error
@@ -526,9 +529,6 @@ func (p *Processor) sendProcessMessageCall(
 	proof []byte,
 ) (*types.Transaction, error) {
 	auth.Context = ctx
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	err := p.getLatestNonce(ctx, auth)
 	if err != nil {
