@@ -38,7 +38,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 				},
 				Data: []byte{0xff},
 			},
-		}, []byte{})
+		}, []byte{}, true)
 
 	assert.Nil(t, err)
 
