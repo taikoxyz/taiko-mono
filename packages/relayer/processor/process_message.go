@@ -232,6 +232,7 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 				p.increaseGas(ctx, auth)
 			}
+
 			return err
 		}
 
@@ -267,7 +268,10 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 }
 
 func (p *Processor) increaseGas(ctx context.Context, auth *bind.TransactOpts) {
-	slog.Info("increasing gas fee for retry", "gasFeeCap", auth.GasFeeCap.Int64(), "gasTipCap", auth.GasTipCap.Int64())
+	slog.Info("increasing gas fee for retry",
+		"gasFeeCap", auth.GasFeeCap.Int64(),
+		"gasTipCap", auth.GasTipCap.Int64(),
+	)
 
 	// Increase the gas price by at least 10%
 	gasFeeCap := auth.GasFeeCap.Int64()
