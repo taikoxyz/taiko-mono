@@ -293,7 +293,7 @@ func (p *Processor) increaseGas(ctx context.Context, auth *bind.TransactOpts) {
 	if auth.GasPrice != nil {
 		gasPrice := auth.GasPrice.Int64()
 		gasPrice += gasPrice * int64(p.gasIncreaseRate) / 100
-		auth.GasTipCap = big.NewInt(gasPrice)
+		auth.GasPrice = big.NewInt(gasPrice)
 	}
 
 	slog.Info("updated gas",
