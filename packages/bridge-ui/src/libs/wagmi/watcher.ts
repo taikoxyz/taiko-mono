@@ -1,6 +1,6 @@
 import { watchAccount } from '@wagmi/core';
 
-import { isSupportedChain } from '$libs/chain';
+import { chains, isSupportedChain } from '$libs/chain';
 import { refreshUserBalance } from '$libs/util/balance';
 import { checkForPausedContracts } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
@@ -28,14 +28,17 @@ export async function startWatching() {
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if (chain && !isSupportedChain(Number(chain.id))) {
+        if (chain?.id && !isSupportedChain(Number(chain.id))) {
           log('Unsupported chain', chain);
           switchChainModal.set(true);
           return;
-        } else if (chain) {
+        } else if (chain?.id) {
           // When we switch networks, we are actually selecting
           // the source chain.
-          connectedSourceChain.set(chain);
+          const srcChain = chains.find((c) => c.id === Number(chain?.id));
+          if (srcChain) connectedSourceChain.set(srcChain);
+
+          refreshUserBalance();
         }
         account.set(data);
       },

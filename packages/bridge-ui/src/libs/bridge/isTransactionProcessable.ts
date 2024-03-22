@@ -1,15 +1,17 @@
-import { getBlock, readContract } from '@wagmi/core';
-import { hexToBigInt } from 'viem';
+import { readContract } from '@wagmi/core';
+import { keccak256, toBytes } from 'viem';
 
-import { crossChainSyncABI } from '$abi';
+import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { chains } from '$libs/chain';
+import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { type BridgeTransaction, MessageStatus } from './types';
+const log = getLogger('libs:bridge:isTransactionProcessable');
 
 export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
-  const { receipt, message, srcChainId, destChainId, status } = bridgeTx;
+  const { receipt, message, srcChainId, destChainId, msgStatus } = bridgeTx;
 
   // Without these guys there is no way we can process this
   // bridge transaction. The receipt is needed in order to compare
@@ -20,29 +22,37 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   // has already been processed (was processable)
   // TODO: do better job here as this is to make the UI happy
 
-  if (status !== MessageStatus.NEW) return true;
+  if (msgStatus !== MessageStatus.NEW) return true;
 
-  const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].crossChainSyncAddress;
+  const destSignalServiceAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
   const srcChain = chains.find((chain) => chain.id === Number(srcChainId));
 
   if (!srcChain) return false;
 
   try {
-    const { blockHash } = await readContract(config, {
-      address: destCrossChainSyncAddress,
-      abi: crossChainSyncABI,
-      functionName: 'getSyncedSnippet',
-      args: [BigInt(0)],
+    const syncedChainData = await readContract(config, {
+      address: destSignalServiceAddress,
+      abi: signalServiceAbi,
+      functionName: 'getSyncedChainData',
+      args: [srcChainId, keccak256(toBytes('STATE_ROOT')), 0n],
       chainId: Number(destChainId),
     });
 
-    const srcBlock = await getBlock(config, {
-      blockHash,
-      chainId: Number(srcChainId),
+    const latestSyncedblock = syncedChainData[0];
+
+    const synced = latestSyncedblock >= receipt.blockNumber;
+
+    log('isTransactionProcessable', {
+      from: srcChainId,
+      to: destChainId,
+      latestSyncedblock,
+      receiptBlockNumber: receipt.blockNumber,
+      synced,
     });
 
-    return srcBlock.number !== null && hexToBigInt(receipt.blockNumber) <= srcBlock.number;
+    return synced;
   } catch (error) {
+    console.error('Error checking if transaction is processable', error);
     return false;
   }
 }

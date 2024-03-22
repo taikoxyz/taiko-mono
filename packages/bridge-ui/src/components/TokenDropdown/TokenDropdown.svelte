@@ -128,7 +128,7 @@
     const srcChainId = $connectedSourceChain?.id;
     const destChainId = $destNetwork?.id;
     const token = value;
-    if (!token || !srcChainId || !destChainId || !userAddress) return;
+    if (!token || !srcChainId || !userAddress) return;
     $computingBalance = true;
     $errorComputingBalance = false;
 

@@ -1,7 +1,7 @@
 import { getToken, readContract } from '@wagmi/core';
 import type { Address } from 'viem';
 
-import { erc721ABI, erc1155ABI } from '$abi';
+import { erc721Abi, erc1155Abi } from '$abi';
 import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
 import { safeReadContract } from '$libs/util/safeReadContract';
@@ -77,21 +77,21 @@ const getERC1155Info = async (
 
   const name = await safeReadContract({
     address: contractAddress,
-    abi: erc1155ABI,
+    abi: erc1155Abi,
     functionName: 'name',
     chainId: srcChainId,
   });
 
   const symbol = await safeReadContract({
     address: contractAddress,
-    abi: erc1155ABI,
+    abi: erc1155Abi,
     functionName: 'symbol',
     chainId: srcChainId,
   });
 
   let uri = await safeReadContract({
     address: contractAddress,
-    abi: erc1155ABI,
+    abi: erc1155Abi,
     functionName: 'uri',
     chainId: srcChainId,
   });
@@ -99,7 +99,7 @@ const getERC1155Info = async (
   if (tokenId !== null && tokenId !== undefined && !uri) {
     uri = await safeReadContract({
       address: contractAddress,
-      abi: erc1155ABI,
+      abi: erc1155Abi,
       functionName: 'uri',
       args: [BigInt(tokenId)],
       chainId: srcChainId,
@@ -110,7 +110,7 @@ const getERC1155Info = async (
   if (tokenId !== null && tokenId !== undefined && owner) {
     balance = await readContract(config, {
       address: contractAddress,
-      abi: erc1155ABI,
+      abi: erc1155Abi,
       functionName: 'balanceOf',
       args: [owner, BigInt(tokenId)],
       chainId: srcChainId,
@@ -160,14 +160,14 @@ const getERC721Info = async (
   log(`getting name, symbol and uri for ERC721 token ${contractAddress} id: ${tokenId} on chain ${srcChainId}`);
   const name = await safeReadContract({
     address: contractAddress,
-    abi: erc721ABI,
+    abi: erc721Abi,
     functionName: 'name',
     chainId: srcChainId,
   });
 
   const symbol = await safeReadContract({
     address: contractAddress,
-    abi: erc721ABI,
+    abi: erc721Abi,
     functionName: 'symbol',
     chainId: srcChainId,
   });
@@ -177,7 +177,7 @@ const getERC721Info = async (
   if (tokenId !== null && tokenId !== undefined) {
     uri = await safeReadContract({
       address: contractAddress,
-      abi: erc721ABI,
+      abi: erc721Abi,
       functionName: 'tokenURI',
       args: [BigInt(tokenId)],
       chainId: srcChainId,

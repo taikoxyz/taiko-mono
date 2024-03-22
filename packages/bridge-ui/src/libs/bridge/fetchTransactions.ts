@@ -59,8 +59,8 @@ export async function fetchTransactions(userAddress: Address) {
   ];
 
   mergedTransactions.sort((a: BridgeTransaction, b: BridgeTransaction) => {
-    const aStatusIndex = a.status !== undefined ? statusOrder.indexOf(a.status) : -1;
-    const bStatusIndex = b.status !== undefined ? statusOrder.indexOf(b.status) : -1;
+    const aStatusIndex = a.msgStatus !== undefined ? statusOrder.indexOf(a.msgStatus) : -1;
+    const bStatusIndex = b.msgStatus !== undefined ? statusOrder.indexOf(b.msgStatus) : -1;
     return aStatusIndex - bStatusIndex;
   });
   return { mergedTransactions, outdatedLocalTransactions, error };

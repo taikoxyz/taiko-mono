@@ -21,9 +21,9 @@ export const chainIdToChain = (chainId: number): Chain => {
   return chain;
 };
 
-export const chains: Chain[] = Object.entries(chainConfig).map(([chainId, chainConfig]) =>
+export const chains: [Chain, ...Chain[]] = Object.entries(chainConfig).map(([chainId, chainConfig]) =>
   mapChainConfigToChain(chainId, chainConfig),
-);
+) as [Chain, ...Chain[]];
 
 export const getConfiguredChainIds = (): number[] => {
   return chains.map((chain) => Number(chain.id));

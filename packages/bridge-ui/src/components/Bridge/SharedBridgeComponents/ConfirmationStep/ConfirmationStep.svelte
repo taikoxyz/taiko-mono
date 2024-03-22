@@ -77,7 +77,7 @@
       srcChainId: BigInt(currentChain),
       destChainId: BigInt(destinationChain),
       tokenType: $selectedToken?.type,
-      status: MessageStatus.NEW,
+      msgStatus: MessageStatus.NEW,
       timestamp: Date.now(),
     } as BridgeTransaction;
     bridging = false;
