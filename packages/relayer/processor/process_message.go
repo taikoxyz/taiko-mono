@@ -82,6 +82,10 @@ func (p *Processor) processMessage(
 		return false, nil
 	}
 
+	slog.Info("waiting for confirmations", "msgHash",
+		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+	)
+
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
 		return false, errors.Wrap(err, "p.waitForConfirmations")
 	}
