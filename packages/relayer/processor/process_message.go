@@ -123,7 +123,6 @@ func (p *Processor) processMessage(
 	}
 
 	receipt, err := p.sendProcessMessageAndWaitForReceipt(ctx, encodedSignalProof, msgBody)
-
 	if err != nil {
 		return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 	}
@@ -256,6 +255,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 
 	defer cancel()
+
+	slog.Info("waiting for tx receipt", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
 	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
@@ -546,6 +547,8 @@ func (p *Processor) sendProcessMessageCall(
 	proof []byte,
 	updateGas bool,
 ) (*types.Transaction, error) {
+	slog.Info("sending process message call")
+
 	auth.Context = ctx
 
 	p.mu.Lock()
