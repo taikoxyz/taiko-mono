@@ -3,11 +3,14 @@ package bridge
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/cyberhorsey/errors"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -44,12 +47,7 @@ type Bridge struct {
 
 	mu *sync.Mutex
 
-	destNonce  uint64
-	bridgeAddr common.Address
-
-	confirmations uint64
-
-	confTimeoutInSeconds int64
+	addr common.Address
 
 	backOffRetryInterval time.Duration
 	backOffMaxRetries    uint64
@@ -59,6 +57,8 @@ type Bridge struct {
 
 	srcChainId  *big.Int
 	destChainId *big.Int
+
+	bridgeMessageValue *big.Int
 }
 
 func (b *Bridge) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -72,7 +72,6 @@ func (b *Bridge) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
-
 	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
 	if err != nil {
 		return err
@@ -117,13 +116,10 @@ func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
 	b.srcBridge = srcBridge
 
 	b.ecdsaKey = cfg.BridgePrivateKey
-	b.bridgeAddr = crypto.PubkeyToAddress(*publicKeyECDSA)
+	b.addr = crypto.PubkeyToAddress(*publicKeyECDSA)
 
 	b.srcChainId = srcChainID
 	b.destChainId = destChainID
-
-	b.confTimeoutInSeconds = int64(cfg.ConfirmationsTimeout)
-	b.confirmations = cfg.Confirmations
 
 	b.wg = &sync.WaitGroup{}
 	b.mu = &sync.Mutex{}
@@ -131,6 +127,8 @@ func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
 	b.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	b.backOffMaxRetries = cfg.BackOffMaxRetrys
 	b.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
+
+	b.bridgeMessageValue = cfg.BridgeMessageValue
 
 	return nil
 }
@@ -152,14 +150,103 @@ func (b *Bridge) Start() error {
 
 	b.cancel = cancel
 
-	b.submitBridge(ctx)
+	_ = b.submitBridgeTx(ctx)
 
 	return nil
 }
 
-func (b *Bridge) submitBridge(ctx context.Context) error {
-	slog.Info("Submit bridge")
-	// bridge-ui/src/libs/bridge/ETHBridge.ts
+func (b *Bridge) setLatestNonce(ctx context.Context, auth *bind.TransactOpts) error {
+	pendingNonce, err := b.srcEthClient.PendingNonceAt(ctx, b.addr)
+	if err != nil {
+		return err
+	}
+
+	auth.Nonce = big.NewInt(int64(pendingNonce))
+
+	return nil
+}
+
+func (b *Bridge) estimateGas(
+	ctx context.Context, message bridge.IBridgeMessage) (uint64, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(b.ecdsaKey, new(big.Int).SetUint64(message.SrcChainId))
+	if err != nil {
+		return 0, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+
+	// estimate gas with auth.NoSend set to true
+	auth.NoSend = true
+	auth.Context = ctx
+	auth.GasLimit = 500000
+
+	tx, err := b.srcBridge.SendMessage(auth, message)
+	if err != nil {
+		fmt.Println(err)
+		return 0, errors.Wrap(err, "rcBridge.SendMessage")
+	}
+
+	gasPaddingAmt := uint64(80000)
+
+	return tx.Gas() + gasPaddingAmt, nil
+}
+
+func (b *Bridge) submitBridgeTx(ctx context.Context) error {
+	srcChainId, err := b.srcEthClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "b.srcEthClient.ChainID")
+	}
+
+	destChainId, err := b.destEthClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "b.destEthClient.ChainID")
+	}
+
+	auth, err := bind.NewKeyedTransactorWithChainID(b.ecdsaKey, new(big.Int).SetUint64(srcChainId.Uint64()))
+	if err != nil {
+		return errors.Wrap(err, "b.NewKeyedTransactorWithChainID")
+	}
+
+	auth.Context = ctx
+
+	err = b.setLatestNonce(ctx, auth)
+	if err != nil {
+		return errors.New("b.setLatestNonce")
+	}
+
+	processingFee := big.NewInt(10000)
+	value := new(big.Int)
+	value.Add(b.bridgeMessageValue, processingFee)
+	auth.Value = value
+
+	message := bridge.IBridgeMessage{
+		Id:          big.NewInt(0),
+		From:        b.addr,
+		SrcChainId:  srcChainId.Uint64(),
+		DestChainId: destChainId.Uint64(),
+		SrcOwner:    b.addr,
+		DestOwner:   b.addr,
+		To:          b.addr,
+		RefundTo:    b.addr,
+		Value:       b.bridgeMessageValue,
+		Fee:         processingFee,
+		GasLimit:    big.NewInt(140000),
+		Data:        []byte{},
+		Memo:        "",
+	}
+
+	gas, err := b.estimateGas(ctx, message)
+	if err != nil || gas == 0 {
+		slog.Info("gas estimation failed, hardcoding gas limit", "b.estimateGas:", err)
+	}
+
+	auth.GasLimit = gas
+
+	tx, err := b.srcBridge.SendMessage(auth, message)
+	if err != nil {
+		fmt.Println("b.srcBridge.SendMessage", err)
+		return errors.Wrap(err, "rcBridge.SendMessage")
+	}
+
+	slog.Info("Sent tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
 	return nil
 }

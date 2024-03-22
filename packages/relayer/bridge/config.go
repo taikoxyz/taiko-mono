@@ -3,6 +3,7 @@ package bridge
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,6 +32,9 @@ type Config struct {
 	SrcRPCUrl        string
 	DestRPCUrl       string
 	ETHClientTimeout uint64
+
+	// BridgeMessage
+	BridgeMessageValue *big.Int
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -40,6 +44,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid bridgePrivateKey: %w", err)
+	}
+
+	bridgeMessageValue, ok := new(big.Int).SetString(c.String(flags.BridgeMessageValue.Name), 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid bridgeMessageValue")
 	}
 
 	return &Config{
@@ -54,5 +63,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval: c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetrys:     c.Uint64(flags.BackOffMaxRetrys.Name),
 		ETHClientTimeout:     c.Uint64(flags.ETHClientTimeout.Name),
+		BridgeMessageValue:   bridgeMessageValue,
 	}, nil
 }

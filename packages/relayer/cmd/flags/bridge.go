@@ -12,8 +12,19 @@ var (
 		Category: bridegCategory,
 		EnvVars:  []string{"BRIDGE_PRIVATE_KEY"},
 	}
+	BridgeMessageValue = &cli.StringFlag{
+		Name:     "bridgeMessageValue",
+		Usage:    "Value in the bridge message",
+		Required: true,
+		Category: bridegCategory,
+		EnvVars:  []string{"BRIDGE_MESSAGE_VALUE"},
+	}
 )
 
 var BridgeFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	BridgePrivateKey,
+	BridgeMessageValue,
+	SrcBridgeAddress,
+	DestBridgeAddress,
+	SrcTaikoAddress,
 })
