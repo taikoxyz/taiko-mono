@@ -1,7 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
 import { getContract } from 'viem';
 
-import { freeMintErc20ABI } from '$abi';
+import { freeMintErc20Abi } from '$abi';
 import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { config } from '$libs/wagmi';
@@ -16,7 +16,7 @@ export async function checkMintable(token: Token, chainId: number) {
 
   const tokenContract = getContract({
     client: walletClient,
-    abi: freeMintErc20ABI,
+    abi: freeMintErc20Abi,
     address: token.addresses[chainId],
   });
 

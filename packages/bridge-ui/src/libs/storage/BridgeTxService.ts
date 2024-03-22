@@ -1,10 +1,11 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
-import { type Address, getContract, type Hash, hexToBigInt } from 'viem';
+import type { Address, Hash, TransactionReceipt } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
-import { type BridgeTransaction, MessageStatus, type ModifiedTransactionReceipt } from '$libs/bridge';
+import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
 import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
@@ -13,12 +14,6 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 const log = getLogger('storage:BridgeTxService');
-
-type BridgeMessageParams = {
-  msgHash: Hash;
-  srcChainId: number;
-  destChainId: number;
-};
 
 export class BridgeTxService {
   private readonly storage: Storage;
@@ -54,7 +49,7 @@ export class BridgeTxService {
     if (!client) throw new Error('Could not get public client');
 
     const filter = await client.createContractEventFilter({
-      abi: bridgeABI,
+      abi: bridgeAbi,
       address: bridgeAddress,
       eventName: 'MessageSent',
       fromBlock: BigInt(blockNumber),
@@ -64,14 +59,14 @@ export class BridgeTxService {
     try {
       const messageSentEvents = await client.getFilterLogs({ filter });
       // Filter out those events that are not from the current address
-      return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+      return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
     } catch (error) {
       log('Error getting logs via filter, retrying...', error);
 
       // we try again, often recreating the filter fixes the issue
       try {
         const filter = await client.createContractEventFilter({
-          abi: bridgeABI,
+          abi: bridgeAbi,
           address: bridgeAddress,
           eventName: 'MessageSent',
           fromBlock: BigInt(blockNumber),
@@ -79,27 +74,12 @@ export class BridgeTxService {
         });
         const messageSentEvents = await client.getFilterLogs({ filter });
         // Filter out those events that are not from the current address
-        return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+        return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
       } catch (error) {
         console.error('Error filtering logs', error);
         throw new FilterLogsError('Error getting logs via filter');
       }
     }
-  }
-
-  private static async _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
-    // Gets the status of the message from the destination bridge contract
-    const bridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-    const client = await getPublicClient(config, { chainId: destChainId });
-
-    if (!client) throw new Error('Could not get public client');
-    const bridgeContract = getContract({
-      client,
-      abi: bridgeABI,
-      address: bridgeAddress,
-    });
-
-    return bridgeContract.read.messageStatus([msgHash]) as Promise<MessageStatus>;
   }
 
   constructor(storage: Storage) {
@@ -112,7 +92,7 @@ export class BridgeTxService {
     return txs;
   }
 
-  private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx = false) {
+  private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx: boolean) {
     // Filters out the transactions that are not from the current address
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
@@ -123,15 +103,15 @@ export class BridgeTxService {
     // Ignore transactions from chains not supported by the bridge
     if (!isSupportedChain(Number(srcChainId))) return;
 
-    let receipt: ModifiedTransactionReceipt | null = null;
+    let receipt: TransactionReceipt | null = null;
 
     if (waitForTx) {
       // We might want to wait for the transaction to be mined
-      receipt = (await waitForTransactionReceipt(config, {
+      receipt = await waitForTransactionReceipt(config, {
         hash,
         chainId: Number(srcChainId),
         timeout: pendingTransaction.waitTimeout,
-      })) as unknown as ModifiedTransactionReceipt;
+      });
     } else {
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
@@ -152,7 +132,7 @@ export class BridgeTxService {
         userAddress: address,
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
-        blockNumber: Number(hexToBigInt(receipt.blockNumber)),
+        blockNumber: Number(receipt.blockNumber),
       });
     } catch (error) {
       //TODO: handle error
@@ -173,13 +153,13 @@ export class BridgeTxService {
     bridgeTx.msgHash = msgHash;
     bridgeTx.message = message;
 
-    const status = await BridgeTxService._getBridgeMessageStatus({
+    const status = await getMessageStatusForMsgHash({
       msgHash: msgHash,
       srcChainId: Number(srcChainId),
       destChainId: Number(destChainId),
     });
 
-    bridgeTx.status = status;
+    bridgeTx.msgStatus = status;
     return bridgeTx;
   }
 
@@ -188,7 +168,7 @@ export class BridgeTxService {
 
     log('Bridge transactions from storage', txs);
 
-    const enhancedTxPromises = txs.map((tx) => this._enhanceTx(tx, address));
+    const enhancedTxPromises = txs.map((tx) => this._enhanceTx(tx, address, true));
 
     const resolvedTxs = await Promise.all(enhancedTxPromises);
 
@@ -197,15 +177,15 @@ export class BridgeTxService {
 
     // Place new transactions at the top of the list
     enhancedTxs.sort((tx1, tx2) => {
-      if (tx1.status === MessageStatus.NEW && tx2.status !== MessageStatus.NEW) {
+      if (tx1.msgStatus === MessageStatus.NEW && tx2.msgStatus !== MessageStatus.NEW) {
         return -1; // tx1 is newer
       }
 
-      if (tx1.status !== MessageStatus.NEW && tx2.status === MessageStatus.NEW) {
+      if (tx1.msgStatus !== MessageStatus.NEW && tx2.msgStatus === MessageStatus.NEW) {
         return 1; // tx2 is newer
       }
 
-      if (tx1.status === MessageStatus.NEW && tx2.status === MessageStatus.NEW) {
+      if (tx1.msgStatus === MessageStatus.NEW && tx2.msgStatus === MessageStatus.NEW) {
         // If both are new, sort by timestamp
         return tx2.timestamp && tx1.timestamp ? tx2.timestamp - tx1.timestamp : 0;
       }

@@ -11,7 +11,7 @@
     "strict": true,
 
     "ignoreDeprecations": "5.0",
-
+    "baseUrl": ".",
     "paths": {
       "$components/*": ["./src/components/*"],
       "$stores/*": ["./src/stores/*"],
@@ -22,7 +22,8 @@
       "$bridgeConfig": ["./src/generated/bridgeConfig.ts"],
       "$chainConfig": ["./src/generated/chainConfig.ts"],
       "$relayerConfig": ["./src/generated/relayerConfig.ts"],
-      "$customToken": ["./src/generated/customTokenConfig.ts"]
+      "$customToken": ["./src/generated/customTokenConfig.ts"],
+      "$mocks": ["./src/tests/mocks/index.ts"]
     },
 
     // https://vitest.dev/config/#globals

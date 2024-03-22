@@ -54,9 +54,11 @@ describe('mergeUniqueTransactions', () => {
       decimals: 2,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
-      status: MessageStatus.DONE,
+      msgStatus: MessageStatus.DONE,
       msgHash: 'msg1' as Hex,
       receipt: undefined,
+      blockNumber: '0x123',
+
       tokenType: 'ERC20' as TokenType,
     },
     {
@@ -67,10 +69,11 @@ describe('mergeUniqueTransactions', () => {
       decimals: 2,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
-      status: MessageStatus.DONE,
+      msgStatus: MessageStatus.DONE,
       msgHash: 'msg2' as Hex,
       receipt: undefined,
       tokenType: 'ERC20' as TokenType,
+      blockNumber: '0x123',
     },
   ];
 
@@ -83,10 +86,11 @@ describe('mergeUniqueTransactions', () => {
       decimals: 2,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
-      status: MessageStatus.DONE,
+      msgStatus: MessageStatus.DONE,
       msgHash: 'msg3' as Hex,
       receipt: undefined,
       tokenType: 'ERC20' as TokenType,
+      blockNumber: '0x123',
     },
     {
       hash: 'hash4' as Hex,
@@ -96,10 +100,11 @@ describe('mergeUniqueTransactions', () => {
       decimals: 2,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
-      status: MessageStatus.DONE,
+      msgStatus: MessageStatus.DONE,
       msgHash: 'msg4' as Hex,
       receipt: undefined,
       tokenType: 'ERC20' as TokenType,
+      blockNumber: '0x123',
     },
   ];
 
@@ -138,11 +143,12 @@ describe('mergeUniqueTransactions', () => {
         decimals: 2,
         srcChainId: BigInt(1),
         destChainId: BigInt(2),
-        status: MessageStatus.DONE,
+        msgStatus: MessageStatus.DONE,
         msgHash: 'msg2' as Hex,
         receipt: undefined,
+        blockNumber: '0x123',
         tokenType: 'ERC20' as TokenType,
-      },
+      } satisfies BridgeTransaction,
     ];
 
     const expectedMergedHashes = extractHashes([...localTxs, ...relayerTx]);

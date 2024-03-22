@@ -75,16 +75,7 @@
     // We want to make sure that we are connected and only
     // fetch if the account has changed
     if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
-      loadingTxs = true;
-
-      try {
-        await updateTransactions(newAccount.address);
-      } catch (err) {
-        console.error(err);
-        // TODO: handle
-      } finally {
-        loadingTxs = false;
-      }
+      await updateTransactions(newAccount.address);
     }
   };
 
@@ -95,6 +86,7 @@
   };
 
   const updateTransactions = async (address: Address) => {
+    if (loadingTxs) return;
     loadingTxs = true;
     const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
     transactions = mergedTransactions;
@@ -108,8 +100,15 @@
     loadingTxs = false;
   };
 
+  let previousAccount: Account | null = null;
+  // refresh only if previous account is different from current account
+  $: if (($account && previousAccount && $account.address !== previousAccount.address) || !previousAccount) {
+    refresh();
+    previousAccount = $account;
+  }
+
   $: statusFilteredTransactions =
-    selectedStatus !== null ? transactions.filter((tx) => tx.status === selectedStatus) : transactions;
+    selectedStatus !== null ? transactions.filter((tx) => tx.msgStatus === selectedStatus) : transactions;
 
   $: tokenAndStatusFilteredTransactions = statusFilteredTransactions.filter((tx) =>
     displayTokenTypesBasedOnType.includes(tx.tokenType),

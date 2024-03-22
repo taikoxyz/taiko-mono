@@ -177,6 +177,7 @@
       <Status
         on:click={isDesktopOrLarger ? undefined : openDetails}
         bridgeTx={item}
+        nft={token}
         on:insufficientFunds={handleInsufficientFunds} />
     </div>
     <div class="hidden md:flex grow py-2 flex flex-col justify-center">
@@ -251,6 +252,7 @@
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
       </a>
     </div>
+    <!-- <button on:click={() => (claimModalOpen = true)}>test</button> -->
   </div>
 {/if}
 

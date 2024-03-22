@@ -1,4 +1,4 @@
-export const bridgeABI = [
+export const bridgeAbi = [
   {
     type: 'event',
     name: 'MessageStatusChanged',
@@ -19,14 +19,14 @@ export const crossChainSyncABI = [
   },
 ] as const;
 
-export const freeMintErc20ABI = [
+export const freeMintErc20Abi = [
   {
     type: 'event',
     name: 'Approval',
   },
 ] as const;
 
-export const erc20ABI = [
+export const erc20Abi = [
   {
     type: 'event',
     name: 'Transfer',

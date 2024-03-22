@@ -7,7 +7,7 @@
   const icon = chainConfig[Number(chainId)]?.icon || 'Unknown Chain';
 </script>
 
-<div class="flex md:items-stretch self-center justify-items-start'}">
+<div class="flex md:items-stretch self-center justify-items-start'} {$$props.class}">
   <img src={icon} alt="chain-logo" class="rounded-full w-5 h-5 mr-2" />
   <span class="md:font-bold font-normal">{chainName}</span>
 </div>

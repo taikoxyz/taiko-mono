@@ -1,7 +1,7 @@
 import { getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { getContract, type Hash, UserRejectedRequestError } from 'viem';
+import { getContract, UserRejectedRequestError } from 'viem';
 
-import { bridgeABI, erc721ABI, erc721VaultABI } from '$abi';
+import { erc721Abi, erc721VaultAbi } from '$abi';
 import { bridgeService } from '$config';
 import {
   ApproveError,
@@ -9,7 +9,6 @@ import {
   NoApprovalRequiredError,
   NoCanonicalInfoFoundError,
   NotApprovedError,
-  ProcessMessageError,
   SendERC721Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
@@ -20,14 +19,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import {
-  type ClaimArgs,
-  type ERC721BridgeArgs,
-  MessageStatus,
-  type NFTApproveArgs,
-  type NFTBridgeTransferOp,
-  type RequireApprovalArgs,
-} from './types';
+import type { ERC721BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC721Bridge');
 
@@ -46,7 +38,7 @@ export class ERC721Bridge extends Bridge {
     log('Checking approval for token ', tokenId);
 
     const approvedAddress = await readContract(config, {
-      abi: erc721ABI,
+      abi: erc721Abi,
       address: tokenAddress,
       functionName: 'getApproved',
       args: [tokenId],
@@ -115,23 +107,23 @@ export class ERC721Bridge extends Bridge {
       log('Sending ERC721 with fee', fee);
       log('Sending ERC721 with args', sendERC721Args);
 
-      try {
-        const { request } = await simulateContract(config, {
-          address: tokenVaultContract.address,
-          abi: erc721VaultABI,
-          functionName: 'sendToken',
-          args: [sendERC721Args],
-          value: fee,
-        });
-        log('Simulate contract', request);
-      } catch (err) {
-        // TODO: Handle error
-        console.error(err);
-      }
+      // try {
+      //   const { request } = await simulateContract(config, {
+      //     address: tokenVaultContract.address,
+      //     abi: erc721VaultAbi,
+      //     functionName: 'sendToken',
+      //     args: [sendERC721Args],
+      //     value: fee,
+      //   });
+      //   log('Simulate contract', request);
+      // } catch (err) {
+      //   // TODO: Handle error
+      //   console.error(err);
+      // }
 
       const txHash = await writeContract(config, {
         address: tokenVaultContract.address,
-        abi: erc721VaultABI,
+        abi: erc721VaultAbi,
         functionName: 'sendToken',
         args: [sendERC721Args],
         chainId: wallet.chain.id,
@@ -148,76 +140,6 @@ export class ERC721Bridge extends Bridge {
       }
       throw new SendERC721Error('failed to bridge ERC721 token', { cause: err });
     }
-  }
-
-  async claim(args: ClaimArgs) {
-    const { messageStatus, destBridgeAddress } = await super.beforeClaiming(args);
-    const { msgHash, message } = args;
-    const srcChainId = Number(message.srcChainId);
-    const destChainId = Number(message.destChainId);
-    let txHash: Hash;
-    log('Claiming ERC721 token with message', message);
-    log('Message status', messageStatus);
-    if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
-
-      try {
-        if (message.gasLimit > bridgeService.erc721GasLimitThreshold) {
-          const { request } = await simulateContract(config, {
-            address: destBridgeAddress,
-            abi: bridgeABI,
-            functionName: 'processMessage',
-            args: [message, proof],
-            gas: message.gasLimit,
-          });
-          log('Simulate contract', request);
-
-          txHash = await writeContract(config, {
-            address: destBridgeAddress,
-            abi: bridgeABI,
-            functionName: 'processMessage',
-            args: [message, proof],
-            gas: message.gasLimit,
-          });
-        } else {
-          //TODO should we really override the gas limit here?
-          const { request } = await simulateContract(config, {
-            address: destBridgeAddress,
-            abi: bridgeABI,
-            functionName: 'processMessage',
-            args: [message, proof],
-          });
-          log('Simulate contract', request);
-
-          txHash = await writeContract(config, {
-            address: destBridgeAddress,
-            abi: bridgeABI,
-            functionName: 'processMessage',
-            args: [message, proof],
-          });
-        }
-
-        log('Transaction hash for processMessage call', txHash);
-      } catch (err) {
-        console.error(err);
-        if (`${err}`.includes('denied transaction signature')) {
-          throw new UserRejectedRequestError(err as Error);
-        }
-
-        throw new ProcessMessageError('failed to process message', { cause: err });
-      }
-    } else {
-      // MessageStatus.RETRIABLE
-      //TODO!!!!
-      throw new Error('Not implemented');
-      // txHash = await super.retryClaim(message, destBridgeContract);
-    }
-    return Promise.resolve('0x' as Hash);
-  }
-
-  async release() {
-    return Promise.resolve('0x' as Hash);
-    //TODO!!!
   }
 
   async approve(args: NFTApproveArgs) {
@@ -246,20 +168,14 @@ export class ERC721Bridge extends Bridge {
       // const txHash = await tokenContract.write.approve([spenderAddress, tokenId]);
       const { request } = await simulateContract(config, {
         address: tokenAddress,
-        abi: erc721ABI,
+        abi: erc721Abi,
         functionName: 'approve',
         args: [spenderAddress, tokenId],
         chainId: wallet.chain.id,
       });
       log('Simulate contract', request);
 
-      const txHash = await writeContract(config, {
-        address: tokenAddress,
-        abi: erc721ABI,
-        functionName: 'approve',
-        args: [spenderAddress, tokenId],
-        chainId: wallet.chain.id,
-      });
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for approve call', txHash);
 
@@ -292,7 +208,7 @@ export class ERC721Bridge extends Bridge {
 
     const tokenVaultContract = getContract({
       client: wallet,
-      abi: erc721VaultABI,
+      abi: erc721VaultAbi,
       address: tokenVaultAddress,
     });
 
@@ -308,6 +224,7 @@ export class ERC721Bridge extends Bridge {
     const sendERC721Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
       to,
+      destOwner: to,
       token,
       gasLimit,
       fee,

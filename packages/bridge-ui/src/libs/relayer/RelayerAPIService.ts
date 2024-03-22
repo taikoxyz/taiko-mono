@@ -1,26 +1,26 @@
-import { readContract } from '@wagmi/core';
+import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import type { Address, Hash } from 'viem';
+import type { Address, Hash, Hex, TransactionReceipt } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
 import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
-import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
-import type {
-  APIRequestParams,
-  APIResponse,
-  APIResponseTransaction,
-  GetAllByAddressResponse,
-  PaginationInfo,
-  PaginationParams,
-  RelayerBlockInfo,
+import {
+  type APIRequestParams,
+  type APIResponse,
+  type APIResponseTransaction,
+  type GetAllByAddressResponse,
+  type PaginationInfo,
+  type PaginationParams,
+  type RelayerBlockInfo,
+  RelayerEventType,
 } from './types';
 
 const log = getLogger('RelayerAPIService');
@@ -37,7 +37,7 @@ export class RelayerAPIService {
   //Todo: duplicate code in BridgeTxService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
     try {
-      return await fetchTransactionReceipt(hash, chainId);
+      return await getTransactionReceipt(config, { chainId, hash });
     } catch (error) {
       log(`Error getting transaction receipt for ${hash}: ${error}`);
       return null;
@@ -97,7 +97,7 @@ export class RelayerAPIService {
 
     const result = await readContract(config, {
       address: bridgeAddress,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       chainId: Number(destChainId),
       functionName: 'messageStatus',
       args: [msgHash],
@@ -166,9 +166,9 @@ export class RelayerAPIService {
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
-      let data: string = tx.data.Message.Data;
+      let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
-        data = '0x';
+        data = '' as Hex;
       } else if (data !== '0x') {
         const buffer = Buffer.from(data, 'base64');
         data = `0x${buffer.toString('hex')}`;
@@ -184,12 +184,15 @@ export class RelayerAPIService {
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
+        tokenType: _eventToTokenType(tx.eventType),
+        blockNumber: tx.data.Raw.blockNumber,
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,
-          data,
+          destOwner: tx.data.Message.DestOwner,
+          data: data as Hex,
           memo: tx.data.Message.Memo,
-          owner: tx.data.Message.Owner,
+          srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
           value: BigInt(tx.data.Message.Value),
@@ -198,7 +201,7 @@ export class RelayerAPIService {
           fee: BigInt(tx.data.Message.Fee),
           refundTo: tx.data.Message.RefundTo,
         },
-      } as BridgeTransaction;
+      } satisfies BridgeTransaction;
 
       return transformedTx;
     });
@@ -213,23 +216,22 @@ export class RelayerAPIService {
       const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), hash);
 
       // TODO: do we want to show these transactions?
-      if (!receipt) return;
+      if (!receipt || receipt === null) {
+        log('Transaction not mined yet', { hash, srcChainId });
+      }
 
-      bridgeTx.receipt = receipt;
+      bridgeTx.receipt = receipt as TransactionReceipt;
 
       if (!msgHash) return; //todo: handle this case
 
-      const status = await RelayerAPIService._getBridgeMessageStatus({
+      const msgStatus = await RelayerAPIService._getBridgeMessageStatus({
         msgHash,
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
       });
 
       // Update the status
-      bridgeTx.status = status;
-
-      bridgeTx.tokenType = _checkType(bridgeTx);
-
+      bridgeTx.msgStatus = msgStatus;
       return bridgeTx;
     });
 
@@ -243,11 +245,9 @@ export class RelayerAPIService {
     return { txs: bridgeTxs, paginationInfo };
   }
 
-  async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
+  async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
-
-    // TODO: why to use a Map here?
-    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
+    const blockInfoRecord: Record<number, RelayerBlockInfo> = {};
 
     try {
       const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL);
@@ -257,32 +257,38 @@ export class RelayerAPIService {
       const { data } = response;
 
       if (data?.data.length > 0) {
-        data.data.forEach((blockInfo: RelayerBlockInfo) => blockInfoMap.set(blockInfo.chainID, blockInfo));
+        data.data.forEach((blockInfo: RelayerBlockInfo) => (blockInfoRecord[blockInfo.chainID] = blockInfo));
       }
     } catch (error) {
       console.error(error);
-      throw new Error('failed to fetch block info', { cause: error });
+      throw new Error('Failed to fetch block info', { cause: error });
     }
 
-    return blockInfoMap;
+    return blockInfoRecord;
+  }
+
+  async getSpecificBlockInfo({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    srcChainId,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    destChainId,
+  }: {
+    srcChainId: number;
+    destChainId: number;
+  }): Promise<Record<number, RelayerBlockInfo>> {
+    throw new Error('Not implemented');
   }
 }
 
-function _checkType(bridgeTx: BridgeTransaction): TokenType {
-  const to = bridgeTx.message?.to;
-
-  switch (to?.toLowerCase()) {
-    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc20VaultAddress.toLowerCase():
+const _eventToTokenType = (eventType: RelayerEventType): TokenType => {
+  switch (eventType) {
+    case RelayerEventType.ERC20:
       return TokenType.ERC20;
-    case routingContractsMap[Number(bridgeTx.destChainId)][
-      Number(bridgeTx.srcChainId)
-    ].erc721VaultAddress.toLowerCase():
+    case RelayerEventType.ERC721:
       return TokenType.ERC721;
-    case routingContractsMap[Number(bridgeTx.destChainId)][
-      Number(bridgeTx.srcChainId)
-    ].erc1155VaultAddress.toLowerCase():
+    case RelayerEventType.ERC1155:
       return TokenType.ERC1155;
     default:
       return TokenType.ETH;
   }
-}
+};

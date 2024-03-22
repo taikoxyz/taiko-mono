@@ -2,7 +2,7 @@
 // import { get } from "svelte/store";
 import type { Address } from 'viem';
 
-// import { erc721VaultABI, erc1155VaultABI } from "$abi";
+// import { erc721VaultAbi, erc1155VaultAbi } from "$abi";
 // import { routingContractsMap } from "$bridgeConfig";
 // import { destNetwork } from "$components/Bridge/state";
 import type { TokenType } from '$libs/token';
@@ -47,7 +47,7 @@ export const isSupportedNFTInterface = async (
   //     }
   //     const tokenVaultContract = getContract({
   //         walletClient,
-  //         abi: erc721VaultABI,
+  //         abi: erc721VaultAbi,
   //         address: routingContractsMap[srcChainId][destChainId].erc721VaultAddress,
   //     });
   //     try {
@@ -79,7 +79,7 @@ export const isSupportedNFTInterface = async (
   //     }
   //     const tokenVaultContract = getContract({
   //         walletClient,
-  //         abi: erc1155VaultABI,
+  //         abi: erc1155VaultAbi,
   //         address: routingContractsMap[srcChainId][destChainId].erc1155VaultAddress,
   //     });
   //     tokenVaultContract.estimateGas.sendToken([dummyArgs], { value: 0n }).then(() => interfaceSupported = true).catch((e) => {

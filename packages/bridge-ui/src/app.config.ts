@@ -1,6 +1,6 @@
 export const recommentProcessingFee = {
   ethGasLimit: BigInt(900_000),
-  erc20NotDeployedGasLimit: BigInt(3_100_000),
+  erc20NotDeployedGasLimit: BigInt(1_650_000),
   erc20DeployedGasLimit: BigInt(1_100_000),
   erc721NotDeployedGasLimit: BigInt(2_400_000),
   erc721DeployedGasLimit: BigInt(1_100_000),
@@ -38,7 +38,7 @@ export const bridgeTransactionPoller = {
   interval: 20_000,
 };
 
-export const statusComponent = {
+export const claimConfig = {
   minimumEthToClaim: 0.0001,
 };
 

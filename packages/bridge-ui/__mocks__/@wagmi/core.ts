@@ -52,4 +52,6 @@ export const createConfig = vi.fn(() => {
   };
 });
 
+export const config = createConfig();
+
 export const reconnect = vi.fn();

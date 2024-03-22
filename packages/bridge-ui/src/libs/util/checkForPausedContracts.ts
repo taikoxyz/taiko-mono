@@ -1,6 +1,6 @@
 import { readContract } from '@wagmi/core';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { config } from '$libs/wagmi';
 import { bridgePausedModal } from '$stores/modal';
@@ -22,7 +22,7 @@ export const checkForPausedContracts = async () => {
       log(`Checking if bridge ${bridgeAddress} is paused on chain ${srcChainId}`);
       try {
         return await readContract(config, {
-          abi: bridgeABI,
+          abi: bridgeAbi,
           address: bridgeAddress,
           chainId: srcChainId,
           functionName: 'paused',

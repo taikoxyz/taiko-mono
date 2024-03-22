@@ -1,14 +1,22 @@
-import { readContract } from '@wagmi/core';
-import type { Hash } from 'viem';
+import { readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getContract, type Hash, UserRejectedRequestError } from 'viem';
 
-import { bridgeABI } from '$abi';
+import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { MessageStatusError, WrongChainError, WrongOwnerError } from '$libs/error';
+import { MessageStatusError, ProcessMessageError, ReleaseError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
-import { type BridgeArgs, type ClaimArgs, MessageStatus, type ReleaseArgs } from './types';
+import {
+  type BridgeArgs,
+  type ClaimArgs,
+  MessageStatus,
+  type ProcessMessageType,
+  type ReleaseArgs,
+  type RetryMessageArgs,
+} from './types';
 
 const log = getLogger('bridge:Bridge');
 
@@ -28,8 +36,11 @@ export abstract class Bridge {
    *
    * Important: wallet must be connected to the destination chain
    */
-  protected async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
+  protected async beforeClaiming({ bridgeTx, wallet }: ClaimArgs) {
     const connectedChainId = await wallet.getChainId();
+    const { msgHash, message } = bridgeTx;
+    if (!message || !msgHash) throw new Error('Message is not defined');
+
     const destChainId = Number(message.destChainId);
     const srcChainId = Number(message.srcChainId);
     // Are we connected to the destination chain?
@@ -37,12 +48,12 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
-    const { owner } = message;
+    const { srcOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -50,7 +61,7 @@ export abstract class Bridge {
 
     const messageStatus = await readContract(config, {
       address: destBridgeAddress,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       functionName: 'messageStatus',
       args: [msgHash],
       chainId: connectedChainId,
@@ -77,20 +88,23 @@ export abstract class Bridge {
    * 2. Check that the message is owned by the user
    * 3. Check that the message has failed
    */
-  protected async beforeReleasing({ msgHash, message, wallet }: ClaimArgs) {
+  protected async beforeReleasing({ bridgeTx, wallet }: ClaimArgs) {
     const connectedChainId = await wallet.getChainId();
+    const { msgHash, message } = bridgeTx;
+    if (!message || !msgHash) throw new Error('Message is not defined');
+
     const srcChainId = Number(message.srcChainId);
     // Are we connected to the source chain?
     if (connectedChainId !== srcChainId) {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 
-    const { owner } = message;
+    const { srcOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -100,7 +114,7 @@ export abstract class Bridge {
 
     const messageStatus = await readContract(config, {
       address: destBridgeAddress,
-      abi: bridgeABI,
+      abi: bridgeAbi,
       functionName: 'messageStatus',
       args: [msgHash],
       chainId: connectedChainId,
@@ -111,31 +125,117 @@ export abstract class Bridge {
     if (messageStatus !== MessageStatus.FAILED) {
       throw new MessageStatusError('message must fail to release funds');
     }
+    return;
   }
 
   abstract estimateGas(args: BridgeArgs): Promise<bigint>;
   abstract bridge(args: BridgeArgs): Promise<Hash>;
-  abstract claim(args: ClaimArgs): Promise<Hash>;
-  abstract release(args: ReleaseArgs): Promise<Hash>;
 
-  // protected async retryClaim(message: Message, bridgeContract: GetContractResult<typeof bridgeABI, WalletClient>) {
-  //   log('Retrying message', message);
+  async claim(args: ClaimArgs): Promise<Hash> {
+    const { messageStatus, destBridgeAddress } = await this.beforeClaiming(args);
+    const { blockNumber } = args.bridgeTx;
+    const { message, msgHash } = args.bridgeTx;
+    if (!message || !msgHash || !blockNumber)
+      throw new ProcessMessageError(
+        `message, msgHash or blocknumber is not defined, ${message}, ${msgHash}, ${blockNumber}`,
+      );
 
-  //   try {
-  //     // Last attempt to send the message: isLastAttempt = true
-  //     const txHash = await bridgeContract.write.retryMessage([message, true]);
+    const client = await getConnectedWallet();
+    if (!client) throw new Error('Client not found');
 
-  //     log('Transaction hash for retryMessage call', txHash);
+    const bridgeContract = await getContract({
+      client,
+      abi: bridgeAbi,
+      address: destBridgeAddress,
+    });
 
-  //     return txHash;
-  //   } catch (err) {
-  //     console.error(err);
+    try {
+      let txHash: Hash;
+      if (messageStatus === MessageStatus.NEW) {
+        txHash = await this.processNewMessage({ ...args, bridgeContract, client });
+      } else if (messageStatus === MessageStatus.RETRIABLE) {
+        txHash = await this.retryMessage({ ...args, bridgeContract, client });
+      } else if (messageStatus === MessageStatus.FAILED) {
+        txHash = await this.release({ ...args, bridgeContract, client });
+      } else {
+        throw new ProcessMessageError('Message status not supported for claiming.');
+      }
+      return txHash;
+    } catch (err) {
+      if (`${err}`.includes('denied transaction signature')) {
+        console.error(err);
+        throw new UserRejectedRequestError(err as Error);
+      }
+      throw err;
+    }
+  }
 
-  //     if (`${err}`.includes('denied transaction signature')) {
-  //       throw new UserRejectedRequestError(err as Error);
-  //     }
+  private async processNewMessage(args: ProcessMessageType): Promise<Hash> {
+    const { bridgeTx, bridgeContract, client } = args;
+    const { message } = bridgeTx;
+    if (!message) throw new ProcessMessageError('Message is not defined');
+    const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
+    log('Estimated gas for processMessage', estimatedGas);
 
-  //     throw new RetryError('failed to retry message', { cause: err });
-  //   }
-  // }
+    const { request } = await simulateContract(config, {
+      address: bridgeContract.address,
+      abi: bridgeContract.abi,
+      functionName: 'processMessage',
+      args: [message, proof],
+      gas: estimatedGas,
+    });
+    log('Simulate contract for processMessage', request);
+
+    return await writeContract(config, request);
+  }
+
+  private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
+    const { bridgeTx, bridgeContract, client } = args;
+    const isFinalAttempt = args.lastAttempt || false;
+    const { message } = bridgeTx;
+
+    isFinalAttempt ? log('Retrying message for the last time') : log('Retrying message');
+
+    if (!message) throw new ProcessMessageError('Message is not defined');
+
+    const estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
+      account: client.account,
+    });
+
+    log('Estimated gas for retryMessage', estimatedGas);
+
+    const { request } = await simulateContract(config, {
+      address: bridgeContract.address,
+      abi: bridgeContract.abi,
+      functionName: 'retryMessage',
+      args: [message, isFinalAttempt],
+      gas: estimatedGas,
+    });
+    log('Simulate contract for retryMessage', request);
+
+    return await writeContract(config, request);
+  }
+
+  private async release(args: ReleaseArgs) {
+    await this.beforeReleasing(args);
+
+    const { bridgeTx, bridgeContract, client } = args;
+    const { message } = bridgeTx;
+    if (!message) throw new ReleaseError('Message is not defined');
+    const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    const estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
+    log('Estimated gas for processMessage', estimatedGas);
+
+    const { request } = await simulateContract(config, {
+      address: bridgeContract.address,
+      abi: bridgeContract.abi,
+      functionName: 'recallMessage',
+      args: [message, proof],
+      gas: estimatedGas,
+    });
+    log('Simulate contract for processMessage', request);
+
+    return await writeContract(config, request);
+  }
 }

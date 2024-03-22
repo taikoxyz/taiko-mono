@@ -1,6 +1,6 @@
 import { readContract } from '@wagmi/core';
 
-import { erc20ABI, erc721ABI, erc1155ABI } from '$abi';
+import { erc20Abi, erc721Abi, erc1155Abi } from '$abi';
 import { UnknownTokenTypeError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
@@ -15,7 +15,7 @@ async function isERC721(address: Address, chainId: number): Promise<boolean> {
   try {
     await readContract(config, {
       address,
-      abi: erc721ABI,
+      abi: erc721Abi,
       functionName: 'ownerOf',
       args: [0n],
       chainId,
@@ -32,7 +32,7 @@ async function isERC1155(address: Address, chainId: number): Promise<boolean> {
   try {
     await readContract(config, {
       address,
-      abi: erc1155ABI,
+      abi: erc1155Abi,
       functionName: 'isApprovedForAll',
       args: ['0x0000000000000000000000000000000000000000', '0x0000000000000000000000000000000000000000'],
       chainId,
@@ -47,7 +47,7 @@ async function isERC20(address: Address, chainId: number): Promise<boolean> {
   try {
     await readContract(config, {
       address,
-      abi: erc20ABI,
+      abi: erc20Abi,
       functionName: 'balanceOf',
       args: ['0x0000000000000000000000000000000000000000'],
       chainId,

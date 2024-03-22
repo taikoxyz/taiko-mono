@@ -2,7 +2,7 @@ import { getPublicClient } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { type Abi, type Address, getContract, zeroAddress } from 'viem';
 
-import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
+import { erc20VaultAbi, erc721VaultAbi, erc1155VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
@@ -109,7 +109,7 @@ const _getBridgedAddress = async ({
   }
 
   const vaultABI =
-    type === TokenType.ERC721 ? erc721VaultABI : type === TokenType.ERC1155 ? erc1155VaultABI : erc20VaultABI;
+    type === TokenType.ERC721 ? erc721VaultAbi : type === TokenType.ERC1155 ? erc1155VaultAbi : erc20VaultAbi;
 
   const vaultAddressKey =
     type === TokenType.ERC721

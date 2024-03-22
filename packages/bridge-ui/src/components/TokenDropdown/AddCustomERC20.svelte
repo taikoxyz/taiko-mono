@@ -4,7 +4,7 @@
   import { t } from 'svelte-i18n';
   import { type Address, formatUnits } from 'viem';
 
-  import { erc20ABI } from '$abi';
+  import { erc20Abi } from '$abi';
   import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
@@ -136,7 +136,7 @@
       if (!token) return;
       const balance = await readContract(config, {
         address: tokenAddress as Address,
-        abi: erc20ABI,
+        abi: erc20Abi,
         functionName: 'balanceOf',
         args: [$account?.address as Address],
       });
