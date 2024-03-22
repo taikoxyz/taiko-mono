@@ -122,6 +122,14 @@ var (
 		EnvVars:  []string{"CACHE_OPTION"},
 		Value:    3,
 	}
+	GasIncreaseRate = &cli.Uint64Flag{
+		Name:     "gasIncreaseRate",
+		Usage:    "Rate at which to increase gas when 'replacement transaction underpriced' error",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"GAS_INCREASE_RATE"},
+		Value:    15,
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -143,4 +151,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	DestBridgeAddress,
 	TargetTxHash,
 	CacheOption,
+	GasIncreaseRate,
 })
