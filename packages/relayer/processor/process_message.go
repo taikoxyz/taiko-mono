@@ -120,6 +120,10 @@ func (p *Processor) processMessage(
 		if err != nil {
 			return false, errors.Wrap(err, "p.generateEncodedSignalProof")
 		}
+
+		slog.Info("proof generated",
+			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+		)
 	} else {
 		// proof has been submitted
 		// we need to check the invocation delay and
@@ -231,6 +235,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 		tx, err = p.sendProcessMessageCall(ctx, auth, msgBody.Event, encodedSignalProof, updateGas)
 		if err != nil {
+			slog.Error("error sending process message call", "error", err)
+
 			if strings.Contains(err.Error(), "transaction underpriced") {
 				slog.Warn(
 					"Replacement transaction underpriced",
