@@ -7,6 +7,9 @@ on:
   push:
     branches-ignore:
       - main
+        - release-please-*
+    paths:
+      - "packages/bridge-ui/**"
 
 jobs:
   Deploy-Preview:
