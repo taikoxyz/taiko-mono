@@ -7,7 +7,7 @@ on:
   push:
     branches-ignore:
       - main
-        - release-please-*
+      - release-please-*
     paths:
       - "packages/bridge-ui/**"
 
