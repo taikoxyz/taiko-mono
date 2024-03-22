@@ -77,7 +77,8 @@ type Config struct {
 
 	hopConfigs []hopConfig
 
-	CacheOption int
+	CacheOption     int
+	GasIncreaseRate uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -148,6 +149,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		TargetTxHash:            targetTxHash,
 		CacheOption:             c.Int(flags.CacheOption.Name),
+		GasIncreaseRate:         c.Uint64(flags.GasIncreaseRate.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
