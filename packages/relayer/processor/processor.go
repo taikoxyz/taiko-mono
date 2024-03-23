@@ -414,12 +414,12 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				shouldRequeue, err := p.processMessage(ctx, m)
 
 				if err != nil {
-					// if the message is unprocessable, we just acknowledge it and move on.
-					if errors.Is(err, errUnprocessable) {
+					switch {
+					case errors.Is(err, errUnprocessable):
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
-					} else if errors.Is(err, relayer.ErrUnprofitable) {
+					case errors.Is(err, relayer.ErrUnprofitable):
 						// we want to add it to the unprofitable queue, to be iterated
 						// and picked up by a processor that will periodically check
 						// if the messages are now estimated to be profitable, rather than
@@ -450,7 +450,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
-					} else {
+					default:
 						slog.Error("process message failed", "err", err.Error())
 
 						// we want to negatively acknowledge the message and requeue it if we
@@ -467,7 +467,6 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				if err := p.queue.Ack(ctx, m); err != nil {
 					slog.Error("Err acking message", "err", err.Error())
 				}
-
 			}(msg)
 		}
 	}
