@@ -4,9 +4,9 @@
   import { importDone } from '$components/Bridge/state';
   import { BridgeSteps, BridgingStatus, ImportMethod } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
+  import { StepBack } from '$components/Stepper';
 
   import { selectedImportMethod } from '../ImportStep/state';
-  import StepBack from './StepBack.svelte';
 
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;

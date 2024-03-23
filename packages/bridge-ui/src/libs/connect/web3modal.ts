@@ -11,6 +11,7 @@ export const web3modal = createWeb3Modal({
   wagmiConfig: config,
   projectId,
   featuredWalletIds: [],
+  allowUnsupportedChain: true,
   excludeWalletIds: ['c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96'],
   // chains,
   chainImages,

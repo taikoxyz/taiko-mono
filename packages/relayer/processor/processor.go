@@ -120,6 +120,8 @@ type Processor struct {
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 
 	cfg *Config
+
+	gasIncreaseRate uint64
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -331,6 +333,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	p.targetTxHash = cfg.TargetTxHash
+	p.gasIncreaseRate = cfg.GasIncreaseRate
 
 	return nil
 }

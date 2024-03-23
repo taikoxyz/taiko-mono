@@ -14,6 +14,7 @@
   let uuid = `dropdown-${uid()}`;
 
   let iconFlipperComponent: IconFlipper;
+
   const closeMenu = () => {
     menuOpen = false;
     flipped = false;
@@ -26,6 +27,7 @@
     { value: MessageStatus.DONE, label: $t('transactions.filter.claimed') },
     { value: MessageStatus.FAILED, label: $t('transactions.filter.failed') },
   ];
+
   const toggleMenu = () => {
     menuOpen = !menuOpen;
     flipped = !flipped;
@@ -65,7 +67,7 @@
     <ul
       role="listbox"
       class={menuClasses}
-      use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false), uuid: uuid }}>
+      use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => closeMenu, uuid: uuid }}>
       {#each options as option (option.value)}
         <li
           role="option"

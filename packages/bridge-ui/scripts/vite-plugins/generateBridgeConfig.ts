@@ -14,7 +14,7 @@ dotenv.config();
 const pluginName = 'generateBridgeConfig';
 const logger = new PluginLogger(pluginName);
 
-const skip = process.env.SKIP_ENV_VALDIATION === 'true';
+const skip = process.env.SKIP_ENV_VALIDATION === 'true';
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 

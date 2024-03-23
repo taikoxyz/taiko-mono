@@ -70,8 +70,16 @@ export class MintError extends Error {
   name = 'MintError';
 }
 
+export class BlockNotSyncedError extends Error {
+  name = 'BlockNotSyncedError';
+}
+
 export class PendingBlockError extends Error {
   name = 'PendingBlockError';
+}
+
+export class ProofGenerationError extends Error {
+  name = 'ProofGenerationError';
 }
 
 export class InvalidProofError extends Error {
@@ -134,6 +142,9 @@ export class NoTokenInfoFoundError extends Error {
   name = 'NoTokenInfoFoundError';
 }
 
+export class FetchMetadataError extends Error {
+  name = 'FetchMetadataError';
+}
 export class NoMetadataFoundError extends Error {
   name = 'NoMetadataFoundError';
 }
@@ -152,4 +163,12 @@ export class ConfigError extends Error {
 
 export class IpfsError extends Error {
   name = 'IpfsError';
+}
+
+export class ClientError extends Error {
+  name = 'ClientError';
+}
+
+export class NoDelaysForBridgeError extends Error {
+  name = 'NoDelaysForBridgeError';
 }

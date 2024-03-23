@@ -1,29 +1,33 @@
-import type { Address, Hash, Hex, TransactionReceipt, WalletClient } from 'viem';
+import type { Address, GetContractReturnType, Hash, Hex, TransactionReceipt, WalletClient } from 'viem';
 
+import type { bridgeAbi } from '$abi';
 import type { ChainID } from '$libs/chain';
-import type { TokenType } from '$libs/token';
+import type { Token, TokenType } from '$libs/token';
 
 export enum MessageStatus {
   NEW,
   RETRIABLE,
   DONE,
   FAILED,
+  PROVEN, // UI ONLY
 }
 
 // Bridge sendMessage()
 // Claim/Retry processMessage()/retryMessage()
-// Release releaseEthe()/releaseERC20()
+// Release releaseEther()/releaseERC20()
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
-  // Message from address (auto filled)
+  // The address, EOA or contract, that interacts with this bridge.
   from: Address;
   // Source chain ID (auto filled)
   srcChainId: bigint;
   // Destination chain ID where the `to` address lives (auto filled)
   destChainId: bigint;
-  // User address of the bridged asset.
-  owner: Address;
+  // User address of the bridged asset on the source chain.
+  srcOwner: Address;
+  // The owner of the message on the destination chain.
+  destOwner: Address;
   // Destination owner address
   to: Address;
   // Alternate address to send any refund. If blank, defaults to owner.
@@ -36,7 +40,7 @@ export type Message = {
   gasLimit: bigint;
   // callData to invoke on the destination chain, for ERC20 transfers.
   data: Hex;
-  // Optional memo.
+  // Optional memo / unused at the moment
   memo: string;
 };
 
@@ -45,15 +49,16 @@ export type Message = {
 export type RelayerMessage = {
   Id: bigint;
   From: Address;
-  SrcChainId: number | string | bigint;
-  DestChainId: number | string | bigint;
-  Owner: Address;
+  SrcChainId: bigint;
+  DestChainId: bigint;
+  SrcOwner: Address;
+  DestOwner: Address;
   To: Address;
   RefundTo: Address;
   Value: bigint;
   Fee: bigint;
   GasLimit: bigint;
-  Data: Hex;
+  Data: Hex | string;
   Memo: string;
 };
 
@@ -69,29 +74,36 @@ export type BridgeTransaction = {
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
+  blockNumber: Hex;
+  msgHash: Hash;
+  message?: Message;
+  msgStatus?: MessageStatus;
 
   // Used for sorting local ones
   timestamp?: number;
 
   status?: MessageStatus;
-  receipt?: ModifiedTransactionReceipt;
-  msgHash?: Hash;
-  message?: Message;
+  receipt?: TransactionReceipt;
 };
 
-export type BridgeTransferOp = {
+interface BaseBridgeTransferOp {
   destChainId: bigint;
+  destOwner: Address;
   to: Address;
   token: Address;
-  amount: bigint;
   gasLimit: bigint;
   fee: bigint;
   refundTo: Address;
   memo: string;
-};
+}
 
-export type NFTBridgeTransferOp = {
+export interface BridgeTransferOp extends BaseBridgeTransferOp {
+  amount: bigint;
+}
+
+export interface NFTBridgeTransferOp {
   destChainId: bigint;
+  destOwner: Address;
   to: Address;
   token: Address;
   gasLimit: bigint;
@@ -100,7 +112,7 @@ export type NFTBridgeTransferOp = {
   memo: string;
   tokenIds: bigint[];
   amounts: bigint[];
-};
+}
 
 export type ApproveArgs = {
   amount: bigint;
@@ -171,12 +183,20 @@ export type RequireApprovalArgs = {
 };
 
 export type ClaimArgs = {
-  msgHash: Hash;
-  message: Message;
+  bridgeTx: BridgeTransaction;
   wallet: WalletClient;
+  lastAttempt?: boolean; // used for retrying
 };
 
-export type ReleaseArgs = ClaimArgs;
+export type ProcessMessageType = ClaimArgs & {
+  bridgeContract: GetContractReturnType<typeof bridgeAbi, WalletClient>;
+  client: WalletClient;
+};
+
+export type RetryMessageArgs = ProcessMessageType;
+
+export type ReleaseArgs = ProcessMessageType;
+
 export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
   bridge(args: BridgeArgs): Promise<Hex>;
@@ -223,4 +243,27 @@ export type GetContractAddressType = {
   destChainId: number;
   tokenType: TokenType;
   contractType: ContractType;
+};
+
+export type GetProofReceiptParams = {
+  msgHash: Hash;
+  destChainId: bigint;
+  srcChainId: bigint;
+};
+
+// timestamp, preferred claimer address
+export type GetProofReceiptResponse = readonly [bigint, Address];
+
+export type DetermineTransactionStatusArgs = {
+  tx: BridgeTransaction;
+  claimer: Maybe<Address>;
+};
+
+export type GetMaxToBridgeArgs = {
+  to: Address;
+  token: Token;
+  balance: bigint;
+  fee: bigint;
+  srcChainId: number;
+  destChainId: number;
 };

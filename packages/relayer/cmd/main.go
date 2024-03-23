@@ -7,6 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/api"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
@@ -64,6 +65,13 @@ func main() {
 			Usage:       "Starts the watchdog software",
 			Description: "Taiko relayer watchdog software",
 			Action:      utils.SubcommandAction(new(watchdog.Watchdog)),
+		},
+		{
+			Name:        "bridge",
+			Flags:       flags.BridgeFlags,
+			Usage:       "Starts the bridge software",
+			Description: "Taiko relayer bridge software",
+			Action:      utils.SubcommandAction(new(bridge.Bridge)),
 		},
 	}
 

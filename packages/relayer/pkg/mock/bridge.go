@@ -123,3 +123,7 @@ func (b *Bridge) ProveMessageReceived(
 func (b *Bridge) ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, error) {
 	return &bridge.BridgeMessageSent{}, nil
 }
+
+func (b *Bridge) SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage) (*types.Transaction, error) {
+	return ProcessMessageTx, nil
+}

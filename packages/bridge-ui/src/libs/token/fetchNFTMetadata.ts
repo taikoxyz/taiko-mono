@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 
 import { destNetwork } from '$components/Bridge/state';
 import { ipfsConfig } from '$config';
-import { NoMetadataFoundError, WrongChainError } from '$libs/error';
+import { FetchMetadataError, NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { getMetadataFromCache, isMetadataCached, metadataCache } from '$stores/metadata';
@@ -26,6 +26,7 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
   if (!srcChainId || !destChainId) return null;
 
   const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
+
   if (!tokenInfo || !tokenInfo.canonical?.address) return null;
 
   // check cache for metadata
@@ -36,9 +37,15 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
     if (data) return data;
   }
   log('no cached metadata found', token);
-  if (!uri) {
+  if (uri && uri.startsWith('ethereum:')) {
+    // we have an EIP-681 address
+    // https://eips.ethereum.org/EIPS/eip-681
+    // TODO: implement EIP-681, for now we treat it as invalid URI
+    uri = '';
+  }
+  if (!uri || uri === '') {
     const crossChainMetadata = await crossChainFetchNFTMetadata(token);
-    if (crossChainMetadata) {
+    if (crossChainMetadata && crossChainMetadata.image) {
       // Update cache
       metadataCache.update((cache) => {
         const key = tokenInfo.canonical?.address;
@@ -50,7 +57,7 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
       return crossChainMetadata;
     }
   }
-  if (!uri) throw new Error('No uri found');
+  if (!uri) throw new FetchMetadataError('No uri found');
 
   if (uri.startsWith('ipfs:')) {
     uri = await resolveIPFSUri(uri);
@@ -71,9 +78,9 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
       });
       return metadata;
     }
-    throw new Error('No image in metadata');
+    throw new NoMetadataFoundError('No image in metadata');
   } catch (error) {
-    throw new Error(`Failed to fetch NFT metadata: ${(error as AxiosError).message}`);
+    throw new FetchMetadataError(`Failed to fetch NFT metadata: ${(error as AxiosError).message}`);
   }
 }
 
@@ -91,9 +98,9 @@ const crossChainFetchNFTMetadata = async (token: NFT): Promise<NFTMetadata | nul
     if (tokenInfo && tokenInfo.canonical && tokenInfo.canonical.address && tokenInfo.canonical.chainId) {
       const canonicalChainID = tokenInfo.canonical.chainId;
       const canonicalAddress = tokenInfo.canonical.address;
-
       log(`Fetching metadata for ${token.name} from chain ${canonicalChainID} at address ${canonicalAddress}`);
 
+      // this "builds" the canonical token and calls the fetchNFTMetadata function again with it
       const canonicalToken = (await getTokenWithInfoFromAddress({
         contractAddress: canonicalAddress,
         srcChainId: canonicalChainID,
@@ -102,12 +109,12 @@ const crossChainFetchNFTMetadata = async (token: NFT): Promise<NFTMetadata | nul
       })) as NFT;
       canonicalToken.addresses = { ...token.addresses, [canonicalChainID]: canonicalAddress };
 
-      if (!canonicalToken.uri) throw new Error('No uri found');
+      if (!canonicalToken.uri) throw new FetchMetadataError('No uri found');
       return canonicalToken.metadata || null;
     }
     throw new NoMetadataFoundError('No crosschain metadata found');
   } catch (error) {
     log('Error fetching cross chain metadata', error);
-    throw new NoMetadataFoundError('No crosschain metadata found');
+    throw new FetchMetadataError('No crosschain metadata found', { cause: error });
   }
 };

@@ -82,9 +82,17 @@ func (p *Processor) processMessage(
 		return false, nil
 	}
 
+	slog.Info("waiting for confirmations",
+		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+	)
+
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
 		return false, errors.Wrap(err, "p.waitForConfirmations")
 	}
+
+	slog.Info("done waiting for confirmations",
+		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+	)
 
 	// we need to check the invocation delays and proof receipt to see if
 	// this is currently processable, or we need to wait.
@@ -112,6 +120,10 @@ func (p *Processor) processMessage(
 		if err != nil {
 			return false, errors.Wrap(err, "p.generateEncodedSignalProof")
 		}
+
+		slog.Info("proof generated",
+			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+		)
 	} else {
 		// proof has been submitted
 		// we need to check the invocation delay and
@@ -123,7 +135,6 @@ func (p *Processor) processMessage(
 	}
 
 	receipt, err := p.sendProcessMessageAndWaitForReceipt(ctx, encodedSignalProof, msgBody)
-
 	if err != nil {
 		return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 	}
@@ -208,13 +219,37 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 	var err error
 
+	var updateGas bool = true
+
+	auth, err := bind.NewKeyedTransactorWithChainID(
+		p.ecdsaKey,
+		new(big.Int).SetUint64(msgBody.Event.Message.DestChainId))
+	if err != nil {
+		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+
 	sendTx := func() error {
 		if ctx.Err() != nil {
 			return nil
 		}
 
-		tx, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+		tx, err = p.sendProcessMessageCall(ctx, auth, msgBody.Event, encodedSignalProof, updateGas)
 		if err != nil {
+			slog.Error("error sending process message call", "error", err)
+
+			if strings.Contains(err.Error(), "transaction underpriced") {
+				slog.Warn(
+					"Replacement transaction underpriced",
+					"nonce", tx.Nonce(),
+					"hash", tx.Hash(),
+					"err", err,
+				)
+
+				p.increaseGas(ctx, auth)
+
+				updateGas = false
+			}
+
 			return err
 		}
 
@@ -235,6 +270,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 	defer cancel()
 
+	slog.Info("waiting for tx receipt", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
+
 	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
 		return nil, errors.Wrap(err, "relayer.WaitReceipt")
@@ -247,6 +284,40 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 	}
 
 	return receipt, nil
+}
+
+func (p *Processor) increaseGas(ctx context.Context, auth *bind.TransactOpts) {
+	slog.Info("increasing gas fee for retry",
+		"gasFeeCap", auth.GasFeeCap,
+		"gasTipCap", auth.GasTipCap,
+	)
+
+	// Increase the gas price by at least 10%
+	if auth.GasFeeCap != nil {
+		gasFeeCap := auth.GasFeeCap.Int64()
+		gasFeeCap += gasFeeCap * int64(p.gasIncreaseRate) / 100
+		auth.GasFeeCap = big.NewInt(gasFeeCap)
+	}
+
+	if auth.GasTipCap != nil {
+		gasTipCap := auth.GasTipCap.Int64()
+		gasTipCap += gasTipCap * int64(p.gasIncreaseRate) / 100
+		auth.GasTipCap = big.NewInt(gasTipCap)
+	}
+
+	if auth.GasPrice != nil {
+		gasPrice := auth.GasPrice.Int64()
+		gasPrice += gasPrice * int64(p.gasIncreaseRate) / 100
+		auth.GasPrice = big.NewInt(gasPrice)
+	}
+
+	slog.Info("updated gas",
+		"gasFeeCap",
+		auth.GasFeeCap,
+		"gasTipCap",
+		auth.GasTipCap,
+		"gasPrice", auth.GasPrice,
+	)
 }
 
 // waitForInvocationDelay will return when the invocation delay has been met,
@@ -485,20 +556,19 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 // after estimating gas, and checking profitability.
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,
+	auth *bind.TransactOpts,
 	event *bridge.BridgeMessageSent,
 	proof []byte,
+	updateGas bool,
 ) (*types.Transaction, error) {
-	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, new(big.Int).SetUint64(event.Message.DestChainId))
-	if err != nil {
-		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
+	slog.Info("sending process message call")
 
 	auth.Context = ctx
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	err = p.getLatestNonce(ctx, auth)
+	err := p.getLatestNonce(ctx, auth)
 	if err != nil {
 		return nil, errors.New("p.getLatestNonce")
 	}
@@ -536,8 +606,10 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	if err = utils.SetGasTipOrPrice(ctx, auth, p.destEthClient); err != nil {
-		return nil, errors.Wrap(err, "p.setGasTipOrPrice")
+	if updateGas {
+		if err = utils.SetGasTipOrPrice(ctx, auth, p.destEthClient); err != nil {
+			return nil, errors.Wrap(err, "p.setGasTipOrPrice")
+		}
 	}
 
 	cost, err = p.getCost(ctx, auth)

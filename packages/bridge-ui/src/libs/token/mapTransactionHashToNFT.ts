@@ -2,7 +2,7 @@ import { getTransaction } from '@wagmi/core';
 import { get, writable } from 'svelte/store';
 import { decodeFunctionData, type Hash } from 'viem';
 
-import { erc721VaultABI, erc1155VaultABI } from '$abi';
+import { erc721VaultAbi, erc1155VaultAbi } from '$abi';
 import { InvalidParametersProvidedError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
@@ -41,9 +41,9 @@ export const mapTransactionHashToNFT = async ({
   const abi = (() => {
     switch (type) {
       case TokenType.ERC721:
-        return erc721VaultABI;
+        return erc721VaultAbi;
       case TokenType.ERC1155:
-        return erc1155VaultABI;
+        return erc1155VaultAbi;
       default:
         throw new Error('Invalid token type');
     }
