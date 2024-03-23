@@ -130,6 +130,14 @@ var (
 		EnvVars:  []string{"GAS_INCREASE_RATE"},
 		Value:    15,
 	}
+	UnprofitableMessageQueueExpiration = &cli.StringFlag{
+		Name:     "unprofitableMessageQueueExpiration",
+		Usage:    "Time in seconds for queue message to expire when unprofitable, which will re-route it to be checked again",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"UNPROFITABLE_MESSAGE_QUEUE_EXPIRATION"},
+		Value:    "",
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -152,4 +160,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	TargetTxHash,
 	CacheOption,
 	GasIncreaseRate,
+	UnprofitableMessageQueueExpiration,
 })
