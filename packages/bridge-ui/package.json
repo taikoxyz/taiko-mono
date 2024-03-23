@@ -60,7 +60,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@wagmi/connectors": "^4.1.14",
+    "@wagmi/connectors": "^4.1.18",
     "@wagmi/core": "^2.6.5",
     "@walletconnect/ethereum-provider": "^2.11.2",
     "@walletconnect/modal": "^2.6.2",
