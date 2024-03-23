@@ -136,7 +136,6 @@ var (
 		Category: processorCategory,
 		Required: false,
 		EnvVars:  []string{"UNPROFITABLE_MESSAGE_QUEUE_EXPIRATION"},
-		Value:    "",
 	}
 )
 
