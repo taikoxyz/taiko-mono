@@ -56,7 +56,7 @@ To maintain clarity and consistency across our Solidity codebase, the following 
 
 #### Reserved storage slots
 
-To ensure upgradeability and prevent storage collisions in future contract versions, reserve a fixed number of storage slots at the end of each contract. This is achieved by declaring a placeholder array in the contract's storage layout as follows:
+To ensure upgradability and prevent storage collisions in future contract versions, reserve a fixed number of storage slots at the end of each contract. This is achieved by declaring a placeholder array in the contract's storage layout as follows:
 
 ```solidity
 // Reserve 50 storage slots for future use to ensure contract upgradeability.
