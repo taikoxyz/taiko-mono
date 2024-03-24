@@ -222,7 +222,7 @@
       </div>
     {/if}
   </div>
-  <!-- We catch key events aboe -->
+  <!-- We catch key events above -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
 </dialog>
