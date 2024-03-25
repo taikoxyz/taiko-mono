@@ -71,7 +71,7 @@ var (
 	}
 	NumLatestBlocksToIgnoreWhenCrawling = &cli.Uint64Flag{
 		Name:     "numLatestBlocksToIgnoreWhenCrawling",
-		Usage:    "Number of blocks to ingore when crawling chain, should be higher for L2-L1 indexing due to delay",
+		Usage:    "Number of blocks to ignore when crawling chain, should be higher for L2-L1 indexing due to delay",
 		Value:    1000,
 		Category: indexerCategory,
 		EnvVars:  []string{"NUM_LATEST_BLOCKS_TO_IGNORE_WHEN_CRAWLING"},

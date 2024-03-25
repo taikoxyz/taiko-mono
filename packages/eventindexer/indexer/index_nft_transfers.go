@@ -85,7 +85,7 @@ func (i *Indexer) isERC721Transfer(ctx context.Context, vLog types.Log) bool {
 	return true
 }
 
-// saveNFTTrasnfer parses the event logs and saves either an ERC721 or ERC1155 event, updating
+// saveNFTTransfer parses the event logs and saves either an ERC721 or ERC1155 event, updating
 // users balances
 func (i *Indexer) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	if i.isERC721Transfer(ctx, vLog) {
