@@ -11,6 +11,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/generator"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/indexer"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
