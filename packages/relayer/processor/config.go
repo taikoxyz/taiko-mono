@@ -80,7 +80,6 @@ type Config struct {
 	hopConfigs []hopConfig
 
 	CacheOption                        int
-	GasIncreaseRate                    uint64
 	UnprofitableMessageQueueExpiration *string
 
 	TxmgrConfigs *txmgr.CLIConfig
@@ -161,7 +160,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
 		TargetTxHash:                       targetTxHash,
 		CacheOption:                        c.Int(flags.CacheOption.Name),
-		GasIncreaseRate:                    c.Uint64(flags.GasIncreaseRate.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.DestRPCUrl.Name),

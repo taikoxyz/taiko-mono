@@ -124,8 +124,6 @@ type Processor struct {
 
 	cfg *Config
 
-	gasIncreaseRate uint64
-
 	txmgr txmgr.TxManager
 }
 
@@ -347,7 +345,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	p.targetTxHash = cfg.TargetTxHash
-	p.gasIncreaseRate = cfg.GasIncreaseRate
 
 	return nil
 }
