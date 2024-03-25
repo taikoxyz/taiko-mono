@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,9 +20,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 var (
@@ -134,7 +134,7 @@ func (p *Processor) processMessage(
 		}
 	}
 
-	receipt, err := p.sendProcessMessageAndWaitForReceipt(ctx, encodedSignalProof, msgBody)
+	receipt, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
 	if err != nil {
 		return false, err
 	}
@@ -167,7 +167,7 @@ func (p *Processor) processMessage(
 				return false, errors.Wrap(err, "p.waitForInvocationDelay")
 			}
 
-			if _, err := p.sendProcessMessageAndWaitForReceipt(ctx, nil, msgBody); err != nil {
+			if _, err := p.sendProcessMessageCall(ctx, msgBody.Event, nil); err != nil {
 				return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
 			}
 		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
@@ -205,135 +205,6 @@ func (p *Processor) processMessage(
 	}
 
 	return false, nil
-}
-
-// sendProcessMessageAndWaitForReceipt uses a backoff retry message mechanism
-// to send the onchain processMessage call on the bridge, then wait
-// for the transaction receipt, and save the updated status to the database.
-func (p *Processor) sendProcessMessageAndWaitForReceipt(
-	ctx context.Context,
-	encodedSignalProof []byte,
-	msgBody *queue.QueueMessageSentBody,
-) (*types.Receipt, error) {
-	var tx *types.Transaction
-
-	var err error
-
-	var updateGas bool = true
-
-	var unprofitable bool = false
-
-	auth, err := bind.NewKeyedTransactorWithChainID(
-		p.ecdsaKey,
-		new(big.Int).SetUint64(msgBody.Event.Message.DestChainId))
-	if err != nil {
-		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
-
-	sendTx := func() error {
-		if unprofitable {
-			return nil
-		}
-
-		if ctx.Err() != nil {
-			return nil
-		}
-
-		tx, err = p.sendProcessMessageCall(ctx, auth, msgBody.Event, encodedSignalProof, updateGas)
-		if err != nil {
-			slog.Error("error sending process message call", "error", err.Error())
-
-			if errors.Is(err, relayer.ErrUnprofitable) {
-				unprofitable = true
-
-				return err
-			}
-
-			if strings.Contains(err.Error(), "transaction underpriced") {
-				slog.Warn(
-					"Replacement transaction underpriced",
-					"nonce", tx.Nonce(),
-					"hash", tx.Hash(),
-					"err", err,
-				)
-
-				p.increaseGas(ctx, auth)
-
-				updateGas = false
-			}
-
-			return err
-		}
-
-		return nil
-	}
-
-	if err := backoff.Retry(sendTx, backoff.WithContext(
-		backoff.WithMaxRetries(
-			backoff.NewConstantBackOff(p.backOffRetryInterval),
-			p.backOffMaxRetries), ctx),
-	); err != nil {
-		return nil, err
-	}
-
-	if unprofitable {
-		return nil, relayer.ErrUnprofitable
-	}
-
-	relayer.MessageSentEventsProcessed.Inc()
-
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
-
-	defer cancel()
-
-	slog.Info("waiting for tx receipt", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
-
-	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
-	if err != nil {
-		return nil, errors.Wrap(err, "relayer.WaitReceipt")
-	}
-
-	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
-
-	if err := p.saveMessageStatusChangedEvent(ctx, receipt, msgBody.Event); err != nil {
-		return nil, errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
-	}
-
-	return receipt, nil
-}
-
-func (p *Processor) increaseGas(ctx context.Context, auth *bind.TransactOpts) {
-	slog.Info("increasing gas fee for retry",
-		"gasFeeCap", auth.GasFeeCap,
-		"gasTipCap", auth.GasTipCap,
-	)
-
-	// Increase the gas price by at least 10%
-	if auth.GasFeeCap != nil {
-		gasFeeCap := auth.GasFeeCap.Int64()
-		gasFeeCap += gasFeeCap * int64(p.gasIncreaseRate) / 100
-		auth.GasFeeCap = big.NewInt(gasFeeCap)
-	}
-
-	if auth.GasTipCap != nil {
-		gasTipCap := auth.GasTipCap.Int64()
-		gasTipCap += gasTipCap * int64(p.gasIncreaseRate) / 100
-		auth.GasTipCap = big.NewInt(gasTipCap)
-	}
-
-	if auth.GasPrice != nil {
-		gasPrice := auth.GasPrice.Int64()
-		gasPrice += gasPrice * int64(p.gasIncreaseRate) / 100
-		auth.GasPrice = big.NewInt(gasPrice)
-	}
-
-	slog.Info("updated gas",
-		"gasFeeCap",
-		auth.GasFeeCap,
-		"gasTipCap",
-		auth.GasTipCap,
-		"gasPrice", auth.GasPrice,
-	)
 }
 
 // waitForInvocationDelay will return when the invocation delay has been met,
@@ -572,22 +443,10 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 // after estimating gas, and checking profitability.
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,
-	auth *bind.TransactOpts,
 	event *bridge.BridgeMessageSent,
 	proof []byte,
-	updateGas bool,
-) (*types.Transaction, error) {
+) (*types.Receipt, error) {
 	slog.Info("sending process message call")
-
-	auth.Context = ctx
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	err := p.getLatestNonce(ctx, auth)
-	if err != nil {
-		return nil, errors.New("p.getLatestNonce")
-	}
 
 	eventType, canonicalToken, _, err := relayer.DecodeMessageData(event.Message.Data, event.Message.Value)
 	if err != nil {
@@ -604,7 +463,7 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	if needsContractDeployment {
-		auth.GasLimit = 3000000
+		gas = 3000000
 	} else {
 		// otherwise we can estimate gas
 		gas, err = p.estimateGas(ctx, event.Message, proof)
@@ -613,22 +472,19 @@ func (p *Processor) sendProcessMessageCall(
 		if err != nil || gas == 0 {
 			slog.Info("gas estimation failed, hardcoding gas limit", "p.estimateGas:", err)
 
-			err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
+			gas, err = p.hardcodeGasLimit(ctx, event, eventType, canonicalToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
 			}
-		} else {
-			auth.GasLimit = gas
 		}
 	}
 
-	if updateGas {
-		if err = utils.SetGasTipOrPrice(ctx, auth, p.destEthClient); err != nil {
-			return nil, errors.Wrap(err, "p.setGasTipOrPrice")
-		}
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	cost, err = p.getCost(ctx, auth)
+	cost, err = p.getCost(ctx, gas, gasTipCap, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.getCost")
 	}
@@ -640,15 +496,33 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	// process the message on the destination bridge.
-	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
+	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.destBridge.ProcessMessage")
+		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
 	}
 
-	p.setLatestNonce(tx.Nonce())
+	candidate := txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    nil,
+		To:       &p.cfg.DestBridgeAddress,
+		GasLimit: gas,
+	}
 
-	return tx, nil
+	receipt, err := p.txmgr.Send(ctx, candidate)
+	if err != nil {
+		slog.Warn("Failed to send ProcessMessage transaction", "error", err.Error())
+		return nil, err
+	}
+
+	relayer.MessageSentEventsProcessed.Inc()
+
+	slog.Info("Mined tx", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()))
+
+	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
+		return nil, errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
+	}
+
+	return receipt, nil
 }
 
 // needsContractDeployment is needed because
@@ -712,19 +586,20 @@ func (p *Processor) needsContractDeployment(
 // send lower.
 func (p *Processor) hardcodeGasLimit(
 	ctx context.Context,
-	auth *bind.TransactOpts,
 	event *bridge.BridgeMessageSent,
 	eventType relayer.EventType,
 	canonicalToken relayer.CanonicalToken,
-) error {
+) (uint64, error) {
 	var bridgedAddress common.Address
 
 	var err error
 
+	var gas uint64
+
 	switch eventType {
 	case relayer.EventTypeSendETH:
 		// eth bridges take much less gas, from 250k to 450k.
-		auth.GasLimit = 500000
+		gas = 500000
 	case relayer.EventTypeSendERC20:
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(
@@ -733,7 +608,7 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
+			return 0, errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
 		}
 	case relayer.EventTypeSendERC721:
 		// determine whether the canonical token is bridged or not on this chain
@@ -743,7 +618,7 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
+			return 0, errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
 		}
 	case relayer.EventTypeSendERC1155:
 		// determine whether the canonical token is bridged or not on this chain
@@ -753,28 +628,23 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
+			return 0, errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
 		}
 	default:
-		return errors.New("unexpected event type")
+		return 0, errors.New("unexpected event type")
 	}
 
 	if bridgedAddress == relayer.ZeroAddress {
 		// needs large gas limit because it has to deploy an ERC20 contract on destination
 		// chain. deploying ERC20 can be 2 mil by itself.
-		auth.GasLimit = 3000000
+		gas = 3000000
 	} else {
 		// needs larger than ETH gas limit but not as much as deploying ERC20.
 		// takes 450-550k gas after signalRoot refactors.
-		auth.GasLimit = 600000
+		gas = 600000
 	}
 
-	return nil
-}
-
-// setLatestNonce sets the latest nonce used for the relayer key
-func (p *Processor) setLatestNonce(nonce uint64) {
-	p.destNonce = nonce
+	return gas, nil
 }
 
 // saveMessageStatusChangedEvent writes the MessageStatusChanged event to the
@@ -827,8 +697,8 @@ func (p *Processor) saveMessageStatusChangedEvent(
 }
 
 // getCost determines the fee of a processMessage call
-func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
-	if auth.GasTipCap != nil {
+func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int, gasPrice *big.Int) (*big.Int, error) {
+	if gasTipCap != nil {
 		blk, err := p.destEthClient.BlockByNumber(ctx, nil)
 		if err != nil {
 			return nil, err
@@ -850,9 +720,9 @@ func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.
 		}
 
 		return new(big.Int).Mul(
-			new(big.Int).SetUint64(auth.GasLimit),
-			new(big.Int).Add(auth.GasTipCap, baseFee)), nil
+			new(big.Int).SetUint64(gas),
+			new(big.Int).Add(gasTipCap, baseFee)), nil
 	} else {
-		return new(big.Int).Mul(auth.GasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+		return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gas)), nil
 	}
 }

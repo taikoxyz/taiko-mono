@@ -4,10 +4,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
+	pkgFlags "github.com/taikoxyz/taiko-mono/packages/relayer/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue/rabbitmq"
 	"github.com/urfave/cli/v2"
@@ -80,6 +82,8 @@ type Config struct {
 	CacheOption                        int
 	GasIncreaseRate                    uint64
 	UnprofitableMessageQueueExpiration *string
+
+	TxmgrConfigs *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -159,6 +163,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		CacheOption:                        c.Int(flags.CacheOption.Name),
 		GasIncreaseRate:                    c.Uint64(flags.GasIncreaseRate.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,
+		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.DestRPCUrl.Name),
+			processorPrivateKey,
+			c,
+		),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

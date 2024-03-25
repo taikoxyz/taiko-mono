@@ -139,7 +139,7 @@ var (
 	}
 )
 
-var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
+var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	DestERC721VaultAddress,
 	DestERC1155VaultAddress,
 	DestERC20VaultAddress,

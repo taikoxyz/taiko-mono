@@ -5,17 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 )
 
 var hopProofsT abi.Type
 var err error
-
-func init() {
-	hopProofsT, err = abi.NewType("tuple[]", "tuple[]", hopComponents)
-	if err != nil {
-		panic(err)
-	}
-}
 
 type Proof struct {
 	AccountProof []byte `abi:"accountProof"`
@@ -85,4 +80,17 @@ var hopComponents = []abi.ArgumentMarshaling{
 		Name: "storageProof",
 		Type: "bytes[]",
 	},
+}
+
+var BridgeABI *abi.ABI
+
+func init() {
+	hopProofsT, err = abi.NewType("tuple[]", "tuple[]", hopComponents)
+	if err != nil {
+		panic(err)
+	}
+
+	if BridgeABI, err = bridge.BridgeMetaData.GetAbi(); err != nil {
+		log.Crit("Get Bridge ABI error", "error", err)
+	}
 }
