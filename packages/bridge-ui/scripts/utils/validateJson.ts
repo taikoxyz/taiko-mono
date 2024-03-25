@@ -5,11 +5,11 @@ import { PluginLogger } from './PluginLogger';
 
 const ajv = new Ajv({ strict: false });
 
-type SchmaWithId = Schema & { $id?: string };
+type SchemaWithId = Schema & { $id?: string };
 
 const logger = new PluginLogger('json-validator');
 
-export const validateJsonAgainstSchema = (json: JSON, schema: SchmaWithId): boolean => {
+export const validateJsonAgainstSchema = (json: JSON, schema: SchemaWithId): boolean => {
   logger.info(`Validating ${schema.$id}`);
   const validate = ajv.compile(schema);
 
