@@ -136,7 +136,7 @@ func (p *Processor) processMessage(
 
 	receipt, err := p.sendProcessMessageAndWaitForReceipt(ctx, encodedSignalProof, msgBody)
 	if err != nil {
-		return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
+		return false, err
 	}
 
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
@@ -221,6 +221,8 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 
 	var updateGas bool = true
 
+	var unprofitable bool = false
+
 	auth, err := bind.NewKeyedTransactorWithChainID(
 		p.ecdsaKey,
 		new(big.Int).SetUint64(msgBody.Event.Message.DestChainId))
@@ -229,13 +231,23 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 	}
 
 	sendTx := func() error {
+		if unprofitable {
+			return nil
+		}
+
 		if ctx.Err() != nil {
 			return nil
 		}
 
 		tx, err = p.sendProcessMessageCall(ctx, auth, msgBody.Event, encodedSignalProof, updateGas)
 		if err != nil {
-			slog.Error("error sending process message call", "error", err)
+			slog.Error("error sending process message call", "error", err.Error())
+
+			if errors.Is(err, relayer.ErrUnprofitable) {
+				unprofitable = true
+
+				return err
+			}
 
 			if strings.Contains(err.Error(), "transaction underpriced") {
 				slog.Warn(
@@ -262,6 +274,10 @@ func (p *Processor) sendProcessMessageAndWaitForReceipt(
 			p.backOffMaxRetries), ctx),
 	); err != nil {
 		return nil, err
+	}
+
+	if unprofitable {
+		return nil, relayer.ErrUnprofitable
 	}
 
 	relayer.MessageSentEventsProcessed.Inc()
