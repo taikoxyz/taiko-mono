@@ -27,7 +27,7 @@ type ethClient interface {
 }
 
 // IsMaxPriorityFeePerGasNotFoundError returns true if the provided error
-// signals that the backend does not support the eth_maxPrirorityFeePerGas
+// signals that the backend does not support the eth_maxPriorityFeePerGas
 // method. In this case, the caller should fallback to using the constant above.
 func IsMaxPriorityFeePerGasNotFoundError(err error) bool {
 	return strings.Contains(
