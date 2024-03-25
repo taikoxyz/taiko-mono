@@ -83,6 +83,8 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		want := receipt.BlockNumber.Uint64() + confirmations
 
 		if latest < want {
+			slog.Info("waiting for confirmations", "latestBlockNum", latest, "wantBlockNum", want)
+
 			return errStillWaiting
 		}
 

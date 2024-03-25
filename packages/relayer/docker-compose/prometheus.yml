@@ -6,3 +6,7 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets: ["localhost:9090"]
+
+  - job_name: "rabbitmq"
+    static_configs:
+      - targets: ["host.docker.internal:15692"]

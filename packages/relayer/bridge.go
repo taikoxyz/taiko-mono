@@ -29,5 +29,6 @@ type Bridge interface {
 		InvocationDelay      *big.Int
 		InvocationExtraDelay *big.Int
 	}, error)
+	SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage) (*types.Transaction, error)
 	SuspendMessages(opts *bind.TransactOpts, _msgHashes [][32]byte, _toSuspend bool) (*types.Transaction, error)
 }

@@ -9,6 +9,7 @@ var (
 	indexerCategory   = "INDEXER"
 	processorCategory = "PROCESSOR"
 	watchdogCategory  = "WATCHDOG"
+	bridegCategory    = "BRIDGE"
 )
 
 var (
