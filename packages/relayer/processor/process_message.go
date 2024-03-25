@@ -599,7 +599,7 @@ func (p *Processor) hardcodeGasLimit(
 	switch eventType {
 	case relayer.EventTypeSendETH:
 		// eth bridges take much less gas, from 250k to 450k.
-		gas = 500000
+		return 500000, nil
 	case relayer.EventTypeSendERC20:
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(
