@@ -50,7 +50,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
+                abi.encodeWithSelector(AddressManager.init, address(0))
             })
         );
 
@@ -59,7 +59,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    data: abi.encodeWithSelector(TwoStepBridge.init, address(0), address(addressManager))
                     registerTo: address(addressManager)
                 })
             )
@@ -70,7 +70,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager)))
+                    data: abi.encodeWithSelector(SkipProofCheckSignal.init, address(0), address(addressManager))
                 })
             )
         );
@@ -90,7 +90,7 @@ contract BridgeTest is TaikoTest {
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
                 data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
-                registerTo: address(addressManager)
+                register(address(addressManager), "signal_service", address(mockProofSignalService), destChainId);
             })
         );
 
@@ -394,7 +394,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 0,
             fee: 0,
-            destChain: uint64(block.chainid)
+            destChain: uint64(destChainId),
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -568,7 +568,7 @@ contract BridgeTest is TaikoTest {
     function test_Bridge_suspend_messages() public {
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
-            setUpPredefinedSuccessfulProcessMessageCall();
+        setUpPredefinedSuccessfulProcessMessageCall();
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
         bytes32[] memory messageHashes = new bytes32[](1);
