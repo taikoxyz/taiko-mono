@@ -205,7 +205,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		false,
 		false,
 		false,
-		args,
+		unprofitableArgs,
 	)
 	if err != nil {
 		return err
