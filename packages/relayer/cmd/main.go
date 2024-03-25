@@ -13,6 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/processor"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/watchdog"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {

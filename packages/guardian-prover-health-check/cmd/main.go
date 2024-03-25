@@ -9,6 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/healthchecker"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {

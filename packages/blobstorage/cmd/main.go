@@ -10,6 +10,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/indexer"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {

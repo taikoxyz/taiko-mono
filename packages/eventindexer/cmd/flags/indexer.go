@@ -1,5 +1,9 @@
 package flags
 
+import (
+	"github.com/urfave/cli/v2"
+)
+
 // required flags
 var (
 	IndexerRPCUrl = &cli.StringFlag{
