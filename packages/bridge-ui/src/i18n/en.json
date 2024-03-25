@@ -402,7 +402,8 @@
       "description": "You can add your own token by entering the contract address below. Make sure you are on the chain where the token is deployed.",
       "title": "Add your own token"
     },
-    "label": "Select token"
+    "label": "Select token",
+    "imported_tokens": "Your imported tokens:"
   },
   "transactions": {
     "actions": {
