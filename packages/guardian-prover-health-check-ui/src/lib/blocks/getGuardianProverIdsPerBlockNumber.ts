@@ -1,11 +1,11 @@
-import type { GuardianProverIdsMap, SignedBlock, SignedBlocks } from '$lib/types';
+import type { GuardianProverIdsMap, SignedBlocks } from '$lib/types';
 
 export const getGuardianProverIdsPerBlockNumber = (blocks: SignedBlocks): GuardianProverIdsMap => {
-	const result: GuardianProverIdsMap = {};
-
-	for (const blockNumber in blocks) {
-		result[blockNumber] = blocks[blockNumber].map((block: SignedBlock) => block.guardianProverID);
-	}
-
-	return result;
+  const blockNumbers = Object.keys(blocks);
+  return blockNumbers.reduce((prev, blockNumber) => {
+    return {
+      ...prev,
+      [blockNumber]: blocks[blockNumber].map(block => block.guardianProverID)
+    }
+  }, {});
 };

@@ -1,17 +1,14 @@
 import { get } from 'svelte/store';
 import { signedBlocks } from '$stores';
-import type { SignedBlock, SortedSignedBlocks } from '$lib/types';
+import type { SortedSignedBlocks } from '$lib/types';
 
 export function signedBlocksPerGuardian(guardianProverId: number): number {
 	const allSortedSignedBlocks: SortedSignedBlocks = get(signedBlocks);
-	let count = 0;
-	allSortedSignedBlocks.forEach((blockGroup) => {
-		blockGroup.blocks.forEach((block: SignedBlock) => {
-			if (block.guardianProverID === Number(guardianProverId)) {
-				count++;
-			}
-		});
-	});
+  const targetId = Number(guardianProverId);
 
-	return count;
+  return allSortedSignedBlocks
+    .reduce((total, blockGroup) => {
+      const matchingBlocks = blockGroup.blocks.filter(block => block.guardianProverID === targetId);
+      return total + matchingBlocks.length;
+    }, 0);
 }

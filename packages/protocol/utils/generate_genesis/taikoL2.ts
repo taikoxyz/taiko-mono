@@ -217,7 +217,7 @@ async function generateContractConfigs(
         // Shared Contracts
         SharedAddressManagerImpl: {
             address: addressMap.SharedAddressManagerImpl,
-            deployedBytecode: replaceUUPSImmutableVaules(
+            deployedBytecode: replaceUUPSImmutableValues(
                 contractArtifacts.SharedAddressManagerImpl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(
@@ -277,7 +277,7 @@ async function generateContractConfigs(
         BridgeImpl: {
             address: addressMap.BridgeImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableVaules(
+                replaceUUPSImmutableValues(
                     contractArtifacts.BridgeImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.BridgeImpl, 32),
@@ -311,7 +311,7 @@ async function generateContractConfigs(
         ERC20VaultImpl: {
             address: addressMap.ERC20VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableVaules(
+                replaceUUPSImmutableValues(
                     contractArtifacts.ERC20VaultImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.ERC20VaultImpl, 32),
@@ -346,7 +346,7 @@ async function generateContractConfigs(
         ERC721VaultImpl: {
             address: addressMap.ERC721VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableVaules(
+                replaceUUPSImmutableValues(
                     contractArtifacts.ERC721VaultImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.ERC721VaultImpl, 32),
@@ -381,7 +381,7 @@ async function generateContractConfigs(
         ERC1155VaultImpl: {
             address: addressMap.ERC1155VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableVaules(
+                replaceUUPSImmutableValues(
                     contractArtifacts.ERC1155VaultImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.ERC1155VaultImpl, 32),
@@ -415,7 +415,7 @@ async function generateContractConfigs(
         },
         BridgedERC20: {
             address: addressMap.BridgedERC20Impl,
-            deployedBytecode: replaceUUPSImmutableVaules(
+            deployedBytecode: replaceUUPSImmutableValues(
                 contractArtifacts.BridgedERC20Impl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(addressMap.BridgedERC20Impl, 32),
@@ -423,7 +423,7 @@ async function generateContractConfigs(
         },
         BridgedERC721: {
             address: addressMap.BridgedERC721Impl,
-            deployedBytecode: replaceUUPSImmutableVaules(
+            deployedBytecode: replaceUUPSImmutableValues(
                 contractArtifacts.BridgedERC721Impl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(addressMap.BridgedERC721Impl, 32),
@@ -431,7 +431,7 @@ async function generateContractConfigs(
         },
         BridgedERC1155: {
             address: addressMap.BridgedERC1155Impl,
-            deployedBytecode: replaceUUPSImmutableVaules(
+            deployedBytecode: replaceUUPSImmutableValues(
                 contractArtifacts.BridgedERC1155Impl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(addressMap.BridgedERC1155Impl, 32),
@@ -440,7 +440,7 @@ async function generateContractConfigs(
         SignalServiceImpl: {
             address: addressMap.SignalServiceImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableVaules(
+                replaceUUPSImmutableValues(
                     contractArtifacts.SignalServiceImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.SignalServiceImpl, 32),
@@ -479,7 +479,7 @@ async function generateContractConfigs(
         TaikoL2Impl: {
             address: addressMap.TaikoL2Impl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableVaules(
+                replaceUUPSImmutableValues(
                     contractArtifacts.TaikoL2Impl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.TaikoL2Impl, 32),
@@ -522,7 +522,7 @@ async function generateContractConfigs(
         },
         RollupAddressManagerImpl: {
             address: addressMap.RollupAddressManagerImpl,
-            deployedBytecode: replaceUUPSImmutableVaules(
+            deployedBytecode: replaceUUPSImmutableValues(
                 contractArtifacts.RollupAddressManagerImpl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(
@@ -631,7 +631,7 @@ function getUUPSImmutableReferences() {
     return references;
 }
 
-function replaceUUPSImmutableVaules(
+function replaceUUPSImmutableValues(
     artifact: any,
     references: any,
     value: string,

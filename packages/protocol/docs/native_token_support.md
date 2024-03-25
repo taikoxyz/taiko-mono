@@ -6,7 +6,7 @@ Taiko's bridging concept is a lock-and-mint type. It simply means (the red path 
 
 But there might be some incentives (e.g.: adoption, liquidity fragmentation, etc.) when deploying a native token on the destination chain is beneficial. For this reason Taiko introduced the possibility of deploying the canonical assets (together with all their sub/parent/proxy contracts) and plug it into our ERC20Vault via adapters (green path).
 
-Important to note that while wrapped asset bridging is 'automatical', the native one requires the willingness and efforts from Taiko side (and maybe also original token issuer green light to recognise officially as "native"), to support that type of asset-transfer.
+Important to note that while wrapped asset bridging is 'automatically', the native one requires the willingness and efforts from Taiko side (and maybe also original token issuer green light to recognise officially as "native"), to support that type of asset-transfer.
 
 ## Howto
 
