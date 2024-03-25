@@ -9,14 +9,14 @@ var (
 		Name:     "bridgePrivateKey",
 		Usage:    "Private key to send a bridge",
 		Required: true,
-		Category: bridegCategory,
+		Category: bridgeCategory,
 		EnvVars:  []string{"BRIDGE_PRIVATE_KEY"},
 	}
 	BridgeMessageValue = &cli.StringFlag{
 		Name:     "bridgeMessageValue",
 		Usage:    "Value in the bridge message",
 		Required: true,
-		Category: bridegCategory,
+		Category: bridgeCategory,
 		EnvVars:  []string{"BRIDGE_MESSAGE_VALUE"},
 	}
 )
