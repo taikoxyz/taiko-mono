@@ -78,6 +78,10 @@ var (
 		Name: "chain_data_synced_events_indexing_errors_ops_total",
 		Help: "The total number of errors indexing ChainDataSynced events",
 	})
+	UnprofitableMessagesDetected = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "unprofitable_messages_detected",
+		Help: "The total number of messages deemed unprofitable",
+	})
 	BlocksProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",

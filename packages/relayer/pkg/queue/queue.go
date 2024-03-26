@@ -15,7 +15,7 @@ var (
 type Queue interface {
 	Start(ctx context.Context, queueName string) error
 	Close(ctx context.Context)
-	Publish(ctx context.Context, msg []byte) error
+	Publish(ctx context.Context, queueName string, msg []byte, expiration *string) error
 	Notify(ctx context.Context, wg *sync.WaitGroup) error
 	Subscribe(ctx context.Context, msgs chan<- Message, wg *sync.WaitGroup) error
 	Ack(ctx context.Context, msg Message) error
