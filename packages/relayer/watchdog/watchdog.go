@@ -300,7 +300,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	data, err := encoding.BridgeABI.Pack("processMessage", [][32]byte{msgBody.Event.MsgHash}, true)
+	data, err := encoding.BridgeABI.Pack("suspendMessages", [][32]byte{msgBody.Event.MsgHash}, true)
 	if err != nil {
 		return errors.Wrap(err, "encoding.BridgeABI.Pack")
 	}
