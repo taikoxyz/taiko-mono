@@ -22,6 +22,21 @@ func (p *Processor) waitHeaderSynced(
 		return nil, err
 	}
 
+	// check once before ticker interval
+	event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
+		ctx,
+		hopChainId,
+		chainId.Uint64(),
+		blockNum,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater")
+	}
+
+	if event != nil {
+		return event, nil
+	}
+
 	ticker := time.NewTicker(time.Duration(p.headerSyncIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 

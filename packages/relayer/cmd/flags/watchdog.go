@@ -14,7 +14,7 @@ var (
 	}
 )
 
-var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
+var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	WatchdogPrivateKey,
 	// optional
 	Confirmations,
