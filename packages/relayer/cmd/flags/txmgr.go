@@ -85,7 +85,7 @@ var (
 
 var TxmgrFlags = []cli.Flag{
 	NumConfirmations,
-	&SafeAbortNonceTooLowCount,
+	SafeAbortNonceTooLowCount,
 	FeeLimitMultiplier,
 	FeeLimitThreshold,
 	MinTipCap,
