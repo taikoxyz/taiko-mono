@@ -18,10 +18,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
@@ -94,7 +97,6 @@ type Processor struct {
 
 	mu *sync.Mutex
 
-	destNonce               uint64
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
 
@@ -122,7 +124,7 @@ type Processor struct {
 
 	cfg *Config
 
-	gasIncreaseRate uint64
+	txmgr txmgr.TxManager
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -294,6 +296,15 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 	}
 
+	if p.txmgr, err = txmgr.NewSimpleTxManager(
+		"processor",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		*cfg.TxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
 	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
@@ -334,7 +345,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	p.targetTxHash = cfg.TargetTxHash
-	p.gasIncreaseRate = cfg.GasIncreaseRate
 
 	return nil
 }

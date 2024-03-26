@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
@@ -41,5 +42,9 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		ethClientTimeout:          10 * time.Second,
 		srcChainId:                mock.MockChainID,
 		destChainId:               mock.MockChainID,
+		txmgr:                     &mock.TxManager{},
+		cfg: &Config{
+			DestBridgeAddress: common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+		},
 	}
 }

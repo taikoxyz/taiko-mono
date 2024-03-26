@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
@@ -14,6 +15,8 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	pkgFlags "github.com/taikoxyz/taiko-mono/packages/relayer/pkg/flags"
 )
 
 type Config struct {
@@ -53,6 +56,8 @@ type Config struct {
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
+
+	TxmgrConfigs *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -125,5 +130,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 			return q, nil
 		},
+		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.SrcRPCUrl.Name),
+			watchdogPrivateKey,
+			c,
+		),
 	}, nil
 }
