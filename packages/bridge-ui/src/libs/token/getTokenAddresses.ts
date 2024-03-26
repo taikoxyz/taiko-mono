@@ -118,6 +118,8 @@ const _getBridgedAddress = async ({
         ? 'erc1155VaultAddress'
         : 'erc20VaultAddress';
 
+  log('getting bridged address', canonicalAddress, canonicalChainId, bridgedChainId, type, vaultAddressKey);
+
   const client = await getPublicClient(config, { chainId: bridgedChainId });
   if (!client) throw new Error('Could not get public client');
 

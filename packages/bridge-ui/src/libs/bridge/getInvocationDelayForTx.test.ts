@@ -24,7 +24,7 @@ vi.mock('$libs/util/getLatestBlockTimestamp');
 describe('getInvocationDelayForTx()', () => {
   it('should return the invocation delays for the transaction', async () => {
     const MOCK_BLOCK_TIMESTAMP = 1632787200n;
-    const MOCK_RECIEPT_TIMESTAMP = 1632787200n - 200n;
+    const MOCK_RECEIPT_TIMESTAMP = 1632787200n - 200n;
     const PREFERRED_CLAIMER_DELAY = 100n;
     const NOT_PREFERRED_CLAIMER_DELAY = 200n;
     const MOCK_DELAYS = [PREFERRED_CLAIMER_DELAY, NOT_PREFERRED_CLAIMER_DELAY] as const;
@@ -32,15 +32,15 @@ describe('getInvocationDelayForTx()', () => {
     //Given
     vi.mocked(getInvocationDelaysForDestBridge).mockResolvedValue(MOCK_DELAYS);
     vi.mocked(getLatestBlockTimestamp).mockResolvedValue(MOCK_BLOCK_TIMESTAMP);
-    vi.mocked(getProofReceiptForMsgHash).mockResolvedValue([MOCK_RECIEPT_TIMESTAMP, ALICE]);
+    vi.mocked(getProofReceiptForMsgHash).mockResolvedValue([MOCK_RECEIPT_TIMESTAMP, ALICE]);
 
     //When
     const result = await getInvocationDelayForTx(MOCK_BRIDGE_TX_1);
 
     //Then
     expect(result).toStrictEqual({
-      preferredDelay: PREFERRED_CLAIMER_DELAY - (MOCK_BLOCK_TIMESTAMP - MOCK_RECIEPT_TIMESTAMP),
-      notPreferredDelay: NOT_PREFERRED_CLAIMER_DELAY - (MOCK_BLOCK_TIMESTAMP - MOCK_RECIEPT_TIMESTAMP),
+      preferredDelay: PREFERRED_CLAIMER_DELAY - (MOCK_BLOCK_TIMESTAMP - MOCK_RECEIPT_TIMESTAMP),
+      notPreferredDelay: NOT_PREFERRED_CLAIMER_DELAY - (MOCK_BLOCK_TIMESTAMP - MOCK_RECEIPT_TIMESTAMP),
     });
     expect(getInvocationDelaysForDestBridge).toHaveBeenCalledWith({
       srcChainId: BigInt(L1_CHAIN_ID),

@@ -30,7 +30,7 @@ func (r *AccountRepository) Save(
 	address common.Address,
 	transactedAt time.Time,
 ) error {
-	// only inserte if addresss doesnt exist
+	// only insert if address doesn't exist
 	a := &eventindexer.Account{}
 
 	if err := r.db.GormDB().Where("address = ?", address.Hex()).First(a).Error; err != nil {

@@ -10,7 +10,7 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/events", srv.GetByAddressAndEventName)
 	srv.echo.GET("/stats", srv.GetStats)
 	srv.echo.GET("/assignedBlocks", srv.GetAssignedBlocksByProverAddress)
-	srv.echo.GET("/nftsByAddress", srv.GetNFTBalancesByAddessAndChainID)
+	srv.echo.GET("/nftsByAddress", srv.GetNFTBalancesByAddressAndChainID)
 
 	galaxeAPI := srv.echo.Group("/api")
 

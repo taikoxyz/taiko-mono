@@ -20,13 +20,13 @@ export const getInvocationDelayForTx = async (tx: BridgeTransaction) => {
     throw new NoDelaysForBridgeError('Destination chain does not have delays');
   }
 
-  const proofReciept = await getProofReceiptForMsgHash({
+  const proofReceipt = await getProofReceiptForMsgHash({
     msgHash: tx.msgHash,
     destChainId: tx.destChainId,
     srcChainId: tx.srcChainId,
   });
 
-  if (proofReciept[0] === 0n) {
+  if (proofReceipt[0] === 0n) {
     // No proof receipt found, no delay (yet)
     return {
       preferredDelay: 0n,
@@ -42,8 +42,8 @@ export const getInvocationDelayForTx = async (tx: BridgeTransaction) => {
   const latestBlockTimestamp = await getLatestBlockTimestamp(tx.destChainId);
   log('latestBlockTimestamp', latestBlockTimestamp);
 
-  const provenAt = proofReciept[0];
-  // const provenBy = proofReciept[1];
+  const provenAt = proofReceipt[0];
+  // const provenBy = proofReceipt[1];
 
   log('time since last claim', latestBlockTimestamp - provenAt);
   const delays = {

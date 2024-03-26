@@ -24,7 +24,7 @@ export const pendingTransactions = {
 
   /**
    * Custom method, which will help us add a new transaction to the store
-   * and get it removed onces the transaction is mined.
+   * and get it removed once the transaction is mined.
    */
   add: (hash: Hex, chainId: number) => {
     const deferred = new Deferred<TransactionReceipt>();

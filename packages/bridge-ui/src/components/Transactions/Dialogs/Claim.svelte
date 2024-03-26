@@ -2,18 +2,9 @@
   import { switchChain } from '@wagmi/core';
   import { log } from 'debug';
   import { createEventDispatcher } from 'svelte';
-  import { t } from 'svelte-i18n';
-  import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
-  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { bridges, type BridgeTransaction } from '$libs/bridge';
-  import {
-    InsufficientBalanceError,
-    InvalidProofError,
-    NotConnectedError,
-    ProcessMessageError,
-    RetryError,
-  } from '$libs/error';
+  import { NotConnectedError } from '$libs/error';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -62,41 +53,7 @@
 
       dispatch('claimingTxSent', { txHash, type: 'claim' });
     } catch (err) {
-      handleClaimError(err);
-
       dispatch('error', { error: err, action: 'claim' });
-    }
-  };
-
-  const handleClaimError = (err: unknown) => {
-    switch (true) {
-      case err instanceof NotConnectedError:
-        warningToast({ title: $t('messages.account.required') });
-        break;
-      case err instanceof UserRejectedRequestError:
-        warningToast({ title: $t('transactions.actions.claim.rejected.title') });
-        break;
-      case err instanceof InsufficientBalanceError:
-        dispatch('insufficientFunds', { tx: bridgeTx });
-        break;
-      case err instanceof InvalidProofError:
-        errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
-        break;
-      case err instanceof ProcessMessageError:
-        errorToast({ title: $t('bridge.errors.process_message_error') });
-        break;
-      case err instanceof RetryError:
-        errorToast({ title: $t('bridge.errors.retry_error') });
-        break;
-      case err instanceof ContractFunctionExecutionError:
-        console.error('!========= ContractFunctionExecutionError', err);
-        break;
-      default:
-        errorToast({
-          title: $t('bridge.errors.unknown_error.title'),
-          message: $t('bridge.errors.unknown_error.message'),
-        });
-        break;
     }
   };
 </script>
