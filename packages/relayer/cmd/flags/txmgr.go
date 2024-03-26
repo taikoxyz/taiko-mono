@@ -13,7 +13,7 @@ var (
 		Value:    1,
 		Category: txmgrCategory,
 	}
-	SafeAbortNonceTooLowCount = cli.Uint64Flag{
+	SafeAbortNonceTooLowCount = &cli.Uint64Flag{
 		Name: "tx.safeAbortNonceTooLowCount",
 		Usage: "Number of ErrNonceTooLow observations required to give up on " +
 			"a tx at a particular nonce without receiving confirmation",
