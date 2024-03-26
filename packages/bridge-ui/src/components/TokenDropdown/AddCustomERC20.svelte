@@ -206,7 +206,7 @@
 
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
-        <h3 class="title-body-bold mb-7">Your imported tokens:</h3>
+        <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
         {#each customTokens as ct (ct.symbol)}
           <div class="flex items-center justify-between">
             <div class="flex items-center m-2 space-x-2">
@@ -222,7 +222,7 @@
       </div>
     {/if}
   </div>
-  <!-- We catch key events aboe -->
+  <!-- We catch key events above -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
 </dialog>

@@ -122,12 +122,12 @@ To review each sub-command's command line flags, use:
 
 Filter params:
 
-Mandatory:  
+Mandatory:
 `address`: user's ethereum address who sent the message.
 
 Optional:
 `chainID`: chain ID of the source chain. Default: all chains. Options: any integer.
-`msgHash`: filter events by message hash. Default: all msgHashs. Options: any hash.
+`msgHash`: filter events by message hash. Default: all msgHashes. Options: any hash.
 `eventType`: filter events by event type. Default: all eventType. Options: Enum value, `0` for sendETH, `1` for sendERC20.
 `event`: filter events by event name. Default: all event names. Options: `MessageSent`, `MessageStatusChanged`
 
