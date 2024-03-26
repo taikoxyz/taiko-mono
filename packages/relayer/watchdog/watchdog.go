@@ -308,7 +308,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	candidate := txmgr.TxCandidate{
 		TxData: data,
 		Blobs:  nil,
-		To:     &w.cfg.DestBridgeAddress,
+		To:     &w.cfg.SrcBridgeAddress,
 	}
 
 	receipt, err := w.txmgr.Send(ctx, candidate)
