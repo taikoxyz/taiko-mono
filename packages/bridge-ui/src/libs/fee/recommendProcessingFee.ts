@@ -1,6 +1,6 @@
 import { getPublicClient } from '@wagmi/core';
 
-import { recommentProcessingFee } from '$config';
+import { recommendProcessingFeeConfig } from '$config';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
@@ -23,7 +23,7 @@ const {
   erc1155NotDeployedGasLimit,
   erc721DeployedGasLimit,
   erc721NotDeployedGasLimit,
-} = recommentProcessingFee;
+} = recommendProcessingFeeConfig;
 
 export async function recommendProcessingFee({
   token,

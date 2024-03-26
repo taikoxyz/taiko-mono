@@ -16,7 +16,7 @@ For a given block, a transition can be uniquely identified by its _parent hash_.
 
 The _first transition_ of a block is reserved for the block's assigned prover. However, this exclusivity is contingent upon the assigned prover successfully proving the block within the stipulated proving window of the tier. If the assigned prover fails to meet this deadline, the transition is considered _open_. Upon its opening, the assigned prover is no longer allowed to prove the first transition.
 
-For all other transitions, the proving window doesn't apply. Here, the principle is straightforward: the quickest prover takes the lead. Importantly, the assigned prover is not allowed to prove transtions other than the first one.
+For all other transitions, the proving window doesn't apply. Here, the principle is straightforward: the quickest prover takes the lead. Importantly, the assigned prover is not allowed to prove transitions other than the first one.
 
 ## Proof Tier Selection
 

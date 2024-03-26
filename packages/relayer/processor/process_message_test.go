@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -17,19 +16,25 @@ import (
 )
 
 func Test_sendProcessMessageCall(t *testing.T) {
-	// since we're padding the estimateGas, the cost is also padded atm;
-	// need to turn profitableOnly off to pass
 	p := newTestProcessor(false)
 
 	_, err := p.sendProcessMessageCall(
 		context.Background(),
-		&bind.TransactOpts{},
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
+				Id:          big.NewInt(1),
+				From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				DestChainId: mock.MockChainID.Uint64(),
 				SrcChainId:  mock.MockChainID.Uint64(),
-				Id:          big.NewInt(1),
+				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				RefundTo:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				Value:       big.NewInt(0),
 				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
+				GasLimit:    big.NewInt(1),
+				Data:        []byte{},
+				Memo:        "",
 			},
 			Raw: types.Log{
 				Address: relayer.ZeroAddress,
@@ -38,11 +43,9 @@ func Test_sendProcessMessageCall(t *testing.T) {
 				},
 				Data: []byte{0xff},
 			},
-		}, []byte{}, true)
+		}, []byte{})
 
 	assert.Nil(t, err)
-
-	assert.Equal(t, p.destNonce, mock.PendingNonce)
 }
 
 func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
@@ -115,17 +118,25 @@ func Test_ProcessMessage_noChainId(t *testing.T) {
 	assert.False(t, shouldRequeue)
 }
 
-func Test_ProcessMessage(t *testing.T) {
+func Test_ProcessMessage_unprofitable(t *testing.T) {
 	p := newTestProcessor(true)
 
 	body := queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				GasLimit:    big.NewInt(1),
-				DestChainId: mock.MockChainID.Uint64(),
-				Fee:         big.NewInt(1000000000),
-				SrcChainId:  mock.MockChainID.Uint64(),
 				Id:          big.NewInt(1),
+				From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				DestChainId: mock.MockChainID.Uint64(),
+				SrcChainId:  mock.MockChainID.Uint64(),
+				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				RefundTo:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				Value:       big.NewInt(0),
+				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
+				GasLimit:    big.NewInt(1),
+				Data:        []byte{},
+				Memo:        "",
 			},
 			MsgHash: mock.SuccessMsgHash,
 			Raw: types.Log{
@@ -148,9 +159,10 @@ func Test_ProcessMessage(t *testing.T) {
 
 	shouldRequeue, err := p.processMessage(context.Background(), msg)
 
-	assert.Nil(
+	assert.Equal(
 		t,
 		err,
+		relayer.ErrUnprofitable,
 	)
 
 	assert.False(t, shouldRequeue)
