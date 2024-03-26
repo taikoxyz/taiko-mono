@@ -153,6 +153,7 @@ func (p *Processor) processMessage(
 		if topic == bridgeAbi.Events["MessageReceived"].ID {
 			slog.Info("message processing resulted in MessageReceived event",
 				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+				"txHash", receipt.TxHash.Hex(),
 			)
 
 			slog.Info("waiting for invocation delay",
@@ -174,7 +175,9 @@ func (p *Processor) processMessage(
 			// if we got MessageExecuted, the message is finished processing. this occurs
 			// either in one-step bridge processing (no invocation delay), or if this is the second process
 			// message call after the first step was completed.
-			slog.Info("message processing resulted in MessageExecuted event. processing finished")
+			slog.Info("message processing resulted in MessageExecuted event",
+				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+				"txHash", receipt.TxHash.Hex())
 		}
 	}
 
