@@ -1,5 +1,26 @@
 # Changelog
 
+## [4.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v3.0.0...bridge-ui-v4.0.0) (2024-03-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230))
+
+### Features
+
+* **bridge-ui:** retry dialog ([#16536](https://github.com/taikoxyz/taiko-mono/issues/16536)) ([3beba21](https://github.com/taikoxyz/taiko-mono/commit/3beba214e62ad196bafd716cadaa3f133ecdb021))
+* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230)) ([71babae](https://github.com/taikoxyz/taiko-mono/commit/71babae14645ff267c7baa101706860aa6f556f0))
+* **protocol:** risc0 verifier contract ([#16331](https://github.com/taikoxyz/taiko-mono/issues/16331)) ([17abc18](https://github.com/taikoxyz/taiko-mono/commit/17abc189ca3d2752beb5400c036a650fd5b9c895))
+
+
+### Bug Fixes
+
+* **bridge-ui:** balance updating when connecting ([#16481](https://github.com/taikoxyz/taiko-mono/issues/16481)) ([2ec333f](https://github.com/taikoxyz/taiko-mono/commit/2ec333f5d3f3330c11dc0ab3afacc027c33cd5e0))
+* **bridge-ui:** canonical check can use wrong chain, incorrect supported chain check ([#16526](https://github.com/taikoxyz/taiko-mono/issues/16526)) ([d826e88](https://github.com/taikoxyz/taiko-mono/commit/d826e886eba989c35b3f28145f815642684f84d7))
+* **bridge-ui:** correct display of forward arrow and handling of invalid pagination input ([#16485](https://github.com/taikoxyz/taiko-mono/issues/16485)) ([d4d9ce9](https://github.com/taikoxyz/taiko-mono/commit/d4d9ce9bb7914b21f8ce6fc1ac5f986eb64d41f8))
+* **bridge-ui:** move label to i18n, fix some typos ([#16522](https://github.com/taikoxyz/taiko-mono/issues/16522)) ([c8c4773](https://github.com/taikoxyz/taiko-mono/commit/c8c4773dd3fe41decf13306eace73d65a9829529))
+
 ## [3.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v3.0.0) (2024-03-08)
 
 
