@@ -71,6 +71,10 @@
       },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "claim": {
+        "not_received": {
+          "message": "The message is not proven and cannot be claimed right now.",
+          "title": "Not received"
+        },
         "too_early": {
           "message": "You need to wait for the delay to pass before claiming",
           "title": "Too early"
@@ -162,7 +166,7 @@
         "checking_status": "Checking the approval status",
         "processing": "Processing...",
         "success": {
-          "claim": "Claimed successfully",
+          "claim": "Claim transaction sent successfully",
           "claim_description": "You",
           "prove": "Proof submitted",
           "prove_description": "You have submitted your proof. Wait for the delay to pass, then you can claim your funds"
@@ -234,6 +238,7 @@
     "not_available_short": "N/A",
     "ok": "Okay",
     "recipient": "Recipient",
+    "review": "Review",
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
@@ -353,7 +358,7 @@
     "transactions": "Transactions"
   },
   "paused_modal": {
-    "description": "The bridge is currently not available. Follow our official communcation channels for more information. ",
+    "description": "The bridge is currently not available. Follow our official communication channels for more information. ",
     "title": "Bridge under maintenance!"
   },
   "processing_fee": {
@@ -402,8 +407,8 @@
       "description": "You can add your own token by entering the contract address below. Make sure you are on the chain where the token is deployed.",
       "title": "Add your own token"
     },
-    "label": "Select token",
-    "imported_tokens": "Your imported tokens:"
+    "imported_tokens": "Your imported tokens:",
+    "label": "Select token"
   },
   "transactions": {
     "actions": {
@@ -417,7 +422,7 @@
           "title": "Request to claim rejected."
         },
         "success": {
-          "message": "Your funds have been successfully claimed on {network}.",
+          "message": "Your transaction has been processed. Check the status in your wallet or the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
           "title": "Transaction completed"
         },
         "tx": {
@@ -468,7 +473,7 @@
           }
         },
         "review": {
-          "name": "Prerequisites",
+          "name": "Review",
           "title": "Claim Transaction details"
         },
         "title": "Claim your assets"
@@ -503,6 +508,14 @@
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",
+    "retry": {
+      "steps": {
+        "select": {
+          "title": "Select"
+        },
+        "title": "Retry claiming"
+      }
+    },
     "status": {
       "claim": {
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",

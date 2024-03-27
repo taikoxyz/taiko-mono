@@ -26,13 +26,13 @@ func (i *Indexer) handleMessageReceivedEvent(
 		"txHash", event.Raw.TxHash.Hex(),
 	)
 
-	// if the destinatio chain doesnt match, we dont process it in this indexer.
-	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
+	// if the destination doesnt match our source chain, we dont want to handle this event.
+	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.srcChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
 			event.Message.DestChainId,
-			"indexerDestChainID",
-			i.destChainId.Uint64(),
+			"indexerSrcChainID",
+			i.srcChainId.Uint64(),
 		)
 
 		return nil
@@ -111,7 +111,7 @@ func (i *Indexer) handleMessageReceivedEvent(
 
 	// we add it to the queue, so the processor can pick up and attempt to process
 	// the message onchain.
-	if err := i.queue.Publish(ctx, marshalledMsg); err != nil {
+	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil); err != nil {
 		return errors.Wrap(err, "i.queue.Publish")
 	}
 

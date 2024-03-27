@@ -27,7 +27,7 @@ func main() {
 	_ = godotenv.Load(envFile)
 
 	app.Name = "Taiko guardian-prover-health-check"
-	app.Usage = "The taiko guardian-prover-health-check softwares command line interface"
+	app.Usage = "The taiko guardian-prover-health-check software command line interface"
 	app.Copyright = "Copyright 2021-2023 Taiko Labs"
 	app.Description = "guardian-prover-health-check implementation in Golang for Taiko protocol"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}

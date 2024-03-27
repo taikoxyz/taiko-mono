@@ -22,7 +22,7 @@ func (r *Queue) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 	return nil
 }
 
-func (r *Queue) Publish(ctx context.Context, msg []byte) error {
+func (r *Queue) Publish(ctx context.Context, queueName string, msg []byte, expiration *string) error {
 	return nil
 }
 
@@ -34,6 +34,10 @@ func (r *Queue) Nack(ctx context.Context, msg queue.Message, requeue bool) error
 	return nil
 }
 
-func (r *Queue) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
+func (r *Queue) Subscribe(
+	ctx context.Context,
+	msgChan chan<- queue.Message,
+	wg *sync.WaitGroup,
+) error {
 	return nil
 }

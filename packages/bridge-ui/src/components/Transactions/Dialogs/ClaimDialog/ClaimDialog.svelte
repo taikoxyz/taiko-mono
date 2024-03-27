@@ -1,16 +1,28 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { ContractFunctionExecutionError, type Hash, zeroAddress } from 'viem';
+  import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError, zeroAddress } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
-  import { errorToast, infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import {
+    errorToast,
+    infoToast,
+    successToast,
+    warningToast,
+  } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import Claim from '$components/Transactions/Dialogs/Claim.svelte';
   import { getInvocationDelaysForDestBridge } from '$libs/bridge/getInvocationDelaysForDestBridge';
   import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
+  import {
+    InsufficientBalanceError,
+    InvalidProofError,
+    NotConnectedError,
+    ProcessMessageError,
+    RetryError,
+  } from '$libs/error';
   import type { startPolling } from '$libs/polling/messageStatusPoller';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
@@ -23,14 +35,12 @@
   import ClaimConfirmStep from './ClaimSteps/ClaimConfirmStep.svelte';
   import ClaimPreCheck from './ClaimSteps/ClaimPreCheck.svelte';
   import ClaimReviewStep from './ClaimSteps/ClaimReviewStep.svelte';
-  import { ClaimSteps, ClaimTypes, TWO_STEP_STATE } from './types';
+  import { ClaimSteps, ClaimTypes, INITIAL_STEP, TWO_STEP_STATE } from './types';
 
   const log = getLogger('ClaimDialog');
 
   const dialogId = `dialog-${uid()}`;
   const dispatch = createEventDispatcher();
-
-  const INITIAL_STEP = ClaimSteps.CHECK;
 
   export let dialogOpen = false;
 
@@ -42,36 +52,35 @@
 
   export let nft: NFT | null = null;
 
+  export let proofReceipt: GetProofReceiptResponse;
+
+  export let activeStep: ClaimSteps = INITIAL_STEP;
+
+  export let bridgeTx: BridgeTransaction;
+
   export const handleClaimClick = async () => {
     claiming = true;
     await ClaimComponent.claim();
-    // claiming = false;
   };
+
+  let canContinue = false;
+  let claiming: boolean;
+  let claimingDone = false;
+  let ClaimComponent: Claim;
+  let txHash: Hash;
 
   const handleAccountChange = () => {
     activeStep = INITIAL_STEP;
   };
-
-  let canContinue = false;
-
-  export let proofReceipt: GetProofReceiptResponse;
-
-  let claiming: boolean;
-  let claimingDone = false;
 
   const closeDialog = () => {
     dialogOpen = false;
     reset();
   };
 
-  let ClaimComponent: Claim;
-
-  export let activeStep: ClaimSteps = INITIAL_STEP;
-
-  export let bridgeTx: BridgeTransaction;
-
   const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; type: ClaimTypes }>) => {
-    const { txHash, type } = event.detail;
+    const { txHash: transactionHash, type } = event.detail;
+    txHash = transactionHash;
     log('handle claim tx sent', txHash, type);
     claiming = true;
 
@@ -125,29 +134,56 @@
         }),
       });
     }
-
-    //TODO: this could be just step 1 of 2, change text accordingly
-
-    // claiming = false;
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimTypes }>) => {
     //TODO: update this to display info alongside toasts
-    const error = event.detail.error;
-    if (error instanceof ContractFunctionExecutionError) {
-      if (error.message.includes('B_INVOCATION_TOO_EARLY')) {
-        errorToast({
-          title: $t('bridge.errors.claim.too_early.title'),
-          message: $t('bridge.errors.claim.too_early.message'),
-        });
-      } else {
+    const err = event.detail.error;
+    switch (true) {
+      case err instanceof NotConnectedError:
+        warningToast({ title: $t('messages.account.required') });
+        break;
+      case err instanceof UserRejectedRequestError:
+        warningToast({ title: $t('transactions.actions.claim.rejected.title') });
+        break;
+      case err instanceof InsufficientBalanceError:
+        dispatch('insufficientFunds', { tx: bridgeTx });
+        break;
+      case err instanceof InvalidProofError:
+        errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
+        break;
+      case err instanceof ProcessMessageError:
+        errorToast({ title: $t('bridge.errors.process_message_error') });
+        break;
+      case err instanceof RetryError:
+        errorToast({ title: $t('bridge.errors.retry_error') });
+        break;
+      case err instanceof ContractFunctionExecutionError:
+        console.error(err);
+        if (err.message.includes('B_INVOCATION_TOO_EARLY')) {
+          errorToast({
+            title: $t('bridge.errors.claim.too_early.title'),
+            message: $t('bridge.errors.claim.too_early.message'),
+          });
+        } else if (err.message.includes('B_NOT_RECEIVED')) {
+          errorToast({
+            title: $t('bridge.errors.claim.not_received.title'),
+            message: $t('bridge.errors.claim.not_received.message'),
+          });
+        } else {
+          errorToast({
+            title: $t('bridge.errors.unknown_error.title'),
+            message: $t('bridge.errors.unknown_error.message'),
+          });
+        }
+        break;
+      default:
+        console.error(err);
         errorToast({
           title: $t('bridge.errors.unknown_error.title'),
           message: $t('bridge.errors.unknown_error.message'),
         });
-      }
-    } else {
-      console.error(event.detail.error);
+        break;
     }
     claiming = false;
   };
@@ -211,7 +247,7 @@
         <DialogStep
           stepIndex={ClaimSteps.REVIEW}
           currentStepIndex={activeStep}
-          isActive={activeStep === ClaimSteps.REVIEW}>{$t('transactions.claim.steps.review.name')}</DialogStep>
+          isActive={activeStep === ClaimSteps.REVIEW}>{$t('common.review')}</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.CONFIRM}
           currentStepIndex={activeStep}
@@ -229,6 +265,8 @@
         <ClaimReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
         <ClaimConfirmStep
+          {bridgeTx}
+          bind:txHash
           on:claim={handleClaimClick}
           bind:claiming
           bind:canClaim={canContinue}

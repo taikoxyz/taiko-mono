@@ -14,10 +14,11 @@ import (
 )
 
 type RabbitMQ struct {
-	conn  *amqp.Connection
-	ch    *amqp.Channel
-	queue amqp.Queue
-	opts  queue.NewQueueOpts
+	conn              *amqp.Connection
+	ch                *amqp.Channel
+	queue             amqp.Queue
+	unprofitableQueue amqp.Queue
+	opts              queue.NewQueueOpts
 
 	connErrCh chan *amqp.Error
 
@@ -105,6 +106,8 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	routingKey := fmt.Sprintf("%v-process", queueName)
 
+	routingKeyUnprofitable := fmt.Sprintf("%v-unprofitable", queueName)
+
 	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
 
 	// declare the dead letter exchange for when a message is negatively acknowledged
@@ -176,13 +179,47 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		return err
 	}
 
-	slog.Info("binding queue and exchange", "queue", queueName, "dlx", dlxQueue)
+	slog.Info("binding queue and exchange", "queue", queueName, "exchange", exchange)
 
 	if err := r.ch.QueueBind(queueName, routingKey, exchange, false, nil); err != nil {
 		return err
 	}
 
+	// we declare a queue where unprofitable messages go, which no
+	// consumer listens on. We add an expiration to them, and a dead-letter exchange
+	// of the original exchange and queue for processing messages, so once
+	// they are expired, they will be picked up again to check in the normal
+	// processing flow.
+	unprofitableArgs := amqp.Table{}
+
+	// we set the routing key to be the process message routing key, not the unprofitable
+	// message routing key.
+	unprofitableArgs["x-dead-letter-exchange"] = exchange
+	unprofitableArgs["x-dead-letter-routing-key"] = routingKey
+
+	unprofitableQueueName := fmt.Sprintf("%v-unprofitable", queueName)
+
+	unprofitableQueue, err := r.ch.QueueDeclare(
+		unprofitableQueueName,
+		true,
+		false,
+		false,
+		false,
+		unprofitableArgs,
+	)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("binding queue and exchange", "queue", unprofitableQueueName, "exchange", exchange)
+
+	if err := r.ch.QueueBind(unprofitableQueueName, routingKeyUnprofitable, exchange, false, nil); err != nil {
+		return err
+	}
+
 	r.queue = q
+
+	r.unprofitableQueue = unprofitableQueue
 
 	return nil
 }
@@ -205,20 +242,27 @@ func (r *RabbitMQ) Close(ctx context.Context) {
 	slog.Info("closed rabbitmq connection")
 }
 
-func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
+func (r *RabbitMQ) Publish(ctx context.Context, queueName string, msg []byte, expiration *string) error {
 	slog.Info("publishing rabbitmq msg to queue", "queue", r.queue.Name)
+
+	p := amqp.Publishing{
+		ContentType:  "text/plain",
+		Body:         msg,
+		MessageId:    uuid.New().String(),
+		DeliveryMode: 2, // persistent messages, saved to disk to survive server restart
+	}
+
+	if expiration != nil {
+		p.Expiration = *expiration
+	}
 
 	err := r.ch.PublishWithContext(ctx,
 		"",
-		r.queue.Name,
+		queueName,
 		true,
 		false,
-		amqp.Publishing{
-			ContentType:  "text/plain",
-			Body:         msg,
-			MessageId:    uuid.New().String(),
-			DeliveryMode: 2, // persistent messages, saved to disk to survive server restart
-		})
+		p,
+	)
 	if err != nil {
 		relayer.QueueMessagePublishedErrors.Inc()
 
@@ -230,7 +274,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 				return err
 			}
 
-			return r.Publish(ctx, msg)
+			return r.Publish(ctx, queueName, msg, expiration)
 		} else {
 			return err
 		}
@@ -328,7 +372,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			slog.Error("rabbitmq notify return", "id", returnMsg.MessageId, "err", returnMsg.ReplyText)
 			slog.Info("rabbitmq attempting republish of returned msg", "id", returnMsg.MessageId)
 
-			if err := r.Publish(ctx, returnMsg.Body); err != nil {
+			if err := r.Publish(ctx, r.queue.Name, returnMsg.Body, &returnMsg.Expiration); err != nil {
 				slog.Error("error publishing msg", "err", err.Error())
 			}
 		}
