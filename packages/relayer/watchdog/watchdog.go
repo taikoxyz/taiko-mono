@@ -285,14 +285,14 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	}
 
 	// check if the source chain sent this message
-	sent, err := w.srcBridge.IsMessageSent(nil, msgBody.Event.Message)
+	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
 	if err != nil {
-		return errors.Wrap(err, "w.srcBridge.IsMessageSent")
+		return errors.Wrap(err, "w.destBridge.IsMessageSent")
 	}
 
 	// if so, do nothing, acknowledge message
 	if sent {
-		slog.Info("source bridge did send this message. returning early",
+		slog.Info("dest bridge did send this message. returning early",
 			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
 			"sent", sent,
 		)
@@ -300,7 +300,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	data, err := encoding.BridgeABI.Pack("processMessage", [][32]byte{msgBody.Event.MsgHash}, true)
+	data, err := encoding.BridgeABI.Pack("suspendMessages", [][32]byte{msgBody.Event.MsgHash}, true)
 	if err != nil {
 		return errors.Wrap(err, "encoding.BridgeABI.Pack")
 	}
@@ -308,7 +308,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	candidate := txmgr.TxCandidate{
 		TxData: data,
 		Blobs:  nil,
-		To:     &w.cfg.DestBridgeAddress,
+		To:     &w.cfg.SrcBridgeAddress,
 	}
 
 	receipt, err := w.txmgr.Send(ctx, candidate)
