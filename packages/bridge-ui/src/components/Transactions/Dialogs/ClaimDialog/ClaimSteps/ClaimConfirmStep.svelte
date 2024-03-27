@@ -1,11 +1,13 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Hash } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon, type IconType } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
-  import { connectedSourceChain } from '$stores/network';
+  import type { BridgeTransaction } from '$libs/bridge';
   import { theme } from '$stores/theme';
 
   import { TWO_STEP_STATE } from '../types';
@@ -16,7 +18,11 @@
 
   export let claiming = false;
 
-  export let proveOrClaimStep: TWO_STEP_STATE;
+  export let proveOrClaimStep: TWO_STEP_STATE | null;
+
+  export let bridgeTx: BridgeTransaction;
+
+  export let txHash: Hash;
 
   const dispatch = createEventDispatcher();
 
@@ -33,12 +39,19 @@
   };
 
   const getSuccessDescription = () => {
+    if (!txHash) return;
     if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
       return $t('bridge.step.confirm.success.prove_description');
     }
+    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
+    const url = `${explorer}/tx/${txHash}`;
 
-    return $t('transactions.actions.claim.success.message', { values: { network: $connectedSourceChain.name } });
+    successDescription = $t('transactions.actions.claim.success.message', { values: { url } });
   };
+
+  $: if (txHash && claimingDone) {
+    getSuccessDescription();
+  }
 
   $: claimOrProveActionButton =
     proveOrClaimStep === TWO_STEP_STATE.CLAIM
@@ -59,7 +72,7 @@
   $: successIcon = `success-${$theme}` as IconType;
 
   $: statusTitle = getSuccessTitle();
-  $: statusDescription = getSuccessDescription();
+  let successDescription = '';
 
   $: claimDisabled = !canClaim || claiming;
 </script>
@@ -74,7 +87,7 @@
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             <h1>{@html statusTitle}</h1>
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            <span class="">{@html statusDescription}</span>
+            <span class="">{@html successDescription}</span>
           </div>
         {:else if claiming}
           <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
