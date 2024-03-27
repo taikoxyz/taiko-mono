@@ -27,6 +27,7 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
   import { fetchBalance, tokens, TokenType } from '$libs/token';
+  import { ETHToken } from '$libs/token';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -153,6 +154,7 @@
   };
 
   const reset = async () => {
+    $selectedToken = ETHToken;
     $computingBalance = true;
     value = '';
     $enteredAmount = 0n;
