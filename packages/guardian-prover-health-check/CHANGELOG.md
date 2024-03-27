@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-v0.1.0...guardian-prover-health-check-v0.2.0) (2024-03-27)
+
+
+### Features
+
+* **guardian-prover-health-check:** add indexer in MySQL ([#15945](https://github.com/taikoxyz/taiko-mono/issues/15945)) ([f53766b](https://github.com/taikoxyz/taiko-mono/commit/f53766b61bce33e09970f8a35650e78ecd4475e4))
+* **guardian-prover-health-check:** add indexer in MySQL ([#16060](https://github.com/taikoxyz/taiko-mono/issues/16060)) ([87a4876](https://github.com/taikoxyz/taiko-mono/commit/87a48764dd4e47cbd2a42b66595ef91aa5aa0808))
+* **guardian-prover-health-check:** add Startups, new routes for getting recent signed block ([#15561](https://github.com/taikoxyz/taiko-mono/issues/15561)) ([6d4cfe5](https://github.com/taikoxyz/taiko-mono/commit/6d4cfe5b87f893f55143dd73d98e493cfe386448))
+* **guardian-prover-health-check:** bindings ([#16456](https://github.com/taikoxyz/taiko-mono/issues/16456)) ([571483a](https://github.com/taikoxyz/taiko-mono/commit/571483a476133f26b43da7a38e4477378295ce78))
+* **guardian-prover-health-check:** check error, return 200 if duplicate ([#16470](https://github.com/taikoxyz/taiko-mono/issues/16470)) ([c93da9c](https://github.com/taikoxyz/taiko-mono/commit/c93da9c180f551072ee85a8ba5a20361b821db56))
+* **guardian-prover-health-check:** Guardian prover metrics ([#15377](https://github.com/taikoxyz/taiko-mono/issues/15377)) ([97f83f0](https://github.com/taikoxyz/taiko-mono/commit/97f83f0c17fe0875b1aa1dd235b101497dc97d13))
+* **guardian-prover-health-check:** Guardian prover rework ([#15375](https://github.com/taikoxyz/taiko-mono/issues/15375)) ([975c882](https://github.com/taikoxyz/taiko-mono/commit/975c882e8e200fb7d8f8d9a71dce4aa008b71b12))
+* **guardian-prover-health-check:** Guardian prover swagger API documentation ([#15489](https://github.com/taikoxyz/taiko-mono/issues/15489)) ([28c8122](https://github.com/taikoxyz/taiko-mono/commit/28c8122ffe6356210f77a7721a71b6dd7d2aacab))
+* **guardian-prover-health-check:** guardian prover updates ([#15815](https://github.com/taikoxyz/taiko-mono/issues/15815)) ([e3ade1d](https://github.com/taikoxyz/taiko-mono/commit/e3ade1d98a91d43e236e63374f61b78b5bf8f315))
+* **guardian-prover-health-check:** Guardianprover uptime ([#15430](https://github.com/taikoxyz/taiko-mono/issues/15430)) ([e82a90b](https://github.com/taikoxyz/taiko-mono/commit/e82a90b320c74f88987ec32807dcca0949b14a8e))
+* **guardian-prover-health-check:** ui + api ([#15324](https://github.com/taikoxyz/taiko-mono/issues/15324)) ([75b2ef9](https://github.com/taikoxyz/taiko-mono/commit/75b2ef9f9ab9f9651a9d9d55e6bc0ad0fd8d4624))
+* **guardian-prover-health-check:** update gp bindings ([#16236](https://github.com/taikoxyz/taiko-mono/issues/16236)) ([188bfb6](https://github.com/taikoxyz/taiko-mono/commit/188bfb63d8a0427e228841da6cc8d0554cf1f9d5))
+* **protocol:** Based Contestable Rollup with multi-proofs and multi-hop bridging ([#14705](https://github.com/taikoxyz/taiko-mono/issues/14705)) ([28000b3](https://github.com/taikoxyz/taiko-mono/commit/28000b3ca67714e4edb00b6416e05303ae2893b5))
+* **protocol:** multiple improvements & bug fixes ([#15255](https://github.com/taikoxyz/taiko-mono/issues/15255)) ([337c57c](https://github.com/taikoxyz/taiko-mono/commit/337c57c70f3b4ed1df9e6f4b808d814d1f1452e4))
+
+
+### Bug Fixes
+
+* **eventindexer:** add a log, and add table name to stats queries ([#15417](https://github.com/taikoxyz/taiko-mono/issues/15417)) ([05ffe21](https://github.com/taikoxyz/taiko-mono/commit/05ffe218fdc55a081ac664d3aaaa552a35965c52))
+* **guardian-prover-health-check:** add post route ([#15578](https://github.com/taikoxyz/taiko-mono/issues/15578)) ([ab5f329](https://github.com/taikoxyz/taiko-mono/commit/ab5f329489772849fbe2ab8999c09882252789a3))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
