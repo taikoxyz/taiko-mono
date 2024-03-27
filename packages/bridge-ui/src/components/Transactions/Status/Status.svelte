@@ -17,7 +17,7 @@
   import { connectedSourceChain } from '$stores/network';
 
   import ClaimDialog from '../Dialogs/ClaimDialog/ClaimDialog.svelte';
-  // import RetryDialog from '../Dialogs/RetryDialog/RetryDialog.svelte';
+  import RetryDialog from '../Dialogs/RetryDialog/RetryDialog.svelte';
 
   export let bridgeTx: BridgeTransaction;
   export let nft: NFT | null = null;
@@ -59,8 +59,12 @@
     bridgeTxStatus = bridgeTx.msgStatus = status;
   }
 
-  async function retry() {
-    // retryModalOpen = true;
+  async function handleRetryClick() {
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
+    if (!$connectedSourceChain || !$account?.address) return;
+    retryModalOpen = true;
   }
 
   async function handleClaimClick() {
@@ -85,6 +89,7 @@
   }
 
   $: claimModalOpen = false;
+  $: retryModalOpen = false;
 
   $: hasValidProofReceipt = proofReceipt && proofReceipt[1] !== zeroAddress ? true : false;
 
@@ -145,14 +150,14 @@
       {$t('transactions.button.prove')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
-    <button class="status-btn" on:click={retry}>
+    <button class="status-btn" on:click={handleRetryClick}>
       {$t('transactions.button.retry')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
     <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    <button class="status-btn" on:click={release}>
+    <button class="status-btn" on:click={release} on:click={handleRetryClick}>
       {$t('transactions.button.release')}
     </button>
   {:else}
@@ -162,7 +167,8 @@
   {/if}
 </div>
 
-<!-- <RetryDialog item={bridgeTx} bind:loading bind:dialogOpen={retryModalOpen} /> -->
+<RetryDialog {bridgeTx} bind:dialogOpen={retryModalOpen} />
+
 <ClaimDialog
   {bridgeTx}
   bind:polling

@@ -166,7 +166,7 @@
         "checking_status": "Checking the approval status",
         "processing": "Processing...",
         "success": {
-          "claim": "Claimed successfully",
+          "claim": "Claim transaction sent successfully",
           "claim_description": "You",
           "prove": "Proof submitted",
           "prove_description": "You have submitted your proof. Wait for the delay to pass, then you can claim your funds"
@@ -238,6 +238,7 @@
     "not_available_short": "N/A",
     "ok": "Okay",
     "recipient": "Recipient",
+    "review": "Review",
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
@@ -421,7 +422,7 @@
           "title": "Request to claim rejected."
         },
         "success": {
-          "message": "Your funds have been successfully claimed on {network}.",
+          "message": "Your transaction has been processed. Check the status in your wallet or the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
           "title": "Transaction completed"
         },
         "tx": {
@@ -472,7 +473,7 @@
           }
         },
         "review": {
-          "name": "Prerequisites",
+          "name": "Review",
           "title": "Claim Transaction details"
         },
         "title": "Claim your assets"
@@ -507,6 +508,14 @@
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",
+    "retry": {
+      "steps": {
+        "select": {
+          "title": "Select"
+        },
+        "title": "Retry claiming"
+      }
+    },
     "status": {
       "claim": {
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",

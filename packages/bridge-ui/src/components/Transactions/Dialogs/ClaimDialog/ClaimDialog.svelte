@@ -52,36 +52,35 @@
 
   export let nft: NFT | null = null;
 
+  export let proofReceipt: GetProofReceiptResponse;
+
+  export let activeStep: ClaimSteps = INITIAL_STEP;
+
+  export let bridgeTx: BridgeTransaction;
+
   export const handleClaimClick = async () => {
     claiming = true;
     await ClaimComponent.claim();
-    // claiming = false;
   };
+
+  let canContinue = false;
+  let claiming: boolean;
+  let claimingDone = false;
+  let ClaimComponent: Claim;
+  let txHash: Hash;
 
   const handleAccountChange = () => {
     activeStep = INITIAL_STEP;
   };
-
-  let canContinue = false;
-
-  export let proofReceipt: GetProofReceiptResponse;
-
-  let claiming: boolean;
-  let claimingDone = false;
 
   const closeDialog = () => {
     dialogOpen = false;
     reset();
   };
 
-  let ClaimComponent: Claim;
-
-  export let activeStep: ClaimSteps = INITIAL_STEP;
-
-  export let bridgeTx: BridgeTransaction;
-
   const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; type: ClaimTypes }>) => {
-    const { txHash, type } = event.detail;
+    const { txHash: transactionHash, type } = event.detail;
+    txHash = transactionHash;
     log('handle claim tx sent', txHash, type);
     claiming = true;
 
@@ -135,10 +134,6 @@
         }),
       });
     }
-
-    //TODO: this could be just step 1 of 2, change text accordingly
-
-    // claiming = false;
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimTypes }>) => {
@@ -252,7 +247,7 @@
         <DialogStep
           stepIndex={ClaimSteps.REVIEW}
           currentStepIndex={activeStep}
-          isActive={activeStep === ClaimSteps.REVIEW}>{$t('transactions.claim.steps.review.name')}</DialogStep>
+          isActive={activeStep === ClaimSteps.REVIEW}>{$t('common.review')}</DialogStep>
         <DialogStep
           stepIndex={ClaimSteps.CONFIRM}
           currentStepIndex={activeStep}
@@ -270,6 +265,8 @@
         <ClaimReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
         <ClaimConfirmStep
+          {bridgeTx}
+          bind:txHash
           on:claim={handleClaimClick}
           bind:claiming
           bind:canClaim={canContinue}
