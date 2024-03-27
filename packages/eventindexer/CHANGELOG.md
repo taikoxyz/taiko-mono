@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v1.0.0) (2024-03-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bridge-ui-v2:** bridge UI version 2.1  ([#15775](https://github.com/taikoxyz/taiko-mono/issues/15775))
+
+### Features
+
+* **bridge-ui-v2:** bridge UI version 2.1  ([#15775](https://github.com/taikoxyz/taiko-mono/issues/15775)) ([81359fd](https://github.com/taikoxyz/taiko-mono/commit/81359fd9201bb8a39095e6bdbcb3ac977a7bb5ef))
+* **eventindexer:** add indexer in MySQL ([#15930](https://github.com/taikoxyz/taiko-mono/issues/15930)) ([b00d0b1](https://github.com/taikoxyz/taiko-mono/commit/b00d0b1394862fd43561b59b29e8779b58ee506d))
+* **eventindexer:** internal devnet changes ([#16466](https://github.com/taikoxyz/taiko-mono/issues/16466)) ([9a6c4e8](https://github.com/taikoxyz/taiko-mono/commit/9a6c4e88df66371350ce24cf27b497927b41a5bd))
+* **eventindexer:** Track transition proved / contested event by tiers, generate chart data for each tier, update http API to be able to fetch data by tier ([#15458](https://github.com/taikoxyz/taiko-mono/issues/15458)) ([227ac59](https://github.com/taikoxyz/taiko-mono/commit/227ac592e9a9a2f4eb30ef36760ed13728373b5c))
+* **eventindexer:** update eventindexer bindings + necessary changes ([#16235](https://github.com/taikoxyz/taiko-mono/issues/16235)) ([4224546](https://github.com/taikoxyz/taiko-mono/commit/422454601f391a8a7456780216914a301006a60a))
+* **guardian-prover-health-check:** ui + api ([#15324](https://github.com/taikoxyz/taiko-mono/issues/15324)) ([75b2ef9](https://github.com/taikoxyz/taiko-mono/commit/75b2ef9f9ab9f9651a9d9d55e6bc0ad0fd8d4624))
+* **protocol:** Based Contestable Rollup with multi-proofs and multi-hop bridging ([#14705](https://github.com/taikoxyz/taiko-mono/issues/14705)) ([28000b3](https://github.com/taikoxyz/taiko-mono/commit/28000b3ca67714e4edb00b6416e05303ae2893b5))
+* **protocol:** multiple improvements & bug fixes ([#15255](https://github.com/taikoxyz/taiko-mono/issues/15255)) ([337c57c](https://github.com/taikoxyz/taiko-mono/commit/337c57c70f3b4ed1df9e6f4b808d814d1f1452e4))
+* **relayer, eventindexer:** move code to pkg folder, use new api subcommand for eventindexer/relayer ([#15502](https://github.com/taikoxyz/taiko-mono/issues/15502)) ([99dd1d2](https://github.com/taikoxyz/taiko-mono/commit/99dd1d276eb9505589d50cad10231691f9549727))
+* **relayer:** remove subscriptions, make reorg detecting easier, filter on event loop ([#16417](https://github.com/taikoxyz/taiko-mono/issues/16417)) ([e985d59](https://github.com/taikoxyz/taiko-mono/commit/e985d593c2b2b59490150c2d5a76e3ccb5fc0fe2))
+
+
+### Bug Fixes
+
+* **eventindexer:** add a log, and add table name to stats queries ([#15417](https://github.com/taikoxyz/taiko-mono/issues/15417)) ([05ffe21](https://github.com/taikoxyz/taiko-mono/commit/05ffe218fdc55a081ac664d3aaaa552a35965c52))
+* **eventindexer:** add indexes for struggling queries ([#15483](https://github.com/taikoxyz/taiko-mono/issues/15483)) ([8b81028](https://github.com/taikoxyz/taiko-mono/commit/8b81028b5fc8d4446c33ba0517c40d1e9b9ecc2b))
+* **eventindexer:** nft indexing fix ([#15525](https://github.com/taikoxyz/taiko-mono/issues/15525)) ([73ef96d](https://github.com/taikoxyz/taiko-mono/commit/73ef96d59580bbb6fbe2ff6d620b95d630f4cee1))
+* **eventindexer:** Task duplicate name fix ([#15467](https://github.com/taikoxyz/taiko-mono/issues/15467)) ([2bdd094](https://github.com/taikoxyz/taiko-mono/commit/2bdd0947792ebb33ef8f83a128aee4cc3276ae91))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
