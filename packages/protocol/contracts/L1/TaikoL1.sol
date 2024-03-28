@@ -30,6 +30,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         _;
     }
 
+    modifier emitEventForClient() {
+        _;
+        LibVerifying.emitEventForClient(state);
+    }
+
     /// @dev Fallback function to receive Ether from Hooks
     receive() external payable {
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
@@ -60,6 +65,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         payable
         nonReentrant
         whenNotPaused
+        emitEventForClient
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
@@ -80,6 +86,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         whenNotPaused
         whenProvingNotPaused
+        emitEventForClient
     {
         (
             TaikoData.BlockMetadata memory meta,
@@ -102,6 +109,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         whenNotPaused
         whenProvingNotPaused
+        emitEventForClient
     {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
@@ -184,14 +192,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: 167_008,
-            // Assume the block time is 3s, the protocol will allow ~1 month of
+            chainId: 167_009,
+            // Assume the block time is 3s, the protocol will allow ~90 days of
             // new blocks without any verification.
-            blockMaxProposals: 864_000,
-            blockRingBufferSize: 864_100,
+            blockMaxProposals: 3_000_000,
+            blockRingBufferSize: 3_010_000,
             // Can be overridden by the tier config.
             maxBlocksToVerifyPerProposal: 10,
-            blockMaxGasLimit: 15_000_000,
+            // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
+            // We use 8x rather than 4x here to handle the scenario where the average number of
+            // Taiko blocks proposed per Ethereum block is smaller than 1.
+            blockMaxGasLimit: 30_000_000 * 8,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,

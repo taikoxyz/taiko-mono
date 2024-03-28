@@ -8,6 +8,12 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 library LibBridgedToken {
     error BTOKEN_INVALID_PARAMS();
 
+    function validateInputs(address _srcToken, uint256 _srcChainId) internal view {
+        if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
+            revert BTOKEN_INVALID_PARAMS();
+        }
+    }
+
     function validateInputs(
         address _srcToken,
         uint256 _srcChainId,
@@ -17,10 +23,8 @@ library LibBridgedToken {
         internal
         view
     {
-        if (
-            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-                || bytes(_symbol).length == 0 || bytes(_name).length == 0
-        ) {
+        validateInputs(_srcToken, _srcChainId);
+        if (bytes(_symbol).length == 0 || bytes(_name).length == 0) {
             revert BTOKEN_INVALID_PARAMS();
         }
     }
@@ -33,11 +37,17 @@ library LibBridgedToken {
         pure
         returns (string memory)
     {
-        return string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
+        if (bytes(_name).length == 0) {
+            return "";
+        } else {
+            return
+                string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
+        }
     }
 
     function buildSymbol(string memory _symbol) internal pure returns (string memory) {
-        return string.concat(_symbol, ".t");
+        if (bytes(_symbol).length == 0) return "";
+        else return string.concat(_symbol, ".t");
     }
 
     function buildURI(

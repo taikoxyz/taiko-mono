@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
@@ -95,6 +96,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
+    /// @dev Do not make this function `nonReentrant`, this breaks {DelegateOwner} support.
     /// @param _addr The address to ban or unban.
     /// @param _ban True if ban, false if unban.
     function banAddress(
@@ -103,7 +105,6 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
-        nonReentrant
     {
         if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
         addressBanned[_addr] = _ban;
@@ -274,8 +275,8 @@ contract Bridge is EssentialContract, IBridge {
                 refundAmount = _message.value;
                 _updateMessageStatus(msgHash, Status.DONE);
             } else {
-                // Use the specified message gas limit if called by the owner, else
-                // use remaining gas
+                // Use the remaining gas if called by a the destOwner, else
+                // use the specified gas limit.
                 uint256 gasLimit = msg.sender == _message.destOwner ? gasleft() : _message.gasLimit;
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
@@ -417,24 +418,11 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
     {
-        if (
-            block.chainid == 1 // Ethereum mainnet
-        ) {
-            // For Taiko mainnet
+        if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
+            // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
             return (1 hours, 384 seconds);
-        } else if (
-            block.chainid == 2 // Ropsten
-                || block.chainid == 4 // Rinkeby
-                || block.chainid == 5 // Goerli
-                || block.chainid == 42 // Kovan
-                || block.chainid == 17_000 // Holesky
-                || block.chainid == 11_155_111 // Sepolia
-        ) {
-            // For all Taiko public testnets
-            return (30 minutes, 384 seconds);
-        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
-            // For all Taiko internal devnets
+        } else if (LibNetwork.isTaikoDevnet(block.chainid)) {
             return (5 minutes, 384 seconds);
         } else {
             // This is a Taiko L2 chain where no deleys are applied.
@@ -518,7 +506,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Resets the call context
     function _resetContext() private {
-        if (block.chainid == 1) {
+        if (LibNetwork.isDencunSupported(block.chainid)) {
             _storeContext(bytes32(0), address(0), uint64(0));
         } else {
             _storeContext(bytes32(PLACEHOLDER), address(uint160(PLACEHOLDER)), uint64(PLACEHOLDER));
@@ -530,7 +518,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _from The sender's address.
     /// @param _srcChainId The source chain ID.
     function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
-        if (block.chainid == 1) {
+        if (LibNetwork.isDencunSupported(block.chainid)) {
             assembly {
                 tstore(_CTX_SLOT, _msgHash)
                 tstore(add(_CTX_SLOT, 1), _from)
@@ -544,7 +532,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
     function _loadContext() private view returns (Context memory) {
-        if (block.chainid == 1) {
+        if (LibNetwork.isDencunSupported(block.chainid)) {
             bytes32 msgHash;
             address from;
             uint64 srcChainId;
@@ -574,10 +562,12 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool)
     {
-        bytes memory data = abi.encodeCall(
-            ISignalService.proveSignalReceived,
-            (_chainId, resolve(_chainId, "bridge", false), _signal, _proof)
-        );
-        return _signalService.sendEther(0, gasleft(), data);
+        try ISignalService(_signalService).proveSignalReceived(
+            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
+        ) {
+            return true;
+        } catch {
+            return false;
+        }
     }
 }

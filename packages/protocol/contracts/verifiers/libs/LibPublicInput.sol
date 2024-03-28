@@ -25,7 +25,7 @@ library LibPublicInput {
         bytes32 _metaHash,
         uint64 _chainId
     )
-        public
+        internal
         pure
         returns (bytes32)
     {

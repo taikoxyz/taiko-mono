@@ -24,7 +24,7 @@ import "../contracts/verifiers/libs/LibPublicInput.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../contracts/verifiers/GuardianVerifier.sol";
-import "../contracts/L1/tiers/TestnetTierProvider.sol";
+import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
@@ -33,6 +33,7 @@ import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L2/Lib1559Math.sol";
 import "../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import "../contracts/L2/TaikoL2.sol";
+import "../contracts/L2/DelegateOwner.sol";
 
 import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";

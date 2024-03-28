@@ -37,6 +37,11 @@ library LibVerifying {
         uint8 contestations
     );
 
+    /// @notice Emitted when some state variable values changed.
+    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
+    /// @param slotB The SlotB data structure.
+    event StateVariablesUpdated(TaikoData.SlotB slotB);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -150,9 +155,13 @@ library LibVerifying {
                     if (tierProvider == address(0)) {
                         tierProvider = _resolver.resolve("tier_provider", false);
                     }
+
                     if (
-                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
-                            + uint256(ts.timestamp).max(_state.slotB.lastUnpausedAt) > block.timestamp
+                        !LibUtils.isPostDeadline(
+                            ts.timestamp,
+                            b.lastUnpausedAt,
+                            ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow
+                        )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
                         // be proved and verified within the same L1 block.
@@ -221,6 +230,11 @@ library LibVerifying {
                 _syncChainData(_config, _resolver, lastVerifiedBlockId, stateRoot);
             }
         }
+    }
+
+    /// @notice Emit events used by client/node.
+    function emitEventForClient(TaikoData.State storage _state) internal {
+        emit StateVariablesUpdated({ slotB: _state.slotB });
     }
 
     function _syncChainData(

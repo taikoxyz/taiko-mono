@@ -63,8 +63,6 @@ contract TestTaikoL2 is TaikoTest {
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
-
-        vm.deal(address(L2), 100 ether);
     }
 
     function test_L2_AnchorTx_with_constant_block_time() external {
@@ -137,22 +135,6 @@ contract TestTaikoL2 is TaikoTest {
 
         vm.expectRevert();
         LibL2Signer.signAnchor(digest, uint8(3));
-    }
-
-    function test_L2_withdraw() external {
-        vm.prank(L2.owner(), L2.owner());
-        L2.withdraw(address(0), Alice);
-        assertEq(address(L2).balance, 0 ether);
-        assertEq(Alice.balance, 100 ether);
-
-        // Random EOA cannot call withdraw
-        vm.expectRevert();
-        vm.prank(Alice, Alice);
-        L2.withdraw(address(0), Alice);
-    }
-
-    function test_L2_getBlockHash() external {
-        assertEq(L2.getBlockHash(uint64(1000)), 0);
     }
 
     function _anchor(uint32 parentGasLimit) private {

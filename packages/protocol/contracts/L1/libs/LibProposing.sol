@@ -134,11 +134,9 @@ library LibProposing {
             meta_.blobHash = blobhash(0);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
-            // The proposer must be an Externally Owned Account (EOA) for
-            // calldata usage. This ensures that the transaction is not an
-            // internal one, making calldata retrieval more straightforward for
-            // Taiko node software.
-            if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
+            // This function must be called as the outmost transaction (not an internal one) for
+            // the node to extract the calldata easily.
+            if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
 
             meta_.blobHash = keccak256(_txList);
         }
