@@ -17,7 +17,7 @@ export async function deployTaikoL2(
     const {
         ownerTimelockController,
         ownerSecurityCouncil,
-        ownerChainId,
+        l1ChainId,
         chainId,
         seedAccounts,
     } = config;
@@ -47,7 +47,7 @@ export async function deployTaikoL2(
     const contractConfigs: any = await generateContractConfigs(
         ownerTimelockController,
         ownerSecurityCouncil,
-        ownerChainId,
+        l1ChainId,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -119,7 +119,7 @@ export async function deployTaikoL2(
 async function generateContractConfigs(
     ownerTimelockController: string,
     ownerSecurityCouncil: string,
-    ownerChainId: number,
+    l1ChainId: number,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -498,7 +498,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: ownerTimelockController,
                 addressManager: addressMap.RollupAddressManager,
-                ownerChainId,
+                l1ChainId,
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(

@@ -38,7 +38,7 @@ module.exports = {
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 },
   ],
   // Owner Chain ID, Security Council, and Timelock Controller
-  ownerChainId: 31337,
+  l1ChainId: 31337,
   ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   // L2 EIP-1559 baseFee calculation related fields.
