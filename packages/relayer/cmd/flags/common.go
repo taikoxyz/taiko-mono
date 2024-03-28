@@ -9,7 +9,8 @@ var (
 	indexerCategory   = "INDEXER"
 	processorCategory = "PROCESSOR"
 	watchdogCategory  = "WATCHDOG"
-	bridegCategory    = "BRIDGE"
+	bridgeCategory    = "BRIDGE"
+	txmgrCategory     = "TX_MANAGER"
 )
 
 var (

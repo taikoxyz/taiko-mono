@@ -14,19 +14,21 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 
+	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 type DB interface {
@@ -64,7 +66,6 @@ type Watchdog struct {
 
 	mu *sync.Mutex
 
-	destNonce    uint64
 	watchdogAddr common.Address
 
 	confirmations uint64
@@ -81,6 +82,10 @@ type Watchdog struct {
 
 	srcChainId  *big.Int
 	destChainId *big.Int
+
+	txmgr txmgr.TxManager
+
+	cfg *Config
 }
 
 func (w *Watchdog) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -153,6 +158,15 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
+	if w.txmgr, err = txmgr.NewSimpleTxManager(
+		"watchdog",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		*cfg.TxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
 	w.eventRepo = eventRepository
 	w.suspendedTxRepo = suspendedTxRepo
 
@@ -180,6 +194,8 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	w.backOffMaxRetries = cfg.BackOffMaxRetrys
 	w.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
+
+	w.cfg = cfg
 
 	return nil
 }
@@ -269,14 +285,14 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	}
 
 	// check if the source chain sent this message
-	sent, err := w.srcBridge.IsMessageSent(nil, msgBody.Event.Message)
+	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
 	if err != nil {
-		return errors.Wrap(err, "w.srcBridge.IsMessageSent")
+		return errors.Wrap(err, "w.destBridge.IsMessageSent")
 	}
 
 	// if so, do nothing, acknowledge message
 	if sent {
-		slog.Info("source bridge did send this message. returning early",
+		slog.Info("dest bridge did send this message. returning early",
 			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
 			"sent", sent,
 		)
@@ -284,40 +300,24 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	// if not, we need to suspend
-
-	var tx *types.Transaction
-
-	sendTx := func() error {
-		if ctx.Err() != nil {
-			return nil
-		}
-
-		tx, err = w.sendSuspendMessageTx(ctx, msgBody.Event)
-		if err != nil {
-			return err
-		}
-
-		return nil
+	data, err := encoding.BridgeABI.Pack("suspendMessages", [][32]byte{msgBody.Event.MsgHash}, true)
+	if err != nil {
+		return errors.Wrap(err, "encoding.BridgeABI.Pack")
 	}
 
-	if err := backoff.Retry(sendTx, backoff.WithContext(backoff.WithMaxRetries(
-		backoff.NewConstantBackOff(w.backOffRetryInterval),
-		w.backOffMaxRetries), ctx),
-	); err != nil {
+	candidate := txmgr.TxCandidate{
+		TxData: data,
+		Blobs:  nil,
+		To:     &w.cfg.SrcBridgeAddress,
+	}
+
+	receipt, err := w.txmgr.Send(ctx, candidate)
+	if err != nil {
+		slog.Warn("Failed to send SuspendMessage transaction", "error", err.Error())
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
-
-	defer cancel()
-
-	_, err = relayer.WaitReceipt(ctx, w.destEthClient, tx.Hash())
-	if err != nil {
-		return errors.Wrap(err, "relayer.WaitReceipt")
-	}
-
-	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
+	slog.Info("Mined tx", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()))
 
 	relayer.TransactionsSuspended.Inc()
 
@@ -334,72 +334,4 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	}
 
 	return nil
-}
-
-func (w *Watchdog) setLatestNonce(nonce uint64) {
-	w.destNonce = nonce
-}
-
-func (w *Watchdog) getLatestNonce(ctx context.Context, auth *bind.TransactOpts) error {
-	pendingNonce, err := w.destEthClient.PendingNonceAt(ctx, w.watchdogAddr)
-	if err != nil {
-		return err
-	}
-
-	if pendingNonce > w.destNonce {
-		w.setLatestNonce(pendingNonce)
-	}
-
-	auth.Nonce = big.NewInt(int64(w.destNonce))
-
-	return nil
-}
-
-func (w *Watchdog) sendSuspendMessageTx(
-	ctx context.Context,
-	event *bridge.BridgeMessageReceived,
-) (*types.Transaction, error) {
-	auth, err := bind.NewKeyedTransactorWithChainID(w.ecdsaKey, new(big.Int).SetUint64(event.Message.DestChainId))
-	if err != nil {
-		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
-
-	auth.Context = ctx
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	err = w.getLatestNonce(ctx, auth)
-	if err != nil {
-		return nil, errors.New("p.getLatestNonce")
-	}
-
-	gas, err := utils.EstimateGas(
-		ctx,
-		w.ecdsaKey,
-		event.MsgHash,
-		new(big.Int).SetUint64(event.Message.DestChainId),
-		func() (*types.Transaction, error) {
-			return w.destBridge.SuspendMessages(auth, [][32]byte{event.MsgHash}, true)
-		})
-
-	if err != nil {
-		return nil, errors.Wrap(err, "w.estimateGas")
-	}
-
-	auth.GasLimit = gas
-
-	if err = utils.SetGasTipOrPrice(ctx, auth, w.destEthClient); err != nil {
-		return nil, errors.Wrap(err, "w.setGasTipOrPrice")
-	}
-
-	// process the message on the destination bridge.
-	tx, err := w.destBridge.SuspendMessages(auth, [][32]byte{event.MsgHash}, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "w.destBridge.ProcessMessage")
-	}
-
-	w.setLatestNonce(tx.Nonce())
-
-	return tx, nil
 }
