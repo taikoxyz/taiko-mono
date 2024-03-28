@@ -170,6 +170,10 @@ async function generateContractConfigs(
                 "./AddressManager.sol/AddressManager.json",
             ),
         ),
+        // Libraries
+        LibNetwork: require(
+            path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
+        ),
     };
 
     const proxy = require(
@@ -217,7 +221,7 @@ async function generateContractConfigs(
         // Shared Contracts
         SharedAddressManagerImpl: {
             address: addressMap.SharedAddressManagerImpl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: replaceUUPSImmutableVaules(
                 contractArtifacts.SharedAddressManagerImpl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(
@@ -234,10 +238,13 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.SharedAddressManager.deployedBytecode.object,
             variables: {
-                // initializer
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
                 _initialized: 1,
                 _initializing: false,
-                // Ownable2Upgradeable
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressManager
                 __addresses: {
@@ -277,7 +284,7 @@ async function generateContractConfigs(
         BridgeImpl: {
             address: addressMap.BridgeImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceUUPSImmutableVaules(
                     contractArtifacts.BridgeImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.BridgeImpl, 32),
@@ -292,15 +299,15 @@ async function generateContractConfigs(
             address: addressMap.Bridge,
             deployedBytecode: contractArtifacts.Bridge.deployedBytecode.object,
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
+                // EssentialContract
                 __reentry: 1, // _FALSE
                 __paused: 1, // _FALSE
-                // Ownable2Upgradeable
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
-                // AddressResolver
+                // EssentialContract => AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
@@ -311,7 +318,7 @@ async function generateContractConfigs(
         ERC20VaultImpl: {
             address: addressMap.ERC20VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceUUPSImmutableVaules(
                     contractArtifacts.ERC20VaultImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.ERC20VaultImpl, 32),
@@ -327,15 +334,15 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.ERC20Vault.deployedBytecode.object,
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
+                // EssentialContract
                 __reentry: 1, // _FALSE
                 __paused: 1, // _FALSE
-                // Ownable2Upgradeable
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
-                // AddressResolver
+                // EssentialContract => AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
@@ -346,7 +353,7 @@ async function generateContractConfigs(
         ERC721VaultImpl: {
             address: addressMap.ERC721VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceUUPSImmutableVaules(
                     contractArtifacts.ERC721VaultImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.ERC721VaultImpl, 32),
@@ -362,15 +369,15 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.ERC721Vault.deployedBytecode.object,
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
+                // EssentialContract
                 __reentry: 1, // _FALSE
                 __paused: 1, // _FALSE
-                // Ownable2Upgradeable
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
-                // AddressResolver
+                // EssentialContract => AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
@@ -381,7 +388,7 @@ async function generateContractConfigs(
         ERC1155VaultImpl: {
             address: addressMap.ERC1155VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceUUPSImmutableVaules(
                     contractArtifacts.ERC1155VaultImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.ERC1155VaultImpl, 32),
@@ -397,15 +404,15 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.ERC1155Vault.deployedBytecode.object,
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
+                // EssentialContract
                 __reentry: 1, // _FALSE
                 __paused: 1, // _FALSE
-                // Ownable2Upgradeable
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
-                // AddressResolver
+                // EssentialContract => AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
@@ -415,32 +422,32 @@ async function generateContractConfigs(
         },
         BridgedERC20: {
             address: addressMap.BridgedERC20Impl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: linkContractLibs(replaceUUPSImmutableVaules(
                 contractArtifacts.BridgedERC20Impl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(addressMap.BridgedERC20Impl, 32),
-            ).deployedBytecode.object,
+            ), addressMap),
         },
         BridgedERC721: {
             address: addressMap.BridgedERC721Impl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: linkContractLibs(replaceUUPSImmutableVaules(
                 contractArtifacts.BridgedERC721Impl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(addressMap.BridgedERC721Impl, 32),
-            ).deployedBytecode.object,
+            ), addressMap),
         },
         BridgedERC1155: {
             address: addressMap.BridgedERC1155Impl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: linkContractLibs(replaceUUPSImmutableVaules(
                 contractArtifacts.BridgedERC1155Impl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(addressMap.BridgedERC1155Impl, 32),
-            ).deployedBytecode.object,
+            ), addressMap),
         },
         SignalServiceImpl: {
             address: addressMap.SignalServiceImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceUUPSImmutableVaules(
                     contractArtifacts.SignalServiceImpl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.SignalServiceImpl, 32),
@@ -456,15 +463,15 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.SignalService.deployedBytecode.object,
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
+                // EssentialContract
                 __reentry: 1, // _FALSE
                 __paused: 1, // _FALSE
-                // Ownable2Upgradeable
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
-                // AddressResolver
+                // EssentialContract => AddressResolver
                 addressManager: addressMap.SharedAddressManager,
                 isAuthorized: {
                     [addressMap.TaikoL2]: true,
@@ -479,7 +486,7 @@ async function generateContractConfigs(
         TaikoL2Impl: {
             address: addressMap.TaikoL2Impl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceUUPSImmutableVaules(
                     contractArtifacts.TaikoL2Impl,
                     uupsImmutableReferencesMap,
                     ethers.utils.hexZeroPad(addressMap.TaikoL2Impl, 32),
@@ -494,13 +501,20 @@ async function generateContractConfigs(
             address: addressMap.TaikoL2,
             deployedBytecode: contractArtifacts.TaikoL2.deployedBytecode.object,
             variables: {
-                // TaikoL2
-                // Ownable2Upgradeable
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerTimelockController,
+                // EssentialContract => AddressResolver
                 addressManager: addressMap.RollupAddressManager,
+                // TaikoL2 => CrossChainOwned
                 l1ChainId,
+                // TaikoL2
                 gasExcess: param1559.gasExcess,
-                // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
                     [
@@ -522,7 +536,7 @@ async function generateContractConfigs(
         },
         RollupAddressManagerImpl: {
             address: addressMap.RollupAddressManagerImpl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: replaceUUPSImmutableVaules(
                 contractArtifacts.RollupAddressManagerImpl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(
@@ -539,10 +553,13 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.RollupAddressManager.deployedBytecode.object,
             variables: {
-                // initializer
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
                 _initialized: 1,
                 _initializing: false,
-                // Ownable2Upgradeable
+                // EssentialContract => Ownable2StepUpgradeable
                 _owner: ownerSecurityCouncil,
                 // AddressManager
                 __addresses: {
@@ -563,6 +580,11 @@ async function generateContractConfigs(
                 [IMPLEMENTATION_SLOT]: addressMap.RollupAddressManagerImpl,
             },
             isProxy: true,
+        },
+        // Libraries
+        LibNetwork: {
+            address: addressMap.LibNetwork,
+            deployedBytecode: contractArtifacts.LibNetwork.deployedBytecode.object,
         },
     };
 }
@@ -631,7 +653,7 @@ function getUUPSImmutableReferences() {
     return references;
 }
 
-function replaceUUPSImmutableValues(
+function replaceUUPSImmutableVaules(
     artifact: any,
     references: any,
     value: string,
