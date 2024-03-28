@@ -16,22 +16,23 @@ jobs:
     runs-on: [taiko-runner]
     strategy:
       matrix:
+        org: ["Public", "Internal"]
         include:
-          - project: "Public"
-            org_id: ${{ secrets.VERCEL_ORG_ID}}
-            project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI}}
-          - project: "Internal"
-            org_id: ${{ secrets.VERCEL_ORG_ID }}
-            project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL}}
+          - org: "Public"
+            org_id_secret: "VERCEL_ORG_ID"
+            project_id_secret: "VERCEL_PROJECT_ID_BRIDGE_UI"
+          - org: "Internal"
+            org_id_secret: "VERCEL_ORG_ID"
+            project_id_secret: "VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL"
     steps:
       - uses: actions/checkout@v2
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
-      - name: Setup Vercel Environment for ${{ matrix.project }}
+      - name: Setup Vercel Environment for ${{ matrix.org }}
         run: |
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ matrix.org_id }} --project-id=${{ matrix.project_id }}
-          vercel link --token=${{ secrets.VERCEL_TOKEN }} --confirm --name=${{ matrix.project }} --scope=${{ matrix.org_id }}
-      - name: Build Project Artifacts for ${{ matrix.project }}
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets[matrix.org_id_secret] }} --project-id=${{ secrets[matrix.project_id_secret] }}
+          vercel link --token=${{ secrets.VERCEL_TOKEN }} --confirm --name=${{ matrix.org }} --scope=${{ secrets[matrix.org_id_secret] }}
+      - name: Build Project Artifacts for ${{ matrix.org }}
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Deploy Project Artifacts to Vercel for ${{ matrix.project }}
+      - name: Deploy Project Artifacts to Vercel for ${{ matrix.org }}
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
