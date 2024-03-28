@@ -21,5 +21,14 @@ contract TestLib1559Math is TaikoTest {
         // basefee will reach 1 gwei if gasExcess > 19620000000
         console2.log("basefee will reach 1 gwei if gasExcess >", gasTarget * i);
         assertEq(i, 327);
+
+        for (; baseFee < 10 gwei; ++i) {
+            baseFee = Lib1559Math.basefee(gasTarget * i, adjustmentFactor);
+            console2.log("baseFee:", i, baseFee);
+        }
+
+        // basefee will reach 1 gwei if gasExcess > 20760000000
+        console2.log("basefee will reach 10 gwei if gasExcess >", gasTarget * i);
+        assertEq(i, 346);
     }
 }
