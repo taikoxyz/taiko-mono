@@ -22,12 +22,8 @@ library Lib1559Math {
         pure
         returns (uint256)
     {
-        if (_adjustmentFactor == 0) {
-            revert EIP1559_INVALID_PARAMS();
-        }
-
-        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
-            / _adjustmentFactor;
+        if (_adjustmentFactor == 0) revert EIP1559_INVALID_PARAMS();
+        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
