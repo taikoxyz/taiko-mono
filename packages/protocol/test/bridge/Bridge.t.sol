@@ -761,7 +761,7 @@ contract BridgeTest is TaikoTest {
         vm.expectRevert(Bridge.B_MESSAGE_NOT_SUSPENDED.selector);
         dest2StepBridge.suspendMessages(messageHashes, false);
 
-        // Suspend sucessfully
+        // Suspend successfully
         vm.prank(dest2StepBridge.owner(), dest2StepBridge.owner());
         dest2StepBridge.suspendMessages(messageHashes, true);
 

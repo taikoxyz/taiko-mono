@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
@@ -105,6 +106,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
+    /// @dev Do not make this function `nonReentrant`, this breaks {DelegateOwner} support.
     /// @param _addr The address to ban or unban.
     /// @param _ban True if ban, false if unban.
     function banAddress(
@@ -239,6 +241,7 @@ contract Bridge is EssentialContract, IBridge {
         bool isMessageProven = receivedAt != 0;
 
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
+
         if (!isMessageProven) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
@@ -425,25 +428,12 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
     {
-        if (
-            block.chainid == 1 // Ethereum mainnet
-        ) {
-            // For Taiko mainnet
+        if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
+            // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
             return (1 hours, 384 seconds);
-        } else if (
-            block.chainid == 2 // Ropsten
-                || block.chainid == 4 // Rinkeby
-                || block.chainid == 5 // Goerli
-                || block.chainid == 42 // Kovan
-                || block.chainid == 17_000 // Holesky
-                || block.chainid == 11_155_111 // Sepolia
-        ) {
-            // For all Taiko public testnets
+        } else if (LibNetwork.isTaikoDevnet(block.chainid)) {
             return (30 minutes, 384 seconds);
-        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
-            // For all Taiko internal devnets
-            return (5 minutes, 384 seconds);
         } else {
             // This is a Taiko L2 chain where no deleys are applied.
             return (0, 0);
