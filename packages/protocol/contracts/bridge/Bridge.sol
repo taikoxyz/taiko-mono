@@ -99,6 +99,7 @@ contract Bridge is EssentialContract, IBridge {
                 }
 
                 proofReceipt[msgHash].receivedAt = type(uint64).max;
+                emit MessageSuspended(msgHash, true, 0);
             } else {
                 // Note before we set the receivedAt to current timestamp, we have to be really
                 // careful that this message must have been proven then suspended.
@@ -106,9 +107,8 @@ contract Bridge is EssentialContract, IBridge {
                     revert B_MESSAGE_NOT_SUSPENDED();
                 }
                 proofReceipt[msgHash].receivedAt = uint64(block.timestamp);
+                emit MessageSuspended(msgHash, false, uint64(block.timestamp));
             }
-
-            emit MessageSuspended(msgHash, _suspend);
         }
     }
 
