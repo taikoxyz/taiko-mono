@@ -56,8 +56,7 @@ library Lib1559Math {
             revert EIP1559_INVALID_PARAMS();
         }
 
-        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
-            / _adjustmentFactor;
+        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
