@@ -53,7 +53,10 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
+    error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
+    error B_MESSAGE_NOT_SUSPENDED();
+    error B_MESSAGE_SUSPENDED();
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
@@ -86,10 +89,25 @@ contract Bridge is EssentialContract, IBridge {
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
     {
-        uint64 _timestamp = _suspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < _msgHashes.length; ++i) {
             bytes32 msgHash = _msgHashes[i];
-            proofReceipt[msgHash].receivedAt = _timestamp;
+
+            if (_suspend) {
+                if (proofReceipt[msgHash].receivedAt == 0) revert B_MESSAGE_NOT_PROVEN();
+                if (proofReceipt[msgHash].receivedAt == type(uint64).max) {
+                    revert B_MESSAGE_SUSPENDED();
+                }
+
+                proofReceipt[msgHash].receivedAt = type(uint64).max;
+            } else {
+                // Note before we set the receivedAt to current timestamp, we have to be really
+                // careful that this message must have been proven then suspended.
+                if (proofReceipt[msgHash].receivedAt != type(uint64).max) {
+                    revert B_MESSAGE_NOT_SUSPENDED();
+                }
+                proofReceipt[msgHash].receivedAt = uint64(block.timestamp);
+            }
+
             emit MessageSuspended(msgHash, _suspend);
         }
     }
@@ -166,9 +184,12 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        bool isMessageProven = receivedAt != 0;
+        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
-        if (!isMessageProven) {
+        (uint256 invocationDelay,) = getInvocationDelays();
+
+        bool isNewlyProven;
+        if (receivedAt == 0) {
             address signalService = resolve("signal_service", false);
 
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
@@ -181,10 +202,12 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             receivedAt = uint64(block.timestamp);
-            proofReceipt[msgHash].receivedAt = receivedAt;
-        }
+            isNewlyProven = true;
 
-        (uint256 invocationDelay,) = getInvocationDelays();
+            if (invocationDelay != 0) {
+                proofReceipt[msgHash].receivedAt = receivedAt;
+            }
+        }
 
         if (block.timestamp >= invocationDelay + receivedAt) {
             delete proofReceipt[msgHash];
@@ -206,7 +229,7 @@ contract Bridge is EssentialContract, IBridge {
                 _message.srcOwner.sendEtherAndVerify(_message.value);
             }
             emit MessageRecalled(msgHash);
-        } else if (!isMessageProven) {
+        } else if (isNewlyProven) {
             emit MessageReceived(msgHash, _message, true);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -227,17 +250,20 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         address signalService = resolve("signal_service", false);
+
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        bool isMessageProven = receivedAt != 0;
+        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
 
-        if (!isMessageProven) {
+        bool isNewlyProven;
+        if (receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
             receivedAt = uint64(block.timestamp);
+            isNewlyProven = true;
 
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = ProofReceipt({
@@ -299,7 +325,7 @@ contract Bridge is EssentialContract, IBridge {
                 refundTo.sendEtherAndVerify(refundAmount);
             }
             emit MessageExecuted(msgHash);
-        } else if (!isMessageProven) {
+        } else if (isNewlyProven) {
             emit MessageReceived(msgHash, _message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
