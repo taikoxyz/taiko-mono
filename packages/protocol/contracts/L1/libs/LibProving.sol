@@ -435,18 +435,18 @@ library LibProving {
         // The highest tier proof can always submit new proofs
         if (_tier.contestBond == 0) return;
 
-        bool isAssignedPover = msg.sender == _blk.assignedProver;
+        bool isAssignedProver = msg.sender == _blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.
         if (
             _tid == 1 && _ts.tier == 0
                 && !LibUtils.isPostDeadline(_ts.timestamp, _lastUnpausedAt, _tier.provingWindow)
         ) {
-            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
+            if (!isAssignedProver) revert L1_NOT_ASSIGNED_PROVER();
         } else {
             // Disallow the same address to prove the block so that we can detect that the
             // assigned prover should not receive his liveness bond back
-            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+            if (isAssignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 
