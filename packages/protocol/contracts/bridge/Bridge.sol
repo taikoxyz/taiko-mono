@@ -113,7 +113,6 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         onlyFromOwnerOrNamed("bridge_watchdog")
-        nonReentrant
     {
         if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
         addressBanned[_addr] = _ban;
@@ -240,7 +239,6 @@ contract Bridge is EssentialContract, IBridge {
         bool isMessageProven = receivedAt != 0;
 
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
-
         if (!isMessageProven) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();

@@ -741,28 +741,48 @@ contract BridgeTest is TaikoTest {
         (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = dest2StepBridge.hashMessage(message);
         bytes32[] memory messageHashes = new bytes32[](1);
         messageHashes[0] = msgHash;
 
         vm.stopPrank();
-        // Suspend
-        vm.prank(destChainBridge.owner(), destChainBridge.owner());
-        destChainBridge.suspendMessages(messageHashes, true);
+        // Suspend - Cannot unsuspend because it has never been proven!
+        vm.prank(dest2StepBridge.owner(), dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_NOT_PROVEN.selector);
+        dest2StepBridge.suspendMessages(messageHashes, true);
+
+        vm.startPrank(Alice);
+        //Set receivedAt first
+        dest2StepBridge.processMessage(message, proof);
+
+        vm.stopPrank();
+        // Unsuspend -> Cannot unsuspend because it has never been suspended!
+        vm.prank(dest2StepBridge.owner(), dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_NOT_SUSPENDED.selector);
+        dest2StepBridge.suspendMessages(messageHashes, false);
+
+        // Suspend sucessfully
+        vm.prank(dest2StepBridge.owner(), dest2StepBridge.owner());
+        dest2StepBridge.suspendMessages(messageHashes, true);
 
         vm.startPrank(Alice);
         vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        destChainBridge.processMessage(message, proof);
-
+        dest2StepBridge.processMessage(message, proof);
         vm.stopPrank();
-        // Unsuspend
-        vm.prank(destChainBridge.owner(), destChainBridge.owner());
-        destChainBridge.suspendMessages(messageHashes, false);
 
+        // Unsuspend successfully
+        vm.prank(dest2StepBridge.owner(), dest2StepBridge.owner());
+        dest2StepBridge.suspendMessages(messageHashes, false);
+
+        // Go in the future and try again
+        vm.warp(block.timestamp + 30 days);
+
+        // Process (claim) now successfully
         vm.startPrank(Alice);
-        destChainBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, proof);
+        vm.stopPrank();
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
     }
