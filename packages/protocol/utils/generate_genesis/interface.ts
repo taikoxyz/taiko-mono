@@ -1,7 +1,7 @@
 export interface Config {
     ownerTimelockController: string;
     ownerSecurityCouncil: string;
-    ownerChainId: number;
+    l1ChainId: number;
     chainId: number;
     seedAccounts: Array<{
         [key: string]: number;

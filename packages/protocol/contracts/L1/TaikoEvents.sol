@@ -44,6 +44,11 @@ abstract contract TaikoEvents {
         uint8 contestations
     );
 
+    /// @notice Emitted when some state variable values changed.
+    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
+    /// @param slotB The SlotB data structure.
+    event StateVariablesUpdated(TaikoData.SlotB slotB);
+
     /// @dev Emitted when a block transition is proved or re-proved.
     /// @param blockId The ID of the proven block.
     /// @param tran The verified transition.

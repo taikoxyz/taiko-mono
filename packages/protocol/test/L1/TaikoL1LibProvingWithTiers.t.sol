@@ -560,6 +560,18 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             // Prove as guardian
             proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                blockHash,
+                bytes32(uint256(1)),
+                LibTiers.TIER_GUARDIAN,
+                ""
+            );
+
+            // Prove as guardian again
+            proveBlock(
                 Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
             );
 

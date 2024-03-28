@@ -23,7 +23,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json"));
     address private ownerTimelockController = configJSON.readAddress(".ownerTimelockController");
     address private ownerSecurityCouncil = configJSON.readAddress(".ownerSecurityCouncil");
-    uint256 private ownerChainId = configJSON.readUint(".ownerChainId");
+    uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -109,13 +109,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
         TaikoL2 taikoL2Proxy = TaikoL2(getPredeployedContractAddress("TaikoL2"));
 
         assertEq(ownerTimelockController, taikoL2Proxy.owner());
-        assertEq(ownerChainId, taikoL2Proxy.ownerChainId());
+        assertEq(l1ChainId, taikoL2Proxy.l1ChainId());
 
         vm.startPrank(taikoL2Proxy.GOLDEN_TOUCH_ADDRESS());
         for (uint32 i = 0; i < 300; ++i) {
             vm.roll(block.number + 1);
             vm.warp(block.number + 12);
-            vm.fee(taikoL2Proxy.getBasefee(12, i));
+            (uint256 basefee,) = taikoL2Proxy.getBasefee(uint64(i + 1), i + 1);
+            vm.fee(basefee);
 
             uint256 gasLeftBefore = gasleft();
 

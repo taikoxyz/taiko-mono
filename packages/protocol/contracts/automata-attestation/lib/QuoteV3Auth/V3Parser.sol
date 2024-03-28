@@ -128,7 +128,7 @@ library V3Parser {
             + v3Quote.v3AuthData.qeAuthData.parsedDataSize + 2 // sizeof(v3Quote.v3AuthData.certification.certType)
             + 4 // sizeof(v3Quote.v3AuthData.certification.certDataSize)
             + v3Quote.v3AuthData.certification.certDataSize;
-        if (totalQuoteSize < MINIMUM_QUOTE_LENGTH) {
+        if (totalQuoteSize <= MINIMUM_QUOTE_LENGTH) {
             revert V3PARSER_INVALID_QUOTE_LENGTN();
         }
 

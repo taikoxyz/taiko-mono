@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
 
 /// @title LibUtils
 /// @notice A library that offers helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibUtils {
+    using LibMath for uint256;
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
@@ -84,5 +87,18 @@ library LibUtils {
         }
 
         if (tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
+    }
+
+    function isPostDeadline(
+        uint256 _tsTimestamp,
+        uint256 _lastUnpausedAt,
+        uint256 _windowMinutes
+    )
+        internal
+        view
+        returns (bool)
+    {
+        uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
+        return block.timestamp >= deadline;
     }
 }

@@ -99,8 +99,4 @@ library LibAddress {
             return ECDSA.recover(_hash, _sig) == _addr;
         }
     }
-
-    function isSenderEOA() internal view returns (bool) {
-        return msg.sender == tx.origin;
-    }
 }
