@@ -716,6 +716,26 @@ contract BridgeTest is TaikoTest {
         bridge.sendMessage{ value: amount }(message);
     }
 
+    // test with a known good merkle proof / message since we cant generate
+    // proofs via rpc
+    // in foundry
+    function test_Bridge_process_message() public {
+        // This predefined successful process message call fails now
+        // since we modified the iBridge.Message struct and cut out
+        // depositValue
+        vm.startPrank(Alice);
+        (IBridge.Message memory message, bytes memory proof) =
+            setUpPredefinedSuccessfulProcessMessageCall();
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+
+        destChainBridge.processMessage(message, proof);
+
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+
+        assertEq(status == IBridge.Status.DONE, true);
+    }
+
     function test_Bridge_suspend_messages() public {
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
