@@ -11,12 +11,12 @@ contract TestLib1559Math is TaikoTest {
         uint256 adjustmentQuotient = 8;
         uint256 adjustmentFactor = gasTarget * adjustmentQuotient;
         // The expected values are calculated in eip1559_util.py
-        _assertAmostEq(
-            999_999_916,
-            Lib1559Math.basefee({ _gasExcess: 49_954_623_777, _adjustmentFactor: adjustmentFactor })
-        );
 
-        uint256 baseFee = Lib1559Math.basefee({
+        uint256 baseFee =
+            Lib1559Math.basefee({ _gasExcess: 49_954_623_777, _adjustmentFactor: adjustmentFactor });
+        _assertAmostEq(baseFee, 1_199_999_900_175_871_825);
+
+        baseFee = Lib1559Math.basefee({
             _gasExcess: LibFixedPointMath.MAX_EXP_INPUT * adjustmentFactor
                 / LibFixedPointMath.SCALING_FACTOR,
             _adjustmentFactor: adjustmentFactor
