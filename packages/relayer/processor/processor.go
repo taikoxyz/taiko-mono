@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,10 +18,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
@@ -93,7 +97,6 @@ type Processor struct {
 
 	mu *sync.Mutex
 
-	destNonce               uint64
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
 
@@ -121,7 +124,7 @@ type Processor struct {
 
 	cfg *Config
 
-	gasIncreaseRate uint64
+	txmgr txmgr.TxManager
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -293,6 +296,15 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 	}
 
+	if p.txmgr, err = txmgr.NewSimpleTxManager(
+		"processor",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		*cfg.TxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
 	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
@@ -333,7 +345,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	p.targetTxHash = cfg.TargetTxHash
-	p.gasIncreaseRate = cfg.GasIncreaseRate
 
 	return nil
 }
@@ -413,12 +424,43 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				shouldRequeue, err := p.processMessage(ctx, m)
 
 				if err != nil {
-					// if the message is unprocessable, we just acknowledge it and move on.
-					if errors.Is(err, errUnprocessable) {
+					switch {
+					case errors.Is(err, errUnprocessable):
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
-					} else {
+					case errors.Is(err, relayer.ErrUnprofitable):
+						// we want to add it to the unprofitable queue, to be iterated
+						// and picked up by a processor that will periodically check
+						// if the messages are now estimated to be profitable, rather than
+						// just discard those messages.
+						marshalled, err := json.Marshal(m)
+						if err != nil {
+							slog.Error("error marshaling queue message", "error", err)
+							// if we cant marshal it, we cant publish it. we should negatively acknowledge
+							// the emssage so it goes to the dead letter queue.
+							if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
+								slog.Error("Err nacking message", "err", err.Error())
+							}
+
+							return
+						}
+
+						if err := p.queue.Publish(
+							ctx,
+							fmt.Sprintf("%v-unprofitable", p.queueName()),
+							marshalled,
+							p.cfg.UnprofitableMessageQueueExpiration,
+						); err != nil {
+							slog.Error("error publishing to unprofitable queue", "error", err)
+						}
+
+						// after publishing successfully, we can acknowledge this message to remove it
+						// from our main queue.
+						if err := p.queue.Ack(ctx, m); err != nil {
+							slog.Error("Err acking message", "err", err.Error())
+						}
+					default:
 						slog.Error("process message failed", "err", err.Error())
 
 						// we want to negatively acknowledge the message and requeue it if we
@@ -427,11 +469,13 @@ func (p *Processor) eventLoop(ctx context.Context) {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
-				} else {
-					// otherwise if no error, we can acknowledge it successfully.
-					if err := p.queue.Ack(ctx, m); err != nil {
-						slog.Error("Err acking message", "err", err.Error())
-					}
+
+					return
+				}
+
+				// otherwise if no error, we can acknowledge it successfully.
+				if err := p.queue.Ack(ctx, m); err != nil {
+					slog.Error("Err acking message", "err", err.Error())
 				}
 			}(msg)
 		}

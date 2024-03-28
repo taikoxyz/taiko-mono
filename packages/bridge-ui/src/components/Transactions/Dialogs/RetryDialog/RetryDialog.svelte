@@ -1,61 +1,103 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Hash } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
+  import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { OnAccount } from '$components/OnAccount';
   import { DialogStep, DialogStepper } from '$components/Transactions/Dialogs/Stepper';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
+  import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
+  import { pendingTransactions } from '$stores/pendingTransactions';
+
+  import Claim from '../Claim.svelte';
+  import ClaimConfirmStep from '../ClaimDialog/ClaimSteps/ClaimConfirmStep.svelte';
+  import ClaimReviewStep from '../ClaimDialog/ClaimSteps/ClaimReviewStep.svelte';
+  import { TWO_STEP_STATE } from '../ClaimDialog/types';
+  import RetryStepNavigation from './RetryStepNavigation.svelte';
+  import RetryOptionStep from './RetrySteps/RetryOptionStep.svelte';
+  import { selectedRetryMethod } from './state';
+  import { INITIAL_STEP, RETRY_OPTION, RetrySteps } from './types';
 
   export let dialogOpen = false;
 
-  export let item: BridgeTransaction;
+  export let bridgeTx: BridgeTransaction;
 
-  // export let loading = false;
+  export let loading = false;
+
+  const log = getLogger('RetryDialog');
+  const dispatch = createEventDispatcher();
 
   const dialogId = `dialog-${uid()}`;
 
+  export let activeStep: RetrySteps = RetrySteps.SELECT;
+
+  let canContinue = false;
+  let retrying: boolean;
+  let retryDone = false;
+  let ClaimComponent: Claim;
+
+  let txHash: Hash;
+
+  const handleRetryError = () => {
+    retrying = false;
+  };
+
+  const handleAccountChange = () => {
+    reset();
+  };
+
+  const reset = () => {
+    activeStep = INITIAL_STEP;
+    $selectedRetryMethod = RETRY_OPTION.CONTINUE;
+    retryDone = false;
+  };
+
   const closeDialog = () => {
     dialogOpen = false;
+    reset();
   };
 
-  const enum ClaimSteps {
-    INFO,
-    REVIEW,
-    CONFIRM,
-  }
-
-  export let activeStep: ClaimSteps = ClaimSteps.INFO;
-
-  let nextStepButtonText: string;
-
-  // const getStepText = () => {
-  //   if (activeStep === ClaimSteps.INFO) {
-  //     return $t('common.confirm');
-  //   }
-  //   if (activeStep === ClaimSteps.REVIEW) {
-  //     return $t('common.ok');
-  //   } else {
-  //     return $t('common.continue');
-  //   }
-  // };
-
-  const handleNextStep = () => {
-    if (activeStep === ClaimSteps.INFO) {
-      activeStep = ClaimSteps.REVIEW;
-    } else if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.CONFIRM;
-    } else if (activeStep === ClaimSteps.CONFIRM) {
-      activeStep = ClaimSteps.INFO;
-    }
+  export const handleClaimClick = async () => {
+    retrying = true;
+    await ClaimComponent.claim();
   };
 
-  const handlePreviousStep = () => {
-    if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.INFO;
-    } else if (activeStep === ClaimSteps.CONFIRM) {
-      activeStep = ClaimSteps.REVIEW;
-    }
+  const handleRetryTxSent = async (event: CustomEvent<{ txHash: Hash }>) => {
+    const { txHash: transactionHash } = event.detail;
+    txHash = transactionHash;
+    log('handle claim tx sent', txHash);
+    retrying = true;
+
+    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
+    log('explorer', explorer);
+    infoToast({
+      title: $t('transactions.actions.claim.tx.title'),
+      message: $t('transactions.actions.claim.tx.message', {
+        values: {
+          token: bridgeTx.symbol,
+          url: `${explorer}/tx/${txHash}`,
+        },
+      }),
+    });
+    await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
+
+    retryDone = true;
+
+    dispatch('retryDone');
+
+    successToast({
+      title: $t('transactions.actions.claim.success.title'),
+      message: $t('transactions.actions.claim.tx.message', {
+        values: {
+          url: `${explorer}/tx/${txHash}`,
+        },
+      }),
+    });
   };
 </script>
 
@@ -67,30 +109,52 @@
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute">
     <CloseButton onClick={closeDialog} />
     <div class="w-full">
-      <h3 class="title-body-bold mb-7">{$t('token_dropdown.label')}</h3>
-      {item}
-      <DialogStepper on:click={() => handlePreviousStep()}>
-        <DialogStep stepIndex={ClaimSteps.INFO} currentStepIndex={activeStep} isActive={activeStep === ClaimSteps.INFO}
-          >{$t('bridge.step.import.title')}</DialogStep>
+      <h3 class="title-body-bold mb-7">{$t('transactions.retry.steps.title')}</h3>
+      <DialogStepper>
         <DialogStep
-          stepIndex={ClaimSteps.REVIEW}
+          stepIndex={RetrySteps.SELECT}
           currentStepIndex={activeStep}
-          isActive={activeStep === ClaimSteps.REVIEW}>{$t('bridge.step.review.title')}</DialogStep>
+          isActive={activeStep === RetrySteps.SELECT}>{$t('transactions.retry.steps.select.title')}</DialogStep>
         <DialogStep
-          stepIndex={ClaimSteps.CONFIRM}
+          stepIndex={RetrySteps.REVIEW}
           currentStepIndex={activeStep}
-          isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
+          isActive={activeStep === RetrySteps.REVIEW}>{$t('common.review')}</DialogStep>
+        <DialogStep
+          stepIndex={RetrySteps.CONFIRM}
+          currentStepIndex={activeStep}
+          isActive={activeStep === RetrySteps.CONFIRM}>{$t('common.confirm')}</DialogStep>
       </DialogStepper>
-      <p>
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. A inventore, beatae aliquid quidem consectetur fuga?
-        Inventore ab dolorum reprehenderit possimus quidem voluptatem, rem repellat, laudantium fugit doloribus
-        aspernatur esse perferendis!
-      </p>
-      <div class="f-col text-left">
-        <button on:click={handleNextStep} class="btn btn-primary mt-5">{nextStepButtonText}</button>
-        <button on:click={handlePreviousStep} class="link mt-5 ml-3">{$t('common.back')}</button>
+
+      {#if activeStep === RetrySteps.SELECT}
+        <RetryOptionStep bind:canContinue />
+      {:else if activeStep === RetrySteps.REVIEW}
+        <ClaimReviewStep bind:tx={bridgeTx} />
+      {:else if activeStep === RetrySteps.CONFIRM}
+        <ClaimConfirmStep
+          {bridgeTx}
+          bind:txHash
+          on:claim={handleClaimClick}
+          bind:claiming={retrying}
+          bind:canClaim={canContinue}
+          bind:claimingDone={retryDone}
+          proveOrClaimStep={TWO_STEP_STATE.CLAIM} />
+      {/if}
+      <div class="f-col text-left self-end h-full w-full">
+        <div class="f-col gap-4 mt-[20px]">
+          <RetryStepNavigation
+            bind:activeStep
+            bind:canContinue
+            bind:loading
+            bind:retrying
+            on:closeDialog={closeDialog}
+            bind:retryDone />
+        </div>
       </div>
     </div>
   </div>
   <button class="overlay-backdrop" data-modal-uuid={dialogId} />
 </dialog>
+
+<Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleRetryError} on:claimingTxSent={handleRetryTxSent} />
+
+<OnAccount change={handleAccountChange} />

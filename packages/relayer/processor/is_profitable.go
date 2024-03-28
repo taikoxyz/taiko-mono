@@ -6,6 +6,7 @@ import (
 
 	"log/slog"
 
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
@@ -29,6 +30,8 @@ func (p *Processor) isProfitable(
 	)
 
 	if !shouldProcess {
+		relayer.UnprofitableMessagesDetected.Inc()
+
 		return false, nil
 	}
 
