@@ -1,6 +1,7 @@
+name: Vercel Preview Deployment
+
 env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
 on:
   push:
@@ -13,21 +14,24 @@ on:
 jobs:
   Deploy-Preview:
     runs-on: [taiko-runner]
+    strategy:
+      matrix:
+        include:
+          - project: "Public"
+            org_id: ${{ secrets.VERCEL_ORG_ID}}
+            project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI}}
+          - project: "Internal"
+            org_id: ${{ secrets.VERCEL_ORG_ID }}
+            project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL}}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install pnpm dependencies
-        uses: ./.github/actions/install-pnpm-dependencies
-
+      - uses: actions/checkout@v2
       - name: Install Vercel CLI
-        run: pnpm add --global vercel@latest
-
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Project Artifacts
+        run: npm install --global vercel@latest
+      - name: Setup Vercel Environment for ${{ matrix.project }}
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ matrix.org_id }} --project-id=${{ matrix.project_id }}
+          vercel link --token=${{ secrets.VERCEL_TOKEN }} --confirm --name=${{ matrix.project }} --scope=${{ matrix.org_id }}
+      - name: Build Project Artifacts for ${{ matrix.project }}
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy Project Artifacts to Vercel
+      - name: Deploy Project Artifacts to Vercel for ${{ matrix.project }}
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
