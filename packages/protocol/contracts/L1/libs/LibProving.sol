@@ -384,7 +384,7 @@ library LibProving {
                 // The contested transition is proven to be valid, contester loses the game
                 reward = _rewardAfterFriction(_ts.contestBond);
 
-                // We return the validity bond back, but the origianl prover doesn't get any reward.
+                // We return the validity bond back, but the original prover doesn't get any reward.
                 _tko.safeTransfer(_ts.prover, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
