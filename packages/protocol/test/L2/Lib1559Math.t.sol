@@ -14,18 +14,9 @@ contract TestLib1559Math is TaikoTest {
         uint256 i;
 
         baseFee = Lib1559Math.basefee(config.gasExcessMinValue, adjustmentFactor);
-        assertEq(baseFee, 40_253_331); // about 0.04gwei
+        assertEq(baseFee, 100_671_168); // about 0.1gwei
         console2.log("gasExcessMinValue:", config.gasExcessMinValue);
         console2.log("min base fee:", baseFee);
-
-        for (; baseFee < 1 gwei / 10; ++i) {
-            baseFee = Lib1559Math.basefee(config.gasTargetPerL1Block * i, adjustmentFactor);
-            console2.log("base fee:", i, baseFee);
-        }
-
-        // base fee will reach 1 gwei if gasExcess > 18540000000
-        console2.log("base fee will reach 0.1 gwei if gasExcess >", config.gasTargetPerL1Block * i);
-        assertEq(i, 309);
 
         for (; baseFee < 1 gwei; ++i) {
             baseFee = Lib1559Math.basefee(config.gasTargetPerL1Block * i, adjustmentFactor);
