@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  l1_node:
+    container_name: l1_node
+    image: ghcr.io/foundry-rs/foundry:nightly-4a643801d0b3855934cdec778e33e79c79971783
+    restart: unless-stopped
+    pull_policy: always
+    ports:
+      - "8545"
+    entrypoint:
+      - anvil
+      - --host
+      - "0.0.0.0"
+      - --hardfork
+      - cancun
+      - --block-time
+      - "1"
+
+  l2_execution_engine:
+    container_name: l2_node
+    image: gcr.io/evmchain/taiko-geth:taiko
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - .:/host
+    ports:
+      - "8545"
+      - "8546"
+      - "8551"
+    command:
+      - --nodiscover
+      - --gcmode
+      - archive
+      - --syncmode
+      - full
+      - --datadir
+      - /data/taiko-geth
+      - --networkid
+      - "167001"
+      - --metrics
+      - --metrics.expensive
+      - --metrics.addr
+      - "0.0.0.0"
+      - --http
+      - --http.addr
+      - "0.0.0.0"
+      - --http.vhosts
+      - "*"
+      - --http.corsdomain
+      - "*"
+      - --ws
+      - --ws.addr
+      - "0.0.0.0"
+      - --ws.origins
+      - "*"
+      - --authrpc.addr
+      - "0.0.0.0"
+      - --authrpc.port
+      - "8551"
+      - --authrpc.vhosts
+      - "*"
+      - --authrpc.jwtsecret
+      - /host/jwt.hex
+      - --allow-insecure-unlock
+      - --http.api
+      - admin,debug,eth,net,web3,txpool,miner,taiko
+      - --ws.api
+      - admin,debug,eth,net,web3,txpool,miner,taiko
+      - --taiko
