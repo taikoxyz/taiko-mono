@@ -227,7 +227,7 @@ contract SignalService is EssentialContract, ISignalService {
         );
     }
 
-    function _authorizePause(address) internal pure override {
+    function _authorizePause(address, bool) internal pure override {
         revert SS_UNSUPPORTED();
     }
 

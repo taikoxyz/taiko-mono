@@ -468,14 +468,18 @@ contract Bridge is EssentialContract, IBridge {
         return _msgHash ^ bytes32(uint256(Status.FAILED));
     }
 
-    /// @notice Checks if the given address can pause and unpause the bridge.
-    function _authorizePause(address)
-        internal
-        view
-        virtual
-        override
-        onlyFromOwnerOrNamed("bridge_pauser")
-    { }
+    /// @notice Checks if the given address can pause and/or unpause the bridge.
+    /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
+    /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
+    function _authorizePause(address addr, bool toPause) internal view virtual override {
+        // Owenr and chain_pauser can pause/unpause the bridge.
+        if (addr == owner() || addr == resolve("chain_pauser", true)) return;
+
+        // bridge_watchdog can pause the bridge, but cannot unpause it.
+        if (toPause && addr == resolve("bridge_watchdog", true)) return;
+
+        revert RESOLVER_DENIED();
+    }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
