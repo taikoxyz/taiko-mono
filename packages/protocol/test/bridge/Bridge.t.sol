@@ -737,33 +737,74 @@ contract BridgeTest is TaikoTest {
     }
 
     function test_Bridge_suspend_messages() public {
-        vm.startPrank(Alice);
-        (IBridge.Message memory message, bytes memory proof) =
-            setUpPredefinedSuccessfulProcessMessageCall();
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(bridge),
+            srcChainId: uint64(block.chainid),
+            destChainId: destChainId,
+            srcOwner: Alice,
+            destOwner: Alice,
+            to: Alice,
+            refundTo: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+        // Mocking proof - but obviously it needs to be created in prod
+        // corresponding to the message
+        bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        vm.chainId(destChainId);
+        // This in is the first transaction setting the proofReceipt
+
+        bytes32 msgHash = dest2StepBridge.hashMessage(message);
         bytes32[] memory messageHashes = new bytes32[](1);
         messageHashes[0] = msgHash;
 
-        vm.stopPrank();
+        // Unsuspend a msg that has not been suspended will revert
+        vm.prank(dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_NOT_SUSPENDED.selector);
+        dest2StepBridge.suspendMessages(messageHashes, false);
+
+        // Suspend that will revert
+        vm.prank(dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_NOT_PROVEN.selector);
+        dest2StepBridge.suspendMessages(messageHashes, true);
+
+        vm.prank(Bob);
+        dest2StepBridge.processMessage(message, proof);
+
         // Suspend
-        vm.prank(destChainBridge.owner(), destChainBridge.owner());
-        destChainBridge.suspendMessages(messageHashes, true);
+        vm.prank(dest2StepBridge.owner());
+        dest2StepBridge.suspendMessages(messageHashes, true);
 
-        vm.startPrank(Alice);
-        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        destChainBridge.processMessage(message, proof);
+        // Suspend again will revert
+        vm.prank(dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_SUSPENDED.selector);
+        dest2StepBridge.suspendMessages(messageHashes, true);
 
-        vm.stopPrank();
+        // Try to process the message
+        vm.prank(Alice);
+        vm.expectRevert(Bridge.B_MESSAGE_SUSPENDED.selector);
+        dest2StepBridge.processMessage(message, proof);
+
         // Unsuspend
-        vm.prank(destChainBridge.owner(), destChainBridge.owner());
-        destChainBridge.suspendMessages(messageHashes, false);
+        vm.prank(dest2StepBridge.owner());
+        dest2StepBridge.suspendMessages(messageHashes, false);
 
-        vm.startPrank(Alice);
-        destChainBridge.processMessage(message, proof);
+        vm.prank(Alice);
+        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
+        dest2StepBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        // Go in the future and try again
+        vm.warp(block.timestamp + 30 days);
 
+        vm.prank(Alice);
+        dest2StepBridge.processMessage(message, proof);
+
+        IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.DONE, true);
     }
 
@@ -778,7 +819,7 @@ contract BridgeTest is TaikoTest {
 
         vm.stopPrank();
         // Ban address
-        vm.prank(destChainBridge.owner(), destChainBridge.owner());
+        vm.prank(destChainBridge.owner());
         destChainBridge.banAddress(message.to, true);
 
         vm.startPrank(Alice);

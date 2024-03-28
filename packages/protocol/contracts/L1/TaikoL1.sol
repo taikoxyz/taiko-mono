@@ -117,7 +117,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @notice Pause block proving.
     /// @param _pause True if paused.
     function pauseProving(bool _pause) external {
-        _authorizePause(msg.sender);
+        _authorizePause(msg.sender, _pause);
         LibProving.pauseProving(state, _pause);
     }
 
@@ -216,7 +216,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         });
     }
 
-    function _authorizePause(address)
+    /// @dev chain_pauser is supposed to be a cold wallet.
+    function _authorizePause(
+        address,
+        bool
+    )
         internal
         view
         virtual
