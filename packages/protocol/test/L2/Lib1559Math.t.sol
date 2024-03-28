@@ -7,28 +7,42 @@ contract TestLib1559Math is TaikoTest {
     using LibMath for uint256;
 
     function test_eip1559_math() external {
-        uint256 gasTarget = 60_000_000;
-        uint256 adjustmentQuotient = 8;
-        uint256 adjustmentFactor = gasTarget * adjustmentQuotient;
+        LibL2Config.Config memory config = LibL2Config.get();
+        uint256 adjustmentFactor = config.gasTargetPerL1Block * config.basefeeAdjustmentQuotient;
 
         uint256 baseFee;
         uint256 i;
-        for (; baseFee < 1 gwei; ++i) {
-            baseFee = Lib1559Math.basefee(gasTarget * i, adjustmentFactor);
-            console2.log("baseFee:", i, baseFee);
+
+        baseFee = Lib1559Math.basefee(config.gasExcessMinValue, adjustmentFactor);
+        assertEq(baseFee, 40_253_331); // about 0.04gwei
+        console2.log("gasExcessMinValue:", config.gasExcessMinValue);
+        console2.log("min base fee:", baseFee);
+
+        for (; baseFee < 1 gwei / 10; ++i) {
+            baseFee = Lib1559Math.basefee(config.gasTargetPerL1Block * i, adjustmentFactor);
+            console2.log("base fee:", i, baseFee);
         }
 
-        // basefee will reach 1 gwei if gasExcess > 19620000000
-        console2.log("basefee will reach 1 gwei if gasExcess >", gasTarget * i);
+        // base fee will reach 1 gwei if gasExcess > 18540000000
+        console2.log("base fee will reach 0.1 gwei if gasExcess >", config.gasTargetPerL1Block * i);
+        assertEq(i, 309);
+
+        for (; baseFee < 1 gwei; ++i) {
+            baseFee = Lib1559Math.basefee(config.gasTargetPerL1Block * i, adjustmentFactor);
+            console2.log("base fee:", i, baseFee);
+        }
+
+        // base fee will reach 1 gwei if gasExcess > 19620000000
+        console2.log("base fee will reach 1 gwei if gasExcess >", config.gasTargetPerL1Block * i);
         assertEq(i, 327);
 
         for (; baseFee < 10 gwei; ++i) {
-            baseFee = Lib1559Math.basefee(gasTarget * i, adjustmentFactor);
-            console2.log("baseFee:", i, baseFee);
+            baseFee = Lib1559Math.basefee(config.gasTargetPerL1Block * i, adjustmentFactor);
+            console2.log("base fee:", i, baseFee);
         }
 
-        // basefee will reach 10 gwei if gasExcess > 20760000000
-        console2.log("basefee will reach 10 gwei if gasExcess >", gasTarget * i);
+        // base fee will reach 10 gwei if gasExcess > 20760000000
+        console2.log("base fee will reach 10 gwei if gasExcess >", config.gasTargetPerL1Block * i);
         assertEq(i, 346);
     }
 }

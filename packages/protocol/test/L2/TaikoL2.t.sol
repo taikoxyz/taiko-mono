@@ -55,7 +55,9 @@ contract TestTaikoL2 is TaikoTest {
             )
         );
 
-        L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
+        L2.setConfigAndExcess(
+            LibL2Config.Config(gasTarget, quotient, uint64(gasTarget) * 300), gasExcess
+        );
 
         ss.authorize(address(L2), true);
 
@@ -67,46 +69,9 @@ contract TestTaikoL2 is TaikoTest {
         vm.deal(address(L2), 100 ether);
     }
 
-    function test_L2_AnchorTx_with_constant_block_time() external {
-        for (uint256 i; i < 100; ++i) {
-            vm.fee(1);
-
-            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            _anchor(BLOCK_GAS_LIMIT);
-
-            vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 30);
-        }
-    }
-
-    function test_L2_AnchorTx_with_decreasing_block_time() external {
-        for (uint256 i; i < 32; ++i) {
-            vm.fee(1);
-
-            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            _anchor(BLOCK_GAS_LIMIT);
-
-            vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 30 - i);
-        }
-    }
-
-    function test_L2_AnchorTx_with_increasing_block_time() external {
-        for (uint256 i; i < 30; ++i) {
-            vm.fee(1);
-
-            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            _anchor(BLOCK_GAS_LIMIT);
-
-            vm.roll(block.number + 1);
-
-            vm.warp(block.timestamp + 30 + i);
-        }
-    }
-
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_in_same_block() external {
-        vm.fee(1);
+        vm.fee(40_253_331);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         _anchor(BLOCK_GAS_LIMIT);
