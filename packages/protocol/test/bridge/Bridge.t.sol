@@ -763,6 +763,11 @@ contract BridgeTest is TaikoTest {
         bytes32[] memory messageHashes = new bytes32[](1);
         messageHashes[0] = msgHash;
 
+        // Unsuspend a msg that has not been suspended will revert
+        vm.prank(dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_NOT_SUSPENDED.selector);
+        dest2StepBridge.suspendMessages(messageHashes, false);
+
         // Suspend that will revert
         vm.prank(dest2StepBridge.owner());
         vm.expectRevert(Bridge.B_MESSAGE_NOT_PROVEN.selector);
@@ -773,6 +778,11 @@ contract BridgeTest is TaikoTest {
 
         // Suspend
         vm.prank(dest2StepBridge.owner());
+        dest2StepBridge.suspendMessages(messageHashes, true);
+
+        // Suspend again will revert
+        vm.prank(dest2StepBridge.owner());
+        vm.expectRevert(Bridge.B_MESSAGE_SUSPENDED.selector);
         dest2StepBridge.suspendMessages(messageHashes, true);
 
         // Try to process the message
