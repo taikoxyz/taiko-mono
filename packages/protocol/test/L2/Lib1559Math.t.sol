@@ -14,7 +14,7 @@ contract TestLib1559Math is TaikoTest {
         uint256 i;
 
         baseFee = Lib1559Math.basefee(config.gasExcessMinValue, adjustmentFactor);
-        assertEq(baseFee, 100_671_168); // about 0.1gwei
+        assertEq(baseFee, 99_627_953); // slightly smaller than 0.1gwei
         console2.log("gasExcessMinValue:", config.gasExcessMinValue);
         console2.log("min base fee:", baseFee);
 
