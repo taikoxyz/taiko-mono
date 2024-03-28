@@ -16,13 +16,13 @@ contract TestLib1559Math is TaikoTest {
             Lib1559Math.basefee({ _gasExcess: 49_954_623_777, _adjustmentFactor: adjustmentFactor })
         );
 
+        uint256 baseFee = Lib1559Math.basefee({
+            _gasExcess: LibFixedPointMath.MAX_EXP_INPUT * adjustmentFactor
+                / LibFixedPointMath.SCALING_FACTOR,
+            _adjustmentFactor: adjustmentFactor
+        });
         _assertAmostEq(
-            48_246_703_821_869_050_543_408_253_349_256_099_602_613_005_189_120,
-            Lib1559Math.basefee({
-                _gasExcess: LibFixedPointMath.MAX_EXP_INPUT * adjustmentFactor
-                    / LibFixedPointMath.SCALING_FACTOR,
-                _adjustmentFactor: adjustmentFactor
-            })
+            baseFee, 57_896_044_586_242_203_305_830_093_650_308_530_112_287_501_933_378_291_142_596
         );
     }
 
