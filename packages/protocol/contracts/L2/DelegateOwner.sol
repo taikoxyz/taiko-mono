@@ -88,7 +88,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         emit OwnershipAccepted(target);
     }
 
-    function _authorizePause(address) internal pure override {
+    function _authorizePause(address, bool) internal pure override {
         revert DO_UNSUPPORTED();
     }
 }
