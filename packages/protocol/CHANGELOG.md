@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.0.0...protocol-v2.0.0) (2024-03-29)
+## [2.0.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.0.0...protocol-v1.1.0) (2024-03-29)
 
 
 ### ⚠ BREAKING CHANGES
