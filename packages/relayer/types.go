@@ -68,10 +68,7 @@ var (
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain, or context is cancelled.
-// txHash is from Raw.TxHash in event or SignalServiceChainDataSynced.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	notFoundCount := 0
-
 	checkConfs := func() error {
 		receipt, err := confirmer.TransactionReceipt(ctx, txHash)
 		if err != nil {
@@ -86,7 +83,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		want := receipt.BlockNumber.Uint64() + confirmations
 
 		if latest < want {
-			slog.Info("waiting for confirmations", "latestBlockNum", latest, "wantBlockNum", want, "txHash", txHash.Hex())
+			slog.Info("waiting for confirmations", "latestBlockNum", latest, "wantBlockNum", want)
 
 			return errStillWaiting
 		}
@@ -110,14 +107,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 			return ctx.Err()
 		case <-ticker.C:
 			if err := checkConfs(); err != nil {
-				if err == ethereum.NotFound {
-					notFoundCount++
-					if notFoundCount >= 10 {
-						return err
-					}
-
-					continue
-				} else if err == errStillWaiting {
+				if err == ethereum.NotFound || err == errStillWaiting {
 					continue
 				}
 
