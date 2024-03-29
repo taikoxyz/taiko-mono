@@ -1,5 +1,49 @@
 # Changelog
 
+## [2.0.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.0.0...protocol-v2.0.0) (2024-03-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **protocol:** remove the blob-reuse feature ([#16439](https://github.com/taikoxyz/taiko-mono/issues/16439))
+
+### Features
+
+* **protocol:** Adjust proving reward to increase valid contestation ROI ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** allow L2 contracts to read L2's parent block timestamp ([#16425](https://github.com/taikoxyz/taiko-mono/issues/16425)) ([9b79359](https://github.com/taikoxyz/taiko-mono/commit/9b793599c1fa43620eff1f5e02068a7eb4c693c6))
+* **protocol:** allow minGuardians be any value between 0 and numGuardians ([#16384](https://github.com/taikoxyz/taiko-mono/issues/16384)) ([0b1385e](https://github.com/taikoxyz/taiko-mono/commit/0b1385e37b9d17fb9ce41fcb48793fc2b8fc468e))
+* **protocol:** Emit event for client / node (Requested by Huan) ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** enable EIP712 signature for TimelockTokenPool ([#16335](https://github.com/taikoxyz/taiko-mono/issues/16335)) ([d93e4c5](https://github.com/taikoxyz/taiko-mono/commit/d93e4c54e37e13ac8a88ae01c732da77a5845c6c))
+* **protocol:** improve `_authorizePause` for Bridge  ([#16544](https://github.com/taikoxyz/taiko-mono/issues/16544)) ([f76c705](https://github.com/taikoxyz/taiko-mono/commit/f76c7058cbc3aa6aeb86a147bc9bd041739f382e))
+* **protocol:** Improve Bridge `_proveSignalReceived` code readability ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Improve bridged nft tokens ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Improve L2 1559 fee calculation code ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Introduce DelegateOwner to become the owner of all L2 contracts ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Make each transition contesting only dependent on it's own cooldown period ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Make testnets and mainnet have the same bridge configuration ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** remove the blob-reuse feature ([#16439](https://github.com/taikoxyz/taiko-mono/issues/16439)) ([284447b](https://github.com/taikoxyz/taiko-mono/commit/284447b369edde7b85e92da9ada5fd303c3446f7))
+* **protocol:** Rename tier providers ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** risc0 verifier contract ([#16331](https://github.com/taikoxyz/taiko-mono/issues/16331)) ([17abc18](https://github.com/taikoxyz/taiko-mono/commit/17abc189ca3d2752beb5400c036a650fd5b9c895))
+* **protocol:** Update chain id for the upcoming Hekla testnet ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Upgrade solhint to 4.5.2 ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** upgrade to use  OZ 4.9.6 ([#16360](https://github.com/taikoxyz/taiko-mono/issues/16360)) ([2a0fe95](https://github.com/taikoxyz/taiko-mono/commit/2a0fe9526718bdf799874c7f2b0968f3dda7b6f2))
+* **relayer:** two-step bridge + watchdog + full merkle proof ([#15669](https://github.com/taikoxyz/taiko-mono/issues/15669)) ([1039a96](https://github.com/taikoxyz/taiko-mono/commit/1039a960f8c0a0896821f067cca1137f108d847d))
+
+
+### Bug Fixes
+
+* **protocol:** add address manager to taiko token ([#16394](https://github.com/taikoxyz/taiko-mono/issues/16394)) ([c64ec19](https://github.com/taikoxyz/taiko-mono/commit/c64ec193c95113a4c33692289e23e8d9fa864073))
+* **protocol:** fix a bug in changeBridgedToken ([#16403](https://github.com/taikoxyz/taiko-mono/issues/16403)) ([42c279f](https://github.com/taikoxyz/taiko-mono/commit/42c279f0c8d884e6c3f76a2750d72a856ea6fc70))
+* **protocol:** Fix a proving bug when top-tier re-approves top-tier (reported by OpenZeppelin and Code4rena) ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** fix bridge bug caused by incorrect check of `receivedAt` (by OZ) ([#16545](https://github.com/taikoxyz/taiko-mono/issues/16545)) ([c879124](https://github.com/taikoxyz/taiko-mono/commit/c8791241e190b884e1ab008ede0d6455f2c708b2))
+* **protocol:** fix bridge prove message issue using staticcall ([#16404](https://github.com/taikoxyz/taiko-mono/issues/16404)) ([dd57560](https://github.com/taikoxyz/taiko-mono/commit/dd57560f1f7bad453696044080884533ece05876))
+* **protocol:** fix custom coinbase `transferFrom` issue (alternative) ([#16327](https://github.com/taikoxyz/taiko-mono/issues/16327)) ([7423ffa](https://github.com/taikoxyz/taiko-mono/commit/7423ffa2fb2c5df870be9f1f2cab23c3409e5046))
+* **protocol:** Fix genesis script by add missing state variables (reported by OpenZeppelin) ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Fix or improve comments (reported by Code4rena) ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** Fix sender EOA check (reported by OpenZeppelin) ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+* **protocol:** make `snapshot` return value ([#16436](https://github.com/taikoxyz/taiko-mono/issues/16436)) ([dcae54a](https://github.com/taikoxyz/taiko-mono/commit/dcae54a8f859aadb4ede4df054cab976984573af))
+* **protocol:** Make each transition contesting only dependent on it's own cooldown period (reported by OpenZeppelin) ([37fa853](https://github.com/taikoxyz/taiko-mono/commit/37fa853bd4d560a8ef0301437303f35f0d0c4c92))
+
 ## [1.0.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.15.2...protocol-v1.0.0) (2024-03-01)
 
 
