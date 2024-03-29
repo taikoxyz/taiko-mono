@@ -172,10 +172,6 @@ func (i *Indexer) withRetry(f func() error) error {
 }
 
 func (i *Indexer) filter(ctx context.Context) error {
-	if err := i.setInitialIndexingBlock(i.ctx); err != nil {
-		return err
-	}
-
 	// get the latest header
 	header, err := i.ethClient.HeaderByNumber(i.ctx, nil)
 	if err != nil {
