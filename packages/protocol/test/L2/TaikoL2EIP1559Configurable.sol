@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL2.sol";
+import "../../contracts/L2/TaikoL2.sol";
 
 /// @title TaikoL2EIP1559Configurable
 /// @notice TaikoL2 with a setter to change EIP-1559 configurations and states.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL2EIP1559Configurable is TaikoL2 {
     /// @notice EIP-1559 configuration.
-    Config public customConfig;
+    LibL2Config.Config public customConfig;
 
     uint256[49] private __gap;
 
     /// @notice Emits when the EIP-1559 configuration and gas excess are changed.
     /// @param config The new EIP-1559 config.
     /// @param gasExcess The new gas excess.
-    event ConfigAndExcessChanged(Config config, uint64 gasExcess);
+    event ConfigAndExcessChanged(LibL2Config.Config config, uint64 gasExcess);
 
     error L2_INVALID_CONFIG();
 
@@ -23,7 +23,7 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
     /// @param _newConfig The new EIP1559 config.
     /// @param _newGasExcess The new gas excess
     function setConfigAndExcess(
-        Config memory _newConfig,
+        LibL2Config.Config memory _newConfig,
         uint64 _newGasExcess
     )
         external
@@ -40,7 +40,7 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
     }
 
     /// @inheritdoc TaikoL2
-    function getConfig() public view override returns (Config memory) {
+    function getConfig() public view override returns (LibL2Config.Config memory) {
         return customConfig;
     }
 }

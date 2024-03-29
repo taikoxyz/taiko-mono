@@ -9,6 +9,7 @@ import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "../signal/LibSignals.sol";
 import "./Lib1559Math.sol";
+import "./LibL2Config.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -20,11 +21,6 @@ import "./Lib1559Math.sol";
 contract TaikoL2 is EssentialContract {
     using LibAddress for address;
     using SafeERC20 for IERC20;
-
-    struct Config {
-        uint32 gasTargetPerL1Block;
-        uint8 basefeeAdjustmentQuotient;
-    }
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
@@ -208,12 +204,13 @@ contract TaikoL2 is EssentialContract {
         view
         returns (uint256 basefee_, uint64 gasExcess_)
     {
-        Config memory config = getConfig();
+        LibL2Config.Config memory config = getConfig();
         uint64 gasIssuance = uint64(_l1BlockId - lastSyncedBlock) * config.gasTargetPerL1Block;
 
         (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
             config.gasTargetPerL1Block,
             config.basefeeAdjustmentQuotient,
+            config.gasExcessMinValue,
             gasExcess,
             gasIssuance,
             _parentGasUsed
@@ -232,12 +229,8 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Returns EIP1559 related configurations.
     /// @return config_ struct containing configuration parameters.
-    function getConfig() public view virtual returns (Config memory config_) {
-        // Assuming we sell 3x more blockspace than Ethereum: 15_000_000 * 4
-        // Note that Brecht's concern is that this value may be too large.
-        // We need to monitor L2 state growth and lower this value when necessary.
-        config_.gasTargetPerL1Block = 60_000_000;
-        config_.basefeeAdjustmentQuotient = 8;
+    function getConfig() public view virtual returns (LibL2Config.Config memory) {
+        return LibL2Config.get();
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
