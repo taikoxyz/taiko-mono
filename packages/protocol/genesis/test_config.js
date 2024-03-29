@@ -111,7 +111,7 @@ module.exports = {
     };
   },
   param1559: {
-    gasExcess: 1,
+    gasExcess: 20000000000,
   },
   predeployERC20: true,
 };
