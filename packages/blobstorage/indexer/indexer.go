@@ -95,6 +95,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 }
 
 func (i *Indexer) Start() error {
+	if err := i.setInitialIndexingBlock(i.ctx); err != nil {
+		return err
+	}
+
 	i.wg.Add(1)
 
 	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
