@@ -182,13 +182,6 @@ func (i *Indexer) filter(
 	ctx context.Context,
 	filter FilterFunc,
 ) error {
-	n, err := i.eventRepo.FindLatestBlockID(i.srcChainID)
-	if err != nil {
-		return err
-	}
-
-	i.latestIndexedBlockNumber = n
-
 	header, err := i.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "i.ethClient.HeaderByNumber")
