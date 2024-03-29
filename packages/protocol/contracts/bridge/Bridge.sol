@@ -548,33 +548,13 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _from The sender's address.
     /// @param _srcChainId The source chain ID.
     function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            assembly {
-                tstore(_CTX_SLOT, _msgHash)
-                tstore(add(_CTX_SLOT, 1), _from)
-                tstore(add(_CTX_SLOT, 2), _srcChainId)
-            }
-        } else {
-            __ctx = Context(_msgHash, _from, _srcChainId);
-        }
+        __ctx = Context(_msgHash, _from, _srcChainId);
     }
 
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
     function _loadContext() private view returns (Context memory) {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            bytes32 msgHash;
-            address from;
-            uint64 srcChainId;
-            assembly {
-                msgHash := tload(_CTX_SLOT)
-                from := tload(add(_CTX_SLOT, 1))
-                srcChainId := tload(add(_CTX_SLOT, 2))
-            }
-            return Context(msgHash, from, srcChainId);
-        } else {
-            return __ctx;
-        }
+        return __ctx;
     }
 
     /// @notice Checks if the signal was received.

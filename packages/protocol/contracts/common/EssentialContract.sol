@@ -118,24 +118,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     // Stores the reentry lock
     function _storeReentryLock(uint8 _reentry) internal virtual {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            assembly {
-                tstore(_REENTRY_SLOT, _reentry)
-            }
-        } else {
-            __reentry = _reentry;
-        }
+        __reentry = _reentry;
     }
 
     // Loads the reentry lock
     function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            assembly {
-                reentry_ := tload(_REENTRY_SLOT)
-            }
-        } else {
-            reentry_ = __reentry;
-        }
+        reentry_ = __reentry;
     }
 
     function _inNonReentrant() internal view returns (bool) {
