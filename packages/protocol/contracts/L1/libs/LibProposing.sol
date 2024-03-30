@@ -2,11 +2,8 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
-import "../TaikoData.sol";
 import "./LibDepositing.sol";
 
 /// @title LibProposing
@@ -35,7 +32,6 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_HOOK();
-    error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
