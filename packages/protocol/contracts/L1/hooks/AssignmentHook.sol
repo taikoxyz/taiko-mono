@@ -68,6 +68,7 @@ contract AssignmentHook is EssentialContract, IHook {
     )
         external
         payable
+        nonPayable
         nonReentrant
         onlyFromNamed("taiko")
     {

@@ -33,8 +33,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
-    error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
+    error NON_ZERO_ETH_VALUE();
+    error REENTRANT_CALL();
     error ZERO_ADDR_MANAGER();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
@@ -58,6 +59,14 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     modifier whenNotPaused() {
         if (paused()) revert INVALID_PAUSE_STATUS();
+        _;
+    }
+
+    /// @dev Some payable functions are payable due to inheritance but is not supposed to be
+    /// payable.
+    /// https://github.com/ethereum/solidity/issues/11253
+    modifier nonPayable() {
+        if (msg.value != 0) revert NON_ZERO_ETH_VALUE();
         _;
     }
 
