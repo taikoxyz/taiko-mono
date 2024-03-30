@@ -50,7 +50,7 @@ contract AddressManager is EssentialContract, IAddressManager {
     }
 
     /// @inheritdoc IAddressManager
-    function getAddress(uint64 _chainId, bytes32 _name) public view override returns (address) {
+    function getAddress(uint64 _chainId, bytes32 _name) external view override returns (address) {
         return __addresses[_chainId][_name];
     }
 

@@ -361,7 +361,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function isMessageSent(Message calldata _message) public view returns (bool) {
+    function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
             _app: address(this),
@@ -377,7 +377,7 @@ contract Bridge is EssentialContract, IBridge {
         Message calldata _message,
         bytes calldata _proof
     )
-        public
+        external
         returns (bool)
     {
         if (_message.srcChainId != block.chainid) return false;
@@ -398,7 +398,7 @@ contract Bridge is EssentialContract, IBridge {
         Message calldata _message,
         bytes calldata _proof
     )
-        public
+        external
         returns (bool)
     {
         if (_message.destChainId != block.chainid) return false;
@@ -422,7 +422,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
-    function context() public view returns (Context memory ctx_) {
+    function context() external view returns (Context memory ctx_) {
         ctx_ = _loadContext();
         if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(PLACEHOLDER)) {
             revert B_INVALID_CONTEXT();
@@ -469,7 +469,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if the given address can pause and/or unpause the bridge.
     /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
-    function _authorizePause(address addr, bool toPause) internal view virtual override {
+    function _authorizePause(address addr, bool toPause) internal view override {
         // Owenr and chain_pauser can pause/unpause the bridge.
         if (addr == owner() || addr == resolve("chain_pauser", true)) return;
 
