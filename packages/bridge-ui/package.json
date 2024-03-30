@@ -31,7 +31,7 @@
     "@typescript-eslint/parser": "^7.0.2",
     "@vitest/coverage-v8": "^1.4.0",
     "@wagmi/cli": "^2.1.4",
-    "abitype": "^1.0.0",
+    "abitype": "^1.0.2",
     "ajv": "^8.12.0",
     "autoprefixer": "^10.4.18",
     "daisyui": "^4.7.2",

@@ -92,8 +92,8 @@ importers:
         specifier: ^2.1.4
         version: 2.1.4(typescript@5.4.3)
       abitype:
-        specifier: ^1.0.0
-        version: 1.0.0(typescript@5.4.3)(zod@3.22.4)
+        specifier: ^1.0.2
+        version: 1.0.2(typescript@5.4.3)
       ajv:
         specifier: ^8.12.0
         version: 8.12.0
@@ -5774,6 +5774,20 @@ packages:
     dependencies:
       typescript: 5.4.3
       zod: 3.22.4
+
+  /abitype@1.0.2(typescript@5.4.3):
+    resolution: {integrity: sha512-aFt4k2H+eiAKy/zxtnORa9iIb10BMBeWL18l8v4+QuwYEBXPxxjSB1bFZCzQmKPoj8m7j68K705l3uY+E2gAjg==}
+    peerDependencies:
+      typescript: '>=5.0.4'
+      zod: ^3 >=3.22.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+      zod:
+        optional: true
+    dependencies:
+      typescript: 5.4.3
+    dev: true
 
   /abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
