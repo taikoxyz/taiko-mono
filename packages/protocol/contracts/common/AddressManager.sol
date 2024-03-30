@@ -55,7 +55,7 @@ contract AddressManager is EssentialContract, IAddressManager {
         return __addresses[_chainId][_name];
     }
 
-    function _authorizePause(address) internal pure override {
+    function _authorizePause(address, bool) internal pure override {
         revert AM_UNSUPPORTED();
     }
 }

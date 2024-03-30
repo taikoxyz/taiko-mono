@@ -7,8 +7,8 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
-import "../contracts/L1/tiers/TestnetTierProvider.sol";
-import "../contracts/L1/tiers/MainnetTierProvider.sol";
+import "../contracts/L1/tiers/TierProviderV1.sol";
+import "../contracts/L1/tiers/TierProviderV2.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/gov/TaikoGovernor.sol";
@@ -316,7 +316,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_provider",
             impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
-            data: abi.encodeCall(TestnetTierProvider.init, (timelock)),
+            data: abi.encodeCall(TierProviderV1.init, (timelock)),
             registerTo: rollupAddressManager
         });
 
@@ -366,9 +366,9 @@ contract DeployOnL1 is DeployCapability {
         if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
             return address(new DevnetTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TestnetTierProvider());
+            return address(new TierProviderV1());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
-            return address(new MainnetTierProvider());
+            return address(new TierProviderV2());
         } else {
             revert("invalid tier provider");
         }

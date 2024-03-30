@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./AddressResolver.sol";
+import "../libs/LibNetwork.sol";
 
 /// @title EssentialContract
 /// @custom:security-contact security@taiko.xyz
@@ -71,7 +72,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         emit Paused(msg.sender);
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
-        _authorizePause(msg.sender);
+        _authorizePause(msg.sender, true);
     }
 
     /// @notice Unpauses the contract.
@@ -80,7 +81,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         emit Unpaused(msg.sender);
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
-        _authorizePause(msg.sender);
+        _authorizePause(msg.sender, false);
     }
 
     /// @notice Returns true if the contract is paused, and false otherwise.
@@ -113,11 +114,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 
-    function _authorizePause(address) internal virtual onlyOwner { }
+    function _authorizePause(address, bool) internal virtual onlyOwner { }
 
     // Stores the reentry lock
     function _storeReentryLock(uint8 _reentry) internal virtual {
-        if (block.chainid == 1) {
+        if (LibNetwork.isDencunSupported(block.chainid)) {
             assembly {
                 tstore(_REENTRY_SLOT, _reentry)
             }
@@ -128,7 +129,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     // Loads the reentry lock
     function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
-        if (block.chainid == 1) {
+        if (LibNetwork.isDencunSupported(block.chainid)) {
             assembly {
                 reentry_ := tload(_REENTRY_SLOT)
             }

@@ -68,6 +68,7 @@ library LibProving {
     error L1_INVALID_TRANSITION();
     error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
+    error L1_CANNOT_CONTEST();
 
     /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
@@ -143,7 +144,7 @@ library LibProving {
             ITierProvider(_resolver.resolve("tier_provider", false)).getTier(_proof.tier);
 
         // Check if this prover is allowed to submit a proof for this block
-        _checkProverPermission(_state, blk, ts, tid, tier);
+        _checkProverPermission(blk, ts, tid, tier, b.lastUnpausedAt);
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -223,7 +224,7 @@ library LibProving {
             if (isTopTier) {
                 // The top tier prover re-proves.
                 assert(tier.validityBond == 0);
-                assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
+                assert(ts.validityBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
                 ts.blockHash = _tran.blockHash;
@@ -240,6 +241,13 @@ library LibProving {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
+                // Making it a non-sliding window, relative when ts.timestamp was registered (or to
+                // lastUnpaused if that one is bigger)
+                if (LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.cooldownWindow)) {
+                    revert L1_CANNOT_CONTEST();
+                }
+
+                // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
                 tko.safeTransferFrom(msg.sender, address(this), tier.contestBond);
 
@@ -349,6 +357,15 @@ library LibProving {
     }
 
     /// @dev Handles what happens when there is a higher proof incoming
+    ///
+    /// Assume Alice is the initial prover, Bob is the contester, and Cindy is the subsequent
+    /// prover. The validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob
+    /// successfully contests, he receives a reward of 65.625, calculated as 3/4 of 7/8 of 100. Cindy
+    /// receives 21.875, which is 1/4 of 7/8 of 100, while the protocol retains 12.5 as friction.
+    /// Bob's Return on Investment (ROI) is 13.125%, calculated from 65.625 divided by 500.
+    // To establish the expected ROI `r` for valid contestations, where the contestation bond `C` to
+    // validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set at 10%, the C/V ratio will be
+    // 6.5625.
     function _overrideWithHigherProof(
         TaikoData.TransitionState storage _ts,
         TaikoData.Transition memory _tran,
@@ -360,22 +377,27 @@ library LibProving {
         private
     {
         // Higher tier proof overwriting lower tier proof
-        uint256 reward;
+        uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
             if (_sameTransition) {
-                // The contested transition is proven to be valid, contestor loses the game
-                reward = _ts.contestBond >> 2;
-                _tko.safeTransfer(_ts.prover, _ts.validityBond + reward);
+                // The contested transition is proven to be valid, contester loses the game
+                reward = _rewardAfterFriction(_ts.contestBond);
+
+                // We return the validity bond back, but the original prover doesn't get any reward.
+                _tko.safeTransfer(_ts.prover, _ts.validityBond);
             } else {
-                // The contested transition is proven to be invalid, contestor wins the game
-                reward = _ts.validityBond >> 2;
-                _tko.safeTransfer(_ts.contester, _ts.contestBond + reward);
+                // The contested transition is proven to be invalid, contester wins the game.
+                // Contester gets 3/4 of reward, the new prover gets 1/4.
+                reward = _rewardAfterFriction(_ts.validityBond) >> 2;
+
+                _tko.safeTransfer(_ts.contester, _ts.contestBond + reward * 3);
             }
         } else {
             if (_sameTransition) revert L1_ALREADY_PROVED();
-            // Contest the existing transition and prove it to be invalid
-            reward = _ts.validityBond >> 1;
+            // Contest the existing transition and prove it to be invalid. The new prover get all
+            // rewards.
+            reward = _rewardAfterFriction(_ts.validityBond);
             _ts.contestations += 1;
         }
 
@@ -401,11 +423,11 @@ library LibProving {
 
     /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
     function _checkProverPermission(
-        TaikoData.State storage _state,
         TaikoData.Block storage _blk,
         TaikoData.TransitionState storage _ts,
         uint32 _tid,
-        ITierProvider.Tier memory _tier
+        ITierProvider.Tier memory _tier,
+        uint64 _lastUnpausedAt
     )
         private
         view
@@ -413,17 +435,23 @@ library LibProving {
         // The highest tier proof can always submit new proofs
         if (_tier.contestBond == 0) return;
 
-        bool inProvingWindow = uint256(_ts.timestamp).max(_state.slotB.lastUnpausedAt)
-            + _tier.provingWindow * 60 >= block.timestamp;
-        bool isAssignedPover = msg.sender == _blk.assignedProver;
+        bool isAssignedProver = msg.sender == _blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.
-        if (_tid == 1 && _ts.tier == 0 && inProvingWindow) {
-            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
+        if (
+            _tid == 1 && _ts.tier == 0
+                && !LibUtils.isPostDeadline(_ts.timestamp, _lastUnpausedAt, _tier.provingWindow)
+        ) {
+            if (!isAssignedProver) revert L1_NOT_ASSIGNED_PROVER();
         } else {
             // Disallow the same address to prove the block so that we can detect that the
             // assigned prover should not receive his liveness bond back
-            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+            if (isAssignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
+    }
+
+    /// @dev Returns the reward after applying 12.5% friction.
+    function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
+        return (_amount * 7) >> 3;
     }
 }

@@ -4,7 +4,7 @@ const ADDRESS_LENGTH = 40;
 module.exports = {
   ownerTimelockController: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   ownerSecurityCouncil: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  ownerChainId: 1,
+  l1ChainId: 1,
   chainId: 167,
   seedAccounts: [
     {
@@ -111,7 +111,7 @@ module.exports = {
     };
   },
   param1559: {
-    gasExcess: 1,
+    gasExcess: 20000000000,
   },
   predeployERC20: true,
 };
