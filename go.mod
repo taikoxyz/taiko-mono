@@ -9,7 +9,7 @@ require (
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
 	github.com/cyberhorsey/webutils v0.0.0-20230314183728-56890c6ddbe7
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ethereum-optimism/optimism v1.7.0
+	github.com/ethereum-optimism/optimism v1.7.2
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/gomarkdown/markdown v0.0.0-20230322041520-c84983bdbf2a
