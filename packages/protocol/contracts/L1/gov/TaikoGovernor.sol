@@ -19,8 +19,6 @@ contract TaikoGovernor is
 {
     uint256[50] private __gap;
 
-    error TG_INVALID_SIGNATURES_LENGTH();
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _token The Taiko token.
