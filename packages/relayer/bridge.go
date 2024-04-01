@@ -15,7 +15,6 @@ type Bridge interface {
 	FilterMessageReceived(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageReceivedIterator, error)
 	MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
 	ProcessMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage, _proof []byte) (*types.Transaction, error)
-	ProveMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error)
 	FilterMessageStatusChanged(
 		opts *bind.FilterOpts,
 		msgHash [][32]byte,
