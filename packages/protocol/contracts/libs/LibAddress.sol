@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
@@ -96,7 +96,7 @@ library LibAddress {
         if (Address.isContract(_addr)) {
             return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
         } else {
-            return ECDSA.recover(_hash, _sig) == _addr;
+            return SignatureChecker.isValidSignatureNow(_addr, _hash, _sig);
         }
     }
 }
