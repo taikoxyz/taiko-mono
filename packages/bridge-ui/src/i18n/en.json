@@ -15,7 +15,7 @@
           "title": "Approved token"
         },
         "tx": {
-          "message": "Track the {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Track the {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Approval sent"
         }
       },
@@ -25,7 +25,7 @@
           "title": "Transaction completed"
         },
         "tx": {
-          "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Transaction sent"
         }
       },
@@ -146,7 +146,7 @@
           "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
           "pending": "Please wait for your transaction to be picked up",
           "success": {
-            "message": "Your approve transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+            "message": "Your approve transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
           },
           "title": "Approval required"
         },
@@ -157,7 +157,7 @@
         },
         "bridge": {
           "success": {
-            "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+            "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
           }
         },
         "button": {
@@ -269,7 +269,7 @@
         "title": "Token minted successfully"
       },
       "tx": {
-        "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+        "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
         "title": "Transaction sent"
       },
       "unknown_error": "Something went wrong, please try again."
@@ -422,11 +422,11 @@
           "title": "Request to claim rejected."
         },
         "success": {
-          "message": "Your transaction has been processed. Check the status in your wallet or the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Your transaction has been processed. Check the status in your wallet or the explorer <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Transaction completed"
         },
         "tx": {
-          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Transaction sent"
         }
       },
@@ -439,7 +439,7 @@
           "title": "Transaction completed"
         },
         "tx": {
-          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Transaction sent"
         }
       }
