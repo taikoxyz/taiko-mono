@@ -4,11 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
-import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying

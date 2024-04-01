@@ -24,8 +24,8 @@ library NodePtr {
     function ixl(uint256 self) internal pure returns (uint256) {
         return uint80(self >> 160);
     }
-    // Pack 3 uint80s into a uint256
 
+    // Pack 3 uint80s into a uint256
     function getPtr(uint256 _ixs, uint256 _ixf, uint256 _ixl) internal pure returns (uint256) {
         _ixs |= _ixf << 80;
         _ixs |= _ixl << 160;
