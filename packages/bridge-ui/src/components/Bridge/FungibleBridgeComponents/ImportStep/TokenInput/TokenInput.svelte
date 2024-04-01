@@ -161,12 +161,11 @@
     if ($account && $account.address && $account?.isConnected) {
       validateAmount($selectedToken);
       refreshUserBalance();
-      if ($selectedToken && $selectedToken.type !== TokenType.ETH)
-        $tokenBalance = await fetchBalance({
-          userAddress: $account.address,
-          token: $selectedToken,
-          srcChainId: $connectedSourceChain?.id,
-        });
+      $tokenBalance = await fetchBalance({
+        userAddress: $account.address,
+        token: $selectedToken,
+        srcChainId: $connectedSourceChain?.id,
+      });
 
       previousSelectedToken = $selectedToken;
     } else {
