@@ -29,15 +29,16 @@ var (
 	_ = abi.ConvertType
 )
 
-// TaikoL2Config is an auto generated low-level Go binding around an user-defined struct.
-type TaikoL2Config struct {
+// LibL2ConfigConfig is an auto generated low-level Go binding around an user-defined struct.
+type LibL2ConfigConfig struct {
 	GasTargetPerL1Block       uint32
 	BasefeeAdjustmentQuotient uint8
+	GasExcessMinValue         uint64
 }
 
 // TaikoL2MetaData contains all meta data concerning the TaikoL2 contract.
 var TaikoL2MetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"BLOCK_SYNC_THRESHOLD\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GOLDEN_TOUCH_ADDRESS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"anchor\",\"inputs\":[{\"name\":\"_l1BlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_l1StateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_l1BlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_parentGasUsed\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"gasExcess\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBasefee\",\"inputs\":[{\"name\":\"_l1BlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_parentGasUsed\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[{\"name\":\"basefee_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlockHash\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"config_\",\"type\":\"tuple\",\"internalType\":\"structTaikoL2.Config\",\"components\":[{\"name\":\"gasTargetPerL1Block\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"basefeeAdjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_l1ChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_gasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"l2Hashes\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastSyncedBlock\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nextTxId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"onMessageInvocation\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ownerChainId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"publicInputHash\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"skipFeeCheck\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Anchored\",\"inputs\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"gasExcess\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransactionExecuted\",\"inputs\":[{\"name\":\"txId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"selector\",\"type\":\"bytes4\",\"indexed\":true,\"internalType\":\"bytes4\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"EIP1559_INVALID_PARAMS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_BASEFEE_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_CHAIN_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_PARAM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_SENDER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_PUBLIC_INPUT_HASH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_TOO_LATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"Overflow\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"XCO_INVALID_OWNER_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"XCO_INVALID_TX_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"XCO_PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"XCO_TX_REVERTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDR_MANAGER\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"GOLDEN_TOUCH_ADDRESS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"anchor\",\"inputs\":[{\"name\":\"_l1BlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_l1StateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_l1BlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_parentGasUsed\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"gasExcess\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBasefee\",\"inputs\":[{\"name\":\"_l1BlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_parentGasUsed\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[{\"name\":\"basefee_\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"gasExcess_\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlockHash\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structLibL2Config.Config\",\"components\":[{\"name\":\"gasTargetPerL1Block\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"basefeeAdjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasExcessMinValue\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_l1ChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_gasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"l1ChainId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"l2Hashes\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastSyncedBlock\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"parentTimestamp\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"publicInputHash\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"skipFeeCheck\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Anchored\",\"inputs\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"gasExcess\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"EIP1559_INVALID_PARAMS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_BASEFEE_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_L1_CHAIN_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_L2_CHAIN_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_PARAM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_INVALID_SENDER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_PUBLIC_INPUT_HASH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L2_TOO_LATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"Overflow\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADDR_MANAGER\",\"inputs\":[]}]",
 }
 
 // TaikoL2ABI is the input ABI used to generate the binding from.
@@ -186,37 +187,6 @@ func (_TaikoL2 *TaikoL2TransactorRaw) Transact(opts *bind.TransactOpts, method s
 	return _TaikoL2.Contract.contract.Transact(opts, method, params...)
 }
 
-// BLOCKSYNCTHRESHOLD is a free data retrieval call binding the contract method 0x8ae5449c.
-//
-// Solidity: function BLOCK_SYNC_THRESHOLD() view returns(uint8)
-func (_TaikoL2 *TaikoL2Caller) BLOCKSYNCTHRESHOLD(opts *bind.CallOpts) (uint8, error) {
-	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "BLOCK_SYNC_THRESHOLD")
-
-	if err != nil {
-		return *new(uint8), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
-
-	return out0, err
-
-}
-
-// BLOCKSYNCTHRESHOLD is a free data retrieval call binding the contract method 0x8ae5449c.
-//
-// Solidity: function BLOCK_SYNC_THRESHOLD() view returns(uint8)
-func (_TaikoL2 *TaikoL2Session) BLOCKSYNCTHRESHOLD() (uint8, error) {
-	return _TaikoL2.Contract.BLOCKSYNCTHRESHOLD(&_TaikoL2.CallOpts)
-}
-
-// BLOCKSYNCTHRESHOLD is a free data retrieval call binding the contract method 0x8ae5449c.
-//
-// Solidity: function BLOCK_SYNC_THRESHOLD() view returns(uint8)
-func (_TaikoL2 *TaikoL2CallerSession) BLOCKSYNCTHRESHOLD() (uint8, error) {
-	return _TaikoL2.Contract.BLOCKSYNCTHRESHOLD(&_TaikoL2.CallOpts)
-}
-
 // GOLDENTOUCHADDRESS is a free data retrieval call binding the contract method 0x9ee512f2.
 //
 // Solidity: function GOLDEN_TOUCH_ADDRESS() view returns(address)
@@ -312,32 +282,46 @@ func (_TaikoL2 *TaikoL2CallerSession) GasExcess() (uint64, error) {
 
 // GetBasefee is a free data retrieval call binding the contract method 0xa7e022d1.
 //
-// Solidity: function getBasefee(uint64 _l1BlockId, uint32 _parentGasUsed) view returns(uint256 basefee_)
-func (_TaikoL2 *TaikoL2Caller) GetBasefee(opts *bind.CallOpts, _l1BlockId uint64, _parentGasUsed uint32) (*big.Int, error) {
+// Solidity: function getBasefee(uint64 _l1BlockId, uint32 _parentGasUsed) view returns(uint256 basefee_, uint64 gasExcess_)
+func (_TaikoL2 *TaikoL2Caller) GetBasefee(opts *bind.CallOpts, _l1BlockId uint64, _parentGasUsed uint32) (struct {
+	Basefee   *big.Int
+	GasExcess uint64
+}, error) {
 	var out []interface{}
 	err := _TaikoL2.contract.Call(opts, &out, "getBasefee", _l1BlockId, _parentGasUsed)
 
+	outstruct := new(struct {
+		Basefee   *big.Int
+		GasExcess uint64
+	})
 	if err != nil {
-		return *new(*big.Int), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Basefee = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.GasExcess = *abi.ConvertType(out[1], new(uint64)).(*uint64)
 
-	return out0, err
+	return *outstruct, err
 
 }
 
 // GetBasefee is a free data retrieval call binding the contract method 0xa7e022d1.
 //
-// Solidity: function getBasefee(uint64 _l1BlockId, uint32 _parentGasUsed) view returns(uint256 basefee_)
-func (_TaikoL2 *TaikoL2Session) GetBasefee(_l1BlockId uint64, _parentGasUsed uint32) (*big.Int, error) {
+// Solidity: function getBasefee(uint64 _l1BlockId, uint32 _parentGasUsed) view returns(uint256 basefee_, uint64 gasExcess_)
+func (_TaikoL2 *TaikoL2Session) GetBasefee(_l1BlockId uint64, _parentGasUsed uint32) (struct {
+	Basefee   *big.Int
+	GasExcess uint64
+}, error) {
 	return _TaikoL2.Contract.GetBasefee(&_TaikoL2.CallOpts, _l1BlockId, _parentGasUsed)
 }
 
 // GetBasefee is a free data retrieval call binding the contract method 0xa7e022d1.
 //
-// Solidity: function getBasefee(uint64 _l1BlockId, uint32 _parentGasUsed) view returns(uint256 basefee_)
-func (_TaikoL2 *TaikoL2CallerSession) GetBasefee(_l1BlockId uint64, _parentGasUsed uint32) (*big.Int, error) {
+// Solidity: function getBasefee(uint64 _l1BlockId, uint32 _parentGasUsed) view returns(uint256 basefee_, uint64 gasExcess_)
+func (_TaikoL2 *TaikoL2CallerSession) GetBasefee(_l1BlockId uint64, _parentGasUsed uint32) (struct {
+	Basefee   *big.Int
+	GasExcess uint64
+}, error) {
 	return _TaikoL2.Contract.GetBasefee(&_TaikoL2.CallOpts, _l1BlockId, _parentGasUsed)
 }
 
@@ -374,16 +358,16 @@ func (_TaikoL2 *TaikoL2CallerSession) GetBlockHash(_blockId uint64) ([32]byte, e
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() view returns((uint32,uint8) config_)
-func (_TaikoL2 *TaikoL2Caller) GetConfig(opts *bind.CallOpts) (TaikoL2Config, error) {
+// Solidity: function getConfig() view returns((uint32,uint8,uint64))
+func (_TaikoL2 *TaikoL2Caller) GetConfig(opts *bind.CallOpts) (LibL2ConfigConfig, error) {
 	var out []interface{}
 	err := _TaikoL2.contract.Call(opts, &out, "getConfig")
 
 	if err != nil {
-		return *new(TaikoL2Config), err
+		return *new(LibL2ConfigConfig), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(TaikoL2Config)).(*TaikoL2Config)
+	out0 := *abi.ConvertType(out[0], new(LibL2ConfigConfig)).(*LibL2ConfigConfig)
 
 	return out0, err
 
@@ -391,16 +375,47 @@ func (_TaikoL2 *TaikoL2Caller) GetConfig(opts *bind.CallOpts) (TaikoL2Config, er
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() view returns((uint32,uint8) config_)
-func (_TaikoL2 *TaikoL2Session) GetConfig() (TaikoL2Config, error) {
+// Solidity: function getConfig() view returns((uint32,uint8,uint64))
+func (_TaikoL2 *TaikoL2Session) GetConfig() (LibL2ConfigConfig, error) {
 	return _TaikoL2.Contract.GetConfig(&_TaikoL2.CallOpts)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() view returns((uint32,uint8) config_)
-func (_TaikoL2 *TaikoL2CallerSession) GetConfig() (TaikoL2Config, error) {
+// Solidity: function getConfig() view returns((uint32,uint8,uint64))
+func (_TaikoL2 *TaikoL2CallerSession) GetConfig() (LibL2ConfigConfig, error) {
 	return _TaikoL2.Contract.GetConfig(&_TaikoL2.CallOpts)
+}
+
+// L1ChainId is a free data retrieval call binding the contract method 0x12622e5b.
+//
+// Solidity: function l1ChainId() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) L1ChainId(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "l1ChainId")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// L1ChainId is a free data retrieval call binding the contract method 0x12622e5b.
+//
+// Solidity: function l1ChainId() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) L1ChainId() (uint64, error) {
+	return _TaikoL2.Contract.L1ChainId(&_TaikoL2.CallOpts)
+}
+
+// L1ChainId is a free data retrieval call binding the contract method 0x12622e5b.
+//
+// Solidity: function l1ChainId() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) L1ChainId() (uint64, error) {
+	return _TaikoL2.Contract.L1ChainId(&_TaikoL2.CallOpts)
 }
 
 // L2Hashes is a free data retrieval call binding the contract method 0x8551f41e.
@@ -465,37 +480,6 @@ func (_TaikoL2 *TaikoL2CallerSession) LastSyncedBlock() (uint64, error) {
 	return _TaikoL2.Contract.LastSyncedBlock(&_TaikoL2.CallOpts)
 }
 
-// NextTxId is a free data retrieval call binding the contract method 0x8aff87b2.
-//
-// Solidity: function nextTxId() view returns(uint64)
-func (_TaikoL2 *TaikoL2Caller) NextTxId(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "nextTxId")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
-}
-
-// NextTxId is a free data retrieval call binding the contract method 0x8aff87b2.
-//
-// Solidity: function nextTxId() view returns(uint64)
-func (_TaikoL2 *TaikoL2Session) NextTxId() (uint64, error) {
-	return _TaikoL2.Contract.NextTxId(&_TaikoL2.CallOpts)
-}
-
-// NextTxId is a free data retrieval call binding the contract method 0x8aff87b2.
-//
-// Solidity: function nextTxId() view returns(uint64)
-func (_TaikoL2 *TaikoL2CallerSession) NextTxId() (uint64, error) {
-	return _TaikoL2.Contract.NextTxId(&_TaikoL2.CallOpts)
-}
-
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -527,12 +511,12 @@ func (_TaikoL2 *TaikoL2CallerSession) Owner() (common.Address, error) {
 	return _TaikoL2.Contract.Owner(&_TaikoL2.CallOpts)
 }
 
-// OwnerChainId is a free data retrieval call binding the contract method 0xff4d1815.
+// ParentTimestamp is a free data retrieval call binding the contract method 0x539b8ade.
 //
-// Solidity: function ownerChainId() view returns(uint64)
-func (_TaikoL2 *TaikoL2Caller) OwnerChainId(opts *bind.CallOpts) (uint64, error) {
+// Solidity: function parentTimestamp() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) ParentTimestamp(opts *bind.CallOpts) (uint64, error) {
 	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "ownerChainId")
+	err := _TaikoL2.contract.Call(opts, &out, "parentTimestamp")
 
 	if err != nil {
 		return *new(uint64), err
@@ -544,18 +528,18 @@ func (_TaikoL2 *TaikoL2Caller) OwnerChainId(opts *bind.CallOpts) (uint64, error)
 
 }
 
-// OwnerChainId is a free data retrieval call binding the contract method 0xff4d1815.
+// ParentTimestamp is a free data retrieval call binding the contract method 0x539b8ade.
 //
-// Solidity: function ownerChainId() view returns(uint64)
-func (_TaikoL2 *TaikoL2Session) OwnerChainId() (uint64, error) {
-	return _TaikoL2.Contract.OwnerChainId(&_TaikoL2.CallOpts)
+// Solidity: function parentTimestamp() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) ParentTimestamp() (uint64, error) {
+	return _TaikoL2.Contract.ParentTimestamp(&_TaikoL2.CallOpts)
 }
 
-// OwnerChainId is a free data retrieval call binding the contract method 0xff4d1815.
+// ParentTimestamp is a free data retrieval call binding the contract method 0x539b8ade.
 //
-// Solidity: function ownerChainId() view returns(uint64)
-func (_TaikoL2 *TaikoL2CallerSession) OwnerChainId() (uint64, error) {
-	return _TaikoL2.Contract.OwnerChainId(&_TaikoL2.CallOpts)
+// Solidity: function parentTimestamp() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) ParentTimestamp() (uint64, error) {
+	return _TaikoL2.Contract.ParentTimestamp(&_TaikoL2.CallOpts)
 }
 
 // Paused is a free data retrieval call binding the contract method 0x5c975abb.
@@ -836,27 +820,6 @@ func (_TaikoL2 *TaikoL2Session) Init(_owner common.Address, _addressManager comm
 // Solidity: function init(address _owner, address _addressManager, uint64 _l1ChainId, uint64 _gasExcess) returns()
 func (_TaikoL2 *TaikoL2TransactorSession) Init(_owner common.Address, _addressManager common.Address, _l1ChainId uint64, _gasExcess uint64) (*types.Transaction, error) {
 	return _TaikoL2.Contract.Init(&_TaikoL2.TransactOpts, _owner, _addressManager, _l1ChainId, _gasExcess)
-}
-
-// OnMessageInvocation is a paid mutator transaction binding the contract method 0x7f07c947.
-//
-// Solidity: function onMessageInvocation(bytes _data) payable returns()
-func (_TaikoL2 *TaikoL2Transactor) OnMessageInvocation(opts *bind.TransactOpts, _data []byte) (*types.Transaction, error) {
-	return _TaikoL2.contract.Transact(opts, "onMessageInvocation", _data)
-}
-
-// OnMessageInvocation is a paid mutator transaction binding the contract method 0x7f07c947.
-//
-// Solidity: function onMessageInvocation(bytes _data) payable returns()
-func (_TaikoL2 *TaikoL2Session) OnMessageInvocation(_data []byte) (*types.Transaction, error) {
-	return _TaikoL2.Contract.OnMessageInvocation(&_TaikoL2.TransactOpts, _data)
-}
-
-// OnMessageInvocation is a paid mutator transaction binding the contract method 0x7f07c947.
-//
-// Solidity: function onMessageInvocation(bytes _data) payable returns()
-func (_TaikoL2 *TaikoL2TransactorSession) OnMessageInvocation(_data []byte) (*types.Transaction, error) {
-	return _TaikoL2.Contract.OnMessageInvocation(&_TaikoL2.TransactOpts, _data)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1988,159 +1951,6 @@ func (_TaikoL2 *TaikoL2Filterer) WatchPaused(opts *bind.WatchOpts, sink chan<- *
 func (_TaikoL2 *TaikoL2Filterer) ParsePaused(log types.Log) (*TaikoL2Paused, error) {
 	event := new(TaikoL2Paused)
 	if err := _TaikoL2.contract.UnpackLog(event, "Paused", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// TaikoL2TransactionExecutedIterator is returned from FilterTransactionExecuted and is used to iterate over the raw logs and unpacked data for TransactionExecuted events raised by the TaikoL2 contract.
-type TaikoL2TransactionExecutedIterator struct {
-	Event *TaikoL2TransactionExecuted // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *TaikoL2TransactionExecutedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TaikoL2TransactionExecuted)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(TaikoL2TransactionExecuted)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoL2TransactionExecutedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *TaikoL2TransactionExecutedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// TaikoL2TransactionExecuted represents a TransactionExecuted event raised by the TaikoL2 contract.
-type TaikoL2TransactionExecuted struct {
-	TxId     uint64
-	Selector [4]byte
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterTransactionExecuted is a free log retrieval operation binding the contract event 0x3c5c4a24a5f3333977c7d675661b0611a16f3c611b9ea63c0be82f4ffa9174c5.
-//
-// Solidity: event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector)
-func (_TaikoL2 *TaikoL2Filterer) FilterTransactionExecuted(opts *bind.FilterOpts, txId []uint64, selector [][4]byte) (*TaikoL2TransactionExecutedIterator, error) {
-
-	var txIdRule []interface{}
-	for _, txIdItem := range txId {
-		txIdRule = append(txIdRule, txIdItem)
-	}
-	var selectorRule []interface{}
-	for _, selectorItem := range selector {
-		selectorRule = append(selectorRule, selectorItem)
-	}
-
-	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "TransactionExecuted", txIdRule, selectorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &TaikoL2TransactionExecutedIterator{contract: _TaikoL2.contract, event: "TransactionExecuted", logs: logs, sub: sub}, nil
-}
-
-// WatchTransactionExecuted is a free log subscription operation binding the contract event 0x3c5c4a24a5f3333977c7d675661b0611a16f3c611b9ea63c0be82f4ffa9174c5.
-//
-// Solidity: event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector)
-func (_TaikoL2 *TaikoL2Filterer) WatchTransactionExecuted(opts *bind.WatchOpts, sink chan<- *TaikoL2TransactionExecuted, txId []uint64, selector [][4]byte) (event.Subscription, error) {
-
-	var txIdRule []interface{}
-	for _, txIdItem := range txId {
-		txIdRule = append(txIdRule, txIdItem)
-	}
-	var selectorRule []interface{}
-	for _, selectorItem := range selector {
-		selectorRule = append(selectorRule, selectorItem)
-	}
-
-	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "TransactionExecuted", txIdRule, selectorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(TaikoL2TransactionExecuted)
-				if err := _TaikoL2.contract.UnpackLog(event, "TransactionExecuted", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseTransactionExecuted is a log parse operation binding the contract event 0x3c5c4a24a5f3333977c7d675661b0611a16f3c611b9ea63c0be82f4ffa9174c5.
-//
-// Solidity: event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector)
-func (_TaikoL2 *TaikoL2Filterer) ParseTransactionExecuted(log types.Log) (*TaikoL2TransactionExecuted, error) {
-	event := new(TaikoL2TransactionExecuted)
-	if err := _TaikoL2.contract.UnpackLog(event, "TransactionExecuted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
