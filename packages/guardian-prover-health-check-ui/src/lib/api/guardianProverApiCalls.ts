@@ -25,7 +25,7 @@ export async function fetchGuardianProverHealthChecksFromApi(
 	return resp.data;
 }
 
-export async function fetchLatestGuardianProverHealtCheckFromApi(
+export async function fetchLatestGuardianProverHealthCheckFromApi(
 	baseURL: string,
 	guardianProverId: number
 ): Promise<HealthCheck> {

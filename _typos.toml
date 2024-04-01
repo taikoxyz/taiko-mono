@@ -1,5 +1,7 @@
 [files]
 extend-exclude = [
+  "*.png",
+  "*svg",
   "CHANGELOG.md",
   "packages/protocol/contracts/automata-attestation/**",
   "packages/protocol/contracts/thirdparty/**",
