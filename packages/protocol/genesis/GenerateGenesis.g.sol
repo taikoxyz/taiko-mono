@@ -5,7 +5,6 @@ import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
 import "../contracts/common/AddressManager.sol";
-import "../contracts/common/EssentialContract.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";

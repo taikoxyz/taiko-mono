@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
@@ -55,7 +54,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         address _account,
         uint256 _tokenId
     )
-        public
+        external
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
@@ -70,7 +69,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         address _account,
         uint256 _tokenId
     )
-        public
+        external
         nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
@@ -104,7 +103,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @notice Returns the token URI.
     /// @param _tokenId The token id.
     /// @return The token URI following EIP-681.
-    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
+    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
         // https://github.com/crytic/slither/wiki/Detector-Documentation#abi-encodePacked-collision
         // The abi.encodePacked() call below takes multiple dynamic arguments. This is known and
         // considered acceptable in terms of risk.
@@ -122,7 +121,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 /*_batchSize*/
     )
         internal
-        virtual
         override
     {
         if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();

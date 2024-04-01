@@ -26,6 +26,10 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         _;
     }
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @inheritdoc IAddressResolver
     function resolve(
         bytes32 _name,
