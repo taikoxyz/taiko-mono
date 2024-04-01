@@ -25,7 +25,7 @@ jobs:
             org_id_secret: "VERCEL_ORG_ID"
             project_id_secret: "VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       - name: Setup Vercel Environment for ${{ matrix.org }}
