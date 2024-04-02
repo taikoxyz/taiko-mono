@@ -24,12 +24,12 @@
 	const startFetching = async () => {
 		await fetchHealthChecks();
 
-		const healtCheckInterval = setInterval(() => {
+		const healthCheckInterval = setInterval(() => {
 			fetchHealthChecks();
 		}, 1200);
 
 		return () => {
-			clearInterval(healtCheckInterval);
+			clearInterval(healthCheckInterval);
 		};
 	};
 
