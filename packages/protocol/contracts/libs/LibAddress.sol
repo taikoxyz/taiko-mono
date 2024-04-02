@@ -35,7 +35,7 @@ library LibAddress {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 
-        if (gasleft() / 63 * 64 < _gasLimit) revert NOT_ENOUGH_GASLEFT();
+        if ((gasleft() * 63 >> 6) < _gasLimit) revert NOT_ENOUGH_GASLEFT();
         // dispatch message to recipient
         // by assembly calling "handle" function
         // we call via assembly to avoid memcopying a very large returndata
