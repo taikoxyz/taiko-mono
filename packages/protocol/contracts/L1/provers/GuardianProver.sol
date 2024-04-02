@@ -30,8 +30,7 @@ contract GuardianProver is Guardians {
     /// @param _meta The block's metadata.
     /// @param _tran The valid transition.
     /// @param _proof The tier proof.
-    /// @return approved_ If the minimum number of participants sent the same proof, and proving
-    /// transaction is fired away returns true, false otherwise.
+    /// @return approved_ True if the minimum number of approval is aquired, false otherwise.
     function approve(
         TaikoData.BlockMetadata calldata _meta,
         TaikoData.Transition calldata _tran,
@@ -42,15 +41,18 @@ contract GuardianProver is Guardians {
         nonReentrant
         returns (bool approved_)
     {
-        if (_proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
+        if (_proof.tier != LibTiers.TIER_GUARDIAN || _proof.data.length != 0) {
+            revert INVALID_PROOF();
+        }
+
         bytes32 hash = keccak256(abi.encode(_meta, _tran));
         approved_ = approve(_meta.id, hash);
+
+        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_);
 
         if (approved_) {
             deleteApproval(hash);
             ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
         }
-
-        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_);
     }
 }
