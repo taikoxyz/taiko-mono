@@ -15,8 +15,13 @@ contract GuardianProver is Guardians {
     /// @param blockId The block ID.
     /// @param blockHash The block hash.
     /// @param approved If the proof is approved.
+    /// @param proofData The proof data.
     event GuardianApproval(
-        address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
+        address indexed addr,
+        uint256 indexed blockId,
+        bytes32 blockHash,
+        bool approved,
+        bytes proofData
     );
 
     /// @notice Initializes the contract.
@@ -45,10 +50,10 @@ contract GuardianProver is Guardians {
             revert INVALID_PROOF();
         }
 
-        bytes32 hash = keccak256(abi.encode(_meta, _tran));
+        bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof));
         approved_ = approve(_meta.id, hash);
 
-        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_);
+        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
 
         if (approved_) {
             deleteApproval(hash);
