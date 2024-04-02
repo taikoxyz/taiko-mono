@@ -158,7 +158,7 @@ contract SignalService is EssentialContract, ISignalService {
         for (uint256 i; i < hopProofs.length; ++i) {
             hop = hopProofs[i];
 
-            bytes32 signalRoot = _verifyHopProof(chainId, app, signal, value, hop, signalService);
+            _verifyHopProof(chainId, app, signal, value, hop, signalService);
             bool isLastHop = i == hopProofs.length - 1;
 
             if (isLastHop) {
@@ -172,8 +172,6 @@ contract SignalService is EssentialContract, ISignalService {
             }
 
             bool isFullProof = hop.accountProof.length != 0;
-
-            // _cacheChainData(hop, chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
 
             bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
             signal = signalForChainData(chainId, kind, hop.blockId);
