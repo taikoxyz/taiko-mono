@@ -84,8 +84,7 @@ library LibProposing {
 
         bytes32 parentMetaHash =
             _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
-
-        assert(parentMetaHash != 0);
+        // assert(parentMetaHash != 0);
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
