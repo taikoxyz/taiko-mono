@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
@@ -56,7 +56,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
         Grant grant;
     }
 
-    bytes32 public constant TYPED_HASH = keccak256("Withdrawal(address to)");
+    bytes32 public constant TYPED_HASH = keccak256("Withdrawal(address to,uint256 nonce)");
 
     /// @notice The Taiko token address.
     address public taikoToken;
@@ -82,7 +82,10 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @notice Mapping of recipient address to grant information.
     mapping(address recipient => Recipient receipt) public recipients;
 
-    uint128[44] private __gap;
+    /// @notice Mapping of recipient address to the next withdrawal nonce.
+    mapping(address recipient => uint256 withdrawalNonce) public withdrawalNonces;
+
+    uint128[43] private __gap;
 
     /// @notice Emitted when a grant is made.
     /// @param recipient The grant recipient address.
@@ -103,7 +106,9 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
 
     error ALREADY_GRANTED();
     error INVALID_GRANT();
+    error INVALID_NONCE();
     error INVALID_PARAM();
+    error INVALID_SIGNATURE();
     error NOTHING_TO_VOID();
 
     /// @notice Initializes the contract.
@@ -169,18 +174,25 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
 
     /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
+    /// @param _nonce The nonce to be used.
     /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, bytes memory _sig) external nonReentrant {
+    function withdraw(address _to, uint256 _nonce, bytes memory _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
-        address recipient = ECDSA.recover(getWithdrawalHash(_to), _sig);
-        _withdraw(recipient, _to);
+
+        address account = ECDSA.recover(getWithdrawalHash(_to, _nonce), _sig);
+        if (account == address(0)) revert INVALID_SIGNATURE();
+        if (withdrawalNonces[account] != _nonce) revert INVALID_NONCE();
+
+        withdrawalNonces[account] += 1;
+        _withdraw(account, _to);
     }
 
     /// @notice Gets the hash to be signed to authorize an withdrawal.
     /// @param _to The destination address.
+    /// @param _nonce The withdrawal nonce.
     /// @return The hash to be signed.
-    function getWithdrawalHash(address _to) public view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to)));
+    function getWithdrawalHash(address _to, uint256 _nonce) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(TYPED_HASH, _to, _nonce)));
     }
 
     /// @notice Returns the summary of the grant for a given recipient.

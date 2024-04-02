@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
 import "../ITaikoL1.sol";
@@ -13,6 +14,7 @@ import "./IHook.sol";
 /// @custom:security-contact security@taiko.xyz
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
+    using SignatureChecker for address;
     using SafeERC20 for IERC20;
 
     struct ProverAssignment {
@@ -95,7 +97,7 @@ contract AssignmentHook is EssentialContract, IHook {
         address taikoL1Address = msg.sender;
         bytes32 hash = hashAssignment(assignment, taikoL1Address, _meta.blobHash);
 
-        if (!_blk.assignedProver.isValidSignature(hash, assignment.signature)) {
+        if (!_blk.assignedProver.isValidSignatureNow(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
         }
 
