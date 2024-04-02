@@ -140,7 +140,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _signal,
         bytes calldata _proof
     )
-        public
+        external
         view
         validSender(_app)
         nonZeroValue(_signal)
