@@ -10,7 +10,6 @@
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge';
   import { getInvocationDelayForTx } from '$libs/bridge/getInvocationDelayForTx';
   import { getChainName } from '$libs/chain';
-  import { InsufficientBalanceError } from '$libs/error';
   import { PollingEvent, type startPolling } from '$libs/polling/messageStatusPoller';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -49,7 +48,6 @@
     if (balance.value < parseEther(String(claimConfig.minimumEthToClaim))) {
       hasEnoughEth = false;
       checkingPrerequisites = false;
-      throw new InsufficientBalanceError('user has insufficient balance');
     }
     hasEnoughEth = true;
     checkingPrerequisites = false;
@@ -141,86 +139,78 @@
   $: hasEnoughEth = false;
 
   $: twoStepBridge = bridgeDelays && bridgeDelays[0] > 0n ? true : false;
+
+  $: claimStep = proofReceiptAddress && proofReceiptAddress !== zeroAddress ? 2 : 1;
 </script>
 
-<div class="container mx-auto inline-block align-middle space-y-[25px] w-full mt-[20px]">
+<div class="space-y-[25px] mt-[20px]">
   <div class="flex justify-between mb-2 items-center">
     <div class="font-bold text-primary-content">{$t('transactions.claim.steps.pre_check.title')}</div>
   </div>
-  <div>
-    <!-- Two step claim process -->
-    {#if twoStepBridge}
-      <div class="h-sep" />
-      <span>
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        {@html $t('transactions.claim.steps.pre_check.two_step_claim.description', {
-          values: { delay: invocationDelayString },
-        })}
-      </span>
-      <div class="f-between-center mt-[20px]">
-        <div>{$t('transactions.claim.steps.pre_check.step')}</div>
-        {#if checkingPrerequisites}
-          <Spinner />
-        {:else if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
-          2/2
-        {:else}
-          1/2
-        {/if}
-      </div>
-      {#if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
-        <div class="f-between-center">
-          <div>{$t('transactions.claim.steps.pre_check.remaining_delay')}</div>
+  <div class="min-h-[150px] grid content-between">
+    <div>
+      <!-- Two step claim process -->
+      {#if twoStepBridge}
+        <div class="h-sep" />
+        <span class="text-secondary-content">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+          {@html $t('transactions.claim.steps.pre_check.two_step_claim.description', {
+            values: { delay: invocationDelayString },
+          })}
+        </span>
+        <div class="f-between-center mt-[20px]">
+          <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.step')}</span>
           {#if checkingPrerequisites}
             <Spinner />
           {:else}
-            {remainingDelayString}
+            <span>{claimStep}</span>
           {/if}
         </div>
+        {#if proofReceiptAddress && proofReceiptAddress !== zeroAddress}
+          <div class="f-between-center">
+            <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.remaining_delay')}</span>
+            {#if checkingPrerequisites}
+              <Spinner />
+            {:else}
+              {remainingDelayString}
+            {/if}
+          </div>
+        {/if}
+        <div class="h-sep" />
       {/if}
-      <div class="h-sep" />
-    {/if}
-    <div class="f-between-center">
-      <div>{$t('transactions.claim.steps.pre_check.chain_check')}:</div>
-      {#if checkingPrerequisites}
-        <Spinner />
-      {:else if correctChain}
-        <Icon type="check-circle" fillClass="fill-positive-sentiment" />
-      {:else}
-        <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
-      {/if}
-    </div>
-    <div class="f-between-center">
-      <div>{$t('transactions.claim.steps.pre_check.funds_check')}</div>
-      {#if checkingPrerequisites}
-        <Spinner />
-      {:else if hasEnoughEth}
-        <Icon type="check-circle" fillClass="fill-positive-sentiment" />
-      {:else}
-        <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
-      {/if}
-    </div>
-    {#if canContinue}
-      <div class="h-sep" />
-      {$t('transactions.claim.steps.pre_check.ready')}
-    {:else if !canContinue && !correctChain}
-      <div class="h-sep" />
-      <div class="f-col space-y-[16px]">
-        <div>
-          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-          {@html $t('transactions.claim.steps.pre_check.switch_chain', {
-            values: { chain: txDestChainName },
-          })}
-        </div>
-
-        <ActionButton
-          onPopup
-          priority="primary"
-          disabled={$switchingNetwork}
-          loading={$switchingNetwork}
-          on:click={() => {
-            switchChains();
-          }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
+      <div class="f-between-center">
+        <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.chain_check')}</span>
+        {#if checkingPrerequisites}
+          <Spinner />
+        {:else if correctChain}
+          <Icon type="check-circle" fillClass="fill-positive-sentiment" />
+        {:else}
+          <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
+        {/if}
       </div>
-    {/if}
+      <div class="f-between-center">
+        <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.funds_check')}</span>
+        {#if checkingPrerequisites}
+          <Spinner />
+        {:else if hasEnoughEth}
+          <Icon type="check-circle" fillClass="fill-positive-sentiment" />
+        {:else}
+          <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
+        {/if}
+      </div>
+    </div>
   </div>
+  {#if !canContinue && !correctChain}
+    <div class="h-sep" />
+    <div class="f-col space-y-[16px]">
+      <ActionButton
+        onPopup
+        priority="primary"
+        disabled={$switchingNetwork}
+        loading={$switchingNetwork}
+        on:click={() => {
+          switchChains();
+        }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
+    </div>
+  {/if}
 </div>

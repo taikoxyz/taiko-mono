@@ -235,10 +235,14 @@
 </script>
 
 <dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
-  <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute md:min-h-[500px]">
-    <CloseButton onClick={closeDialog} />
+  <div class="modal-box relative w-full bg-neutral-background absolute md:min-h-[600px]">
+    <div class="w-full f-between-center">
+      <CloseButton onClick={closeDialog} />
+      <h3 class="title-body-bold">{$t('transactions.claim.steps.title')}</h3>
+    </div>
+    <div class="h-sep mx-[-24px] mt-[20px]" />
+
     <div class="w-full h-full f-col">
-      <h3 class="title-body-bold mb-7">{$t('transactions.claim.steps.title')}</h3>
       <DialogStepper>
         <DialogStep
           stepIndex={ClaimSteps.CHECK}

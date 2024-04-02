@@ -130,7 +130,6 @@
     try {
       let maxAmount;
       if ($tokenBalance) {
-        // $enteredAmount = $tokenBalance.value;
         maxAmount = await getMaxAmountToBridge({
           to: $account.address,
           token: $selectedToken,

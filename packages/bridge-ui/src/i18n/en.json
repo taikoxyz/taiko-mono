@@ -461,13 +461,13 @@
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
-          "funds_check": "Enough funds to claim",
+          "funds_check": "Sufficient funds to claim",
           "no_delay": "No delay",
           "ready": "You can continue with the claim process!",
-          "remaining_delay": "Remaining delay",
+          "remaining_delay": "Remaining delay befor claim",
           "step": "Claim step",
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
-          "title": "Prerequisites",
+          "title": "Requirements",
           "two_step_claim": {
             "description": " As you are claiming from L2->L1 there is additional security in the form a two step claim process. Please refer to our documentation for more information. You first have to submit a proof, then after a delay of <span class=\"font-bold text-primary\" >{delay}</span> you can proceed to claim your assets."
           }
