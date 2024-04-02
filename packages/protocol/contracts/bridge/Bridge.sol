@@ -369,7 +369,8 @@ contract Bridge is EssentialContract, IBridge {
         });
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
+    /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -390,7 +391,8 @@ contract Bridge is EssentialContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
+    /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -617,7 +619,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Checks if the signal was received.
+    /// @notice Checks if the signal was received and caches cross-chain data if requested.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
