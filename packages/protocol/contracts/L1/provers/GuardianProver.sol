@@ -35,7 +35,7 @@ contract GuardianProver is Guardians {
     /// @param _meta The block's metadata.
     /// @param _tran The valid transition.
     /// @param _proof The tier proof.
-    /// @return approved_ True if the minimum number of approval is aquired, false otherwise.
+    /// @return approved_ True if the minimum number of approval is acquired, false otherwise.
     function approve(
         TaikoData.BlockMetadata calldata _meta,
         TaikoData.Transition calldata _tran,
