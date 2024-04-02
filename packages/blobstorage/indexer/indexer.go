@@ -295,12 +295,12 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		return nil
 	}
 
-	BlobsResponse, err := i.beaconClient.getBlobs(ctx, blockID)
+	blobsResponse, err := i.beaconClient.getBlobs(ctx, blockID)
 	if err != nil {
 		return err
 	}
 
-	for _, data := range BlobsResponse.Data {
+	for _, data := range blobsResponse.Data {
 		data.KzgCommitmentHex = common.FromHex(data.KzgCommitment)
 
 		metaBlobHash := common.BytesToHash(event.Meta.BlobHash[:])
