@@ -137,9 +137,9 @@ contract TestERC20Airdrop2 is TaikoTest {
         vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
-        // Roll 11 day after
+        // Roll 31 day after
         vm.roll(block.number + 200);
-        vm.warp(claimEnd + 11 days);
+        vm.warp(claimEnd + 10 days + 30 days + 1); // withdrawal window + grace period + 1sec
 
         (uint256 balance, uint256 withdrawable) = airdrop2.getBalance(Alice);
 
