@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
@@ -82,21 +81,5 @@ library LibAddress {
         try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
             result_ = _result;
         } catch { }
-    }
-
-    function isValidSignature(
-        address _addr,
-        bytes32 _hash,
-        bytes memory _sig
-    )
-        internal
-        view
-        returns (bool)
-    {
-        if (Address.isContract(_addr)) {
-            return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
-        } else {
-            return SignatureChecker.isValidSignatureNow(_addr, _hash, _sig);
-        }
     }
 }
