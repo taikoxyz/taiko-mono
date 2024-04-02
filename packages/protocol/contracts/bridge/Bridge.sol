@@ -35,9 +35,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Slots 3, 4, and 5.
     Context private __ctx;
 
-    /// @notice Mapping to store banned addresses.
     /// @dev Slot 6.
-    mapping(address addr => bool banned) public addressBanned;
+    uint256 private __reserved1;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
     /// @dev Slot 7.
@@ -108,23 +107,6 @@ contract Bridge is EssentialContract, IBridge {
                 emit MessageSuspended(msgHash, false, uint64(block.timestamp));
             }
         }
-    }
-
-    /// @notice Ban or unban an address. A banned addresses will not be invoked upon
-    /// with message calls.
-    /// @dev Do not make this function `nonReentrant`, this breaks {DelegateOwner} support.
-    /// @param _addr The address to ban or unban.
-    /// @param _ban True if ban, false if unban.
-    function banAddress(
-        address _addr,
-        bool _ban
-    )
-        external
-        onlyFromOwnerOrNamed("bridge_watchdog")
-    {
-        if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
-        addressBanned[_addr] = _ban;
-        emit AddressBanned(_addr, _ban);
     }
 
     /// @inheritdoc IBridge
@@ -292,7 +274,7 @@ contract Bridge is EssentialContract, IBridge {
             // Process message differently based on the target address
             if (
                 _message.to == address(0) || _message.to == address(this)
-                    || _message.to == signalService || addressBanned[_message.to]
+                    || _message.to == signalService
             ) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
