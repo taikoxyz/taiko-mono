@@ -79,6 +79,11 @@ interface IBridge {
     /// @param msgHash The hash of the message.
     event MessageRecalled(bytes32 indexed msgHash);
 
+    /// @notice Emitted when a message is about to be recalled, but fails.
+    /// @param msgHash The hash of the message.
+    /// @param data The return data of the low level call.
+    event MessageRecallFailed(bytes32 indexed msgHash, bytes data);
+
     /// @notice Emitted when a message is executed.
     /// @param msgHash The hash of the message.
     event MessageExecuted(bytes32 indexed msgHash);

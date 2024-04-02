@@ -211,22 +211,33 @@ contract Bridge is EssentialContract, IBridge {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
+            // Some cases recall might fail (e.g. USDC shuts down minting allowance)
+            bool success = true;
+            bytes memory data;
             // Execute the recall logic based on the contract's support for the
             // IRecallableSender interface
             if (_message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
                 _storeContext(msgHash, address(this), _message.srcChainId);
 
-                // Perform recall
-                IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
-                    _message, msgHash
-                );
+                bytes memory msgRecallPayLoad =
+                    abi.encodeCall(IRecallableSender.onMessageRecalled, (_message, msgHash));
+
+                // Perform recall but allow it to fail, where in such case fire a
+                // MessageRecallFailed event, where the event itself and the root cause could be
+                // case-by-case investigated while recall failed
+                (success, data) = _message.from.call{ value: _message.value }(msgRecallPayLoad);
 
                 // Must reset the context after the message call
                 _resetContext();
             } else {
                 _message.srcOwner.sendEtherAndVerify(_message.value);
             }
-            emit MessageRecalled(msgHash);
+
+            if (success) {
+                emit MessageRecalled(msgHash);
+            } else {
+                emit MessageRecallFailed(msgHash, data);
+            }
         } else if (isNewlyProven) {
             emit MessageReceived(msgHash, _message, true);
         } else {
