@@ -61,7 +61,8 @@
       iconType1="chevron-left"
       iconType2="chevron-down"
       selectedDefault="chevron-left"
-      size={15} />
+      size={15}
+      noEvent />
   </button>
   {#if menuOpen}
     <ul
