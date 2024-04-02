@@ -26,6 +26,7 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         _;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
