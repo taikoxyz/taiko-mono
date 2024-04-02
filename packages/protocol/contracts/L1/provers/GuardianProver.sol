@@ -15,8 +15,13 @@ contract GuardianProver is Guardians {
     /// @param blockId The block ID.
     /// @param blockHash The block hash.
     /// @param approved If the proof is approved.
+    /// @param proofData The proof data.
     event GuardianApproval(
-        address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
+        address indexed addr,
+        uint256 indexed blockId,
+        bytes32 indexed blockHash,
+        bool approved,
+        bytes proofData
     );
 
     /// @notice Initializes the contract.
@@ -30,8 +35,7 @@ contract GuardianProver is Guardians {
     /// @param _meta The block's metadata.
     /// @param _tran The valid transition.
     /// @param _proof The tier proof.
-    /// @return approved_ If the minimum number of participants sent the same proof, and proving
-    /// transaction is fired away returns true, false otherwise.
+    /// @return approved_ True if the minimum number of approval is acquired, false otherwise.
     function approve(
         TaikoData.BlockMetadata calldata _meta,
         TaikoData.Transition calldata _tran,
@@ -42,15 +46,18 @@ contract GuardianProver is Guardians {
         nonReentrant
         returns (bool approved_)
     {
-        if (_proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
-        bytes32 hash = keccak256(abi.encode(_meta, _tran));
+        if (_proof.tier != LibTiers.TIER_GUARDIAN) {
+            revert INVALID_PROOF();
+        }
+
+        bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
         approved_ = approve(_meta.id, hash);
+
+        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
 
         if (approved_) {
             deleteApproval(hash);
             ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
         }
-
-        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_);
     }
 }
