@@ -19,7 +19,7 @@ contract GuardianProver is Guardians {
     event GuardianApproval(
         address indexed addr,
         uint256 indexed blockId,
-        bytes32 blockHash,
+        bytes32 indexed blockHash,
         bool approved,
         bytes proofData
     );
@@ -50,7 +50,7 @@ contract GuardianProver is Guardians {
             revert INVALID_PROOF();
         }
 
-        bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof));
+        bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
         approved_ = approve(_meta.id, hash);
 
         emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
