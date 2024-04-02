@@ -190,6 +190,7 @@
 
   const reset = () => {
     activeStep = INITIAL_STEP;
+    claimingDone = false;
   };
 
   let checkingPrerequisites: boolean;

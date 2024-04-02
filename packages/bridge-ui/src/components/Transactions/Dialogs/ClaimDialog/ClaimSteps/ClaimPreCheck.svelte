@@ -140,7 +140,7 @@
 
   $: twoStepBridge = bridgeDelays && bridgeDelays[0] > 0n ? true : false;
 
-  $: claimStep = proofReceiptAddress && proofReceiptAddress !== zeroAddress ? 2 : 1;
+  $: claimStep = proofReceiptAddress && proofReceiptAddress !== zeroAddress ? '2/2' : '1/2';
 </script>
 
 <div class="space-y-[25px] mt-[20px]">

@@ -469,7 +469,7 @@
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
           "title": "Requirements",
           "two_step_claim": {
-            "description": " As you are claiming from L2->L1 there is additional security in the form a two step claim process. Please refer to our documentation for more information. You first have to submit a proof, then after a delay of <span class=\"font-bold text-primary\" >{delay}</span> you can proceed to claim your assets."
+            "description": "For your L2 to L1 transfer, a two-step claim with a <span class=\"font-bold text-primary\" >{delay}</span> waiting period in between is required. For detailed instructions, please consult our documentation."
           }
         },
         "review": {

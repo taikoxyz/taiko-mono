@@ -107,9 +107,13 @@
   class:modal-open={dialogOpen}
   use:closeOnEscapeOrOutsideClick={{ enabled: dialogOpen, callback: closeDialog, uuid: dialogId }}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute">
-    <CloseButton onClick={closeDialog} />
-    <div class="w-full">
-      <h3 class="title-body-bold mb-7">{$t('transactions.retry.steps.title')}</h3>
+    <div class="w-full f-between-center">
+      <CloseButton onClick={closeDialog} />
+      <h3 class="title-body-bold">{$t('transactions.retry.steps.title')}</h3>
+    </div>
+    <div class="h-sep mx-[-24px] mt-[20px]" />
+
+    <div class="w-full h-full f-col">
       <DialogStepper>
         <DialogStep
           stepIndex={RetrySteps.SELECT}
