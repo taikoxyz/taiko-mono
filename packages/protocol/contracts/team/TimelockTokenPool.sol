@@ -163,14 +163,14 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw() external nonReentrant {
+    function withdraw() external nonReentrant whenNotPaused {
         _withdraw(msg.sender, msg.sender);
     }
 
     /// @notice Withdraws all withdrawable tokens to a designated address.
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
     /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, bytes memory _sig) external nonReentrant {
+    function withdraw(address _to, bytes memory _sig) external whenNotPaused nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
         address recipient = ECDSA.recover(getWithdrawalHash(_to), _sig);
         _withdraw(recipient, _to);

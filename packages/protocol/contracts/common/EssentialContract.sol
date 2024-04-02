@@ -23,6 +23,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     uint8 private __paused;
 
+    uint64 public lastUnpausedAt;
+
     uint256[49] private __gap;
 
     /// @notice Emitted when the contract is paused.
@@ -78,6 +80,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @notice Unpauses the contract.
     function unpause() public virtual whenPaused {
         __paused = _FALSE;
+        lastUnpausedAt = uint64(block.timestamp);
         emit Unpaused(msg.sender);
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
