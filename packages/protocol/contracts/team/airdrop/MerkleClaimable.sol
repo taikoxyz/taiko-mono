@@ -24,7 +24,7 @@ abstract contract MerkleClaimable is EssentialContract {
 
     /// @notice Event emitted when a claim is made
     /// @param hash Hash of the claim
-    event Claimed(bytes32 hash);
+    event Claimed(bytes32 indexed hash);
 
     error CLAIM_NOT_ONGOING();
     error CLAIMED_ALREADY();

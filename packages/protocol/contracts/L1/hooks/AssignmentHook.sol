@@ -31,7 +31,7 @@ contract AssignmentHook is EssentialContract, IHook {
         uint256 tip; // A tip to L1 block builder
     }
 
-    event EtherPaymentFailed(address to, uint256 maxGas);
+    event EtherPaymentFailed(address indexed to, uint256 maxGas);
 
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.

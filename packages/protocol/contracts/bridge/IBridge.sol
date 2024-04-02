@@ -96,7 +96,7 @@ interface IBridge {
     /// @param msgHash The hash of the message.
     /// @param suspended True if the message is suspended.
     /// @param receivedAt The received-at timestamp, 0 if suspended is true.
-    event MessageSuspended(bytes32 msgHash, bool suspended, uint64 receivedAt);
+    event MessageSuspended(bytes32 indexed msgHash, bool suspended, uint64 receivedAt);
 
     /// @notice Emitted when an address is banned or unbanned.
     /// @param addr The address to ban or unban.

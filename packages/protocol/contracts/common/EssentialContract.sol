@@ -27,11 +27,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     /// @notice Emitted when the contract is paused.
     /// @param account The account that paused the contract.
-    event Paused(address account);
+    event Paused(address indexed account);
 
     /// @notice Emitted when the contract is unpaused.
     /// @param account The account that unpaused the contract.
-    event Unpaused(address account);
+    event Unpaused(address indexed account);
 
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();

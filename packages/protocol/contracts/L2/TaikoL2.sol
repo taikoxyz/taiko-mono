@@ -54,7 +54,7 @@ contract TaikoL2 is EssentialContract {
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
     /// @param gasExcess The gas excess value used to calculate the base fee.
-    event Anchored(bytes32 parentHash, uint64 gasExcess);
+    event Anchored(bytes32 indexed parentHash, uint64 gasExcess);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_L1_CHAIN_ID();

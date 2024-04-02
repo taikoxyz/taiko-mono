@@ -16,7 +16,7 @@ contract GuardianProver is Guardians {
     /// @param blockHash The block hash.
     /// @param approved If the proof is approved.
     event GuardianApproval(
-        address indexed addr, uint256 indexed blockId, bytes32 blockHash, bool approved
+        address indexed addr, uint256 indexed blockId, bytes32 indexed blockHash, bool approved
     );
 
     /// @notice Initializes the contract.

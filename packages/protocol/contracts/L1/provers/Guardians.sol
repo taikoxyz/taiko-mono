@@ -31,7 +31,7 @@ abstract contract Guardians is EssentialContract {
     /// @notice Emitted when the set of guardians is updated
     /// @param version The new version
     /// @param guardians The new set of guardians
-    event GuardiansUpdated(uint32 version, address[] guardians);
+    event GuardiansUpdated(uint32 indexed version, address[] guardians);
 
     /// @notice Emitted when an approval is made
     /// @param operationId The operation ID

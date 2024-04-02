@@ -63,7 +63,7 @@ interface ISignalService {
     /// @param signal The signal (message) that was sent.
     /// @param slot The location in storage where this signal is stored.
     /// @param value The value of the signal.
-    event SignalSent(address app, bytes32 signal, bytes32 slot, bytes32 value);
+    event SignalSent(address indexed app, bytes32 indexed signal, bytes32 slot, bytes32 value);
 
     /// @notice Emitted when an address is authorized or deauthorized.
     /// @param addr The address to be authorized or deauthorized.

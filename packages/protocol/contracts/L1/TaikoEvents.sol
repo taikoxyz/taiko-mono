@@ -77,9 +77,11 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    /// @dev Emitted when proving has been paused
-    /// @param paused True if paused, false if unpaused.
-    event ProvingPaused(bool paused);
+    /// @notice Emitted when proving is paused or unpaused.
+    /// @param lastVerifiedBlockId The last verified block.
+    /// @param numBlocks The number of blocks.
+    /// @param paused The pause status.
+    event ProvingPaused(uint64 indexed lastVerifiedBlockId, uint64 numBlocks, bool paused);
 
     /// @dev Emitted when an Ethereum deposit is made.
     /// @param deposit The Ethereum deposit information including recipient,

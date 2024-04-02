@@ -18,7 +18,7 @@ contract AddressManager is EssentialContract, IAddressManager {
     /// @param newAddress The new address.
     /// @param oldAddress The old address.
     event AddressSet(
-        uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
+        uint64 indexed chainId, bytes32 indexed name, address indexed newAddress, address oldAddress
     );
 
     error AM_INVALID_PARAMS();

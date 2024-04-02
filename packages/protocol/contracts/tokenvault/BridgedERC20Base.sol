@@ -18,7 +18,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @notice Emitted when the migration status is changed.
     /// @param addr The address migrating 'to' or 'from'.
     /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
-    event MigrationStatusChanged(address addr, bool inbound);
+    event MigrationStatusChanged(address indexed addr, bool inbound);
 
     /// @notice Emitted when tokens are migrated to or from the bridged token.
     /// @param fromToken The address of the bridged token.

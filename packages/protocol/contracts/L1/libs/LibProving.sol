@@ -52,8 +52,10 @@ library LibProving {
     );
 
     /// @notice Emitted when proving is paused or unpaused.
+    /// @param lastVerifiedBlockId The last verified block.
+    /// @param numBlocks The number of blocks.
     /// @param paused The pause status.
-    event ProvingPaused(bool paused);
+    event ProvingPaused(uint64 indexed lastVerifiedBlockId, uint64 numBlocks, bool paused);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ALREADY_CONTESTED();
@@ -78,7 +80,7 @@ library LibProving {
         if (!_pause) {
             _state.slotB.lastUnpausedAt = uint64(block.timestamp);
         }
-        emit ProvingPaused(_pause);
+        emit ProvingPaused(_state.slotB.lastVerifiedBlockId, _state.slotB.numBlocks, _pause);
     }
 
     /// @dev Proves or contests a block transition.
