@@ -278,7 +278,13 @@ func (i *Indexer) Start() error {
 func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
 	defer i.wg.Done()
 
-	t := time.NewTicker(10 * time.Second)
+	var d time.Duration = 10 * time.Second
+
+	if i.watchMode == CrawlPastBlocks {
+		d = 10 * time.Minute
+	}
+
+	t := time.NewTicker(d)
 
 	defer t.Stop()
 
