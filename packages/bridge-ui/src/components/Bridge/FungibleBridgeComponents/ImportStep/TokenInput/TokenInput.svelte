@@ -154,6 +154,7 @@
   };
 
   const reset = async () => {
+    log('reset');
     $selectedToken = ETHToken;
     $computingBalance = true;
     value = '';
@@ -161,13 +162,12 @@
     if ($account && $account.address && $account?.isConnected) {
       validateAmount($selectedToken);
       refreshUserBalance();
-      if ($selectedToken && $selectedToken.type !== TokenType.ETH)
+      if ($selectedToken)
         $tokenBalance = await fetchBalance({
           userAddress: $account.address,
           token: $selectedToken,
           srcChainId: $connectedSourceChain?.id,
         });
-
       previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';
