@@ -21,7 +21,8 @@ library LibAddress {
     /// https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    /// @param _gasLimit The max amount gas to pay for this transaction.
+    /// @param _gasLimit The max amount gas to pay for this transaction. Use 0 to indicate all gas
+    /// left can be used.
     /// @return success_ true if the call is successful, false otherwise.
     function sendEther(
         address _to,
@@ -39,6 +40,7 @@ library LibAddress {
         if (_gasLimit == 0) {
             gasLimit = gasleft();
         } else {
+            // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
             if (((gasleft() * 63) >> 6) < _gasLimit) revert NOT_ENOUGH_GASLEFT();
             gasLimit = _gasLimit;
         }

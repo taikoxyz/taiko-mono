@@ -47,7 +47,6 @@ contract Bridge is EssentialContract, IBridge {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
-    error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
@@ -301,7 +300,7 @@ contract Bridge is EssentialContract, IBridge {
             } else {
                 // Use the remaining gas if called by a the destOwner, else
                 // use the specified gas limit.
-                uint256 gasLimit = msg.sender == _message.destOwner ? gasleft() : _message.gasLimit;
+                uint256 gasLimit = msg.sender == _message.destOwner ? 0 : _message.gasLimit;
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
@@ -352,7 +351,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(_message, msgHash, gasleft())) {
+        if (_invokeMessageCall(_message, msgHash, 0)) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -482,7 +481,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _gasLimit The gas limit for the message call.
+    /// @param _gasLimit The gas limit for the message call. Use 0 if all gas left shall be used.
     /// @return success_ A boolean value indicating whether the message call was
     /// successful.
     /// @dev This function updates the context in the state before and after the
@@ -495,7 +494,6 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool success_)
     {
-        if (_gasLimit == 0) revert B_INVALID_GAS_LIMIT();
         assert(_message.from != address(this));
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
