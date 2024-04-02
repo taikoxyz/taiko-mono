@@ -112,7 +112,6 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-
         if (assignment.feeToken == address(0)) {
             // Paying Ether
             // Note that this payment may fail if it cost more gas
