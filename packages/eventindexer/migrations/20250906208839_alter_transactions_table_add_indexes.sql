@@ -6,6 +6,7 @@ ADD INDEX transacted_at_contract_address_index(`transacted_at`, `contract_addres
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP INDEX transacted_at_index on transactions;
-DROP INDEX transacted_at_contract_address_index on transactions;
+ALTER TABLE `transactions` 
+DROP INDEX transacted_at_index,
+DROP INDEX transacted_at_contract_address_index;
 -- +goose StatementEnd

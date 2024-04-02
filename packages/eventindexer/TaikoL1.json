@@ -1364,6 +1364,106 @@
   },
   {
     "type": "event",
+    "name": "StateVariablesUpdated",
+    "inputs": [
+      {
+        "name": "slotB",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct TaikoData.SlotB",
+        "components": [
+          {
+            "name": "numBlocks",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "lastVerifiedBlockId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "provingPaused",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "__reserved1",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "__reserved2",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "__reserved3",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "lastUnpausedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StateVariablesUpdated",
+    "inputs": [
+      {
+        "name": "slotB",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct TaikoData.SlotB",
+        "components": [
+          {
+            "name": "numBlocks",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "lastVerifiedBlockId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "provingPaused",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "__reserved1",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "__reserved2",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "__reserved3",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "lastUnpausedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "TransitionContested",
     "inputs": [
       {
@@ -1697,6 +1797,11 @@
   {
     "type": "error",
     "name": "L1_BLOCK_MISMATCH",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_CANNOT_CONTEST",
     "inputs": []
   },
   {

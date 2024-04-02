@@ -95,6 +95,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 }
 
 func (i *Indexer) Start() error {
+	if err := i.setInitialIndexingBlock(i.ctx); err != nil {
+		return err
+	}
+
 	i.wg.Add(1)
 
 	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
@@ -172,10 +176,6 @@ func (i *Indexer) withRetry(f func() error) error {
 }
 
 func (i *Indexer) filter(ctx context.Context) error {
-	if err := i.setInitialIndexingBlock(i.ctx); err != nil {
-		return err
-	}
-
 	// get the latest header
 	header, err := i.ethClient.HeaderByNumber(i.ctx, nil)
 	if err != nil {
