@@ -209,7 +209,6 @@ contract Bridge is EssentialContract, IBridge {
 
         if (block.timestamp >= invocationDelay + receivedAt) {
             delete proofReceipt[msgHash];
-            messageStatus[msgHash] = Status.RECALLED;
 
             // Some cases recall might fail (e.g. USDC shuts down minting allowance)
             bool success = true;
@@ -235,8 +234,10 @@ contract Bridge is EssentialContract, IBridge {
 
             if (success) {
                 emit MessageRecalled(msgHash);
+                messageStatus[msgHash] = Status.RECALLED;
             } else {
                 emit MessageRecallFailed(msgHash, data);
+                messageStatus[msgHash] = Status.RECALL_FAILED;
             }
         } else if (isNewlyProven) {
             emit MessageReceived(msgHash, _message, true);

@@ -11,7 +11,8 @@ interface IBridge {
         RETRIABLE,
         DONE,
         FAILED,
-        RECALLED
+        RECALLED,
+        RECALL_FAILED
     }
 
     struct Message {
