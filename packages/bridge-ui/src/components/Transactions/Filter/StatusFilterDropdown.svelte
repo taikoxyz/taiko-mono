@@ -9,7 +9,6 @@
 
   export let selectedStatus: MessageStatus | null = null;
 
-  let flipped = false;
   let menuOpen = false;
   let uuid = `dropdown-${uid()}`;
 
@@ -17,7 +16,8 @@
 
   const closeMenu = () => {
     menuOpen = false;
-    flipped = false;
+    // Reset the chevron icon to face left when the menu closes
+    iconFlipperComponent.setFlipped(false);
   };
 
   const options = [
@@ -30,12 +30,28 @@
 
   const toggleMenu = () => {
     menuOpen = !menuOpen;
-    flipped = !flipped;
+    // Update the chevron icon state when toggling the menu
+    iconFlipperComponent.setFlipped(menuOpen);
+    // Add or remove event listener for clicks outside the dropdown menu
+    if (menuOpen) {
+      window.addEventListener('click', handleOutsideClick);
+    } else {
+      window.removeEventListener('click', handleOutsideClick);
+    }
   };
+
 
   const select = (option: (typeof options)[0]) => {
     selectedStatus = option.value;
     closeMenu();
+  };
+
+  const handleOutsideClick = (event: MouseEvent) => {
+      const dropdown = document.querySelector('.relative');
+      // Check if the click event target is outside the dropdown menu
+      if (dropdown && !dropdown.contains(event.target as Node)) {
+          closeMenu();
+      }
   };
 
   $: menuClasses = classNames(
@@ -55,12 +71,11 @@
         ? options.find((option) => option.value === selectedStatus)?.label
         : $t('transactions.filter.all')}
     </span>
+    <!-- Use bind to synchronize the icon state -->
     <IconFlipper
-      bind:flipped
       bind:this={iconFlipperComponent}
       iconType1="chevron-left"
       iconType2="chevron-down"
-      selectedDefault="chevron-left"
       size={15} />
   </button>
   {#if menuOpen}
