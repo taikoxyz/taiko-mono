@@ -13,6 +13,7 @@ library LibAddress {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
     error ETH_TRANSFER_FAILED();
+    error NOT_ENOUGH_GASLEFT();
 
     /// @dev Sends Ether to the specified address. This method will not revert even if sending ether
     /// fails.
@@ -33,6 +34,8 @@ library LibAddress {
     {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
+
+        if (gasleft() / 63 * 64 < _gasLimit) revert NOT_ENOUGH_GASLEFT();
         // dispatch message to recipient
         // by assembly calling "handle" function
         // we call via assembly to avoid memcopying a very large returndata
