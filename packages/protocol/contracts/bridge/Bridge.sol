@@ -32,18 +32,18 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Slot 2.
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
-    /// @dev Slots 3, 4, and 5.
+    /// @dev Slots 3 and 4
     Context private __ctx;
 
     /// @notice Mapping to store banned addresses.
-    /// @dev Slot 6.
+    /// @dev Slot 5.
     mapping(address addr => bool banned) public addressBanned;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
-    /// @dev Slot 7.
+    /// @dev Slot 6.
     mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt;
 
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
