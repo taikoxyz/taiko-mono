@@ -16,10 +16,10 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    /// @dev The slot in transient storage of the call context.
-    /// keccak256("bridge.ctx_slot") + 1
+    /// @dev The slot in transient storage of the call context. This is the keccak256 hash
+    /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
-        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2ba;
+        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
     /// @dev Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
