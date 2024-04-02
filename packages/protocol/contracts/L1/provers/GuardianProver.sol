@@ -41,7 +41,7 @@ contract GuardianProver is Guardians {
         nonReentrant
         returns (bool approved_)
     {
-        if (_proof.tier != LibTiers.TIER_GUARDIAN || _proof.data.length != 0) {
+        if (_proof.tier != LibTiers.TIER_GUARDIAN) {
             revert INVALID_PROOF();
         }
 

@@ -29,7 +29,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         external
         view
     {
-        if (_proof.tier != LibTiers.TIER_GUARDIAN || _proof.data.length != 0) {
+        if (_proof.tier != LibTiers.TIER_GUARDIAN) {
             revert GV_INVALID_PROOF();
         }
 
