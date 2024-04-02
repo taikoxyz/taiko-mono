@@ -163,8 +163,8 @@ contract Bridge is EssentialContract, IBridge {
 
         msgHash_ = hashMessage(message_);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
         emit MessageSent(msgHash_, message_);
+        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
