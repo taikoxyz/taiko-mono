@@ -660,7 +660,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        try ISignalService(_signalService).isSignalReceived(
+        try ISignalService(_signalService).verifySignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) {
             return true;
