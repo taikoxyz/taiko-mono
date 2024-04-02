@@ -49,7 +49,7 @@ contract AutomataDcapV3Attestation is IAttestation {
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo;
     EnclaveIdStruct.EnclaveId public qeIdentity;
 
-    address public owner;
+    address public immutable owner;
 
     constructor(address sigVerifyLibAddr, address pemCertLibAddr) {
         sigVerifyLib = ISigVerifyLib(sigVerifyLibAddr);
