@@ -642,9 +642,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Checks if the signal was received.
-
-    /// @param _signalService The signal service address.
     /// This is the 'readonly' version of _proveSignalReceived.
+    /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
