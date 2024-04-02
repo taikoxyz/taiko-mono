@@ -37,7 +37,8 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
         gv.verifyProof(ctx, transition, proof);
@@ -65,10 +66,11 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()` with invalid ctx.prover
-        vm.expectRevert(GuardianVerifier.PERMISSION_DENIED.selector);
+        vm.expectRevert(GuardianVerifier.GV_PERMISSION_DENIED.selector);
         gv.verifyProof(ctx, transition, proof);
     }
 }
