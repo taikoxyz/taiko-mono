@@ -45,7 +45,12 @@
   <ul
     role="listbox"
     class="text-primary-content text-sm"
-    use:closeOnClickOrEscape={{ enabled: isOpen, callback: () => (isOpen = false) }}>
+    use:closeOnClickOrEscape={{
+      enabled: isOpen,
+      callback: () => {
+        setTimeout(() => (isOpen = false), 0);
+      },
+    }}>
     {#each chains as chain (chain.id)}
       {@const disabled = (isDestination && chain.id === $connectedSourceChain?.id) || chain.id === value?.id}
       {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
