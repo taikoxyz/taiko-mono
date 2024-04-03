@@ -48,6 +48,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_STATUS();
+    error B_INVALID_GAS_LIMIT();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_PROVEN();
@@ -542,7 +543,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _gasLimit The gas limit for the message call. Use 0 if all gas left shall be used.
+    /// @param _gasLimit The gas limit for the message call.
     /// @return success_ A boolean value indicating whether the message call was
     /// successful.
     /// @dev This function updates the context in the state before and after the
@@ -555,6 +556,7 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool success_)
     {
+        if (_gasLimit == 0) revert B_INVALID_GAS_LIMIT();
         assert(_message.from != address(this));
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
