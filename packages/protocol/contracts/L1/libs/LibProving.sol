@@ -88,7 +88,7 @@ library LibProving {
     /// @param _meta The block's metadata.
     /// @param _tran The transition data.
     /// @param _proof The proof.
-    /// @param The number of blocks to be verified with this transaction.
+    /// @return The number of blocks to be verified with this transaction.
     function proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
