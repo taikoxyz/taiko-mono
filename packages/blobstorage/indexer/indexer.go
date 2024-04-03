@@ -289,7 +289,12 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		return err
 	}
 
-	slog.Info("blockProposed event found", "blockID", blockID, "emittedIn", event.Raw.BlockNumber, "blobUsed", event.Meta.BlobUsed)
+	slog.Info("blockProposed event found",
+		"blockID", blockID,
+		"emittedIn", event.Raw.BlockNumber,
+		"blobUsed", event.Meta.BlobUsed,
+		"timesStamp", event.Meta.Timestamp,
+	)
 
 	if !event.Meta.BlobUsed {
 		return nil
