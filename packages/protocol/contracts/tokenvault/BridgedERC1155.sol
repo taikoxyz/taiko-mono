@@ -122,6 +122,27 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         return LibBridgedToken.buildSymbol(__symbol);
     }
 
+    /// @notice Gets the source token and source chain ID being bridged.
+    /// @return The source token's address.
+    /// @return The source token's chain ID.
+    function source() public view returns (address, uint256) {
+        return (srcToken, srcChainId);
+    }
+
+    /// @notice Returns the token URI.
+    /// @param _tokenId The token id.
+    /// @return The token URI following EIP-681.
+    function uri(uint256 _tokenId) public view override returns (string memory) {
+        // https://github.com/crytic/slither/wiki/Detector-Documentation#abi-encodePacked-collision
+        // The abi.encodePacked() call below takes multiple dynamic arguments. This is known and
+        // considered acceptable in terms of risk.
+        return string(
+            abi.encodePacked(
+                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
+            )
+        );
+    }
+
     function _beforeTokenTransfer(
         address, /*_operator*/
         address, /*_from*/
