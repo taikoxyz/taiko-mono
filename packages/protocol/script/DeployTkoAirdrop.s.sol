@@ -2,13 +2,13 @@
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
-import "../contracts/team/airdrop/ERC20Airdrop.sol";
+import "../contracts/team/airdrop/TkoAirdrop.sol";
 
 // @KorbinianK , @2manslkh
 // As written also in the tests the workflow shall be the following (checklist):
 // 1. Is Vault - which will store the tokens - deployed ?
 // 2. Is (bridged) TKO token existing ?
-// 3. Is ERC20Airdrop contract is 'approved operator' on the TKO token ?
+// 3. Is TkoAirdrop contract is 'approved operator' on the TKO token ?
 // 4. Proof (merkle root) and minting window related variables (start, end) set ?
 // If YES the answer to all above, we can go live with airdrop, which is like:
 // 1. User go to website. -> For sake of simplicity he is eligible
@@ -16,7 +16,7 @@ import "../contracts/team/airdrop/ERC20Airdrop.sol";
 // the user signs
 // 3. Backend retrieves the proof and together with signature in the input params, user fires away
 // the claimAndDelegate() transaction.
-contract DeployERC20Airdrop is DeployCapability {
+contract DeployTkoAirdrop is DeployCapability {
     uint256 public deployerPrivKey = vm.envUint("PRIVATE_KEY"); // Owner of the ERC20 airdrop
     // contract
     address public bridgedTko = vm.envAddress("BRIDGED_TKO_ADDRESS");
@@ -31,12 +31,12 @@ contract DeployERC20Airdrop is DeployCapability {
 
         vm.startBroadcast(deployerPrivKey);
 
-        ERC20Airdrop(
+        TkoAirdrop(
             deployProxy({
-                name: "ERC20Airdrop",
-                impl: address(new ERC20Airdrop()),
+                name: "TkoAirdrop",
+                impl: address(new TkoAirdrop()),
                 data: abi.encodeCall(
-                    ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
+                    TkoAirdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
                     )
             })
         );
@@ -46,7 +46,7 @@ contract DeployERC20Airdrop is DeployCapability {
         // example:
         //
         // SOME_VAULT_CONTRACT(vaultAddress).approveAirdropContractAsSpender(
-        //     bridgedTko, address(ERC20Airdrop), 50_000_000_000e18
+        //     bridgedTko, address(TkoAirdrop), 50_000_000_000e18
         // );
 
         vm.stopBroadcast();

@@ -9,7 +9,7 @@ contract MyERC20 is ERC20 {
     }
 }
 
-contract MockERC20Airdrop2 is ERC20Airdrop2 {
+contract MockTkoAirdrop2 is TkoAirdrop2 {
     function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
         bytes32, /*merkleRoot*/
@@ -24,7 +24,7 @@ contract MockERC20Airdrop2 is ERC20Airdrop2 {
     }
 }
 
-contract TestERC20Airdrop2 is TaikoTest {
+contract TestTkoAirdrop2 is TaikoTest {
     address public owner = randAddress();
 
     bytes32 public constant merkleRoot = bytes32(uint256(1));
@@ -33,7 +33,7 @@ contract TestERC20Airdrop2 is TaikoTest {
     uint64 public claimEnd;
 
     ERC20 token;
-    ERC20Airdrop2 airdrop2;
+    TkoAirdrop2 airdrop2;
 
     function setUp() public {
         claimStart = uint64(block.timestamp + 10);
@@ -42,12 +42,12 @@ contract TestERC20Airdrop2 is TaikoTest {
 
         token = new MyERC20(address(owner));
 
-        airdrop2 = ERC20Airdrop2(
+        airdrop2 = TkoAirdrop2(
             deployProxy({
-                name: "MockERC20Airdrop",
-                impl: address(new MockERC20Airdrop2()),
+                name: "MockTkoAirdrop",
+                impl: address(new MockTkoAirdrop2()),
                 data: abi.encodeCall(
-                    ERC20Airdrop2.init,
+                    TkoAirdrop2.init,
                     (address(0), claimStart, claimEnd, merkleRoot, address(token), owner, 10 days)
                     )
             })
@@ -65,7 +65,7 @@ contract TestERC20Airdrop2 is TaikoTest {
         airdrop2.claim(Alice, 100, merkleProof);
 
         // Try withdraw but not started yet
-        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(TkoAirdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Roll one day after another, for 10 days and see the 100 allowance be withdrawn all and no
@@ -109,7 +109,7 @@ contract TestERC20Airdrop2 is TaikoTest {
         airdrop2.claim(Alice, 100, merkleProof);
 
         // Try withdraw but not started yet
-        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(TkoAirdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Roll 10 day after
@@ -134,7 +134,7 @@ contract TestERC20Airdrop2 is TaikoTest {
         airdrop2.claim(Alice, 100, merkleProof);
 
         // Try withdraw but not started yet
-        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(TkoAirdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Roll 11 day after
@@ -147,7 +147,7 @@ contract TestERC20Airdrop2 is TaikoTest {
         assertEq(balance, 100);
         assertEq(withdrawable, 100);
 
-        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(TkoAirdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Check Alice balance

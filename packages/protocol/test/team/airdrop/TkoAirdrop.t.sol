@@ -5,7 +5,7 @@ import "../../TaikoTest.sol";
 import "./LibDelegationSigUtil.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract MockERC20Airdrop is ERC20Airdrop {
+contract MockTkoAirdrop is TkoAirdrop {
     function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
         bytes32, /*merkleRoot*/
@@ -61,7 +61,7 @@ contract SimpleERC20Vault is OwnableUpgradeable {
     }
 }
 
-contract TestERC20Airdrop is TaikoTest {
+contract TestTkoAirdrop is TaikoTest {
     address public owner = randAddress();
 
     // Private Key: 0x1dc880d28041a41132437eae90c9e09c3b9e13438c2d0f6207804ceece623395
@@ -73,7 +73,7 @@ contract TestERC20Airdrop is TaikoTest {
     uint64 public claimEnd;
 
     BridgedERC20 token;
-    MockERC20Airdrop airdrop;
+    MockTkoAirdrop airdrop;
     MockAddressManager addressManager;
     SimpleERC20Vault vault;
 
@@ -123,12 +123,12 @@ contract TestERC20Airdrop is TaikoTest {
         merkleProof = new bytes32[](3);
 
         vm.startPrank(owner);
-        airdrop = MockERC20Airdrop(
+        airdrop = MockTkoAirdrop(
             deployProxy({
-                name: "MockERC20Airdrop",
-                impl: address(new MockERC20Airdrop()),
+                name: "MockTkoAirdrop",
+                impl: address(new MockTkoAirdrop()),
                 data: abi.encodeCall(
-                    ERC20Airdrop.init,
+                    TkoAirdrop.init,
                     (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
                     )
             })
