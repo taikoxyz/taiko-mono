@@ -300,7 +300,16 @@ contract Bridge is EssentialContract, IBridge {
             } else {
                 // Use the remaining gas if called by a the destOwner, else
                 // use the specified gas limit.
-                uint256 gasLimit = msg.sender == _message.destOwner ? 0 : _message.gasLimit;
+                uint256 gasLimit;
+                if (msg.sender == _message.destOwner) {
+                    gasLimit = gasleft();
+                } else {
+                    gasLimit = _message.gasLimit;
+                }
+
+                // // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+                //            if (gasleft() < ((gasLimit >>6) / 63).max(gasLimit + _minGasLeft) +
+                // 500) revert NOT_ENOUGH_GASLEFT;
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
@@ -351,7 +360,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(_message, msgHash, 0)) {
+        if (_invokeMessageCall(_message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
