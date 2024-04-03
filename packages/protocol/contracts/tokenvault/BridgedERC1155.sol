@@ -121,6 +121,13 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         return LibBridgedToken.buildSymbol(__symbol);
     }
 
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
+    function canonical() external view returns (address, uint256) {
+        return (srcToken, srcChainId);
+    }
+
     function _beforeTokenTransfer(
         address, /*_operator*/
         address, /*_from*/
