@@ -27,7 +27,6 @@ func (r *BlobHashRepository) Save(opts blobstorage.SaveBlobHashOpts) error {
 	b := &blobstorage.BlobHash{
 		BlobHash:       opts.BlobHash,
 		KzgCommitment:  opts.KzgCommitment,
-		BlockTimestamp: opts.BlockTimestamp,
 		BlobData:       opts.BlobData,
 		BlockID:        opts.BlockID,
 		EmittedBlockID: opts.EmittedBlockID,
