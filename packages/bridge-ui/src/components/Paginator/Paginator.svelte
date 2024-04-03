@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import { createEventDispatcher } from 'svelte';
 
   import { Icon } from '$components/Icon';
@@ -41,7 +43,7 @@
       <!-- Button to go to previous page -->
       <button class={btnClass} on:click={() => goToPage(currentPage - 1)}> <Icon type="chevron-left" /></button>
     {/if}
-    Page
+    {$t('paginator.page')}
     <input
       type="number"
       class="form-control mx-1 text-center rounded-md py-1 px-8"
@@ -50,7 +52,7 @@
       max={totalPages}
       on:keydown={handleKeydown}
       on:blur={() => goToPage(currentPage)} />
-    of {totalPages}
+    {$t('paginator.of')} {totalPages}
     <!-- Button to go to next page -->
     {#if !isLastPage}
       <button class={btnClass} on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
