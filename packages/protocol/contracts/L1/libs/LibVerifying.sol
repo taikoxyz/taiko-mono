@@ -68,6 +68,7 @@ library LibVerifying {
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
         blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
         TaikoData.TransitionState storage ts = _state.transitions[0][1];
