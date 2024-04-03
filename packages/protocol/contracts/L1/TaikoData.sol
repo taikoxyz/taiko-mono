@@ -143,7 +143,7 @@ library TaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numEthDeposits;
-        uint64 nextEthDepositToProcess;
+        uint64 nextEthDeposit;
     }
 
     struct SlotB {

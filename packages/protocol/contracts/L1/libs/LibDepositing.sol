@@ -66,7 +66,7 @@ library LibDepositing {
         internal
         returns (TaikoData.EthDeposit[] memory deposits_)
     {
-        uint64 n = _state.slotA.nextEthDepositToProcess;
+        uint64 n = _state.slotA.nextEthDeposit;
         uint256 count;
         unchecked {
             count = uint256(_state.slotA.numEthDeposits - n).min(_config.ethDepositsPerBlock);
@@ -85,7 +85,7 @@ library LibDepositing {
             }
         }
 
-        _state.slotA.nextEthDepositToProcess = n;
+        _state.slotA.nextEthDeposit = n;
     }
 
     /// @dev Checks if Ether deposit is allowed for Layer 2.
@@ -99,15 +99,15 @@ library LibDepositing {
         returns (bool)
     {
         // Unchecked is safe:
-        // - both numEthDeposits and _state.slotA.nextEthDepositToProcess are
+        // - both numEthDeposits and _state.slotA.nextEthDeposit are
         // indexes. One is tracking all deposits (numEthDeposits: unprocessed)
-        // and the next to be processed, so nextEthDepositToProcess cannot be
+        // and the next to be processed, so nextEthDeposit cannot be
         // bigger than numEthDeposits
         // - ethDepositRingBufferSize cannot be 0 by default (validity checked
         // in LibVerifying)
         unchecked {
             return _amount >= _config.ethDepositMinAmount && _amount <= type(uint96).max
-                && _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess
+                && _state.slotA.numEthDeposits - _state.slotA.nextEthDeposit
                     < _config.ethDepositRingBufferSize - 1;
         }
     }

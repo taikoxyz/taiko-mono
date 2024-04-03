@@ -146,7 +146,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         (TaikoData.SlotA memory a,) = L1.getStateVariables();
 
-        assertEq(a.nextEthDepositToProcess, 0);
+        assertEq(a.nextEthDeposit, 0);
         assertEq(a.numEthDeposits, 0);
     }
 
@@ -193,7 +193,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // The number of deposits
         assertEq(a.numEthDeposits, 8);
         // The index / cursor of the next deposit
-        assertEq(a.nextEthDepositToProcess, 0);
+        assertEq(a.nextEthDeposit, 0);
 
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()
