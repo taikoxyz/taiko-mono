@@ -305,15 +305,13 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		return err
 	}
 
-	slog.Info("blobsResponse", "length", len(blobsResponse.Data))
-
 	for _, data := range blobsResponse.Data {
 		data.KzgCommitmentHex = common.FromHex(data.KzgCommitment)
 
 		metaBlobHash := common.BytesToHash(event.Meta.BlobHash[:])
 		// Comparing the hex strings of meta.blobHash (blobHash)
 		if calculateBlobHash(data.KzgCommitment) == metaBlobHash {
-			slog.Info("blobHash", "blobHash", metaBlobHash.String())
+			slog.Info("storing blobHash in db", "blobHash", metaBlobHash.String())
 
 			err = i.storeBlobInDB(metaBlobHash.String(), data.KzgCommitment, data.Blob, event.BlockId.Uint64(), event.Raw.BlockNumber)
 			if err != nil {
