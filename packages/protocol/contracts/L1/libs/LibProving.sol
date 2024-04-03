@@ -88,7 +88,7 @@ library LibProving {
     /// @param _meta The block's metadata.
     /// @param _tran The transition data.
     /// @param _proof The proof.
-    /// @param maxBlocksToVerify_ The number of blocks to be verified with this transaction.
+    /// @param The number of blocks to be verified with this transaction.
     function proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -98,7 +98,7 @@ library LibProving {
         TaikoData.TierProof memory _proof
     )
         internal
-        returns (uint8 maxBlocksToVerify_)
+        returns (uint8)
     {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
