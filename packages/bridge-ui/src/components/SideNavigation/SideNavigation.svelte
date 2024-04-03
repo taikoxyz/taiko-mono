@@ -12,9 +12,15 @@
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
   import { ThemeButton } from '$components/ThemeButton';
-  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_DEFAULT_SWAP_URL, PUBLIC_GUIDE_URL } from '$env/static/public';
+  import {
+    PUBLIC_DEFAULT_EXPLORER,
+    PUBLIC_DEFAULT_SWAP_URL,
+    PUBLIC_GUIDE_URL,
+    PUBLIC_TESTNET_NAME,
+  } from '$env/static/public';
   import { connectedSourceChain } from '$stores/network';
 
+  let testnetName = PUBLIC_TESTNET_NAME || '';
   let drawerToggleElem: HTMLInputElement;
 
   function closeDrawer() {
@@ -34,6 +40,8 @@
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
   $: isTransactionsPage = $page.route.id === '/transactions';
+
+  $: hasTestnetName = testnetName !== '';
 </script>
 
 <div class="drawer md:drawer-open">
@@ -53,9 +61,14 @@
     -->
     <div class="w-h-full !duration-100">
       <header class="flex justify-between py-[20px] px-[16px] h-[76px] md:hidden border-b border-b-divider-border">
-        <a href="/" class="inline-block">
-          <LogoWithText textFillClass="fill-primary-content" width={77} />
-        </a>
+        <div class="inline-block">
+          <a href="/" class="f-row gap-2">
+            <LogoWithText textFillClass="fill-primary-content" width={77} />
+            {#if hasTestnetName}
+              <span class="text-xs">{testnetName}</span>
+            {/if}
+          </a>
+        </div>
         <button on:click={closeDrawer} class="h-9">
           <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
         </button>
@@ -70,9 +83,15 @@
         md:py-8
         md:w-[226px]
       ">
-        <a href="/" class="hidden md:inline-block">
-          <LogoWithText textFillClass="fill-primary-content" />
-        </a>
+        <div class="hidden md:inline-block">
+          <a href="/" class="f-row gap-2">
+            <LogoWithText textFillClass="fill-primary-content" />
+            {#if hasTestnetName}
+              <span class="text-sm">{testnetName}</span>
+            {/if}
+          </a>
+        </div>
+
         <div role="button" tabindex="0" on:click={closeDrawer} on:keypress={closeDrawer}>
           <BridgeTabs class="md:hidden flex flex-1 mb-[40px] mt-[20px]" on:click={closeDrawer} />
         </div>
