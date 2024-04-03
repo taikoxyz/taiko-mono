@@ -32,8 +32,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
-        string memory _symbol,
-        string memory _name
+        string calldata _symbol,
+        string calldata _name
     )
         external
         initializer
@@ -55,9 +55,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 _tokenId
     )
         external
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
+        nonReentrant
     {
         _safeMint(_account, _tokenId);
     }
@@ -70,9 +70,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 _tokenId
     )
         external
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc721_vault")
+        nonReentrant
     {
         // Check if the caller is the owner of the token.
         if (ownerOf(_tokenId) != _account) {

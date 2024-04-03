@@ -125,16 +125,15 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
         external
         initializer
     {
+        if (_taikoToken == address(0) || _costToken == address(0) || _sharedVault == address(0)) {
+            revert INVALID_PARAM();
+        }
+
         __Essential_init(_owner);
         __EIP712_init("Taiko TimelockTokenPool", "1");
 
-        if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
-
-        if (_costToken == address(0)) revert INVALID_PARAM();
         costToken = _costToken;
-
-        if (_sharedVault == address(0)) revert INVALID_PARAM();
         sharedVault = _sharedVault;
     }
 
@@ -176,7 +175,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
     /// @param _nonce The nonce to be used.
     /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, uint256 _nonce, bytes memory _sig) external nonReentrant {
+    function withdraw(address _to, uint256 _nonce, bytes calldata _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
 
         address account = ECDSA.recover(getWithdrawalHash(_to, _nonce), _sig);

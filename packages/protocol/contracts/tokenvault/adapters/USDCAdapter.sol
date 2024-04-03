@@ -28,11 +28,15 @@ contract USDCAdapter is BridgedERC20Base {
     IUSDC public usdc;
     uint256[49] private __gap;
 
+    error INVALID_PARAM();
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _usdc The USDC instance.
     function init(address _owner, address _addressManager, IUSDC _usdc) external initializer {
+        if (address(_usdc) == address(0)) revert INVALID_PARAM();
+
         __Essential_init(_owner, _addressManager);
         usdc = _usdc;
     }
