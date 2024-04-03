@@ -42,24 +42,19 @@ library LibDepositing {
 
         // Append the deposit to the queue.
         address recipient_ = _recipient == address(0) ? msg.sender : _recipient;
-        uint256 slot = _state.slotA.numEthDeposits % _config.ethDepositRingBufferSize;
+        uint64 n = _state.slotA.numEthDeposits;
 
         // range of msg.value is checked by next line.
-        _state.ethDeposits[slot] = _encodeEthDeposit(recipient_, msg.value);
+        _state.ethDeposits[n % _config.ethDepositRingBufferSize] =
+            _encodeEthDeposit(recipient_, msg.value);
 
-        emit EthDeposited(
-            TaikoData.EthDeposit({
-                recipient: recipient_,
-                amount: uint96(msg.value),
-                id: _state.slotA.numEthDeposits
-            })
-        );
+        emit EthDeposited(TaikoData.EthDeposit(recipient_, uint96(msg.value), n));
 
         // Unchecked is safe:
         // - uint64 can store up to ~1.8 * 1e19, which can represent 584K years
         // if we are depositing at every second
         unchecked {
-            ++_state.slotA.numEthDeposits;
+            _state.slotA.numEthDeposits = n + 1;
         }
     }
 
@@ -71,42 +66,26 @@ library LibDepositing {
         internal
         returns (TaikoData.EthDeposit[] memory deposits_)
     {
-        // Calculate the number of pending deposits.
-        uint256 numPending;
+        uint64 n = _state.slotA.nextEthDepositToProcess;
+        uint256 count;
         unchecked {
-            numPending = _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess;
+            count = uint256(_state.slotA.numEthDeposits - n).min(_config.ethDepositsPerBlock);
         }
 
-        // TODO(Daniel): process up to ethDepositMinCountPerBlock (to be renamed) deposits
-        if (numPending < _config.ethDepositMinCountPerBlock) {
-            deposits_ = new TaikoData.EthDeposit[](0);
-        } else {
-            deposits_ =
-                new TaikoData.EthDeposit[](numPending.min(_config.ethDepositMaxCountPerBlock));
+        deposits_ = new TaikoData.EthDeposit[](count);
 
-            uint64 j = _state.slotA.nextEthDepositToProcess;
+        for (uint256 i; i < count; ++i) {
+            uint256 depositEncoded = _state.ethDeposits[n % _config.ethDepositRingBufferSize];
 
-            for (uint256 i; i < deposits_.length;) {
-                uint256 data = _state.ethDeposits[j % _config.ethDepositRingBufferSize];
-
-                deposits_[i] = TaikoData.EthDeposit({
-                    recipient: address(uint160(data >> 96)),
-                    amount: uint96(data),
-                    id: j
-                });
-
-                // Unchecked is safe:
-                // - _fee cannot be bigger than deposits_[i].amount
-                // - all values are in the same range (uint96) except loop
-                // counter, which obviously cannot be bigger than uint95
-                // otherwise the function would be gassing out.
-                unchecked {
-                    ++i;
-                    ++j;
-                }
+            deposits_[i] = TaikoData.EthDeposit(
+                address(uint160(depositEncoded >> 96)), uint96(depositEncoded), n
+            );
+            unchecked {
+                ++n;
             }
-            _state.slotA.nextEthDepositToProcess = j;
         }
+
+        _state.slotA.nextEthDepositToProcess = n;
     }
 
     /// @dev Checks if Ether deposit is allowed for Layer 2.

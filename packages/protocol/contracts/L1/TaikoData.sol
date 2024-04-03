@@ -35,7 +35,7 @@ library TaikoData {
         // The size of the ETH deposit ring buffer.
         uint256 ethDepositRingBufferSize;
         // The minimum number of ETH deposits allowed per block.
-        uint64 ethDepositMinCountPerBlock;
+        uint64 ethDepositsPerBlock;
         // The maximum number of ETH deposits allowed per block.
         uint64 ethDepositMaxCountPerBlock;
         // The minimum amount of ETH required for a deposit.
@@ -168,7 +168,8 @@ library TaikoData {
                 => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
         // Ring buffer for Ether deposits
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositAmount) ethDeposits;
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositEncoded)
+            ethDeposits;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
         uint256[44] __gap;

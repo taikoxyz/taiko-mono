@@ -263,11 +263,11 @@ library LibVerifying {
                 || _config.blockMaxProposals == 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
                 || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
-                || _config.ethDepositRingBufferSize <= 1 || _config.ethDepositMinCountPerBlock == 0
+                || _config.ethDepositRingBufferSize <= 1 || _config.ethDepositsPerBlock == 0
             // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
             // TaikoL1.sol) costs 72_502 gas.
             || _config.ethDepositMaxCountPerBlock > 32
-                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
+                || _config.ethDepositMaxCountPerBlock < _config.ethDepositsPerBlock
                 || _config.ethDepositMinAmount == 0
         ) return false;
 

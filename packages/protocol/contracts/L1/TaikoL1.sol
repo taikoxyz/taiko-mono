@@ -205,7 +205,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,
-            ethDepositMinCountPerBlock: 8,
+            ethDepositsPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,
             ethDepositMinAmount: 10 ether,
             blockSyncThreshold: 16
