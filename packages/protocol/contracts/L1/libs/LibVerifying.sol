@@ -271,8 +271,6 @@ library LibVerifying {
                 || _config.ethDepositMinAmount == 0
                 || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
                 || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
-                || _config.ethDepositMaxFee == 0
-                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;

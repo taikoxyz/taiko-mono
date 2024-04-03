@@ -80,17 +80,17 @@ library LibDepositing {
         } else {
             deposits_ =
                 new TaikoData.EthDeposit[](numPending.min(_config.ethDepositMaxCountPerBlock));
-            uint96 fee = uint96(_config.ethDepositMaxFee.min(block.basefee * _config.ethDepositGas));
+
             uint64 j = _state.slotA.nextEthDepositToProcess;
-            uint96 totalFee;
+
             for (uint256 i; i < deposits_.length;) {
                 uint256 data = _state.ethDeposits[j % _config.ethDepositRingBufferSize];
+
                 deposits_[i] = TaikoData.EthDeposit({
                     recipient: address(uint160(data >> 96)),
                     amount: uint96(data),
                     id: j
                 });
-                uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
 
                 // Unchecked is safe:
                 // - _fee cannot be bigger than deposits_[i].amount
@@ -98,23 +98,11 @@ library LibDepositing {
                 // counter, which obviously cannot be bigger than uint95
                 // otherwise the function would be gassing out.
                 unchecked {
-                    deposits_[i].amount -= _fee;
-                    totalFee += _fee;
                     ++i;
                     ++j;
                 }
             }
             _state.slotA.nextEthDepositToProcess = j;
-            // This is the fee deposit
-            _state.ethDeposits[_state.slotA.numEthDeposits % _config.ethDepositRingBufferSize] =
-                _encodeEthDeposit(_feeRecipient, totalFee);
-
-            // Unchecked is safe:
-            // - uint64 can store up to ~1.8 * 1e19, which can represent 584K
-            // years if we are depositing at every second
-            unchecked {
-                ++_state.slotA.numEthDeposits;
-            }
         }
     }
 
