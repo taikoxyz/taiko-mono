@@ -114,6 +114,13 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         );
     }
 
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
+    function canonical() external view returns (address, uint256) {
+        return (srcToken, srcChainId);
+    }
+
     function _beforeTokenTransfer(
         address, /*_from*/
         address _to,
