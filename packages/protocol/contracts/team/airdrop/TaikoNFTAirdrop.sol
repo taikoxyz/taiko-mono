@@ -4,9 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./MerkleClaimable.sol";
 
-/// @title ERC721Airdrop
+/// @title TaikoNFTAirdrop
 /// @custom:security-contact security@taiko.xyz
-contract ERC721Airdrop is MerkleClaimable {
+contract TaikoNFTAirdrop is MerkleClaimable {
     /// @notice The address of the token contract.
     address public token;
 

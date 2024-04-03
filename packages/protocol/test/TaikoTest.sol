@@ -24,7 +24,7 @@ import "../contracts/L2/DelegateOwner.sol";
 import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/team/airdrop/TkoAirdrop.sol";
 import "../contracts/team/airdrop/TkoAirdrop2.sol";
-import "../contracts/team/airdrop/ERC721Airdrop.sol";
+import "../contracts/team/airdrop/TaikoNFTAirdrop.sol";
 
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/L2/TaikoL2EIP1559Configurable.sol";
