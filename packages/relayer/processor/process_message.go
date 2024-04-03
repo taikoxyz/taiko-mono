@@ -417,28 +417,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, errors.Wrap(err, "p.prover.GetEncodedSignalProof")
 	}
 
-	// check if message is received first. if not, it will definitely fail,
-	// so we can exit early on this one. there is most likely
-	// an issue with the signal generation.
-	received, err := p.destBridge.ProveMessageReceived(&bind.CallOpts{
-		Context: ctx,
-	}, event.Message, encodedSignalProof)
-	if err != nil {
-		return nil, errors.Wrap(err, "p.destBridge.ProveMessageReceived")
-	}
-
-	// message will fail when we try to process it
-	if !received {
-		slog.Warn("Message not received on dest chain",
-			"msgHash", common.Hash(event.MsgHash).Hex(),
-			"srcChainId", event.Message.SrcChainId,
-		)
-
-		relayer.MessagesNotReceivedOnDestChain.Inc()
-
-		return nil, errors.New("message not received")
-	}
-
 	return encodedSignalProof, nil
 }
 
@@ -712,11 +690,13 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 		if p.taikoL2 != nil {
 			gasUsed := uint32(blk.GasUsed())
 			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
-			baseFee, err = p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
+			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
 
 			if err != nil {
 				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
 			}
+
+			baseFee = bf.Basefee
 		} else {
 			cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())

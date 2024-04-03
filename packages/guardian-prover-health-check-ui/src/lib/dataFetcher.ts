@@ -5,7 +5,7 @@ import { getGuardianProverIdsPerBlockNumber } from './blocks/getGuardianProverId
 import { sortSignedBlocksDescending } from './blocks/sortSignedBlocks';
 import { publicClient } from './wagmi/publicClient';
 import { formatEther, type Address } from 'viem';
-import { fetchLatestGuardianProverHealtCheckFromApi, fetchUptimeFromApi } from './api';
+import { fetchLatestGuardianProverHealthCheckFromApi, fetchUptimeFromApi } from './api';
 import { fetchGuardianProverRequirementsFromContract } from './guardianProver/fetchGuardianProverRequirementsFromContract';
 import {
 	minGuardianRequirement,
@@ -89,7 +89,7 @@ async function fetchGuardians() {
 		guardian.balance = balanceAsEther;
 
 		const [status, uptime] = await Promise.all([
-			fetchLatestGuardianProverHealtCheckFromApi(
+			fetchLatestGuardianProverHealthCheckFromApi(
 				import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 				guardian.id
 			),

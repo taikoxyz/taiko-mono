@@ -119,7 +119,7 @@ contract TestERC721Airdrop is TaikoTest {
         vm.startPrank(address(vault));
         // 5. Mint 5 NFTs token ids from 0 - 4 to the vault. This step on mainnet will be done by
         // Taiko Labs. For
-        // testing on A6 the imporatnt thing is: HAVE tokens in this vault!
+        // testing on A6 the important thing is: HAVE tokens in this vault!
         for (uint256 i; i != mintSupply; ++i) {
             BridgedERC721(token).mint(address(vault), i);
         }

@@ -110,7 +110,7 @@ contract TestERC20Airdrop is TaikoTest {
         vm.stopPrank();
 
         // 5. Mint (AKA transfer) to the vault. This step on mainnet will be done by Taiko Labs. For
-        // testing on A6 the imporatnt thing is: HAVE tokens in this vault!
+        // testing on A6 the important thing is: HAVE tokens in this vault!
         vm.prank(address(vault), owner);
         BridgedERC20(token).mint(address(vault), 1_000_000_000e18);
 

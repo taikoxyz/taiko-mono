@@ -18,7 +18,7 @@ AVERAGE_GAS_PRICE_IN_L2 = "Average wei gas price per L2 block is"
 # 3: TARGET
 PARSER_MODE = 1
 
-# Average propsal time
+# Average proposal time
 AVG_BASEFEE_PER_L2_BLOCK = 0
 # Average proof time
 AVG_GAS_USED_PER_L1_BLOCK = 0
