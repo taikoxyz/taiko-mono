@@ -178,9 +178,9 @@ contract TaikoL2 is EssentialContract {
         address _to
     )
         external
+        whenNotPaused
         onlyFromOwnerOrNamed("withdrawer")
         nonReentrant
-        whenNotPaused
     {
         if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {

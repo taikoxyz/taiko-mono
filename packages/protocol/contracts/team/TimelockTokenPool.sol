@@ -176,7 +176,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     /// @param _to The address where the granted and unlocked tokens shall be sent to.
     /// @param _nonce The nonce to be used.
     /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, uint256 _nonce, bytes memory _sig) external nonReentrant {
+    function withdraw(address _to, uint256 _nonce, bytes calldata _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
 
         address account = ECDSA.recover(getWithdrawalHash(_to, _nonce), _sig);

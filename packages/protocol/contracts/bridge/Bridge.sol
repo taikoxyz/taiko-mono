@@ -115,8 +115,8 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
         // Ensure the message owner is not null.
@@ -156,9 +156,9 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        nonReentrant
         whenNotPaused
         sameChain(_message.srcChainId)
+        nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
 
@@ -223,9 +223,9 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        nonReentrant
         whenNotPaused
         sameChain(_message.destChainId)
+        nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
@@ -319,9 +319,9 @@ contract Bridge is EssentialContract, IBridge {
         bool _isLastAttempt
     )
         external
-        nonReentrant
         whenNotPaused
         sameChain(_message.destChainId)
+        nonReentrant
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.destOwner.

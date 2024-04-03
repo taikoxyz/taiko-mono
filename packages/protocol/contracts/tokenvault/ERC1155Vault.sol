@@ -38,9 +38,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function sendToken(BridgeTransferOp memory _op)
         external
         payable
-        nonReentrant
         whenNotPaused
         withValidOperation(_op)
+        nonReentrant
         returns (IBridge.Message memory message_)
     {
         for (uint256 i; i < _op.amounts.length; ++i) {
@@ -89,7 +89,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
+    function onMessageInvocation(bytes calldata data) external payable whenNotPaused nonReentrant {
         (
             CanonicalNFT memory ctoken,
             address from,
@@ -130,8 +130,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();

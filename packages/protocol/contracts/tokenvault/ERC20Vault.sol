@@ -149,9 +149,9 @@ contract ERC20Vault is BaseVault {
         address _btokenNew
     )
         external
-        nonReentrant
         whenNotPaused
         onlyOwner
+        nonReentrant
         returns (address btokenOld_)
     {
         if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
@@ -206,8 +206,8 @@ contract ERC20Vault is BaseVault {
     function sendToken(BridgeTransferOp calldata _op)
         external
         payable
-        nonReentrant
         whenNotPaused
+        nonReentrant
         returns (IBridge.Message memory message_)
     {
         if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
@@ -249,7 +249,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) public payable nonReentrant whenNotPaused {
+    function onMessageInvocation(bytes calldata _data) public payable whenNotPaused nonReentrant {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(_data, (CanonicalERC20, address, address, uint256));
 
@@ -283,8 +283,8 @@ contract ERC20Vault is BaseVault {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();

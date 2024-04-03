@@ -62,8 +62,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     )
         external
         payable
-        nonReentrant
         whenNotPaused
+        nonReentrant
         emitEventForClient
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
@@ -82,9 +82,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         bytes calldata _input
     )
         external
-        nonReentrant
         whenNotPaused
         whenProvingNotPaused
+        nonReentrant
         emitEventForClient
     {
         (
@@ -105,9 +105,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @inheritdoc ITaikoL1
     function verifyBlocks(uint64 _maxBlocksToVerify)
         external
-        nonReentrant
         whenNotPaused
         whenProvingNotPaused
+        nonReentrant
         emitEventForClient
     {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
@@ -123,7 +123,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @notice Deposits Ether to Layer 2.
     /// @param _recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address _recipient) external payable nonReentrant whenNotPaused {
+    function depositEtherToL2(address _recipient) external payable whenNotPaused nonReentrant {
         LibDepositing.depositEtherToL2(state, getConfig(), this, _recipient);
     }
 

@@ -25,9 +25,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function sendToken(BridgeTransferOp memory _op)
         external
         payable
-        nonReentrant
         whenNotPaused
         withValidOperation(_op)
+        nonReentrant
         returns (IBridge.Message memory message_)
     {
         for (uint256 i; i < _op.tokenIds.length; ++i) {
@@ -76,8 +76,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function onMessageInvocation(bytes calldata _data)
         external
         payable
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
@@ -113,8 +113,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();

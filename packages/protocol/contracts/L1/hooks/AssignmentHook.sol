@@ -64,14 +64,14 @@ contract AssignmentHook is EssentialContract, IHook {
 
     /// @inheritdoc IHook
     function onBlockProposed(
-        TaikoData.Block memory _blk,
-        TaikoData.BlockMetadata memory _meta,
-        bytes memory _data
+        TaikoData.Block calldata _blk,
+        TaikoData.BlockMetadata calldata _meta,
+        bytes calldata _data
     )
         external
         payable
-        nonReentrant
         onlyFromNamed("taiko")
+        nonReentrant
     {
         // Note that
         // - 'msg.sender' is the TaikoL1 contract address
