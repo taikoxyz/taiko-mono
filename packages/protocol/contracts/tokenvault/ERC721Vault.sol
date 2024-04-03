@@ -17,6 +17,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     uint256[50] private __gap;
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+    }
+
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.

@@ -110,7 +110,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(BaseVault.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager)))
             })
         );
 
@@ -118,7 +118,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(BaseVault.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager)))
             })
         );
 

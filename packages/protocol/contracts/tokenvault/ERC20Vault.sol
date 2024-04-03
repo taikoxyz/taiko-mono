@@ -140,6 +140,13 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+    }
+
     /// @notice Change bridged token.
     /// @param _ctoken The canonical token.
     /// @param _btokenNew The new bridged token address.
