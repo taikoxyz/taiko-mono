@@ -84,10 +84,10 @@ library LibProposing {
 
         bytes32 parentMetaHash =
             _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
+        // assert(parentMetaHash != 0);
 
-        // Check if parent block has the right meta hash
-        // This is to allow the proposer to make sure the block builds on the expected latest chain
-        // state
+        // Check if parent block has the right meta hash. This is to allow the proposer to make sure
+        // the block builds on the expected latest chain state.
         if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
@@ -231,8 +231,8 @@ library LibProposing {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
             address proposerOne = _resolver.resolve("proposer_one", true);
-            if (proposerOne != address(0) && msg.sender != proposerOne) {
-                return false;
+            if (proposerOne != address(0)) {
+                return msg.sender == proposerOne;
             }
         }
 

@@ -58,6 +58,7 @@ interface IBridge {
     }
 
     // Struct representing the context of a bridge operation.
+    // 2 slots
     struct Context {
         bytes32 msgHash; // Message hash.
         address from; // Sender's address.
@@ -104,7 +105,7 @@ interface IBridge {
     event AddressBanned(address indexed addr, bool banned);
 
     /// @notice Sends a message to the destination chain and takes custody
-    /// of Ether required in this contract. All extra Ether will be refunded.
+    /// of Ether required in this contract.
     /// @param _message The message to be sent.
     /// @return msgHash_ The hash of the sent message.
     /// @return message_ The updated message sent.

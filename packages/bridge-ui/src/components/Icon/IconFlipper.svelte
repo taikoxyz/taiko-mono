@@ -15,9 +15,12 @@
 
   export let type: 'swap-rotate' | 'swap-flip' | '' = '';
 
+  export let noEvent: boolean = false;
+
   const dispatch = createEventDispatcher();
 
   function handleLabelClick() {
+    if (noEvent) return;
     selectedDefault = selectedDefault === iconType1 ? iconType2 : iconType1;
     flipped = !flipped;
     dispatch('labelclick');
