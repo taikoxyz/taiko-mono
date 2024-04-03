@@ -623,7 +623,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-
     /// @notice Checks if the signal was received.
     /// This is the 'readonly' version of _proveSignalReceived.
     /// @param _signalService The signal service address.
@@ -641,7 +640,6 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-
         try ISignalService(_signalService).verifySignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) {
@@ -650,11 +648,15 @@ contract Bridge is EssentialContract, IBridge {
             return false;
         }
     }
-       function _isPostInvocationDelay(
+
+    function _isPostInvocationDelay(
         uint256 _receivedAt,
-        uint256 _invocationDelay  ) private
+        uint256 _invocationDelay
+    )
+        private
         view
-        returns (bool) {
-          return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
-        }
+        returns (bool)
+    {
+        return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
+    }
 }
