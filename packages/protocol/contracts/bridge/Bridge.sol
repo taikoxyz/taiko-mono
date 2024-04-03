@@ -476,16 +476,11 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return invocationDelay_ The minimal delay in second before a message can be executed since
-    /// and the time it was received on the this chain.
-    /// @return invocationExtraDelay_ The extra delay in second (to be added to invocationDelay) if
-    /// the transactor is not the preferredExecutor who proved this message.
-    function getInvocationDelays()
-        public
-        view
-        virtual
-        returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
-    {
+    /// @return The minimal delay in second before a message can be executed since and the time it
+    /// was received on the this chain.
+    /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
+    /// the preferredExecutor who proved this message.
+    function getInvocationDelays() public view virtual returns (uint256, uint256) {
         if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
             // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
