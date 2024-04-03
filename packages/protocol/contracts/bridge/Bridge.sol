@@ -657,6 +657,8 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
+        unchecked {
+            return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
+        }
     }
 }
