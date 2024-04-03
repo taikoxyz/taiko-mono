@@ -39,8 +39,8 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
-        string memory _symbol,
-        string memory _name
+        string calldata _symbol,
+        string calldata _name
     )
         external
         initializer
@@ -68,9 +68,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         uint256 _amount
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
+        nonReentrant
     {
         _mint(_to, _tokenId, _amount, "");
     }
@@ -85,9 +85,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         uint256[] memory _amounts
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
+        nonReentrant
     {
         _mintBatch(_to, _tokenIds, _amounts, "");
     }
@@ -102,9 +102,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         uint256 _amount
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
+        nonReentrant
     {
         _burn(_account, _tokenId, _amount);
     }

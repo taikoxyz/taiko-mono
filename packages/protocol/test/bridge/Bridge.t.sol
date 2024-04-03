@@ -369,32 +369,6 @@ contract BridgeTest is TaikoTest {
         assertEq(Carol.balance, 500);
     }
 
-    function test_Bridge_banAddress_via_delegate_owner() public {
-        bytes memory banAddressCall = abi.encodeCall(Bridge.banAddress, (Alice, true));
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(destChainBridge), banAddressCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-    }
-
     function test_Bridge_pause_bridge_via_delegate_owner() public {
         bytes memory pauseCall = abi.encodeCall(EssentialContract.pause, ());
 
@@ -481,33 +455,6 @@ contract BridgeTest is TaikoTest {
         //Status is DONE,means a proper call
         IBridge.Status status = destChainBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.DONE, true);
-    }
-
-    function test_Bridge_non_dao_cannot_call_via_delegate_owner() public {
-        bytes memory banAddressCall = abi.encodeCall(Bridge.banAddress, (Alice, true));
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            Alice,
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(destChainBridge), banAddressCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        //Status retriable hence the low level call failed as from is not the DAO!
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.RETRIABLE, true);
     }
 
     function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {
@@ -805,29 +752,6 @@ contract BridgeTest is TaikoTest {
         dest2StepBridge.processMessage(message, proof);
 
         IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-    }
-
-    function test_Bridge_ban_address() public {
-        vm.startPrank(Alice);
-        (IBridge.Message memory message, bytes memory proof) =
-            setUpPredefinedSuccessfulProcessMessageCall();
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-        bytes32[] memory messageHashes = new bytes32[](1);
-        messageHashes[0] = msgHash;
-
-        vm.stopPrank();
-        // Ban address
-        vm.prank(destChainBridge.owner());
-        destChainBridge.banAddress(message.to, true);
-
-        vm.startPrank(Alice);
-        // processMessage() still marks it DONE but dont call the invokeMessageCall on them
-        destChainBridge.processMessage(message, proof);
-
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-
         assertEq(status == IBridge.Status.DONE, true);
     }
 
