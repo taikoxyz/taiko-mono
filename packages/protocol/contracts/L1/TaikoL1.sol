@@ -201,7 +201,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
-            blockMaxGasLimit: 30_000_000 * 8,
+            blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,
@@ -210,7 +210,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
+            ethDepositMaxFee: 1e17, //0.1 ether,
             blockSyncThreshold: 16
         });
     }

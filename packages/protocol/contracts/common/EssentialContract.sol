@@ -104,9 +104,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         virtual
         onlyInitializing
     {
-        __Essential_init(_owner);
-
         if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
+        __Essential_init(_owner);
         __AddressResolver_init(_addressManager);
     }
 

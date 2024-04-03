@@ -7,13 +7,13 @@ pragma solidity 0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library Lib4844 {
     /// @notice The address of the point evaluation precompile
-    address public constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(0x0A);
+    address private constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(0x0A);
 
     /// @notice The number of field elements per blob
-    uint32 public constant FIELD_ELEMENTS_PER_BLOB = 4096;
+    uint32 private constant FIELD_ELEMENTS_PER_BLOB = 4096;
 
     /// @notice The modulus of the BLS curve
-    uint256 public constant BLS_MODULUS =
+    uint256 private constant BLS_MODULUS =
         52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
 
     error EVAL_FAILED_1();

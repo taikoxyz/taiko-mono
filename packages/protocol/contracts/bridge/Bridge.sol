@@ -90,21 +90,20 @@ contract Bridge is EssentialContract, IBridge {
         for (uint256 i; i < _msgHashes.length; ++i) {
             bytes32 msgHash = _msgHashes[i];
 
-            if (_suspend) {
-                if (proofReceipt[msgHash].receivedAt == 0) revert B_MESSAGE_NOT_PROVEN();
-                if (proofReceipt[msgHash].receivedAt == type(uint64).max) {
-                    revert B_MESSAGE_SUSPENDED();
-                }
+            ProofReceipt storage receipt = proofReceipt[msgHash];
+            uint64 _receivedAt = receipt.receivedAt;
 
-                proofReceipt[msgHash].receivedAt = type(uint64).max;
+            if (_suspend) {
+                if (_receivedAt == 0) revert B_MESSAGE_NOT_PROVEN();
+                if (_receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
+
+                receipt.receivedAt = type(uint64).max;
                 emit MessageSuspended(msgHash, true, 0);
             } else {
                 // Note before we set the receivedAt to current timestamp, we have to be really
                 // careful that this message must have been proven then suspended.
-                if (proofReceipt[msgHash].receivedAt != type(uint64).max) {
-                    revert B_MESSAGE_NOT_SUSPENDED();
-                }
-                proofReceipt[msgHash].receivedAt = uint64(block.timestamp);
+                if (_receivedAt != type(uint64).max) revert B_MESSAGE_NOT_SUSPENDED();
+                receipt.receivedAt = uint64(block.timestamp);
                 emit MessageSuspended(msgHash, false, uint64(block.timestamp));
             }
         }

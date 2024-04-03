@@ -161,13 +161,14 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Update state variables
-        l2Hashes[parentId] = blockhash(parentId);
+        bytes32 _parentHash = blockhash(parentId);
+        l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
 
         parentTimestamp = __currentBlockTimestamp;
         __currentBlockTimestamp = uint64(block.timestamp);
 
-        emit Anchored(blockhash(parentId), gasExcess);
+        emit Anchored(_parentHash, gasExcess);
     }
 
     /// @notice Withdraw token or Ether from this address
