@@ -1,6 +1,14 @@
 package utils
 
-import "golang.org/x/exp/constraints"
+import (
+	"time"
+
+	"golang.org/x/exp/constraints"
+)
+
+const (
+	DefaultTimeout = 1 * time.Minute
+)
 
 // Min return the minimum value of two integers.
 func Min[T constraints.Integer](a, b T) T {

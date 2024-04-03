@@ -32,17 +32,18 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Slot 2.
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
-    /// @dev Slots 3, 4, and 5.
+    /// @dev Slots 3 and 4
     Context private __ctx;
 
-    /// @dev Slot 6.
+    /// @notice Mapping to store banned addresses.
+    /// @dev Slot 5.
     uint256 private __reserved1;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
-    /// @dev Slot 7.
+    /// @dev Slot 6.
     mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt;
 
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -145,8 +146,8 @@ contract Bridge is EssentialContract, IBridge {
 
         msgHash_ = hashMessage(message_);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
         emit MessageSent(msgHash_, message_);
+        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
@@ -351,7 +352,8 @@ contract Bridge is EssentialContract, IBridge {
         });
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
+    /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -372,7 +374,8 @@ contract Bridge is EssentialContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
+    /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -385,6 +388,48 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
+            resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
+        );
+    }
+
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// This is the 'readonly' version of proveMessageFailed.
+    /// @param _message The message.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message has failed, false otherwise.
+    function isMessageFailed(
+        Message calldata _message,
+        bytes calldata _proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        if (_message.srcChainId != block.chainid) return false;
+
+        return _isSignalReceived(
+            resolve("signal_service", false),
+            signalForFailedMessage(hashMessage(_message)),
+            _message.destChainId,
+            _proof
+        );
+    }
+
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// This is the 'readonly' version of proveMessageReceived.
+    /// @param _message The message.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message has failed, false otherwise.
+    function isMessageReceived(
+        Message calldata _message,
+        bytes calldata _proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        if (_message.destChainId != block.chainid) return false;
+        return _isSignalReceived(
             resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
         );
     }
@@ -414,16 +459,11 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return invocationDelay_ The minimal delay in second before a message can be executed since
-    /// and the time it was received on the this chain.
-    /// @return invocationExtraDelay_ The extra delay in second (to be added to invocationDelay) if
-    /// the transactor is not the preferredExecutor who proved this message.
-    function getInvocationDelays()
-        public
-        view
-        virtual
-        returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
-    {
+    /// @return The minimal delay in second before a message can be executed since and the time it
+    /// was received on the this chain.
+    /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
+    /// the preferredExecutor who proved this message.
+    function getInvocationDelays() public view virtual returns (uint256, uint256) {
         if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
             // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
@@ -557,7 +597,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Checks if the signal was received.
+    /// @notice Checks if the signal was received and caches cross-chain data if requested.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
@@ -573,6 +613,32 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         try ISignalService(_signalService).proveSignalReceived(
+            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
+        ) {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /// @notice Checks if the signal was received.
+    /// This is the 'readonly' version of _proveSignalReceived.
+    /// @param _signalService The signal service address.
+    /// @param _signal The signal.
+    /// @param _chainId The ID of the chain the signal is stored on.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message was received.
+    function _isSignalReceived(
+        address _signalService,
+        bytes32 _signal,
+        uint64 _chainId,
+        bytes calldata _proof
+    )
+        private
+        view
+        returns (bool)
+    {
+        try ISignalService(_signalService).verifySignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) {
             return true;

@@ -258,15 +258,13 @@ func (i *Indexer) Start() error {
 		return err
 	}
 
-	syncMode := i.syncMode
-
 	// always use Resync when crawling past blocks
 	if i.watchMode == CrawlPastBlocks {
-		syncMode = Resync
+		i.syncMode = Resync
 	}
 
 	// set the initial processing block, which will vary by sync mode.
-	if err := i.setInitialIndexingBlockByMode(i.ctx, syncMode, i.srcChainId); err != nil {
+	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.srcChainId); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
@@ -280,7 +278,13 @@ func (i *Indexer) Start() error {
 func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
 	defer i.wg.Done()
 
-	t := time.NewTicker(10 * time.Second)
+	var d time.Duration = 10 * time.Second
+
+	if i.watchMode == CrawlPastBlocks {
+		d = 10 * time.Minute
+	}
+
+	t := time.NewTicker(d)
 
 	defer t.Stop()
 
@@ -318,11 +322,18 @@ func (i *Indexer) filter(ctx context.Context) error {
 			i.latestIndexedBlockNumber = *i.targetBlockNumber
 
 			endBlockID = i.latestIndexedBlockNumber + 1
-		} else if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
-			// otherwise, we need to set the endBlockID as the greater of the two:
-			// either the endBlockID minus the number of latest blocks to ignore,
-			// or endBlockID.
-			endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
+		} else {
+			// set the initial processing block back to either 0 or the genesis block again.
+			if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.srcChainId); err != nil {
+				return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
+			}
+
+			if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
+				// otherwise, we need to set the endBlockID as the greater of the two:
+				// either the endBlockID minus the number of latest blocks to ignore,
+				// or endBlockID.
+				endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
+			}
 		}
 	}
 

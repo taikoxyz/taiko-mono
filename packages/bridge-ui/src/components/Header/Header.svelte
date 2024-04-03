@@ -3,7 +3,6 @@
   import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
   import { ConnectButton } from '$components/ConnectButton';
   import { Icon } from '$components/Icon';
-  import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
   import { ThemeButton } from '$components/ThemeButton';
   import { account } from '$stores/account';
@@ -29,8 +28,6 @@
     md:px-10
     md:py-7
  ">
-  <LogoWithText width={77} height={21} class="md:hidden" textFillClass={'fill-primary-content'} />
-
   <div class="flex justify-end w-full">
     {#if isBridgePage || isTransactionsPage}
       <BridgeTabs class="hidden md:flex md:flex-1" />

@@ -134,13 +134,13 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     /// @dev This function may revert.
-    function isSignalReceived(
+    function verifySignalReceived(
         uint64 _chainId,
         address _app,
         bytes32 _signal,
         bytes calldata _proof
     )
-        public
+        external
         view
         validSender(_app)
         nonZeroValue(_signal)

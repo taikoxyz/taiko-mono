@@ -130,6 +130,7 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         bytes memory /*_data*/
     )
         internal
+        view
         override
     {
         if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();

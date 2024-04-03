@@ -190,7 +190,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @return true if supports, else otherwise.
     function supportsInterface(bytes4 interfaceId)
         public
-        view
+        pure
         override(BaseVault, ERC1155ReceiverUpgradeable)
         returns (bool)
     {
