@@ -29,6 +29,7 @@ abstract contract TaikoErrors {
     error L1_PROPOSER_NOT_EOA();
     error L1_PROVING_PAUSED();
     error L1_RECEIVE_DISABLED();
+    error L1_MIN_TIER_NOT_SET();
     error L1_MISSING_VERIFIER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_TIERS();

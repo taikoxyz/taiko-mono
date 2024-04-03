@@ -90,7 +90,7 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;
-        uint16 minTier;
+        uint16 minTier; // This value is no longer used
         bool blobUsed;
         bytes32 parentMetaHash;
         address sender;
@@ -127,7 +127,9 @@ library TaikoData {
         uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
-        uint64 __reserved1;
+        uint16 minTier;
+        uint16 __reserved1;
+        uint32 __reserved2;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
     }

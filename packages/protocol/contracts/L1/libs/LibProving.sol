@@ -64,6 +64,7 @@ library LibProving {
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
+    error L1_MIN_TIER_NOT_SET();
     error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_CANNOT_CONTEST();
@@ -123,6 +124,13 @@ library LibProving {
             revert L1_BLOCK_MISMATCH();
         }
 
+        // Check the integrity of the block data. It's worth noting that in
+        // theory, this check may be skipped, but it's included for added
+        // caution.
+        if (blk.minTier == 0) {
+            revert L1_MIN_TIER_NOT_SET();
+        }
+
         // Each transition is uniquely identified by the parentHash, with the
         // blockHash and stateRoot open for later updates as higher-tier proofs
         // become available. In cases where a transition with the specified
@@ -132,7 +140,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+        if (_proof.tier == 0 || _proof.tier < blk.minTier || _proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 

@@ -145,9 +145,7 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve("tier_provider", false)).getMinTier(
-            uint256(meta_.difficulty)
-        );
+        meta_.minTier = 0;
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -158,7 +156,9 @@ library LibProposing {
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
-            __reserved1: 0,
+            minTier: 0,
+            __reserved1: 0, // uint16
+            __reserved2: 0, // uint32
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
@@ -169,8 +169,18 @@ library LibProposing {
         // Store the block in the ring buffer
         _state.blocks[b.numBlocks % _config.blockRingBufferSize] = blk;
 
-        // Increment the counter (cursor) by 1.
         unchecked {
+            // Update parent block's minTier and timestamp
+            TaikoData.Block storage parent =
+                _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize];
+
+            parent.minTier = ITierProvider(_resolver.resolve("tier_provider", false)).getMinTier(
+                uint256(meta_.difficulty)
+            );
+            parent.proposedAt = meta_.timestamp;
+
+            // Increment the counter (cursor) by 1.
+
             ++_state.slotB.numBlocks;
         }
 
