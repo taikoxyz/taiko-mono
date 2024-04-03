@@ -54,8 +54,8 @@ contract BridgedERC20 is
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
-        string memory _symbol,
-        string memory _name
+        string calldata _symbol,
+        string calldata _name
     )
         external
         initializer
@@ -76,7 +76,7 @@ contract BridgedERC20 is
 
     /// @notice Set the snapshoter address.
     /// @param _snapshooter snapshooter address.
-    function setSnapshoter(address _snapshooter) external onlyOwner {
+    function setSnapshooter(address _snapshooter) external onlyOwner {
         snapshooter = _snapshooter;
     }
 

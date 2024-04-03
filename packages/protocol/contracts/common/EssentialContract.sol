@@ -13,10 +13,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     uint8 private constant _TRUE = 2;
 
-    /// @dev The slot in transient storage of the reentry lock. This is the keccak256 hash
-    /// of "ownerUUPS.reentry_slot"
+    /// @dev The slot in transient storage of the reentry lock.
+    /// This is the result of keccak256("ownerUUPS.reentry_slot") plus 1. The addition aims to
+    /// prevent hash collisions with slots defined in EIP-1967, where slots are derived by
+    /// keccak256("something") - 1, and with slots in SignalService, calculated directly with
+    /// keccak256("something").
     bytes32 private constant _REENTRY_SLOT =
-        0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721a;
+        0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b;
 
     /// @dev Slot 1.
     uint8 private __reentry;
@@ -93,17 +96,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function __Essential_init(
-        address _owner,
-        address _addressManager
-    )
-        internal
-        virtual
-        onlyInitializing
-    {
-        __Essential_init(_owner);
-
+    function __Essential_init(address _owner, address _addressManager) internal onlyInitializing {
         if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
+        __Essential_init(_owner);
         __AddressResolver_init(_addressManager);
     }
 

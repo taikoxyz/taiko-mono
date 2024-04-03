@@ -58,6 +58,7 @@ interface IBridge {
     }
 
     // Struct representing the context of a bridge operation.
+    // 2 slots
     struct Context {
         bytes32 msgHash; // Message hash.
         address from; // Sender's address.
