@@ -32,18 +32,18 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Slot 2.
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
-    /// @dev Slots 3, 4, and 5.
+    /// @dev Slots 3 and 4
     Context private __ctx;
 
     /// @notice Mapping to store banned addresses.
-    /// @dev Slot 6.
+    /// @dev Slot 5.
     mapping(address addr => bool banned) public addressBanned;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
-    /// @dev Slot 7.
+    /// @dev Slot 6.
     mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt;
 
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -163,8 +163,8 @@ contract Bridge is EssentialContract, IBridge {
 
         msgHash_ = hashMessage(message_);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
         emit MessageSent(msgHash_, message_);
+        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
@@ -476,16 +476,11 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return invocationDelay_ The minimal delay in second before a message can be executed since
-    /// and the time it was received on the this chain.
-    /// @return invocationExtraDelay_ The extra delay in second (to be added to invocationDelay) if
-    /// the transactor is not the preferredExecutor who proved this message.
-    function getInvocationDelays()
-        public
-        view
-        virtual
-        returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
-    {
+    /// @return The minimal delay in second before a message can be executed since and the time it
+    /// was received on the this chain.
+    /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
+    /// the preferredExecutor who proved this message.
+    function getInvocationDelays() public view virtual returns (uint256, uint256) {
         if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
             // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
