@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
@@ -13,7 +12,6 @@ library LibAddress {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
     error ETH_TRANSFER_FAILED();
-    error NOT_ENOUGH_GASLEFT();
 
     /// @dev Sends Ether to the specified address. This method will not revert even if sending ether
     /// fails.
@@ -21,8 +19,7 @@ library LibAddress {
     /// https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    /// @param _gasLimit The max amount gas to pay for this transaction. Use 0 to indicate all gas
-    /// left can be used.
+    /// @param _gasLimit The max amount gas to pay for this transaction.
     /// @return success_ true if the call is successful, false otherwise.
     function sendEther(
         address _to,
@@ -35,15 +32,6 @@ library LibAddress {
     {
         // Check for zero-address transactions
         if (_to == address(0)) revert ETH_TRANSFER_FAILED();
-
-        uint256 gasLimit;
-        if (_gasLimit == 0) {
-            gasLimit = gasleft();
-        } else {
-            // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-            if (((gasleft() * 63) >> 6) < _gasLimit) revert NOT_ENOUGH_GASLEFT();
-            gasLimit = _gasLimit;
-        }
         // dispatch message to recipient
         // by assembly calling "handle" function
         // we call via assembly to avoid memcopying a very large returndata
@@ -51,7 +39,7 @@ library LibAddress {
         assembly {
             success_ :=
                 call(
-                    gasLimit, // gas
+                    _gasLimit, // gas
                     _to, // recipient
                     _amount, // ether value
                     add(_calldata, 0x20), // inloc
@@ -65,8 +53,7 @@ library LibAddress {
     /// @dev Sends Ether to the specified address. This method will revert if sending ether fails.
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
-    /// @param _gasLimit The max amount gas to pay for this transaction. Use 0 to indicate all gas
-    /// left shall be used.
+    /// @param _gasLimit The max amount gas to pay for this transaction.
     function sendEtherAndVerify(address _to, uint256 _amount, uint256 _gasLimit) internal {
         if (_amount == 0) return;
         if (!sendEther(_to, _amount, _gasLimit, "")) {
@@ -78,7 +65,7 @@ library LibAddress {
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     function sendEtherAndVerify(address _to, uint256 _amount) internal {
-        sendEtherAndVerify(_to, _amount, 0);
+        sendEtherAndVerify(_to, _amount, gasleft());
     }
 
     function supportsInterface(
@@ -94,21 +81,5 @@ library LibAddress {
         try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
             result_ = _result;
         } catch { }
-    }
-
-    function isValidSignature(
-        address _addr,
-        bytes32 _hash,
-        bytes memory _sig
-    )
-        internal
-        view
-        returns (bool)
-    {
-        if (Address.isContract(_addr)) {
-            return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
-        } else {
-            return ECDSA.recover(_hash, _sig) == _addr;
-        }
     }
 }
