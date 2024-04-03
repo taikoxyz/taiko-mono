@@ -14,6 +14,8 @@ contract ERC20Airdrop2 is MerkleClaimable {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    uint256 public constant WITHDRAWAL_GRACE_PERIOD = 30 days;
+
     /// @notice The address of the token contract.
     address public token;
 
@@ -39,7 +41,10 @@ contract ERC20Airdrop2 is MerkleClaimable {
     error WITHDRAWALS_NOT_ONGOING();
 
     modifier ongoingWithdrawals() {
-        if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
+        if (
+            claimEnd > block.timestamp
+                || claimEnd + withdrawalWindow + WITHDRAWAL_GRACE_PERIOD < block.timestamp
+        ) {
             revert WITHDRAWALS_NOT_ONGOING();
         }
         _;
