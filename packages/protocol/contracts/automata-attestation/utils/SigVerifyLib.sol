@@ -10,7 +10,7 @@ import "./BytesUtils.sol";
 contract SigVerifyLib is ISigVerifyLib {
     using BytesUtils for bytes;
 
-    address private __es256Verifier;
+    address private immutable __es256Verifier;
 
     constructor(address es256Verifier) {
         __es256Verifier = es256Verifier;
