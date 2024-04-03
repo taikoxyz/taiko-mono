@@ -464,7 +464,7 @@
           "funds_check": "Sufficient funds to claim",
           "no_delay": "No delay",
           "ready": "You can continue with the claim process!",
-          "remaining_delay": "Remaining delay befor claim",
+          "remaining_delay": "Remaining delay before claim",
           "step": "Claim step",
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
           "title": "Requirements",
