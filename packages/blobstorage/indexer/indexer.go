@@ -305,6 +305,8 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		return err
 	}
 
+	slog.Info("blobsResponse", "length", len(blobsResponse.Data))
+
 	for _, data := range blobsResponse.Data {
 		data.KzgCommitmentHex = common.FromHex(data.KzgCommitment)
 
