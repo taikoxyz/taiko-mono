@@ -6,11 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
-/// @title TkoAirdrop2
+/// @title ERC20Airdrop2
 /// @notice Contract for managing Taiko token airdrop for eligible users, but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
 /// @custom:security-contact security@taiko.xyz
-contract TkoAirdrop2 is MerkleClaimable {
+contract ERC20Airdrop2 is MerkleClaimable {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 

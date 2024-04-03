@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import "./MerkleClaimable.sol";
 
-/// @title TkoAirdrop
+/// @title ERC20Airdrop
 /// @notice Contract for managing Taiko token airdrop for eligible users.
 /// @custom:security-contact security@taiko.xyz
-contract TkoAirdrop is MerkleClaimable {
+contract ERC20Airdrop is MerkleClaimable {
     using SafeERC20 for IERC20;
 
     /// @notice The address of the Taiko token contract.
