@@ -231,8 +231,8 @@ library LibProposing {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
             address proposerOne = _resolver.resolve("proposer_one", true);
-            if (proposerOne != address(0) && msg.sender != proposerOne) {
-                return false;
+            if (proposerOne != address(0)) {
+                return msg.sender == proposerOne;
             }
         }
 
