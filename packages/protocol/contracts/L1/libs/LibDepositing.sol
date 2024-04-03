@@ -72,7 +72,10 @@ library LibDepositing {
         returns (TaikoData.EthDeposit[] memory deposits_)
     {
         // Calculate the number of pending deposits.
-        uint256 numPending = _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess;
+        uint256 numPending;
+        unchecked {
+            numPending = _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess;
+        }
 
         if (numPending < _config.ethDepositMinCountPerBlock) {
             deposits_ = new TaikoData.EthDeposit[](0);
