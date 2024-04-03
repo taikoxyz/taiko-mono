@@ -2,15 +2,13 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
+contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     /// @notice Address of the source token contract.
     address public srcToken;
 
@@ -50,6 +48,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
         __Essential_init(_owner, _addressManager);
+
+        // The token URI here is not important as the client will have to read the URI from the
+        // canonical contract to fatch meta data.
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;
@@ -130,6 +131,7 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         bytes memory /*_data*/
     )
         internal
+        view
         override
     {
         if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
