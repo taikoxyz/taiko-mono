@@ -284,13 +284,13 @@ func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockPro
 }
 
 func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	blockID, err := i.beaconClient.timeToSlot(event.Meta.Timestamp)
+	slot, err := i.beaconClient.timeToSlot(event.Meta.Timestamp)
 	if err != nil {
 		return err
 	}
 
 	slog.Info("blockProposed event found",
-		"blockID", blockID,
+		"slot", slot,
 		"emittedIn", event.Raw.BlockNumber,
 		"blobUsed", event.Meta.BlobUsed,
 		"timesStamp", event.Meta.Timestamp,
@@ -300,7 +300,7 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		return nil
 	}
 
-	blobsResponse, err := i.beaconClient.getBlobs(ctx, blockID)
+	blobsResponse, err := i.beaconClient.getBlobs(ctx, slot)
 	if err != nil {
 		return err
 	}
