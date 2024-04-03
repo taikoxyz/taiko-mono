@@ -168,7 +168,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw() external nonReentrant whenNotPaused {
+    function withdraw() external whenNotPaused nonReentrant {
         _withdraw(msg.sender, msg.sender);
     }
 
