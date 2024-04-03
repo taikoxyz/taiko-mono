@@ -94,7 +94,7 @@ library LibProposing {
 
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
-        deposits_ = LibDepositing.processDeposits(_state, _config, params.coinbase);
+        deposits_ = LibDepositing.processDeposits(_state, _config);
 
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.

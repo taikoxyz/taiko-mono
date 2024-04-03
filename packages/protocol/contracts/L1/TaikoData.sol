@@ -40,10 +40,6 @@ library TaikoData {
         uint64 ethDepositMaxCountPerBlock;
         // The minimum amount of ETH required for a deposit.
         uint96 ethDepositMinAmount;
-        // The maximum amount of ETH allowed for a deposit.
-        uint96 ethDepositMaxAmount;
-        // The gas cost for processing an ETH deposit.
-        uint256 ethDepositGas;
         // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
         // syncing)
         uint8 blockSyncThreshold;

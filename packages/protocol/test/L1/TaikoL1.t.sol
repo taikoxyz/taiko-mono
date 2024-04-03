@@ -137,16 +137,12 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function test_L1_EthDepositsToL2Reverts() external {
         uint96 minAmount = conf.ethDepositMinAmount;
-        uint96 maxAmount = conf.ethDepositMaxAmount;
+        uint96 maxAmount = 1000 ether;
 
         giveEthAndTko(Alice, 0, maxAmount + 1 ether);
         vm.prank(Alice, Alice);
         vm.expectRevert();
         L1.depositEtherToL2{ value: minAmount - 1 }(address(0));
-
-        vm.prank(Alice, Alice);
-        vm.expectRevert();
-        L1.depositEtherToL2{ value: maxAmount + 1 }(address(0));
 
         (TaikoData.SlotA memory a,) = L1.getStateVariables();
 
@@ -154,55 +150,11 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(a.numEthDeposits, 0);
     }
 
-    function test_L1_EthDepositsToL2Gas() external {
-        vm.fee(25 gwei);
-
-        bytes32 emptyDepositsRoot =
-            0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
-        giveEthAndTko(Alice, 0, 100_000 ether);
-        giveEthAndTko(Bob, 1e6 ether, 0);
-
-        proposeBlock(Alice, Bob, 1_000_000, 1024);
-        (, TaikoData.EthDeposit[] memory depositsProcessed) =
-            proposeBlock(Alice, Bob, 1_000_000, 1024);
-        assertEq(depositsProcessed.length, 0);
-
-        uint256 count = conf.ethDepositMaxCountPerBlock;
-
-        printVariables("before sending ethers");
-        for (uint256 i; i < count; ++i) {
-            vm.prank(Alice, Alice);
-            L1.depositEtherToL2{ value: (i + 1) * 1 ether }(address(0));
-        }
-        printVariables("after sending ethers");
-
-        uint256 gas = gasleft();
-        TaikoData.BlockMetadata memory meta;
-        (meta, depositsProcessed) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-        uint256 gasUsedWithDeposits = gas - gasleft();
-        console2.log("gas used with eth deposits:", gasUsedWithDeposits);
-
-        printVariables("after processing send-ethers");
-        assertTrue(keccak256(abi.encode(depositsProcessed)) != emptyDepositsRoot);
-        assertEq(depositsProcessed.length, count);
-
-        gas = gasleft();
-        (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-        uint256 gasUsedWithoutDeposits = gas - gasleft();
-
-        console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
-
-        uint256 gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
-
-        console2.log("gas per eth deposit:", gasPerEthDeposit);
-        console2.log("ethDepositMaxCountPerBlock:", count);
-    }
-
     function test_L1_deposit_hash_creation() external {
         giveEthAndTko(Bob, 1e6 ether, 100 ether);
         giveEthAndTko(Zachary, 1e6 ether, 0);
         // uint96 minAmount = conf.ethDepositMinAmount;
-        uint96 maxAmount = conf.ethDepositMaxAmount;
+        uint96 maxAmount = 1000 ether;
 
         // We need 8 deposits otherwise we are not processing them !
         giveEthAndTko(Alice, 1e6 ether, maxAmount + 1 ether);
@@ -217,24 +169,24 @@ contract TaikoL1Test is TaikoL1TestBase {
         // So after this point we have 8 deposits
 
         vm.prank(Alice, Alice);
-        bool canAliceDeposit = L1.canDepositEthToL2(1 ether);
+        bool canAliceDeposit = L1.canDepositEthToL2(10 ether);
         assertEq(true, canAliceDeposit);
         vm.prank(Alice, Alice);
-        L1.depositEtherToL2{ value: 1 ether }(address(0));
+        L1.depositEtherToL2{ value: 10 ether }(address(0));
         vm.prank(Bob, Bob);
-        L1.depositEtherToL2{ value: 2 ether }(address(0));
+        L1.depositEtherToL2{ value: 20 ether }(address(0));
         vm.prank(Carol, Carol);
-        L1.depositEtherToL2{ value: 3 ether }(address(0));
+        L1.depositEtherToL2{ value: 30 ether }(address(0));
         vm.prank(David, David);
-        L1.depositEtherToL2{ value: 4 ether }(address(0));
+        L1.depositEtherToL2{ value: 40 ether }(address(0));
         vm.prank(Emma, Emma);
-        L1.depositEtherToL2{ value: 5 ether }(address(0));
+        L1.depositEtherToL2{ value: 50 ether }(address(0));
         vm.prank(Frank, Frank);
-        L1.depositEtherToL2{ value: 6 ether }(address(0));
+        L1.depositEtherToL2{ value: 60 ether }(address(0));
         vm.prank(Grace, Grace);
-        L1.depositEtherToL2{ value: 7 ether }(address(0));
+        L1.depositEtherToL2{ value: 70 ether }(address(0));
         vm.prank(Henry, Henry);
-        L1.depositEtherToL2{ value: 8 ether }(address(0));
+        L1.depositEtherToL2{ value: 80 ether }(address(0));
 
         (TaikoData.SlotA memory a,) = L1.getStateVariables();
 
@@ -248,13 +200,13 @@ contract TaikoL1Test is TaikoL1TestBase {
         (, TaikoData.EthDeposit[] memory depositsProcessed) =
             proposeBlock(Alice, Bob, 1_000_000, 1024);
         // Expected:
-        // 0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e  (pre
+        // 0x7d095f442fb5957368ab9423ac78e10d2271349070a1cf081fac5e02bf6f7313  (pre
         // calculated with these values)
-        //console2.logBytes32(meta.depositsRoot);
+        // console2.logBytes32(meta.depositsRoot);
 
         assertEq(
             keccak256(abi.encode(depositsProcessed)),
-            0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e
+            0x7d095f442fb5957368ab9423ac78e10d2271349070a1cf081fac5e02bf6f7313
         );
     }
 

@@ -207,9 +207,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,
-            ethDepositMinAmount: 1 ether,
-            ethDepositMaxAmount: 10_000 ether,
-            ethDepositGas: 21_000,
+            ethDepositMinAmount: 10 ether,
             blockSyncThreshold: 16
         });
     }

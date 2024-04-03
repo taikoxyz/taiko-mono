@@ -66,8 +66,7 @@ library LibDepositing {
     /// @dev Processes the ETH deposits in a batched manner.
     function processDeposits(
         TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        address _feeRecipient
+        TaikoData.Config memory _config
     )
         internal
         returns (TaikoData.EthDeposit[] memory deposits_)
@@ -124,7 +123,7 @@ library LibDepositing {
         // - ethDepositRingBufferSize cannot be 0 by default (validity checked
         // in LibVerifying)
         unchecked {
-            return _amount >= _config.ethDepositMinAmount && _amount <= _config.ethDepositMaxAmount
+            return _amount >= _config.ethDepositMinAmount && _amount <= type(uint96).max
                 && _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess
                     < _config.ethDepositRingBufferSize - 1;
         }
