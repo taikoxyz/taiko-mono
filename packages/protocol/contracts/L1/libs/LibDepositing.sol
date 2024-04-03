@@ -77,6 +77,7 @@ library LibDepositing {
             numPending = _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess;
         }
 
+        // TODO(Daniel): process up to ethDepositMinCountPerBlock (to be renamed) deposits
         if (numPending < _config.ethDepositMinCountPerBlock) {
             deposits_ = new TaikoData.EthDeposit[](0);
         } else {
