@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../TaikoTest.sol";
 
-contract MockTaikoNFTAirdrop is TaikoNFTAirdrop {
+contract MockERC721Airdrop is ERC721Airdrop {
     function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
         bytes32, /*merkleRoot*/
@@ -62,7 +62,7 @@ contract SimpleERC721Vault is EssentialContract {
     }
 }
 
-contract TestTaikoNFTAirdrop is TaikoTest {
+contract TestERC721Airdrop is TaikoTest {
     address public owner = randAddress();
 
     uint256 public mintSupply = 5;
@@ -73,7 +73,7 @@ contract TestTaikoNFTAirdrop is TaikoTest {
     uint64 public claimEnd;
 
     BridgedERC721 token;
-    MockTaikoNFTAirdrop airdrop;
+    MockERC721Airdrop airdrop;
     MockAddressManager addressManager;
     SimpleERC721Vault vault;
 
@@ -135,12 +135,12 @@ contract TestTaikoNFTAirdrop is TaikoTest {
         merkleProof = new bytes32[](3);
 
         vm.startPrank(owner);
-        airdrop = MockTaikoNFTAirdrop(
+        airdrop = MockERC721Airdrop(
             deployProxy({
-                name: "MockTaikoNFTAirdrop",
-                impl: address(new MockTaikoNFTAirdrop()),
+                name: "MockERC721Airdrop",
+                impl: address(new MockERC721Airdrop()),
                 data: abi.encodeCall(
-                    TaikoNFTAirdrop.init,
+                    ERC721Airdrop.init,
                     (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
                     )
             })
