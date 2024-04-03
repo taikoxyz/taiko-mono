@@ -179,7 +179,7 @@ contract TimelockTokenPool is EssentialContract, EIP712Upgradeable {
     function withdraw(
         address _to,
         uint256 _nonce,
-        bytes memory _sig
+        bytes calldata _sig
     )
         external
         whenNotPaused
