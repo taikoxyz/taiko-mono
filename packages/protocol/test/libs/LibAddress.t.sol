@@ -61,18 +61,6 @@ contract EtherSenderContract {
     {
         return LibAddress.supportsInterface(_addr, _interfaceId);
     }
-
-    function isValidSignature(
-        address _addr,
-        bytes32 _hash,
-        bytes memory _sig
-    )
-        public
-        view
-        returns (bool)
-    {
-        return LibAddress.isValidSignature(_addr, _hash, _sig);
-    }
 }
 
 contract TestLibAddress is TaikoTest {
@@ -140,15 +128,5 @@ contract TestLibAddress is TaikoTest {
         doesSupport = bridge.supportsInterface(address(calledContract), 0x10101010);
 
         assertEq(doesSupport, true);
-    }
-
-    function test_isValidSignature() public {
-        bytes32 hash = bytes32("DUMMY_SIGNATURE_HASH_DATA");
-
-        // 0x1 is Alice's private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0x1, hash);
-        bool validSignature = bridge.isValidSignature(Alice, hash, abi.encodePacked(r, s, v));
-
-        assertEq(validSignature, true);
     }
 }

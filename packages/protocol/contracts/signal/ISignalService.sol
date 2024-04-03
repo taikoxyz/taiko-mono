@@ -114,7 +114,7 @@ interface ISignalService {
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
     /// source chain.
-    function isSignalReceived(
+    function verifySignalReceived(
         uint64 _chainId,
         address _app,
         bytes32 _signal,

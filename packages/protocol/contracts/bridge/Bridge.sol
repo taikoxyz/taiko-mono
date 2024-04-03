@@ -377,7 +377,8 @@ contract Bridge is EssentialContract, IBridge {
         });
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
+    /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -398,7 +399,8 @@ contract Bridge is EssentialContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
+    /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -411,6 +413,48 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
+            resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
+        );
+    }
+
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// This is the 'readonly' version of proveMessageFailed.
+    /// @param _message The message.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message has failed, false otherwise.
+    function isMessageFailed(
+        Message calldata _message,
+        bytes calldata _proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        if (_message.srcChainId != block.chainid) return false;
+
+        return _isSignalReceived(
+            resolve("signal_service", false),
+            signalForFailedMessage(hashMessage(_message)),
+            _message.destChainId,
+            _proof
+        );
+    }
+
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// This is the 'readonly' version of proveMessageReceived.
+    /// @param _message The message.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message has failed, false otherwise.
+    function isMessageReceived(
+        Message calldata _message,
+        bytes calldata _proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        if (_message.destChainId != block.chainid) return false;
+        return _isSignalReceived(
             resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
         );
     }
@@ -582,7 +626,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Checks if the signal was received.
+    /// @notice Checks if the signal was received and caches cross-chain data if requested.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
@@ -598,6 +642,32 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         try ISignalService(_signalService).proveSignalReceived(
+            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
+        ) {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /// @notice Checks if the signal was received.
+    /// This is the 'readonly' version of _proveSignalReceived.
+    /// @param _signalService The signal service address.
+    /// @param _signal The signal.
+    /// @param _chainId The ID of the chain the signal is stored on.
+    /// @param _proof The merkle inclusion proof.
+    /// @return true if the message was received.
+    function _isSignalReceived(
+        address _signalService,
+        bytes32 _signal,
+        uint64 _chainId,
+        bytes calldata _proof
+    )
+        private
+        view
+        returns (bool)
+    {
+        try ISignalService(_signalService).verifySignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) {
             return true;
