@@ -50,7 +50,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         __Essential_init(_owner, _addressManager);
 
         // The token URI here is not important as the client will have to read the URI from the
-        // canonical contract to fatch meta data.
+        // canonical contract to fetch meta data.
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;
