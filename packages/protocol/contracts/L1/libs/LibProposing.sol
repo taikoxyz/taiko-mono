@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
@@ -33,6 +34,7 @@ library LibProposing {
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_HOOK();
     error L1_INVALID_PROVER();
+    error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
@@ -132,9 +134,15 @@ library LibProposing {
         } else {
             // This function must be called as the outmost transaction (not an internal one) for
             // the node to extract the calldata easily.
-            if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
 
+            // Instead of using tx.origin, we rely on an EOA signature check
             meta_.blobHash = keccak256(_txList);
+            if (
+                _config.onlyEOACanUseCalldataForDA
+                    && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
+            ) {
+                revert L1_INVALID_SIG();
+            }
         }
 
         // Following the Merge, the L1 mixHash incorporates the

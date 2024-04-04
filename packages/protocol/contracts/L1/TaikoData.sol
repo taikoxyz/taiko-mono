@@ -49,6 +49,7 @@ library TaikoData {
         // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
         // syncing)
         uint8 blockSyncThreshold;
+        bool onlyEOACanUseCalldataForDA;
     }
 
     /// @dev Struct representing prover assignment
@@ -73,6 +74,7 @@ library TaikoData {
         bytes32 extraData;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
+        bytes signature;
     }
 
     /// @dev Struct containing data only required for proving a block
