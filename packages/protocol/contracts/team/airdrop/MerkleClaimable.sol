@@ -65,14 +65,7 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function _verifyClaim(
-        bytes memory data,
-        bytes32[] calldata proof
-    )
-        internal
-        whenNotPaused
-        ongoingClaim
-    {
+    function _verifyClaim(bytes memory data, bytes32[] calldata proof) internal ongoingClaim {
         bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
 
         if (isClaimed[hash]) revert CLAIMED_ALREADY();
