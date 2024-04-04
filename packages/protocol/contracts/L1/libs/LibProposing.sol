@@ -2,15 +2,20 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../../common/IAddressResolver.sol";
+import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
-import "./LibDepositing.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library LibProposing {
     using LibAddress for address;
+
+    // = keccak256(abi.encode(new TaikoData.EthDeposit[](0)))
+    bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
+        0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
@@ -56,7 +61,7 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadata memory meta_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
 
@@ -92,10 +97,6 @@ library LibProposing {
             revert L1_UNEXPECTED_PARENT();
         }
 
-        // Each transaction must handle a specific quantity of L1-to-L2
-        // Ether deposits.
-        deposits_ = LibDepositing.processDeposits(_state, _config, params.coinbase);
-
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
@@ -106,7 +107,7 @@ library LibProposing {
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
-                depositsHash: keccak256(abi.encode(deposits_)),
+                depositsHash: _EMPTY_ETH_DEPOSIT_HASH,
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -216,7 +217,7 @@ library LibProposing {
             assignedProver: blk.assignedProver,
             livenessBond: _config.livenessBond,
             meta: meta_,
-            depositsProcessed: deposits_
+            depositsProcessed: new TaikoData.EthDeposit[](0)
         });
     }
 

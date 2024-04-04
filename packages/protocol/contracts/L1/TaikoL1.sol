@@ -65,11 +65,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         whenNotPaused
         emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadata memory meta_)
     {
         TaikoData.Config memory config = getConfig();
 
-        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
 
         if (!state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
@@ -120,24 +120,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibProving.pauseProving(state, _pause);
     }
 
-    /// @notice Deposits Ether to Layer 2.
-    /// @param _recipient Address of the recipient for the deposited Ether on
-    /// Layer 2.
-    function depositEtherToL2(address _recipient) external payable nonReentrant whenNotPaused {
-        LibDepositing.depositEtherToL2(state, getConfig(), this, _recipient);
-    }
-
     /// @inheritdoc EssentialContract
     function unpause() public override {
         super.unpause(); // permission checked inside
         state.slotB.lastUnpausedAt = uint64(block.timestamp);
-    }
-
-    /// @notice Checks if Ether deposit is allowed for Layer 2.
-    /// @param _amount Amount of Ether to be deposited.
-    /// @return true if Ether deposit is allowed, false otherwise.
-    function canDepositEthToL2(uint256 _amount) public view returns (bool) {
-        return LibDepositing.canDepositEthToL2(state, getConfig(), _amount);
     }
 
     /// @notice Gets the details of a block.
@@ -203,14 +189,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // Taiko blocks proposed per Ethereum block is smaller than 1.
             blockMaxGasLimit: 30_000_000 * 8,
             livenessBond: 250e18, // 250 Taiko token
-            // ETH deposit related.
-            ethDepositRingBufferSize: 1024,
-            ethDepositMinCountPerBlock: 8,
-            ethDepositMaxCountPerBlock: 32,
-            ethDepositMinAmount: 1 ether,
-            ethDepositMaxAmount: 10_000 ether,
-            ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
             blockSyncThreshold: 16
         });
     }

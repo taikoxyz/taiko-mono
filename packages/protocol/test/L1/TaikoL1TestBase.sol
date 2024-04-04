@@ -194,7 +194,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
 
         vm.prank(proposer, proposer);
-        (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
+        meta = L1.proposeBlock{ value: msgValue }(
             abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls)),
             new bytes(txListSize)
         );
@@ -364,7 +364,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function printVariables(string memory comment) internal {
-        (TaikoData.SlotA memory a, TaikoData.SlotB memory b) = L1.getStateVariables();
+        (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
         string memory str = string.concat(
             Strings.toString(logCount++),
@@ -372,16 +372,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             Strings.toString(b.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(b.numBlocks),
-            "]"
-        );
-
-        str = string.concat(
-            str,
-            " nextEthDepositToProcess:",
-            Strings.toString(a.nextEthDepositToProcess),
-            " numEthDeposits:",
-            Strings.toString(a.numEthDeposits),
-            " // ",
+            "] // ",
             comment
         );
         console2.log(str);
