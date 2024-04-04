@@ -346,7 +346,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
         L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, "", hookcalls)),
+            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
     }
