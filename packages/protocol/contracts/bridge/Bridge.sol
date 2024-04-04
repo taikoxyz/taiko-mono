@@ -306,7 +306,7 @@ contract Bridge is EssentialContract, IBridge {
                     // use the specified gas limit.
                     gasLimit = gasleft();
                 } else {
-                    // he "1/64th rule" refers to the gasleft at the time the call is made. When a
+                    // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                     // contract makes a call to another contract, it can only forward 63/64 of the
                     // gas remaining (gasleft) at that moment, ensuring that there is always some
                     // gas reserved for the calling contract to complete its execution after the
