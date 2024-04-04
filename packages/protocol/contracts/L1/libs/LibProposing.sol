@@ -36,7 +36,6 @@ library LibProposing {
     error L1_INVALID_PROVER();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
-    error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
