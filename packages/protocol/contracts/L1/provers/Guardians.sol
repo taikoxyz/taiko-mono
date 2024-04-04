@@ -107,11 +107,13 @@ abstract contract Guardians is EssentialContract {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
+        uint32 _version = version;
+
         unchecked {
-            _approvals[version][_hash] |= 1 << (id - 1);
+            _approvals[_version][_hash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[version][_hash];
+        uint256 _approval = _approvals[_version][_hash];
         approved_ = isApproved(_approval);
         emit Approved(_operationId, _approval, approved_);
     }
