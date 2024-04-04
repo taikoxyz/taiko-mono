@@ -49,7 +49,7 @@
     </div>
     <div class="h-sep mt-[20px] mb-0" />
     <div class="w-full px-[24px] my-[20px]">
-      <ActionButton priority="primary" on:click={closeMenu}>See results</ActionButton>
+      <ActionButton priority="primary" on:click={closeMenu}>{$t('common.see_results')}</ActionButton>
     </div>
   </div>
   <button class="overlay-backdrop" on:click={closeMenu} />

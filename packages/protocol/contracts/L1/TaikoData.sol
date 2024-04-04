@@ -30,22 +30,8 @@ library TaikoData {
         // The amount of Taiko token as a prover liveness bond
         uint96 livenessBond;
         // ---------------------------------------------------------------------
-        // Group 4: ETH deposit related configs
+        // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The size of the ETH deposit ring buffer.
-        uint256 ethDepositRingBufferSize;
-        // The minimum number of ETH deposits allowed per block.
-        uint64 ethDepositMinCountPerBlock;
-        // The maximum number of ETH deposits allowed per block.
-        uint64 ethDepositMaxCountPerBlock;
-        // The minimum amount of ETH required for a deposit.
-        uint96 ethDepositMinAmount;
-        // The maximum amount of ETH allowed for a deposit.
-        uint96 ethDepositMaxAmount;
-        // The gas cost for processing an ETH deposit.
-        uint256 ethDepositGas;
-        // The maximum fee allowed for an ETH deposit.
-        uint256 ethDepositMaxFee;
         // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
         // syncing)
         uint8 blockSyncThreshold;
@@ -150,17 +136,17 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 numEthDeposits;
-        uint64 nextEthDepositToProcess;
+        uint64 __reservedA1;
+        uint64 __reservedA2;
     }
 
     struct SlotB {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool provingPaused;
-        uint8 __reserved1;
-        uint16 __reserved2;
-        uint32 __reserved3;
+        uint8 __reservedB1;
+        uint16 __reservedB2;
+        uint32 __reservedB3;
         uint64 lastUnpausedAt;
     }
 
@@ -176,7 +162,7 @@ library TaikoData {
                 => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
         // Ring buffer for Ether deposits
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositAmount) ethDeposits;
+        bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
         uint256[44] __gap;
