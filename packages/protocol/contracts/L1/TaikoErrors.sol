@@ -21,14 +21,14 @@ abstract contract TaikoErrors {
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_PROVER();
+    error L1_INVALID_SIG();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
+    error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_PROPOSER_NOT_EOA();
     error L1_PROVING_PAUSED();
     error L1_RECEIVE_DISABLED();
-    error L1_MISSING_VERIFIER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_TIERS();
     error L1_TRANSITION_ID_ZERO();
