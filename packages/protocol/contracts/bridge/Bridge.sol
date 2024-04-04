@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
@@ -13,6 +14,7 @@ import "./IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
     using Address for address;
+    using LibMath for uint256;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -190,7 +192,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + receivedAt) {
+        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
@@ -262,7 +264,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + receivedAt) {
+        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
@@ -644,6 +646,19 @@ contract Bridge is EssentialContract, IBridge {
             return true;
         } catch {
             return false;
+        }
+    }
+
+    function _isPostInvocationDelay(
+        uint256 _receivedAt,
+        uint256 _invocationDelay
+    )
+        private
+        view
+        returns (bool)
+    {
+        unchecked {
+            return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
         }
     }
 }
