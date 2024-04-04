@@ -23,7 +23,6 @@ import "../contracts/L2/DelegateOwner.sol";
 
 import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
-import "../contracts/team/airdrop/ERC20Airdrop2.sol";
 import "../contracts/team/airdrop/ERC721Airdrop.sol";
 
 import "../test/common/erc20/FreeMintERC20.sol";
