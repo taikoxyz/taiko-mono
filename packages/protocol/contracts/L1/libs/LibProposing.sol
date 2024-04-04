@@ -137,7 +137,6 @@ library LibProposing {
             // the node to extract the calldata easily.
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
-
             if (
                 _checkEOAForCalldataDA
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
