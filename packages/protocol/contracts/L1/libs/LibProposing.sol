@@ -58,7 +58,7 @@ library LibProposing {
         IAddressResolver _resolver,
         bytes calldata _data,
         bytes calldata _txList,
-        bool _skipCalldataEOACheck
+        bool _checkEOAForCalldataDA
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
@@ -139,7 +139,7 @@ library LibProposing {
             // 7645: Alias ORIGIN to SENDER
 
             if (
-                !_skipCalldataEOACheck
+                _checkEOAForCalldataDA
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();

@@ -13,8 +13,8 @@ contract TaikoL1Tiers is TaikoL1 {
         config.livenessBond = 1e18; // 1 Taiko token
     }
 
-    function _skipCalldataEOACheck() internal pure override returns (bool) {
-        return true;
+    function _checkEOAForCalldataDA() internal pure override returns (bool) {
+        return false;
     }
 }
 

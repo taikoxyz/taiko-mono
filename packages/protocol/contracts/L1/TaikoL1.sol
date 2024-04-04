@@ -79,7 +79,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     {
         TaikoData.Config memory config = getConfig();
         (meta_, deposits_) = LibProposing.proposeBlock(
-            state, config, this, _params, _txList, _skipCalldataEOACheck()
+            state, config, this, _params, _txList, _checkEOAForCalldataDA()
         );
 
         if (!state.slotB.provingPaused) {
@@ -216,7 +216,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         onlyFromOwnerOrNamed("chain_pauser")
     { }
 
-    function _skipCalldataEOACheck() internal pure virtual returns (bool) {
-        return false;
+    function _checkEOAForCalldataDA() internal pure virtual returns (bool) {
+        return true;
     }
 }
