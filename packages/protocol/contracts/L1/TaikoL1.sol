@@ -34,7 +34,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibVerifying.emitEventForClient(state);
     }
 
-    /// @dev Fallback function to receive Ether from Hooks
+    /// @dev Allows for receiving Ether from Hooks
     receive() external payable {
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
