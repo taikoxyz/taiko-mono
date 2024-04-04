@@ -58,6 +58,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SUSPENDED();
     error B_MESSAGE_SUSPENDED();
     error B_NON_RETRIABLE();
+    error B_NOT_ENOUGH_GASLEFT();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
@@ -284,9 +285,25 @@ contract Bridge is EssentialContract, IBridge {
                 refundAmount = _message.value;
                 _updateMessageStatus(msgHash, Status.DONE);
             } else {
-                // Use the remaining gas if called by a the destOwner, else
-                // use the specified gas limit.
-                uint256 gasLimit = msg.sender == _message.destOwner ? gasleft() : _message.gasLimit;
+                uint256 gasLimit;
+                if (msg.sender == _message.destOwner) {
+                    // Use the remaining gas if called by a the destOwner, else
+                    // use the specified gas limit.
+                    gasLimit = gasleft();
+                } else {
+                    // The "1/64th rule" refers to the gasleft at the time the call is made. When a
+                    // contract makes a call to another contract, it can only forward 63/64 of the
+                    // gas remaining (gasleft) at that moment, ensuring that there is always some
+                    // gas reserved for the calling contract to complete its execution after the
+                    // called contract finishes. This does not necessarily relate to the gas amount
+                    // specified in the call itself, but rather to the actual remaining gas at the
+                    // time of the call.
+                    //
+                    // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+                    if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+
+                    gasLimit = _message.gasLimit;
+                }
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
