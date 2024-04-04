@@ -119,7 +119,7 @@ contract AssignmentHook is EssentialContract, IHook {
             // Note that this payment may fail if it cost more gas
             bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
             if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
-        } else {
+        } else if (proverFee != 0) {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
                 _meta.sender, _blk.assignedProver, proverFee

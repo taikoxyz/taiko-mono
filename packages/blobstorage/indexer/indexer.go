@@ -3,12 +3,8 @@ package indexer
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"sync"
 	"time"
 
@@ -27,18 +23,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/blobstorage/pkg/utils"
 )
 
-type Response struct {
-	Data []struct {
-		Index            string `json:"index"`
-		Blob             string `json:"blob"`
-		KzgCommitment    string `json:"kzg_commitment"`
-		KzgCommitmentHex []byte `json:"-"`
-	} `json:"data"`
-}
-
 // Indexer struct holds the configuration and state for the Ethereum chain listener.
 type Indexer struct {
-	beaconURL                string
 	ethClient                *ethclient.Client
 	startHeight              *uint64
 	taikoL1                  *taikol1.TaikoL1
@@ -48,6 +34,7 @@ type Indexer struct {
 	wg                       *sync.WaitGroup
 	ctx                      context.Context
 	latestIndexedBlockNumber uint64
+	beaconClient             *BeaconClient
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -81,15 +68,21 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
+	l1BeaconClient, err := NewBeaconClient(cfg, utils.DefaultTimeout)
+	if err != nil {
+		return err
+	}
+
 	i.blobHashRepo = blobHashRepo
 	i.ethClient = client
-	i.beaconURL = cfg.BeaconURL
 	i.taikoL1 = taikoL1
 	i.startHeight = cfg.StartingBlockID
 	i.db = db
 	i.wg = &sync.WaitGroup{}
 	i.ctx = ctx
 	i.cfg = cfg
+
+	i.beaconClient = l1BeaconClient
 
 	return nil
 }
@@ -291,31 +284,23 @@ func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockPro
 }
 
 func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	slog.Info("blockProposed event found", "blockID", event.Meta.L1Height+1, "emittedIn", event.Raw.BlockNumber, "blobUsed", event.Meta.BlobUsed)
+	blockID, err := i.beaconClient.timeToSlot(event.Meta.Timestamp)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("blockProposed event found", "blockID", blockID, "emittedIn", event.Raw.BlockNumber, "blobUsed", event.Meta.BlobUsed)
 
 	if !event.Meta.BlobUsed {
 		return nil
 	}
 
-	blockID := event.Meta.L1Height + 1
-	url := fmt.Sprintf("%s/%v", i.beaconURL, blockID)
-	response, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
+	blobsResponse, err := i.beaconClient.getBlobs(ctx, blockID)
 	if err != nil {
 		return err
 	}
 
-	var responseData Response
-	if err := json.Unmarshal(body, &responseData); err != nil {
-		return err
-	}
-
-	for _, data := range responseData.Data {
+	for _, data := range blobsResponse.Data {
 		data.KzgCommitmentHex = common.FromHex(data.KzgCommitment)
 
 		metaBlobHash := common.BytesToHash(event.Meta.BlobHash[:])

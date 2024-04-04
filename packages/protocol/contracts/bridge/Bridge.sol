@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
@@ -13,6 +14,7 @@ import "./IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
     using Address for address;
+    using LibMath for uint256;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -32,18 +34,18 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Slot 2.
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
-    /// @dev Slots 3, 4, and 5.
+    /// @dev Slots 3 and 4
     Context private __ctx;
 
     /// @notice Mapping to store banned addresses.
-    /// @dev Slot 6.
-    mapping(address addr => bool banned) public addressBanned;
+    /// @dev Slot 5.
+    uint256 private __reserved1;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
-    /// @dev Slot 7.
+    /// @dev Slot 6.
     mapping(bytes32 msgHash => ProofReceipt receipt) public proofReceipt;
 
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -111,23 +113,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Ban or unban an address. A banned addresses will not be invoked upon
-    /// with message calls.
-    /// @dev Do not make this function `nonReentrant`, this breaks {DelegateOwner} support.
-    /// @param _addr The address to ban or unban.
-    /// @param _ban True if ban, false if unban.
-    function banAddress(
-        address _addr,
-        bool _ban
-    )
-        external
-        onlyFromOwnerOrNamed("bridge_watchdog")
-    {
-        if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
-        addressBanned[_addr] = _ban;
-        emit AddressBanned(_addr, _ban);
-    }
-
     /// @inheritdoc IBridge
     function sendMessage(Message calldata _message)
         external
@@ -164,8 +149,8 @@ contract Bridge is EssentialContract, IBridge {
 
         msgHash_ = hashMessage(message_);
 
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
         emit MessageSent(msgHash_, message_);
+        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
@@ -208,7 +193,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + receivedAt) {
+        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
@@ -280,7 +265,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + receivedAt) {
+        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
@@ -293,7 +278,7 @@ contract Bridge is EssentialContract, IBridge {
             // Process message differently based on the target address
             if (
                 _message.to == address(0) || _message.to == address(this)
-                    || _message.to == signalService || addressBanned[_message.to]
+                    || _message.to == signalService
             ) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
@@ -493,16 +478,11 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return invocationDelay_ The minimal delay in second before a message can be executed since
-    /// and the time it was received on the this chain.
-    /// @return invocationExtraDelay_ The extra delay in second (to be added to invocationDelay) if
-    /// the transactor is not the preferredExecutor who proved this message.
-    function getInvocationDelays()
-        public
-        view
-        virtual
-        returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
-    {
+    /// @return The minimal delay in second before a message can be executed since and the time it
+    /// was received on the this chain.
+    /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
+    /// the preferredExecutor who proved this message.
+    function getInvocationDelays() public view virtual returns (uint256, uint256) {
         if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
             // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
@@ -683,6 +663,19 @@ contract Bridge is EssentialContract, IBridge {
             return true;
         } catch {
             return false;
+        }
+    }
+
+    function _isPostInvocationDelay(
+        uint256 _receivedAt,
+        uint256 _invocationDelay
+    )
+        private
+        view
+        returns (bool)
+    {
+        unchecked {
+            return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
         }
     }
 }

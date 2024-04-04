@@ -27,7 +27,6 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
   import { fetchBalance, tokens, TokenType } from '$libs/token';
-  import { ETHToken } from '$libs/token';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -131,7 +130,6 @@
     try {
       let maxAmount;
       if ($tokenBalance) {
-        // $enteredAmount = $tokenBalance.value;
         maxAmount = await getMaxAmountToBridge({
           to: $account.address,
           token: $selectedToken,
@@ -154,20 +152,19 @@
   };
 
   const reset = async () => {
-    $selectedToken = ETHToken;
+    log('reset');
     $computingBalance = true;
     value = '';
     $enteredAmount = 0n;
     if ($account && $account.address && $account?.isConnected) {
       validateAmount($selectedToken);
       refreshUserBalance();
-      if ($selectedToken && $selectedToken.type !== TokenType.ETH)
+      if ($selectedToken)
         $tokenBalance = await fetchBalance({
           userAddress: $account.address,
           token: $selectedToken,
           srcChainId: $connectedSourceChain?.id,
         });
-
       previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';
