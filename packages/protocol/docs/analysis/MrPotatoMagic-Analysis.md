@@ -112,7 +112,7 @@ Eventually, after the best tier i.e. highest tier proof (ZK proof) is solid and 
 - Abstraction of special if-else code into a tier-based proof system makes the developers aware that the team cannot just shut down the chain uasing guardian prover and does not have control over it.
 - Taiko has 3 types of bonds - validity bonds, contestation bonds and liveness bonds. We've spoken about the first two. Liveness bonds are basically, le's say, I have a prover off-chain and this prover is supposed to submit the proof within 15 minutes, then if the prover does not submit the proof in that time, then the prover's liveness bond is burnt.
 - As an app dev, you can always change your config a long way. You can just use one layer-1 transaction to go from 100% optimistic to 100% ZK rollup.
-- As ZK becomes more trustworthy, the team will slowly increase the % to ZK unitl they become fully ZK and remove the guardian prover.
+- As ZK becomes more trustworthy, the team will slowly increase the % to ZK until they become fully ZK and remove the guardian prover.
 
 5. Cooldown window for validity proofs
 

@@ -764,7 +764,7 @@ Overall, I'm excited to see where the Taiko project will go, and I'm confident t
 | Preparation of report     | 10                 |
 | Total time spent          | 70                 |
 
-## 13. Refrences
+## 13. References
 
 - https://github.com/code-423n4/2024-03-taiko
 - https://docs.taiko.xyz/start-here/getting-started

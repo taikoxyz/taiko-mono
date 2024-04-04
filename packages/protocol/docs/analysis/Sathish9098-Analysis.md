@@ -184,7 +184,7 @@ The `LibProposing` library is part of the `Taiko protocol`, designed for handlin
 
 - `proposeBlock(TaikoData.State storage _state, TaikoData.Config memory _config, IAddressResolver _resolver, bytes calldata _data, bytes calldata _txList) internal returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)` : The proposeBlock function allows a participant (typically a block proposer or validator) to propose a new block for the Taiko L2 chain. This is integral for the progression and updating of the blockchain's state.
 
-#### Secuirty Considerations from proposeBlock() function
+#### Security Considerations from proposeBlock() function
 
 1. The function relies on `_isProposerPermitted` for validating whether the caller can propose a block. If this internal validation relies solely on address checking without additional security measures (e.g., `signatures` or `multi-factor authentication`), it might be susceptible to address spoofing or impersonation attacks.
 2. The function has logic for reusing blobs identified by `params.blobHash`. The logic for determining blob reusability (`isBlobReusable`) is flawed or if the reuse conditions are `too lenient`, it could lead to the reuse of `outdated` or incorrect `blob data`, affecting data integrity.
