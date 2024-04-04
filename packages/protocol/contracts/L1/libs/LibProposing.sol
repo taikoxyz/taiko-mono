@@ -132,6 +132,8 @@ library LibProposing {
         } else {
             // This function must be called as the outmost transaction (not an internal one) for
             // the node to extract the calldata easily.
+            // Warning, this code will break after the Pectra hardfork with EIP 7645: Alias ORIGIN
+            // to SENDER
             if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
 
             meta_.blobHash = keccak256(_txList);

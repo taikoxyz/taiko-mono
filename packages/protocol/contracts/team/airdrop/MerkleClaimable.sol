@@ -28,6 +28,7 @@ abstract contract MerkleClaimable is EssentialContract {
 
     error CLAIM_NOT_ONGOING();
     error CLAIMED_ALREADY();
+    error INVALID_PARAMS();
     error INVALID_PROOF();
 
     modifier ongoingClaim() {
@@ -88,6 +89,8 @@ abstract contract MerkleClaimable is EssentialContract {
     }
 
     function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
+        if (_claimStart > _claimEnd) revert INVALID_PARAMS();
+
         claimStart = _claimStart;
         claimEnd = _claimEnd;
         merkleRoot = _merkleRoot;

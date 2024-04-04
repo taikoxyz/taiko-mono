@@ -64,14 +64,14 @@ contract AssignmentHook is EssentialContract, IHook {
 
     /// @inheritdoc IHook
     function onBlockProposed(
-        TaikoData.Block memory _blk,
-        TaikoData.BlockMetadata memory _meta,
-        bytes memory _data
+        TaikoData.Block calldata _blk,
+        TaikoData.BlockMetadata calldata _meta,
+        bytes calldata _data
     )
         external
         payable
-        nonReentrant
         onlyFromNamed("taiko")
+        nonReentrant
     {
         // Note that
         // - 'msg.sender' is the TaikoL1 contract address
@@ -94,8 +94,9 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Hash the assignment with the blobHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        address taikoL1Address = msg.sender;
-        bytes32 hash = hashAssignment(assignment, taikoL1Address, _meta.blobHash);
+
+        // msg.sender is taikoL1Address
+        bytes32 hash = hashAssignment(assignment, msg.sender, _meta.blobHash);
 
         if (!_blk.assignedProver.isValidSignatureNow(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
@@ -107,7 +108,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
         // as `assignedProver` has provided a signature above to authorize this hook.
-        tko.safeTransferFrom(_blk.assignedProver, taikoL1Address, _blk.livenessBond);
+        tko.safeTransferFrom(_blk.assignedProver, msg.sender, _blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, _meta.minTier);
@@ -133,7 +134,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Send all remaining Ether back to TaikoL1 contract
         if (address(this).balance != 0) {
-            taikoL1Address.sendEtherAndVerify(address(this).balance);
+            msg.sender.sendEtherAndVerify(address(this).balance);
         }
 
         emit BlockAssigned(_blk.assignedProver, _meta, assignment);
