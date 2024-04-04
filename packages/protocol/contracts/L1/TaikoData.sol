@@ -161,7 +161,7 @@ library TaikoData {
             ) transitions;
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositAmount)
-            __depreatedEthDeposits;
+            __deprecatedEthDeposits;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
         uint256[44] __gap;
