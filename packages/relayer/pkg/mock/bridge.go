@@ -108,18 +108,6 @@ func (b *Bridge) ProcessMessage(
 	return ProcessMessageTx, nil
 }
 
-func (b *Bridge) ProveMessageReceived(
-	opts *bind.CallOpts,
-	_message bridge.IBridgeMessage,
-	_proof []byte,
-) (bool, error) {
-	if _message.Id.Uint64() == SuccessId.Uint64() {
-		return true, nil
-	}
-
-	return false, nil
-}
-
 func (b *Bridge) ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, error) {
 	return &bridge.BridgeMessageSent{}, nil
 }

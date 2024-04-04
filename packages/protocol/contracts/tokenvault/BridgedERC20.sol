@@ -76,7 +76,7 @@ contract BridgedERC20 is
 
     /// @notice Set the snapshoter address.
     /// @param _snapshooter snapshooter address.
-    function setSnapshoter(address _snapshooter) external onlyOwner {
+    function setSnapshooter(address _snapshooter) external onlyOwner {
         snapshooter = _snapshooter;
     }
 
@@ -121,7 +121,7 @@ contract BridgedERC20 is
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
-    function canonical() public view returns (address, uint256) {
+    function canonical() external view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 

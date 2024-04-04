@@ -106,6 +106,23 @@ interface ISignalService {
     )
         external;
 
+    /// @notice Verifies if a signal has been received on the target chain.
+    /// This is the "readonly" version of proveSignalReceived.
+    /// @param _chainId The identifier for the source chain from which the
+    /// signal originated.
+    /// @param _app The address that initiated the signal.
+    /// @param _signal The signal (message) to send.
+    /// @param _proof Merkle proof that the signal was persisted on the
+    /// source chain.
+    function verifySignalReceived(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal,
+        bytes calldata _proof
+    )
+        external
+        view;
+
     /// @notice Verifies if a particular signal has already been sent.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.

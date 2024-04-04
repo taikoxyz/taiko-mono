@@ -98,7 +98,9 @@ library LibUtils {
         view
         returns (bool)
     {
-        uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
-        return block.timestamp >= deadline;
+        unchecked {
+            uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
+            return block.timestamp >= deadline;
+        }
     }
 }

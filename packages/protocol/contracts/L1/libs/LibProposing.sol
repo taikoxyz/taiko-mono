@@ -2,11 +2,8 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
-import "../TaikoData.sol";
 import "./LibDepositing.sol";
 
 /// @title LibProposing
@@ -35,7 +32,6 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_HOOK();
-    error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
@@ -88,10 +84,10 @@ library LibProposing {
 
         bytes32 parentMetaHash =
             _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
+        // assert(parentMetaHash != 0);
 
-        // Check if parent block has the right meta hash
-        // This is to allow the proposer to make sure the block builds on the expected latest chain
-        // state
+        // Check if parent block has the right meta hash. This is to allow the proposer to make sure
+        // the block builds on the expected latest chain state.
         if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
@@ -235,8 +231,8 @@ library LibProposing {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
             address proposerOne = _resolver.resolve("proposer_one", true);
-            if (proposerOne != address(0) && msg.sender != proposerOne) {
-                return false;
+            if (proposerOne != address(0)) {
+                return msg.sender == proposerOne;
             }
         }
 

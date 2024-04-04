@@ -85,7 +85,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _signal,
         bytes calldata _proof
     )
-        public
+        external
         virtual
         validSender(_app)
         nonZeroValue(_signal)
@@ -119,6 +119,59 @@ contract SignalService is EssentialContract, ISignalService {
             bool isFullProof = hop.accountProof.length != 0;
 
             _cacheChainData(hop, chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
+
+            bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
+            signal = signalForChainData(chainId, kind, hop.blockId);
+            value = hop.rootHash;
+            chainId = hop.chainId;
+            app = signalService;
+        }
+
+        if (value == 0 || value != _loadSignalValue(address(this), signal)) {
+            revert SS_SIGNAL_NOT_FOUND();
+        }
+    }
+
+    /// @inheritdoc ISignalService
+    /// @dev This function may revert.
+    function verifySignalReceived(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal,
+        bytes calldata _proof
+    )
+        external
+        view
+        validSender(_app)
+        nonZeroValue(_signal)
+    {
+        HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
+        if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
+
+        uint64 chainId = _chainId;
+        address app = _app;
+        bytes32 signal = _signal;
+        bytes32 value = _signal;
+        address signalService = resolve(chainId, "signal_service", false);
+
+        HopProof memory hop;
+        for (uint256 i; i < hopProofs.length; ++i) {
+            hop = hopProofs[i];
+
+            _verifyHopProof(chainId, app, signal, value, hop, signalService);
+            bool isLastHop = i == hopProofs.length - 1;
+
+            if (isLastHop) {
+                if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
+                signalService = address(this);
+            } else {
+                if (hop.chainId == 0 || hop.chainId == block.chainid) {
+                    revert SS_INVALID_MID_HOP_CHAINID();
+                }
+                signalService = resolve(hop.chainId, "signal_service", false);
+            }
+
+            bool isFullProof = hop.accountProof.length != 0;
 
             bytes32 kind = isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT;
             signal = signalForChainData(chainId, kind, hop.blockId);
@@ -211,6 +264,7 @@ contract SignalService is EssentialContract, ISignalService {
         address _signalService
     )
         internal
+        view
         virtual
         validSender(_app)
         nonZeroValue(_signal)
