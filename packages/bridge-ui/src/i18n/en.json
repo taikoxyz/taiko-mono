@@ -246,7 +246,8 @@
     "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
-    "token_standard": "Token standard"
+    "token_standard": "Token standard",
+    "see_results": "See results"
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
@@ -564,5 +565,9 @@
       "connecting": "Connecting",
       "disconnected": "Disconnected"
     }
+  },
+  "paginator": {
+    "page": "Page",
+    "of": "of"
   }
 }

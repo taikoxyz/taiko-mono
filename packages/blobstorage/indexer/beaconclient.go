@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 var (
@@ -63,6 +65,8 @@ func NewBeaconClient(cfg *Config, timeout time.Duration) (*BeaconClient, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	slog.Info("beaconClientInfo", "secondsPerSlot", secondsPerSlotUint64, "genesisTime", genesisTime)
 
 	return &BeaconClient{
 		beaconURL:      cfg.BeaconURL,
