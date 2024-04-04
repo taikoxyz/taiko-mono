@@ -51,7 +51,8 @@
       max={totalPages}
       on:keydown={handleKeydown}
       on:blur={() => goToPage(currentPage)} />
-    {$t('paginator.of')} {totalPages}
+    {$t('paginator.of')}
+    {totalPages}
     <!-- Button to go to next page -->
     {#if !isLastPage}
       <button class={btnClass} on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
