@@ -54,7 +54,7 @@ library LibVerifying {
         TaikoData.Config memory _config,
         bytes32 _genesisBlockHash
     )
-        external
+        internal
     {
         if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
 
@@ -266,16 +266,6 @@ library LibVerifying {
                 || _config.blockMaxProposals == 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
                 || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
-                || _config.ethDepositRingBufferSize <= 1 || _config.ethDepositMinCountPerBlock == 0
-            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
-            // TaikoL1.sol) costs 72_502 gas.
-            || _config.ethDepositMaxCountPerBlock > 32
-                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
-                || _config.ethDepositMinAmount == 0
-                || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
-                || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
-                || _config.ethDepositMaxFee == 0
-                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;

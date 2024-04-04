@@ -29,7 +29,7 @@ library LibUtils {
         uint64 _blockId,
         bytes32 _parentHash
     )
-        external
+        internal
         view
         returns (TaikoData.TransitionState storage)
     {
@@ -57,7 +57,7 @@ library LibUtils {
         TaikoData.Config memory _config,
         uint64 _blockId
     )
-        external
+        internal
         view
         returns (TaikoData.Block storage blk_, uint64 slot_)
     {
