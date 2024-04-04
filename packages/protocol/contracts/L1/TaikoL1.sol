@@ -211,7 +211,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1e17, //0.1 ether,
-            blockSyncThreshold: 16
+            blockSyncThreshold: 16,
+            onlyEOACanUseCalldataForDA: false
         });
     }
 
