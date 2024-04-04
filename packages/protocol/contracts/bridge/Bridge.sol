@@ -300,9 +300,9 @@ contract Bridge is EssentialContract, IBridge {
                     // time of the call.
                     //
                     // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+                    if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
 
                     gasLimit = _message.gasLimit;
-                    if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
                 }
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
