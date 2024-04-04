@@ -204,10 +204,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         });
     }
 
-    function _skipCalldataEOACheck() internal pure virtual returns (bool) {
-        return false;
-    }
-
     /// @dev chain_pauser is supposed to be a cold wallet.
     function _authorizePause(
         address,
@@ -219,4 +215,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         override
         onlyFromOwnerOrNamed("chain_pauser")
     { }
+
+    function _skipCalldataEOACheck() internal pure virtual returns (bool) {
+        return false;
+    }
 }
