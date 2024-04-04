@@ -55,6 +55,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
+    function init2() external reinitializer(2) {
+        // reset some previously used slots for future reuse
+        state.slotA.__reservedA1 = 0;
+        state.slotA.__reservedA2 = 0;
+        state.slotB.__reservedB1 = 0;
+        state.slotB.__reservedB2 = 0;
+        state.slotB.__reservedB3 = 0;
+        state.__reserve1 = 0;
+    }
+
     /// @inheritdoc ITaikoL1
     function proposeBlock(
         bytes calldata _params,
