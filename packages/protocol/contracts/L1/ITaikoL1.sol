@@ -10,6 +10,7 @@ interface ITaikoL1 {
     /// @param _params Block parameters, currently an encoded BlockParams object.
     /// @param _txList txList data if calldata is used for DA.
     /// @return meta_ The metadata of the proposed L2 block.
+    /// @return deposits_ The Ether deposits processed.
     function proposeBlock(
         bytes calldata _params,
         bytes calldata _txList
