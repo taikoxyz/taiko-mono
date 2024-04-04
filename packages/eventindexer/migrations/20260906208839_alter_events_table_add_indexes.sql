@@ -8,8 +8,9 @@ ADD INDEX `event_tier_index` (`event`, `tier`);
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP INDEX event_transacted_at_tier_index on events,
-event_transacted_at_index on events,
-event_block_id_index on events,
-event_tier_index on events;
+ALTER TABLE events 
+  DROP INDEX event_transacted_at_tier_index,
+  DROP INDEX event_transacted_at_index,
+  DROP INDEX event_block_id_index,
+  DROP INDEX event_tier_index;
 -- +goose StatementEnd

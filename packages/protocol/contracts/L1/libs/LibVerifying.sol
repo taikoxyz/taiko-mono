@@ -4,11 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
-import "../TaikoData.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -70,6 +68,7 @@ library LibVerifying {
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
         blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
         TaikoData.TransitionState storage ts = _state.transitions[0][1];

@@ -1,5 +1,13 @@
+[default]
+# False positives
+extend-ignore-identifiers-re = [
+  "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+]
+
 [files]
 extend-exclude = [
+  "*.png",
+  "*.svg",
   "CHANGELOG.md",
   "packages/protocol/contracts/automata-attestation/**",
   "packages/protocol/contracts/thirdparty/**",

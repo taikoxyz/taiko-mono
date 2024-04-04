@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../L1/TaikoData.sol";
+import "../L1/tiers/ITierProvider.sol";
 import "./IVerifier.sol";
 
 /// @title GuardianVerifier
@@ -10,7 +10,8 @@ import "./IVerifier.sol";
 contract GuardianVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
-    error PERMISSION_DENIED();
+    error GV_INVALID_PROOF();
+    error GV_PERMISSION_DENIED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -23,13 +24,17 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata,
-        TaikoData.TierProof calldata
+        TaikoData.TierProof calldata _proof
     )
         external
         view
     {
+        if (_proof.tier != LibTiers.TIER_GUARDIAN) {
+            revert GV_INVALID_PROOF();
+        }
+
         if (_ctx.msgSender != resolve("guardian_prover", false)) {
-            revert PERMISSION_DENIED();
+            revert GV_PERMISSION_DENIED();
         }
     }
 }

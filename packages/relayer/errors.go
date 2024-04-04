@@ -27,8 +27,4 @@ var (
 	)
 	ErrInvalidMode  = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
 	ErrUnprofitable = errors.Validation.NewWithKeyAndDetail("ERR_UNPROFITABLE", "Transaction is unprofitable to process")
-	ErrNotReceived  = errors.BadRequest.NewWithKeyAndDetail(
-		"ERR_NOT_RECEIVED",
-		"Message not received on destination chain",
-	)
 )

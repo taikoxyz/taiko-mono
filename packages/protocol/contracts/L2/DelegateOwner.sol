@@ -83,7 +83,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         emit TransactionExecuted(nextTxId++, target, bytes4(txdata));
     }
 
-    function acceptOwnership(address target) public {
+    function acceptOwnership(address target) external {
         Ownable2StepUpgradeable(target).acceptOwnership();
         emit OwnershipAccepted(target);
     }

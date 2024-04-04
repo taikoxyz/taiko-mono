@@ -209,26 +209,6 @@
             "internalType": "uint32"
           },
           {
-            "name": "blockMaxTxListBytes",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "blobExpiry",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "blobAllowedForDA",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "blobReuseEnabled",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "livenessBond",
             "type": "uint96",
             "internalType": "uint96"
@@ -456,25 +436,6 @@
   },
   {
     "type": "function",
-    "name": "isBlobReusable",
-    "inputs": [
-      {
-        "name": "_blobHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "owner",
     "inputs": [],
     "outputs": [
@@ -602,16 +563,6 @@
             "name": "l1Height",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "txListByteOffset",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "txListByteSize",
-            "type": "uint24",
-            "internalType": "uint24"
           },
           {
             "name": "minTier",
@@ -926,32 +877,6 @@
   },
   {
     "type": "event",
-    "name": "BlobCached",
-    "inputs": [
-      {
-        "name": "blobHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "BlobCached",
-    "inputs": [
-      {
-        "name": "blobHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "BlockProposed",
     "inputs": [
       {
@@ -1027,16 +952,6 @@
             "name": "l1Height",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "txListByteOffset",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "txListByteSize",
-            "type": "uint24",
-            "internalType": "uint24"
           },
           {
             "name": "minTier",
@@ -1163,16 +1078,6 @@
             "name": "l1Height",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "txListByteOffset",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "txListByteSize",
-            "type": "uint24",
-            "internalType": "uint24"
           },
           {
             "name": "minTier",
@@ -1453,6 +1358,106 @@
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StateVariablesUpdated",
+    "inputs": [
+      {
+        "name": "slotB",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct TaikoData.SlotB",
+        "components": [
+          {
+            "name": "numBlocks",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "lastVerifiedBlockId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "provingPaused",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "__reserved1",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "__reserved2",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "__reserved3",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "lastUnpausedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StateVariablesUpdated",
+    "inputs": [
+      {
+        "name": "slotB",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct TaikoData.SlotB",
+        "components": [
+          {
+            "name": "numBlocks",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "lastVerifiedBlockId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "provingPaused",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "__reserved1",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "__reserved2",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "__reserved3",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "lastUnpausedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
       }
     ],
     "anonymous": false
@@ -1761,17 +1766,12 @@
   },
   {
     "type": "error",
-    "name": "L1_BLOB_FOR_DA_DISABLED",
+    "name": "L1_BLOB_NOT_AVAILABLE",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "L1_BLOB_FOR_DA_DISABLED",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_BLOB_NOT_FOUND",
+    "name": "L1_BLOB_NOT_AVAILABLE",
     "inputs": []
   },
   {
@@ -1781,22 +1781,7 @@
   },
   {
     "type": "error",
-    "name": "L1_BLOB_NOT_REUSABLE",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_BLOB_NOT_REUSABLE",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_BLOB_REUSE_DISABLED",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_BLOB_REUSE_DISABLED",
+    "name": "L1_BLOB_NOT_FOUND",
     "inputs": []
   },
   {
@@ -1812,6 +1797,11 @@
   {
     "type": "error",
     "name": "L1_BLOCK_MISMATCH",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_CANNOT_CONTEST",
     "inputs": []
   },
   {
@@ -1847,11 +1837,6 @@
   {
     "type": "error",
     "name": "L1_INVALID_HOOK",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_INVALID_PARAM",
     "inputs": []
   },
   {
@@ -1972,21 +1957,6 @@
   {
     "type": "error",
     "name": "L1_TRANSITION_NOT_FOUND",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_TXLIST_OFFSET",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_TXLIST_SIZE",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_TXLIST_SIZE",
     "inputs": []
   },
   {

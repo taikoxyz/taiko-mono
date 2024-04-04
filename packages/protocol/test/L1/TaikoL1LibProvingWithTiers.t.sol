@@ -624,7 +624,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 stateRoot,
                 LibTiers.TIER_GUARDIAN,
-                GuardianVerifier.PERMISSION_DENIED.selector
+                GuardianVerifier.GV_PERMISSION_DENIED.selector
             );
 
             vm.roll(block.number + 15 * 12);
