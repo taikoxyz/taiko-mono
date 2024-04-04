@@ -84,10 +84,10 @@ library LibProposing {
 
         bytes32 parentMetaHash =
             _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
+        // assert(parentMetaHash != 0);
 
-        // Check if parent block has the right meta hash
-        // This is to allow the proposer to make sure the block builds on the expected latest chain
-        // state
+        // Check if parent block has the right meta hash. This is to allow the proposer to make sure
+        // the block builds on the expected latest chain state.
         if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
@@ -132,6 +132,8 @@ library LibProposing {
         } else {
             // This function must be called as the outmost transaction (not an internal one) for
             // the node to extract the calldata easily.
+            // Warning, this code will break after the Pectra hardfork with EIP 7645: Alias ORIGIN
+            // to SENDER
             if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
 
             meta_.blobHash = keccak256(_txList);
@@ -158,7 +160,7 @@ library LibProposing {
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
-            proposedIn: uint64(block.number),
+            __reserved1: 0,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.

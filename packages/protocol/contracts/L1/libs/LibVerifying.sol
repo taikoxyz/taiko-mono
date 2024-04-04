@@ -68,6 +68,7 @@ library LibVerifying {
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
         blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
         TaikoData.TransitionState storage ts = _state.transitions[0][1];
@@ -184,14 +185,17 @@ library LibVerifying {
                 // reward to the actual prover, while the assigned prover
                 // forfeits his liveness bond due to failure to fulfill their
                 // commitment.
-                uint256 bondToReturn = uint256(ts.validityBond) + blk.livenessBond;
+                uint256 bondToReturn = ts.validityBond;
 
                 // Nevertheless, it's possible for the actual prover to be the
                 // same individual or entity as the block's assigned prover.
                 // Consequently, we have chosen to grant the actual prover only
                 // half of the liveness bond as a reward.
-                if (ts.prover != blk.assignedProver) {
-                    bondToReturn -= blk.livenessBond >> 1;
+                if (blk.livenessBond != 0) {
+                    // livenessBond could have been returned in proving by guardian
+                    bondToReturn += ts.prover != blk.assignedProver
+                        ? blk.livenessBond >> 1 // half is burnt
+                        : blk.livenessBond;
                 }
 
                 IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));

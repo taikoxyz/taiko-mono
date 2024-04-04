@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
@@ -13,6 +14,7 @@ import "./IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
     using Address for address;
+    using LibMath for uint256;
     using LibAddress for address;
     using LibAddress for address payable;
 
@@ -37,7 +39,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Mapping to store banned addresses.
     /// @dev Slot 5.
-    mapping(address addr => bool banned) public addressBanned;
+    uint256 private __reserved1;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
     /// @dev Slot 6.
@@ -56,6 +58,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SUSPENDED();
     error B_MESSAGE_SUSPENDED();
     error B_NON_RETRIABLE();
+    error B_NOT_ENOUGH_GASLEFT();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
@@ -90,41 +93,23 @@ contract Bridge is EssentialContract, IBridge {
         for (uint256 i; i < _msgHashes.length; ++i) {
             bytes32 msgHash = _msgHashes[i];
 
-            if (_suspend) {
-                if (proofReceipt[msgHash].receivedAt == 0) revert B_MESSAGE_NOT_PROVEN();
-                if (proofReceipt[msgHash].receivedAt == type(uint64).max) {
-                    revert B_MESSAGE_SUSPENDED();
-                }
+            ProofReceipt storage receipt = proofReceipt[msgHash];
+            uint64 _receivedAt = receipt.receivedAt;
 
-                proofReceipt[msgHash].receivedAt = type(uint64).max;
+            if (_suspend) {
+                if (_receivedAt == 0) revert B_MESSAGE_NOT_PROVEN();
+                if (_receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
+
+                receipt.receivedAt = type(uint64).max;
                 emit MessageSuspended(msgHash, true, 0);
             } else {
                 // Note before we set the receivedAt to current timestamp, we have to be really
                 // careful that this message must have been proven then suspended.
-                if (proofReceipt[msgHash].receivedAt != type(uint64).max) {
-                    revert B_MESSAGE_NOT_SUSPENDED();
-                }
-                proofReceipt[msgHash].receivedAt = uint64(block.timestamp);
+                if (_receivedAt != type(uint64).max) revert B_MESSAGE_NOT_SUSPENDED();
+                receipt.receivedAt = uint64(block.timestamp);
                 emit MessageSuspended(msgHash, false, uint64(block.timestamp));
             }
         }
-    }
-
-    /// @notice Ban or unban an address. A banned addresses will not be invoked upon
-    /// with message calls.
-    /// @dev Do not make this function `nonReentrant`, this breaks {DelegateOwner} support.
-    /// @param _addr The address to ban or unban.
-    /// @param _ban True if ban, false if unban.
-    function banAddress(
-        address _addr,
-        bool _ban
-    )
-        external
-        onlyFromOwnerOrNamed("bridge_watchdog")
-    {
-        if (addressBanned[_addr] == _ban) revert B_INVALID_STATUS();
-        addressBanned[_addr] = _ban;
-        emit AddressBanned(_addr, _ban);
     }
 
     /// @inheritdoc IBridge
@@ -132,8 +117,8 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
         // Ensure the message owner is not null.
@@ -173,9 +158,9 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        nonReentrant
         whenNotPaused
         sameChain(_message.srcChainId)
+        nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
 
@@ -207,7 +192,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + receivedAt) {
+        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
@@ -240,9 +225,9 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        nonReentrant
         whenNotPaused
         sameChain(_message.destChainId)
+        nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
@@ -279,7 +264,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + receivedAt) {
+        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
@@ -292,16 +277,32 @@ contract Bridge is EssentialContract, IBridge {
             // Process message differently based on the target address
             if (
                 _message.to == address(0) || _message.to == address(this)
-                    || _message.to == signalService || addressBanned[_message.to]
+                    || _message.to == signalService
             ) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
                 refundAmount = _message.value;
                 _updateMessageStatus(msgHash, Status.DONE);
             } else {
-                // Use the remaining gas if called by a the destOwner, else
-                // use the specified gas limit.
-                uint256 gasLimit = msg.sender == _message.destOwner ? gasleft() : _message.gasLimit;
+                uint256 gasLimit;
+                if (msg.sender == _message.destOwner) {
+                    // Use the remaining gas if called by a the destOwner, else
+                    // use the specified gas limit.
+                    gasLimit = gasleft();
+                } else {
+                    // The "1/64th rule" refers to the gasleft at the time the call is made. When a
+                    // contract makes a call to another contract, it can only forward 63/64 of the
+                    // gas remaining (gasleft) at that moment, ensuring that there is always some
+                    // gas reserved for the calling contract to complete its execution after the
+                    // called contract finishes. This does not necessarily relate to the gas amount
+                    // specified in the call itself, but rather to the actual remaining gas at the
+                    // time of the call.
+                    //
+                    // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+                    if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+
+                    gasLimit = _message.gasLimit;
+                }
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
@@ -336,9 +337,9 @@ contract Bridge is EssentialContract, IBridge {
         bool _isLastAttempt
     )
         external
-        nonReentrant
         whenNotPaused
         sameChain(_message.destChainId)
+        nonReentrant
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.destOwner.
@@ -395,7 +396,7 @@ contract Bridge is EssentialContract, IBridge {
     /// if requested.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return true if the message has failed, false otherwise.
+    /// @return true if the message has been received, false otherwise.
     function proveMessageReceived(
         Message calldata _message,
         bytes calldata _proof
@@ -661,6 +662,19 @@ contract Bridge is EssentialContract, IBridge {
             return true;
         } catch {
             return false;
+        }
+    }
+
+    function _isPostInvocationDelay(
+        uint256 _receivedAt,
+        uint256 _invocationDelay
+    )
+        private
+        view
+        returns (bool)
+    {
+        unchecked {
+            return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
         }
     }
 }
