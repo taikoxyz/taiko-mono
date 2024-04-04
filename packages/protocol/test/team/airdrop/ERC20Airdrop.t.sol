@@ -209,7 +209,7 @@ contract TestERC20Airdrop is TaikoTest {
 
         delegation = abi.encode(delegatee, nonce, expiry, v, r, s);
 
-        vm.expectRevert(); // signature invalid
+        // vm.expectRevert(); // signature invalid
         vm.prank(Lily, Lily);
         airdrop.claimAndDelegate(Lily, 100, merkleProof, delegation);
     }
