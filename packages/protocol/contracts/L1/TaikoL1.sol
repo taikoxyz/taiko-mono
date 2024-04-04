@@ -55,7 +55,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
-    function init2() external reinitializer(2) {
+    function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         state.slotA.__reservedA1 = 0;
         state.slotA.__reservedA2 = 0;
@@ -78,7 +78,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        (meta_, deposits_) = LibProposing.proposeBlock(
+            state, config, this, _params, _txList, _checkEOAForCalldataDA()
+        );
 
         if (!state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
@@ -213,4 +215,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         override
         onlyFromOwnerOrNamed("chain_pauser")
     { }
+
+    function _checkEOAForCalldataDA() internal pure virtual returns (bool) {
+        return true;
+    }
 }
