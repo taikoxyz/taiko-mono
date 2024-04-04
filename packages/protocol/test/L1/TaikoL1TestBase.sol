@@ -143,10 +143,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         uint24 txListSize
     )
         internal
-        returns (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.EthDeposit[] memory depositsProcessed
-        )
+        returns (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory)
     {
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
         // Register the tier fees
