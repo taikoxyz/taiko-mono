@@ -107,10 +107,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         // https://github.com/crytic/slither/wiki/Detector-Documentation#abi-encodePacked-collision
         // The abi.encodePacked() call below takes multiple dynamic arguments. This is known and
         // considered acceptable in terms of risk.
-        return string(
-            abi.encodePacked(
-                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
-            )
+        return string.concat(
+            LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
         );
     }
 
