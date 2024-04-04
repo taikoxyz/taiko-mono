@@ -131,18 +131,13 @@ library LibProposing {
             meta_.blobHash = blobhash(0);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
-           
+            meta_.blobHash = keccak256(_txList);
 
-
-meta_.blobHash = keccak256(_txList);
-
-
- // This function must be called as the outmost transaction (not an internal one) for
+            // This function must be called as the outmost transaction (not an internal one) for
             // the node to extract the calldata easily.
-            // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP 7645: Alias ORIGIN to SENDER
-            
+            // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
+            // 7645: Alias ORIGIN to SENDER
 
-            
             if (
                 _config.onlyEOACanUseCalldataForDA
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
