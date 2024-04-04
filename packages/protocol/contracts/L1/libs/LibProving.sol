@@ -71,7 +71,7 @@ library LibProving {
     /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
     /// @param _pause The pause status.
-    function pauseProving(TaikoData.State storage _state, bool _pause) external {
+    function pauseProving(TaikoData.State storage _state, bool _pause) internal {
         if (_state.slotB.provingPaused == _pause) revert L1_INVALID_PAUSE_STATUS();
         _state.slotB.provingPaused = _pause;
 
