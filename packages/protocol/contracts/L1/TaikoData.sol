@@ -127,7 +127,7 @@ library TaikoData {
         uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number
+        uint64 proposedIn; // L1 block number, required/used by node/client.
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
     }
