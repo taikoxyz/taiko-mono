@@ -158,7 +158,7 @@ library LibProposing {
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
-            proposedIn: uint64(block.number),
+            __reserved1: 0,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
