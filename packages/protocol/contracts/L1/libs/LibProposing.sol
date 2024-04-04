@@ -59,7 +59,7 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta_)
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
 
@@ -210,12 +210,13 @@ library LibProposing {
             }
         }
 
+        deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: _config.livenessBond,
             meta: meta_,
-            depositsProcessed: new TaikoData.EthDeposit[](0)
+            depositsProcessed: deposits_
         });
     }
 

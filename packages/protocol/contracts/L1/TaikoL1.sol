@@ -65,10 +65,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         whenNotPaused
         emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_)
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        meta_ = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
 
         if (!state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
