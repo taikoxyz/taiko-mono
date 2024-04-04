@@ -78,7 +78,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        (meta_, deposits_) = LibProposing.proposeBlock(
+            state, config, this, _params, _txList, _skipCalldataEOACheck()
+        );
 
         if (!state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
@@ -198,9 +200,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // Taiko blocks proposed per Ethereum block is smaller than 1.
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
-            blockSyncThreshold: 16,
-            onlyEOACanUseCalldataForDA: true
+            blockSyncThreshold: 16
         });
+    }
+
+    function _skipCalldataEOACheck() internal pure virtual returns (bool) {
+        return false;
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.

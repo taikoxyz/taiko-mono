@@ -11,7 +11,10 @@ contract TaikoL1Tiers is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
-        config.onlyEOACanUseCalldataForDA = false;
+    }
+
+    function _skipCalldataEOACheck() internal pure override returns (bool) {
+        return true;
     }
 }
 

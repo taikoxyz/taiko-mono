@@ -57,7 +57,8 @@ library LibProposing {
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bool _skipCalldataEOACheck
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
@@ -138,7 +139,7 @@ library LibProposing {
             // 7645: Alias ORIGIN to SENDER
 
             if (
-                _config.onlyEOACanUseCalldataForDA
+                !_skipCalldataEOACheck
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();
