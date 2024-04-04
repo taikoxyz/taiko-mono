@@ -284,18 +284,23 @@ func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockPro
 }
 
 func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	blockID, err := i.beaconClient.timeToSlot(event.Meta.Timestamp)
+	slot, err := i.beaconClient.timeToSlot(event.Meta.Timestamp)
 	if err != nil {
 		return err
 	}
 
-	slog.Info("blockProposed event found", "blockID", blockID, "emittedIn", event.Raw.BlockNumber, "blobUsed", event.Meta.BlobUsed)
+	slog.Info("blockProposed event found",
+		"slot", slot,
+		"emittedIn", event.Raw.BlockNumber,
+		"blobUsed", event.Meta.BlobUsed,
+		"timesStamp", event.Meta.Timestamp,
+	)
 
 	if !event.Meta.BlobUsed {
 		return nil
 	}
 
-	blobsResponse, err := i.beaconClient.getBlobs(ctx, blockID)
+	blobsResponse, err := i.beaconClient.getBlobs(ctx, slot)
 	if err != nil {
 		return err
 	}
@@ -306,15 +311,9 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		metaBlobHash := common.BytesToHash(event.Meta.BlobHash[:])
 		// Comparing the hex strings of meta.blobHash (blobHash)
 		if calculateBlobHash(data.KzgCommitment) == metaBlobHash {
-			blockTs, err := i.getBlockTimestamp(i.cfg.RPCURL, new(big.Int).SetUint64(blockID))
-			if err != nil {
-				slog.Error("error getting block timestamp", "error", err)
-				return err
-			}
+			slog.Info("storing blobHash in db", "blobHash", metaBlobHash.String())
 
-			slog.Info("blockHash", "blobHash", metaBlobHash.String())
-
-			err = i.storeBlobInDB(metaBlobHash.String(), data.KzgCommitment, data.Blob, blockTs, event.BlockId.Uint64(), event.Raw.BlockNumber)
+			err = i.storeBlobInDB(metaBlobHash.String(), data.KzgCommitment, data.Blob, event.BlockId.Uint64(), event.Raw.BlockNumber)
 			if err != nil {
 				slog.Error("Error storing blob in DB", "error", err)
 				return err
@@ -327,13 +326,12 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	return errors.New("BLOB not found")
 }
 
-func (i *Indexer) storeBlobInDB(blobHashInMeta, kzgCommitment, blob string, blockTs uint64, blockID uint64, emittedBlockID uint64) error {
+func (i *Indexer) storeBlobInDB(blobHashInMeta, kzgCommitment, blob string, blockID uint64, emittedBlockID uint64) error {
 	return i.blobHashRepo.Save(blobstorage.SaveBlobHashOpts{
 		BlobHash:       blobHashInMeta,
 		KzgCommitment:  kzgCommitment,
 		BlockID:        blockID,
 		BlobData:       blob,
-		BlockTimestamp: blockTs,
 		EmittedBlockID: emittedBlockID,
 	})
 }

@@ -3,7 +3,6 @@ package blobstorage
 type BlobHash struct {
 	BlobHash       string
 	KzgCommitment  string
-	BlockTimestamp uint64
 	BlobData       string
 	BlockID        uint64
 	EmittedBlockID uint64
@@ -12,7 +11,6 @@ type BlobHash struct {
 type SaveBlobHashOpts struct {
 	BlobHash       string
 	KzgCommitment  string
-	BlockTimestamp uint64
 	BlobData       string
 	BlockID        uint64
 	EmittedBlockID uint64
