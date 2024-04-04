@@ -113,7 +113,7 @@ library TaikoData {
         uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number
+        uint64 __reserved1;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
     }

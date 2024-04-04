@@ -38,9 +38,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         bool _migratingInbound
     )
         external
-        nonReentrant
         whenNotPaused
         onlyFromOwnerOrNamed("erc20_vault")
+        nonReentrant
     {
         if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
             revert BB_INVALID_PARAMS();
@@ -54,13 +54,14 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @notice Mints tokens to the specified account.
     /// @param _account The address of the account to receive the tokens.
     /// @param _amount The amount of tokens to mint.
-    function mint(address _account, uint256 _amount) external nonReentrant whenNotPaused {
+    function mint(address _account, uint256 _amount) external whenNotPaused nonReentrant {
         // mint is disabled while migrating outbound.
         if (_isMigratingOut()) revert BB_MINT_DISALLOWED();
 
-        if (msg.sender == migratingAddress) {
+        address _migratingAddress = migratingAddress;
+        if (msg.sender == _migratingAddress) {
             // Inbound migration
-            emit MigratedTo(migratingAddress, _account, _amount);
+            emit MigratedTo(_migratingAddress, _account, _amount);
         } else if (msg.sender != resolve("erc20_vault", true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
@@ -72,7 +73,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @notice Burns tokens from the specified account.
     /// @param _account The address of the account to burn the tokens from.
     /// @param _amount The amount of tokens to burn.
-    function burn(address _account, uint256 _amount) external nonReentrant whenNotPaused {
+    function burn(address _account, uint256 _amount) external whenNotPaused nonReentrant {
         if (_isMigratingOut()) {
             // Only the owner of the tokens himself can migrate out
             if (msg.sender != _account) revert BB_PERMISSION_DENIED();

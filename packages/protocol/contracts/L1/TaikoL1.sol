@@ -62,8 +62,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     )
         external
         payable
-        nonReentrant
         whenNotPaused
+        nonReentrant
         emitEventForClient
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
@@ -81,9 +81,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         bytes calldata _input
     )
         external
-        nonReentrant
         whenNotPaused
         whenProvingNotPaused
+        nonReentrant
         emitEventForClient
     {
         (
@@ -104,9 +104,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @inheritdoc ITaikoL1
     function verifyBlocks(uint64 _maxBlocksToVerify)
         external
-        nonReentrant
         whenNotPaused
         whenProvingNotPaused
+        nonReentrant
         emitEventForClient
     {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
@@ -186,7 +186,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
-            blockMaxGasLimit: 30_000_000 * 8,
+            blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             blockSyncThreshold: 16
         });

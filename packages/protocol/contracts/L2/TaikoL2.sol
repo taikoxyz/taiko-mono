@@ -143,10 +143,9 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        uint256 basefee;
-        (basefee, gasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
+        (uint256 _basefee, uint64 _gasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
 
-        if (!skipFeeCheck() && block.basefee != basefee) {
+        if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
@@ -161,13 +160,15 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Update state variables
-        l2Hashes[parentId] = blockhash(parentId);
+        bytes32 _parentHash = blockhash(parentId);
+        l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
 
         parentTimestamp = __currentBlockTimestamp;
         __currentBlockTimestamp = uint64(block.timestamp);
+        gasExcess = _gasExcess;
 
-        emit Anchored(blockhash(parentId), gasExcess);
+        emit Anchored(_parentHash, _gasExcess);
     }
 
     /// @notice Withdraw token or Ether from this address
@@ -178,9 +179,9 @@ contract TaikoL2 is EssentialContract {
         address _to
     )
         external
+        whenNotPaused
         onlyFromOwnerOrNamed("withdrawer")
         nonReentrant
-        whenNotPaused
     {
         if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {

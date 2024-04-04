@@ -17,11 +17,11 @@ contract SigVerifyLib is ISigVerifyLib {
     }
 
     function verifyES256Signature(
-        bytes memory tbs,
-        bytes memory signature,
-        bytes memory publicKey
+        bytes calldata tbs,
+        bytes calldata signature,
+        bytes calldata publicKey
     )
-        public
+        external
         view
         returns (bool sigValid)
     {

@@ -11,9 +11,9 @@ interface IHook {
     /// @param _meta The metadata of the proposed block.
     /// @param _data The data of the proposed block.
     function onBlockProposed(
-        TaikoData.Block memory _blk,
-        TaikoData.BlockMetadata memory _meta,
-        bytes memory _data
+        TaikoData.Block calldata _blk,
+        TaikoData.BlockMetadata calldata _meta,
+        bytes calldata _data
     )
         external
         payable;

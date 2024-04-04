@@ -30,17 +30,25 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     uint256[50] private __gap;
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+        __ERC1155Receiver_init_unchained();
+    }
     /// @notice Transfers ERC1155 tokens to this vault and sends a message to
     /// the destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
     /// @param _op Option for sending the ERC1155 token.
     /// @return message_ The constructed message.
+
     function sendToken(BridgeTransferOp memory _op)
         external
         payable
-        nonReentrant
         whenNotPaused
         withValidOperation(_op)
+        nonReentrant
         returns (IBridge.Message memory message_)
     {
         for (uint256 i; i < _op.amounts.length; ++i) {
@@ -89,7 +97,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata data) external payable nonReentrant whenNotPaused {
+    function onMessageInvocation(bytes calldata data) external payable whenNotPaused nonReentrant {
         (
             CanonicalNFT memory ctoken,
             address from,
@@ -130,8 +138,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();

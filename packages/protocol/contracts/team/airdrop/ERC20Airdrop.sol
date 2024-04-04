@@ -63,7 +63,8 @@ contract ERC20Airdrop is MerkleClaimable {
         _verifyClaim(abi.encode(user, amount), proof);
 
         // Transfer the tokens
-        IERC20(token).safeTransferFrom(vault, user, amount);
+        address _token = token;
+        IERC20(_token).safeTransferFrom(vault, user, amount);
 
         // Delegate the voting power to delegatee.
         // Note that the signature (v,r,s) may not correspond to the user address,
@@ -71,6 +72,6 @@ contract ERC20Airdrop is MerkleClaimable {
         // client can change the data to call delegateBySig for another user.
         (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(delegationData, (address, uint256, uint256, uint8, bytes32, bytes32));
-        IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
+        IVotes(_token).delegateBySig(delegatee, nonce, expiry, v, r, s);
     }
 }
