@@ -1,8 +1,8 @@
-import { decodeBase64ToJson } from 'scripts/utils/decodeBase64ToJson';
 import { get } from 'svelte/store';
 
 import { destNetwork } from '$components/Bridge/state';
 import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
+import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { addMetadataToCache, isMetadataCached } from '$stores/metadata';
