@@ -2,15 +2,13 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
+contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     /// @notice Address of the source token contract.
     address public srcToken;
 
@@ -39,8 +37,8 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
-        string memory _symbol,
-        string memory _name
+        string calldata _symbol,
+        string calldata _name
     )
         external
         initializer
@@ -50,6 +48,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
         __Essential_init(_owner, _addressManager);
+
+        // The token URI here is not important as the client will have to read the URI from the
+        // canonical contract to fetch meta data.
         __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
         srcToken = _srcToken;
@@ -68,9 +69,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         uint256 _amount
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
+        nonReentrant
     {
         _mint(_to, _tokenId, _amount, "");
     }
@@ -85,9 +86,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         uint256[] memory _amounts
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
+        nonReentrant
     {
         _mintBatch(_to, _tokenIds, _amounts, "");
     }
@@ -102,9 +103,9 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
         uint256 _amount
     )
         public
-        nonReentrant
         whenNotPaused
         onlyFromNamed("erc1155_vault")
+        nonReentrant
     {
         _burn(_account, _tokenId, _amount);
     }
@@ -119,6 +120,13 @@ contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ER
     /// @return The symbol.
     function symbol() public view returns (string memory) {
         return LibBridgedToken.buildSymbol(__symbol);
+    }
+
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
+    function canonical() external view returns (address, uint256) {
+        return (srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(

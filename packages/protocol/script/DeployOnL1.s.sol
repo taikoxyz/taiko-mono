@@ -243,21 +243,21 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
-            data: abi.encodeCall(BaseVault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC20Vault.init, (timelock, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
         deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
-            data: abi.encodeCall(BaseVault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC721Vault.init, (timelock, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
         deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
-            data: abi.encodeCall(BaseVault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC1155Vault.init, (timelock, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 

@@ -17,6 +17,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     uint256[50] private __gap;
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+    }
+
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same (bridged) tokens
     /// by invoking the message call.
@@ -25,9 +32,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function sendToken(BridgeTransferOp memory _op)
         external
         payable
-        nonReentrant
         whenNotPaused
         withValidOperation(_op)
+        nonReentrant
         returns (IBridge.Message memory message_)
     {
         for (uint256 i; i < _op.tokenIds.length; ++i) {
@@ -76,8 +83,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function onMessageInvocation(bytes calldata _data)
         external
         payable
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         (CanonicalNFT memory ctoken, address from, address to, uint256[] memory tokenIds) =
             abi.decode(_data, (CanonicalNFT, address, address, uint256[]));
@@ -113,8 +120,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
