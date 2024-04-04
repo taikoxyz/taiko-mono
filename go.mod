@@ -5,11 +5,11 @@ go 1.21
 require (
 	github.com/buildkite/terminal-to-html/v3 v3.8.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/cenkalti/backoff/v4 v4.2.1
+	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
 	github.com/cyberhorsey/webutils v0.0.0-20230314183728-56890c6ddbe7
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ethereum-optimism/optimism v1.7.0
+	github.com/ethereum-optimism/optimism v1.7.2
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/gomarkdown/markdown v0.0.0-20230322041520-c84983bdbf2a
@@ -35,7 +35,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/mysql v1.5.6
-	gorm.io/gorm v1.25.8
+	gorm.io/gorm v1.25.9
 	gotest.tools v2.2.0+incompatible
 )
 
