@@ -68,8 +68,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (TaikoData.BlockMetadata memory meta_)
     {
         TaikoData.Config memory config = getConfig();
-
-        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        meta_ = LibProposing.proposeBlock(state, config, this, _params, _txList);
 
         if (!state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
