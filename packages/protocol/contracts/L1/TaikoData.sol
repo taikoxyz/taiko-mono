@@ -59,6 +59,7 @@ library TaikoData {
         bytes32 extraData;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
+        bytes signature;
     }
 
     /// @dev Struct containing data only required for proving a block

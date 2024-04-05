@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
 import "../../libs/LibAddress.sol";
@@ -38,8 +39,8 @@ library LibProposing {
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_HOOK();
     error L1_INVALID_PROVER();
+    error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
-    error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
@@ -56,7 +57,8 @@ library LibProposing {
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bool _checkEOAForCalldataDA
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
@@ -129,13 +131,18 @@ library LibProposing {
             meta_.blobHash = blobhash(0);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
+            meta_.blobHash = keccak256(_txList);
+
             // This function must be called as the outmost transaction (not an internal one) for
             // the node to extract the calldata easily.
-            // Warning, this code will break after the Pectra hardfork with EIP 7645: Alias ORIGIN
-            // to SENDER
-            if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
-
-            meta_.blobHash = keccak256(_txList);
+            // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
+            // 7645: Alias ORIGIN to SENDER
+            if (
+                _checkEOAForCalldataDA
+                    && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
+            ) {
+                revert L1_INVALID_SIG();
+            }
         }
 
         // Following the Merge, the L1 mixHash incorporates the

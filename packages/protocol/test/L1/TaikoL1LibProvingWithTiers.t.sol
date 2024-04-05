@@ -12,6 +12,10 @@ contract TaikoL1Tiers is TaikoL1 {
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
     }
+
+    function _checkEOAForCalldataDA() internal pure override returns (bool) {
+        return false;
+    }
 }
 
 contract Verifier {

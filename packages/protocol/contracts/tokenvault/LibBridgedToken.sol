@@ -52,7 +52,8 @@ library LibBridgedToken {
 
     function buildURI(
         address _srcToken,
-        uint256 _srcChainId
+        uint256 _srcChainId,
+        string memory _extraParams
     )
         internal
         pure
@@ -66,7 +67,8 @@ library LibBridgedToken {
                 Strings.toHexString(uint160(_srcToken), 20),
                 "@",
                 Strings.toString(_srcChainId),
-                "/tokenURI?uint256="
+                "/tokenURI?uint256=",
+                _extraParams
             )
         );
     }
