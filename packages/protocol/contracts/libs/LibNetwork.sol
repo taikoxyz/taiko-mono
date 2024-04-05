@@ -28,9 +28,10 @@ library LibNetwork {
         return _chainId == LibNetwork.MAINNET || isEthereumTestnet(_chainId);
     }
 
-    /// @dev Checks if the chain ID represents an internal Taiko devnet.
+    /// @dev Checks if the chain ID represents an internal Taiko devnet's base layer.
     /// @param _chainId The chain ID.
-    /// @return true if the chain ID represents an internal Taiko devnet, false otherwise.
+    /// @return true if the chain ID represents an internal Taiko devnet's base layer, false
+    /// otherwise.
     function isTaikoDevnetL1(uint256 _chainId) internal pure returns (bool) {
         return _chainId >= 32_300 && _chainId <= 32_400;
     }
