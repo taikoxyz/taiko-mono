@@ -353,7 +353,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // We check _message.gasLimit > gasleft() to make sure we not only need to bridge invocation
-        // call to succeeed, we also need it to succeed with a gas limit no smaller than the
+        // call to succeed, we also need it to succeed with a gas limit no smaller than the
         // message's gasLimit.
         if (
             (
