@@ -130,7 +130,7 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 _blockId,
         bytes32 _chainData
     )
-        external
+        public
         view
         nonZeroValue(_chainData)
         returns (bool)
@@ -140,7 +140,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function isSignalSent(address _app, bytes32 _signal) external view returns (bool) {
+    function isSignalSent(address _app, bytes32 _signal) public view returns (bool) {
         return _loadSignalValue(_app, _signal) != 0;
     }
 
@@ -150,7 +150,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _kind,
         uint64 _blockId
     )
-        external
+        public
         view
         returns (uint64 blockId_, bytes32 chainData_)
     {
