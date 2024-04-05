@@ -346,6 +346,12 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.gasLimit == 0 || _isLastAttempt) {
             if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
         }
+        // We do not need to check _message.gasLimit is bigger than (gasleft() * 63) >> 6), simply
+        // because user can bump the gasleft and it would cause no harm as message status would not
+        // change anyways.
+        if (_message.gasLimit != 0 && _message.gasLimit > gasleft()) {
+            revert B_NOT_ENOUGH_GASLEFT();
+        }
 
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
