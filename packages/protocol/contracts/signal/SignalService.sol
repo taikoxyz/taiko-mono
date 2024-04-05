@@ -22,7 +22,7 @@ contract SignalService is EssentialContract, ISignalService {
     uint256[48] private __gap;
 
     error SS_EMPTY_PROOF();
-    error SS_INVALID_HOPS();
+    error SS_INVALID_HOPS_WITH_LOOP();
     error SS_INVALID_SENDER();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
@@ -106,7 +106,7 @@ contract SignalService is EssentialContract, ISignalService {
             hop = hopProofs[i];
 
             for (uint256 j; j < i; ++j) {
-                if (trace[j] == hop.chainId) revert SS_INVALID_HOPS();
+                if (trace[j] == hop.chainId) revert SS_INVALID_HOPS_WITH_LOOP();
             }
 
             bytes32 signalRoot = _verifyHopProof(chainId, app, signal, value, hop, signalService);
@@ -169,7 +169,7 @@ contract SignalService is EssentialContract, ISignalService {
             hop = hopProofs[i];
 
             for (uint256 j; j < i; ++j) {
-                if (trace[j] == hop.chainId) revert SS_INVALID_HOPS();
+                if (trace[j] == hop.chainId) revert SS_INVALID_HOPS_WITH_LOOP();
             }
 
             _verifyHopProof(chainId, app, signal, value, hop, signalService);
