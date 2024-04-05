@@ -356,10 +356,8 @@ contract Bridge is EssentialContract, IBridge {
         // call to succeed, we also need it to succeed with a gas limit no smaller than the
         // message's gasLimit.
         if (
-            (
-                _message.gasLimit != 0 && msg.sender != _message.destOwner
-                    && _message.gasLimit > (gasleft() * 63) >> 6
-            )
+            _message.gasLimit != 0 && msg.sender != _message.destOwner
+                && _message.gasLimit > (gasleft() * 63) >> 6
         ) {
             revert B_NOT_ENOUGH_GASLEFT();
         }
