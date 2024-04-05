@@ -228,7 +228,7 @@ library LibVerifying {
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // sync chain data
+                // Sync chain data
                 _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
             }
         }
