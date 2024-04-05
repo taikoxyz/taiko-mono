@@ -168,15 +168,27 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @return a_ State variables stored at SlotA.
-    /// @return b_ State variables stored at SlotB.
+    /// @dev This method can be deleted once node/client stops using it.
+    /// @return State variables stored at SlotA.
+    /// @return State variables stored at SlotB.
     function getStateVariables()
         public
         view
-        returns (TaikoData.SlotA memory a_, TaikoData.SlotB memory b_)
+        returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
-        a_ = state.slotA;
-        b_ = state.slotB;
+        return (state.slotA, state.slotB);
+    }
+
+    /// @notice Gets SlotA
+    /// @return  State variables stored at SlotA.
+    function slotA() public view returns (TaikoData.SlotA memory) {
+        return state.slotA;
+    }
+
+    /// @notice Gets SlotB
+    /// @return  State variables stored at SlotB.
+    function slotB() public view returns (TaikoData.SlotB memory) {
+        return state.slotB;
     }
 
     /// @inheritdoc ITaikoL1
