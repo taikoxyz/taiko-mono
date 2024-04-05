@@ -352,6 +352,16 @@ contract Bridge is EssentialContract, IBridge {
             revert B_NON_RETRIABLE();
         }
 
+        // We check gasleft() against _message.gasLimit to make sure we not only need to bridge
+        // invocation call to succeed, we also need it to succeed with a gas limit no smaller than
+        // the message's gasLimit.
+        if (
+            _message.gasLimit != 0 && msg.sender != _message.destOwner
+                && _message.gasLimit > (gasleft() * 63) >> 6
+        ) {
+            revert B_NOT_ENOUGH_GASLEFT();
+        }
+
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(_message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
