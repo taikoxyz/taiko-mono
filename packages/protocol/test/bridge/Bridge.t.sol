@@ -30,6 +30,18 @@ contract TwoStepBridge is Bridge {
     }
 }
 
+// A malicious contract that attempts to exhaust gas
+contract MaliciousContract2 {
+    fallback() external payable {
+        while (true) { } // infinite loop
+    }
+}
+
+// Non malicious contract that does not exhaust gas
+contract NonMaliciousContract1 {
+    fallback() external payable { }
+}
+
 contract BridgeTest is TaikoTest {
     AddressManager addressManager;
     BadReceiver badReceiver;
@@ -41,6 +53,10 @@ contract BridgeTest is TaikoTest {
     SkipProofCheckSignal mockProofSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
     DelegateOwner delegateOwner;
+
+    NonMaliciousContract1 nonmaliciousContract1;
+    MaliciousContract2 maliciousContract2;
+
     address mockDAO = randAddress(); //as "real" L1 owner
 
     uint64 destChainId = 19_389;
@@ -795,6 +811,66 @@ contract BridgeTest is TaikoTest {
         destChainBridge.retryMessage(message, true);
         postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == IBridge.Status.FAILED, true);
+    }
+
+    function test_processMessage_InvokeMessageCall_DoS1() public {
+        nonmaliciousContract1 = new NonMaliciousContract1();
+
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(this),
+            srcChainId: uint64(block.chainid),
+            destChainId: destChainId,
+            srcOwner: Alice,
+            destOwner: Alice,
+            to: address(nonmaliciousContract1),
+            refundTo: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+
+        bytes memory proof = hex"00";
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+        vm.chainId(destChainId);
+        vm.prank(Bob, Bob);
+
+        destChainBridge.processMessage(message, proof);
+
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        assertEq(status == IBridge.Status.DONE, true); // test pass check
+    }
+
+    function test_processMessage_InvokeMessageCall_DoS2_testfail() public {
+        maliciousContract2 = new MaliciousContract2();
+
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(this),
+            srcChainId: uint64(block.chainid),
+            destChainId: destChainId,
+            srcOwner: Alice,
+            destOwner: Alice,
+            to: address(maliciousContract2),
+            refundTo: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+
+        bytes memory proof = hex"00";
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+        vm.chainId(destChainId);
+        vm.prank(Bob, Bob);
+
+        destChainBridge.processMessage(message, proof);
+
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        assertEq(status == IBridge.Status.RETRIABLE, true); //Test fail check
     }
 
     function retry_message_reverts_when_status_non_retriable() public {
