@@ -223,13 +223,14 @@ library LibVerifying {
             }
 
             if (numBlocksVerified != 0) {
-                // sync chain data
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
-                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
 
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 _state.slotA.lastVerifiedAt = uint64(block.timestamp);
+
+                // sync chain data
+                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
             }
         }
     }
