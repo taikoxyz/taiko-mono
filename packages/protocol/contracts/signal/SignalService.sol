@@ -22,12 +22,13 @@ contract SignalService is EssentialContract, ISignalService {
     uint256[48] private __gap;
 
     struct CacheAction {
-        HopProof hop;
+        bytes32 rootHash;
+        bytes32 signalRoot;
         uint64 chainId;
         uint64 blockId;
         bool isFullProof;
         bool isLastHop;
-        bytes32 signalRoot;
+        CacheOption option;
     }
 
     error SS_EMPTY_PROOF();
@@ -259,21 +260,25 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _cache(CacheAction memory _op) private {
+    function _cache(CacheAction memory _action) private {
         // cache state root
-        bool cacheStateRoot = _op.hop.cacheOption == CacheOption.CACHE_BOTH
-            || _op.hop.cacheOption == CacheOption.CACHE_STATE_ROOT;
+        bool cacheStateRoot = _action.option == CacheOption.CACHE_BOTH
+            || _action.option == CacheOption.CACHE_STATE_ROOT;
 
-        if (cacheStateRoot && _op.isFullProof && !_op.isLastHop) {
-            _syncChainData(_op.chainId, LibSignals.STATE_ROOT, _op.blockId, _op.hop.rootHash);
+        if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
+            _syncChainData(
+                _action.chainId, LibSignals.STATE_ROOT, _action.blockId, _action.rootHash
+            );
         }
 
         // cache signal root
-        bool cacheSignalRoot = _op.hop.cacheOption == CacheOption.CACHE_BOTH
-            || _op.hop.cacheOption == CacheOption.CACHE_SIGNAL_ROOT;
+        bool cacheSignalRoot = _action.option == CacheOption.CACHE_BOTH
+            || _action.option == CacheOption.CACHE_SIGNAL_ROOT;
 
-        if (cacheSignalRoot && (_op.isFullProof || !_op.isLastHop)) {
-            _syncChainData(_op.chainId, LibSignals.SIGNAL_ROOT, _op.blockId, _op.signalRoot);
+        if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
+            _syncChainData(
+                _action.chainId, LibSignals.SIGNAL_ROOT, _action.blockId, _action.signalRoot
+            );
         }
     }
 
@@ -345,7 +350,15 @@ contract SignalService is EssentialContract, ISignalService {
 
             isFullProof = hop.accountProof.length != 0;
 
-            actions[i] = CacheAction(hop, chainId, hop.blockId, isFullProof, isLastHop, signalRoot);
+            actions[i] = CacheAction(
+                hop.rootHash,
+                signalRoot,
+                chainId,
+                hop.blockId,
+                isFullProof,
+                isLastHop,
+                hop.cacheOption
+            );
 
             signal = signalForChainData(
                 chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
