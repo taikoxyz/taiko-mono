@@ -135,8 +135,8 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 lastSyncedAt;
         uint64 lastSyncedBlocKId;
+        uint64 __reservedA2;
     }
 
     struct SlotB {
