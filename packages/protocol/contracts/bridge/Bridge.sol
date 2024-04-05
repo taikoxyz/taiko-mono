@@ -486,7 +486,7 @@ contract Bridge is EssentialContract, IBridge {
             // For Taiko mainnet and public testnets
             // 384 seconds = 6.4 minutes = one ethereum epoch
             return (1 hours, 384 seconds);
-        } else if (LibNetwork.isTaikoDevnet(block.chainid)) {
+        } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
             return (5 minutes, 384 seconds);
         } else {
             // This is a Taiko L2 chain where no deleys are applied.
