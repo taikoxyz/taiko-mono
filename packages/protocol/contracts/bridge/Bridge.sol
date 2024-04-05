@@ -53,6 +53,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
+    error B_INVOCATION_TOO_EARLY();
     error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
     error B_MESSAGE_NOT_SUSPENDED();
@@ -63,7 +64,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
     error B_STATUS_MISMATCH();
-    error B_INVOCATION_TOO_EARLY();
 
     modifier sameChain(uint64 _chainId) {
         if (_chainId != block.chainid) revert B_INVALID_CHAINID();
