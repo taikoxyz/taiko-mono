@@ -225,11 +225,11 @@ library LibVerifying {
             if (numBlocksVerified != 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
-                // sync chain data
-                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
-
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
+
+                // sync chain data
+                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
             }
         }
     }
