@@ -223,13 +223,13 @@ library LibVerifying {
             }
 
             if (numBlocksVerified != 0) {
+                // sync chain data
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
 
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-
-                // sync chain data
-                _syncChainData(_config, _resolver, lastVerifiedBlockId, stateRoot);
+                _state.slotA.lastVerifiedAt = uint64(block.timestamp);
             }
         }
     }
@@ -240,6 +240,7 @@ library LibVerifying {
     }
 
     function _syncChainData(
+        TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _lastVerifiedBlockId,
