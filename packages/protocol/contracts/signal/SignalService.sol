@@ -183,9 +183,7 @@ contract SignalService is EssentialContract, ISignalService {
 
             _verifyHopProof(chainId, app, signal, value, hop, signalService);
 
-            bool isLastHop = i == lenLessOne;
-
-            if (isLastHop) {
+            if (i == lenLessOne) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
                 signalService = address(this);
             } else {
