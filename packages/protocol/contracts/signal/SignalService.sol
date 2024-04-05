@@ -98,8 +98,8 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         virtual
-        validSender(_app)
-        nonZeroValue(_signal)
+        whenNotPaused
+        nonReentrant
     {
         CacheAction[] memory actions = // actions for caching
          _verifySignalReceived(_chainId, _app, _signal, _proof, true);
@@ -119,8 +119,6 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         view
-        validSender(_app)
-        nonZeroValue(_signal)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof, false);
     }
