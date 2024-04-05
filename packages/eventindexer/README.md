@@ -1,15 +1,58 @@
-[![Golang](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
-[![Relayer](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikoxyz/taiko-mono)
+# eventindexer
 
-# Indexer
+Repository dedicated to capturing events, storing them in a database for API queries.
 
-Catches events, stores them in the database to be queried via API.
+## Prerequisites
 
-## Running the app
+- Docker engine should be operational.
+- Ensure Go is installed on the system.
 
-run `cp .default.env .env`, and add your own private key as `RELAYER_ECDSA_KEY` in `.env`. You need to be running a MySQL instance, and replace all the `MYSQL_` env vars with yours.
+## Configuration and Setup
 
-Run `go run cmd/main.go --help` to see a list of possible configuration flags, or `go run cmd/main.go` to run with defaults, which will process messages from L1 to L2, and from L2 to L1, and start indexing blocks from 0.
+### MySQL Setup
+
+1. **Start MySQL** by navigating to the `docker-compose` directory and executing:
+
+   ```bash
+   cd ./docker-compose
+   docker-compose up -d
+   ```
+
+2. **Migrate Database Schema** within the `migrations` folder:
+
+   ```bash
+   cd ./migrations
+   goose mysql "root:passw00d@tcp(localhost:3306)/eventindexer" status
+   goose mysql "root:passw00d@tcp(localhost:3306)/eventindexer" up
+   ```
+
+### Environment Configuration
+
+Configure `.l1.env`, `.l2.env`, and `.default.env` files with the necessary database credentials and other variables.
+
+## Running the Application
+
+Start various components by specifying the environment file with `EVENTINDEXER_ENV_FILE`:
+
+- **Indexer**:
+  
+  ```bash
+  EVENTINDEXER_ENV_FILE=.default.env go run cmd/main.go indexer
+  ```
+
+- **API**:
+  
+  ```bash
+  EVENTINDEXER_ENV_FILE=.default.env go run cmd/main.go api
+  ```
+
+- **Generator**:
+
+  ```bash
+  EVENTINDEXER_ENV_FILE=.l1.env go run cmd/main.go generator
+  ```
+
+Choose between `.default.env`, `.l1.env`, or `.l2.env` as per the requirement.
 
 # Block data
 
