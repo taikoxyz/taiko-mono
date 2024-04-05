@@ -228,8 +228,8 @@ library LibVerifying {
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // sync chain data
-                _syncChainData(_config, _resolver, lastVerifiedBlockId, stateRoot);
+                // Sync chain data
+                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
             }
         }
     }
@@ -240,6 +240,7 @@ library LibVerifying {
     }
 
     function _syncChainData(
+        TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _lastVerifiedBlockId,
@@ -254,6 +255,9 @@ library LibVerifying {
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
+            _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
+            _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
             signalService.syncChainData(
                 _config.chainId, LibSignals.STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
