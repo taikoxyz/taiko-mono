@@ -455,6 +455,55 @@ contract TestSignalService is TaikoTest {
         });
     }
 
+    function test_SignalService_proveSignalReceived_revert_with_a_loop() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
+
+        // first hop with full merkle proof
+        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].blockId = 1;
+        proofs[0].rootHash = randBytes32();
+        proofs[0].accountProof = new bytes[](1);
+        proofs[0].storageProof = new bytes[](10);
+
+        // second hop with storage merkle proof
+        proofs[1].chainId = uint64(block.chainid + 2);
+        proofs[1].blockId = 2;
+        proofs[1].rootHash = randBytes32();
+        proofs[1].accountProof = new bytes[](0);
+        proofs[1].storageProof = new bytes[](10);
+
+        // third/last hop with full merkle proof
+        proofs[2].chainId = uint64(block.chainid);
+        proofs[2].blockId = 3;
+        proofs[2].rootHash = randBytes32();
+        proofs[2].accountProof = new bytes[](1);
+        proofs[2].storageProof = new bytes[](10);
+
+        // Add two trusted hop relayers
+        vm.startPrank(Alice);
+        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        vm.stopPrank();
+
+        vm.prank(taiko);
+        signalService.syncChainData(
+            proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
+        );
+
+        vm.expectRevert(SignalService.SS_INVALID_HOPS_WITH_LOOP.selector);
+        signalService.proveSignalReceived({
+            _chainId: srcChainId,
+            _app: randAddress(),
+            _signal: randBytes32(),
+            _proof: abi.encode(proofs)
+        });
+    }
+
     function test_SignalService_proveSignalReceived_multiple_hops_caching() public {
         uint64 srcChainId = uint64(block.chainid + 1);
         uint64 nextChainId = srcChainId + 100;
