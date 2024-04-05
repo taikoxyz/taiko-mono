@@ -25,9 +25,9 @@ contract SignalService is EssentialContract, ISignalService {
         HopProof hop;
         uint64 chainId;
         uint64 blockId;
-        bytes32 signalRoot;
         bool isFullProof;
         bool isLastHop;
+        bytes32 signalRoot;
     }
 
     error SS_EMPTY_PROOF();
@@ -345,7 +345,7 @@ contract SignalService is EssentialContract, ISignalService {
 
             isFullProof = hop.accountProof.length != 0;
 
-            actions[i] = CacheAction(hop, chainId, hop.blockId, signalRoot, isFullProof, isLastHop);
+            actions[i] = CacheAction(hop, chainId, hop.blockId, isFullProof, isLastHop, signalRoot);
 
             signal = signalForChainData(
                 chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
