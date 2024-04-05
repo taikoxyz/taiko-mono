@@ -93,7 +93,11 @@ contract SignalService is EssentialContract, ISignalService {
     {
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
         if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
-        uint64[] memory trace = new uint64[](hopProofs.length - 1);
+        uint256 lenLessOne;
+        unchecked {
+            lenLessOne = hopProofs.length - 1;
+        }
+        uint64[] memory trace = new uint64[](lenLessOne);
 
         uint64 chainId = _chainId;
         address app = _app;
@@ -110,7 +114,7 @@ contract SignalService is EssentialContract, ISignalService {
             }
 
             bytes32 signalRoot = _verifyHopProof(chainId, app, signal, value, hop, signalService);
-            bool isLastHop = i == hopProofs.length - 1;
+            bool isLastHop = i == lenLessOne;
 
             if (isLastHop) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
@@ -155,7 +159,12 @@ contract SignalService is EssentialContract, ISignalService {
     {
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
         if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
-        uint64[] memory trace = new uint64[](hopProofs.length - 1);
+
+        uint256 lenLessOne;
+        unchecked {
+            lenLessOne = hopProofs.length - 1;
+        }
+        uint64[] memory trace = new uint64[](lenLessOne);
 
         uint64 chainId = _chainId;
         address app = _app;
@@ -173,7 +182,8 @@ contract SignalService is EssentialContract, ISignalService {
             }
 
             _verifyHopProof(chainId, app, signal, value, hop, signalService);
-            bool isLastHop = i == hopProofs.length - 1;
+
+            bool isLastHop = i == lenLessOne;
 
             if (isLastHop) {
                 if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
