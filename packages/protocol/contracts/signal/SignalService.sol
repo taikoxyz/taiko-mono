@@ -297,7 +297,7 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 _chainId,
         address _app,
         bytes32 _signal,
-        bytes memory _proof
+        bytes calldata _proof
     )
         private
         view
