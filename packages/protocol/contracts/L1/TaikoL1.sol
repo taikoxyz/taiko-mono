@@ -57,7 +57,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     function init2() external reinitializer(2) {
         // reset some previously used slots for future reuse
-        state.slotA.__reservedA1 = 0;
         state.slotA.__reservedA2 = 0;
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
