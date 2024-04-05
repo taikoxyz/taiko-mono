@@ -471,7 +471,7 @@ contract TestSignalService is TaikoTest {
         proofs[0].storageProof = new bytes[](10);
 
         // second hop with storage merkle proof
-        proofs[1].chainId = uint64(block.chainid + 2);
+        proofs[1].chainId = proofs[0].chainId; // same
         proofs[1].blockId = 2;
         proofs[1].rootHash = randBytes32();
         proofs[1].accountProof = new bytes[](0);
