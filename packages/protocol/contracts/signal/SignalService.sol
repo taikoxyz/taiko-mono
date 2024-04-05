@@ -101,7 +101,8 @@ contract SignalService is EssentialContract, ISignalService {
         validSender(_app)
         nonZeroValue(_signal)
     {
-        CacheAction[] memory actions = _verifySignalReceived(_chainId, _app, _signal, _proof);
+        CacheAction[] memory actions = // actions for caching
+         _verifySignalReceived(_chainId, _app, _signal, _proof, true);
 
         for (uint256 i; i < actions.length; ++i) {
             _cache(actions[i]);
@@ -121,7 +122,7 @@ contract SignalService is EssentialContract, ISignalService {
         validSender(_app)
         nonZeroValue(_signal)
     {
-        _verifySignalReceived(_chainId, _app, _signal, _proof);
+        _verifySignalReceived(_chainId, _app, _signal, _proof, false);
     }
 
     /// @inheritdoc ISignalService
@@ -302,7 +303,8 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 _chainId,
         address _app,
         bytes32 _signal,
-        bytes calldata _proof
+        bytes calldata _proof,
+        bool _prepareCaching
     )
         private
         view
@@ -314,7 +316,10 @@ contract SignalService is EssentialContract, ISignalService {
         if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
         uint64[] memory trace = new uint64[](hopProofs.length - 1);
-        actions = new CacheAction[](hopProofs.length);
+
+        if (_prepareCaching) {
+            actions = new CacheAction[](hopProofs.length);
+        }
 
         uint64 chainId = _chainId;
         address app = _app;
@@ -350,15 +355,17 @@ contract SignalService is EssentialContract, ISignalService {
 
             isFullProof = hop.accountProof.length != 0;
 
-            actions[i] = CacheAction(
-                hop.rootHash,
-                signalRoot,
-                chainId,
-                hop.blockId,
-                isFullProof,
-                isLastHop,
-                hop.cacheOption
-            );
+            if (_prepareCaching) {
+                actions[i] = CacheAction(
+                    hop.rootHash,
+                    signalRoot,
+                    chainId,
+                    hop.blockId,
+                    isFullProof,
+                    isLastHop,
+                    hop.cacheOption
+                );
+            }
 
             signal = signalForChainData(
                 chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
