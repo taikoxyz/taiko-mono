@@ -154,20 +154,26 @@ contract AssignmentHook is EssentialContract, IHook {
         view
         returns (bytes32)
     {
-        return keccak256(
+        bytes32 hash = keccak256(
             abi.encode(
-                "PROVER_ASSIGNMENT",
-                ITaikoL1(_taikoL1Address).getConfig().chainId,
-                _taikoL1Address,
-                address(this),
                 _assignment.metaHash,
                 _assignment.parentMetaHash,
-                _blobHash,
                 _assignment.feeToken,
                 _assignment.expiry,
                 _assignment.maxBlockId,
                 _assignment.maxProposedIn,
                 _assignment.tierFees
+            )
+        );
+
+        return keccak256(
+            abi.encodePacked(
+                "PROVER_ASSIGNMENT",
+                ITaikoL1(_taikoL1Address).getConfig().chainId,
+                _taikoL1Address,
+                address(this),
+                _blobHash,
+                hash
             )
         );
     }
