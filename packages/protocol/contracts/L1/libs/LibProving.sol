@@ -107,6 +107,10 @@ library LibProving {
             revert L1_INVALID_TRANSITION();
         }
 
+        if (_proof.tier == 0 || _proof.tier < _meta.minTier) {
+            revert L1_INVALID_TIER();
+        }
+
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = _state.slotB;
         if (_meta.id <= b.lastVerifiedBlockId || _meta.id >= b.numBlocks) {
@@ -132,9 +136,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
-            revert L1_INVALID_TIER();
-        }
+        if (_proof.tier < ts.tier) revert L1_INVALID_TIER();
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
@@ -332,7 +334,13 @@ library LibProving {
                 //
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
-                ts_.prover = _blk.assignedProver;
+                ts_.prover = msg.sender;
+
+                // If the proposer is not the block's assigned prover, we clear
+                // the liveness bond so the bond will not bo refunded.
+                if (msg.sender != _blk.assignedProver) {
+                    _blk.livenessBond = 0;
+                }
             } else {
                 // In scenarios where this transition is not the first one, we
                 // straightforwardly reset the transition prover to address
@@ -433,18 +441,16 @@ library LibProving {
         // The highest tier proof can always submit new proofs
         if (_tier.contestBond == 0) return;
 
-        bool isAssignedProver = msg.sender == _blk.assignedProver;
-
         // The assigned prover can only submit the very first transition.
         if (
             _tid == 1 && _ts.tier == 0
                 && !LibUtils.isPostDeadline(_ts.timestamp, _lastUnpausedAt, _tier.provingWindow)
         ) {
-            if (!isAssignedProver) revert L1_NOT_ASSIGNED_PROVER();
+            if (msg.sender != _blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
         } else {
             // Disallow the same address to prove the block so that we can detect that the
             // assigned prover should not receive his liveness bond back
-            if (isAssignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+            if (msg.sender == _blk.assignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 
