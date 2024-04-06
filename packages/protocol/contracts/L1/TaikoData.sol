@@ -37,22 +37,25 @@ library TaikoData {
         uint8 blockSyncThreshold;
     }
 
-    /// @dev Struct representing prover assignment
+    /// @dev Struct representing prover fees per given tier
     struct TierFee {
         uint16 tier;
         uint128 fee;
     }
 
+    /// @dev Each tier id with it's own proof
     struct TierProof {
         uint16 tier;
         bytes data;
     }
 
+    /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
         address hook;
         bytes data;
     }
 
+    /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
         address assignedProver;
         address coinbase;
@@ -120,7 +123,8 @@ library TaikoData {
     }
 
     /// @dev Struct representing an Ethereum deposit.
-    /// 1 slot used.
+    /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
+    /// return values stayed for now.
     struct EthDeposit {
         address recipient;
         uint96 amount;

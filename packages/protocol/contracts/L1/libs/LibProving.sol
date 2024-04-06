@@ -19,7 +19,9 @@ library LibProving {
     /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
 
-    /// @notice The tier name for optimistic proofs.
+    /// @notice The tier name for optimistic proofs - expected to only present for testnets. For
+    /// production we do not plan to have optimistic type of proving first, but future will tell if
+    /// L3s, app-chains or other 3rd parties would be willing to do so.
     bytes32 private constant TIER_OP = bytes32("tier_optimistic");
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
@@ -123,10 +125,10 @@ library LibProving {
             revert L1_BLOCK_MISMATCH();
         }
 
-        // Each transition is uniquely identified by the parentHash, with the
-        // blockHash and stateRoot open for later updates as higher-tier proofs
-        // become available. In cases where a transition with the specified
-        // parentHash does not exist, the transition ID (tid) will be set to 0.
+        // Each transition is uniquely identified by the parentHash, with the blockHash and
+        // stateRoot open for later updates as higher-tier proofs become available. In cases where a
+        // transition with the specified parentHash does not exist, the transition ID (tid) is 0,
+        // but after receiving a unique transition it is set to 1.
         (uint32 tid, TaikoData.TransitionState storage ts) =
             _createTransition(_state, blk, _tran, slot);
 
@@ -354,7 +356,8 @@ library LibProving {
         }
     }
 
-    /// @dev Handles what happens when there is a higher proof incoming
+    /// @dev Handles what happens when either the first transition is being proven or there is a
+    /// higher proof incoming
     ///
     /// Assume Alice is the initial prover, Bob is the contester, and Cindy is the subsequent
     /// prover. The validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob
