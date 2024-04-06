@@ -21,8 +21,8 @@ contract AddressManager is EssentialContract, IAddressManager {
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
-    error AM_INVALID_PARAMS();
-    error AM_UNSUPPORTED();
+    error AM_ADDRESS_ALREADY_SET();
+    error AM_PAUSE_UNSUPPORTED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -44,7 +44,7 @@ contract AddressManager is EssentialContract, IAddressManager {
         onlyOwner
     {
         address oldAddress = __addresses[_chainId][_name];
-        if (_newAddress == oldAddress) revert AM_INVALID_PARAMS();
+        if (_newAddress == oldAddress) revert AM_ADDRESS_ALREADY_SET();
         __addresses[_chainId][_name] = _newAddress;
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }
@@ -55,6 +55,6 @@ contract AddressManager is EssentialContract, IAddressManager {
     }
 
     function _authorizePause(address, bool) internal pure override {
-        revert AM_UNSUPPORTED();
+        revert AM_PAUSE_UNSUPPORTED();
     }
 }
