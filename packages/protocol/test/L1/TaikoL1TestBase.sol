@@ -138,7 +138,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function proposeBlock(
         address proposer,
-        address prover,
+        address assignedProver,
         uint32 gasLimit,
         uint24 txListSize
     )
@@ -171,7 +171,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         });
 
         assignment.signature = _signAssignment(
-            prover, assignment, address(L1), proposer, keccak256(new bytes(txListSize))
+            assignedProver, assignment, address(L1), proposer, keccak256(new bytes(txListSize))
         );
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
@@ -193,14 +193,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         vm.prank(proposer, proposer);
         (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
+            abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
     }
 
     function proveBlock(
         address msgSender,
-        address prover,
+        address assignedProver,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -232,8 +232,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
         }
 
         if (tier == LibTiers.TIER_SGX) {
-            bytes memory signature =
-                createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
+            bytes memory signature = createSgxSignatureProof(
+                tran, newInstance, assignedProver, keccak256(abi.encode(meta))
+            );
 
             proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
         }
@@ -294,7 +295,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function _signAssignment(
-        address signer,
+        address assignedProver,
         AssignmentHook.ProverAssignment memory assignment,
         address taikoAddr,
         address blockProposer,
@@ -307,25 +308,25 @@ abstract contract TaikoL1TestBase is TaikoTest {
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
-        if (signer == Alice) {
+        if (assignedProver == Alice) {
             signerPrivateKey = 0x1;
-        } else if (signer == Bob) {
+        } else if (assignedProver == Bob) {
             signerPrivateKey = 0x2;
-        } else if (signer == Carol) {
+        } else if (assignedProver == Carol) {
             signerPrivateKey = 0x3;
         }
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            signerPrivateKey,
-            assignmentHook.hashAssignment(assignment, taikoAddr, blockProposer, blobHash)
+        bytes32 assignmentHash = assignmentHook.hashAssignment(
+            assignment, taikoAddr, blockProposer, assignedProver, blobHash
         );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, assignmentHash);
         signature = abi.encodePacked(r, s, v);
     }
 
     function createSgxSignatureProof(
         TaikoData.Transition memory tran,
         address newInstance,
-        address prover,
+        address assignedProver,
         bytes32 metaHash
     )
         internal
@@ -334,7 +335,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     {
         uint64 chainId = L1.getConfig().chainId;
         bytes32 digest = LibPublicInput.hashPublicInputs(
-            tran, address(sv), newInstance, prover, metaHash, chainId
+            tran, address(sv), newInstance, assignedProver, metaHash, chainId
         );
 
         uint256 signerPrivateKey;
