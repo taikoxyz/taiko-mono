@@ -180,6 +180,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             _difficulty = block.prevrandao * b.numBlocks;
         }
 
+        // TODO: why init meta here?
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);

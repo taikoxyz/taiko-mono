@@ -33,15 +33,13 @@ abstract contract TaikoEvents {
     /// @param blockHash The hash of the verified block.
     /// @param stateRoot The block's state root.
     /// @param tier The tier ID of the proof.
-    /// @param contestations Number of total contestations.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
-        uint16 tier,
-        uint8 contestations
+        uint16 tier
     );
 
     /// @notice Emitted when some state variable values changed.

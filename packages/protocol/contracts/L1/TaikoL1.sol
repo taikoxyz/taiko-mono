@@ -167,10 +167,25 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
     }
 
+    /// @notice Gets the state transition for a specific block.
+    /// @param _blockId Index of the block.
+    /// @param _tid The transition id.
+    /// @return The state transition data of the block.
+    function getTransition(
+        uint64 _blockId,
+        uint32 _tid
+    )
+        public
+        view
+        returns (TaikoData.TransitionState memory)
+    {
+        return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
+    }
     /// @notice Gets the state variables of the TaikoL1 contract.
     /// @dev This method can be deleted once node/client stops using it.
     /// @return State variables stored at SlotA.
     /// @return State variables stored at SlotB.
+
     function getStateVariables()
         public
         view

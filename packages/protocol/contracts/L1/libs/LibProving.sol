@@ -257,7 +257,6 @@ library LibProving {
                 // doesn't have any significance.
                 ts.contestBond = tier.contestBond;
                 ts.contester = msg.sender;
-                ts.contestations += 1;
 
                 emit TransitionContested({
                     blockId: blk.blockId,
@@ -312,7 +311,6 @@ library LibProving {
             ts_.contestBond = 1; // to save gas
             ts_.timestamp = _blk.proposedAt;
             ts_.tier = 0;
-            ts_.contestations = 0;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -396,7 +394,6 @@ library LibProving {
             // Contest the existing transition and prove it to be invalid. The new prover get all
             // rewards.
             reward = _rewardAfterFriction(_ts.validityBond);
-            _ts.contestations += 1;
         }
 
         unchecked {

@@ -24,15 +24,13 @@ library LibVerifying {
     /// @param blockHash The block hash.
     /// @param stateRoot The state root.
     /// @param tier The tier of the transition used for verification.
-    /// @param contestations The number of contestations.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
-        uint16 tier,
-        uint8 contestations
+        uint16 tier
     );
 
     /// @notice Emitted when some state variable values changed.
@@ -82,8 +80,7 @@ library LibVerifying {
             prover: address(0),
             blockHash: _genesisBlockHash,
             stateRoot: 0,
-            tier: 0,
-            contestations: 0
+            tier: 0
         });
     }
 
@@ -214,8 +211,7 @@ library LibVerifying {
                     prover: ts.prover,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    tier: ts.tier,
-                    contestations: ts.contestations
+                    tier: ts.tier
                 });
 
                 ++blockId;

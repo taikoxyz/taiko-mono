@@ -48,6 +48,36 @@ library LibUtils {
         return _state.transitions[slot][tid];
     }
 
+    /// @notice This function will revert if the transition is not found.
+    /// @dev Retrieves the transition with a given parentHash.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockId Id of the block.
+    /// @param _tid The transition id.
+    /// @return The state transition data of the block.
+    function getTransition(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId,
+        uint32 _tid
+    )
+        internal
+        view
+        returns (TaikoData.TransitionState storage)
+    {
+        TaikoData.SlotB memory b = _state.slotB;
+        if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
+        }
+
+        uint64 slot = _blockId % _config.blockRingBufferSize;
+        TaikoData.Block storage blk = _state.blocks[slot];
+        if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
+
+        if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
+        return _state.transitions[slot][_tid];
+    }
+
     /// @dev Retrieves a block based on its ID.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
