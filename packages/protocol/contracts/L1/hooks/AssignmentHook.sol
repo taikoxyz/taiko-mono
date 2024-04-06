@@ -146,7 +146,7 @@ contract AssignmentHook is EssentialContract, IHook {
     /// @param _assignment The prover assignment.
     /// @param _taikoL1Address The address of the TaikoL1 contract.
     /// @param _blockProposer The block proposer address.
-    /// @param _assignedProver The assigned prover addresss.
+    /// @param _assignedProver The assigned prover address.
     /// @param _blobHash The blob hash.
     /// @return The hash of the prover assignment.
     function hashAssignment(
