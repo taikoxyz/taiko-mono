@@ -54,6 +54,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INVOCATION_TOO_EARLY();
+    error B_MESSAGE_FAILED();
     error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
     error B_MESSAGE_NOT_SUSPENDED();
@@ -369,6 +370,24 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.FAILED);
         }
         emit MessageRetried(msgHash);
+    }
+
+    /// @inheritdoc IBridge
+    function failMessage(Message calldata _message)
+        external
+        whenNotPaused
+        sameChain(_message.destChainId)
+        nonReentrant
+    {
+        if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
+
+        bytes32 msgHash = hashMessage(_message);
+        if (messageStatus[msgHash] != Status.RETRIABLE) {
+            revert B_NON_RETRIABLE();
+        }
+
+        _updateMessageStatus(msgHash, Status.FAILED);
+        emit MessageFailed(msgHash);
     }
 
     /// @inheritdoc IBridge
