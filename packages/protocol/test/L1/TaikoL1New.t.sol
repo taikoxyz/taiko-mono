@@ -38,9 +38,9 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
         _printBlockAndTrans(meta.id);
 
-        bytes32 parentHash = bytes32(uint256(100));
-        bytes32 blockHash = bytes32(uint256(201));
-        bytes32 stateRoot = bytes32(uint256(202));
+        bytes32 parentHash = bytes32(uint256(1));
+        bytes32 blockHash = bytes32(uint256(2));
+        bytes32 stateRoot = bytes32(uint256(3));
 
         proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
         _printBlockAndTrans(meta.id);
@@ -66,6 +66,7 @@ contract TaikoL1NewTest is TaikoL1TestBase {
     {
         giveEthAndTko(proposer, 10_000 ether, 10_000 ether);
         giveEthAndTko(assignedProver, 10_000 ether, 10_000 ether);
+        console2.log("-----------------------");
 
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
@@ -105,18 +106,17 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         }
     }
 
-    function _printBlock(TaikoData.Block memory blk) private view {
+    function _printBlock(TaikoData.Block memory blk) private pure {
         console2.log("\n---block#", blk.blockId);
         console2.log(" | assignedProver:", blk.assignedProver);
         console2.log(" | livenessBond:", blk.livenessBond);
         console2.log(" | proposedAt:", blk.proposedAt);
         console2.log(" | metaHash:", vm.toString(blk.metaHash));
-        console2.log(" | assignedProver:", blk.assignedProver);
         console2.log(" | nextTransitionId:", blk.nextTransitionId);
         console2.log(" | verifiedTransitionId:", blk.verifiedTransitionId);
     }
 
-    function _printTran(uint64 tid, TaikoData.TransitionState memory ts) private view {
+    function _printTran(uint64 tid, TaikoData.TransitionState memory ts) private pure {
         console2.log(" |");
         console2.log(" |---transition#", tid);
         console2.log("   | tier:", ts.tier);
