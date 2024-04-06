@@ -80,7 +80,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender;
+        address sender; // a.k.a proposer
     }
 
     /// @dev Struct representing transition to be proven.

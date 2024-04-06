@@ -96,7 +96,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // the prover, therefore, we add a string as a prefix.
 
         // msg.sender is taikoL1Address
-        bytes32 hash = hashAssignment(assignment, msg.sender, _meta.blobHash);
+        bytes32 hash = hashAssignment(assignment, msg.sender, _meta.sender, _meta.blobHash);
 
         if (!_blk.assignedProver.isValidSignatureNow(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
@@ -148,6 +148,7 @@ contract AssignmentHook is EssentialContract, IHook {
     function hashAssignment(
         ProverAssignment memory _assignment,
         address _taikoL1Address,
+        address _blockProposer,
         bytes32 _blobHash
     )
         public
@@ -171,6 +172,7 @@ contract AssignmentHook is EssentialContract, IHook {
                 "PROVER_ASSIGNMENT",
                 ITaikoL1(_taikoL1Address).getConfig().chainId,
                 _taikoL1Address,
+                _blockProposer,
                 address(this),
                 _blobHash,
                 hash
