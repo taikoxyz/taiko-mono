@@ -1,0 +1,16 @@
+#!/bin/bash
+
+source integration_test/common.sh
+
+# load l1 chain deploy contracts environment variables
+source integration_test/l1_env.sh
+
+cd ../../packages/protocol &&
+  forge script script/DeployOnL1.s.sol:DeployOnL1 \
+    --fork-url "$L1_NODE_HTTP_ENDPOINT" \
+    --broadcast \
+    --ffi \
+    -vvvvv \
+    --evm-version cancun \
+    --private-key "$PRIVATE_KEY" \
+    --block-gas-limit 100000000
