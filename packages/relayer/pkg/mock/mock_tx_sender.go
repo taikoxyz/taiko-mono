@@ -30,3 +30,7 @@ func (t *TxManager) BlockNumber(ctx context.Context) (uint64, error) {
 func (t *TxManager) Close() {
 
 }
+
+func (t *TxManager) IsClosed() bool {
+	return false
+}
