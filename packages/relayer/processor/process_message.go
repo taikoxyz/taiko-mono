@@ -96,7 +96,7 @@ func (p *Processor) processMessage(
 
 	// we need to check the invocation delays and proof receipt to see if
 	// this is currently processable, or we need to wait.
-	invocationDelays, err := p.destBridge.GetInvocationDelays(nil)
+	invocationDelay, extraDelay, err := p.destBridge.GetInvocationDelays(nil)
 	if err != nil {
 		return false, errors.Wrap(err, "p.destBridge.invocationDelays")
 	}
@@ -129,7 +129,7 @@ func (p *Processor) processMessage(
 		// we need to check the invocation delay and
 		// preferred exeuctor, if it wasnt us
 		// who proved it, there is an extra delay.
-		if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
+		if err := p.waitForInvocationDelay(ctx, invocationDelay, extraDelay, proofReceipt); err != nil {
 			return false, errors.Wrap(err, "p.waitForInvocationDelay")
 		}
 	}
@@ -164,7 +164,7 @@ func (p *Processor) processMessage(
 				return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
 			}
 
-			if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
+			if err := p.waitForInvocationDelay(ctx, invocationDelay, extraDelay, proofReceipt); err != nil {
 				return false, errors.Wrap(err, "p.waitForInvocationDelay")
 			}
 
@@ -214,23 +214,22 @@ func (p *Processor) processMessage(
 // if one exists, or return immediately if not.
 func (p *Processor) waitForInvocationDelay(
 	ctx context.Context,
-	invocationDelays struct {
-		InvocationDelay      *big.Int
-		InvocationExtraDelay *big.Int
-	},
+	invocationDelay *big.Int,
+	extraDelay *big.Int,
 	proofReceipt struct {
 		ReceivedAt        uint64
 		PreferredExecutor common.Address
 	},
 ) error {
-	invocationDelay := invocationDelays.InvocationDelay
 	preferredExecutor := proofReceipt.PreferredExecutor
 
+	delay := invocationDelay
+
 	if invocationDelay.Cmp(common.Big0) == 1 && preferredExecutor.Cmp(p.relayerAddr) != 0 {
-		invocationDelay = new(big.Int).Add(invocationDelay, invocationDelays.InvocationExtraDelay)
+		delay = new(big.Int).Add(invocationDelay, extraDelay)
 	}
 
-	processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), invocationDelay)
+	processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), delay)
 	// check invocation delays and make sure we can submit it
 	if time.Now().UTC().Unix() >= processableAt.Int64() {
 		// if its passed already, we can submit
@@ -242,7 +241,7 @@ func (p *Processor) waitForInvocationDelay(
 
 	defer t.Stop()
 
-	w := time.After(time.Duration(invocationDelay.Int64()) * time.Second)
+	w := time.After(time.Duration(delay.Int64()) * time.Second)
 
 	for {
 		select {
@@ -475,6 +474,23 @@ func (p *Processor) sendProcessMessageCall(
 		if err != nil || !profitable {
 			return nil, relayer.ErrUnprofitable
 		}
+	}
+
+	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.isMessageReceived")
+	}
+
+	// message will fail when we try to process it
+	if !received {
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId,
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
+		return nil, errors.New("message not received")
 	}
 
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)

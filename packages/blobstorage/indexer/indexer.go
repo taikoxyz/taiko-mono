@@ -117,12 +117,12 @@ func (i *Indexer) setInitialIndexingBlock(
 	}
 
 	// and then start from the genesis height.
-	stateVars, err := i.taikoL1.GetStateVariables(nil)
+	slotA, _, err := i.taikoL1.GetStateVariables(nil)
 	if err != nil {
 		return err
 	}
 
-	i.latestIndexedBlockNumber = stateVars.A.GenesisHeight - 1
+	i.latestIndexedBlockNumber = slotA.GenesisHeight - 1
 
 	return nil
 }
