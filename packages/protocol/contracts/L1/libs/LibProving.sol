@@ -17,9 +17,6 @@ library LibProving {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-    /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
-    bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
-
     /// @notice The tier name for optimistic proofs.
     bytes32 private constant TIER_OP = bytes32("tier_optimistic");
 
@@ -189,13 +186,9 @@ library LibProving {
         IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
 
         if (isTopTier) {
-            // A special return value from the top tier prover can signal this
-            // contract to return all liveness bond.
-            bool returnLivenessBond = blk.livenessBond != 0 && _proof.data.length == 32
-                && bytes32(_proof.data) == RETURN_LIVENESS_BOND;
-
-            if (returnLivenessBond) {
-                tko.safeTransfer(blk.assignedProver, blk.livenessBond);
+            uint96 livenessBond = blk.livenessBond;
+            if (livenessBond != 0) {
+                tko.safeTransfer(blk.assignedProver, livenessBond);
                 blk.livenessBond = 0;
             }
         }
@@ -209,7 +202,7 @@ library LibProving {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(ts, _tran, _proof, tier, tko, sameTransition);
+            _overrideWithHigherProof(blk, ts, _tran, _proof, tier, tko, sameTransition);
 
             emit TransitionProved({
                 blockId: blk.blockId,
@@ -367,6 +360,7 @@ library LibProving {
     // validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set at 10%, the C/V ratio will be
     // 6.5625.
     function _overrideWithHigherProof(
+        TaikoData.Block storage _blk,
         TaikoData.TransitionState storage _ts,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
@@ -378,6 +372,7 @@ library LibProving {
     {
         // Higher tier proof overwriting lower tier proof
         uint256 reward; // reward to the new (current) prover
+        uint96 livenessBondToValidityBond;
 
         if (_ts.contester != address(0)) {
             if (_sameTransition) {
@@ -395,6 +390,15 @@ library LibProving {
             }
         } else {
             if (_sameTransition) revert L1_ALREADY_PROVED();
+
+            uint96 livenessBond = _blk.livenessBond;
+            if (livenessBond != 0) {
+                if (_blk.assignedProver == msg.sender) {
+                    livenessBondToValidityBond = livenessBond;
+                }
+                _blk.livenessBond = 0;
+            }
+
             // Contest the existing transition and prove it to be invalid. The new prover get all
             // rewards.
             reward = _rewardAfterFriction(_ts.validityBond);
@@ -408,7 +412,7 @@ library LibProving {
             }
         }
 
-        _ts.validityBond = _tier.validityBond;
+        _ts.validityBond = _tier.validityBond + livenessBondToValidityBond;
         _ts.contestBond = 1; // to save gas
         _ts.contester = address(0);
         _ts.prover = msg.sender;
