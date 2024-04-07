@@ -127,7 +127,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
             vm.prank(Emma, Emma);
             gp.approve(meta, tran, proof);
 
-            if (revertReason != "") vm.expectRevert();
+            if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(Frank);
             gp.approve(meta, tran, proof);
         } else {

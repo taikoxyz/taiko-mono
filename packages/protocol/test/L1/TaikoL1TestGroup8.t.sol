@@ -105,4 +105,19 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         console2.log("====== Bob proves the block first after L1 proving unpaused");
         proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
     }
+
+    // Test summary:
+    // 1. Get a block that doesn't exist
+    // 2. Get a transition by ID that doesn't exist.
+    // 2. Get a transition by hash that doesn't exist.
+    function test_taikoL1_group_8_case_3() external {
+        vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
+        L1.getBlock(2);
+
+        vm.expectRevert(TaikoErrors.L1_TRANSITION_NOT_FOUND.selector);
+        L1.getTransition(0, 2);
+
+        vm.expectRevert(TaikoErrors.L1_TRANSITION_NOT_FOUND.selector);
+        L1.getTransition(0, randBytes32());
+    }
 }
