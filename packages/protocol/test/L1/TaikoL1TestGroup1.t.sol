@@ -18,7 +18,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -128,7 +128,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -240,7 +240,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         // Prove the block
         bytes32 parentHash1 = bytes32(uint256(9));
@@ -295,7 +295,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         // Prove the block
         bytes32 parentHash1 = GENESIS_BLOCK_HASH;
@@ -349,7 +349,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         // Prove the block
         bytes32 parentHash1 = bytes32(uint256(9));

@@ -25,7 +25,8 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
     function proposeBlock(
         address proposer,
-        address assignedProver
+        address assignedProver,
+        bytes4 revertReason
     )
         internal
         returns (TaikoData.BlockMetadata memory meta)
@@ -52,21 +53,25 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
         hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
 
-        uint256 privateKey;
-        if (proposer == Alice) {
-            privateKey = 0x1;
-        } else if (proposer == Bob) {
-            privateKey = 0x2;
-        } else if (proposer == Carol) {
-            privateKey = 0x3;
-        } else {
-            revert("unexpected");
+        bytes memory eoaSig;
+        {
+            uint256 privateKey;
+            if (proposer == Alice) {
+                privateKey = 0x1;
+            } else if (proposer == Bob) {
+                privateKey = 0x2;
+            } else if (proposer == Carol) {
+                privateKey = 0x3;
+            } else {
+                revert("unexpected");
+            }
+
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(txList));
+            eoaSig = abi.encodePacked(r, s, v);
         }
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(txList));
-        bytes memory eoaSig = abi.encodePacked(r, s, v);
-
         vm.prank(proposer);
+        if (revertReason != "") vm.expectRevert(revertReason);
         (meta,) = L1.proposeBlock{ value: 3 ether }(
             abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, eoaSig)),
             txList

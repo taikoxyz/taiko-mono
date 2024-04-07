@@ -21,7 +21,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TierProviderV1(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
 
@@ -134,7 +134,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TierProviderV1(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
 
