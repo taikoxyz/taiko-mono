@@ -187,7 +187,9 @@ library LibProving {
         if (isTopTier) {
             uint96 livenessBond = blk.livenessBond;
             if (livenessBond != 0) {
-                tko.safeTransfer(blk.assignedProver, livenessBond);
+                if (!LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow)) {
+                    tko.safeTransfer(blk.assignedProver, livenessBond);
+                }
                 blk.livenessBond = 0;
             }
         }
