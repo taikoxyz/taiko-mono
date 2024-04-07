@@ -44,7 +44,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         console2.log("====== Alice tries to propose another block after L1 paused");
         proposeBlock(Alice, Bob, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
-        console2.log("====== Unause TaikoL1");
+        console2.log("====== Unpause TaikoL1");
         mineAndWrap(10 seconds);
         vm.prank(L1.owner());
         L1.unpause();
@@ -95,7 +95,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         console2.log("====== Alice tries to propose another block after L1 proving paused");
         proposeBlock(Alice, Bob, "");
 
-        console2.log("====== Unause TaikoL1 proving");
+        console2.log("====== Unpause TaikoL1 proving");
         mineAndWrap(10 seconds);
         vm.prank(L1.owner());
         L1.pauseProving(false);
