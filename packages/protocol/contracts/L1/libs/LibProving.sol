@@ -396,7 +396,7 @@ library LibProving {
             uint96 livenessBond = _blk.livenessBond;
             if (livenessBond != 0) {
                 if (_blk.assignedProver == msg.sender) {
-                    reward = reward + livenessBond;
+                    reward += livenessBond;
                 }
                 _blk.livenessBond = 0;
             }
