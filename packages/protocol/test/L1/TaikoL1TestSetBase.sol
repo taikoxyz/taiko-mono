@@ -22,49 +22,11 @@ contract TaikoL1New is TaikoL1 {
 //     }
 // }
 
-contract TaikoL1NewTest is TaikoL1TestBase {
+abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
             payable(deployProxy({ name: "taiko", impl: address(new TaikoL1New()), data: "" }))
         );
-    }
-
-    // Conventions:
-    // Alice is always  the block proposer
-    // Bob is always the assigned prover
-
-    function test_additional__provedBy_assignedProver_inProofWindow() external {
-        _printBlockAndTrans(0);
-
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
-        _printBlockAndTrans(meta.id);
-
-        TaikoData.Block memory blk = L1.getBlock(meta.id);
-        assertEq(blk.assignedProver, Bob);
-        assertEq(blk.proposedAt, block.timestamp);
-        assertEq(blk.nextTransitionId, 1);
-        assertEq(blk.verifiedTransitionId, 0);
-        assertTrue(blk.livenessBond != 0);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        bytes32 blockHash = bytes32(uint256(10));
-        bytes32 stateRoot = bytes32(uint256(11));
-
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
-        _printBlockAndTrans(meta.id);
-
-        TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
-        assertEq(ts.prover, Bob);
-        assertEq(ts.blockHash, blockHash);
-        assertEq(ts.stateRoot, stateRoot);
-        assertTrue(ts.tier != 0);
-        assertTrue(ts.contestBond == 1); // not zero
-        assertTrue(ts.timestamp == block.timestamp); // not zero
-
-        mine(1);
-        vm.warp(block.timestamp + 7 days);
-        verifyBlock(2);
-        _printBlockAndTrans(meta.id);
     }
 
     function proposeBlock(
@@ -74,10 +36,6 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        giveEthAndTko(proposer, 10_000 ether, 10_000 ether);
-        giveEthAndTko(assignedProver, 10_000 ether, 10_000 ether);
-        console2.log("-----------------------");
-
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
         tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 2 ether);
@@ -107,16 +65,16 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         );
     }
 
-    function _printBlockAndTrans(uint64 blockId) private view {
+    function printBlockAndTrans(uint64 blockId) internal view {
         TaikoData.Block memory blk = L1.getBlock(blockId);
-        _printBlock(blk);
+        printBlock(blk);
 
         for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
-            _printTran(i, L1.getTransition(blockId, i));
+            printTran(i, L1.getTransition(blockId, i));
         }
     }
 
-    function _printBlock(TaikoData.Block memory blk) private view {
+    function printBlock(TaikoData.Block memory blk) internal view {
         TaikoData.SlotB memory b = L1.slotB();
         console2.log("\n==================================");
         console2.log("---CHAIN:");
@@ -132,7 +90,7 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         console2.log(" | verifiedTransitionId:", blk.verifiedTransitionId);
     }
 
-    function _printTran(uint64 tid, TaikoData.TransitionState memory ts) private pure {
+    function printTran(uint64 tid, TaikoData.TransitionState memory ts) internal pure {
         console2.log(" |---TRANSITION#", tid);
         console2.log("   | tier:", ts.tier);
         console2.log("   | prover:", ts.prover);
