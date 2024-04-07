@@ -371,7 +371,6 @@ library LibProving {
     {
         // Higher tier proof overwriting lower tier proof
         uint256 reward; // reward to the new (current) prover
-        uint96 livenessBondToValidityBond;
 
         if (_ts.contester != address(0)) {
             if (_sameTransition) {
@@ -390,17 +389,17 @@ library LibProving {
         } else {
             if (_sameTransition) revert L1_ALREADY_PROVED();
 
-            uint96 livenessBond = _blk.livenessBond;
-            if (livenessBond != 0) {
-                if (_blk.assignedProver == msg.sender) {
-                    livenessBondToValidityBond = livenessBond;
-                }
-                _blk.livenessBond = 0;
-            }
-
             // Contest the existing transition and prove it to be invalid. The new prover get all
             // rewards.
             reward = _rewardAfterFriction(_ts.validityBond);
+
+            uint96 livenessBond = _blk.livenessBond;
+            if (livenessBond != 0) {
+                if (_blk.assignedProver == msg.sender) {
+                    reward = reward + livenessBond;
+                }
+                _blk.livenessBond = 0;
+            }
         }
 
         unchecked {
@@ -411,7 +410,7 @@ library LibProving {
             }
         }
 
-        _ts.validityBond = _tier.validityBond + livenessBondToValidityBond;
+        _ts.validityBond = _tier.validityBond;
         _ts.contestBond = 1; // to save gas
         _ts.contester = address(0);
         _ts.prover = msg.sender;
