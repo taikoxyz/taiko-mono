@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL1TestSetBase.sol";
+import "./TaikoL1TestGroupBase.sol";
 
-contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block within the proving window with the right parent hash
-    // - Bob's proof is used to verify the block.
+contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Bob proves the block within the proving window, using the correct parent hash.
+    // 3. Bob's proof is used to verify the block.
     function test_taikoL1_group_1_case_1() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
@@ -114,10 +114,10 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Taylor propose the block out of the proving window
-    // - Taylor proof is used to verify the block.
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Taylor proposes the block outside the proving window.
+    // 3. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_2() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
@@ -227,11 +227,11 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block in the the proving window.
-    // - Taylor proves the block out of the proving window
-    // - Taylor's proof is used to verify the block.
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Bob proves the block within the proving window.
+    // 3. Taylor proves the block outside the proving window.
+    // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_3() external {
         vm.warp(1_000_000);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
@@ -282,11 +282,11 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block in the the proving window.
-    // - Taylor proves the block out of the proving window
-    // - Bob's proof is used to verify the block.
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Bob proves the block within the proving window.
+    // 3. Taylor proves the block outside the proving window.
+    // 4. Bob's proof is used to verify the block.
     function test_taikoL1_group_1_case_4() external {
         vm.warp(1_000_000);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
@@ -335,11 +335,11 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - William proves the block out of the the proving window.
-    // - Taylor proves the block out of the proving window
-    // - Taylor's proof is used to verify the block.
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. William proves the block outside the proving window.
+    // 3. Taylor also proves the block outside the proving window.
+    // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_5() external {
         vm.warp(1_000_000);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);

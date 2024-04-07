@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL1TestSetBase.sol";
+import "./TaikoL1TestGroupBase.sol";
 
-contract TaikoL1TestGroup7 is TaikoL1TestSetBase {
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block within the proving window with the right parent hash
-    // - Taylor contesnted bob after the cooldown window
+contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Bob successfully proves the block within the proving window, using the correct parent
+    // hash.
+    // 3. After the cooldown window, Taylor contests Bob's proof.
     function test_taikoL1_group_7_case_1() external {
         vm.warp(1_000_000);
 
@@ -15,12 +16,9 @@ contract TaikoL1TestGroup7 is TaikoL1TestSetBase {
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TierProviderV1(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
-
-        uint96 livenessBond = L1.getConfig().livenessBond;
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -45,11 +43,11 @@ contract TaikoL1TestGroup7 is TaikoL1TestSetBase {
         printBlockAndTrans(meta.id);
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block within the proving window with the right parent hash
-    // - Taylor contested Bob
-    // - William failed to contesnt Bob again
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Bob proves the block within the proving window, using the correct parent hash.
+    // 3. Taylor contests Bob's proof.
+    // 4. William attempts but fails to contest Bob again.
     function test_taikoL1_group_7_case_2() external {
         vm.warp(1_000_000);
 
@@ -58,12 +56,9 @@ contract TaikoL1TestGroup7 is TaikoL1TestSetBase {
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TierProviderV1(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
-
-        uint96 livenessBond = L1.getConfig().livenessBond;
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;

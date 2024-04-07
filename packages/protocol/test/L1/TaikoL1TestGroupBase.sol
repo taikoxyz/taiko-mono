@@ -12,17 +12,11 @@ contract TaikoL1New is TaikoL1 {
     }
 
     function _checkEOAForCalldataDA() internal pure override returns (bool) {
-        return false;
+        return true;
     }
 }
 
-// contract Verifier {
-//     fallback(bytes calldata) external returns (bytes memory) {
-//         return bytes.concat(keccak256("taiko"));
-//     }
-// }
-
-abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
+abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
             payable(deployProxy({ name: "taiko", impl: address(new TaikoL1New()), data: "" }))
@@ -58,9 +52,23 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
         hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
 
+        uint256 privateKey;
+        if (proposer == Alice) {
+            privateKey = 0x1;
+        } else if (proposer == Bob) {
+            privateKey = 0x2;
+        } else if (proposer == Carol) {
+            privateKey = 0x3;
+        } else {
+            revert("unexpected");
+        }
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(txList));
+        bytes memory eoaSig = abi.encodePacked(r, s, v);
+
         vm.prank(proposer);
         (meta,) = L1.proposeBlock{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, "")),
+            abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, eoaSig)),
             txList
         );
     }
@@ -162,6 +170,5 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
 
     function mineAndWrap(uint256 value) internal {
         vm.warp(block.timestamp + value);
-        // mine(1);
     }
 }

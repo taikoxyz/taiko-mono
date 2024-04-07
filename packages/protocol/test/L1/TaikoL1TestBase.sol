@@ -312,6 +312,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             signerPrivateKey = 0x2;
         } else if (signer == Carol) {
             signerPrivateKey = 0x3;
+        } else {
+            revert("unexpected");
         }
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(

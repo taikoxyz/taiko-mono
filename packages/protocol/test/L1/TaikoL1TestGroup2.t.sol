@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL1TestSetBase.sol";
+import "./TaikoL1TestGroupBase.sol";
 
-contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block within the proving window with the right parent hash
-    // - Taylor contesnted bob
-    // - William proves Bob is correct, Taylor is wrong
-    // - William's proof is used to verify the block.
+contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
+    // Test summary:
+    // 1. Alice proposes a block, Bob as the prover.
+    // 2. Bob proves the block within the proving window, with correct parent hash.
+    // 3. Taylor contests Bob's proof.
+    // 4. William proves Bob is correct and Taylor is wrong.
+    // 5. William's proof is used to verify the block.
     function test_taikoL1_group_2_case_1() external {
         vm.warp(1_000_000);
 
@@ -117,12 +117,12 @@ contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block within the proving window with the right parent hash
-    // - Taylor contesnted bob
-    // - William proves Taylor is correct, Bob is wrong
-    // - William's proof is used to verify the block.
+    // Test summary:
+    // 1. Alice proposes a block, Bob as the prover.
+    // 2. Bob proves the block within the proving window, with correct parent hash.
+    // 3. Taylor contests Bob's proof.
+    // 4. William proves Taylor is correct and Bob is wrong.
+    // 5. William's proof is used to verify the block.
     function test_taikoL1_group_2_case_2() external {
         vm.warp(1_000_000);
 

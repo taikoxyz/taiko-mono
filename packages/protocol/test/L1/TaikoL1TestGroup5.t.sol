@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL1TestSetBase.sol";
+import "./TaikoL1TestGroupBase.sol";
 
-contract TaikoL1TestGroup5 is TaikoL1TestSetBase {
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Guardian prover proves a block directly
-    // - Guardian prover re-prove the same transition
-    // - Guardian prover reproves the block with a different trasition
-    // - William contests with a lower tier proof
+contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. Guardian prover directly proves the block.
+    // 3. Guardian prover re-proves the same transition.
+    // 4. Guardian prover proves the block again with a different transition.
+    // 5. William contests using a lower-tier proof.
     function test_taikoL1_group_5_case_1() external {
         vm.warp(1_000_000);
 
@@ -129,12 +129,12 @@ contract TaikoL1TestGroup5 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - Bob proves the block
-    // - Guardian prover re-prove the same transition
-    // - Guardian prover reproves the block with a different trasition
-    // - William contests with a lower tier proof
+    // Test summary:
+    // 1. Alice proposes a block, Bob is the prover.
+    // 2. Bob proves the block.
+    // 3. Guardian prover re-proves the same transition.
+    // 4. Guardian prover proves the block with a different transition.
+    // 5. William contests using a lower-tier proof.
     function test_taikoL1_group_5_case_2() external {
         vm.warp(1_000_000);
 
@@ -222,12 +222,12 @@ contract TaikoL1TestGroup5 is TaikoL1TestSetBase {
         }
     }
 
-    // About this test:
-    // - Alice proposes a block with Bob as the assigned prover
-    // - David proves the block out of the proving window
-    // - Guardian prover re-prove the same transition
-    // - Guardian prover reproves the block with a different trasition
-    // - William contests with a lower tier proof
+    // Test summary:
+    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 2. David proves the block outside the proving window.
+    // 3. Guardian prover re-proves the same transition.
+    // 4. Guardian prover proves the block with a different transition.
+    // 5. William contests using a lower-tier proof.
     function test_taikoL1_group_5_case_3() external {
         vm.warp(1_000_000);
 
