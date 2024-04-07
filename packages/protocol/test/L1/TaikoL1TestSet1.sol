@@ -263,6 +263,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
 
         // Propose the block
+        console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
 
         uint256 livenessBond;
@@ -288,6 +289,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(7 days);
+        console2.log("====== Taylor (not the assigned prover) proves the block");
         proveBlock(Taylor, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         uint256 provenAt;
@@ -313,6 +315,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         }
 
         // Verify the block
+        console2.log("====== verify the block");
         mineAndWrap(7 days);
         verifyBlock(2);
         {
