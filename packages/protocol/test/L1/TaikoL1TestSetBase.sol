@@ -103,7 +103,9 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
                 createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
             proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
-        } else if (tier == LibTiers.TIER_GUARDIAN) {
+        }
+
+        if (tier == LibTiers.TIER_GUARDIAN) {
             proof.data = "";
 
             // Grant 2 signatures, 3rd might be a revert

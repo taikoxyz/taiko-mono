@@ -24,6 +24,8 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         {
             printBlockAndTrans(meta.id);
             TaikoData.Block memory blk = L1.getBlock(meta.id);
+            assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
+
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
@@ -68,7 +70,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertTrue(ts.tier != 0);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
@@ -94,7 +96,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertTrue(ts.tier != 0);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
@@ -127,6 +129,8 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         {
             printBlockAndTrans(meta.id);
             TaikoData.Block memory blk = L1.getBlock(meta.id);
+            assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
+
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
@@ -159,7 +163,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertTrue(ts.tier != 0);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
@@ -187,7 +191,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertTrue(ts.tier != 0);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, Taylor);
             assertTrue(ts.contestBond > 1); // not zero
             assertEq(ts.prover, Bob);
@@ -211,39 +215,39 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             assertEq(blk.livenessBond, livenessBond);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
-            // assertEq(ts.blockHash, blockHash);
-            // assertEq(ts.stateRoot, stateRoot);
-            // assertTrue(ts.tier != 0);
-            // assertEq(ts.contester, address(0));
-            // assertTrue(ts.contestBond > 1); // not zero
-            // assertEq(ts.prover, Bob);
-            // assertEq(ts.timestamp, block.timestamp); // not zero
+            assertEq(ts.blockHash, blockHash);
+            assertEq(ts.stateRoot, stateRoot);
+            assertEq(ts.tier, LibTiers.TIER_SGX);
+            assertEq(ts.contester, address(0));
+            assertEq(ts.contestBond, 1); // not zero
+            assertEq(ts.prover, William);
+            assertEq(ts.timestamp, block.timestamp); // not zero
 
-            // provenAt = ts.timestamp;
+            provenAt = ts.timestamp;
         }
 
-        // // Verify the block
-        //   mineAndWrap(7 days);
-        // verifyBlock(2);
-        // {
-        //     printBlockAndTrans(meta.id);
+        console2.log("====== Verify the block");
+        mineAndWrap(7 days);
+        verifyBlock(1);
+        {
+            printBlockAndTrans(meta.id);
 
-        //     TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.Block memory blk = L1.getBlock(meta.id);
 
-        //     assertEq(blk.nextTransitionId, 2);
-        //     assertEq(blk.verifiedTransitionId, 1);
-        //     assertEq(blk.proposedAt, proposedAt);
-        //     assertEq(blk.assignedProver, Bob);
-        //     assertEq(blk.livenessBond, livenessBond);
+            assertEq(blk.nextTransitionId, 2);
+            assertEq(blk.verifiedTransitionId, 1);
+            assertEq(blk.proposedAt, proposedAt);
+            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.livenessBond, livenessBond);
 
-        //     TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
-        //     assertEq(ts.blockHash, blockHash);
-        //     assertEq(ts.stateRoot, stateRoot);
-        //     assertTrue(ts.tier != 0);
-        //     assertEq(ts.contestBond, 1); // not zero
-        //     assertEq(ts.prover, Bob);
-        //     assertEq(ts.timestamp, provenAt); // not zero
-        // }
+            TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
+            assertEq(ts.blockHash, blockHash);
+            assertEq(ts.stateRoot, stateRoot);
+            assertEq(ts.tier, LibTiers.TIER_SGX);
+            assertEq(ts.contestBond, 1); // not zero
+            assertEq(ts.prover, William);
+            assertEq(ts.timestamp, provenAt); // not zero
+        }
     }
 
     // About this test:
@@ -266,6 +270,8 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         {
             printBlockAndTrans(meta.id);
             TaikoData.Block memory blk = L1.getBlock(meta.id);
+            assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
+
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
@@ -298,7 +304,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertTrue(ts.tier != 0);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp); // not zero
@@ -323,7 +329,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertTrue(ts.tier != 0);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, provenAt); // not zero
