@@ -306,6 +306,7 @@ library LibProving {
             ts_.contestBond = 1; // to save gas
             ts_.timestamp = _blk.proposedAt;
             ts_.tier = 0;
+            ts_.__reserved1 = 0;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
