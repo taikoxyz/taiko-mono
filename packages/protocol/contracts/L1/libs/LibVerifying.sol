@@ -184,21 +184,18 @@ library LibVerifying {
                 // reward to the actual prover, while the assigned prover
                 // forfeits his liveness bond due to failure to fulfill their
                 // commitment.
-                uint256 bondToReturn = ts.validityBond;
+                IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
+                console2.log("verifiation: validityBond returned:", ts.validityBond);
+                tko.safeTransfer(ts.prover, ts.validityBond);
 
                 // Nevertheless, it's possible for the actual prover to be the
                 // same individual or entity as the block's assigned prover.
                 // Consequently, we have chosen to grant the actual prover only
                 // half of the liveness bond as a reward.
                 if (blk.livenessBond != 0) {
-                    // livenessBond could have been returned in proving by guardian
-                    bondToReturn += ts.prover != blk.assignedProver
-                        ? blk.livenessBond >> 1 // half is burnt
-                        : blk.livenessBond;
+                    console2.log("verifiation: livenessBond returned:", blk.livenessBond);
+                    tko.safeTransfer(blk.assignedProver, blk.livenessBond);
                 }
-
-                IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
-                tko.safeTransfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
