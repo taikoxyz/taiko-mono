@@ -40,7 +40,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         // Taylor cannot prove the block in the proving window
-        mineAndWrap(1 minutes);
+        mineAndWrap(10 seconds);
         proveBlock(
             Taylor,
             meta,
@@ -51,7 +51,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
         );
 
-        mineAndWrap(1 minutes);
+        mineAndWrap(10 seconds);
         proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         uint256 provenAt;
@@ -142,7 +142,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
 
-        mineAndWrap(1 minutes);
+        mineAndWrap(10 seconds);
         proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         uint256 provenAt;
@@ -171,7 +171,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         console2.log("====== Taylor contests Bob");
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
-        mineAndWrap(1 minutes);
+        mineAndWrap(10 seconds);
         proveBlock(Taylor, meta, parentHash, blockHash2, stateRoot2, meta.minTier, "");
 
         {
@@ -197,7 +197,7 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         }
 
         console2.log("====== William proves Bob is right");
-        mineAndWrap(1 minutes);
+        mineAndWrap(10 seconds);
         proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_SGX, "");
 
         {
@@ -210,11 +210,11 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, livenessBond);
 
-            // TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
+            TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             // assertEq(ts.blockHash, blockHash);
             // assertEq(ts.stateRoot, stateRoot);
             // assertTrue(ts.tier != 0);
-            // assertEq(ts.contester, Taylor);
+            // assertEq(ts.contester, address(0));
             // assertTrue(ts.contestBond > 1); // not zero
             // assertEq(ts.prover, Bob);
             // assertEq(ts.timestamp, block.timestamp); // not zero
