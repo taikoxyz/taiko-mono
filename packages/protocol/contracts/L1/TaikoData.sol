@@ -91,7 +91,7 @@ library TaikoData {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        bytes32 graffiti;
+        bytes32 graffiti; // Arbitrary data that the prover can use for various purposes.
     }
 
     /// @dev Struct representing state transition data.

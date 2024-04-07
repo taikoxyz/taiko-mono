@@ -517,7 +517,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
             return (5 minutes, 384 seconds);
         } else {
-            // This is a Taiko L2 chain where no deleys are applied.
+            // This is a Taiko L2 chain where no delays are applied.
             return (0, 0);
         }
     }

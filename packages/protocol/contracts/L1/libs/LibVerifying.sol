@@ -43,6 +43,7 @@ library LibVerifying {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
+    error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_ID_ZERO();
 
     /// @notice Initializes the Taiko protocol state.
@@ -57,6 +58,7 @@ library LibVerifying {
         internal
     {
         if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
 
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -268,7 +270,7 @@ library LibVerifying {
     function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
         if (
             _config.chainId <= 1 || _config.chainId == block.chainid //
-                || _config.blockMaxProposals == 1
+                || _config.blockMaxProposals <= 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
                 || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
         ) return false;
