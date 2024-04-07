@@ -267,7 +267,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         }
     }
 
-    function verifyBlock(address, uint64 count) internal {
+    function verifyBlock(uint64 count) internal {
         L1.verifyBlocks(count);
     }
 

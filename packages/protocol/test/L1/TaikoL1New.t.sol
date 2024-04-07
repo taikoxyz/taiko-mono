@@ -53,7 +53,7 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         // uint16 minTier = meta.minTier;
         // vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-        // verifyBlock(Carol, 1);
+        // verifyBlock( 1);
         // parentHash = blockHash;
     }
 

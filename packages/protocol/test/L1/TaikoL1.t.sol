@@ -63,7 +63,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
             parentHash = blockHash;
         }
         printVariables("");
@@ -95,7 +95,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Alice, 2);
+            verifyBlock(2);
 
             (TaikoData.Block memory blk, TaikoData.TransitionState memory ts) = L1.getBlock(meta.id);
             assertEq(meta.id, blk.blockId);
@@ -133,9 +133,9 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
 
         vm.roll(block.number + 15 * 12);
-        verifyBlock(Alice, conf.blockMaxProposals - 1);
+        verifyBlock(conf.blockMaxProposals - 1);
         printVariables("after verify");
-        verifyBlock(Alice, conf.blockMaxProposals);
+        verifyBlock(conf.blockMaxProposals);
         printVariables("after verify");
     }
 
