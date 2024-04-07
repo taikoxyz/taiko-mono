@@ -33,14 +33,8 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        TaikoData.SlotB memory b = _state.slotB;
-        if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
-            revert L1_INVALID_BLOCK_ID();
-        }
-
-        uint64 slot = _blockId % _config.blockRingBufferSize;
-        TaikoData.Block storage blk = _state.blocks[slot];
-        if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
+        _checkBlockId(_state, _blockId);
+        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         uint32 tid = getTransitionId(_state, blk, slot, _parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
@@ -65,14 +59,8 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        TaikoData.SlotB memory b = _state.slotB;
-        if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
-            revert L1_INVALID_BLOCK_ID();
-        }
-
-        uint64 slot = _blockId % _config.blockRingBufferSize;
-        TaikoData.Block storage blk = _state.blocks[slot];
-        if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
+        _checkBlockId(_state, _blockId);
+        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
         return _state.transitions[slot][_tid];
@@ -131,6 +119,13 @@ library LibUtils {
         unchecked {
             uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
             return block.timestamp >= deadline;
+        }
+    }
+
+    function _checkBlockId(TaikoData.State storage _state, uint64 _blockId) private view {
+        TaikoData.SlotB memory b = _state.slotB;
+        if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
         }
     }
 }

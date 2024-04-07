@@ -360,15 +360,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
         console2.log("ETH balance:", to, to.balance);
     }
 
-    function printVariables(string memory comment) internal {
+    function printVariables(string memory comment) internal view {
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
         string memory str = string.concat(
-            Strings.toString(logCount++),
-            ":[",
-            Strings.toString(b.lastVerifiedBlockId),
+            "---chain [",
+            vm.toString(b.lastVerifiedBlockId),
             unicode"→",
-            Strings.toString(b.numBlocks),
+            vm.toString(b.numBlocks),
             "] // ",
             comment
         );

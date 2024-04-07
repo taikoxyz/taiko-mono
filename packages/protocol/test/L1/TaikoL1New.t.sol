@@ -16,11 +16,11 @@ contract TaikoL1New is TaikoL1 {
     }
 }
 
-contract Verifier {
-    fallback(bytes calldata) external returns (bytes memory) {
-        return bytes.concat(keccak256("taiko"));
-    }
-}
+// contract Verifier {
+//     fallback(bytes calldata) external returns (bytes memory) {
+//         return bytes.concat(keccak256("taiko"));
+//     }
+// }
 
 contract TaikoL1NewTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
@@ -33,28 +33,38 @@ contract TaikoL1NewTest is TaikoL1TestBase {
     // Alice is always  the block proposer
     // Bob is always the assigned prover
 
-    function test_additional__assigned_prover_prove_witin_proof_window() external {
-        vm.warp(1_000_000);
+    function test_additional__provedBy_assignedProver_inProofWindow() external {
+        _printBlockAndTrans(0);
+
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
         _printBlockAndTrans(meta.id);
 
-        bytes32 parentHash = bytes32(uint256(1));
-        bytes32 blockHash = bytes32(uint256(2));
-        bytes32 stateRoot = bytes32(uint256(3));
+        TaikoData.Block memory blk = L1.getBlock(meta.id);
+        assertEq(blk.assignedProver, Bob);
+        assertEq(blk.proposedAt, block.timestamp);
+        assertEq(blk.nextTransitionId, 1);
+        assertEq(blk.verifiedTransitionId, 0);
+        assertTrue(blk.livenessBond != 0);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        bytes32 blockHash = bytes32(uint256(10));
+        bytes32 stateRoot = bytes32(uint256(11));
 
         proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
         _printBlockAndTrans(meta.id);
 
-        // bytes32 blockHash = randomBytes32();
-        // bytes32 stateRoot = randomBytes32();
-        // proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
-        // vm.roll(block.number + 1);
+        TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
+        assertEq(ts.prover, Bob);
+        assertEq(ts.blockHash, blockHash);
+        assertEq(ts.stateRoot, stateRoot);
+        assertTrue(ts.tier != 0);
+        assertTrue(ts.contestBond == 1); // not zero
+        assertTrue(ts.timestamp == block.timestamp); // not zero
 
-        // uint16 minTier = meta.minTier;
-        // vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
-
-        // verifyBlock( 1);
-        // parentHash = blockHash;
+        mine(1);
+        vm.warp(block.timestamp + 7 days);
+        verifyBlock(2);
+        _printBlockAndTrans(meta.id);
     }
 
     function proposeBlock(
@@ -98,7 +108,7 @@ contract TaikoL1NewTest is TaikoL1TestBase {
     }
 
     function _printBlockAndTrans(uint64 blockId) private view {
-        (TaikoData.Block memory blk,) = L1.getBlock(blockId);
+        TaikoData.Block memory blk = L1.getBlock(blockId);
         _printBlock(blk);
 
         for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
@@ -106,8 +116,14 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         }
     }
 
-    function _printBlock(TaikoData.Block memory blk) private pure {
-        console2.log("\n---block#", blk.blockId);
+    function _printBlock(TaikoData.Block memory blk) private view {
+        TaikoData.SlotB memory b = L1.slotB();
+        console2.log("\n==================================");
+        console2.log("---CHAIN:");
+        console2.log(" | lastVerifiedBlockId:", b.lastVerifiedBlockId);
+        console2.log(" | numBlocks:", b.numBlocks);
+        console2.log(" | timestamp:", block.timestamp);
+        console2.log("---BLOCK#", blk.blockId);
         console2.log(" | assignedProver:", blk.assignedProver);
         console2.log(" | livenessBond:", blk.livenessBond);
         console2.log(" | proposedAt:", blk.proposedAt);
@@ -117,8 +133,7 @@ contract TaikoL1NewTest is TaikoL1TestBase {
     }
 
     function _printTran(uint64 tid, TaikoData.TransitionState memory ts) private pure {
-        console2.log(" |");
-        console2.log(" |---transition#", tid);
+        console2.log(" |---TRANSITION#", tid);
         console2.log("   | tier:", ts.tier);
         console2.log("   | prover:", ts.prover);
         console2.log("   | validityBond:", ts.validityBond);

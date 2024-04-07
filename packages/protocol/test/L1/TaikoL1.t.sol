@@ -97,10 +97,10 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             verifyBlock(2);
 
-            (TaikoData.Block memory blk, TaikoData.TransitionState memory ts) = L1.getBlock(meta.id);
+            TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(meta.id, blk.blockId);
 
-            ts = L1.getTransition(meta.id, parentHash);
+            TaikoData.TransitionState memory ts = L1.getTransition(meta.id, parentHash);
             assertEq(ts.prover, Bob);
 
             parentHash = blockHash;

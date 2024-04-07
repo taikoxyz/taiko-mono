@@ -9,6 +9,8 @@ import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
+import "forge-std/src/console2.sol";
+
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
