@@ -125,7 +125,7 @@ library LibProving {
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         (uint32 tid, TaikoData.TransitionState storage ts) =
-            _createTransition(_state, blk, _tran, slot);
+            _fetchOrCreateTransition(_state, blk, _tran, slot);
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
@@ -268,7 +268,7 @@ library LibProving {
     }
 
     /// @dev Handle the transition initialization logic
-    function _createTransition(
+    function _fetchOrCreateTransition(
         TaikoData.State storage _state,
         TaikoData.Block storage _blk,
         TaikoData.Transition memory _tran,
@@ -310,7 +310,7 @@ library LibProving {
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
                 // majority of blocks, where the first transition is expected to
-                // be the correct one. Writing to `tran` is more economical
+                // be the correct one. Writing to `transitions` is more economical
                 // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
                 ts_.key = _tran.parentHash;
