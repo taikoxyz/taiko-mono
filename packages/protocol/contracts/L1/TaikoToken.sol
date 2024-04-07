@@ -5,13 +5,13 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
+
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
 /// @dev Labeled in AddressResolver as "taiko_token"
 /// @custom:security-contact security@taiko.xyz
-
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     uint256[50] private __gap;
 
