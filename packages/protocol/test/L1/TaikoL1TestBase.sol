@@ -180,6 +180,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             _difficulty = block.prevrandao * b.numBlocks;
         }
 
+        // TODO: why init meta here?
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
@@ -198,7 +199,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function proveBlock(
-        address msgSender,
         address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
@@ -208,6 +208,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         bytes4 revertReason
     )
         internal
+        virtual
     {
         TaikoData.Transition memory tran = TaikoData.Transition({
             parentHash: parentHash,
@@ -257,17 +258,17 @@ abstract contract TaikoL1TestBase is TaikoTest {
             }
         } else {
             if (revertReason != "") {
-                vm.prank(msgSender, msgSender);
+                vm.prank(prover);
                 vm.expectRevert(revertReason);
                 L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             } else {
-                vm.prank(msgSender, msgSender);
+                vm.prank(prover);
                 L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             }
         }
     }
 
-    function verifyBlock(address, uint64 count) internal {
+    function verifyBlock(uint64 count) internal {
         L1.verifyBlocks(count);
     }
 
@@ -311,6 +312,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             signerPrivateKey = 0x2;
         } else if (signer == Carol) {
             signerPrivateKey = 0x3;
+        } else {
+            revert("unexpected");
         }
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
@@ -360,15 +363,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
         console2.log("ETH balance:", to, to.balance);
     }
 
-    function printVariables(string memory comment) internal {
+    function printVariables(string memory comment) internal view {
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
         string memory str = string.concat(
-            Strings.toString(logCount++),
-            ":[",
-            Strings.toString(b.lastVerifiedBlockId),
+            "---chain [",
+            vm.toString(b.lastVerifiedBlockId),
             unicode"→",
-            Strings.toString(b.numBlocks),
+            vm.toString(b.numBlocks),
             "] // ",
             comment
         );
