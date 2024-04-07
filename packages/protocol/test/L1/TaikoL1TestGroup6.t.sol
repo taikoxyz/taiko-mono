@@ -22,8 +22,6 @@ contract TaikoL1TestGroup6 is TaikoL1TestSetBase {
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
 
-        uint96 livenessBond = L1.getConfig().livenessBond;
-
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         bytes32 blockHash = bytes32(uint256(10));

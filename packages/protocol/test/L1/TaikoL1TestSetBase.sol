@@ -162,6 +162,6 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
 
     function mineAndWrap(uint256 value) internal {
         vm.warp(block.timestamp + value);
-        mine(1);
+        // mine(1);
     }
 }
