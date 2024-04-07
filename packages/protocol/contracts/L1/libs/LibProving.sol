@@ -407,7 +407,7 @@ library LibProving {
         unchecked {
             if (reward > _tier.validityBond) {
                 _tko.safeTransfer(msg.sender, reward - _tier.validityBond);
-            } else {
+            } else if (reward < _tier.validityBond) {
                 _tko.safeTransferFrom(msg.sender, address(this), _tier.validityBond - reward);
             }
         }
