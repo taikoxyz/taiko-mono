@@ -13,10 +13,10 @@ contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
     function test_taikoL1_group_2_case_1() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
-        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TierProviderV1(cp).getTier(LibTiers.TIER_SGX);
 
@@ -126,10 +126,10 @@ contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
     function test_taikoL1_group_2_case_2() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
-        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TierProviderV1(cp).getTier(LibTiers.TIER_SGX);
 

@@ -8,14 +8,14 @@ contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
     // - Alice proposes a block with Bob as the assigned prover
     // - Guardian prover proves a block directly
     // - Guardian prover re-prove the same transition
-    // - Guardian prover reproves the block with a differen trasition
+    // - Guardian prover reproves the block with a different trasition
     // - William contests with a lower tier proof
     function test_taikoL1_group_5_case_1() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(William, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
@@ -133,14 +133,14 @@ contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
     // - Alice proposes a block with Bob as the assigned prover
     // - Bob proves the block
     // - Guardian prover re-prove the same transition
-    // - Guardian prover reproves the block with a differen trasition
+    // - Guardian prover reproves the block with a different trasition
     // - William contests with a lower tier proof
     function test_taikoL1_group_5_case_2() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
@@ -226,15 +226,15 @@ contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
     // - Alice proposes a block with Bob as the assigned prover
     // - David proves the block out of the proving window
     // - Guardian prover re-prove the same transition
-    // - Guardian prover reproves the block with a differen trasition
+    // - Guardian prover reproves the block with a different trasition
     // - William contests with a lower tier proof
     function test_taikoL1_group_5_case_3() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(David, 10_000 ether, 10_000 ether);
-        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(David, 10_000 ether, 1000 ether);
+        giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");

@@ -12,9 +12,9 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
@@ -122,9 +122,9 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
@@ -234,9 +234,9 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
     // - Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_3() external {
         vm.warp(1_000_000);
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
@@ -289,9 +289,9 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
     // - Bob's proof is used to verify the block.
     function test_taikoL1_group_1_case_4() external {
         vm.warp(1_000_000);
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
@@ -342,10 +342,10 @@ contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
     // - Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_5() external {
         vm.warp(1_000_000);
-        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
-        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
