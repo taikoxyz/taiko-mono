@@ -390,6 +390,10 @@ library LibProving {
         } else {
             if (_sameTransition) revert L1_ALREADY_PROVED();
 
+            // Contest the existing transition and prove it to be invalid. The new prover get all
+            // rewards.
+            reward = _rewardAfterFriction(_ts.validityBond);
+
             uint96 livenessBond = _blk.livenessBond;
             if (livenessBond != 0) {
                 if (_blk.assignedProver == msg.sender) {
@@ -397,16 +401,12 @@ library LibProving {
                 }
                 _blk.livenessBond = 0;
             }
-
-            // Contest the existing transition and prove it to be invalid. The new prover get all
-            // rewards.
-            reward = _rewardAfterFriction(_ts.validityBond);
         }
 
         unchecked {
             if (reward > _tier.validityBond) {
                 _tko.safeTransfer(msg.sender, reward - _tier.validityBond);
-            } else {
+            } else if (reward < _tier.validityBond) {
                 _tko.safeTransferFrom(msg.sender, address(this), _tier.validityBond - reward);
             }
         }
