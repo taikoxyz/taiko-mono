@@ -65,6 +65,63 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
         );
     }
 
+    function proveBlock(
+        address prover,
+        TaikoData.BlockMetadata memory meta,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        bytes32 stateRoot,
+        uint16 tier,
+        bytes4 revertReason
+    )
+        internal
+        override
+    {
+        TaikoData.Transition memory tran = TaikoData.Transition({
+            parentHash: parentHash,
+            blockHash: blockHash,
+            stateRoot: stateRoot,
+            graffiti: 0x0
+        });
+
+        TaikoData.TierProof memory proof;
+        proof.tier = tier;
+        address newInstance;
+
+        // Keep changing the pub key associated with an instance to avoid
+        // attacks,
+        // obviously just a mock due to 2 addresses changing all the time.
+        (newInstance,) = sv.instances(0);
+        if (newInstance == SGX_X_0) {
+            newInstance = SGX_X_1;
+        } else {
+            newInstance = SGX_X_0;
+        }
+
+        if (tier == LibTiers.TIER_SGX) {
+            bytes memory signature =
+                createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
+
+            proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
+        } else if (tier == LibTiers.TIER_GUARDIAN) {
+            proof.data = "";
+
+            // Grant 2 signatures, 3rd might be a revert
+            vm.prank(David, David);
+            gp.approve(meta, tran, proof);
+            vm.prank(Emma, Emma);
+            gp.approve(meta, tran, proof);
+
+            if (revertReason != "") vm.expectRevert();
+            vm.prank(Frank);
+            gp.approve(meta, tran, proof);
+        } else {
+            if (revertReason != "") vm.expectRevert(revertReason);
+            vm.prank(prover);
+            L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
+        }
+    }
+
     function printBlockAndTrans(uint64 blockId) internal view {
         TaikoData.Block memory blk = L1.getBlock(blockId);
         printBlock(blk);
@@ -76,7 +133,6 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
 
     function printBlock(TaikoData.Block memory blk) internal view {
         TaikoData.SlotB memory b = L1.slotB();
-        console2.log("\n==================================");
         console2.log("---CHAIN:");
         console2.log(" | lastVerifiedBlockId:", b.lastVerifiedBlockId);
         console2.log(" | numBlocks:", b.numBlocks);
@@ -100,5 +156,10 @@ abstract contract TaikoL1TestSetBase is TaikoL1TestBase {
         console2.log("   | timestamp:", ts.timestamp);
         console2.log("   | blockHash:", vm.toString(ts.blockHash));
         console2.log("   | stateRoot:", vm.toString(ts.stateRoot));
+    }
+
+    function mineAndWrap(uint256 value) internal {
+        mine(1);
+        vm.warp(block.timestamp + value);
     }
 }

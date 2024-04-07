@@ -208,6 +208,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         bytes4 revertReason
     )
         internal
+        virtual
     {
         TaikoData.Transition memory tran = TaikoData.Transition({
             parentHash: parentHash,
