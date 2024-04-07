@@ -19,7 +19,7 @@ library LibProving {
     /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
 
-    /// @notice The tier name for optimistic proofs - expected to only present for testnets. For
+    /// @notice The tier name for optimistic proofs - expected to only being used for testnets. For
     /// production we do not plan to have optimistic type of proving first, but future will tell if
     /// L3s, app-chains or other 3rd parties would be willing to do so.
     bytes32 private constant TIER_OP = bytes32("tier_optimistic");
@@ -357,7 +357,7 @@ library LibProving {
     }
 
     /// @dev Handles what happens when either the first transition is being proven or there is a
-    /// higher proof incoming
+    /// higher tier proof incoming
     ///
     /// Assume Alice is the initial prover, Bob is the contester, and Cindy is the subsequent
     /// prover. The validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob

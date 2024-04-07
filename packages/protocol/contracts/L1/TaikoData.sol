@@ -43,7 +43,7 @@ library TaikoData {
         uint128 fee;
     }
 
-    /// @dev Each tier id with it's own proof
+    /// @dev A proof and the tier of proof it belongs to
     struct TierProof {
         uint16 tier;
         bytes data;

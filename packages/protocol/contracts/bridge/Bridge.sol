@@ -506,7 +506,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return The minimal delay in second between message execution and proving.
+    /// @return The minimal delay in seconds between message execution and proving.
     /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
     /// the preferredExecutor who proved this message.
     function getInvocationDelays() public view virtual returns (uint256, uint256) {
