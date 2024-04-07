@@ -180,9 +180,9 @@ contract AssignmentHook is EssentialContract, IHook {
                 _taikoL1Address,
                 _blockProposer,
                 _assignedProver,
-                address(this),
                 _blobHash,
-                hash
+                hash,
+                address(this)
             )
         );
     }
