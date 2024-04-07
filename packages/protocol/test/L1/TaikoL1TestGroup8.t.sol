@@ -29,7 +29,6 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         console2.log("====== Bob proves the block first after L1 paused");
 
         bytes32 parentHash1 = GENESIS_BLOCK_HASH;
-        bytes32 parentHash2 = bytes32(uint256(9));
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
         proveBlock(
@@ -81,7 +80,6 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         console2.log("====== Bob proves the block first after L1 proving paused");
 
         bytes32 parentHash1 = GENESIS_BLOCK_HASH;
-        bytes32 parentHash2 = bytes32(uint256(9));
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
         proveBlock(
@@ -108,8 +106,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
 
     // Test summary:
     // 1. Get a block that doesn't exist
-    // 2. Get a transition by ID that doesn't exist.
-    // 2. Get a transition by hash that doesn't exist.
+    // 2. Get a transition by ID & hash that doesn't exist.
     function test_taikoL1_group_8_case_3() external {
         vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
         L1.getBlock(2);
@@ -119,5 +116,8 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
 
         vm.expectRevert(TaikoErrors.L1_TRANSITION_NOT_FOUND.selector);
         L1.getTransition(0, randBytes32());
+
+        vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
+        L1.getTransition(3, randBytes32());
     }
 }
