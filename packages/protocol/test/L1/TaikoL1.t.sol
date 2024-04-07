@@ -57,7 +57,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -90,7 +90,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
@@ -128,7 +128,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
@@ -151,7 +151,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
-            Bob,
             Bob,
             meta,
             GENESIS_BLOCK_HASH,

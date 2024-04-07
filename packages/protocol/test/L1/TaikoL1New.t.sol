@@ -42,12 +42,12 @@ contract TaikoL1NewTest is TaikoL1TestBase {
         bytes32 blockHash = bytes32(uint256(2));
         bytes32 stateRoot = bytes32(uint256(3));
 
-        proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
         _printBlockAndTrans(meta.id);
 
         // bytes32 blockHash = randomBytes32();
         // bytes32 stateRoot = randomBytes32();
-        // proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+        // proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
         // vm.roll(block.number + 1);
 
         // uint16 minTier = meta.minTier;

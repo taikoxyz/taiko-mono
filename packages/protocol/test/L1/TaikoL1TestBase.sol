@@ -199,7 +199,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function proveBlock(
-        address msgSender,
         address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
@@ -258,11 +257,11 @@ abstract contract TaikoL1TestBase is TaikoTest {
             }
         } else {
             if (revertReason != "") {
-                vm.prank(msgSender, msgSender);
+                vm.prank(prover);
                 vm.expectRevert(revertReason);
                 L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             } else {
-                vm.prank(msgSender, msgSender);
+                vm.prank(prover);
                 L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             }
         }
