@@ -3,18 +3,19 @@ pragma solidity 0.8.24;
 
 import "./TaikoL1TestSetBase.sol";
 
-contract TaikoL1TestSet1 is TaikoL1TestSetBase {
+contract TaikoL1TestGroup1 is TaikoL1TestSetBase {
     // About this test:
     // - Alice proposes a block with Bob as the assigned prover
     // - Bob proves the block within the proving window with the right parent hash
     // - Bob's proof is used to verify the block.
-    function test_taikoL1_set1__provedBy_assignedProver_inProofWindow_then_verified() external {
+    function test_taikoL1_group_1_case_1() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
 
         giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
         giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
@@ -59,7 +60,6 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         mineAndWrap(10 seconds);
         proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
-        ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         uint256 provenAt;
 
         {
@@ -118,13 +118,14 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
     // - Alice proposes a block with Bob as the assigned prover
     // - Taylor propose the block out of the proving window
     // - Taylor proof is used to verify the block.
-    function test_taikoL1_set1__provedBy_otherProver_outOfProofWindow_then_verified() external {
+    function test_taikoL1_group_1_case_2() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
 
         giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
         giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
@@ -170,7 +171,6 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
         mineAndWrap(10 seconds);
         proveBlock(Taylor, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
-        ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         uint256 provenAt;
 
         {
@@ -223,6 +223,115 @@ contract TaikoL1TestSet1 is TaikoL1TestSetBase {
             assertEq(ts.timestamp, provenAt);
 
             assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Taylor), 10_000 ether);
+        }
+    }
+
+    // About this test:
+    // - Alice proposes a block with Bob as the assigned prover
+    // - Bob proves the block in the the proving window.
+    // - Taylor proves the block out of the proving window
+    // - Taylor's proof is used to verify the block.
+    function test_taikoL1_group_1_case_3() external {
+        vm.warp(1_000_000);
+        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
+
+        console2.log("====== Alice propose a block with bob as the assigned prover");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+
+        // Prove the block
+        bytes32 parentHash1 = bytes32(uint256(9));
+        bytes32 parentHash2 = GENESIS_BLOCK_HASH;
+        bytes32 blockHash = bytes32(uint256(10));
+        bytes32 stateRoot = bytes32(uint256(11));
+
+        mineAndWrap(10 seconds);
+
+        console2.log("====== Bob proves the block first");
+        proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
+
+        console2.log("====== Taylor proves the block later");
+        mineAndWrap(10 seconds);
+        proveBlock(Taylor, meta, parentHash2, blockHash, stateRoot, meta.minTier, "");
+
+        console2.log("====== Verify block");
+        mineAndWrap(7 days);
+        verifyBlock(1);
+        {
+            printBlockAndTrans(meta.id);
+
+            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            assertEq(blk.nextTransitionId, 3);
+            assertEq(blk.verifiedTransitionId, 2);
+            assertEq(blk.assignedProver, Bob);
+            assertEq(blk.livenessBond, 0);
+
+            TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
+            assertEq(ts.contester, address(0));
+            assertEq(ts.contestBond, 1); // not zero
+            assertEq(ts.prover, Taylor);
+            assertEq(ts.validityBond, tierOp.validityBond);
+
+            assertEq(
+                tko.balanceOf(Bob), 10_000 ether - L1.getConfig().livenessBond - tierOp.validityBond
+            );
+            assertEq(tko.balanceOf(Taylor), 10_000 ether);
+        }
+    }
+
+    // About this test:
+    // - Alice proposes a block with Bob as the assigned prover
+    // - William proves the block out of the the proving window.
+    // - Taylor proves the block out of the proving window
+    // - Taylor's proof is used to verify the block.
+    function test_taikoL1_group_1_case_4() external {
+        vm.warp(1_000_000);
+        giveEthAndTko(Alice, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Bob, 10_000 ether, 10_000 ether);
+        giveEthAndTko(Taylor, 10_000 ether, 10_000 ether);
+        giveEthAndTko(William, 10_000 ether, 10_000 ether);
+        ITierProvider.Tier memory tierOp = TierProviderV1(cp).getTier(LibTiers.TIER_OPTIMISTIC);
+
+        console2.log("====== Alice propose a block with bob as the assigned prover");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob);
+
+        // Prove the block
+        bytes32 parentHash1 = bytes32(uint256(9));
+        bytes32 parentHash2 = GENESIS_BLOCK_HASH;
+        bytes32 blockHash = bytes32(uint256(10));
+        bytes32 stateRoot = bytes32(uint256(11));
+
+        mineAndWrap(7 days);
+
+        console2.log("====== William proves the block first");
+        proveBlock(William, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
+
+        console2.log("====== Taylor proves the block later");
+        mineAndWrap(10 seconds);
+        proveBlock(Taylor, meta, parentHash2, blockHash, stateRoot, meta.minTier, "");
+
+        console2.log("====== Verify block");
+        mineAndWrap(7 days);
+        verifyBlock(1);
+        {
+            printBlockAndTrans(meta.id);
+
+            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            assertEq(blk.nextTransitionId, 3);
+            assertEq(blk.verifiedTransitionId, 2);
+            assertEq(blk.assignedProver, Bob);
+            assertEq(blk.livenessBond, 0);
+
+            TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
+            assertEq(ts.contester, address(0));
+            assertEq(ts.contestBond, 1); // not zero
+            assertEq(ts.prover, Taylor);
+            assertEq(ts.validityBond, tierOp.validityBond);
+
+            assertEq(tko.balanceOf(Bob), 10_000 ether - L1.getConfig().livenessBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether);
         }
     }
