@@ -160,6 +160,7 @@ contract AssignmentHook is EssentialContract, IHook {
         view
         returns (bytes32)
     {
+        // split up into two parts otherwise stack is too deep
         bytes32 hash = keccak256(
             abi.encode(
                 _assignment.metaHash,
