@@ -5,7 +5,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
-import "forge-std/src/console2.sol";
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
@@ -63,7 +62,6 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     /// @return A boolean indicating whether the transfer was successful or not.
     function transfer(address _to, uint256 _amount) public override returns (bool) {
         if (_to == address(this)) revert TKO_INVALID_ADDR();
-        // console2.log("TKO ->", msg.sender, _to, _amount / 1e18);
         return super.transfer(_to, _amount);
     }
 

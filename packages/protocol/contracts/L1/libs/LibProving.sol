@@ -7,7 +7,6 @@ import "../../common/IAddressResolver.sol";
 import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
-import "forge-std/src/console2.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
@@ -194,9 +193,6 @@ library LibProving {
         }
 
         bool sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
-
-        console2.log("proof tier:", _proof.tier);
-        console2.log("ts.tier :", ts.tier);
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -437,6 +433,9 @@ library LibProving {
     {
         // The highest tier proof can always submit new proofs
         if (_tier.contestBond == 0) return;
+
+        // If the transition is contested, anyone can prove
+        if (_ts.contester != address(0)) return;
 
         bool isAssignedProver = msg.sender == _blk.assignedProver;
 

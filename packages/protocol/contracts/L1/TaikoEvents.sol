@@ -27,7 +27,6 @@ abstract contract TaikoEvents {
     );
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
-    /// @param assignedProver The block's assigned prover.
     /// @param prover The prover whose transition is used for verifying the
     /// block.
     /// @param blockHash The hash of the verified block.
@@ -35,7 +34,6 @@ abstract contract TaikoEvents {
     /// @param tier The tier ID of the proof.
     event BlockVerified(
         uint256 indexed blockId,
-        address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,

@@ -9,8 +9,6 @@ import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
-import "forge-std/src/console2.sol";
-
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
@@ -21,14 +19,12 @@ library LibVerifying {
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
     /// @param blockId The block ID.
-    /// @param assignedProver The assigned prover of the block.
     /// @param prover The actual prover of the block.
     /// @param blockHash The block hash.
     /// @param stateRoot The state root.
     /// @param tier The tier of the transition used for verification.
     event BlockVerified(
         uint256 indexed blockId,
-        address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -78,7 +74,6 @@ library LibVerifying {
 
         emit BlockVerified({
             blockId: 0,
-            assignedProver: address(0),
             prover: address(0),
             blockHash: _genesisBlockHash,
             stateRoot: 0,
@@ -186,7 +181,6 @@ library LibVerifying {
 
                 emit BlockVerified({
                     blockId: blockId,
-                    assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: blockHash,
                     stateRoot: stateRoot,

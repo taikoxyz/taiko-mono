@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "./TaikoL1TestSetBase.sol";
 
-contract TaikoL1TestGroup2 is TaikoL1TestSetBase {
+contract TaikoL1TestGroup5 is TaikoL1TestSetBase {
     // About this test:
     // - Alice proposes a block with Bob as the assigned prover
     // - Guardian prover proves a block directly
