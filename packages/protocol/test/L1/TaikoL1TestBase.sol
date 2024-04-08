@@ -170,8 +170,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
             signature: new bytes(0)
         });
 
-        assignment.signature =
-            _signAssignment(prover, assignment, address(L1), keccak256(new bytes(txListSize)));
+        assignment.signature = _signAssignment(
+            prover, assignment, address(L1), proposer, keccak256(new bytes(txListSize))
+        );
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
@@ -293,9 +294,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function _signAssignment(
-        address signer,
+        address prover,
         AssignmentHook.ProverAssignment memory assignment,
         address taikoAddr,
+        address blockProposer,
         bytes32 blobHash
     )
         internal
@@ -305,17 +307,17 @@ abstract contract TaikoL1TestBase is TaikoTest {
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
-        if (signer == Alice) {
+        if (prover == Alice) {
             signerPrivateKey = 0x1;
-        } else if (signer == Bob) {
+        } else if (prover == Bob) {
             signerPrivateKey = 0x2;
-        } else if (signer == Carol) {
+        } else if (prover == Carol) {
             signerPrivateKey = 0x3;
         }
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            signerPrivateKey, assignmentHook.hashAssignment(assignment, taikoAddr, blobHash)
-        );
+        bytes32 assignmentHash =
+            assignmentHook.hashAssignment(assignment, taikoAddr, blockProposer, prover, blobHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, assignmentHash);
         signature = abi.encodePacked(r, s, v);
     }
 
