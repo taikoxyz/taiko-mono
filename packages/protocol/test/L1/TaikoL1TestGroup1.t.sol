@@ -79,12 +79,12 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.contester, address(0));
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
-            assertEq(ts.validityBond, tierOp.validityBond + livenessBond);
+            assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, block.timestamp);
 
             provenAt = ts.timestamp;
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond - tierOp.validityBond);
+            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond);
         }
 
         console2.log("====== Verify block");
@@ -107,7 +107,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.contester, address(0));
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
-            assertEq(ts.validityBond, tierOp.validityBond + livenessBond);
+            assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
 
             assertEq(tko.balanceOf(Bob), 10_000 ether);
@@ -275,9 +275,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
 
-            assertEq(
-                tko.balanceOf(Bob), 10_000 ether - L1.getConfig().livenessBond - tierOp.validityBond
-            );
+            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether);
         }
     }
@@ -328,7 +326,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.contester, address(0));
             assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
-            assertEq(ts.validityBond, tierOp.validityBond + L1.getConfig().livenessBond);
+            assertEq(ts.validityBond, tierOp.validityBond);
 
             assertEq(tko.balanceOf(Bob), 10_000 ether);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.validityBond);
