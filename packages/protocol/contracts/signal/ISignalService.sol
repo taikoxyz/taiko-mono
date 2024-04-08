@@ -147,7 +147,7 @@ interface ISignalService {
         returns (bool);
 
     /// @notice Returns the given block's  chain data.
-    /// @param _chainId Indenitifer of the chainId.
+    /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
@@ -163,7 +163,7 @@ interface ISignalService {
         returns (uint64 blockId_, bytes32 chainData_);
 
     /// @notice Returns the data to be used for caching slot generation.
-    /// @param _chainId Indenitifer of the chainId.
+    /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.

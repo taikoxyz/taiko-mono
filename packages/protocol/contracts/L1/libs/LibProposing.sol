@@ -196,10 +196,10 @@ library LibProposing {
                     revert L1_INVALID_HOOK();
                 }
 
-                // When a hook is called, all ether in this contract will be send to the hook.
+                // When a hook is called, all ether in this contract will be sent to the hook.
                 // If the ether sent to the hook is not used entirely, the hook shall send the Ether
                 // back to this contract for the next hook to use.
-                // Proposers shall choose use extra hooks wisely.
+                // Proposers shall choose to use extra hooks wisely.
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta_, params.hookCalls[i].data
                 );

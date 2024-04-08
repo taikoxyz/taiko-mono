@@ -46,7 +46,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         } else if (minTier == LibTiers.TIER_SGX) {
             tierToProveWith = LibTiers.TIER_GUARDIAN;
         }
-        proveBlock(Carol, Carol, meta, parentHash, blockHash, stateRoot, tierToProveWith, "");
+        proveBlock(Carol, meta, parentHash, blockHash, stateRoot, tierToProveWith, "");
     }
 
     function test_L1_ContestingWithSameProof() external {
@@ -73,11 +73,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
             proveBlock(
-                Carol,
                 Carol,
                 meta,
                 parentHash,
@@ -92,7 +91,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -125,17 +124,17 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             // Try to contest
-            proveBlock(Carol, Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
 
             vm.roll(block.number + 15 * 12);
 
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             // Cannot verify block because it is contested..
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             proveHigherTierProof(meta, parentHash, stateRoot, blockHash, minTier);
 
@@ -145,7 +144,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             );
             // Now can verify
             console2.log("Probalom verify-olni");
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -177,17 +176,17 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             // Try to contest
-            proveBlock(Carol, Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
 
             vm.roll(block.number + 15 * 12);
 
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
             // Cannot verify block because it is contested..
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             proveHigherTierProof(meta, parentHash, stateRoot, blockHash, minTier);
 
@@ -197,7 +196,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     + 1
             );
             // Now can verify
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -230,21 +229,21 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, minTier, "");
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
-                proveBlock(Carol, Carol, meta, parentHash, stateRoot, stateRoot, minTier, "");
+                proveBlock(Carol, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
                 vm.roll(block.number + 15 * 12);
 
                 vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
                 // Cannot verify block because it is contested..
-                verifyBlock(Carol, 1);
+                verifyBlock(1);
 
                 proveBlock(
-                    Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
+                    Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
                 );
             }
 
@@ -254,7 +253,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     + 1
             );
             // Now can verify
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -286,11 +285,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
-                proveBlock(Carol, Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
+                proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
 
                 vm.roll(block.number + 15 * 12);
 
@@ -300,10 +299,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 );
 
                 // Cannot verify block because it is contested..
-                verifyBlock(Carol, 1);
+                verifyBlock(1);
 
                 proveBlock(
-                    Carol,
                     Carol,
                     meta,
                     parentHash,
@@ -320,7 +318,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     + 1
             );
             // Now can verify
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -351,7 +349,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             proveBlock(
                 Carol,
-                Carol,
                 meta,
                 parentHash,
                 blockHash,
@@ -364,52 +361,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    function test_L1_assignedProverCannotProveAfterHisWindowElapsed() external {
-        giveEthAndTko(Alice, 1e8 ether, 100 ether);
-        // This is a very weird test (code?) issue here.
-        // If this line (or Bob's query balance) is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        giveEthAndTko(Carol, 1e8 ether, 100 ether);
-        // Bob
-        vm.prank(Bob, Bob);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
-            //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-            //printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 stateRoot = bytes32(1e9 + blockId);
-
-            vm.roll(block.number + 15 * 12);
-
-            uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
-
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                blockHash,
-                stateRoot,
-                meta.minTier,
-                TaikoErrors.L1_ASSIGNED_PROVER_NOT_ALLOWED.selector
-            );
-
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
             parentHash = blockHash;
         }
         printVariables("");
@@ -442,25 +394,18 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             (, TaikoData.SlotB memory b) = L1.getStateVariables();
             uint64 lastVerifiedBlockBefore = b.lastVerifiedBlockId;
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             console2.log("mintTier is:", meta.minTier);
             // Try to contest
             proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                bytes32(uint256(1)),
-                bytes32(uint256(1)),
-                meta.minTier,
-                ""
+                Carol, meta, parentHash, bytes32(uint256(1)), bytes32(uint256(1)), meta.minTier, ""
             );
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             (, b) = L1.getStateVariables();
             uint64 lastVerifiedBlockAfter = b.lastVerifiedBlockId;
@@ -470,9 +415,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             assertEq(lastVerifiedBlockAfter, lastVerifiedBlockBefore);
 
             // Guardian can prove with the original (good) hashes.
-            proveBlock(
-                Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
-            );
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             vm.roll(block.number + 15 * 12);
             vm.warp(
@@ -480,7 +423,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     + 1
             );
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
             parentHash = blockHash;
         }
         printVariables("");
@@ -510,11 +453,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
             proveBlock(
-                Carol,
                 Carol,
                 meta,
                 parentHash,
@@ -529,7 +471,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -560,31 +502,22 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
 
             // Prove as guardian
             proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                blockHash,
-                bytes32(uint256(1)),
-                LibTiers.TIER_GUARDIAN,
-                ""
+                Carol, meta, parentHash, blockHash, bytes32(uint256(1)), LibTiers.TIER_GUARDIAN, ""
             );
 
             // Prove as guardian again
-            proveBlock(
-                Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
-            );
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -617,11 +550,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
 
             // Prove as guardian but in reality not a guardian
             proveBlock(
-                Carol,
                 Carol,
                 meta,
                 parentHash,
@@ -636,7 +568,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -670,7 +602,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             meta.id = 100;
             proveBlock(
-                Carol,
                 Carol,
                 meta,
                 parentHash,
@@ -714,7 +645,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             meta.l1Height = 200;
             proveBlock(
                 Bob,
-                Bob,
                 meta,
                 parentHash,
                 blockHash,
@@ -752,16 +682,13 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of blockhash is
             // exchanged with stateRoot
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
 
             // Prove as guardian
-            proveBlock(
-                Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
-            );
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             // Try to re-prove but reverts
             proveBlock(
-                Bob,
                 Bob,
                 meta,
                 parentHash,
@@ -776,77 +703,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
-
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    function test_L1_GuardianCanReturnBondIfBlockUnprovable() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
-        console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
-            printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-            //printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 stateRoot = bytes32(1e9 + blockId);
-            // This proof cannot be verified obviously because of blockhash is
-            // exchanged with stateRoot
-            proveBlock(Bob, Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
-
-            // Let's say the 10th block is unprovable so prove accordingly
-            if (blockId == 10) {
-                TaikoData.Transition memory tran = TaikoData.Transition({
-                    parentHash: parentHash,
-                    blockHash: blockHash,
-                    stateRoot: stateRoot,
-                    graffiti: 0x0
-                });
-
-                TaikoData.TierProof memory proof;
-                proof.tier = LibTiers.TIER_GUARDIAN;
-                proof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
-
-                uint256 balanceBeforeReimbursement = tko.balanceOf(Bob);
-
-                vm.prank(David, David);
-                gp.approve(meta, tran, proof);
-                vm.prank(Emma, Emma);
-                gp.approve(meta, tran, proof);
-                vm.prank(Frank, Frank);
-                gp.approve(meta, tran, proof);
-
-                // // Credited back the bond (not transferred to the user
-                // wallet,
-                // // but in-contract account credited only.)
-                assertEq(tko.balanceOf(Bob) - balanceBeforeReimbursement, 1 ether);
-            } else {
-                // Prove as guardian
-                proveBlock(
-                    Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
-                );
-            }
-            vm.roll(block.number + 15 * 12);
-
-            uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
-
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
 
             parentHash = blockHash;
         }
@@ -874,11 +731,10 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 blockHash = bytes32(uint256(1));
         bytes32 stateRoot = bytes32(uint256(1));
-        proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
         // Try to contest with a lower tier proof- but should revert with L1_INVALID_TIER
         proveBlock(
-            Carol,
             Carol,
             meta,
             parentHash,

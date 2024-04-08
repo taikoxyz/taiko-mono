@@ -23,6 +23,13 @@ contract Bridge is EssentialContract, IBridge {
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
+    /// @dev Gas limit for sending Ether.
+    // - EOA gas used is < 21000
+    // - For Loopring smart wallet, gas used is about 23000
+    // - For Argent smart wallet on Ethereum, gas used is about 24000
+    // - For Gnosis Safe wallet, gas used is about 28000
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
+
     /// @dev Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
@@ -210,7 +217,7 @@ contract Bridge is EssentialContract, IBridge {
                 // Must reset the context after the message call
                 _resetContext();
             } else {
-                _message.srcOwner.sendEtherAndVerify(_message.value);
+                _message.srcOwner.sendEtherAndVerify(_message.value, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageRecalled(msgHash);
         } else if (isNewlyProven) {
@@ -318,11 +325,11 @@ contract Bridge is EssentialContract, IBridge {
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEtherAndVerify(_message.fee + refundAmount);
+                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee);
-                refundTo.sendEtherAndVerify(refundAmount);
+                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {
@@ -421,8 +428,8 @@ contract Bridge is EssentialContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
-    /// if requested.
+    /// @notice Verifies with a merkle proof if the given message has been received on the source
+    /// chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has been received, false otherwise.
@@ -506,8 +513,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return The minimal delay in second before a message can be executed since and the time it
-    /// was received on the this chain.
+    /// @return The minimal delay in seconds between message execution and proving.
     /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
     /// the preferredExecutor who proved this message.
     function getInvocationDelays() public view virtual returns (uint256, uint256) {
@@ -518,7 +524,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
             return (5 minutes, 384 seconds);
         } else {
-            // This is a Taiko L2 chain where no deleys are applied.
+            // This is a Taiko L2 chain where no delays are applied.
             return (0, 0);
         }
     }
