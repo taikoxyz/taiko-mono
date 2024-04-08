@@ -16,6 +16,16 @@ library LibVerifying {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    // A struct to get around stack too deep issue.
+    struct Local {
+        TaikoData.SlotB b;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+        address tierProvider;
+        uint64 cooldownWindow;
+        uint16 previousTier;
+    }
+
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
     /// @param blockId The block ID.
@@ -104,8 +114,10 @@ library LibVerifying {
 
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
-        TaikoData.SlotB memory b = _state.slotB;
-        uint64 blockId = b.lastVerifiedBlockId;
+        Local memory local;
+        local.b = _state.slotB;
+
+        uint64 blockId = local.b.lastVerifiedBlockId;
 
         uint64 slot = blockId % _config.blockRingBufferSize;
 
@@ -120,25 +132,24 @@ library LibVerifying {
 
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
-        bytes32 blockHash = _state.transitions[slot][tid].blockHash;
-        bytes32 stateRoot;
-        uint64 numBlocksVerified;
-        address tierProvider;
+        local.blockHash = _state.transitions[slot][tid].blockHash;
 
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
+        uint64 numBlocksVerified;
+
         unchecked {
             ++blockId;
 
-            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
+            while (blockId < local.b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
                 slot = blockId % _config.blockRingBufferSize;
 
                 blk = _state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
-                tid = LibUtils.getTransitionId(_state, blk, slot, blockHash);
+                tid = LibUtils.getTransitionId(_state, blk, slot, local.blockHash);
                 // When `tid` is 0, it indicates that there is no proven
                 // transition with its parentHash equal to the blockHash of the
                 // most recently verified block.
@@ -153,15 +164,19 @@ library LibVerifying {
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve("tier_provider", false);
+                    if (local.tierProvider == address(0)) {
+                        local.tierProvider = _resolver.resolve("tier_provider", false);
+                    }
+
+                    if (local.cooldownWindow == 0 || ts.tier != local.previousTier) {
+                        local.cooldownWindow =
+                            ITierProvider(local.tierProvider).getTier(ts.tier).cooldownWindow;
+                        local.previousTier = ts.tier;
                     }
 
                     if (
                         !LibUtils.isPostDeadline(
-                            ts.timestamp,
-                            b.lastUnpausedAt,
-                            ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow
+                            ts.timestamp, local.b.lastUnpausedAt, local.cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
@@ -174,8 +189,8 @@ library LibVerifying {
                 blk.verifiedTransitionId = tid;
 
                 // Update variables
-                blockHash = ts.blockHash;
-                stateRoot = ts.stateRoot;
+                local.blockHash = ts.blockHash;
+                local.stateRoot = ts.stateRoot;
 
                 // We consistently return the liveness bond and the validity
                 // bond to the actual prover of the transition utilized for
@@ -214,8 +229,8 @@ library LibVerifying {
                     blockId: blockId,
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
-                    blockHash: blockHash,
-                    stateRoot: stateRoot,
+                    blockHash: local.blockHash,
+                    stateRoot: local.stateRoot,
                     tier: ts.tier,
                     contestations: ts.contestations
                 });
@@ -225,13 +240,13 @@ library LibVerifying {
             }
 
             if (numBlocksVerified != 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+                uint64 lastVerifiedBlockId = local.b.lastVerifiedBlockId + numBlocksVerified;
 
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
                 // Sync chain data
-                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
+                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, local.stateRoot);
             }
         }
     }
