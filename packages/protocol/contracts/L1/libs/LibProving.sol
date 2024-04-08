@@ -32,6 +32,9 @@ library LibProving {
         bool sameTransition;
     }
 
+    /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
+    bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
+
     /// @notice The tier name for optimistic proofs.
     bytes32 private constant TIER_OP = bytes32("tier_optimistic");
 
@@ -212,11 +215,11 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
         IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
-
+        
         local.livenessBond = blk.livenessBond;
         if (local.isTopTier) {
             if (local.livenessBond != 0) {
-                if (local.inProvingWindow) {
+                if (local.inProvingWindow || (_proof.data.length == 32 && bytes32(_proof.data) == RETURN_LIVENESS_BOND)) {
                     tko.safeTransfer(local.assignedProver, local.livenessBond);
                 }
                 blk.livenessBond = 0;
