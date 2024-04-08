@@ -813,6 +813,30 @@ contract BridgeTest is TaikoTest {
         assertEq(postRetryStatus == IBridge.Status.FAILED, true);
     }
 
+    function test_Bridge_fail_message() public {
+        vm.startPrank(Alice);
+        (IBridge.Message memory message, bytes memory proof) =
+            setUpPredefinedSuccessfulProcessMessageCall();
+
+        // etch bad receiver at the to address, so it fails.
+        vm.etch(message.to, address(badReceiver).code);
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+
+        destChainBridge.processMessage(message, proof);
+
+        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+
+        assertEq(status == IBridge.Status.RETRIABLE, true);
+
+        vm.stopPrank();
+
+        vm.prank(message.destOwner);
+        destChainBridge.failMessage(message);
+        IBridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
+        assertEq(postRetryStatus == IBridge.Status.FAILED, true);
+    }
+
     function test_processMessage_InvokeMessageCall_DoS1() public {
         nonmaliciousContract1 = new NonMaliciousContract1();
 

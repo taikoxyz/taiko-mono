@@ -14,12 +14,12 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	var startingBlock uint64 = 0
 	// only check stateVars on L1, otherwise sync from 0
 	if i.taikol1 != nil {
-		stateVars, err := i.taikol1.GetStateVariables(nil)
+		slotA, _, err := i.taikol1.GetStateVariables(nil)
 		if err != nil {
 			return errors.Wrap(err, "i.taikoL1.GetStateVariables")
 		}
 
-		startingBlock = stateVars.A.GenesisHeight
+		startingBlock = slotA.GenesisHeight
 	}
 
 	switch mode {

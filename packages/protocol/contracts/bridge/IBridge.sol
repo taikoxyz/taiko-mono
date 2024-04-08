@@ -88,6 +88,10 @@ interface IBridge {
     /// @param msgHash The hash of the message.
     event MessageRetried(bytes32 indexed msgHash);
 
+    /// @notice Emitted when a message is marked failed.
+    /// @param msgHash The hash of the message.
+    event MessageFailed(bytes32 indexed msgHash);
+
     /// @notice Emitted when the status of a message changes.
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
@@ -142,6 +146,12 @@ interface IBridge {
     /// @param _isLastAttempt Specifies if this is the last attempt to retry the
     /// message.
     function retryMessage(Message calldata _message, bool _isLastAttempt) external;
+
+    /// @notice Mark a message as failed if the message is currently retriable.
+    /// @dev This function can only be called by `message.destOwner`.
+    /// @param _message The message to fail.
+    /// message.
+    function failMessage(Message calldata _message) external;
 
     /// @notice Returns the bridge state context.
     /// @return ctx_ The context of the current bridge operation.
