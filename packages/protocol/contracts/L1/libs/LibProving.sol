@@ -137,16 +137,14 @@ library LibProving {
         ITierProvider.Tier memory tier =
             ITierProvider(_resolver.resolve("tier_provider", false)).getTier(_proof.tier);
 
-        // Check if this prover is allowed to submit a proof for this block
+        // Checks if only the assigned prover is permissioned to prove the block.
         // The guardian prover is granted exclusive permisison to prove only the first
         // transition.
         if (
-            tier.contestBond != 0 && ts.contester == address(0) && tid == 1 //
-                && ts.tier == 0
+            tier.contestBond != 0 && ts.contester == address(0) && tid == 1 && ts.tier == 0
                 && !LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow)
-                && msg.sender != blk.assignedProver
         ) {
-            revert L1_NOT_ASSIGNED_PROVER();
+            if (msg.sender != blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
         }
 
         // We must verify the proof, and any failure in proof verification will
@@ -189,14 +187,16 @@ library LibProving {
             }
         }
 
-        bool isTopTier = tier.contestBond == 0;
         IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
 
-        if (isTopTier) {
-            uint96 livenessBond = blk.livenessBond;
-            if (livenessBond != 0) {
-                if (!LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow)) {
-                    tko.safeTransfer(blk.assignedProver, livenessBond);
+        bool inProvingWindow =
+            !LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow);
+
+        // The guardian prover refund the liveness fund to the assign prover.
+        if (tier.contestBond == 0) {
+            if (blk.livenessBond != 0) {
+                if (inProvingWindow) {
+                    tko.safeTransfer(blk.assignedProver, blk.livenessBond);
                 }
                 blk.livenessBond = 0;
             }
@@ -208,7 +208,64 @@ library LibProving {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _tran, _proof, tier, tko, sameTransition);
+
+            // Higher tier proof overwriting lower tier proof
+            {
+                uint256 reward; // reward to the new (current) prover
+
+                if (ts.contester != address(0)) {
+                    if (sameTransition) {
+                        // The contested transition is proven to be valid, contester loses the game
+                        reward = _rewardAfterFriction(ts.contestBond);
+
+                        // We return the validity bond back, but the original prover doesn't get any
+                        // reward.
+                        tko.safeTransfer(ts.prover, ts.validityBond);
+                    } else {
+                        // The contested transition is proven to be invalid, contester wins the
+                        // game.
+                        // Contester gets 3/4 of reward, the new prover gets 1/4.
+                        reward = _rewardAfterFriction(ts.validityBond) >> 2;
+
+                        tko.safeTransfer(ts.contester, ts.contestBond + reward * 3);
+                    }
+                } else {
+                    if (sameTransition) revert L1_ALREADY_PROVED();
+
+                    // The code below will be executed if
+                    // - 1) the transition is proved for the fist time, or
+                    // - 2) the transition is contested.
+                    reward = _rewardAfterFriction(ts.validityBond);
+
+                    if (blk.livenessBond != 0) {
+                        if (blk.assignedProver == msg.sender && inProvingWindow) {
+                            unchecked {
+                                reward += blk.livenessBond;
+                            }
+                        }
+                        blk.livenessBond = 0;
+                    }
+                }
+
+                unchecked {
+                    if (reward > tier.validityBond) {
+                        tko.safeTransfer(msg.sender, reward - tier.validityBond);
+                    } else if (reward < tier.validityBond) {
+                        tko.safeTransferFrom(msg.sender, address(this), tier.validityBond - reward);
+                    }
+                }
+            }
+
+            ts.validityBond = tier.validityBond;
+            ts.contestBond = 1; // to save gas
+            ts.contester = address(0);
+            ts.prover = msg.sender;
+            ts.tier = _proof.tier;
+
+            if (!sameTransition) {
+                ts.blockHash = _tran.blockHash;
+                ts.stateRoot = _tran.stateRoot;
+            }
 
             emit TransitionProved({
                 blockId: blk.blockId,
@@ -222,7 +279,7 @@ library LibProving {
             // prove the same, it reverts
             if (sameTransition) revert L1_ALREADY_PROVED();
 
-            if (isTopTier) {
+            if (tier.contestBond == 0) {
                 // The top tier prover re-proves.
                 assert(tier.validityBond == 0);
                 assert(ts.validityBond == 0 && ts.contester == address(0));
@@ -353,83 +410,6 @@ library LibProving {
         } else {
             // A transition with the provided parentHash has been located.
             ts_ = _state.transitions[slot][tid_];
-        }
-    }
-
-    /// @dev Handles what happens when there is a higher proof incoming
-    ///
-    /// Assume Alice is the initial prover, Bob is the contester, and Cindy is the subsequent
-    /// prover. The validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob
-    /// successfully contests, he receives a reward of 65.625, calculated as 3/4 of 7/8 of 100. Cindy
-    /// receives 21.875, which is 1/4 of 7/8 of 100, while the protocol retains 12.5 as friction.
-    /// Bob's Return on Investment (ROI) is 13.125%, calculated from 65.625 divided by 500.
-    // To establish the expected ROI `r` for valid contestations, where the contestation bond `C` to
-    // validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set at 10%, the C/V ratio will be
-    // 6.5625.
-    function _overrideWithHigherProof(
-        TaikoData.Block storage _blk,
-        TaikoData.TransitionState storage _ts,
-        TaikoData.Transition memory _tran,
-        TaikoData.TierProof memory _proof,
-        ITierProvider.Tier memory _tier,
-        IERC20 _tko,
-        bool _sameTransition
-    )
-        private
-    {
-        // Higher tier proof overwriting lower tier proof
-        uint256 reward; // reward to the new (current) prover
-
-        if (_ts.contester != address(0)) {
-            if (_sameTransition) {
-                // The contested transition is proven to be valid, contester loses the game
-                reward = _rewardAfterFriction(_ts.contestBond);
-
-                // We return the validity bond back, but the original prover doesn't get any reward.
-                _tko.safeTransfer(_ts.prover, _ts.validityBond);
-            } else {
-                // The contested transition is proven to be invalid, contester wins the game.
-                // Contester gets 3/4 of reward, the new prover gets 1/4.
-                reward = _rewardAfterFriction(_ts.validityBond) >> 2;
-
-                _tko.safeTransfer(_ts.contester, _ts.contestBond + reward * 3);
-            }
-        } else {
-            if (_sameTransition) revert L1_ALREADY_PROVED();
-
-            // The code below will be executed if
-            // - 1) the transition is proved for the fist time, or
-            // - 2) the transition is contested.
-            reward = _rewardAfterFriction(_ts.validityBond);
-
-            uint96 livenessBond = _blk.livenessBond;
-            if (livenessBond != 0) {
-                if (_blk.assignedProver == msg.sender) {
-                    unchecked {
-                        reward += livenessBond;
-                    }
-                }
-                _blk.livenessBond = 0;
-            }
-        }
-
-        unchecked {
-            if (reward > _tier.validityBond) {
-                _tko.safeTransfer(msg.sender, reward - _tier.validityBond);
-            } else if (reward < _tier.validityBond) {
-                _tko.safeTransferFrom(msg.sender, address(this), _tier.validityBond - reward);
-            }
-        }
-
-        _ts.validityBond = _tier.validityBond;
-        _ts.contestBond = 1; // to save gas
-        _ts.contester = address(0);
-        _ts.prover = msg.sender;
-        _ts.tier = _proof.tier;
-
-        if (!_sameTransition) {
-            _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _tran.stateRoot;
         }
     }
 
