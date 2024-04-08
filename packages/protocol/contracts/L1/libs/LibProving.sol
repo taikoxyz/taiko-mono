@@ -55,7 +55,6 @@ library LibProving {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
-    error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PAUSE_STATUS();
@@ -139,7 +138,16 @@ library LibProving {
             ITierProvider(_resolver.resolve("tier_provider", false)).getTier(_proof.tier);
 
         // Check if this prover is allowed to submit a proof for this block
-        _checkProverPermission(blk, ts, tid, tier, b.lastUnpausedAt);
+        // The guardian prover is granted exclusive permisison to prove only the first
+        // transition.
+        if (
+            tier.contestBond != 0 && ts.contester == address(0) && tid == 1 //
+                && ts.tier == 0
+                && !LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow)
+                && msg.sender != blk.assignedProver
+        ) {
+            revert L1_NOT_ASSIGNED_PROVER();
+        }
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -422,38 +430,6 @@ library LibProving {
         if (!_sameTransition) {
             _ts.blockHash = _tran.blockHash;
             _ts.stateRoot = _tran.stateRoot;
-        }
-    }
-
-    /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
-    function _checkProverPermission(
-        TaikoData.Block storage _blk,
-        TaikoData.TransitionState storage _ts,
-        uint32 _tid,
-        ITierProvider.Tier memory _tier,
-        uint64 _lastUnpausedAt
-    )
-        private
-        view
-    {
-        // The highest tier proof can always submit new proofs
-        if (_tier.contestBond == 0) return;
-
-        // If the transition is contested, anyone can prove
-        if (_ts.contester != address(0)) return;
-
-        bool isAssignedProver = msg.sender == _blk.assignedProver;
-
-        // The assigned prover can only submit the very first transition.
-        if (
-            _tid == 1 && _ts.tier == 0
-                && !LibUtils.isPostDeadline(_ts.timestamp, _lastUnpausedAt, _tier.provingWindow)
-        ) {
-            if (!isAssignedProver) revert L1_NOT_ASSIGNED_PROVER();
-        } else {
-            // Disallow the same address to prove the block so that we can detect that the
-            // assigned prover should not receive his liveness bond back
-            if (isAssignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 

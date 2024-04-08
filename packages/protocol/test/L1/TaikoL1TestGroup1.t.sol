@@ -155,18 +155,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(7 days);
-
-        console2.log("====== Bob cannot prove the block out of the proving window");
-        proveBlock(
-            Bob,
-            meta,
-            parentHash,
-            blockHash,
-            stateRoot,
-            meta.minTier,
-            TaikoErrors.L1_ASSIGNED_PROVER_NOT_ALLOWED.selector
-        );
-
         console2.log("====== Taylor proves the block");
         mineAndWrap(10 seconds);
         proveBlock(Taylor, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
