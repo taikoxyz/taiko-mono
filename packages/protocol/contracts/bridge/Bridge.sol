@@ -24,7 +24,7 @@ contract Bridge is EssentialContract, IBridge {
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
     /// @dev Gas limit for sending Ether.
-    uint256 private constant _SEND_ETHER_GAS_LIMIT = 60_000;
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 50_000;
 
     /// @dev Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
