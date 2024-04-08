@@ -6,9 +6,8 @@ import "./TaikoL1TestGroupBase.sol";
 contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
     // Test summary:
     // 1. Alice proposes a block, assigning Bob as the prover.
-    // 2. Bob successfully proves the block within the proving window, using the correct parent
-    // hash.
-    // 3. After the cooldown window, Taylor contests Bob's proof.
+    // 2. Bob proves the block within the proving window, using the correct parent hash.
+    // 3. After the cooldown window, Taylor contests Bob's proof, and fails.
     function test_taikoL1_group_7_case_1() external {
         vm.warp(1_000_000);
 

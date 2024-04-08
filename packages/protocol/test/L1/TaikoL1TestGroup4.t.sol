@@ -7,7 +7,8 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
     // Test summary:
     // 1. Alice proposes a block, Bob is the prover.
     // 2. Bob proves the block within the proving window, using the correct parent hash.
-    // 3. Taylor disproves Bob with a higher-tier proof.
+    // 3. Taylor contests then proves Bob is wrong  in the same transaction with a higher-tier
+    // proof.
     // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_4_case_1() external {
         vm.warp(1_000_000);
@@ -92,7 +93,8 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
     // Test summary:
     // 1. Alice proposes a block, assigning Bob as the prover.
     // 2. David proves the block outside the proving window, using the correct parent hash.
-    // 3. Taylor disproves David with a higher-tier proof.
+    // 3. Taylor contests then proves David is wrong in the same transaction with a higher-tier
+    // proof.
     // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_4_case_2() external {
         vm.warp(1_000_000);

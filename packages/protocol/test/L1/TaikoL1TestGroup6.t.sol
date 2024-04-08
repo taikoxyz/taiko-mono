@@ -8,7 +8,7 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
     // 1. Alice proposes a block, assigning Bob as the prover.
     // 2. Bob proves the block within the proving window, using the correct parent hash.
     // 3. Taylor contests Bob's proof.
-    // 4. Bob defends his proof, showing Taylor is incorrect.
+    // 4. Bob re-proves his proof, showing Taylor is incorrect.
     // 5. Bob's proof is validated and used to verify the block.
     function test_taikoL1_group_6_case_1() external {
         vm.warp(1_000_000);

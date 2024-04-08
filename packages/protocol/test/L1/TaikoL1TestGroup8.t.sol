@@ -105,8 +105,8 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Get a block that doesn't exist
-    // 2. Get a transition by ID & hash that doesn't exist.
+    // 1. Gets a block that doesn't exist
+    // 2. Gets a transition by ID & hash that doesn't exist.
     function test_taikoL1_group_8_case_3() external {
         vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
         L1.getBlock(2);
