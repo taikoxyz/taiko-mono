@@ -16,6 +16,9 @@ library LibProving {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
+    bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
+
     /// @notice The tier name for optimistic proofs.
     bytes32 private constant TIER_OP = bytes32("tier_optimistic");
 
@@ -187,7 +190,10 @@ library LibProving {
         if (isTopTier) {
             uint96 livenessBond = blk.livenessBond;
             if (livenessBond != 0) {
-                if (!LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow)) {
+                if (
+                    !LibUtils.isPostDeadline(ts.timestamp, b.lastUnpausedAt, tier.provingWindow)
+                        || (_proof.data.length == 32 && bytes32(_proof.data) == RETURN_LIVENESS_BOND)
+                ) {
                     tko.safeTransfer(blk.assignedProver, livenessBond);
                 }
                 blk.livenessBond = 0;
