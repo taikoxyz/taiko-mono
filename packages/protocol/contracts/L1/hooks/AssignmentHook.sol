@@ -76,7 +76,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Note that
         // - 'msg.sender' is the TaikoL1 contract address
         // - 'block.coinbase' is the L1 block builder
-        // - 'meta.coinbase' is the L2 block proposer
+        // - 'meta.coinbase' is the L2 block proposer (chosen by block's proposer)
 
         Input memory input = abi.decode(_data, (Input));
         ProverAssignment memory assignment = input.assignment;

@@ -7,6 +7,7 @@ import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title TaikoGovernor
@@ -14,6 +15,7 @@ import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 contract TaikoGovernor is
     Ownable2StepUpgradeable,
     GovernorCompatibilityBravoUpgradeable,
+    GovernorSettingsUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
     GovernorTimelockControlUpgradeable
 {
@@ -34,6 +36,8 @@ contract TaikoGovernor is
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __Governor_init("TaikoGovernor");
         __GovernorVotes_init(_token);
+        __GovernorSettings_init(7200, 50_400, 100_000 ether); // Values respectively: 1day, 1week,
+            // 0.01% of Taiko Token;
         __GovernorVotesQuorumFraction_init(4);
         __GovernorTimelockControl_init(_timelock);
     }
@@ -75,20 +79,35 @@ contract TaikoGovernor is
     /// @notice How long after a proposal is created should voting power be fixed. A
     /// large voting delay gives users time to unstake tokens if necessary.
     /// @return The duration of the voting delay.
-    function votingDelay() public pure override returns (uint256) {
-        return 7200; // 1 day
+    function votingDelay()
+        public
+        view
+        override(IGovernorUpgradeable, GovernorSettingsUpgradeable)
+        returns (uint256)
+    {
+        return super.votingDelay();
     }
 
     /// @notice How long does a proposal remain open to votes.
     /// @return The duration of the voting period.
-    function votingPeriod() public pure override returns (uint256) {
-        return 50_400; // 1 week
+    function votingPeriod()
+        public
+        view
+        override(IGovernorUpgradeable, GovernorSettingsUpgradeable)
+        returns (uint256)
+    {
+        return super.votingPeriod();
     }
 
     /// @notice The number of votes required in order for a voter to become a proposer.
     /// @return The number of votes required.
-    function proposalThreshold() public pure override returns (uint256) {
-        return 100_000 ether; // 0.01% of Taiko Token
+    function proposalThreshold()
+        public
+        view
+        override(GovernorUpgradeable, GovernorSettingsUpgradeable)
+        returns (uint256)
+    {
+        return super.proposalThreshold();
     }
 
     /// @dev Cancel a proposal with GovernorBravo logic.

@@ -421,8 +421,8 @@ contract Bridge is EssentialContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
-    /// if requested.
+    /// @notice Verifies with a merkle proof if the given message has been received on the source
+    /// chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has been received, false otherwise.
@@ -506,8 +506,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return The minimal delay in second before a message can be executed since and the time it
-    /// was received on the this chain.
+    /// @return The minimal delay in seconds between message execution and proving.
     /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
     /// the preferredExecutor who proved this message.
     function getInvocationDelays() public view virtual returns (uint256, uint256) {
