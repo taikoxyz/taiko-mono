@@ -19,6 +19,11 @@ library LibProving {
     /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
 
+    /// @notice Keccak hash of the string "tier_provider".
+    bytes32 private constant TIER_PROVIDER = bytes32("tier_provider");
+    /// @notice Keccak hash of the string "taiko_token".
+    bytes32 private constant TKO = bytes32("taiko_token");
+
     /// @notice The tier name for optimistic proofs - expected to only be used for testnets. For
     /// production we do not plan to have optimistic type of proving first, but future will tell if
     /// L3s, app-chains or other 3rd parties would be willing to do so.
@@ -141,7 +146,7 @@ library LibProving {
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
         ITierProvider.Tier memory tier =
-            ITierProvider(_resolver.resolve("tier_provider", false)).getTier(_proof.tier);
+            ITierProvider(_resolver.resolve(TIER_PROVIDER, false)).getTier(_proof.tier);
 
         // Check if this prover is allowed to submit a proof for this block
         _checkProverPermission(blk, ts, tid, tier, b.lastUnpausedAt);
@@ -187,7 +192,7 @@ library LibProving {
         }
 
         bool isTopTier = tier.contestBond == 0;
-        IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
+        IERC20 tko = IERC20(_resolver.resolve(TKO, false));
 
         if (isTopTier) {
             // A special return value from the top tier prover can signal this

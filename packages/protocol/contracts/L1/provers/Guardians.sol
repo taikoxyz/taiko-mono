@@ -33,12 +33,6 @@ abstract contract Guardians is EssentialContract {
     /// @param guardians The new set of guardians
     event GuardiansUpdated(uint32 version, address[] guardians);
 
-    /// @notice Emitted when an approval is made
-    /// @param operationId The operation ID
-    /// @param approvalBits The new approval bits
-    /// @param minGuardiansReached If the proof was submitted
-    event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
-
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
     error INVALID_MIN_GUARDIANS();
@@ -48,7 +42,7 @@ abstract contract Guardians is EssentialContract {
     /// @param _newGuardians The new set of guardians
     /// @param _minGuardians The minimum required to sign
     function setGuardians(
-        address[] memory _newGuardians,
+        address[] calldata _newGuardians,
         uint8 _minGuardians
     )
         external
@@ -115,7 +109,6 @@ abstract contract Guardians is EssentialContract {
 
         uint256 _approval = _approvals[_version][_hash];
         approved_ = isApproved(_approval);
-        emit Approved(_blockId, _approval, approved_);
     }
 
     function deleteApproval(bytes32 _hash) internal {

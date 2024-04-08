@@ -9,4 +9,7 @@ library LibSignals {
 
     /// @notice Keccak hash of the string "SIGNAL_ROOT".
     bytes32 public constant SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
+
+    /// @notice Constant string "SIGNAL".
+    string public constant SIGNAL = "SIGNAL";
 }

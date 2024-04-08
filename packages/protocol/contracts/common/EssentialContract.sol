@@ -21,11 +21,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     bytes32 private constant _REENTRY_SLOT =
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b;
 
-    /// @dev Slot 1.
-    uint8 private __reentry;
-
-    uint8 private __paused;
-
+    /// @dev Slot 1&2 - not optimized if we store them in 1 slot, because they neither read nor
+    /// written at the same time.
+    uint256 private __reentry;
+    uint256 private __paused;
+    /// @dev Slot 3.
     uint64 public lastUnpausedAt;
 
     uint256[49] private __gap;
@@ -115,7 +115,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     function _authorizePause(address, bool) internal virtual onlyOwner { }
 
     // Stores the reentry lock
-    function _storeReentryLock(uint8 _reentry) internal virtual {
+    function _storeReentryLock(uint256 _reentry) internal virtual {
         if (LibNetwork.isDencunSupported(block.chainid)) {
             assembly {
                 tstore(_REENTRY_SLOT, _reentry)
@@ -126,7 +126,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     // Loads the reentry lock
-    function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
+    function _loadReentryLock() internal view virtual returns (uint256 reentry_) {
         if (LibNetwork.isDencunSupported(block.chainid)) {
             assembly {
                 reentry_ := tload(_REENTRY_SLOT)

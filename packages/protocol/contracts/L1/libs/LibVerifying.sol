@@ -16,6 +16,11 @@ library LibVerifying {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    /// @notice bytes32 representation of the string "tier_provider".
+    bytes32 private constant TIER_PROVIDER = bytes32("tier_provider");
+    /// @notice bytes32 representation of the string "taiko_token".
+    bytes32 private constant TKO = bytes32("taiko_token");
+
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
     /// @param blockId The block ID.
@@ -125,6 +130,8 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
+        IERC20 tko = IERC20(_resolver.resolve(TKO, false));
+
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
@@ -154,7 +161,7 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve("tier_provider", false);
+                        tierProvider = _resolver.resolve(TIER_PROVIDER, false);
                     }
 
                     if (
@@ -201,7 +208,6 @@ library LibVerifying {
                         : blk.livenessBond;
                 }
 
-                IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
                 tko.safeTransfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
