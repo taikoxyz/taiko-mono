@@ -367,50 +367,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_assignedProverCannotProveAfterHisWindowElapsed() external {
-        giveEthAndTko(Alice, 1e8 ether, 100 ether);
-        // This is a very weird test (code?) issue here.
-        // If this line (or Bob's query balance) is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        giveEthAndTko(Carol, 1e8 ether, 100 ether);
-        // Bob
-        vm.prank(Bob, Bob);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
-            //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-            //printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 stateRoot = bytes32(1e9 + blockId);
-
-            vm.roll(block.number + 15 * 12);
-
-            uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
-
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                blockHash,
-                stateRoot,
-                meta.minTier,
-                TaikoErrors.L1_ASSIGNED_PROVER_NOT_ALLOWED.selector
-            );
-
-            verifyBlock(1);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
     function test_L1_GuardianProverCanAlwaysOverwriteTheProof() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
