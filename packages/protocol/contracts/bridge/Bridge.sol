@@ -25,7 +25,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev Gas limit for sending Ether.
     // - EOA gas used is < 21000
-    // - For Loopring smart wallet,gas used is about 23000
+    // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
     // - For Gnosis Safe wallet, gas used is about 28000
     uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
