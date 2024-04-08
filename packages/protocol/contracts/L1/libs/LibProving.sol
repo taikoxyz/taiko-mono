@@ -24,8 +24,8 @@ library LibProving {
         address assignedProver;
         uint96 livenessBond;
         uint64 slot;
-        uint32 tid;
         uint64 blockId;
+        uint32 tid;
         bool lastUnpausedAt;
         bool isTopTier;
         bool inProvingWindow;
