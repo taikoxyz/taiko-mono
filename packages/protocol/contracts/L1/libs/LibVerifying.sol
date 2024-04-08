@@ -177,9 +177,9 @@ library LibVerifying {
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
                 // other transitions for this block, we disregard them entirely.
-                // The bonds for these other transitions are burned either when
-                // the transitions are generated or proven. In such cases, both
-                // the provers and contesters of those transitions forfeit their bonds.
+                // The bonds for these other transitions are burned (more precisely held in custody)
+                // either when the transitions are generated or proven. In such cases, both the
+                // provers and contesters of those transitions forfeit their bonds.
 
                 emit BlockVerified({
                     blockId: blockId,
