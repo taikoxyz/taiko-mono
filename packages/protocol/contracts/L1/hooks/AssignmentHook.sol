@@ -76,7 +76,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Note that
         // - 'msg.sender' is the TaikoL1 contract address
         // - 'block.coinbase' is the L1 block builder
-        // - 'meta.coinbase' is the L2 block proposer
+        // - 'meta.coinbase' is the L2 block proposer (chosen by block's proposer)
 
         Input memory input = abi.decode(_data, (Input));
         ProverAssignment memory assignment = input.assignment;
@@ -96,7 +96,9 @@ contract AssignmentHook is EssentialContract, IHook {
         // the prover, therefore, we add a string as a prefix.
 
         // msg.sender is taikoL1Address
-        bytes32 hash = hashAssignment(assignment, msg.sender, _meta.blobHash);
+        bytes32 hash = hashAssignment(
+            assignment, msg.sender, _meta.sender, _blk.assignedProver, _meta.blobHash
+        );
 
         if (!_blk.assignedProver.isValidSignatureNow(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
@@ -143,31 +145,44 @@ contract AssignmentHook is EssentialContract, IHook {
     /// @notice Hashes the prover assignment.
     /// @param _assignment The prover assignment.
     /// @param _taikoL1Address The address of the TaikoL1 contract.
+    /// @param _blockProposer The block proposer address.
+    /// @param _assignedProver The assigned prover address.
     /// @param _blobHash The blob hash.
     /// @return The hash of the prover assignment.
     function hashAssignment(
         ProverAssignment memory _assignment,
         address _taikoL1Address,
+        address _blockProposer,
+        address _assignedProver,
         bytes32 _blobHash
     )
         public
         view
         returns (bytes32)
     {
-        return keccak256(
+        // split up into two parts otherwise stack is too deep
+        bytes32 hash = keccak256(
             abi.encode(
-                "PROVER_ASSIGNMENT",
-                ITaikoL1(_taikoL1Address).getConfig().chainId,
-                _taikoL1Address,
-                address(this),
                 _assignment.metaHash,
                 _assignment.parentMetaHash,
-                _blobHash,
                 _assignment.feeToken,
                 _assignment.expiry,
                 _assignment.maxBlockId,
                 _assignment.maxProposedIn,
                 _assignment.tierFees
+            )
+        );
+
+        return keccak256(
+            abi.encodePacked(
+                "PROVER_ASSIGNMENT",
+                ITaikoL1(_taikoL1Address).getConfig().chainId,
+                _taikoL1Address,
+                _blockProposer,
+                _assignedProver,
+                _blobHash,
+                hash,
+                address(this)
             )
         );
     }
