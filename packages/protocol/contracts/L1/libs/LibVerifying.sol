@@ -178,7 +178,6 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                IERC20 tko = IERC20(_resolver.resolve(TKO, false));
                 tko.safeTransfer(ts.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
