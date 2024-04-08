@@ -57,6 +57,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INVOCATION_TOO_EARLY();
+    error B_MESSAGE_FAILED();
     error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
     error B_MESSAGE_NOT_SUSPENDED();
@@ -375,6 +376,24 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
+    function failMessage(Message calldata _message)
+        external
+        whenNotPaused
+        sameChain(_message.destChainId)
+        nonReentrant
+    {
+        if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
+
+        bytes32 msgHash = hashMessage(_message);
+        if (messageStatus[msgHash] != Status.RETRIABLE) {
+            revert B_NON_RETRIABLE();
+        }
+
+        _updateMessageStatus(msgHash, Status.FAILED);
+        emit MessageFailed(msgHash);
+    }
+
+    /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
@@ -502,7 +521,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
             return (5 minutes, 384 seconds);
         } else {
-            // This is a Taiko L2 chain where no deleys are applied.
+            // This is a Taiko L2 chain where no delays are applied.
             return (0, 0);
         }
     }

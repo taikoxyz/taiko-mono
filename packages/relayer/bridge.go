@@ -24,10 +24,8 @@ type Bridge interface {
 		ReceivedAt        uint64
 		PreferredExecutor common.Address
 	}, error)
-	GetInvocationDelays(opts *bind.CallOpts) (struct {
-		InvocationDelay      *big.Int
-		InvocationExtraDelay *big.Int
-	}, error)
+	GetInvocationDelays(opts *bind.CallOpts) (*big.Int, *big.Int, error)
+	IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error)
 	SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage) (*types.Transaction, error)
 	SuspendMessages(opts *bind.TransactOpts, _msgHashes [][32]byte, _toSuspend bool) (*types.Transaction, error)
 }
