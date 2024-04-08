@@ -389,8 +389,9 @@ library LibProving {
         } else {
             if (_sameTransition) revert L1_ALREADY_PROVED();
 
-            // Contest the existing transition and prove it to be invalid. The new prover get all
-            // rewards.
+            // The code below will be executed if
+            // - 1) the transition is proved for the fist time, or
+            // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
             uint96 livenessBond = _blk.livenessBond;
