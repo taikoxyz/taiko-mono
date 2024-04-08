@@ -7,6 +7,7 @@ import "../../common/IAddressResolver.sol";
 import "../../signal/ISignalService.sol";
 import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
+import "./LibConstStrings.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -15,11 +16,6 @@ import "./LibUtils.sol";
 library LibVerifying {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
-
-    /// @notice bytes32 representation of the string "tier_provider".
-    bytes32 private constant TIER_PROVIDER = bytes32("tier_provider");
-    /// @notice bytes32 representation of the string "taiko_token".
-    bytes32 private constant TKO = bytes32("taiko_token");
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
@@ -124,7 +120,7 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
-        IERC20 tko = IERC20(_resolver.resolve(TKO, false));
+        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_STR_TKO, false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -155,7 +151,8 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve(TIER_PROVIDER, false);
+                        tierProvider =
+                            _resolver.resolve(LibConstStrings.BYTES32_STR_TIER_PROVIDER, false);
                     }
 
                     if (
@@ -228,7 +225,7 @@ library LibVerifying {
         ISignalService signalService = ISignalService(_resolver.resolve("signal_service", false));
 
         (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+            _config.chainId, LibSignals.HASH_STR_STATE_ROOT, 0 /* latest block Id*/
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
@@ -236,7 +233,7 @@ library LibVerifying {
             _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
             signalService.syncChainData(
-                _config.chainId, LibSignals.STATE_ROOT, _lastVerifiedBlockId, _stateRoot
+                _config.chainId, LibSignals.HASH_STR_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
     }

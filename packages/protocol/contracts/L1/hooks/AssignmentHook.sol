@@ -41,11 +41,6 @@ contract AssignmentHook is EssentialContract, IHook {
     /// the prover's job to make sure it can get paid within this limit.
     uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
 
-    /// @notice bytes32 representation of the string "taiko_token".
-    bytes32 private constant TKO = bytes32("taiko_token");
-    /// @notice Constant string "PROVER_ASSIGNMENT".
-    string private constant PROVER_ASSIGNMENT = "PROVER_ASSIGNMENT";
-
     uint256[50] private __gap;
 
     /// @notice Emitted when a block is assigned to a prover.

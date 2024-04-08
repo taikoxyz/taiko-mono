@@ -190,7 +190,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
+        return keccak256(abi.encodePacked(LibSignals.STR_SIGNAL, _chainId, _app, _signal));
     }
 
     function _verifyHopProof(
@@ -266,7 +266,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
             _syncChainData(
-                _action.chainId, LibSignals.STATE_ROOT, _action.blockId, _action.rootHash
+                _action.chainId, LibSignals.HASH_STR_STATE_ROOT, _action.blockId, _action.rootHash
             );
         }
 
@@ -276,7 +276,10 @@ contract SignalService is EssentialContract, ISignalService {
 
         if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
             _syncChainData(
-                _action.chainId, LibSignals.SIGNAL_ROOT, _action.blockId, _action.signalRoot
+                _action.chainId,
+                LibSignals.HASH_STR_SIGNAL_ROOT,
+                _action.blockId,
+                _action.signalRoot
             );
         }
     }
@@ -366,7 +369,9 @@ contract SignalService is EssentialContract, ISignalService {
             }
 
             signal = signalForChainData(
-                chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
+                chainId,
+                isFullProof ? LibSignals.HASH_STR_STATE_ROOT : LibSignals.HASH_STR_SIGNAL_ROOT,
+                hop.blockId
             );
             value = hop.rootHash;
             chainId = hop.chainId;

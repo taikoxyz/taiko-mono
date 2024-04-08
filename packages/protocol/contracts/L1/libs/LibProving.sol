@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
 import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
+import "./LibConstStrings.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -31,19 +32,6 @@ library LibProving {
         bool inProvingWindow;
         bool sameTransition;
     }
-
-    /// @notice Keccak hash of the string "RETURN_LIVENESS_BOND".
-    bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
-
-    /// @notice Keccak hash of the string "tier_provider".
-    bytes32 private constant TIER_PROVIDER = bytes32("tier_provider");
-    /// @notice Keccak hash of the string "taiko_token".
-    bytes32 private constant TKO = bytes32("taiko_token");
-
-    /// @notice The tier name for optimistic proofs - expected to only be used for testnets. For
-    /// production we do not plan to have optimistic type of proving first, but future will tell if
-    /// L3s, app-chains or other 3rd parties would be willing to do so.
-    bytes32 private constant TIER_OP = bytes32("tier_optimistic");
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a transition is proved.
@@ -166,7 +154,9 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        local.tier = ITierProvider(_resolver.resolve(TIER_PROVIDER, false)).getTier(_proof.tier);
+        local.tier = ITierProvider(
+            _resolver.resolve(LibConstStrings.BYTES32_STR_TIER_PROVIDER, false)
+        ).getTier(_proof.tier);
 
         local.inProvingWindow =
             !LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, local.tier.provingWindow);
@@ -212,7 +202,7 @@ library LibProving {
                 });
 
                 IVerifier(verifier).verifyProof(ctx, _tran, _proof);
-            } else if (local.tier.verifierName != TIER_OP) {
+            } else if (local.tier.verifierName != LibConstStrings.BYTES32_STR_TIER_OP) {
                 // The verifier can be address-zero, signifying that there are no
                 // proof checks for the tier. In practice, this only applies to
                 // optimistic proofs.
@@ -221,14 +211,17 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        IERC20 tko = IERC20(_resolver.resolve(TKO, false));
+        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_STR_TKO, false));
 
         local.livenessBond = blk.livenessBond;
         if (local.isTopTier) {
             if (local.livenessBond != 0) {
                 if (
                     local.inProvingWindow
-                        || (_proof.data.length == 32 && bytes32(_proof.data) == RETURN_LIVENESS_BOND)
+                        || (
+                            _proof.data.length == 32
+                                && bytes32(_proof.data) == LibConstStrings.HASH_STR_RETURN_LIVENESS_BOND
+                        )
                 ) {
                     tko.safeTransfer(local.assignedProver, local.livenessBond);
                 }

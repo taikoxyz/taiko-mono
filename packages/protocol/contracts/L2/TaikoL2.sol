@@ -153,7 +153,7 @@ contract TaikoL2 is EssentialContract {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
             ISignalService(resolve("signal_service", false)).syncChainData(
-                l1ChainId, LibSignals.STATE_ROOT, _l1BlockId, _l1StateRoot
+                l1ChainId, LibSignals.HASH_STR_STATE_ROOT, _l1BlockId, _l1StateRoot
             );
 
             lastSyncedBlock = _l1BlockId;

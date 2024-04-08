@@ -8,6 +8,7 @@ import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
+import "./LibConstStrings.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -15,16 +16,10 @@ import "../tiers/ITierProvider.sol";
 library LibProposing {
     using LibAddress for address;
 
+    /// @notice Leaving this here to not forget about that this is a removed feature
     // = keccak256(abi.encode(new TaikoData.EthDeposit[](0)))
     bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
-
-    /// @notice bytes32 representation of the string "tier_provider".
-    bytes32 private constant TIER_PROVIDER = bytes32("tier_provider");
-    /// @notice bytes32 representation of the string "proposer".
-    bytes32 private constant PROPOSER = bytes32("proposer");
-    /// @notice bytes32 representation of the string "taiko_token".
-    bytes32 private constant TKO = bytes32("taiko_token");
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
@@ -161,9 +156,9 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve(TIER_PROVIDER, false)).getMinTier(
-            uint256(meta_.difficulty)
-        );
+        meta_.minTier = ITierProvider(
+            _resolver.resolve(LibConstStrings.BYTES32_STR_TIER_PROVIDER, false)
+        ).getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -191,7 +186,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve(TKO, false));
+            IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_STR_TKO, false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -253,7 +248,7 @@ library LibProposing {
             }
         }
 
-        address proposer = _resolver.resolve(PROPOSER, true);
+        address proposer = _resolver.resolve(LibConstStrings.BYTES32_STR_PROPOSER, true);
         return proposer == address(0) || msg.sender == proposer;
     }
 }
