@@ -138,7 +138,7 @@ library LibProving {
             ITierProvider(_resolver.resolve("tier_provider", false)).getTier(_proof.tier);
 
         // Checks if only the assigned prover is permissioned to prove the block.
-        // The guardian prover is granted exclusive permisison to prove only the first
+        // The guardian prover is granted exclusive permission to prove only the first
         // transition.
         if (
             tier.contestBond != 0 && ts.contester == address(0) && tid == 1 && ts.tier == 0
@@ -205,11 +205,15 @@ library LibProving {
         bool sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
 
         if (_proof.tier > ts.tier) {
-            // Handles the case when an incoming tier is higher than the current transition's tier.
-            // Reverts when the incoming proof tries to prove the same transition
-            // (L1_ALREADY_PROVED).
-
-            // Higher tier proof overwriting lower tier proof
+            // Handles what happens when there is a higher proof incoming. Assume Alice is the
+            // initial prover, Bob is the contester, and Cindy is the subsequent prover. The
+            // validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob
+            // successfully contests, he receives a reward of 65.625, calculated as 3/4 of 7/8 of
+            // 100. Cindy receives 21.875, which is 1/4 of 7/8 of 100, while the protocol retains
+            // 12.5 as friction. Bob's Return on Investment (ROI) is 13.125%, calculated from 65.625
+            // divided by 500. To establish the expected ROI `r` for valid contestations, where the
+            // contestation bond `C` to validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set
+            // at 10%, the C/V ratio will be 6.5625.
             {
                 uint256 reward; // reward to the new (current) prover
 
