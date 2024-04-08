@@ -146,8 +146,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
-        uint96 livenessBond = L1.getConfig().livenessBond;
-
         console2.log("====== Bob proves the block");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         bytes32 blockHash = bytes32(uint256(10));
@@ -193,7 +191,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.prover, address(gp));
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond - livenessBond);
+            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(William), 10_000 ether);
         }
 
@@ -217,7 +215,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.contestBond, 1);
             assertEq(ts.prover, address(gp));
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond - livenessBond);
+            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(William), 10_000 ether);
         }
     }

@@ -371,7 +371,6 @@ library LibProving {
     {
         // Higher tier proof overwriting lower tier proof
         uint256 reward; // reward to the new (current) prover
-        uint96 livenessBondToValidityBond;
 
         if (_ts.contester != address(0)) {
             if (_sameTransition) {
@@ -397,7 +396,9 @@ library LibProving {
             uint96 livenessBond = _blk.livenessBond;
             if (livenessBond != 0) {
                 if (_blk.assignedProver == msg.sender) {
-                    livenessBondToValidityBond = livenessBond;
+                    unchecked {
+                        reward += livenessBond;
+                    }
                 }
                 _blk.livenessBond = 0;
             }
@@ -411,7 +412,7 @@ library LibProving {
             }
         }
 
-        _ts.validityBond = _tier.validityBond + livenessBondToValidityBond;
+        _ts.validityBond = _tier.validityBond;
         _ts.contestBond = 1; // to save gas
         _ts.contester = address(0);
         _ts.prover = msg.sender;
