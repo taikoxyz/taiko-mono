@@ -215,11 +215,14 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
         IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
-        
+
         local.livenessBond = blk.livenessBond;
         if (local.isTopTier) {
             if (local.livenessBond != 0) {
-                if (local.inProvingWindow || (_proof.data.length == 32 && bytes32(_proof.data) == RETURN_LIVENESS_BOND)) {
+                if (
+                    local.inProvingWindow
+                        || (_proof.data.length == 32 && bytes32(_proof.data) == RETURN_LIVENESS_BOND)
+                ) {
                     tko.safeTransfer(local.assignedProver, local.livenessBond);
                 }
                 blk.livenessBond = 0;
