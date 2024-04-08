@@ -23,6 +23,9 @@ contract Bridge is EssentialContract, IBridge {
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
+    /// @dev Gas limit for sending Ether.
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 60_000;
+
     /// @dev Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
@@ -209,7 +212,7 @@ contract Bridge is EssentialContract, IBridge {
                 // Must reset the context after the message call
                 _resetContext();
             } else {
-                _message.srcOwner.sendEtherAndVerify(_message.value);
+                _message.srcOwner.sendEtherAndVerify(_message.value, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageRecalled(msgHash);
         } else if (isNewlyProven) {
@@ -317,11 +320,11 @@ contract Bridge is EssentialContract, IBridge {
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEtherAndVerify(_message.fee + refundAmount);
+                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee);
-                refundTo.sendEtherAndVerify(refundAmount);
+                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {

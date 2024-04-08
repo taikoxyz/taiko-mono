@@ -10,7 +10,6 @@ import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibAddress {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
-    uint256 private constant _SEND_ETHER_GAS_LIMIT = 60_000;
 
     error ETH_TRANSFER_FAILED();
 
@@ -66,7 +65,7 @@ library LibAddress {
     /// @param _to The recipient address.
     /// @param _amount The amount of Ether to send in wei.
     function sendEtherAndVerify(address _to, uint256 _amount) internal {
-        sendEtherAndVerify(_to, _amount, _SEND_ETHER_GAS_LIMIT);
+        sendEtherAndVerify(_to, _amount, gasleft());
     }
 
     function supportsInterface(
