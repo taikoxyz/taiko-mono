@@ -11,20 +11,24 @@ import "./TaikoData.sol";
 /// L1 libraries.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
-    /// @dev Emitted when a block is proposed.
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The block's assigned prover.
-    /// @param livenessBond The bond in Taiko token from the assigned prover.
-    /// @param meta The block metadata containing information about the proposed
+    /// @param assignedProver The address of the assigned prover.
+    /// @param livenessBond The liveness bond of the proposed block.
+    /// @param parentMinTier The parent block's min tier
+    /// @param meta The metadata of the proposed block.
+    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
     /// block.
-    /// @param depositsProcessed Ether deposits processed.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
+        uint16 parentMinTier,
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
+
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param prover The prover whose transition is used for verifying the

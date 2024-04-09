@@ -60,7 +60,7 @@ abstract contract TaikoTest is Test, DeployCapability {
     address internal William = randAddress();
     address internal Xavier = randAddress();
     address internal Yasmine = randAddress();
-    address internal Zachary = randAddress();
+    address internal Zachary = vm.addr(0x100);
 
     function randAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));

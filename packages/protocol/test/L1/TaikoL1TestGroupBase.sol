@@ -31,13 +31,9 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
-        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 2 ether);
-
         AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
             feeToken: address(0),
-            tierFees: tierFees,
+            feeAmount: 1 ether,
             expiry: uint64(block.timestamp + 60 minutes),
             maxBlockId: 0,
             maxProposedIn: 0,
@@ -62,6 +58,8 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
                 privateKey = 0x2;
             } else if (proposer == Carol) {
                 privateKey = 0x3;
+            } else if (proposer == Zachary) {
+                privateKey = 0x100;
             } else {
                 revert("unexpected");
             }

@@ -26,6 +26,7 @@ library LibProving {
         uint64 slot;
         uint64 blockId;
         uint32 tid;
+        uint16 minTier;
         bool lastUnpausedAt;
         bool isTopTier;
         bool inProvingWindow;
@@ -79,6 +80,7 @@ library LibProving {
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PAUSE_STATUS();
+    error L1_INVALID_MIN_TIER();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_MISSING_VERIFIER();
@@ -136,7 +138,6 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
-        local.assignedProver = blk.assignedProver;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -145,6 +146,9 @@ library LibProving {
         if (local.blockId != _meta.id || local.metaHash != keccak256(abi.encode(_meta))) {
             revert L1_BLOCK_MISMATCH();
         }
+
+        local.minTier = blk.minTier;
+        if (local.minTier == type(uint16).max || local.minTier == 0) revert L1_INVALID_MIN_TIER();
 
         // Each transition is uniquely identified by the parentHash, with the
         // blockHash and stateRoot open for later updates as higher-tier proofs
@@ -155,14 +159,14 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+        if (_proof.tier == 0 || _proof.tier < local.minTier || _proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
         local.tier = ITierProvider(_resolver.resolve("tier_provider", false)).getTier(_proof.tier);
-
+        local.assignedProver = blk.assignedProver;
         local.inProvingWindow =
             !LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, local.tier.provingWindow);
 

@@ -19,12 +19,12 @@ contract AssignmentHook is EssentialContract, IHook {
 
     struct ProverAssignment {
         address feeToken;
+        uint256 feeAmount;
         uint64 expiry;
         uint64 maxBlockId;
         uint64 maxProposedIn;
         bytes32 metaHash;
         bytes32 parentMetaHash;
-        TaikoData.TierFee[] tierFees;
         bytes signature;
     }
 
@@ -112,20 +112,18 @@ contract AssignmentHook is EssentialContract, IHook {
         // as `assignedProver` has provided a signature above to authorize this hook.
         tko.safeTransferFrom(_blk.assignedProver, msg.sender, _blk.livenessBond);
 
-        // Find the prover fee using the minimal tier
-        uint256 proverFee = _getProverFee(assignment.tierFees, _meta.minTier);
-
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
         if (assignment.feeToken == address(0)) {
             // Paying Ether
             // Note that this payment may fail if it cost more gas
-            bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+            bool success =
+                _blk.assignedProver.sendEther(assignment.feeAmount, MAX_GAS_PAYING_PROVER, "");
             if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
-        } else if (proverFee != 0) {
+        } else if (assignment.feeAmount != 0 && _meta.sender != _blk.assignedProver) {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
-                _meta.sender, _blk.assignedProver, proverFee
+                _meta.sender, _blk.assignedProver, assignment.feeAmount
             );
         }
 
@@ -166,10 +164,10 @@ contract AssignmentHook is EssentialContract, IHook {
                 _assignment.metaHash,
                 _assignment.parentMetaHash,
                 _assignment.feeToken,
+                _assignment.feeAmount,
                 _assignment.expiry,
                 _assignment.maxBlockId,
-                _assignment.maxProposedIn,
-                _assignment.tierFees
+                _assignment.maxProposedIn
             )
         );
 
@@ -185,19 +183,5 @@ contract AssignmentHook is EssentialContract, IHook {
                 address(this)
             )
         );
-    }
-
-    function _getProverFee(
-        TaikoData.TierFee[] memory _tierFees,
-        uint16 _tierId
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        for (uint256 i; i < _tierFees.length; ++i) {
-            if (_tierFees[i].tier == _tierId) return _tierFees[i].fee;
-        }
-        revert HOOK_TIER_NOT_FOUND();
     }
 }

@@ -37,12 +37,6 @@ library TaikoData {
         uint8 blockSyncThreshold;
     }
 
-    /// @dev Struct representing prover fees per given tier
-    struct TierFee {
-        uint16 tier;
-        uint128 fee;
-    }
-
     /// @dev A proof and the tier of proof it belongs to
     struct TierProof {
         uint16 tier;
@@ -80,7 +74,7 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;
-        uint16 minTier;
+        uint16 minTier; // deprecated!!!
         bool blobUsed;
         bytes32 parentMetaHash;
         address sender; // a.k.a proposer
@@ -110,7 +104,7 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 3 slots used.
+    /// 4 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
@@ -120,6 +114,7 @@ library TaikoData {
         uint64 proposedIn; // L1 block number, required/used by node/client.
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
+        uint16 minTier;
     }
 
     /// @dev Struct representing an Ethereum deposit.
