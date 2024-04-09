@@ -1,5 +1,5 @@
 -- +goose Up
--- create a blob_hashs_temp with constraint blob_hash
+-- create a blob_hashes_temp with constraint blob_hash
 CREATE TABLE IF NOT EXISTS blob_hashes_temp (
     id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     blob_hash VARCHAR(100) NOT NULL UNIQUE,
@@ -14,7 +14,7 @@ INSERT IGNORE INTO blob_hashes_temp (id, blob_hash, kzg_commitment, blob_data, c
 SELECT id, blob_hash, kzg_commitment, blob_data, created_at, updated_at
 FROM blob_hashes;
 
--- Update blob_hash references and indexs
+-- Update blob_hash references and indexes
 UPDATE blocks_meta bm
 JOIN blob_hashes_temp bh ON bm.blob_hash = bh.blob_hash
 SET bm.blob_hash = bh.blob_hash;
@@ -28,7 +28,7 @@ DROP TABLE IF EXISTS blob_hashes;
 ALTER TABLE blob_hashes_temp RENAME TO blob_hashes;
 
 -- +goose Down
--- create a blob_hashs_temp as original
+-- create a blob_hashes_temp as original
 CREATE TABLE IF NOT EXISTS blob_hashes_temp (
     id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
     block_id BIGINT NOT NULL,
@@ -55,7 +55,7 @@ FROM
 JOIN
     blob_hashes bh ON bm.blob_hash = bh.blob_hash;
 
--- Update blob_hash references and indexs
+-- Update blob_hash references and indexes
 UPDATE blocks_meta bm
 JOIN blob_hashes_temp bh ON bm.blob_hash = bh.blob_hash
 SET bm.blob_hash = bh.blob_hash;

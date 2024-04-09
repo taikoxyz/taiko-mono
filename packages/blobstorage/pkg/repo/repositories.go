@@ -9,13 +9,13 @@ import (
 )
 
 type DBTransaction interface {
-	Beging() *DB
+	Begin() *DB
 }
 
 type Repositories struct {
 	BlobHashRepo  *BlobHashRepository
 	BlockMetaRepo *BlockMetaRepository
-	dbTranscation DB
+	dbTransaction DB
 }
 
 func NewRepositories(db DB) (*Repositories, error) {
@@ -35,7 +35,7 @@ func NewRepositories(db DB) (*Repositories, error) {
 	return &Repositories{
 		BlobHashRepo:  blobHashRepo,
 		BlockMetaRepo: blockMetaRepo,
-		dbTranscation: db,
+		dbTransaction: db,
 	}, nil
 }
 
@@ -46,7 +46,7 @@ func (r *Repositories) SaveBlobAndBlockMeta(
 	saveBlockMetaOpts *blobstorage.SaveBlockMetaOpts,
 	saveBlobHashOpts *blobstorage.SaveBlobHashOpts,
 ) error {
-	tx := r.dbTranscation.GormDB().Begin()
+	tx := r.dbTransaction.GormDB().Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -106,7 +106,7 @@ func (r *Repositories) storeBlockMetaInDB(blobHash string, blockID uint64, emitt
 
 // Database transaction to delete all blobs and blocks meta after a block id
 func (r *Repositories) DeleteAllAfterBlockID(ctx context.Context, blockID uint64) error {
-	tx := r.dbTranscation.GormDB().Begin()
+	tx := r.dbTransaction.GormDB().Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
