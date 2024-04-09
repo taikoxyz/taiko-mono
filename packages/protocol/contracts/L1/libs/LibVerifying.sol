@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
+import "../../common/LibStrings.sol";
 import "../../signal/ISignalService.sol";
-import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
@@ -119,6 +119,8 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
+        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
@@ -148,7 +150,7 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve("tier_provider", false);
+                        tierProvider = _resolver.resolve(LibStrings.B_TIER_PROVIDER, false);
                     }
 
                     if (
@@ -171,7 +173,6 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
                 tko.safeTransfer(ts.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
@@ -219,10 +220,11 @@ library LibVerifying {
     )
         private
     {
-        ISignalService signalService = ISignalService(_resolver.resolve("signal_service", false));
+        ISignalService signalService =
+            ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
         (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+            _config.chainId, LibStrings.H_STATE_ROOT, 0 /* latest block Id*/
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
@@ -230,7 +232,7 @@ library LibVerifying {
             _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
             signalService.syncChainData(
-                _config.chainId, LibSignals.STATE_ROOT, _lastVerifiedBlockId, _stateRoot
+                _config.chainId, LibStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
     }

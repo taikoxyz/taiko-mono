@@ -23,9 +23,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     /// @dev Slot 1.
     uint8 private __reentry;
-
     uint8 private __paused;
-
     uint64 public lastUnpausedAt;
 
     uint256[49] private __gap;

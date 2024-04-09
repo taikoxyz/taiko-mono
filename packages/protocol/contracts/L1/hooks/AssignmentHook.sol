@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../ITaikoL1.sol";
 import "./IHook.sol";
@@ -70,7 +71,7 @@ contract AssignmentHook is EssentialContract, IHook {
     )
         external
         payable
-        onlyFromNamed("taiko")
+        onlyFromNamed(LibStrings.B_TAIKO)
         nonReentrant
     {
         // Note that
@@ -105,7 +106,7 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         // Send the liveness bond to the Taiko contract
-        IERC20 tko = IERC20(resolve("taiko_token", false));
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
@@ -118,11 +119,11 @@ contract AssignmentHook is EssentialContract, IHook {
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
         if (assignment.feeToken == address(0)) {
-            // Paying Ether
+            // Paying Ether even when proverFee is 0 to trigger a potential receive() function call.
             // Note that this payment may fail if it cost more gas
             bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
             if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
-        } else if (proverFee != 0) {
+        } else if (proverFee != 0 && _meta.sender != _blk.assignedProver) {
             // Paying ERC20 tokens
             IERC20(assignment.feeToken).safeTransferFrom(
                 _meta.sender, _blk.assignedProver, proverFee
@@ -175,7 +176,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         return keccak256(
             abi.encodePacked(
-                "PROVER_ASSIGNMENT",
+                LibStrings.B_PROVER_ASSIGNMENT,
                 ITaikoL1(_taikoL1Address).getConfig().chainId,
                 _taikoL1Address,
                 _blockProposer,
