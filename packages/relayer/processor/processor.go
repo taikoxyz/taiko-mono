@@ -429,6 +429,8 @@ func (p *Processor) eventLoop(ctx context.Context) {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					case errors.Is(err, relayer.ErrUnprofitable):
+						slog.Info("publishing to unprofitable queue")
+
 						if err := p.queue.Publish(
 							ctx,
 							fmt.Sprintf("%v-unprofitable", p.queueName()),
