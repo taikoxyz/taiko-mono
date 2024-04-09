@@ -425,8 +425,6 @@ func (p *Processor) sendProcessMessageCall(
 	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Receipt, error) {
-	slog.Info("sending process message call")
-
 	eventType, canonicalToken, _, err := relayer.DecodeMessageData(event.Message.Data, event.Message.Value)
 	if err != nil {
 		return nil, errors.Wrap(err, "relayer.DecodeMessageData")
@@ -473,6 +471,23 @@ func (p *Processor) sendProcessMessageCall(
 		if err != nil || !profitable {
 			return nil, relayer.ErrUnprofitable
 		}
+	}
+
+	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.isMessageReceived")
+	}
+
+	// message will fail when we try to process it
+	if !received {
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId,
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
+		return nil, errors.New("message not received")
 	}
 
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
