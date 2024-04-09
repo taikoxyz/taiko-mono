@@ -151,8 +151,6 @@ const _getStatus = async ({ address, srcChainId, destChainId, type }: CheckCanon
   const destClient = await publicClient(destChainId);
   if (!srcClient || !destClient) throw new Error('Could not get public client');
 
-  console.log('vaultAddressKey: ' + routingContractsMap[srcChainId][destChainId][vaultAddressKey]);
-
   const srcTokenVaultContract = getContract({
     abi: vaultABI as Abi,
     client: srcClient,
