@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "../contracts/common/LibConstStrings.sol";
+import "../contracts/common/LibStrings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
@@ -69,13 +69,13 @@ contract DeployOnL1 is DeployCapability {
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
         address signalServiceAddr = AddressManager(sharedAddressManager).getAddress(
-            uint64(block.chainid), LibConstStrings.B_SIGNAL_SERVICE
+            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE
         );
         addressNotNull(signalServiceAddr, "signalServiceAddr");
         SignalService signalService = SignalService(signalServiceAddr);
 
         address taikoL1Addr = AddressManager(rollupAddressManager).getAddress(
-            uint64(block.chainid), LibConstStrings.B_TAIKO
+            uint64(block.chainid), LibStrings.B_TAIKO
         );
         addressNotNull(taikoL1Addr, "taikoL1Addr");
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));

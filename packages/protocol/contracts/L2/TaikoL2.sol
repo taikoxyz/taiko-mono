@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/EssentialContract.sol";
-import "../common/LibConstStrings.sol";
+import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
@@ -152,8 +152,8 @@ contract TaikoL2 is EssentialContract {
         if (_l1BlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
-            ISignalService(resolve(LibConstStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibConstStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
+            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                l1ChainId, LibStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
             );
 
             lastSyncedBlock = _l1BlockId;
@@ -180,7 +180,7 @@ contract TaikoL2 is EssentialContract {
     )
         external
         whenNotPaused
-        onlyFromOwnerOrNamed(LibConstStrings.B_WITHDRAWER)
+        onlyFromOwnerOrNamed(LibStrings.B_WITHDRAWER)
         nonReentrant
     {
         if (_to == address(0)) revert L2_INVALID_PARAM();

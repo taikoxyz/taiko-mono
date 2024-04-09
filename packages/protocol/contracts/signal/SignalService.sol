@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../common/LibConstStrings.sol";
+import "../common/LibStrings.sol";
 import "../libs/LibTrieProof.sol";
 import "./ISignalService.sol";
 
@@ -190,7 +190,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(LibConstStrings.S_SIGNAL, _chainId, _app, _signal));
+        return keccak256(abi.encodePacked(LibStrings.S_SIGNAL, _chainId, _app, _signal));
     }
 
     function _verifyHopProof(
@@ -266,7 +266,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
             _syncChainData(
-                _action.chainId, LibConstStrings.H_STATE_ROOT, _action.blockId, _action.rootHash
+                _action.chainId, LibStrings.H_STATE_ROOT, _action.blockId, _action.rootHash
             );
         }
 
@@ -276,7 +276,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
             _syncChainData(
-                _action.chainId, LibConstStrings.H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
+                _action.chainId, LibStrings.H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
             );
         }
     }
@@ -367,7 +367,7 @@ contract SignalService is EssentialContract, ISignalService {
 
             signal = signalForChainData(
                 chainId,
-                isFullProof ? LibConstStrings.H_STATE_ROOT : LibConstStrings.H_SIGNAL_ROOT,
+                isFullProof ? LibStrings.H_STATE_ROOT : LibStrings.H_SIGNAL_ROOT,
                 hop.blockId
             );
             value = hop.rootHash;

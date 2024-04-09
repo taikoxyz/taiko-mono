@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-/// @title LibConstStrings
+/// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
-library LibConstStrings {
+library LibStrings {
     /// @notice bytes32 representation of the string "chain_pauser".
     bytes32 internal constant B_CHAIN_PAUSER = bytes32("chain_pauser");
 

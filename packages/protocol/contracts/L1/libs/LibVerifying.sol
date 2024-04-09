@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../common/LibConstStrings.sol";
+import "../../common/LibStrings.sol";
 import "../../signal/ISignalService.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
@@ -119,7 +119,7 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
-        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.B_TAIKO_TOKEN, false));
+        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -150,7 +150,7 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve(LibConstStrings.B_TIER_PROVIDER, false);
+                        tierProvider = _resolver.resolve(LibStrings.B_TIER_PROVIDER, false);
                     }
 
                     if (
@@ -221,10 +221,10 @@ library LibVerifying {
         private
     {
         ISignalService signalService =
-            ISignalService(_resolver.resolve(LibConstStrings.B_SIGNAL_SERVICE, false));
+            ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
         (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibConstStrings.H_STATE_ROOT, 0 /* latest block Id*/
+            _config.chainId, LibStrings.H_STATE_ROOT, 0 /* latest block Id*/
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
@@ -232,7 +232,7 @@ library LibVerifying {
             _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
             signalService.syncChainData(
-                _config.chainId, LibConstStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
+                _config.chainId, LibStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
     }

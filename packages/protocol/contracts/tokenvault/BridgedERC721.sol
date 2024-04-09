@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../common/LibConstStrings.sol";
+import "../common/LibStrings.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
@@ -57,7 +57,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         external
         whenNotPaused
-        onlyFromNamed(LibConstStrings.B_ERC721_VAULT)
+        onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
         _safeMint(_account, _tokenId);
@@ -72,7 +72,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         external
         whenNotPaused
-        onlyFromNamed(LibConstStrings.B_ERC721_VAULT)
+        onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
         // Check if the caller is the owner of the token.

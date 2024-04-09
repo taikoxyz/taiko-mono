@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../common/LibConstStrings.sol";
+import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
@@ -155,7 +155,7 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve(LibConstStrings.B_TIER_PROVIDER, false))
+        meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
             .getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
@@ -184,7 +184,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.B_TAIKO_TOKEN, false));
+            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -240,13 +240,13 @@ library LibProposing {
     {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve(LibConstStrings.B_PROPOSER_ONE, true);
+            address proposerOne = _resolver.resolve(LibStrings.B_PROPOSER_ONE, true);
             if (proposerOne != address(0)) {
                 return msg.sender == proposerOne;
             }
         }
 
-        address proposer = _resolver.resolve(LibConstStrings.B_PROPOSER, true);
+        address proposer = _resolver.resolve(LibStrings.B_PROPOSER, true);
         return proposer == address(0) || msg.sender == proposer;
     }
 }
