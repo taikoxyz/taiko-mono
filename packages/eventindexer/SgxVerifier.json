@@ -1,0 +1,932 @@
+[
+  {
+    "type": "function",
+    "name": "INSTANCE_EXPIRY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "INSTANCE_VALIDITY_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addInstances",
+    "inputs": [
+      {
+        "name": "_instances",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addressManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "addressRegistered",
+    "inputs": [
+      {
+        "name": "instanceAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "alreadyAttested",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deleteInstances",
+    "inputs": [
+      {
+        "name": "_ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "init",
+    "inputs": [
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_addressManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "instances",
+    "inputs": [
+      {
+        "name": "instanceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "validSince",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lastUnpausedAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nextInstanceId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "proxiableUUID",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registerInstance",
+    "inputs": [
+      {
+        "name": "_attestation",
+        "type": "tuple",
+        "internalType": "struct V3Struct.ParsedV3QuoteStruct",
+        "components": [
+          {
+            "name": "header",
+            "type": "tuple",
+            "internalType": "struct V3Struct.Header",
+            "components": [
+              {
+                "name": "version",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "attestationKeyType",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "teeType",
+                "type": "bytes4",
+                "internalType": "bytes4"
+              },
+              {
+                "name": "qeSvn",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "pceSvn",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "qeVendorId",
+                "type": "bytes16",
+                "internalType": "bytes16"
+              },
+              {
+                "name": "userData",
+                "type": "bytes20",
+                "internalType": "bytes20"
+              }
+            ]
+          },
+          {
+            "name": "localEnclaveReport",
+            "type": "tuple",
+            "internalType": "struct V3Struct.EnclaveReport",
+            "components": [
+              {
+                "name": "cpuSvn",
+                "type": "bytes16",
+                "internalType": "bytes16"
+              },
+              {
+                "name": "miscSelect",
+                "type": "bytes4",
+                "internalType": "bytes4"
+              },
+              {
+                "name": "reserved1",
+                "type": "bytes28",
+                "internalType": "bytes28"
+              },
+              {
+                "name": "attributes",
+                "type": "bytes16",
+                "internalType": "bytes16"
+              },
+              {
+                "name": "mrEnclave",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "reserved2",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "mrSigner",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "reserved3",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "isvProdId",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "isvSvn",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "reserved4",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "reportData",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "v3AuthData",
+            "type": "tuple",
+            "internalType": "struct V3Struct.ECDSAQuoteV3AuthData",
+            "components": [
+              {
+                "name": "ecdsa256BitSignature",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "ecdsaAttestationKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "pckSignedQeReport",
+                "type": "tuple",
+                "internalType": "struct V3Struct.EnclaveReport",
+                "components": [
+                  {
+                    "name": "cpuSvn",
+                    "type": "bytes16",
+                    "internalType": "bytes16"
+                  },
+                  {
+                    "name": "miscSelect",
+                    "type": "bytes4",
+                    "internalType": "bytes4"
+                  },
+                  {
+                    "name": "reserved1",
+                    "type": "bytes28",
+                    "internalType": "bytes28"
+                  },
+                  {
+                    "name": "attributes",
+                    "type": "bytes16",
+                    "internalType": "bytes16"
+                  },
+                  {
+                    "name": "mrEnclave",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "reserved2",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "mrSigner",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "reserved3",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "isvProdId",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                  },
+                  {
+                    "name": "isvSvn",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                  },
+                  {
+                    "name": "reserved4",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "reportData",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "qeReportSignature",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "qeAuthData",
+                "type": "tuple",
+                "internalType": "struct V3Struct.QEAuthData",
+                "components": [
+                  {
+                    "name": "parsedDataSize",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                  },
+                  {
+                    "name": "data",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "certification",
+                "type": "tuple",
+                "internalType": "struct V3Struct.CertificationData",
+                "components": [
+                  {
+                    "name": "certType",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                  },
+                  {
+                    "name": "certDataSize",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  },
+                  {
+                    "name": "decodedCertDataArray",
+                    "type": "bytes[3]",
+                    "internalType": "bytes[3]"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolve",
+    "inputs": [
+      {
+        "name": "_chainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "_name",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_allowZeroAddress",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address payable"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "resolve",
+    "inputs": [
+      {
+        "name": "_name",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_allowZeroAddress",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address payable"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeTo",
+    "inputs": [
+      {
+        "name": "newImplementation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeToAndCall",
+    "inputs": [
+      {
+        "name": "newImplementation",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "verifyProof",
+    "inputs": [
+      {
+        "name": "_ctx",
+        "type": "tuple",
+        "internalType": "struct IVerifier.Context",
+        "components": [
+          {
+            "name": "metaHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "blobHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "prover",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "blockId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "isContesting",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "blobUsed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "msgSender",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "_tran",
+        "type": "tuple",
+        "internalType": "struct TaikoData.Transition",
+        "components": [
+          {
+            "name": "parentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "blockHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "stateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "graffiti",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "_proof",
+        "type": "tuple",
+        "internalType": "struct TaikoData.TierProof",
+        "components": [
+          {
+            "name": "tier",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AdminChanged",
+    "inputs": [
+      {
+        "name": "previousAdmin",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newAdmin",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BeaconUpgraded",
+    "inputs": [
+      {
+        "name": "beacon",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "InstanceAdded",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "instance",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "replaced",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "validSince",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "InstanceDeleted",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "instance",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferStarted",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Upgraded",
+    "inputs": [
+      {
+        "name": "implementation",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "INVALID_PAUSE_STATUS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "REENTRANT_CALL",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RESOLVER_DENIED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RESOLVER_INVALID_MANAGER",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RESOLVER_UNEXPECTED_CHAINID",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RESOLVER_ZERO_ADDR",
+    "inputs": [
+      {
+        "name": "chainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "name",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SGX_ALREADY_ATTESTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SGX_INVALID_ATTESTATION",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SGX_INVALID_INSTANCE",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SGX_INVALID_PROOF",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SGX_RA_NOT_SUPPORTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_ADDR_MANAGER",
+    "inputs": []
+  }
+]
