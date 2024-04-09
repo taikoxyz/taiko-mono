@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -65,6 +66,8 @@ func (p *Processor) processMessage(
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
 		return false, errors.Wrap(err, "json.Unmarshal")
 	}
+
+	spew.Dump(msgBody)
 
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
