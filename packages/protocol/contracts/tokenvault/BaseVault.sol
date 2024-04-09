@@ -21,7 +21,7 @@ abstract contract BaseVault is
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {
-        if (msg.sender != resolve(LibConstStrings.BYTES32_BRIDGE, false)) {
+        if (msg.sender != resolve(LibConstStrings.B_BRIDGE, false)) {
             revert VAULT_PERMISSION_DENIED();
         }
         _;

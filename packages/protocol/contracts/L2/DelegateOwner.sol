@@ -68,7 +68,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     function onMessageInvocation(bytes calldata _data)
         external
         payable
-        onlyFromNamed(LibConstStrings.BYTES32_BRIDGE)
+        onlyFromNamed(LibConstStrings.B_BRIDGE)
     {
         (uint64 txId, address target, bytes memory txdata) =
             abi.decode(_data, (uint64, address, bytes));
@@ -79,13 +79,13 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
             revert DO_PERMISSION_DENIED();
         }
-
+        nextTxId++;
         // Sending ether along with the function call. Although this is sending Ether from this
         // contract back to itself, txData's function can now be payable.
         (bool success,) = target.call{ value: msg.value }(txdata);
         if (!success) revert DO_TX_REVERTED();
 
-        emit TransactionExecuted(nextTxId++, target, bytes4(txdata));
+        emit TransactionExecuted(txId, target, bytes4(txdata));
     }
 
     function acceptOwnership(address target) external {

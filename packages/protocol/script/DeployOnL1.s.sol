@@ -69,13 +69,13 @@ contract DeployOnL1 is DeployCapability {
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
         address signalServiceAddr = AddressManager(sharedAddressManager).getAddress(
-            uint64(block.chainid), LibConstStrings.BYTES32_SIGNAL_SERVICE
+            uint64(block.chainid), LibConstStrings.B_SIGNAL_SERVICE
         );
         addressNotNull(signalServiceAddr, "signalServiceAddr");
         SignalService signalService = SignalService(signalServiceAddr);
 
         address taikoL1Addr = AddressManager(rollupAddressManager).getAddress(
-            uint64(block.chainid), LibConstStrings.BYTES32_TAIKO
+            uint64(block.chainid), LibConstStrings.B_TAIKO
         );
         addressNotNull(taikoL1Addr, "taikoL1Addr");
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));

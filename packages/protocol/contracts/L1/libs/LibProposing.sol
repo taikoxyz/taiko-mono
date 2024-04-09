@@ -155,9 +155,8 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(
-            _resolver.resolve(LibConstStrings.BYTES32_TIER_PROVIDER, false)
-        ).getMinTier(uint256(meta_.difficulty));
+        meta_.minTier = ITierProvider(_resolver.resolve(LibConstStrings.B_TIER_PROVIDER, false))
+            .getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -185,7 +184,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
+            IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.B_TAIKO_TOKEN, false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -241,13 +240,13 @@ library LibProposing {
     {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve(LibConstStrings.BYTES32_PROPOSER_ONE, true);
+            address proposerOne = _resolver.resolve(LibConstStrings.B_PROPOSER_ONE, true);
             if (proposerOne != address(0)) {
                 return msg.sender == proposerOne;
             }
         }
 
-        address proposer = _resolver.resolve(LibConstStrings.BYTES32_PROPOSER, true);
+        address proposer = _resolver.resolve(LibConstStrings.B_PROPOSER, true);
         return proposer == address(0) || msg.sender == proposer;
     }
 }

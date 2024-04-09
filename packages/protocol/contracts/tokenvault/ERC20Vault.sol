@@ -241,7 +241,7 @@ contract ERC20Vault is BaseVault {
         });
 
         bytes32 msgHash;
-        (msgHash, message_) = IBridge(resolve(LibConstStrings.BYTES32_BRIDGE, false)).sendMessage{
+        (msgHash, message_) = IBridge(resolve(LibConstStrings.B_BRIDGE, false)).sendMessage{
             value: msg.value
         }(message);
 
@@ -420,8 +420,7 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        btoken =
-            address(new ERC1967Proxy(resolve(LibConstStrings.BYTES32_BRIDGED_ERC20, false), data));
+        btoken = address(new ERC1967Proxy(resolve(LibConstStrings.B_BRIDGED_ERC20, false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

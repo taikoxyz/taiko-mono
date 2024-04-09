@@ -40,7 +40,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     )
         external
         whenNotPaused
-        onlyFromOwnerOrNamed(LibConstStrings.BYTES32_ERC20_VAULT)
+        onlyFromOwnerOrNamed(LibConstStrings.B_ERC20_VAULT)
         nonReentrant
     {
         if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
@@ -63,7 +63,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         if (msg.sender == _migratingAddress) {
             // Inbound migration
             emit MigratedTo(_migratingAddress, _account, _amount);
-        } else if (msg.sender != resolve(LibConstStrings.BYTES32_ERC20_VAULT, true)) {
+        } else if (msg.sender != resolve(LibConstStrings.B_ERC20_VAULT, true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
         }
@@ -82,7 +82,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             emit MigratedTo(migratingAddress, _account, _amount);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(migratingAddress).mint(_account, _amount);
-        } else if (msg.sender != resolve(LibConstStrings.BYTES32_ERC20_VAULT, true)) {
+        } else if (msg.sender != resolve(LibConstStrings.B_ERC20_VAULT, true)) {
             // Only the vault can burn tokens when not migrating out
             revert RESOLVER_DENIED();
         }

@@ -34,7 +34,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
             revert GV_INVALID_PROOF();
         }
 
-        if (_ctx.msgSender != resolve(LibConstStrings.BYTES32_GUARDIAN_PROVER, false)) {
+        if (_ctx.msgSender != resolve(LibConstStrings.B_GUARDIAN_PROVER, false)) {
             revert GV_PERMISSION_DENIED();
         }
     }

@@ -71,7 +71,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     )
         public
         whenNotPaused
-        onlyFromNamed(LibConstStrings.BYTES32_ERC1155_VAULT)
+        onlyFromNamed(LibConstStrings.B_ERC1155_VAULT)
         nonReentrant
     {
         _mint(_to, _tokenId, _amount, "");
@@ -88,7 +88,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     )
         public
         whenNotPaused
-        onlyFromNamed(LibConstStrings.BYTES32_ERC1155_VAULT)
+        onlyFromNamed(LibConstStrings.B_ERC1155_VAULT)
         nonReentrant
     {
         _mintBatch(_to, _tokenIds, _amounts, "");
@@ -105,7 +105,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     )
         public
         whenNotPaused
-        onlyFromNamed(LibConstStrings.BYTES32_ERC1155_VAULT)
+        onlyFromNamed(LibConstStrings.B_ERC1155_VAULT)
         nonReentrant
     {
         _burn(_account, _tokenId, _amount);

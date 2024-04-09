@@ -154,7 +154,7 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        local.tier = ITierProvider(_resolver.resolve(LibConstStrings.BYTES32_TIER_PROVIDER, false))
+        local.tier = ITierProvider(_resolver.resolve(LibConstStrings.B_TIER_PROVIDER, false))
             .getTier(_proof.tier);
 
         local.inProvingWindow =
@@ -201,7 +201,7 @@ library LibProving {
                 });
 
                 IVerifier(verifier).verifyProof(ctx, _tran, _proof);
-            } else if (local.tier.verifierName != LibConstStrings.BYTES32_TIER_OP) {
+            } else if (local.tier.verifierName != LibConstStrings.B_TIER_OP) {
                 // The verifier can be address-zero, signifying that there are no
                 // proof checks for the tier. In practice, this only applies to
                 // optimistic proofs.
@@ -210,7 +210,7 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
+        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.B_TAIKO_TOKEN, false));
 
         local.livenessBond = blk.livenessBond;
         if (local.isTopTier) {
@@ -219,7 +219,7 @@ library LibProving {
                     local.inProvingWindow
                         || (
                             _proof.data.length == 32
-                                && bytes32(_proof.data) == LibConstStrings.HASH_RETURN_LIVENESS_BOND
+                                && bytes32(_proof.data) == LibConstStrings.H_RETURN_LIVENESS_BOND
                         )
                 ) {
                     tko.safeTransfer(local.assignedProver, local.livenessBond);

@@ -55,7 +55,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     /// @notice Creates a new token snapshot.
     function snapshot()
         public
-        onlyFromOwnerOrNamed(LibConstStrings.BYTES32_SNAPSHOOTER)
+        onlyFromOwnerOrNamed(LibConstStrings.B_SNAPSHOOTER)
         returns (uint256)
     {
         return _snapshot();

@@ -71,7 +71,7 @@ contract AssignmentHook is EssentialContract, IHook {
     )
         external
         payable
-        onlyFromNamed(LibConstStrings.BYTES32_TAIKO)
+        onlyFromNamed(LibConstStrings.B_TAIKO)
         nonReentrant
     {
         // Note that
@@ -106,7 +106,7 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         // Send the liveness bond to the Taiko contract
-        IERC20 tko = IERC20(resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
+        IERC20 tko = IERC20(resolve(LibConstStrings.B_TAIKO_TOKEN, false));
 
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
@@ -176,7 +176,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         return keccak256(
             abi.encodePacked(
-                LibConstStrings.BYTES32_PROVER_ASSIGNMENT,
+                LibConstStrings.B_PROVER_ASSIGNMENT,
                 ITaikoL1(_taikoL1Address).getConfig().chainId,
                 _taikoL1Address,
                 _blockProposer,

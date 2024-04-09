@@ -82,7 +82,7 @@ contract TestSignalService is TaikoTest {
         bytes32 stateRoot = hex"7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819";
         uint64 blockId = 5570;
         vm.prank(Alice);
-        realSignalService.syncChainData(32_382, LibConstStrings.HASH_STATE_ROOT, blockId, stateRoot);
+        realSignalService.syncChainData(32_382, LibConstStrings.H_STATE_ROOT, blockId, stateRoot);
 
         realSignalService.proveSignalReceived(32_382, srcBridge, msgHash, proof);
     }
@@ -319,7 +319,7 @@ contract TestSignalService is TaikoTest {
         // relay the signal root
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, LibConstStrings.HASH_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+            srcChainId, LibConstStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
         signalService.proveSignalReceived({
             _chainId: srcChainId,
@@ -334,7 +334,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, LibConstStrings.HASH_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+            srcChainId, LibConstStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
     }
 
@@ -365,7 +365,7 @@ contract TestSignalService is TaikoTest {
         // relay the state root
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, LibConstStrings.HASH_STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
+            srcChainId, LibConstStrings.H_STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
 
         // Should not revert
@@ -378,10 +378,7 @@ contract TestSignalService is TaikoTest {
 
         assertEq(
             signalService.isChainDataSynced(
-                srcChainId,
-                LibConstStrings.HASH_SIGNAL_ROOT,
-                proofs[0].blockId,
-                bytes32(uint256(789))
+                srcChainId, LibConstStrings.H_SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
             ),
             false
         );
@@ -447,10 +444,7 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[1].chainId,
-            LibConstStrings.HASH_STATE_ROOT,
-            proofs[2].blockId,
-            proofs[2].rootHash
+            proofs[1].chainId, LibConstStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
         signalService.proveSignalReceived({
@@ -498,10 +492,7 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[1].chainId,
-            LibConstStrings.HASH_STATE_ROOT,
-            proofs[2].blockId,
-            proofs[2].rootHash
+            proofs[1].chainId, LibConstStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
         vm.expectRevert(SignalService.SS_INVALID_HOPS_WITH_LOOP.selector);
@@ -603,10 +594,7 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[7].chainId,
-            LibConstStrings.HASH_STATE_ROOT,
-            proofs[8].blockId,
-            proofs[8].rootHash
+            proofs[7].chainId, LibConstStrings.H_STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
         );
 
         signalService.proveSignalReceived({
@@ -648,14 +636,14 @@ contract TestSignalService is TaikoTest {
     {
         assertEq(
             signalService.isChainDataSynced(
-                chainId, LibConstStrings.HASH_STATE_ROOT, blockId, stateRoot
+                chainId, LibConstStrings.H_STATE_ROOT, blockId, stateRoot
             ),
             stateRootCached
         );
 
         assertEq(
             signalService.isChainDataSynced(
-                chainId, LibConstStrings.HASH_SIGNAL_ROOT, blockId, bytes32(uint256(789))
+                chainId, LibConstStrings.H_SIGNAL_ROOT, blockId, bytes32(uint256(789))
             ),
             signalRootCached
         );

@@ -57,7 +57,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         external
         whenNotPaused
-        onlyFromNamed(LibConstStrings.BYTES32_ERC721_VAULT)
+        onlyFromNamed(LibConstStrings.B_ERC721_VAULT)
         nonReentrant
     {
         _safeMint(_account, _tokenId);
@@ -72,7 +72,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         external
         whenNotPaused
-        onlyFromNamed(LibConstStrings.BYTES32_ERC721_VAULT)
+        onlyFromNamed(LibConstStrings.B_ERC721_VAULT)
         nonReentrant
     {
         // Check if the caller is the owner of the token.

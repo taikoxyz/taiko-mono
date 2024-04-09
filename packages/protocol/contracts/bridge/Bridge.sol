@@ -97,7 +97,7 @@ contract Bridge is EssentialContract, IBridge {
         bool _suspend
     )
         external
-        onlyFromOwnerOrNamed(LibConstStrings.BYTES32_BRIDGE_WATCHDOG)
+        onlyFromOwnerOrNamed(LibConstStrings.B_BRIDGE_WATCHDOG)
     {
         for (uint256 i; i < _msgHashes.length; ++i) {
             bytes32 msgHash = _msgHashes[i];
@@ -158,7 +158,7 @@ contract Bridge is EssentialContract, IBridge {
         msgHash_ = hashMessage(message_);
 
         emit MessageSent(msgHash_, message_);
-        ISignalService(resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
+        ISignalService(resolve(LibConstStrings.B_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
@@ -182,7 +182,7 @@ contract Bridge is EssentialContract, IBridge {
 
         bool isNewlyProven;
         if (receivedAt == 0) {
-            address signalService = resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false);
+            address signalService = resolve(LibConstStrings.B_SIGNAL_SERVICE, false);
 
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
                 revert B_MESSAGE_NOT_SENT();
@@ -241,7 +241,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        address signalService = resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false);
+        address signalService = resolve(LibConstStrings.B_SIGNAL_SERVICE, false);
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
         if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
@@ -401,7 +401,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
-        return ISignalService(resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false)).isSignalSent({
+        return ISignalService(resolve(LibConstStrings.B_SIGNAL_SERVICE, false)).isSignalSent({
             _app: address(this),
             _signal: hashMessage(_message)
         });
@@ -422,7 +422,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcChainId != block.chainid) return false;
 
         return _proveSignalReceived(
-            resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false),
+            resolve(LibConstStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
             _proof
@@ -443,7 +443,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false),
+            resolve(LibConstStrings.B_SIGNAL_SERVICE, false),
             hashMessage(_message),
             _message.srcChainId,
             _proof
@@ -466,7 +466,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcChainId != block.chainid) return false;
 
         return _isSignalReceived(
-            resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false),
+            resolve(LibConstStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
             _proof
@@ -488,7 +488,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _isSignalReceived(
-            resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false),
+            resolve(LibConstStrings.B_SIGNAL_SERVICE, false),
             hashMessage(_message),
             _message.srcChainId,
             _proof
@@ -553,10 +553,10 @@ contract Bridge is EssentialContract, IBridge {
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
         // Owenr and chain_pauser can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibConstStrings.BYTES32_CHAIN_PAUSER, true)) return;
+        if (addr == owner() || addr == resolve(LibConstStrings.B_CHAIN_PAUSER, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
-        if (toPause && addr == resolve(LibConstStrings.BYTES32_BRIDGE_WATCHDOG, true)) return;
+        if (toPause && addr == resolve(LibConstStrings.B_BRIDGE_WATCHDOG, true)) return;
 
         revert RESOLVER_DENIED();
     }
@@ -608,7 +608,7 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageStatusChanged(_msgHash, _status);
 
         if (_status == Status.FAILED) {
-            ISignalService(resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false)).sendSignal(
+            ISignalService(resolve(LibConstStrings.B_SIGNAL_SERVICE, false)).sendSignal(
                 signalForFailedMessage(_msgHash)
             );
         }

@@ -58,7 +58,7 @@ contract GuardianProver is Guardians {
 
         if (approved_) {
             deleteApproval(hash);
-            ITaikoL1(resolve(LibConstStrings.BYTES32_TAIKO, false)).proveBlock(
+            ITaikoL1(resolve(LibConstStrings.B_TAIKO, false)).proveBlock(
                 _meta.id, abi.encode(_meta, _tran, _proof)
             );
         }

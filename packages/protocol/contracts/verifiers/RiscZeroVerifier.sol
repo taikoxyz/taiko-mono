@@ -72,7 +72,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        uint64 chainId = ITaikoL1(resolve(LibConstStrings.BYTES32_TAIKO, false)).getConfig().chainId;
+        uint64 chainId = ITaikoL1(resolve(LibConstStrings.B_TAIKO, false)).getConfig().chainId;
         bytes32 hash = LibPublicInput.hashPublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
         );

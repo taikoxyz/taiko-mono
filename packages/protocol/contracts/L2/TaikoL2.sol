@@ -152,8 +152,8 @@ contract TaikoL2 is EssentialContract {
         if (_l1BlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
-            ISignalService(resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibConstStrings.HASH_STATE_ROOT, _l1BlockId, _l1StateRoot
+            ISignalService(resolve(LibConstStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                l1ChainId, LibConstStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
             );
 
             lastSyncedBlock = _l1BlockId;
@@ -180,7 +180,7 @@ contract TaikoL2 is EssentialContract {
     )
         external
         whenNotPaused
-        onlyFromOwnerOrNamed(LibConstStrings.BYTES32_WITHDRAWER)
+        onlyFromOwnerOrNamed(LibConstStrings.B_WITHDRAWER)
         nonReentrant
     {
         if (_to == address(0)) revert L2_INVALID_PARAM();

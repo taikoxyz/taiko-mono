@@ -119,7 +119,7 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
-        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
+        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.B_TAIKO_TOKEN, false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -150,8 +150,7 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider =
-                            _resolver.resolve(LibConstStrings.BYTES32_TIER_PROVIDER, false);
+                        tierProvider = _resolver.resolve(LibConstStrings.B_TIER_PROVIDER, false);
                     }
 
                     if (
@@ -222,10 +221,10 @@ library LibVerifying {
         private
     {
         ISignalService signalService =
-            ISignalService(_resolver.resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false));
+            ISignalService(_resolver.resolve(LibConstStrings.B_SIGNAL_SERVICE, false));
 
         (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibConstStrings.HASH_STATE_ROOT, 0 /* latest block Id*/
+            _config.chainId, LibConstStrings.H_STATE_ROOT, 0 /* latest block Id*/
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
@@ -233,7 +232,7 @@ library LibVerifying {
             _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
             signalService.syncChainData(
-                _config.chainId, LibConstStrings.HASH_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
+                _config.chainId, LibConstStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
     }
