@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -430,26 +429,10 @@ func (p *Processor) eventLoop(ctx context.Context) {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					case errors.Is(err, relayer.ErrUnprofitable):
-						// we want to add it to the unprofitable queue, to be iterated
-						// and picked up by a processor that will periodically check
-						// if the messages are now estimated to be profitable, rather than
-						// just discard those messages.
-						marshalled, err := json.Marshal(m)
-						if err != nil {
-							slog.Error("error marshaling queue message", "error", err)
-							// if we cant marshal it, we cant publish it. we should negatively acknowledge
-							// the emssage so it goes to the dead letter queue.
-							if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
-								slog.Error("Err nacking message", "err", err.Error())
-							}
-
-							return
-						}
-
 						if err := p.queue.Publish(
 							ctx,
 							fmt.Sprintf("%v-unprofitable", p.queueName()),
-							marshalled,
+							m.Body,
 							p.cfg.UnprofitableMessageQueueExpiration,
 						); err != nil {
 							slog.Error("error publishing to unprofitable queue", "error", err)
