@@ -18,7 +18,7 @@ var (
 		EnvVars:  []string{"TAIKO_TOKEN_ADDRESS"},
 	}
 	DispersalAmount = &cli.StringFlag{
-		Name:     "taikoTokenAddress",
+		Name:     "dispersalAmount",
 		Usage:    "Dispersal amount in wei",
 		Required: true,
 		Category: disperserCategory,
