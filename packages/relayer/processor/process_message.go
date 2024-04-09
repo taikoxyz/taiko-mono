@@ -33,7 +33,6 @@ var (
 // get it's on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
 	ctx context.Context,
-	gasLimit *big.Int,
 	signal [32]byte,
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
@@ -67,7 +66,7 @@ func (p *Processor) processMessage(
 		return false, errors.Wrap(err, "json.Unmarshal")
 	}
 
-	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.Message.GasLimit, msgBody.Event.MsgHash)
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
