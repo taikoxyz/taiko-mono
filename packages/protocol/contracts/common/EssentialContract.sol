@@ -119,7 +119,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     function _storeReentryLock(uint8 _reentry) internal virtual {
         if (block.chainid == 1) {
             assembly {
-                tstore(_REENTRY_SLOT, _reentry)
+                sstore(_REENTRY_SLOT, _reentry)
             }
         } else {
             __reentry = _reentry;
@@ -130,7 +130,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
         if (block.chainid == 1) {
             assembly {
-                reentry_ := tload(_REENTRY_SLOT)
+                reentry_ := sload(_REENTRY_SLOT)
             }
         } else {
             reentry_ = __reentry;
