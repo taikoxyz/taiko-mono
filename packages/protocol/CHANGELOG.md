@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.2.0...protocol-v1.3.0) (2024-04-09)
+
+
+### Features
+
+* **protocol:** allow bridge to fail a message by the owner without retrying it ([#16669](https://github.com/taikoxyz/taiko-mono/issues/16669)) ([dce651e](https://github.com/taikoxyz/taiko-mono/commit/dce651e2647013b0d13d7947e0fd0115f38fe639))
+* **protocol:** use 35000 as gas limit for sending Ether in Brdge ([#16666](https://github.com/taikoxyz/taiko-mono/issues/16666)) ([4909782](https://github.com/taikoxyz/taiko-mono/commit/4909782194ae025ff78438126c1e595f404e16a9))
+
+
+### Bug Fixes
+
+* **protocol:** add GovernorSettingsUpgradeable ([#16687](https://github.com/taikoxyz/taiko-mono/issues/16687)) ([eba82ba](https://github.com/taikoxyz/taiko-mono/commit/eba82bad1075afc695f3203304160f26e42627a9))
+* **protocol:** check invocation gas limit also in `retryMessage` ([#16660](https://github.com/taikoxyz/taiko-mono/issues/16660)) ([8209a43](https://github.com/taikoxyz/taiko-mono/commit/8209a437436f9a84d1e75bbafe6780952401d6a2))
+* **protocol:** check no loops in multi-hop in Bridge ([#16659](https://github.com/taikoxyz/taiko-mono/issues/16659)) ([447cd52](https://github.com/taikoxyz/taiko-mono/commit/447cd5252d141dfd38a2764d570b9168762c0d4b))
+* **protocol:** fix potential 1271 signature replay if proposers are smart contracts ([#16665](https://github.com/taikoxyz/taiko-mono/issues/16665)) ([2b27477](https://github.com/taikoxyz/taiko-mono/commit/2b27477ec0f9e5f0e0326d302531f93ff2c65de3))
+
 ## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.1.0...protocol-v1.2.0) (2024-04-05)
 
 
