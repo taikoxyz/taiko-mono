@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"database/sql"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,7 +34,10 @@ type Config struct {
 	DatabaseMaxConnLifetime uint64
 	MetricsHTTPPort         uint64
 	DisperserPrivateKey     *ecdsa.PrivateKey
+	DispersalAmount         *big.Int
+	TaikoTokenAddress       common.Address
 	TxmgrConfigs            *txmgr.CLIConfig
+	RPCURL                  string
 	OpenDBFunc              func() (DB, error)
 }
 
@@ -46,6 +50,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid disperserPrivateKey: %w", err)
 	}
 
+	dispersalAmount, ok := new(big.Int).SetString(c.String(flags.DispersalAmount.Name), 10)
+	if !ok {
+		return nil, fmt.Errorf("Invalid dispersal amount")
+	}
+
 	return &Config{
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:        c.String(flags.DatabasePassword.Name),
@@ -56,6 +65,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		DisperserPrivateKey:     disperserPrivateKey,
+		RPCURL:                  c.String(flags.RPCUrl.Name),
+		DispersalAmount:         dispersalAmount,
+		TaikoTokenAddress:       common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.RPCUrl.Name),
 			disperserPrivateKey,

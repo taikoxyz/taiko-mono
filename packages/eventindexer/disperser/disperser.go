@@ -3,9 +3,10 @@ package disperser
 import (
 	"context"
 	"log/slog"
-	"time"
+	"math/big"
 
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/encoding"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,10 +22,10 @@ var (
 // a cronjob, to parse the indexed data from the database, and generate
 // time series data that can easily be displayed via charting libraries.
 type Disperser struct {
-	db          DB
-	genesisDate time.Time
-	regenerate  bool
-	txmgr       txmgr.TxManager
+	db                DB
+	dispersalAmount   *big.Int
+	taikoTokenAddress common.Address
+	txmgr             txmgr.TxManager
 }
 
 func (d *Disperser) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -53,6 +54,9 @@ func InitFromConfig(ctx context.Context, d *Disperser, cfg *Config) error {
 
 	d.db = db
 
+	d.dispersalAmount = cfg.DispersalAmount
+	d.taikoTokenAddress = cfg.TaikoTokenAddress
+
 	return nil
 }
 
@@ -61,7 +65,47 @@ func (d *Disperser) Name() string {
 }
 
 func (d *Disperser) Start() error {
+	addresses, err := d.findAllAddresses()
+	if err != nil {
+		return err
+	}
+
+	for _, address := range addresses {
+		slog.Info("dispersing to", "address", address)
+
+		data, err := encoding.TaikoTokenABI.Pack("transfer", common.HexToAddress(address), d.dispersalAmount)
+		if err != nil {
+			return err
+		}
+
+		candidate := txmgr.TxCandidate{
+			TxData: data,
+			Blobs:  nil,
+			To:     &d.taikoTokenAddress,
+		}
+
+		receipt, err := d.txmgr.Send(context.Background(), candidate)
+		if err != nil {
+			slog.Warn("Failed to send transfer transaction", "error", err.Error())
+			return err
+		}
+
+		slog.Info("sent tx", "tx", receipt.TxHash.Hex())
+	}
+
 	return nil
+}
+
+func (d *Disperser) findAllAddresses() ([]string, error) {
+	var addresses []string
+	// Execute raw SQL query to find distinct addresses where event is 'InstanceAdded'
+	err := d.db.GormDB().Raw("SELECT DISTINCT address FROM events WHERE event = ?", "InstanceAdded").Scan(&addresses).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses, nil
 }
 
 func (d *Disperser) Close(ctx context.Context) {
