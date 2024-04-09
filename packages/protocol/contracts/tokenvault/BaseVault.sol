@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeab
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 
 /// @title BaseVault
 /// @notice This abstract contract provides a base implementation for vaults.
@@ -20,7 +21,7 @@ abstract contract BaseVault is
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {
-        if (msg.sender != resolve("bridge", false)) {
+        if (msg.sender != resolve(LibStrings.B_BRIDGE, false)) {
             revert VAULT_PERMISSION_DENIED();
         }
         _;

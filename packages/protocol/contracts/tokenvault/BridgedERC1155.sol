@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
@@ -70,7 +71,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     )
         public
         whenNotPaused
-        onlyFromNamed("erc1155_vault")
+        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
         _mint(_to, _tokenId, _amount, "");
@@ -87,7 +88,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     )
         public
         whenNotPaused
-        onlyFromNamed("erc1155_vault")
+        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
         _mintBatch(_to, _tokenIds, _amounts, "");
@@ -104,7 +105,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     )
         public
         whenNotPaused
-        onlyFromNamed("erc1155_vault")
+        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
         _burn(_account, _tokenId, _amount);
