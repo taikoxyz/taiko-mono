@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
@@ -30,7 +29,7 @@ func (p *Processor) waitHeaderSynced(
 		blockNum,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater")
+		return nil, err
 	}
 
 	if event != nil {
@@ -52,7 +51,7 @@ func (p *Processor) waitHeaderSynced(
 				blockNum,
 			)
 			if err != nil {
-				return nil, errors.Wrap(err, "p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater")
+				return nil, err
 			}
 
 			if event != nil {
