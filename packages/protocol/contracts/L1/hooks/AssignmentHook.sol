@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "../../common/EssentialContract.sol";
+import "../../common/LibConstStrings.sol";
 import "../../libs/LibAddress.sol";
-import "../libs/LibConstStrings.sol";
 import "../ITaikoL1.sol";
 import "./IHook.sol";
 
@@ -71,7 +71,7 @@ contract AssignmentHook is EssentialContract, IHook {
     )
         external
         payable
-        onlyFromNamed("taiko")
+        onlyFromNamed(LibConstStrings.BYTES32_TAIKO)
         nonReentrant
     {
         // Note that
@@ -106,7 +106,7 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         // Send the liveness bond to the Taiko contract
-        IERC20 tko = IERC20(resolve(LibConstStrings.BYTES32_STR_TKO, false));
+        IERC20 tko = IERC20(resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
 
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
@@ -176,7 +176,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         return keccak256(
             abi.encodePacked(
-                LibConstStrings.BYTES32_STR_PROVER_ASSIGNMENT,
+                LibConstStrings.BYTES32_PROVER_ASSIGNMENT,
                 ITaikoL1(_taikoL1Address).getConfig().chainId,
                 _taikoL1Address,
                 _blockProposer,

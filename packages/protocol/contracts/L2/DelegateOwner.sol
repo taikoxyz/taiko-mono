@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../common/LibConstStrings.sol";
 import "../bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -64,7 +65,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @inheritdoc IMessageInvocable
     /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
     /// represents calls to address(this).
-    function onMessageInvocation(bytes calldata _data) external payable onlyFromNamed("bridge") {
+    function onMessageInvocation(bytes calldata _data)
+        external
+        payable
+        onlyFromNamed(LibConstStrings.BYTES32_BRIDGE)
+    {
         (uint64 txId, address target, bytes memory txdata) =
             abi.decode(_data, (uint64, address, bytes));
 

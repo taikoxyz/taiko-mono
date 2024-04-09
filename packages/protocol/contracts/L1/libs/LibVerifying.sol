@@ -4,10 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
+import "../../common/LibConstStrings.sol";
 import "../../signal/ISignalService.sol";
-import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
-import "./LibConstStrings.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -120,7 +119,7 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
-        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_STR_TKO, false));
+        IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -152,7 +151,7 @@ library LibVerifying {
                 } else {
                     if (tierProvider == address(0)) {
                         tierProvider =
-                            _resolver.resolve(LibConstStrings.BYTES32_STR_TIER_PROVIDER, false);
+                            _resolver.resolve(LibConstStrings.BYTES32_TIER_PROVIDER, false);
                     }
 
                     if (
@@ -222,10 +221,11 @@ library LibVerifying {
     )
         private
     {
-        ISignalService signalService = ISignalService(_resolver.resolve("signal_service", false));
+        ISignalService signalService =
+            ISignalService(_resolver.resolve(LibConstStrings.BYTES32_SIGNAL_SERVICE, false));
 
         (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibSignals.HASH_STR_STATE_ROOT, 0 /* latest block Id*/
+            _config.chainId, LibConstStrings.HASH_STATE_ROOT, 0 /* latest block Id*/
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
@@ -233,7 +233,7 @@ library LibVerifying {
             _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
             signalService.syncChainData(
-                _config.chainId, LibSignals.HASH_STR_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
+                _config.chainId, LibConstStrings.HASH_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
     }

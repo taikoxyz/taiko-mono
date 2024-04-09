@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../L1/ITaikoL1.sol";
 import "../common/EssentialContract.sol";
+import "../common/LibConstStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./libs/LibPublicInput.sol";
@@ -99,7 +100,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param _ids The ids array of SGX instances.
     function deleteInstances(uint256[] calldata _ids)
         external
-        onlyFromOwnerOrNamed("rollup_watchdog")
+        onlyFromOwnerOrNamed(LibConstStrings.BYTES32_ROLLUP_WATCHDOG)
     {
         for (uint256 i; i < _ids.length; ++i) {
             uint256 idx = _ids[i];
@@ -119,7 +120,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256)
     {
-        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
+        address automataDcapAttestation =
+            (resolve(LibConstStrings.BYTES32_AUTOMATA_DCAP_ATTESTATION, true));
 
         if (automataDcapAttestation == address(0)) {
             revert SGX_RA_NOT_SUPPORTED();
@@ -142,7 +144,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        onlyFromNamed("taiko")
+        onlyFromNamed(LibConstStrings.BYTES32_TAIKO)
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -154,7 +156,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address newInstance = address(bytes20(_proof.data[4:24]));
 
-        uint64 chainId = ITaikoL1(resolve("taiko", false)).getConfig().chainId;
+        uint64 chainId = ITaikoL1(resolve(LibConstStrings.BYTES32_TAIKO, false)).getConfig().chainId;
 
         address oldInstance = ECDSA.recover(
             LibPublicInput.hashPublicInputs(

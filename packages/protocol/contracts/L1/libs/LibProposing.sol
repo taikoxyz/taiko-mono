@@ -4,11 +4,11 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
+import "../../common/LibConstStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
-import "./LibConstStrings.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -16,7 +16,6 @@ import "./LibConstStrings.sol";
 library LibProposing {
     using LibAddress for address;
 
-    /// @notice Leaving this here to not forget about that this is a removed feature
     // = keccak256(abi.encode(new TaikoData.EthDeposit[](0)))
     bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
@@ -157,7 +156,7 @@ library LibProposing {
 
         // Use the difficulty as a random number
         meta_.minTier = ITierProvider(
-            _resolver.resolve(LibConstStrings.BYTES32_STR_TIER_PROVIDER, false)
+            _resolver.resolve(LibConstStrings.BYTES32_TIER_PROVIDER, false)
         ).getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
@@ -186,7 +185,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_STR_TKO, false));
+            IERC20 tko = IERC20(_resolver.resolve(LibConstStrings.BYTES32_TAIKO_TOKEN, false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -242,13 +241,13 @@ library LibProposing {
     {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve("proposer_one", true);
+            address proposerOne = _resolver.resolve(LibConstStrings.BYTES32_PROPOSER_ONE, true);
             if (proposerOne != address(0)) {
                 return msg.sender == proposerOne;
             }
         }
 
-        address proposer = _resolver.resolve(LibConstStrings.BYTES32_STR_PROPOSER, true);
+        address proposer = _resolver.resolve(LibConstStrings.BYTES32_PROPOSER, true);
         return proposer == address(0) || msg.sender == proposer;
     }
 }

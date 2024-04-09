@@ -228,7 +228,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         view
         virtual
         override
-        onlyFromOwnerOrNamed("chain_pauser")
+        onlyFromOwnerOrNamed(LibConstStrings.BYTES32_CHAIN_PAUSER)
     { }
 
     function _checkEOAForCalldataDA() internal pure virtual returns (bool) {
