@@ -30,8 +30,6 @@ var (
 var Tasks = []string{
 	TotalTransactions,
 	TransactionsPerDay,
-	TotalBlocks,
-	BlocksPerDay,
 	TotalAccounts,
 	AccountsPerDay,
 	UniqueProposersPerDay,
