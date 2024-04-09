@@ -110,7 +110,7 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 3 slots used.
+    /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
