@@ -151,6 +151,8 @@ const _getStatus = async ({ address, srcChainId, destChainId, type }: CheckCanon
   const destClient = await publicClient(destChainId);
   if (!srcClient || !destClient) throw new Error('Could not get public client');
 
+  console.log('vaultAddressKey: ' + routingContractsMap[srcChainId][destChainId][vaultAddressKey]);
+
   const srcTokenVaultContract = getContract({
     abi: vaultABI as Abi,
     client: srcClient,
@@ -189,9 +191,16 @@ const _getStatus = async ({ address, srcChainId, destChainId, type }: CheckCanon
     ])) as Address;
 
     if (checkSrcChainForCanonicalChain === zeroAddress) {
-      canonicalChain = srcChainId;
-    } else {
-      canonicalChain = destChainId;
+      const checkDestChainForCanonicalChain = (await destTokenVaultContract.read.canonicalToBridged([
+        destChainId,
+        srcChainTokenAddress,
+      ])) as Address;
+
+      if (checkSrcChainForCanonicalChain === zeroAddress && checkDestChainForCanonicalChain === zeroAddress) {
+        canonicalChain = srcChainId;
+      } else {
+        canonicalChain = destChainId;
+      }
     }
   } else if (destCanonicalCheck !== zeroAddress) {
     // if the destination is not zero, we found a canonical address there
