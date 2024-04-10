@@ -473,11 +473,11 @@ contract Bridge is EssentialContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has been received on its source chain.
     /// This is the 'readonly' version of proveMessageReceived.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return true if the message has failed, false otherwise.
+    /// @return true if the message has been received, false otherwise.
     function isMessageReceived(
         Message calldata _message,
         bytes calldata _proof
