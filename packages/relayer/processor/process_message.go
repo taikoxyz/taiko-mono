@@ -240,19 +240,12 @@ func (p *Processor) waitForInvocationDelay(
 		"now", time.Now().UTC().Unix(),
 	)
 
-	// its unprocessable, we shouldnt send the transaction.
-	// wait until it's processable.
-	t := time.NewTicker(60 * time.Second)
-
-	defer t.Stop()
-
 	w := time.After(time.Duration(delay.Int64()) * time.Second)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-t.C:
 		case <-w:
 			slog.Info("done waiting for invocation delay")
 			return nil
