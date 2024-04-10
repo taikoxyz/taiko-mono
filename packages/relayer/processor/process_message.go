@@ -236,6 +236,7 @@ func (p *Processor) waitForInvocationDelay(
 	}
 
 	slog.Info("waiting for invocation delay",
+		"delay", delay.String(),
 		"processableAt", processableAt.String(),
 		"now", time.Now().UTC().Unix(),
 		"difference", new(big.Int).Sub(processableAt, new(big.Int).SetInt64(time.Now().UTC().Unix())),
