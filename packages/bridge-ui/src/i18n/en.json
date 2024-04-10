@@ -239,6 +239,7 @@
     "ok": "Okay",
     "recipient": "Recipient",
     "review": "Review",
+    "see_results": "See results",
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
@@ -246,8 +247,7 @@
     "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
-    "token_standard": "Token standard",
-    "see_results": "See results"
+    "token_standard": "Token standard"
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
@@ -357,6 +357,10 @@
     "theme": "Theme",
     "token": "Token",
     "transactions": "Transactions"
+  },
+  "paginator": {
+    "of": "of",
+    "page": "Page"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communication channels for more information. ",
@@ -509,6 +513,9 @@
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",
+    "release": {
+      "title": "Release assets"
+    },
     "retry": {
       "steps": {
         "select": {
@@ -539,7 +546,7 @@
         "name": "Failed"
       },
       "pending": {
-        "description": " Your asset is not yet eligible for claiming. The bridging process from Taiko to Sepolia may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes.",
+        "description": "Your asset is not yet eligible for claiming. The bridging process from Taiko to Holesky may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes.",
         "name": "Pending"
       },
       "processing": {
@@ -565,9 +572,5 @@
       "connecting": "Connecting",
       "disconnected": "Disconnected"
     }
-  },
-  "paginator": {
-    "page": "Page",
-    "of": "of"
   }
 }
