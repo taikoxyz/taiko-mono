@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { switchChain } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { type Chain, ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
@@ -9,19 +8,15 @@
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Card } from '$components/Card';
   import { ChainSelector, ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
-  import { Icon } from '$components/Icon';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { checkMintable, mint, testERC20Tokens, testNFT, type Token } from '$libs/token';
-  import { config } from '$libs/wagmi';
   import { account, connectedSourceChain, pendingTransactions } from '$stores';
 
   let minting = false;
   let checkingMintable = false;
-  let switchingNetwork = false;
 
   let selectedToken: Token;
   let mintButtonEnabled = false;
@@ -29,27 +24,6 @@
   let mintableTokens: Token[] = [];
 
   const onlyMintable: boolean = true;
-
-  async function switchNetworkToL1() {
-    if (switchingNetwork) return;
-
-    switchingNetwork = true;
-
-    try {
-      await switchChain(config, { chainId: Number(chains[0].id) });
-    } catch (err) {
-      console.error(err);
-
-      if (err instanceof UserRejectedRequestError) {
-        warningToast({
-          title: $t('messages.network.rejected.title'),
-          message: $t('messages.network.rejected.message'),
-        });
-      }
-    } finally {
-      switchingNetwork = false;
-    }
-  }
 
   async function mintToken() {
     // During loading state we make sure the user cannot use this function
@@ -108,17 +82,6 @@
     return Boolean(user?.isConnected);
   }
 
-  function isWrongChain(network: Maybe<Chain>) {
-    if (!selectedToken?.addresses) {
-      // nothing selected, can't determine if wrong chain
-      return false;
-    }
-    if (network?.id) {
-      return !selectedToken.addresses[network.id];
-    }
-    return true;
-  }
-
   // This function will check whether or not the button to mint should be
   // enabled. If it shouldn't it'll also set the reason why so we can inform
   // the user why they can't mint
@@ -153,13 +116,11 @@
       checkingMintable = false;
     }
 
-    alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
+    alertMessage = getAlertMessage(connected, reasonNotMintable);
   }
 
-  function getAlertMessage(connected: boolean, wrongChain: boolean, reasonNotMintable: string) {
+  function getAlertMessage(connected: boolean, reasonNotMintable: string) {
     if (!connected) return $t('messages.account.required');
-    //does this really need to be dynamic? Our mint tokens will most likely stay on Sepolia
-    if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: 'Sepolia' } });
     if (reasonNotMintable) return reasonNotMintable;
     return '';
   }
@@ -173,7 +134,6 @@
   });
 
   $: connected = isUserConnected($account);
-  $: wrongChain = isWrongChain($connectedSourceChain);
 
   $: disabled = !$account || !$account.isConnected;
 
@@ -197,34 +157,20 @@
       </Alert>
     {/if}
 
-    {#if connected && wrongChain}
-      <!-- We give the user an easier way to switch chains with this button -->
-      <ActionButton priority="primary" loading={switchingNetwork} on:click={switchNetworkToL1}>
-        {#if switchingNetwork}
-          <span>{$t('messages.network.switching')}</span>
+    <ActionButton
+      priority="primary"
+      disabled={!mintButtonEnabled || disabled}
+      loading={checkingMintable || minting}
+      on:click={mintToken}>
+      <span class="body-bold">
+        {#if checkingMintable}
+          {$t('faucet.button.checking')}
+        {:else if minting}
+          {$t('faucet.button.minting')}
         {:else}
-          <Icon type="up-down" fillClass="fill-white" class="rotate-90" height={24} width={24} />
-          <span class="body-bold">
-            {alertMessage}
-          </span>
+          {$t('faucet.button.mint')}
         {/if}
-      </ActionButton>
-    {:else}
-      <ActionButton
-        priority="primary"
-        disabled={!mintButtonEnabled || disabled}
-        loading={checkingMintable || minting}
-        on:click={mintToken}>
-        <span class="body-bold">
-          {#if checkingMintable}
-            {$t('faucet.button.checking')}
-          {:else if minting}
-            {$t('faucet.button.minting')}
-          {:else}
-            {$t('faucet.button.mint')}
-          {/if}
-        </span>
-      </ActionButton>
-    {/if}
+      </span>
+    </ActionButton>
   </div>
 </Card>
