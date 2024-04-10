@@ -66,6 +66,8 @@ func (p *Processor) processMessage(
 		return false, errors.Wrap(err, "json.Unmarshal")
 	}
 
+	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
+
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, errors.Wrap(err, "p.eventStatusFromMsgHash")
