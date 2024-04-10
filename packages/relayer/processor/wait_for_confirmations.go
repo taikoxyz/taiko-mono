@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
@@ -22,7 +21,7 @@ func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash
 		p.confirmations,
 		txHash,
 	); err != nil {
-		return errors.Wrap(err, "relayer.WaitConfirmations")
+		return err
 	}
 
 	return nil
