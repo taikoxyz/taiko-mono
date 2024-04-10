@@ -111,12 +111,6 @@ func (p *Processor) processMessage(
 		return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
 	}
 
-	slog.Info("proofReceipt",
-		"receivedAt", proofReceipt.ReceivedAt,
-		"preferredExecutor", proofReceipt.PreferredExecutor.Hex(),
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
-
 	var encodedSignalProof []byte
 
 	// proof has not been submitted, we need to generate it
@@ -125,10 +119,6 @@ func (p *Processor) processMessage(
 		if err != nil {
 			return false, err
 		}
-
-		slog.Info("proof generated",
-			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-		)
 	} else {
 		// proof has been submitted
 		// we need to check the invocation delay and
