@@ -234,6 +234,12 @@ func (p *Processor) waitForInvocationDelay(
 		// if its passed already, we can submit
 		return nil
 	}
+
+	slog.Info("waiting for invocation delay",
+		"processableAt", processableAt.String(),
+		"now", time.Now().UTC().Unix(),
+	)
+
 	// its unprocessable, we shouldnt send the transaction.
 	// wait until it's processable.
 	t := time.NewTicker(60 * time.Second)
@@ -247,10 +253,6 @@ func (p *Processor) waitForInvocationDelay(
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-t.C:
-			slog.Info("waiting for invocation delay",
-				"processableAt", processableAt.String(),
-				"now", time.Now().UTC().Unix(),
-			)
 		case <-w:
 			slog.Info("done waiting for invocation delay")
 			return nil
