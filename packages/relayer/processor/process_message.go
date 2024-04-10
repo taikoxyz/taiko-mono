@@ -731,10 +731,21 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
 		}
 
+		slog.Info("cost estimation",
+			"gas", gas,
+			"gasTipCap", gasTipCap.String(),
+			"baseFee", baseFee.String(),
+		)
+
 		return new(big.Int).Mul(
 			new(big.Int).SetUint64(gas),
 			new(big.Int).Add(gasTipCap, baseFee)), nil
 	} else {
+		slog.Info("cost estimation",
+			"gas", gas,
+			"gasPrice", gasPrice.String(),
+		)
+
 		return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gas)), nil
 	}
 }
