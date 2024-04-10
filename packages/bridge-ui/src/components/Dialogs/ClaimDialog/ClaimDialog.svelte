@@ -5,6 +5,7 @@
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
+  import Claim from '$components/Dialogs/Claim.svelte';
   import {
     errorToast,
     infoToast,
@@ -12,7 +13,6 @@
     warningToast,
   } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import Claim from '$components/Transactions/Dialogs/Claim.svelte';
   import { getInvocationDelaysForDestBridge } from '$libs/bridge/getInvocationDelaysForDestBridge';
   import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
   import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
@@ -30,12 +30,12 @@
   import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
+  import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
-  import ClaimConfirmStep from './ClaimSteps/ClaimConfirmStep.svelte';
   import ClaimPreCheck from './ClaimSteps/ClaimPreCheck.svelte';
-  import ClaimReviewStep from './ClaimSteps/ClaimReviewStep.svelte';
-  import { ClaimSteps, ClaimTypes, INITIAL_STEP, TWO_STEP_STATE } from './types';
+  import { ClaimSteps, INITIAL_STEP, TWO_STEP_STATE } from './types';
 
   const log = getLogger('ClaimDialog');
 
@@ -60,7 +60,7 @@
 
   export const handleClaimClick = async () => {
     claiming = true;
-    await ClaimComponent.claim();
+    await ClaimComponent.claim(ClaimAction.CLAIM);
   };
 
   let canContinue = false;
@@ -70,7 +70,7 @@
   let txHash: Hash;
 
   const handleAccountChange = () => {
-    activeStep = INITIAL_STEP;
+    reset();
   };
 
   const closeDialog = () => {
@@ -78,15 +78,15 @@
     reset();
   };
 
-  const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; type: ClaimTypes }>) => {
-    const { txHash: transactionHash, type } = event.detail;
+  const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; action: ClaimAction }>) => {
+    const { txHash: transactionHash, action } = event.detail;
     txHash = transactionHash;
-    log('handle claim tx sent', txHash, type);
+    log('handle claim tx sent', txHash, action);
     claiming = true;
 
     const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
 
-    if (type === ClaimTypes.CLAIM) {
+    if (action === ClaimAction.CLAIM) {
       infoToast({
         title: $t('transactions.actions.claim.tx.title'),
         message: $t('transactions.actions.claim.tx.message', {
@@ -98,7 +98,7 @@
       });
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
     } else {
-      // TODO, retry, release etc.
+      // Retry
       infoToast({
         title: $t('transactions.actions.claim.tx.title'),
         message: $t('transactions.actions.claim.tx.message', {
@@ -136,7 +136,7 @@
     }
   };
 
-  const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimTypes }>) => {
+  const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
     switch (true) {
@@ -267,7 +267,7 @@
           bridgeDelays={delays}
           {checkingPrerequisites} />
       {:else if activeStep === ClaimSteps.REVIEW}
-        <ClaimReviewStep tx={bridgeTx} {nft} />
+        <ReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
         <ClaimConfirmStep
           {bridgeTx}

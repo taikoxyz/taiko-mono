@@ -6,12 +6,6 @@ export const enum ClaimSteps {
 
 export const INITIAL_STEP = ClaimSteps.CHECK;
 
-export const enum ClaimTypes {
-  CLAIM,
-  RETRY,
-  RELEASE,
-}
-
 export const enum ClaimStatus {
   PENDING,
   DONE,

@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
+  import { ClaimDialog, ReleaseDialog, RetryDialog } from '$components/Dialogs';
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, type GetProofReceiptResponse, MessageStatus } from '$libs/bridge';
@@ -15,9 +16,6 @@
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
-
-  import ClaimDialog from '../Dialogs/ClaimDialog/ClaimDialog.svelte';
-  import RetryDialog from '../Dialogs/RetryDialog/RetryDialog.svelte';
 
   export let bridgeTx: BridgeTransaction;
   export let nft: NFT | null = null;
@@ -67,6 +65,14 @@
     retryModalOpen = true;
   }
 
+  async function handleReleaseClick() {
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
+    if (!$connectedSourceChain || !$account?.address) return;
+    releaseModalOpen = true;
+  }
+
   async function handleClaimClick() {
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
@@ -90,6 +96,7 @@
 
   $: claimModalOpen = false;
   $: retryModalOpen = false;
+  $: releaseModalOpen = false;
 
   $: hasValidProofReceipt = proofReceipt && proofReceipt[1] !== zeroAddress ? true : false;
 
@@ -157,7 +164,7 @@
     <StatusDot type="success" />
     <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    <button class="status-btn" on:click={release} on:click={handleRetryClick}>
+    <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
       {$t('transactions.button.release')}
     </button>
   {:else}
@@ -168,6 +175,8 @@
 </div>
 
 <RetryDialog {bridgeTx} bind:dialogOpen={retryModalOpen} />
+
+<ReleaseDialog {bridgeTx} bind:dialogOpen={releaseModalOpen} />
 
 <ClaimDialog
   {bridgeTx}

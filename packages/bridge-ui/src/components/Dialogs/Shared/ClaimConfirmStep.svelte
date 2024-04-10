@@ -10,7 +10,7 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { theme } from '$stores/theme';
 
-  import { TWO_STEP_STATE } from '../types';
+  import { TWO_STEP_STATE } from '../ClaimDialog/types';
 
   export let canClaim = false;
 
@@ -18,7 +18,7 @@
 
   export let claiming = false;
 
-  export let proveOrClaimStep: TWO_STEP_STATE | null;
+  export let proveOrClaimStep: TWO_STEP_STATE = TWO_STEP_STATE.CLAIM;
 
   export let bridgeTx: BridgeTransaction;
 
