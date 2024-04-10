@@ -1,6 +1,8 @@
 import { getPublicClient } from '@wagmi/core';
 
 import { recommendProcessingFeeConfig } from '$config';
+import { PUBLIC_L2_PROCESSING_FEE_MULTIPLIER } from '$env/static/public';
+import { isL2Chain } from '$libs/chain';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
@@ -39,6 +41,14 @@ export async function recommendProcessingFee({
 
   // getGasPrice will return gasPrice as 3000000001, rather than 3000000000
   const gasPrice = await destPublicClient.getGasPrice();
+
+  let multiplier = 1;
+
+  //TODO: temporary increase multiplier for L2 chains until we have a better solution via the relayer
+  // figure out if it is L2-L1
+  if (isL2Chain(srcChainId)) {
+    multiplier = parseInt(PUBLIC_L2_PROCESSING_FEE_MULTIPLIER);
+  }
 
   // The gas limit for processMessage call for ETH is about ~800k.
   // To make it enticing, we say 900k
@@ -82,5 +92,5 @@ export async function recommendProcessingFee({
       }
     }
   }
-  return gasPrice * gasLimit;
+  return gasPrice * gasLimit * BigInt(multiplier);
 }
