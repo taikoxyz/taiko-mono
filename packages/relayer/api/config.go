@@ -3,6 +3,7 @@ package api
 import (
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/urfave/cli/v2"
@@ -22,10 +23,12 @@ type Config struct {
 	DatabaseMaxConnLifetime uint64
 	CORSOrigins             []string
 	// rpc configs
-	SrcRPCUrl  string
-	DestRPCUrl string
-	HTTPPort   uint64
-	OpenDBFunc func() (DB, error)
+	SrcRPCUrl               string
+	DestRPCUrl              string
+	ProcessingFeeMultiplier float64
+	DestTaikoAddress        common.Address
+	HTTPPort                uint64
+	OpenDBFunc              func() (DB, error)
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -42,6 +45,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
+		ProcessingFeeMultiplier: c.Float64(flags.ProcessingFeeMultiplier.Name),
+		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
