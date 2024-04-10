@@ -36,8 +36,8 @@ To migrate the database schema in MySQL:
 
 ```sh
 cd ./migrations
-goose mysql "root:passw00d@tcp(localhost:3306)/relayer" status
-goose mysql "root:passw00d@tcp(localhost:3306)/relayer" up
+goose mysql "<user>:<password>@tcp(localhost:3306)/relayer" status
+goose mysql "<user>:<password>@tcp(localhost:3306)/relayer" up
 ```
 
 ### Configure Environment Variables
