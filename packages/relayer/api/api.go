@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/urfave/cli/v2"
@@ -55,12 +56,19 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 		return err
 	}
 
+	taikoL2, err := taikol2.NewTaikoL2(cfg.DestTaikoAddress, destEthClient)
+	if err != nil {
+		return err
+	}
+
 	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:     eventRepository,
-		Echo:          echo.New(),
-		CorsOrigins:   cfg.CORSOrigins,
-		SrcEthClient:  srcEthClient,
-		DestEthClient: destEthClient,
+		EventRepo:               eventRepository,
+		Echo:                    echo.New(),
+		CorsOrigins:             cfg.CORSOrigins,
+		SrcEthClient:            srcEthClient,
+		DestEthClient:           destEthClient,
+		TaikoL2:                 taikoL2,
+		ProcessingFeeMultiplier: cfg.ProcessingFeeMultiplier,
 	})
 	if err != nil {
 		return err
