@@ -320,17 +320,15 @@ contract Bridge is EssentialContract, IBridge {
                 }
             }
 
-            // Determine the refund recipient
-            address refundTo =
-                _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
-
             // Refund the processing fee
-            if (msg.sender == refundTo) {
-                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
+            if (msg.sender == _message.destOwner) {
+                _message.destOwner.sendEtherAndVerify(
+                    _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
+                );
             } else {
                 // If sender is another address, reward it and refund the rest
                 msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
-                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+                _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {
