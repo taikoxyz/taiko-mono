@@ -24,7 +24,6 @@ var (
 
 type Subscription struct {
 	errChan chan error
-	done    bool
 }
 
 func (s *Subscription) Err() <-chan error {
