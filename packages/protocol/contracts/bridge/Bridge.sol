@@ -343,7 +343,7 @@ contract Bridge is EssentialContract, IBridge {
             } else {
                 // gas now represents the actual gas used
                 uint256 fee;
-                unchecked {
+                {
                     gasAmount -= gasleft();
                     gasAmount += isNewlyProven
                         ? ONE_STEP_PROCESSING_GAS_OVERHEAD

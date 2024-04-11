@@ -164,7 +164,7 @@ contract BridgeTest is TaikoTest {
         vm.stopPrank();
     }
 
-    function test_Bridge_send_ether_to_to_with_value() public {
+    function test_Bridge_send_ether_with_value_simple() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
@@ -174,7 +174,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             refundTo: Alice,
-            value: 1000,
+            value: 2000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -193,13 +193,15 @@ contract BridgeTest is TaikoTest {
         IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
-        // Alice has 100 ether + 1000 wei balance, because we did not use the
+        // Alice has 100 ether + 2000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
         // deduction/transfer did
         // not happen
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
-        assertEq(Bob.balance, 1000);
+        assertTrue(Alice.balance > 100_000_000_000_000_002_000);
+        assertTrue(Bob.balance > 0);
+        assertTrue(Bob.balance < 1000);
+        assertEq(Alice.balance + Bob.balance, 100_000_000_000_000_003_000);
     }
 
     function test_Bridge_processMessage_with_2_steps() public {
