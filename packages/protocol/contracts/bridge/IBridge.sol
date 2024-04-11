@@ -32,8 +32,6 @@ interface IBridge {
         address to;
         // Alternate address to send any refund on the destination chain.
         // If blank, defaults to destOwner.
-        address refundTo;
-        // value to invoke on the destination chain.
         uint256 value;
         // The max gas price to pay to the process on the destination chain.
         uint256 gasPrice;
