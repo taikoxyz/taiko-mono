@@ -37,7 +37,8 @@ interface IBridge {
         uint256 value;
         // The max gas price to pay to the process on the destination chain.
         uint256 gasPrice;
-        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
+        // gasLimit that coversto invoke on the destination chain. If this value is zero, only
+        // destOwner can
         // process the message. This value will mostly be respected when retrying
         // (gas > gas_limit) but not when processed by the owner.
         uint256 gasLimit;
