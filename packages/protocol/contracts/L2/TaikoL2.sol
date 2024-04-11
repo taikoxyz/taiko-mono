@@ -177,10 +177,13 @@ contract TaikoL2 is EssentialContract {
 
         // Every week we take a snapshot
 
-        uint256 v = _l1BlockId / 50_400;
-        if (v > _lastSnapshotIn) {
-            _lastSnapshotIn = uint64(v);
-            ISnapshot(resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
+        address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
+        if (taikoToken != address(0)) {
+            uint256 v = _l1BlockId / 50_400;
+            if (v > _lastSnapshotIn) {
+                _lastSnapshotIn = uint64(v);
+                ISnapshot(taikoToken).snapshot();
+            }
         }
     }
 
