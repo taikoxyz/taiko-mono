@@ -154,7 +154,7 @@ library TaikoData {
     }
 
     struct SlotC {
-        uint64 lastSnapshotIn;
+        uint64 lastSnapshot;
         uint64 __reservedC1;
         uint64 __reservedC2;
         uint64 __reservedC3;

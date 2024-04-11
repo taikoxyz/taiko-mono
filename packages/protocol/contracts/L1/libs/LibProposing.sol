@@ -232,8 +232,8 @@ library LibProposing {
 
         // Take a snapshot every week
         uint256 v = block.number / 50_400;
-        if (v > _state.slotC.lastSnapshotIn) {
-            _state.slotC.lastSnapshotIn = uint64(v);
+        if (v > _state.slotC.lastSnapshot) {
+            _state.slotC.lastSnapshot = uint64(v);
             ISnapshot(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
         }
     }
