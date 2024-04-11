@@ -1,3 +1,4 @@
+import os
 import mysql.connector
 
 def query_blob_hash(collection_name, blob_hash):
@@ -6,7 +7,7 @@ def query_blob_hash(collection_name, blob_hash):
     connection = mysql.connector.connect(
         host='localhost',
         user='root',  # Update with your username
-        password='passw00d',  # Update with your password
+        password=os.getenv('MYSQL_ROOT_PASSWORD'),  # Update with your password
         database='blobs'  # Update with your database name
     )
 

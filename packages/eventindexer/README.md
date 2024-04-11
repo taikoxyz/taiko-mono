@@ -22,8 +22,8 @@ Repository dedicated to capturing events, storing them in a database for API que
 
    ```bash
    cd ./migrations
-   goose mysql "root:passw00d@tcp(localhost:3306)/eventindexer" status
-   goose mysql "root:passw00d@tcp(localhost:3306)/eventindexer" up
+   goose mysql "<user>:<password>@tcp(localhost:3306)/eventindexer" status
+   goose mysql "<user>:<password>@tcp(localhost:3306)/eventindexer" up
    ```
 
 ### Environment Configuration
