@@ -304,12 +304,17 @@ contract Bridge is EssentialContract, IBridge {
                 refundAmount = _message.value;
                 _updateMessageStatus(msgHash, Status.DONE);
             } else {
-                uint256 gasLimit;
+                uint256 invocationGasLimit;
                 if (msg.sender == _message.destOwner) {
                     // Use the remaining gas if called by a the destOwner, else
                     // use the specified gas limit.
-                    gasLimit = gasleft();
+                    invocationGasLimit = gasleft();
                 } else {
+                    unchecked {
+                        invocationGasLimit = isNewlyProven
+                            ? _message.gasLimit - ONE_STEP_PROCESSING_GAS_OVERHEAD
+                            : _message.gasLimit - TWO_STEP_PROCESSING_GAS_OVERHEAD;
+                    }
                     // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                     // contract makes a call to another contract, it can only forward 63/64 of the
                     // gas remaining (gasleft) at that moment, ensuring that there is always some
@@ -320,12 +325,10 @@ contract Bridge is EssentialContract, IBridge {
                     //
                     // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
 
-                    if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
-
-                    gasLimit = _message.gasLimit;
+                    if (invocationGasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
                 }
 
-                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
+                if (_invokeMessageCall(_message, msgHash, invocationGasLimit)) {
                     _updateMessageStatus(msgHash, Status.DONE);
                 } else {
                     _updateMessageStatus(msgHash, Status.RETRIABLE);
