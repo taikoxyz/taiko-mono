@@ -30,7 +30,7 @@ interface IBridge {
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        address refundTo; // deprecated
+        address refundTo; // DEPRECATED!!!
         // value to invoke on the destination chain.
         uint256 value;
         // The max processing fee for the relayer. The max gas price is calculated as
