@@ -153,6 +153,13 @@ library TaikoData {
         uint64 lastUnpausedAt;
     }
 
+    struct SlotC {
+        uint64 lastSnapshotIn;
+        uint64 __reservedC1;
+        uint64 __reservedC2;
+        uint64 __reservedC3;
+    }
+
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
@@ -164,10 +171,10 @@ library TaikoData {
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
-        // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        uint256[44] __gap;
+        SlotC slotC; // slot 7
+        uint256[43] __gap;
     }
 }

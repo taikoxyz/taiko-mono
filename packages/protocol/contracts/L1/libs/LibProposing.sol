@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
+import "../../common/ISnapshot.sol";
 import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
@@ -228,6 +229,12 @@ library LibProposing {
             meta: meta_,
             depositsProcessed: deposits_
         });
+
+        // Take a snapshot every week
+        if (block.number % 50_400 == 0 && _state.slotC.lastSnapshotIn != block.number) {
+            _state.slotC.lastSnapshotIn = uint64(block.number);
+            ISnapshot(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
+        }
     }
 
     function _isProposerPermitted(

@@ -5,15 +5,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/EssentialContract.sol";
+import "../common/ISnapshot.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
 import "./LibL2Config.sol";
-
-interface ISnapshot {
-    function snapshot() external returns (uint256);
-}
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -54,6 +51,8 @@ contract TaikoL2 is EssentialContract {
     uint64 public l1ChainId;
 
     uint64 public lastSnapshotL1Block;
+
+    uint64 private _lastSnapshotIn;
 
     uint256[46] private __gap;
 
@@ -176,8 +175,9 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        if (_l1BlockId % 10_000 == 0) {
-            // lastSnapshotL1Block = _l1BlockId;
+        // Every week we take a snapshot
+        if (_l1BlockId % 50_400 == 0 && _lastSnapshotIn != _l1BlockId) {
+            _lastSnapshotIn = _l1BlockId;
             ISnapshot(resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
         }
     }
