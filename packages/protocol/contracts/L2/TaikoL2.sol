@@ -11,6 +11,10 @@ import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
 import "./LibL2Config.sol";
 
+interface ISnapshot {
+    function snapshot() external returns (uint256);
+}
+
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
@@ -48,6 +52,8 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
+
+    uint64 public lastSnapshotL1Block;
 
     uint256[46] private __gap;
 
@@ -169,6 +175,11 @@ contract TaikoL2 is EssentialContract {
         gasExcess = _gasExcess;
 
         emit Anchored(_parentHash, _gasExcess);
+
+        if (_l1BlockId % 10_000 == 0) {
+            // lastSnapshotL1Block = _l1BlockId;
+            ISnapshot(resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
+        }
     }
 
     /// @notice Withdraw token or Ether from this address
