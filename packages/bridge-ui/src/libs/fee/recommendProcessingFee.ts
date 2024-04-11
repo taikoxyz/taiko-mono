@@ -1,13 +1,9 @@
-import { getPublicClient } from '@wagmi/core';
-
-import { recommendProcessingFeeConfig } from '$config';
-import { PUBLIC_L2_PROCESSING_FEE_MULTIPLIER } from '$env/static/public';
-import { isL2Chain } from '$libs/chain';
 import { NoCanonicalInfoFoundError } from '$libs/error';
+import { relayerApiServices } from '$libs/relayer';
+import { FeeTypes } from '$libs/relayer/types';
 import { type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
 import { getLogger } from '$libs/util/logger';
-import { config } from '$libs/wagmi';
 
 const log = getLogger('libs:recommendedProcessingFee');
 
@@ -17,16 +13,6 @@ type RecommendProcessingFeeArgs = {
   srcChainId?: number;
 };
 
-const {
-  ethGasLimit,
-  erc20NotDeployedGasLimit,
-  erc20DeployedGasLimit,
-  erc1155DeployedGasLimit,
-  erc1155NotDeployedGasLimit,
-  erc721DeployedGasLimit,
-  erc721NotDeployedGasLimit,
-} = recommendProcessingFeeConfig;
-
 export async function recommendProcessingFee({
   token,
   destChainId,
@@ -35,24 +21,8 @@ export async function recommendProcessingFee({
   if (!srcChainId) {
     return 0n;
   }
-  const destPublicClient = getPublicClient(config, { chainId: destChainId });
 
-  if (!destPublicClient) throw new Error('Could not get public client');
-
-  // getGasPrice will return gasPrice as 3000000001, rather than 3000000000
-  const gasPrice = await destPublicClient.getGasPrice();
-
-  let multiplier = 1;
-
-  //TODO: temporary increase multiplier for L2 chains until we have a better solution via the relayer
-  // figure out if it is L2-L1
-  if (isL2Chain(srcChainId)) {
-    multiplier = parseInt(PUBLIC_L2_PROCESSING_FEE_MULTIPLIER);
-  }
-
-  // The gas limit for processMessage call for ETH is about ~800k.
-  // To make it enticing, we say 900k
-  let gasLimit = ethGasLimit;
+  let fee;
 
   if (token.type !== TokenType.ETH) {
     const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
@@ -68,29 +38,58 @@ export async function recommendProcessingFee({
     }
     if (token.type === TokenType.ERC20) {
       if (isTokenAlreadyDeployed) {
-        gasLimit = erc20DeployedGasLimit;
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
+
+        fee = await relayerApiServices[0].recommendedProcessingFees({
+          typeFilter: FeeTypes.Erc20Deployed,
+          destChainIDFilter: destChainId,
+        });
       } else {
-        gasLimit = erc20NotDeployedGasLimit;
+        fee = await relayerApiServices[0].recommendedProcessingFees({
+          typeFilter: FeeTypes.Erc20NotDeployed,
+          destChainIDFilter: destChainId,
+        });
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
       }
     } else if (token.type === TokenType.ERC721) {
       if (isTokenAlreadyDeployed) {
-        gasLimit = erc721DeployedGasLimit;
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
+        fee = await relayerApiServices[0].recommendedProcessingFees({
+          typeFilter: FeeTypes.Erc721Deployed,
+          destChainIDFilter: destChainId,
+        });
       } else {
-        gasLimit = erc721NotDeployedGasLimit;
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
+        fee = await relayerApiServices[0].recommendedProcessingFees({
+          typeFilter: FeeTypes.Erc721NotDeployed,
+          destChainIDFilter: destChainId,
+        });
       }
     } else if (token.type === TokenType.ERC1155) {
       if (isTokenAlreadyDeployed) {
-        gasLimit = erc1155DeployedGasLimit;
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
+        fee = await relayerApiServices[0].recommendedProcessingFees({
+          typeFilter: FeeTypes.Erc1155Deployed,
+          destChainIDFilter: destChainId,
+        });
       } else {
-        gasLimit = erc1155NotDeployedGasLimit;
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
+        fee = await relayerApiServices[0].recommendedProcessingFees({
+          typeFilter: FeeTypes.Erc1155NotDeployed,
+          destChainIDFilter: destChainId,
+        });
       }
     }
+  } else {
+    log(`Fee for ETH bridging`);
+    fee = await relayerApiServices[0].recommendedProcessingFees({
+      typeFilter: FeeTypes.Eth,
+      destChainIDFilter: destChainId,
+    });
   }
-  return gasPrice * gasLimit * BigInt(multiplier);
+  if (!fee) throw new Error('Unable to get fee from relayer API');
+
+  const feeInWei = BigInt(fee[0].amount);
+  log(`Recommended fee: ${feeInWei.toString()}`);
+  return feeInWei;
 }
