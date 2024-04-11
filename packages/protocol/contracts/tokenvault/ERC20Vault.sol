@@ -35,7 +35,7 @@ contract ERC20Vault is BaseVault {
         address token;
         uint256 amount;
         uint256 gasLimit;
-        uint256 fee;
+        uint256 gasPrice;
         address refundTo;
         string memo;
     }
@@ -233,8 +233,8 @@ contract ERC20Vault is BaseVault {
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
             to: resolve(_op.destChainId, name(), false),
             refundTo: _op.refundTo,
-            value: msg.value - _op.fee,
-            fee: _op.fee,
+            value: msg.value - _op.gasPrice * _op.gasLimit,
+            gasPrice: _op.gasPrice,
             gasLimit: _op.gasLimit,
             data: data,
             memo: _op.memo

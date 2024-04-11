@@ -24,7 +24,6 @@ contract Bridge is EssentialContract, IBridge {
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
-    /// @dev Gas limit for sending Ether.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
@@ -144,9 +143,10 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CHAINID();
         }
 
-        // Ensure the sent value matches the expected amount.
-        uint256 expectedAmount = _message.value + _message.fee;
-        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
+        // Ensure the sent value is no smaller than the min required amount.
+        if (msg.value < _message.value + _message.gasPrice * _message.gasLimit) {
+            revert B_INVALID_VALUE();
+        }
 
         message_ = _message;
 
@@ -325,12 +325,13 @@ contract Bridge is EssentialContract, IBridge {
                 _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
 
             // Refund the processing fee
-            if (msg.sender == refundTo) {
-                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
-            } else {
+            // if (msg.sender == refundTo) {
+            //     refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
+            // } else
+            {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
-                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+                // msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+                // refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {

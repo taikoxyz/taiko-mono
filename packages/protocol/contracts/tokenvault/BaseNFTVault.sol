@@ -36,7 +36,7 @@ abstract contract BaseNFTVault is BaseVault {
         // Gas limit for the operation.
         uint256 gasLimit;
         // Processing fee for the relayer.
-        uint256 fee;
+        uint256 gasPrice;
         // Address for refund, if needed.
         address refundTo;
         // Optional memo.
