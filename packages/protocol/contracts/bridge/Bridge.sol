@@ -61,7 +61,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
-    error B_INVALID_FEE2();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
@@ -143,9 +142,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
         } else if (_message.gasLimit <= TWO_STEP_PROCESSING_GAS_OVERHEAD) {
-            // || _message.fee / _message.gasLimit == 0
-
-            revert B_INVALID_FEE2();
+            revert B_INVALID_FEE();
         }
 
         // Check if the destination chain is enabled.
