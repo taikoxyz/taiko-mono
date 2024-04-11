@@ -174,7 +174,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -211,7 +211,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -267,7 +267,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -318,7 +318,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(goodReceiver),
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -355,7 +355,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(goodReceiver),
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol)),
             memo: ""
@@ -475,7 +475,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: 1,
+            gasPrice: 1,
             destChain: destChainId
         });
 
@@ -490,7 +490,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: 0,
+            gasPrice: 0,
             destChain: destChainId
         });
 
@@ -505,7 +505,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: 0,
+            gasPrice: 0,
             destChain: destChainId + 1
         });
 
@@ -522,7 +522,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: 0,
+            gasPrice: 0,
             destChain: uint64(block.chainid)
         });
 
@@ -537,7 +537,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: 0,
+            gasPrice: 0,
             destChain: destChainId
         });
 
@@ -553,7 +553,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: fee,
+            gasPrice: fee,
             destChain: destChainId
         });
 
@@ -569,7 +569,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: amount,
             gasLimit: 0,
-            fee: fee,
+            gasPrice: fee,
             destChain: destChainId
         });
 
@@ -596,7 +596,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: amount,
             gasLimit: 0,
-            fee: fee,
+            gasPrice: fee,
             destChain: destChainId
         });
 
@@ -643,7 +643,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: amount,
             gasLimit: 0,
-            fee: fee,
+            gasPrice: fee,
             destChain: destChainId
         });
 
@@ -666,7 +666,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: fee,
+            gasPrice: fee,
             destChain: destChainId
         });
 
@@ -704,7 +704,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -843,7 +843,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(nonmaliciousContract1),
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -872,7 +872,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(maliciousContract2),
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -895,7 +895,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 10_000,
-            fee: 1,
+            gasPrice: 1,
             destChain: destChainId
         });
 
@@ -910,7 +910,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             value: 0,
             gasLimit: 10_000,
-            fee: 1,
+            gasPrice: 1,
             destChain: destChainId
         });
 
@@ -947,7 +947,7 @@ contract BridgeTest is TaikoTest {
             destOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
             value: 1000,
-            fee: 1000,
+            gasPrice: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -964,7 +964,7 @@ contract BridgeTest is TaikoTest {
         address to,
         uint256 value,
         uint256 gasLimit,
-        uint256 fee,
+        uint256 gasPrice,
         uint64 destChain
     )
         internal
@@ -977,7 +977,7 @@ contract BridgeTest is TaikoTest {
             destChainId: destChain,
             to: to,
             value: value,
-            fee: fee,
+            gasPrice: gasPrice,
             id: 0, // placeholder, will be overwritten
             from: owner, // placeholder, will be overwritten
             srcChainId: uint64(block.chainid), // will be overwritten
@@ -1005,7 +1005,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(delegateOwner),
             value: 0,
-            fee: 0,
+            gasPrice: 0,
             gasLimit: 1_000_000,
             data: encodedCall,
             memo: ""

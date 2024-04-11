@@ -19,12 +19,31 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
+    /// @dev An in-memory object to get around stack-too-deep error.
+    struct LocalX {
+        bytes32 msgHash;
+        address signalService;
+        uint64 receivedAt;
+        uint256 invocationDelay;
+        uint256 invocationExtraDelay;
+        uint256 refundAmount;
+        uint256 fee;
+        uint256 invocationGasLimit;
+        bool isNewlyProven;
+        bool processByOwner;
+    }
+
+    /// @dev This is the amount of extra gas paid if a message is processed in a single step.
+    uint256 public constant ONE_STEP_PROCESSING_GAS_OVERHEAD = 40_000;
+
+    /// @dev This is the amount of extra gas paid if a message is processed in two steps.
+    uint256 public constant TWO_STEP_PROCESSING_GAS_OVERHEAD = 60_000;
+
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
-    /// @dev Gas limit for sending Ether.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
@@ -135,6 +154,10 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_USER();
         }
 
+        if (_message.gasLimit != 0 && _message.gasLimit < TWO_STEP_PROCESSING_GAS_OVERHEAD) {
+            revert B_INVALID_GAS_LIMIT();
+        }
+
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
 
@@ -144,9 +167,10 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CHAINID();
         }
 
-        // Ensure the sent value matches the expected amount.
-        uint256 expectedAmount = _message.value + _message.fee;
-        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
+        // Ensure the sent value is no smaller than the min required amount.
+        if (msg.value < _message.value + _message.gasPrice * _message.gasLimit) {
+            revert B_INVALID_VALUE();
+        }
 
         message_ = _message;
 
@@ -238,66 +262,66 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
+        LocalX memory x;
+        x.msgHash = hashMessage(_message);
+        if (messageStatus[x.msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        x.signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
+        x.receivedAt = proofReceipt[x.msgHash].receivedAt;
+        if (x.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
-        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
+        (x.invocationDelay, x.invocationExtraDelay) = getInvocationDelays();
 
-        bool isNewlyProven;
-        if (receivedAt == 0) {
-            if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
+        if (x.receivedAt == 0) {
+            if (!_proveSignalReceived(x.signalService, x.msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
-            receivedAt = uint64(block.timestamp);
-            isNewlyProven = true;
+            x.receivedAt = uint64(block.timestamp);
+            x.isNewlyProven = true;
 
-            if (invocationDelay != 0) {
-                proofReceipt[msgHash] = ProofReceipt({
-                    receivedAt: receivedAt,
+            if (x.invocationDelay != 0) {
+                proofReceipt[x.msgHash] = ProofReceipt({
+                    receivedAt: x.receivedAt,
                     preferredExecutor: _message.gasLimit == 0 ? _message.destOwner : msg.sender
                 });
             }
         }
 
-        if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
+        if (x.invocationDelay != 0 && msg.sender != proofReceipt[x.msgHash].preferredExecutor) {
             // If msg.sender is not the one that proved the message, then there
             // is an extra delay.
             unchecked {
-                invocationDelay += invocationExtraDelay;
+                x.invocationDelay += x.invocationExtraDelay;
             }
         }
 
-        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
+        if (_isPostInvocationDelay(x.receivedAt, x.invocationDelay)) {
+            x.processByOwner = msg.sender == _message.destOwner;
             // If the gas limit is set to zero, only the owner can process the message.
-            if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
+            if (_message.gasLimit == 0 && !x.processByOwner) {
                 revert B_PERMISSION_DENIED();
             }
 
-            delete proofReceipt[msgHash];
+            uint256 gasLeft = gasleft();
 
-            uint256 refundAmount;
+            delete proofReceipt[x.msgHash];
 
             // Process message differently based on the target address
             if (
                 _message.to == address(0) || _message.to == address(this)
-                    || _message.to == signalService
+                    || _message.to == x.signalService
             ) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
-                refundAmount = _message.value;
-                _updateMessageStatus(msgHash, Status.DONE);
+                x.refundAmount = _message.value;
+                _updateMessageStatus(x.msgHash, Status.DONE);
             } else {
-                uint256 gasLimit;
-                if (msg.sender == _message.destOwner) {
+                if (x.processByOwner) {
                     // Use the remaining gas if called by a the destOwner, else
                     // use the specified gas limit.
-                    gasLimit = gasleft();
+                    x.invocationGasLimit = gasleft();
                 } else {
                     // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                     // contract makes a call to another contract, it can only forward 63/64 of the
@@ -308,31 +332,53 @@ contract Bridge is EssentialContract, IBridge {
                     // time of the call.
                     //
                     // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-                    if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
-
-                    gasLimit = _message.gasLimit;
+                    x.invocationGasLimit = _message.gasLimit - TWO_STEP_PROCESSING_GAS_OVERHEAD;
+                    if (x.invocationGasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
                 }
 
-                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
-                    _updateMessageStatus(msgHash, Status.DONE);
+                if (_invokeMessageCall(_message, x.msgHash, x.invocationGasLimit)) {
+                    _updateMessageStatus(x.msgHash, Status.DONE);
                 } else {
-                    _updateMessageStatus(msgHash, Status.RETRIABLE);
+                    _updateMessageStatus(x.msgHash, Status.RETRIABLE);
+                }
+            }
+
+            // Calculate fee and fee-refund
+            if (!x.processByOwner) {
+                unchecked {
+                    // The actual fee per gas is calculated such that: if the tx.gasprice is higher
+                    // than
+                    // the message's gas price, we use the tx.gasprice, other, we use the mean of
+                    // the
+                    // two values.
+                    uint256 feeGasPrice = tx.gasprice >= _message.gasPrice
+                        ? _message.gasPrice
+                        : (tx.gasprice + _message.gasPrice) >> 1;
+
+                    // The processor will charge a different amount of extra gas depending on
+                    // whether
+                    // the message was process in one step or two.
+                    uint256 gasOverhead = x.isNewlyProven
+                        ? ONE_STEP_PROCESSING_GAS_OVERHEAD
+                        : TWO_STEP_PROCESSING_GAS_OVERHEAD;
+
+                    x.fee = (gasleft() - gasLeft + gasOverhead) * feeGasPrice;
+                    x.refundAmount += _message.gasPrice * _message.gasLimit - x.fee;
                 }
             }
 
             // Refund the processing fee
-            if (msg.sender == _message.destOwner) {
-                _message.destOwner.sendEtherAndVerify(
-                    _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
-                );
+            if (x.processByOwner) {
+                _message.destOwner.sendEtherAndVerify(x.fee + x.refundAmount, _SEND_ETHER_GAS_LIMIT);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
-                _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+                msg.sender.sendEtherAndVerify(x.fee, _SEND_ETHER_GAS_LIMIT);
+                _message.destOwner.sendEtherAndVerify(x.refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
-            emit MessageExecuted(msgHash);
-        } else if (isNewlyProven) {
-            emit MessageReceived(msgHash, _message, false);
+
+            emit MessageExecuted(x.msgHash);
+        } else if (x.isNewlyProven) {
+            emit MessageReceived(x.msgHash, _message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
         }
