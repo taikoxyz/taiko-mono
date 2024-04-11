@@ -3,6 +3,8 @@ import type { Chain } from 'viem';
 import { chainConfig } from '$chainConfig';
 import type { ChainConfig } from '$libs/chain';
 
+import { LayerType } from './types';
+
 function mapChainConfigToChain(chainId: string, chainConfig: ChainConfig): Chain {
   return {
     id: Number(chainId),
@@ -19,6 +21,10 @@ export const chainIdToChain = (chainId: number): Chain => {
     throw new Error(`Chain with id ${chainId} not found`);
   }
   return chain;
+};
+
+export const isL2Chain = (chainId: number) => {
+  return chainConfig[chainId].type === LayerType.L2;
 };
 
 export const chains: [Chain, ...Chain[]] = Object.entries(chainConfig).map(([chainId, chainConfig]) =>
