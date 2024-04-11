@@ -175,8 +175,7 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        // Every week we take a snapshot
-
+        // Take a snapshot every week
         address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (taikoToken != address(0)) {
             uint256 v = _l1BlockId / 50_400;
