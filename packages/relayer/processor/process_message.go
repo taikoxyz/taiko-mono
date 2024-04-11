@@ -66,6 +66,8 @@ func (p *Processor) processMessage(
 		return false, errors.Wrap(err, "json.Unmarshal")
 	}
 
+	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
+
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, errors.Wrap(err, "p.eventStatusFromMsgHash")
@@ -109,12 +111,6 @@ func (p *Processor) processMessage(
 		return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
 	}
 
-	slog.Info("proofReceipt",
-		"receivedAt", proofReceipt.ReceivedAt,
-		"preferredExecutor", proofReceipt.PreferredExecutor.Hex(),
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
-
 	var encodedSignalProof []byte
 
 	// proof has not been submitted, we need to generate it
@@ -123,10 +119,6 @@ func (p *Processor) processMessage(
 		if err != nil {
 			return false, err
 		}
-
-		slog.Info("proof generated",
-			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-		)
 	} else {
 		// proof has been submitted
 		// we need to check the invocation delay and
@@ -242,11 +234,13 @@ func (p *Processor) waitForInvocationDelay(
 		// if its passed already, we can submit
 		return nil
 	}
-	// its unprocessable, we shouldnt send the transaction.
-	// wait until it's processable.
-	t := time.NewTicker(60 * time.Second)
 
-	defer t.Stop()
+	slog.Info("waiting for invocation delay",
+		"delay", delay.String(),
+		"processableAt", processableAt.String(),
+		"now", time.Now().UTC().Unix(),
+		"difference", new(big.Int).Sub(processableAt, new(big.Int).SetInt64(time.Now().UTC().Unix())),
+	)
 
 	w := time.After(time.Duration(delay.Int64()) * time.Second)
 
@@ -254,11 +248,6 @@ func (p *Processor) waitForInvocationDelay(
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-t.C:
-			slog.Info("waiting for invocation delay",
-				"processableAt", processableAt.String(),
-				"now", time.Now().UTC().Unix(),
-			)
 		case <-w:
 			slog.Info("done waiting for invocation delay")
 			return nil
@@ -717,12 +706,14 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 		var baseFee *big.Int
 
 		if p.taikoL2 != nil {
-			gasUsed := uint32(blk.GasUsed())
-			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
-			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
-
+			latestL2Block, err := p.destEthClient.BlockByNumber(ctx, nil)
 			if err != nil {
-				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
+				return nil, err
+			}
+
+			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
+			if err != nil {
+				return nil, err
 			}
 
 			baseFee = bf.Basefee
@@ -731,10 +722,21 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
 		}
 
+		slog.Info("cost estimation",
+			"gas", gas,
+			"gasTipCap", gasTipCap.String(),
+			"baseFee", baseFee.String(),
+		)
+
 		return new(big.Int).Mul(
 			new(big.Int).SetUint64(gas),
 			new(big.Int).Add(gasTipCap, baseFee)), nil
 	} else {
+		slog.Info("cost estimation",
+			"gas", gas,
+			"gasPrice", gasPrice.String(),
+		)
+
 		return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gas)), nil
 	}
 }
