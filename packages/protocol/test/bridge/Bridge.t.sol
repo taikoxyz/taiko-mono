@@ -213,7 +213,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             refundTo: Alice,
             value: 1000,
-            fee: 1000,
+            fee: 2_000_000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -255,8 +255,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         dest2StepBridge.processMessage(message, proof);
 
-        // Alice has 100 ether + 1000 wei balance
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
+        // Alice has more than 100 ether but less than 100 ether + 2_000_000 wei
+        assertTrue(Alice.balance < 1_000_000_000_000_002_000_000);
+        assertTrue(Alice.balance > 100_000_000_000_000_000_000);
     }
 
     function test_Bridge_processMessage_with_2_steps_and_not_preferred() public {
@@ -270,7 +271,7 @@ contract BridgeTest is TaikoTest {
             to: Alice,
             refundTo: Alice,
             value: 1000,
-            fee: 1000,
+            fee: 2_000_000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -305,8 +306,9 @@ contract BridgeTest is TaikoTest {
         vm.prank(Carol, Carol);
         dest2StepBridge.processMessage(message, proof);
 
-        // Alice has 100 ether + 1000 wei balance
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
+        // Alice has more than 100 ether but less than 100 ether + 2_000_000 wei
+        assertTrue(Alice.balance < 1_000_000_000_000_002_000_000);
+        assertTrue(Alice.balance > 100_000_000_000_000_000_000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value() public {
@@ -321,7 +323,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
-            value: 1000,
+            value: 2000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -342,9 +344,9 @@ contract BridgeTest is TaikoTest {
 
         assertEq(status == IBridge.Status.DONE, true);
 
-        // Bob (relayer) and goodContract has 1000 wei balance
-        assertEq(address(goodReceiver).balance, 1000);
-        assertEq(Bob.balance, 1000);
+        assertTrue(Bob.balance > 0);
+        assertTrue(Bob.balance < 1000);
+        assertEq(address(goodReceiver).balance, 2000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {

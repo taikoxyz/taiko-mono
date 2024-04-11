@@ -284,7 +284,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
-            uint256 gasLeft = gasleft();
+            uint256 gasAmount = gasleft();
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
@@ -341,8 +341,23 @@ contract Bridge is EssentialContract, IBridge {
                     _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
                 );
             } else {
+                // gas now represents the actual gas used
+                uint256 fee;
+                unchecked {
+                    gasAmount -= gasleft();
+                    gasAmount += isNewlyProven
+                        ? ONE_STEP_PROCESSING_GAS_OVERHEAD
+                        : TWO_STEP_PROCESSING_GAS_OVERHEAD;
+
+                    uint256 maxFee = _message.fee * gasAmount / _message.gasLimit;
+                    uint256 actualFee = block.basefee * gasAmount / _message.gasLimit;
+
+                    fee = actualFee >= maxFee ? maxFee : (maxFee + actualFee) >> 1;
+                    refundAmount += _message.fee - fee;
+                }
+
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+                msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
                 _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
