@@ -19,6 +19,9 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
+    uint256 public constant ONE_STEP_PROCESSING_GAS_OVERHEAD = 40_000;
+    uint256 public constant TWO_STEP_PROCESSING_GAS_OVERHEAD = 60_000;
+
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -57,6 +60,8 @@ contract Bridge is EssentialContract, IBridge {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
+    error B_INVALID_FEE();
+    error B_INVALID_FEE2();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
@@ -133,6 +138,14 @@ contract Bridge is EssentialContract, IBridge {
         // Ensure the message owner is not null.
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();
+        }
+
+        if (_message.gasLimit == 0) {
+            if (_message.fee != 0) revert B_INVALID_FEE();
+        } else if (_message.gasLimit <= TWO_STEP_PROCESSING_GAS_OVERHEAD) {
+            // || _message.fee / _message.gasLimit == 0
+
+            revert B_INVALID_FEE2();
         }
 
         // Check if the destination chain is enabled.
@@ -274,6 +287,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
+            uint256 gasLeft = gasleft();
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
@@ -308,6 +322,7 @@ contract Bridge is EssentialContract, IBridge {
                     // time of the call.
                     //
                     // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+
                     if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
 
                     gasLimit = _message.gasLimit;
@@ -320,17 +335,15 @@ contract Bridge is EssentialContract, IBridge {
                 }
             }
 
-            // Determine the refund recipient
-            address refundTo =
-                _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
-
             // Refund the processing fee
-            if (msg.sender == refundTo) {
-                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
+            if (msg.sender == _message.destOwner) {
+                _message.destOwner.sendEtherAndVerify(
+                    _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
+                );
             } else {
                 // If sender is another address, reward it and refund the rest
                 msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
-                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+                _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {

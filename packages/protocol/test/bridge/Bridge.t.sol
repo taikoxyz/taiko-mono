@@ -478,9 +478,9 @@ contract BridgeTest is TaikoTest {
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
-            value: 0,
+            value: 1,
             gasLimit: 0,
-            fee: 1,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -489,18 +489,17 @@ contract BridgeTest is TaikoTest {
     }
 
     function test_Bridge_send_message_ether_reverts_when_owner_is_zero_address() public {
-        uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: address(0),
             to: Alice,
-            value: 0,
-            gasLimit: 0,
-            fee: 0,
+            value: 1,
+            gasLimit: 1,
+            fee: 1,
             destChain: destChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_USER.selector);
-        bridge.sendMessage{ value: amount }(message);
+        bridge.sendMessage{ value: 2 }(message);
     }
 
     function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
@@ -552,29 +551,27 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
         uint256 amount = 0 wei;
-        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
-            fee: fee,
+            fee: 0,
             destChain: destChainId
         });
 
-        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount }(message);
         assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_recall_message_ether() public {
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: amount,
             gasLimit: 0,
-            fee: fee,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -582,26 +579,25 @@ contract BridgeTest is TaikoTest {
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice, Alice);
-        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount }(message);
         assertEq(bridge.isMessageSent(_message), true);
 
-        assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
-        assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
+        assertEq(address(bridge).balance, (starterBalanceVault + amount));
+        assertEq(Alice.balance, (starterBalanceAlice - (amount)));
         bridge.recallMessage(message, "");
 
-        assertEq(address(bridge).balance, (starterBalanceVault + fee));
-        assertEq(Alice.balance, (starterBalanceAlice - fee));
+        assertEq(address(bridge).balance, starterBalanceVault);
+        assertEq(Alice.balance, starterBalanceAlice);
     }
 
     function test_Bridge_recall_message_ether_with_2_steps() public {
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: amount,
             gasLimit: 0,
-            fee: fee,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -609,12 +605,11 @@ contract BridgeTest is TaikoTest {
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice, Alice);
-        (, IBridge.Message memory _message) =
-            dest2StepBridge.sendMessage{ value: amount + fee }(message);
+        (, IBridge.Message memory _message) = dest2StepBridge.sendMessage{ value: amount }(message);
         assertEq(dest2StepBridge.isMessageSent(_message), true);
 
-        assertEq(address(dest2StepBridge).balance, (starterBalanceVault + amount + fee));
-        assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
+        assertEq(address(dest2StepBridge).balance, (starterBalanceVault + amount));
+        assertEq(Alice.balance, (starterBalanceAlice - (amount)));
 
         vm.prank(Bob, Bob);
         dest2StepBridge.recallMessage(message, "");
@@ -632,8 +627,8 @@ contract BridgeTest is TaikoTest {
         vm.prank(Bob, Bob);
         dest2StepBridge.recallMessage(message, "");
 
-        assertEq(address(dest2StepBridge).balance, (starterBalanceVault + fee));
-        assertEq(Alice.balance, (starterBalanceAlice - fee));
+        assertEq(address(dest2StepBridge).balance, (starterBalanceVault));
+        assertEq(Alice.balance, starterBalanceAlice);
     }
 
     function test_Bridge_recall_message_but_not_supports_recall_interface() public {
@@ -642,41 +637,38 @@ contract BridgeTest is TaikoTest {
         // ERCXXTokenVault (message.from) but directly from the Bridge
 
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: amount,
             gasLimit: 0,
-            fee: fee,
+            fee: 0,
             destChain: destChainId
         });
 
         uint256 starterBalanceVault = address(bridge).balance;
 
-        (, message) = untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
+        (, message) = untrustedSenderContract.sendMessage(address(bridge), message, amount);
 
-        assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
+        assertEq(address(bridge).balance, (starterBalanceVault + amount));
 
         bridge.recallMessage(message, "");
 
-        assertEq(address(bridge).balance, (starterBalanceVault + fee));
+        assertEq(address(bridge).balance, (starterBalanceVault));
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount() public {
-        uint256 amount = 0 wei;
-        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
-            value: 0,
-            gasLimit: 0,
-            fee: fee,
+            value: 1,
+            gasLimit: 100_000,
+            fee: 100_000,
             destChain: destChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
-        bridge.sendMessage{ value: amount }(message);
+        bridge.sendMessage{ value: 100_000 }(message);
     }
 
     // test with a known good merkle proof / message since we cant generate

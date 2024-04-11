@@ -30,12 +30,13 @@ interface IBridge {
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund on the destination chain.
-        // If blank, defaults to destOwner.
-        address refundTo;
+        address refundTo; // deprecated
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer.
+        // The max processing fee for the relayer. The max gas price is calculated as
+        // `fee/gasLimit`, the max invocation gas limit is calculated as `gasLimit -
+        // TWO_STEP_PROCESSING_GAS_OVERHEAD`.
+        // Note that fee must be zero if gasLimit is zero.
         uint256 fee;
         // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
         // process the message. This value will mostly be respected when retrying
