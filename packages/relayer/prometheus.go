@@ -6,6 +6,10 @@ import (
 )
 
 var (
+	BlocksScanned = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "blocks_scanned_ops_total",
+		Help: "The total number of blocks scanned",
+	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
 		Help: "The total number of acknowledged queue events",

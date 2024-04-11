@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
@@ -22,6 +23,13 @@ contract Bridge is EssentialContract, IBridge {
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
+
+    /// @dev Gas limit for sending Ether.
+    // - EOA gas used is < 21000
+    // - For Loopring smart wallet, gas used is about 23000
+    // - For Argent smart wallet on Ethereum, gas used is about 24000
+    // - For Gnosis Safe wallet, gas used is about 28000
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
 
     /// @dev Place holder value when not using transient storage
     uint256 internal constant PLACEHOLDER = type(uint256).max;
@@ -54,6 +62,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INVOCATION_TOO_EARLY();
+    error B_MESSAGE_FAILED();
     error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
     error B_MESSAGE_NOT_SUSPENDED();
@@ -88,7 +97,7 @@ contract Bridge is EssentialContract, IBridge {
         bool _suspend
     )
         external
-        onlyFromOwnerOrNamed("bridge_watchdog")
+        onlyFromOwnerOrNamed(LibStrings.B_BRIDGE_WATCHDOG)
     {
         for (uint256 i; i < _msgHashes.length; ++i) {
             bytes32 msgHash = _msgHashes[i];
@@ -149,7 +158,7 @@ contract Bridge is EssentialContract, IBridge {
         msgHash_ = hashMessage(message_);
 
         emit MessageSent(msgHash_, message_);
-        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
@@ -173,7 +182,7 @@ contract Bridge is EssentialContract, IBridge {
 
         bool isNewlyProven;
         if (receivedAt == 0) {
-            address signalService = resolve("signal_service", false);
+            address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
                 revert B_MESSAGE_NOT_SENT();
@@ -209,7 +218,7 @@ contract Bridge is EssentialContract, IBridge {
                 // Must reset the context after the message call
                 _resetContext();
             } else {
-                _message.srcOwner.sendEtherAndVerify(_message.value);
+                _message.srcOwner.sendEtherAndVerify(_message.value, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageRecalled(msgHash);
         } else if (isNewlyProven) {
@@ -232,7 +241,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        address signalService = resolve("signal_service", false);
+        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
         if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
@@ -317,11 +326,11 @@ contract Bridge is EssentialContract, IBridge {
 
             // Refund the processing fee
             if (msg.sender == refundTo) {
-                refundTo.sendEtherAndVerify(_message.fee + refundAmount);
+                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
             } else {
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee);
-                refundTo.sendEtherAndVerify(refundAmount);
+                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {
@@ -352,6 +361,16 @@ contract Bridge is EssentialContract, IBridge {
             revert B_NON_RETRIABLE();
         }
 
+        // We check gasleft() against _message.gasLimit to make sure we not only need to bridge
+        // invocation call to succeed, we also need it to succeed with a gas limit no smaller than
+        // the message's gasLimit.
+        if (
+            _message.gasLimit != 0 && msg.sender != _message.destOwner
+                && _message.gasLimit > (gasleft() * 63) >> 6
+        ) {
+            revert B_NOT_ENOUGH_GASLEFT();
+        }
+
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(_message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
@@ -362,9 +381,27 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
+    function failMessage(Message calldata _message)
+        external
+        whenNotPaused
+        sameChain(_message.destChainId)
+        nonReentrant
+    {
+        if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
+
+        bytes32 msgHash = hashMessage(_message);
+        if (messageStatus[msgHash] != Status.RETRIABLE) {
+            revert B_NON_RETRIABLE();
+        }
+
+        _updateMessageStatus(msgHash, Status.FAILED);
+        emit MessageFailed(msgHash);
+    }
+
+    /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
-        return ISignalService(resolve("signal_service", false)).isSignalSent({
+        return ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).isSignalSent({
             _app: address(this),
             _signal: hashMessage(_message)
         });
@@ -385,15 +422,15 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcChainId != block.chainid) return false;
 
         return _proveSignalReceived(
-            resolve("signal_service", false),
+            resolve(LibStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
             _proof
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
-    /// if requested.
+    /// @notice Verifies with a merkle proof if the given message has been received on the source
+    /// chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has been received, false otherwise.
@@ -406,7 +443,10 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
+            resolve(LibStrings.B_SIGNAL_SERVICE, false),
+            hashMessage(_message),
+            _message.srcChainId,
+            _proof
         );
     }
 
@@ -426,18 +466,18 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcChainId != block.chainid) return false;
 
         return _isSignalReceived(
-            resolve("signal_service", false),
+            resolve(LibStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
             _proof
         );
     }
 
-    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @notice Checks if a msgHash has been received on its source chain.
     /// This is the 'readonly' version of proveMessageReceived.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return true if the message has failed, false otherwise.
+    /// @return true if the message has been received, false otherwise.
     function isMessageReceived(
         Message calldata _message,
         bytes calldata _proof
@@ -448,7 +488,10 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _isSignalReceived(
-            resolve("signal_service", false), hashMessage(_message), _message.srcChainId, _proof
+            resolve(LibStrings.B_SIGNAL_SERVICE, false),
+            hashMessage(_message),
+            _message.srcChainId,
+            _proof
         );
     }
 
@@ -477,8 +520,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    /// @return The minimal delay in second before a message can be executed since and the time it
-    /// was received on the this chain.
+    /// @return The minimal delay in seconds between message execution and proving.
     /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
     /// the preferredExecutor who proved this message.
     function getInvocationDelays() public view virtual returns (uint256, uint256) {
@@ -489,7 +531,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
             return (5 minutes, 384 seconds);
         } else {
-            // This is a Taiko L2 chain where no deleys are applied.
+            // This is a Taiko L2 chain where no delays are applied.
             return (0, 0);
         }
     }
@@ -511,10 +553,10 @@ contract Bridge is EssentialContract, IBridge {
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
         // Owenr and chain_pauser can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve("chain_pauser", true)) return;
+        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_PAUSER, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
-        if (toPause && addr == resolve("bridge_watchdog", true)) return;
+        if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
 
         revert RESOLVER_DENIED();
     }
@@ -566,7 +608,7 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageStatusChanged(_msgHash, _status);
 
         if (_status == Status.FAILED) {
-            ISignalService(resolve("signal_service", false)).sendSignal(
+            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
                 signalForFailedMessage(_msgHash)
             );
         }

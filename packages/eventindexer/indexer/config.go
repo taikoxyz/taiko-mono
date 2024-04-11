@@ -33,6 +33,7 @@ type Config struct {
 	L1TaikoAddress          common.Address
 	BridgeAddress           common.Address
 	AssignmentHookAddress   common.Address
+	SgxVerifierAddress      common.Address
 	SwapAddresses           []common.Address
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
@@ -67,6 +68,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		AssignmentHookAddress:   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
+		SgxVerifierAddress:      common.HexToAddress(flags.SgxVerifierAddress.Name),
 		SwapAddresses:           swaps,
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),

@@ -30,7 +30,7 @@ interface ISignalService {
         /// value has been synced to the destination chain.
         /// @dev To get both the blockId and the rootHash, apps should subscribe to the
         /// ChainDataSynced event or query `topBlockId` first using the source chain's ID and
-        /// LibSignals.STATE_ROOT to get the most recent block ID synced, then call
+        /// LibStrings.H_STATE_ROOT to get the most recent block ID synced, then call
         /// `getSyncedChainData` to read the synchronized data.
         bytes32 rootHash;
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the
@@ -147,7 +147,7 @@ interface ISignalService {
         returns (bool);
 
     /// @notice Returns the given block's  chain data.
-    /// @param _chainId Indenitifer of the chainId.
+    /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
@@ -163,7 +163,7 @@ interface ISignalService {
         returns (uint64 blockId_, bytes32 chainData_);
 
     /// @notice Returns the data to be used for caching slot generation.
-    /// @param _chainId Indenitifer of the chainId.
+    /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.

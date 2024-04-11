@@ -13,20 +13,7 @@ describe('detectContractType', () => {
     // Given
     const contractAddress = zeroAddress;
     const chainId = 1;
-    vi.mocked(readContract).mockImplementationOnce(() => Promise.resolve());
-
-    // When
-    const result = await detectContractType(contractAddress, chainId);
-
-    // Then
-    expect(result).toBe(TokenType.ERC721);
-  });
-
-  it('should return ERC721 for a valid ERC721 contract with invalid Token ID', async () => {
-    // Given
-    const contractAddress = zeroAddress;
-    const chainId = 1;
-    vi.mocked(readContract).mockImplementationOnce(() => Promise.reject(new Error('ERC721: invalid token ID')));
+    vi.mocked(readContract).mockImplementationOnce(() => Promise.resolve(true));
 
     // When
     const result = await detectContractType(contractAddress, chainId);
@@ -40,8 +27,8 @@ describe('detectContractType', () => {
     const contractAddress = zeroAddress;
     const chainId = 1;
     vi.mocked(readContract)
-      .mockImplementationOnce(() => Promise.reject())
-      .mockImplementationOnce(() => Promise.resolve());
+      .mockImplementationOnce(() => Promise.reject(false))
+      .mockImplementationOnce(() => Promise.resolve(true));
 
     // When
     const result = await detectContractType(contractAddress, chainId);
@@ -55,8 +42,8 @@ describe('detectContractType', () => {
     const contractAddress = zeroAddress;
     const chainId = 1;
     vi.mocked(readContract)
-      .mockImplementationOnce(() => Promise.reject())
-      .mockImplementationOnce(() => Promise.reject())
+      .mockImplementationOnce(() => Promise.reject(new Error()))
+      .mockImplementationOnce(() => Promise.reject(new Error()))
       .mockImplementationOnce(() => Promise.resolve());
 
     // When
