@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"net/http"
-	"time"
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -121,13 +120,13 @@ func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 	for _, f := range feeTypes {
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(c.Request().Context(), uint64(f), srcGasTipCap, srcBaseFee, Layer1).String(),
+			Amount:      srv.getCost(c.Request().Context(), uint64(f), destGasTipCap, destBaseFee, Layer1).String(),
 			DestChainID: srcChainID.Uint64(),
 		})
 
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(c.Request().Context(), uint64(f), destGasTipCap, destBaseFee, Layer2).String(),
+			Amount:      srv.getCost(c.Request().Context(), uint64(f), srcGasTipCap, srcBaseFee, Layer2).String(),
 			DestChainID: destChainID.Uint64(),
 		})
 	}
@@ -165,20 +164,21 @@ func (srv *Server) getCost(
 	return costAfterMultiplier
 }
 
-func (srv *Server) getDestChainBaseFee(ctx context.Context, l layer, chainID *big.Int) (*big.Int, error) {
-	blk, err := srv.destEthClient.BlockByNumber(ctx, nil)
+func (srv *Server) getDestChainBaseFee(ctx context.Context, destLayer layer, chainID *big.Int) (*big.Int, error) {
+	blk, err := srv.srcEthClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var baseFee *big.Int
 
-	// if layerL1 bridge, we need to calc basefee on Layer 2, since it's the dest chain
-	if l == Layer1 {
-		gasUsed := uint32(blk.GasUsed())
-		timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
-		bf, err := srv.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
+	if destLayer == Layer2 {
+		latestL2Block, err := srv.destEthClient.BlockByNumber(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
 
+		bf, err := srv.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
 		if err != nil {
 			return nil, err
 		}
