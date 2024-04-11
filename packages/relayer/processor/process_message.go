@@ -706,12 +706,14 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 		var baseFee *big.Int
 
 		if p.taikoL2 != nil {
-			gasUsed := uint32(blk.GasUsed())
-			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
-			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
-
+			latestL2Block, err := p.destEthClient.BlockByNumber(ctx, nil)
 			if err != nil {
-				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
+				return nil, err
+			}
+
+			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
+			if err != nil {
+				return nil, err
 			}
 
 			baseFee = bf.Basefee
