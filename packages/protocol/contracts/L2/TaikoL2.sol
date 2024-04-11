@@ -176,8 +176,10 @@ contract TaikoL2 is EssentialContract {
         emit Anchored(_parentHash, _gasExcess);
 
         // Every week we take a snapshot
-        if (_l1BlockId % 50_400 == 0 && _lastSnapshotIn != _l1BlockId) {
-            _lastSnapshotIn = _l1BlockId;
+
+        uint256 v = _l1BlockId / 50_400;
+        if (v > _lastSnapshotIn) {
+            _lastSnapshotIn = uint64(v);
             ISnapshot(resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
         }
     }
