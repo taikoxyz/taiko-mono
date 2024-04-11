@@ -946,7 +946,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             destOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
-            // refundTo: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
