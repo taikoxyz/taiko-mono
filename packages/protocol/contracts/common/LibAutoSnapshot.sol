@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "./IAddressResolver.sol";
 import "./LibStrings.sol";
 
-/// @title ISnapshot
+/// @title LibAutoSnapshot
 /// @custom:security-contact security@taiko.xyz
 interface ISnapshot {
     function snapshot() external returns (uint256);
