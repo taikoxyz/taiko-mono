@@ -35,6 +35,8 @@ library TaikoData {
         // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
         // syncing)
         uint8 blockSyncThreshold;
+        // The number of L1 blocks after which a TKO snapshot should be taken.
+        uint32 tkoSnapshotPeriod;
     }
 
     /// @dev Struct representing prover fees per given tier

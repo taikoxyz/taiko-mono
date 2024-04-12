@@ -23,6 +23,10 @@ contract TaikoL2 is EssentialContract {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
+    /// @notice The number of L1 blocks after which a TKO snapshot should be taken.
+    /// This number must be the same as L1's tkoSnapshotPeriod value.
+    uint256 public constant TAIKO_TOKEN_SNAPSHOT_PERIOD = 50_400;
+
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
@@ -178,8 +182,8 @@ contract TaikoL2 is EssentialContract {
         // Take a snapshot every week -  Ethereum will have ~50_400 blocks each week.
         address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (taikoToken != address(0)) {
-            uint256 v = _l1BlockId / 50_400;
-            if (v > lastSnapshotIndex) {
+            uint256 v = _l1BlockId / TAIKO_TOKEN_SNAPSHOT_PERIOD;
+            if (v != lastSnapshotIndex) {
                 lastSnapshotIndex = uint64(v);
                 ISnapshot(taikoToken).snapshot();
             }

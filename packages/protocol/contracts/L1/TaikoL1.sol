@@ -215,7 +215,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // Taiko blocks proposed per Ethereum block is smaller than 1.
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
-            blockSyncThreshold: 16
+            blockSyncThreshold: 16,
+            tkoSnapshotPeriod: 50_400
         });
     }
 
