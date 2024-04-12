@@ -231,8 +231,8 @@ library LibProposing {
         });
 
         // Take a snapshot every week -  Ethereum will have ~50_400 blocks each week.
-        if (_config.tkoSnapshotInterval != 0) {
-            uint256 v = block.number / _config.tkoSnapshotInterval;
+        if (_config.tkoSnapshotPeriod != 0) {
+            uint256 v = block.number / _config.tkoSnapshotPeriod;
             if (v != _state.slotC.lastSnapshotIndex) {
                 _state.slotC.lastSnapshotIndex = uint64(v);
                 ISnapshot(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
