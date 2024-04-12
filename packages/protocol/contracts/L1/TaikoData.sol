@@ -36,7 +36,7 @@ library TaikoData {
         // syncing)
         uint8 blockSyncThreshold;
         // The number of L1 blocks after which a TKO snapshot should be taken.
-        uint32 tkoSnapshotPeriod;
+        uint32 tkoSnapshotInterval;
     }
 
     /// @dev Struct representing prover fees per given tier
