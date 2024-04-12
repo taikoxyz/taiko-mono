@@ -53,7 +53,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Slots 3 and 4
     Context private __ctx;
 
-    /// @notice Mapping to store banned addresses.
+    /// @notice Previous this is the mapping to store banned addresses.
     /// @dev Slot 5.
     uint256 private __reserved1;
 
