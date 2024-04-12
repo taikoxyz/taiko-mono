@@ -63,6 +63,7 @@ contract Bridge is EssentialContract, IBridge {
 
     uint256[44] private __gap;
 
+    error B_DEPRECATED_FIELD_USED();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
@@ -139,6 +140,9 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
+        // `refundTo` is deprecated, do not use it
+        if (_message.refundTo != address(0)) revert B_DEPRECATED_FIELD_USED();
+
         // Ensure the message owner is not null.
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();
@@ -529,6 +533,7 @@ contract Bridge is EssentialContract, IBridge {
         private
     {
         uint256 gasStart = gasleft();
+
         // If the gas limit is set to zero, only the owner can process the message.
         if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
             revert B_PERMISSION_DENIED();
