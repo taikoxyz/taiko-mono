@@ -33,7 +33,7 @@ contract BridgedERC20 is
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_UNAUTHORIZED();
 
-    modifier onlyOwnerOrTaikoOrSnapshooter() {
+    modifier onlyAuthorizedForSnapshot() {
         if (
             msg.sender != owner() && msg.sender != snapshooter
                 && msg.sender != resolve(LibStrings.B_TAIKO, true)
@@ -84,7 +84,7 @@ contract BridgedERC20 is
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() external onlyOwnerOrTaikoOrSnapshooter returns (uint256) {
+    function snapshot() external onlyAuthorizedForSnapshot returns (uint256) {
         return _snapshot();
     }
 
