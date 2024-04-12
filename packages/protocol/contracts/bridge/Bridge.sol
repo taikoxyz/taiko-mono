@@ -20,11 +20,11 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address payable;
 
     /// @dev The gas overhead if the message is proven and executed in one step.
-    /// Note that the actual gas overhead is about 160K, we added 25K on top of it.
+    /// Note that the actual gas overhead is about 160K, we add 25K on top of it.
     uint256 public constant ONE_STEP_PROCESSING_GAS_OVERHEAD = 185_000;
 
     /// @dev The gas overhead if the message is proven and executed in two steps.
-    /// Note that the actual gas overhead is about 200K, we added 25K on top of it.
+    /// Note that the actual gas overhead is about 200K, we add 25K on top of it.
     uint256 public constant TWO_STEP_PROCESSING_GAS_OVERHEAD = 225_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
