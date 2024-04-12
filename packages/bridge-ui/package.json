@@ -21,7 +21,7 @@
     "export:config": "pnpm ./scripts/exportJsonToEnv.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.42.1",
+    "@playwright/test": "^1.43.0",
     "@sveltejs/adapter-auto": "^2.1.1",
     "@sveltejs/adapter-static": "^2.0.3",
     "@sveltejs/kit": "^1.30.4",
