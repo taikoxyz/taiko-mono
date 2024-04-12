@@ -1,7 +1,7 @@
 import { guardianProverABI } from '$abi';
 import { GuardianProverStatus, type Guardian } from '$lib/types';
 import { publicClient } from '$lib/wagmi/publicClient';
-import type { Address } from '@wagmi/core';
+import type { Address } from 'viem';
 
 const contractAddress = import.meta.env.VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS;
 
