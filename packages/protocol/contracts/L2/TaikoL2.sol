@@ -51,7 +51,7 @@ contract TaikoL2 is EssentialContract {
     uint64 public l1ChainId;
 
     /// @notice The last snapshot marker
-    uint64 public lastSnapshot;
+    uint64 public lastSnapshotIndex;
 
     uint256[46] private __gap;
 
@@ -179,8 +179,8 @@ contract TaikoL2 is EssentialContract {
         address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (taikoToken != address(0)) {
             uint256 v = _l1BlockId / 50_400;
-            if (v > lastSnapshot) {
-                lastSnapshot = uint64(v);
+            if (v > lastSnapshotIndex) {
+                lastSnapshotIndex = uint64(v);
                 ISnapshot(taikoToken).snapshot();
             }
         }
