@@ -52,6 +52,7 @@ contract TaikoL2 is EssentialContract {
     uint64 private __currentBlockTimestamp;
 
     /// @notice The L1's chain ID.
+    /// @dev Slot 4.
     uint64 public l1ChainId;
 
     /// @notice The last snapshot marker
