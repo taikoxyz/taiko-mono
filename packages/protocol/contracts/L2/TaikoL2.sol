@@ -174,7 +174,7 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        // Take a snapshot every week
+        // Take a snapshot every week -  Ethereum will have ~50_400 blocks each week.
         address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (taikoToken != address(0)) {
             uint256 v = _l1BlockId / 50_400;

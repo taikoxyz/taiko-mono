@@ -230,7 +230,7 @@ library LibProposing {
             depositsProcessed: deposits_
         });
 
-        // Take a snapshot every week
+        // Take a snapshot every week -  Ethereum will have ~50_400 blocks each week.
         uint256 v = block.number / 50_400;
         if (v > _state.slotC.lastSnapshot) {
             _state.slotC.lastSnapshot = uint64(v);
