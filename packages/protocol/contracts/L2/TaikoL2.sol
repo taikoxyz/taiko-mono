@@ -5,8 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/EssentialContract.sol";
-import "../common/ISnapshot.sol";
-import "../common/LibStrings.sol";
+import "../common/LibAutoSnapshot.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
@@ -178,14 +177,7 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        // Take a snapshot every 100,000 L1 blocks which is roughly 13 days and 21 hours.
-        if (_l1BlockId % 100_000 == 0) {
-            address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
-            if (taikoToken != address(0)) {
-                uint256 id = ISnapshot(taikoToken).snapshot();
-                emit TaikoTokenSnapshotTaken(taikoToken, id);
-            }
-        }
+        LibAutoSnapshot.autoSnapshot(this, _l1BlockId);
     }
 
     /// @notice Withdraw token or Ether from this address

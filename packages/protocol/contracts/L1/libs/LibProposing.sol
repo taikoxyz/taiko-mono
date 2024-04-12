@@ -4,8 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../common/ISnapshot.sol";
-import "../../common/LibStrings.sol";
+import "../../common/LibAutoSnapshot.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
@@ -36,10 +35,6 @@ library LibProposing {
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
-
-    /// @notice Emitted when the Taiko token snapshot is taken.
-    /// @param id The snapshot id.
-    event TaikoTokenSnapshotTaken(uint256 id);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
@@ -234,11 +229,7 @@ library LibProposing {
             depositsProcessed: deposits_
         });
 
-        // Take a snapshot every 100,000 L1 blocks which is roughly 13 days and 21 hours.
-        if (block.number % 100_000 == 0) {
-            uint256 id = ISnapshot(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
-            emit TaikoTokenSnapshotTaken(id);
-        }
+        LibAutoSnapshot.autoSnapshot(_resolver, block.number);
     }
 
     function _isProposerPermitted(
