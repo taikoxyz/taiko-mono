@@ -109,6 +109,7 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
+    /// @dev The gas limit for this transaction is set to 250K in geth and raiko.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
