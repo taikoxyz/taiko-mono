@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
-import configuredChainsSchema from '../../config/schemas/configuredChains.schema.json';
+import configuredCustomTokens from '../../config/schemas/configuredCustomTokens.schema.json';
 import type { Token } from '../../src/libs/token/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
@@ -40,7 +40,7 @@ export function generateCustomTokenConfig() {
         configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKENS || '');
 
         // Valid JSON against schema
-        const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
+        const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredCustomTokens);
 
         if (!isValid) {
           throw new Error('encoded generateCustomTokenConfig.json is not valid.');

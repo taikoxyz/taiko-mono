@@ -16,9 +16,12 @@ import {
   type APIRequestParams,
   type APIResponse,
   type APIResponseTransaction,
+  type Fee,
+  type FeeType,
   type GetAllByAddressResponse,
   type PaginationInfo,
   type PaginationParams,
+  type ProcessingFeeApiResponse,
   type RelayerBlockInfo,
   RelayerEventType,
 } from './types';
@@ -277,6 +280,39 @@ export class RelayerAPIService {
     destChainId: number;
   }): Promise<Record<number, RelayerBlockInfo>> {
     throw new Error('Not implemented');
+  }
+
+  async recommendedProcessingFees({
+    typeFilter,
+    destChainIDFilter,
+  }: {
+    typeFilter?: FeeType;
+    destChainIDFilter?: number;
+  }): Promise<Fee[]> {
+    const requestURL = `${this.baseUrl}/recommendedProcessingFees`;
+
+    try {
+      const response = await axios.get<ProcessingFeeApiResponse>(requestURL);
+
+      if (response.status >= 400) throw new Error('HTTP error', { cause: response });
+
+      let { fees } = response.data;
+
+      if (typeFilter) {
+        fees = fees.filter((fee) => fee.type === typeFilter);
+      }
+
+      if (destChainIDFilter !== undefined) {
+        fees = fees.filter((fee) => fee.destChainID === destChainIDFilter);
+      }
+
+      return fees;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Failed to fetch recommended processing fees', {
+        cause: error instanceof Error ? error : undefined,
+      });
+    }
   }
 }
 
