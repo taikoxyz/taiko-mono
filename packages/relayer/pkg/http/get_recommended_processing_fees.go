@@ -32,7 +32,7 @@ var (
 	ERC721NotDeployed  FeeType = 2500000
 	ERC721Deployed     FeeType = 1500000
 	ERC1155NotDeployed FeeType = 2650000
-	ERC1155Deployed    FeeType = 1650000
+	ERC1155Deployed    FeeType = 1850000
 )
 
 var (
