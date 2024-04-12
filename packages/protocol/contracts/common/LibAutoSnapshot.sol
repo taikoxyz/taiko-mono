@@ -16,9 +16,9 @@ library LibAutoSnapshot {
     /// @param id The snapshot id.
     event TaikoTokenSnapshotTaken(address tkoAddress, uint256 id);
 
-    // Take a snapshot every 100,000 L1 blocks which is roughly 13 days and 21 hours.
+    // Take a snapshot every 200,000 L1 blocks which is roughly 27 days.
     function autoSnapshot(IAddressResolver _resolver, uint256 _blockId) internal {
-        if (_blockId % 100_000 != 0) return;
+        if (_blockId % 200_000 != 0) return;
 
         address taikoToken = _resolver.resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (taikoToken != address(0)) {
