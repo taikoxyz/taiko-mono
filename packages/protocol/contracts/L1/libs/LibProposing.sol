@@ -37,6 +37,10 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when the Taiko token snapshot is taken.
+    /// @param id The snapshot id.
+    event TaikoTokenSnapshotTaken(uint256 id);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
@@ -230,11 +234,10 @@ library LibProposing {
             depositsProcessed: deposits_
         });
 
-        // Take a snapshot every week -  Ethereum will have ~50_400 blocks each week.
-        uint256 v = block.number / 50_400;
-        if (v > _state.slotC.lastSnapshotIndex) {
-            _state.slotC.lastSnapshotIndex = uint64(v);
-            ISnapshot(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
+        // Take a snapshot every 100,000 L1 blocks which is roughly 13 days and 21 hours.
+        if (block.number % 100_000 == 0) {
+            uint256 id = ISnapshot(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false)).snapshot();
+            emit TaikoTokenSnapshotTaken(id);
         }
     }
 

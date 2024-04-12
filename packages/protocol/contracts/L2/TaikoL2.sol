@@ -51,15 +51,17 @@ contract TaikoL2 is EssentialContract {
     /// @dev Slot 4.
     uint64 public l1ChainId;
 
-    /// @notice The last snapshot marker
-    uint64 public lastSnapshotIndex;
-
     uint256[46] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
     /// @param gasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 gasExcess);
+
+    /// @notice Emitted when the Taiko token snapshot is taken.
+    /// @param tkoAddress The Taiko token address.
+    /// @param id The snapshot id.
+    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 id);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_L1_CHAIN_ID();
@@ -176,13 +178,12 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        // Take a snapshot every week -  Ethereum will have ~50_400 blocks each week.
-        address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
-        if (taikoToken != address(0)) {
-            uint256 v = _l1BlockId / 50_400;
-            if (v > lastSnapshotIndex) {
-                lastSnapshotIndex = uint64(v);
-                ISnapshot(taikoToken).snapshot();
+        // Take a snapshot every 100,000 L1 blocks which is roughly 13 days and 21 hours.
+        if (_l1BlockId % 100_000 == 0) {
+            address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
+            if (taikoToken != address(0)) {
+                uint256 id = ISnapshot(taikoToken).snapshot();
+                emit TaikoTokenSnapshotTaken(taikoToken, id);
             }
         }
     }

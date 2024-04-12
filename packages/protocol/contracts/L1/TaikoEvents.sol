@@ -45,6 +45,10 @@ abstract contract TaikoEvents {
     /// @param slotB The SlotB data structure.
     event StateVariablesUpdated(TaikoData.SlotB slotB);
 
+    /// @notice Emitted when the Taiko token snapshot is taken.
+    /// @param id The snapshot id.
+    event TaikoTokenSnapshotTaken(uint256 id);
+
     /// @dev Emitted when a block transition is proved or re-proved.
     /// @param blockId The ID of the proven block.
     /// @param tran The verified transition.
