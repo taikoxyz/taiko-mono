@@ -144,11 +144,7 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_USER();
         }
 
-        if (_message.gasLimit == 0) {
-            if (_message.fee != 0) revert B_INVALID_FEE();
-        } else if (_message.gasLimit <= TWO_STEP_PROCESSING_GAS_OVERHEAD) {
-            revert B_INVALID_FEE();
-        }
+        if (_message.gasLimit == 0 && _message.fee != 0) revert B_INVALID_FEE();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
@@ -289,79 +285,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
-            uint256 gasAmount = gasleft();
-            // If the gas limit is set to zero, only the owner can process the message.
-            if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
-                revert B_PERMISSION_DENIED();
-            }
-
-            delete proofReceipt[msgHash];
-
-            uint256 refundAmount;
-
-            // Process message differently based on the target address
-            if (
-                _message.to == address(0) || _message.to == address(this)
-                    || _message.to == signalService
-            ) {
-                // Handle special addresses that don't require actual invocation but
-                // mark message as DONE
-                refundAmount = _message.value;
-                _updateMessageStatus(msgHash, Status.DONE);
-            } else {
-                uint256 invocationGasLimit;
-                if (msg.sender == _message.destOwner) {
-                    // Use the remaining gas if called by a the destOwner, else
-                    // use the specified gas limit.
-                    invocationGasLimit = gasleft();
-                } else {
-                    invocationGasLimit = _message.gasLimit.max(TWO_STEP_PROCESSING_GAS_OVERHEAD)
-                        - TWO_STEP_PROCESSING_GAS_OVERHEAD;
-                    // The "1/64th rule" refers to the gasleft at the time the call is made. When a
-                    // contract makes a call to another contract, it can only forward 63/64 of the
-                    // gas remaining (gasleft) at that moment, ensuring that there is always some
-                    // gas reserved for the calling contract to complete its execution after the
-                    // called contract finishes. This does not necessarily relate to the gas amount
-                    // specified in the call itself, but rather to the actual remaining gas at the
-                    // time of the call.
-                    //
-                    // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-
-                    if (invocationGasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
-                }
-
-                if (_invokeMessageCall(_message, msgHash, invocationGasLimit)) {
-                    _updateMessageStatus(msgHash, Status.DONE);
-                } else {
-                    _updateMessageStatus(msgHash, Status.RETRIABLE);
-                }
-            }
-
-            // Refund the processing fee
-            if (msg.sender == _message.destOwner) {
-                _message.destOwner.sendEtherAndVerify(
-                    _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
-                );
-            } else {
-                // gas now represents the actual gas used
-                uint256 fee;
-                {
-                    gasAmount -= gasleft();
-                    gasAmount += isNewlyProven
-                        ? ONE_STEP_PROCESSING_GAS_OVERHEAD
-                        : TWO_STEP_PROCESSING_GAS_OVERHEAD;
-
-                    uint256 maxFee = _message.fee * gasAmount / _message.gasLimit;
-                    uint256 actualFee = block.basefee * gasAmount;
-
-                    fee = actualFee >= maxFee ? maxFee : (maxFee + actualFee) >> 1;
-                    refundAmount += _message.fee - fee;
-                }
-
-                // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
-                _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
-            }
+            _processMessage(_message, msgHash, signalService, isNewlyProven);
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {
             emit MessageReceived(msgHash, _message, false);
@@ -591,6 +515,82 @@ contract Bridge is EssentialContract, IBridge {
         revert RESOLVER_DENIED();
     }
 
+    /// @notice Process a call message on the Bridge.
+    /// @param _message The call message to be invoked.
+    /// @param _msgHash The hash of the message.
+    /// @param _signalService The Signal Service address.
+    /// @param _isNewlyProven True if the message is proven in the same transaction.
+    function _processMessage(
+        Message calldata _message,
+        bytes32 _msgHash,
+        address _signalService,
+        bool _isNewlyProven
+    )
+        private
+    {
+        uint256 gasStart = gasleft();
+        // If the gas limit is set to zero, only the owner can process the message.
+        if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
+            revert B_PERMISSION_DENIED();
+        }
+
+        delete proofReceipt[_msgHash];
+
+        uint256 refundAmount;
+
+        // Process message differently based on the target address
+        if (
+            _message.to == address(0) || _message.to == address(this)
+                || _message.to == _signalService
+        ) {
+            // Handle special addresses that don't require actual invocation but
+            // mark message as DONE
+            refundAmount = _message.value;
+            _updateMessageStatus(_msgHash, Status.DONE);
+        } else {
+            uint256 invocationGasLimit;
+            if (msg.sender == _message.destOwner) {
+                // Use the remaining gas if called by a the destOwner, else
+                // use the specified gas limit.
+                invocationGasLimit = gasleft();
+            } else {
+                invocationGasLimit = _message.gasLimit.max(TWO_STEP_PROCESSING_GAS_OVERHEAD)
+                    - TWO_STEP_PROCESSING_GAS_OVERHEAD;
+                // The "1/64th rule" refers to the gasleft at the time the call is made. When a
+                // contract makes a call to another contract, it can only forward 63/64 of the
+                // gas remaining (gasleft) at that moment, ensuring that there is always some
+                // gas reserved for the calling contract to complete its execution after the
+                // called contract finishes. This does not necessarily relate to the gas amount
+                // specified in the call itself, but rather to the actual remaining gas at the
+                // time of the call.
+                //
+                // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+
+                if (invocationGasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+            }
+
+            if (_invokeMessageCall(_message, _msgHash, invocationGasLimit)) {
+                _updateMessageStatus(_msgHash, Status.DONE);
+            } else {
+                _updateMessageStatus(_msgHash, Status.RETRIABLE);
+            }
+        }
+
+        // Refund the processing fee
+        if (msg.sender == _message.destOwner) {
+            _message.destOwner.sendEtherAndVerify(
+                _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
+            );
+        } else {
+            // gas now represents the actual gas used
+            uint256 fee = _calcFee(_isNewlyProven, gasStart, _message.gasLimit, _message.fee);
+            refundAmount += _message.fee - fee;
+
+            // If sender is another address, reward it and refund the rest
+            msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+        }
+    }
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
@@ -599,6 +599,7 @@ contract Bridge is EssentialContract, IBridge {
     /// successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
+
     function _invokeMessageCall(
         Message calldata _message,
         bytes32 _msgHash,
@@ -737,6 +738,10 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
+    /// @notice Checks if a message can be invoked.
+    /// @param _receivedAt When the message is received.
+    /// @param _invocationDelay The min delay before the message can be processed.
+    /// @return True if the message can be processed.
     function _isPostInvocationDelay(
         uint256 _receivedAt,
         uint256 _invocationDelay
@@ -747,6 +752,38 @@ contract Bridge is EssentialContract, IBridge {
     {
         unchecked {
             return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
+        }
+    }
+
+    /// @notice Calculates the actual processing fee.
+    /// @param _isNewlyProven True if the message is proven in the same transaction.
+    /// @param _gasStartValue The gasleft() value before processing.
+    /// @param _msgGasLimit The message's gas limit.
+    /// @param _msgFee The message's fee.
+    /// @return The processing fee.
+    function _calcFee(
+        bool _isNewlyProven,
+        uint256 _gasStartValue,
+        uint256 _msgGasLimit,
+        uint256 _msgFee
+    )
+        private
+        view
+        returns (uint256)
+    {
+        uint256 gasUsed = _gasStartValue - gasleft();
+        gasUsed += _isNewlyProven // use different overhead value
+            ? ONE_STEP_PROCESSING_GAS_OVERHEAD
+            : TWO_STEP_PROCESSING_GAS_OVERHEAD;
+        uint256 actualCost = block.basefee * gasUsed; // tip is not considered
+
+        // Note that gasUsed might be larger than _message.gasLimit!
+        uint256 maxFee = _msgFee * gasUsed.min(_msgGasLimit) / _msgGasLimit;
+
+        if (actualCost >= maxFee) {
+            return maxFee;
+        } else {
+            return (maxFee + actualCost) >> 1;
         }
     }
 }

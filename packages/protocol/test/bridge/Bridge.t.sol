@@ -666,13 +666,13 @@ contract BridgeTest is TaikoTest {
             owner: Alice,
             to: Alice,
             value: 1,
-            gasLimit: 100_000,
+            gasLimit: 500_000,
             fee: 100_000,
             destChain: destChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
-        bridge.sendMessage{ value: 100_000 }(message);
+        bridge.sendMessage{ value: 500_000 }(message);
     }
 
     // test with a known good merkle proof / message since we cant generate
