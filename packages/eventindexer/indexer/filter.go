@@ -71,7 +71,7 @@ func filterFunc(
 		})
 
 		wg.Go(func() error {
-			blockVerifiedEvents, err := i.taikol1.FilterBlockVerified(filterOpts, nil, nil, nil)
+			blockVerifiedEvents, err := i.taikol1.FilterBlockVerified(filterOpts, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
 			}
