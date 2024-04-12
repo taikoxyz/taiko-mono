@@ -36,7 +36,7 @@ contract BridgedERC20 is
     modifier onlyOwnerOrTaikoOrSnapshooter() {
         if (
             msg.sender != owner() && msg.sender != snapshooter
-                && msg.sender != resolve(LibStrings.B_TAIKO, false)
+                && msg.sender != resolve(LibStrings.B_TAIKO, true)
         ) {
             revert BTOKEN_UNAUTHORIZED();
         }

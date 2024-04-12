@@ -31,7 +31,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         address _recipient,
         address _addressManager
     )
-        public
+        external
         initializer
     {
         __Essential_init(_owner, _addressManager);
@@ -48,12 +48,12 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     /// @notice Burns tokens from the specified address.
     /// @param _from The address to burn tokens from.
     /// @param _amount The amount of tokens to burn.
-    function burn(address _from, uint256 _amount) public onlyOwner {
+    function burn(address _from, uint256 _amount) external onlyOwner {
         return _burn(_from, _amount);
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() public onlyFromOwnerOrNamed(LibStrings.B_TAIKO) returns (uint256) {
+    function snapshot() external onlyFromOwnerOrNamed(LibStrings.B_TAIKO) returns (uint256) {
         return _snapshot();
     }
 
