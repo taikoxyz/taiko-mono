@@ -83,4 +83,7 @@ library LibStrings {
 
     /// @notice Constant string "SIGNAL".
     string internal constant S_SIGNAL = "SIGNAL";
+
+    /// @notice Constant string "TAIKO_MESSAGE".
+    string internal constant S_TAIKO_MESSAGE = "TAIKO_MESSAGE";
 }

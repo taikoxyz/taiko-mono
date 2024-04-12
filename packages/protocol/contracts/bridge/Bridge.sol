@@ -19,8 +19,13 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    uint256 public constant ONE_STEP_PROCESSING_GAS_OVERHEAD = 40_000;
-    uint256 public constant TWO_STEP_PROCESSING_GAS_OVERHEAD = 60_000;
+    /// @dev The gas overhead if the message is proven and executed in one step.
+    /// Note that the actual gas overhead is about 160K, we added 20K on top of it.
+    uint256 public constant ONE_STEP_PROCESSING_GAS_OVERHEAD = 180_000;
+
+    /// @dev The gas overhead if the message is proven and executed in two steps.
+    /// Note that the actual gas overhead is about 200K, we added 20K on top of it.
+    uint256 public constant TWO_STEP_PROCESSING_GAS_OVERHEAD = 220_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -563,7 +568,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
-        return keccak256(abi.encode("TAIKO_MESSAGE", _message));
+        return keccak256(abi.encode(LibStrings.S_TAIKO_MESSAGE, _message));
     }
 
     /// @notice Returns a signal representing a failed/recalled message.
