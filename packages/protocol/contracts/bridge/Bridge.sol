@@ -347,7 +347,7 @@ contract Bridge is EssentialContract, IBridge {
                         : TWO_STEP_PROCESSING_GAS_OVERHEAD;
 
                     uint256 maxFee = _message.fee * gasAmount / _message.gasLimit;
-                    uint256 actualFee = block.basefee * gasAmount / _message.gasLimit;
+                    uint256 actualFee = block.basefee * gasAmount;
 
                     fee = actualFee >= maxFee ? maxFee : (maxFee + actualFee) >> 1;
                     refundAmount += _message.fee - fee;
