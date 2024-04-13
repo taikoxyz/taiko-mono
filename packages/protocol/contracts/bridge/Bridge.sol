@@ -19,6 +19,9 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
+    uint256 public constant GAS_CONSUMPTION = 185_000;
+    uint256 public constant GAS_OVERHEAD = 40_000;
+
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -57,6 +60,7 @@ contract Bridge is EssentialContract, IBridge {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
+    error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
@@ -134,6 +138,8 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();
         }
+
+        if (_message.gasLimit == 0 && _message.fee != 0) revert B_INVALID_FEE();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
@@ -248,11 +254,14 @@ contract Bridge is EssentialContract, IBridge {
             receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
+                receipt.feePaid =
+                    uint160(_calcFee(_message, 0, GAS_OVERHEAD).max(type(uint160).max));
                 proofReceipt[msgHash] = receipt;
             }
         }
 
         if (_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+            uint256 gasleft = gasleft();
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
@@ -277,6 +286,8 @@ contract Bridge is EssentialContract, IBridge {
                     // use the specified gas limit.
                     gasLimit = gasleft();
                 } else {
+                    gasLimit = _message.gasLimit.max(GAS_CONSUMPTION) - GAS_CONSUMPTION;
+
                     // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                     // contract makes a call to another contract, it can only forward 63/64 of the
                     // gas remaining (gasleft) at that moment, ensuring that there is always some
@@ -286,9 +297,7 @@ contract Bridge is EssentialContract, IBridge {
                     // time of the call.
                     //
                     // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-                    if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
-
-                    gasLimit = _message.gasLimit;
+                    if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
                 }
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
@@ -306,8 +315,13 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender == refundTo) {
                 refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
             } else {
+                uint256 fee = uint160(
+                    _calcFee(_message, receipt.feePaid, GAS_CONSUMPTION).max(type(uint160).max)
+                );
+                refundAmount += _message.fee - feceipt.feePaid - fee;
+
                 // If sender is another address, reward it and refund the rest
-                msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+                msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
                 refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
@@ -706,4 +720,14 @@ contract Bridge is EssentialContract, IBridge {
         receipt_ = proofReceipt[msgHash_];
         if (receipt_.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
     }
+
+    function _calcFee(
+        Message calldata _message,
+        uint256 _feePaid,
+        uint256 _gasAmount
+    )
+        private
+        pure
+        returns (uint256)
+    { }
 }
