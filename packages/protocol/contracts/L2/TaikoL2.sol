@@ -178,13 +178,13 @@ contract TaikoL2 is EssentialContract {
         __currentBlockTimestamp = uint64(block.timestamp);
         gasExcess = _gasExcess;
 
-        emit Anchored(_parentHash, _gasExcess);
-
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (tko != address(0)) {
             uint64 idx = LibAutoSnapshot.autoSnapshot(tko, _l1BlockId, lastSnapshotIdx);
             if (idx != 0) lastSnapshotIdx = idx;
         }
+
+        emit Anchored(_parentHash, _gasExcess);
     }
 
     /// @notice Withdraw token or Ether from this address
