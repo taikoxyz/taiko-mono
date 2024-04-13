@@ -174,7 +174,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert("ERC20: insufficient allowance");
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, address(0), Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
+                destChainId, address(0), Bob, address(erc20), 1 wei, 1_000_000, 1, ""
             )
         );
     }
@@ -190,7 +190,7 @@ contract TestERC20Vault is TaikoTest {
 
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, ""
             )
         );
 
@@ -210,7 +210,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert();
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, amount - 1, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, amount - 1, ""
             )
         );
     }
@@ -233,7 +233,6 @@ contract TestERC20Vault is TaikoTest {
                 amount - 1, // value: (msg.value - fee)
                 1_000_000,
                 amount - 1,
-                Bob,
                 ""
             )
         );
@@ -253,7 +252,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, ""
             )
         );
     }
@@ -266,7 +265,7 @@ contract TestERC20Vault is TaikoTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, address(0), Bob, address(0), amount, 1_000_000, 0, Bob, ""
+                destChainId, address(0), Bob, address(0), amount, 1_000_000, 0, ""
             )
         );
     }
@@ -448,7 +447,7 @@ contract TestERC20Vault is TaikoTest {
 
         IBridge.Message memory _messageToSimulateFail = erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+                destChainId, address(0), Bob, address(erc20), amount, 1_000_000, 0, ""
             )
         );
 
