@@ -174,13 +174,13 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
+        ProofReceipt memory receipt = proofReceipt[msgHash];
+        if (receipt.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
         uint256 invocationDelay = getInvocationDelay();
 
         bool isNewlyProven;
-        if (receivedAt == 0) {
+        if (receipt.receivedAt == 0) {
             address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
@@ -192,15 +192,15 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            receivedAt = uint64(block.timestamp);
+            receipt.receivedAt = uint64(block.timestamp);
             isNewlyProven = true;
 
             if (invocationDelay != 0) {
-                proofReceipt[msgHash].receivedAt = receivedAt;
+                proofReceipt[msgHash] = receipt;
             }
         }
 
-        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
+        if (_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
@@ -242,31 +242,30 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
+        ProofReceipt memory receipt = proofReceipt[msgHash];
+        if (receipt.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
         uint256 invocationDelay = getInvocationDelay();
 
         bool isNewlyProven;
-        if (receivedAt == 0) {
+        if (receipt.receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
-            receivedAt = uint64(block.timestamp);
+            receipt.receivedAt = uint64(block.timestamp);
             isNewlyProven = true;
 
             if (invocationDelay != 0) {
-                proofReceipt[msgHash] = ProofReceipt(receivedAt, 0);
+                proofReceipt[msgHash] = receipt;
             }
         }
 
-        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
+        if (_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
             }
-
             delete proofReceipt[msgHash];
 
             uint256 refundAmount;
