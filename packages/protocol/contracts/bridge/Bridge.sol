@@ -172,13 +172,12 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
-
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
         if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
-        (uint256 invocationDelay,) = getInvocationDelays();
+        uint256 invocationDelay = getInvocationDelay();
 
         bool isNewlyProven;
         if (receivedAt == 0) {
@@ -246,7 +245,7 @@ contract Bridge is EssentialContract, IBridge {
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
         if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
 
-        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
+        uint256 invocationDelay = getInvocationDelay();
 
         bool isNewlyProven;
         if (receivedAt == 0) {
@@ -258,18 +257,7 @@ contract Bridge is EssentialContract, IBridge {
             isNewlyProven = true;
 
             if (invocationDelay != 0) {
-                proofReceipt[msgHash] = ProofReceipt({
-                    receivedAt: receivedAt,
-                    preferredExecutor: _message.gasLimit == 0 ? _message.destOwner : msg.sender
-                });
-            }
-        }
-
-        if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
-            // If msg.sender is not the one that proved the message, then there
-            // is an extra delay.
-            unchecked {
-                invocationDelay += invocationExtraDelay;
+                proofReceipt[msgHash] = ProofReceipt(receivedAt, 0);
             }
         }
 
@@ -517,22 +505,19 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Returns invocation delay values.
+    /// @notice Returns invocation delay.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
     /// @return The minimal delay in seconds between message execution and proving.
-    /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
-    /// the preferredExecutor who proved this message.
-    function getInvocationDelays() public view virtual returns (uint256, uint256) {
+    function getInvocationDelay() public view virtual returns (uint256) {
         if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
             // For Taiko mainnet and public testnets
-            // 384 seconds = 6.4 minutes = one ethereum epoch
-            return (1 hours, 384 seconds);
+            return 1 hours;
         } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
-            return (5 minutes, 384 seconds);
+            return 5 minutes;
         } else {
             // This is a Taiko L2 chain where no delays are applied.
-            return (0, 0);
+            return 0;
         }
     }
 

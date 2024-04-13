@@ -429,7 +429,7 @@ The `Bridge` contract serves as a vital component within a `cross-chain communic
 
 - `context()` : Retrieves the current operational context of the bridge, used for tracking and validation purposes.
 
-- `getInvocationDelays()` : Provides the time delays enforced before a message can be executed, important for security and order.
+- `getInvocationDelay()` : Provides the time delays enforced before a message can be executed, important for security and order.
 
 - `hashMessage(Message memory _message)` : Generates a unique identifier for a message based on its content.
 
@@ -667,7 +667,7 @@ Invariant: If addressBanned[addr] is true, then addr should not successfully inv
 
 ```solidity
 
-function getInvocationDelays() public view returns (uint256, uint256);
+function getInvocationDelay() public view returns (uint256, uint256);
 
 ```
 
