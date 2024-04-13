@@ -193,7 +193,6 @@ contract Bridge is EssentialContract, IBridge {
 
         if (receipt.receivedAt == 0) {
             address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
                 revert B_MESSAGE_NOT_SENT();
             }
@@ -274,8 +273,11 @@ contract Bridge is EssentialContract, IBridge {
 
             if (invocationDelay != 0) {
                 if (!byOwner) {
-                    receipt.feePaid =
-                        uint160(_calcFee(_message, 0, GAS_STEP_ONE).max(type(uint160).max));
+                    receipt.feePaid = uint160(
+                        _calcFee(_message.fee, _message.gasLimit, 0, GAS_STEP_ONE).max(
+                            type(uint160).max
+                        )
+                    );
 
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
@@ -300,8 +302,8 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageExecuted(msgHash);
 
         uint256 refundAmount;
-
         uint256 gas;
+
         if (!byOwner) gas = gasleft();
 
         // Process message differently based on the target address
@@ -347,12 +349,12 @@ contract Bridge is EssentialContract, IBridge {
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         } else {
             uint256 fee = _calcFee(
-                _message,
+                _message.fee,
+                _message.gasLimit,
                 receipt.feePaid,
                 gas - gasleft() + (isNewlyProven ? GAS_ONE_STEP : GAS_STEP_TWO)
             );
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
-
             refundAmount += _message.fee - receipt.feePaid - fee;
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
@@ -750,12 +752,18 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function _calcFee(
-        Message calldata _message,
+        uint256 _messageFee,
+        uint256 _messageGasLimit,
         uint256 _feePaid,
         uint256 _gasAmount
     )
         private
-        pure
+        view
         returns (uint256)
-    { }
+    {
+        uint256 maxGasPrice = _messageFee / _messageGasLimit;
+        uint256 gasPrice =
+            block.basefee > maxGasPrice ? maxGasPrice : (maxGasPrice + block.basefee) >> 1;
+        return (gasPrice * _gasAmount).min(_messageFee - _feePaid);
+    }
 }
