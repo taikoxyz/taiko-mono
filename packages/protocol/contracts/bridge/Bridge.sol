@@ -189,7 +189,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        bool isNewlyProven;
+        bool oneStepProcessing;
         uint256 invocationDelay = getInvocationDelay();
 
         if (receipt.receivedAt == 0) {
@@ -215,10 +215,10 @@ contract Bridge is EssentialContract, IBridge {
                 return;
             }
 
-            isNewlyProven = true;
+            oneStepProcessing = true;
         }
 
-        if (!isNewlyProven && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!oneStepProcessing && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
 
@@ -255,7 +255,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        bool isNewlyProven;
+        bool oneStepProcessing;
         uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
         bool byOwner = msg.sender == _message.destOwner;
@@ -286,10 +286,10 @@ contract Bridge is EssentialContract, IBridge {
                 return;
             }
 
-            isNewlyProven = true;
+            oneStepProcessing = true;
         }
 
-        if (!isNewlyProven && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!oneStepProcessing && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
 
@@ -353,7 +353,7 @@ contract Bridge is EssentialContract, IBridge {
                 _message.gasLimit,
                 receipt.feePaid,
                 gas - gasleft()
-                    + (isNewlyProven ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
+                    + (oneStepProcessing ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
             );
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
             refundAmount += _message.fee - receipt.feePaid - fee;
