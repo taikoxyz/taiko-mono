@@ -229,7 +229,15 @@ library LibProposing {
             depositsProcessed: deposits_
         });
 
-        LibAutoSnapshot.autoSnapshot(_resolver, block.number);
+        {
+            // Take regular snapshots
+            uint64 _lastSnapshotIdx = _state.slotA.lastSnapshotIdx;
+            _lastSnapshotIdx =
+                LibAutoSnapshot.autoSnapshot(_resolver, block.number, _lastSnapshotIdx);
+            if (_lastSnapshotIdx != 0) {
+                _state.slotA.lastSnapshotIdx = _lastSnapshotIdx;
+            }
+        }
     }
 
     function _isProposerPermitted(

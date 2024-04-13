@@ -50,6 +50,8 @@ contract TaikoL2 is EssentialContract {
     /// @dev Slot 4.
     uint64 public l1ChainId;
 
+    uint64 public lastSnapshotIdx;
+
     uint256[46] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
@@ -177,7 +179,10 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        LibAutoSnapshot.autoSnapshot(this, _l1BlockId);
+        uint64 _lastSnapshotIdx = LibAutoSnapshot.autoSnapshot(this, _l1BlockId, lastSnapshotIdx);
+        if (_lastSnapshotIdx != 0) {
+            lastSnapshotIdx = _lastSnapshotIdx;
+        }
     }
 
     /// @notice Withdraw token or Ether from this address
