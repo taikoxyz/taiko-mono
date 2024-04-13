@@ -185,7 +185,7 @@ library LibProposing {
 
         {
             IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-            _takeRegularSnapshot(_state, address(tko));
+            _autoSnapshot(_state, address(tko));
 
             uint256 tkoBalance = tko.balanceOf(address(this));
 
@@ -232,7 +232,7 @@ library LibProposing {
         });
     }
 
-    function _takeRegularSnapshot(TaikoData.State storage _state, address tkoToken) private {
+    function _autoSnapshot(TaikoData.State storage _state, address tkoToken) private {
         uint64 idx =
             LibAutoSnapshot.autoSnapshot(tkoToken, block.number, _state.slotA.lastSnapshotIdx);
         if (idx != 0) {
