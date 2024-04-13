@@ -171,15 +171,11 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.srcChainId)
         nonReentrant
     {
-        bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
-
-        ProofReceipt memory receipt = proofReceipt[msgHash];
-        if (receipt.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
-
-        uint256 invocationDelay = getInvocationDelay();
+        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
         bool isNewlyProven;
+        uint256 invocationDelay = getInvocationDelay();
+
         if (receipt.receivedAt == 0) {
             address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
@@ -192,8 +188,8 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            receipt.receivedAt = uint64(block.timestamp);
             isNewlyProven = true;
+            receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = receipt;
@@ -237,24 +233,19 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
-
-        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-
-        ProofReceipt memory receipt = proofReceipt[msgHash];
-        if (receipt.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
-
-        uint256 invocationDelay = getInvocationDelay();
+        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
         bool isNewlyProven;
+        uint256 invocationDelay = getInvocationDelay();
+        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+
         if (receipt.receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
-            receipt.receivedAt = uint64(block.timestamp);
             isNewlyProven = true;
+            receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = receipt;
@@ -702,5 +693,17 @@ contract Bridge is EssentialContract, IBridge {
         unchecked {
             return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
         }
+    }
+
+    function _checkStatusAndReceipt(Message memory _message)
+        private
+        view
+        returns (bytes32 msgHash_, ProofReceipt memory receipt_)
+    {
+        msgHash_ = hashMessage(_message);
+        if (messageStatus[msgHash_] != Status.NEW) revert B_STATUS_MISMATCH();
+
+        receipt_ = proofReceipt[msgHash_];
+        if (receipt_.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
     }
 }
