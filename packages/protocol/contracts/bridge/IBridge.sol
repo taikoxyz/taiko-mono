@@ -30,9 +30,6 @@ interface IBridge {
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund on the destination chain.
-        // If blank, defaults to destOwner.
-        address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
         // Processing fee for the relayer.
