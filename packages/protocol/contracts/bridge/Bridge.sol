@@ -27,7 +27,9 @@ contract Bridge is EssentialContract, IBridge {
     /// Note that the actual gas overhead is about 200K, we add 25K on top of it.
     uint256 public constant GAS_STEP_TWO = 225_000;
 
-    uint256 public constant GAS_COMBINED = 225_000;
+    uint256 public constant GAS_TWO_STEPS = GAS_STEP_ONE + GAS_STEP_TWO;
+
+    uint256 public constant GAS_ONE_STEP = 225_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -196,12 +198,15 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_MESSAGE_NOT_SENT();
             }
 
-            bytes32 failureSignal = signalForFailedMessage(msgHash);
-            if (!_proveSignalReceived(signalService, failureSignal, _message.destChainId, _proof)) {
-                revert B_NOT_FAILED();
-            }
+            if (
+                !_proveSignalReceived({
+                    _signalService: signalService,
+                    _signal: signalForFailedMessage(msgHash),
+                    _chainId: _message.destChainId,
+                    _proof: _proof
+                })
+            ) revert B_NOT_FAILED();
 
-            isNewlyProven = true;
             receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
@@ -209,9 +214,11 @@ contract Bridge is EssentialContract, IBridge {
                 emit MessageReceived(msgHash, _message, true);
                 return;
             }
+
+            isNewlyProven = true;
         }
 
-        if (!_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!isNewlyProven && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
 
@@ -254,11 +261,15 @@ contract Bridge is EssentialContract, IBridge {
         bool byOwner = msg.sender == _message.destOwner;
 
         if (receipt.receivedAt == 0) {
-            if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
-                revert B_NOT_RECEIVED();
-            }
+            if (
+                !_proveSignalReceived({
+                    _signalService: signalService,
+                    _signal: msgHash,
+                    _chainId: _message.srcChainId,
+                    _proof: _proof
+                })
+            ) revert B_NOT_RECEIVED();
 
-            isNewlyProven = true;
             receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
@@ -272,14 +283,13 @@ contract Bridge is EssentialContract, IBridge {
                 emit MessageReceived(msgHash, _message, false);
                 return;
             }
+
+            isNewlyProven = true;
         }
 
-        if (!_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!isNewlyProven && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
-
-        uint256 gas;
-        if (byOwner) gas = gasleft();
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
@@ -290,6 +300,9 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageExecuted(msgHash);
 
         uint256 refundAmount;
+
+        uint256 gas;
+        if (!byOwner) gas = gasleft();
 
         // Process message differently based on the target address
         if (
@@ -307,7 +320,7 @@ contract Bridge is EssentialContract, IBridge {
                 // use the specified gas limit.
                 gasLimit = gasleft();
             } else {
-                gasLimit = _message.gasLimit.max(111) - 33_333;
+                gasLimit = _message.gasLimit.max(GAS_TWO_STEPS) - GAS_TWO_STEPS;
 
                 // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                 // contract makes a call to another contract, it can only forward 63/64 of the
@@ -328,12 +341,16 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        // Refund the processing fee
+        // Handle processing fee payment and refund.
         if (byOwner) {
             refundAmount += _message.fee - receipt.feePaid;
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         } else {
-            uint256 fee = _calcFee(_message, receipt.feePaid, gas - gasleft() + 2222);
+            uint256 fee = _calcFee(
+                _message,
+                receipt.feePaid,
+                gas - gasleft() + (isNewlyProven ? GAS_ONE_STEP : GAS_STEP_TWO)
+            );
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
 
             refundAmount += _message.fee - receipt.feePaid - fee;
