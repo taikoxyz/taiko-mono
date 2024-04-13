@@ -189,8 +189,8 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        bool oneStepProcessing;
         uint256 invocationDelay = getInvocationDelay();
+        bool oneStepProcessing;
 
         if (receipt.receivedAt == 0) {
             address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
@@ -255,10 +255,15 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        bool oneStepProcessing;
+        // If the gas limit is set to zero, only the owner can process the message.
+        bool notByOwner = msg.sender != _message.destOwner;
+        if (_message.gasLimit == 0 && notByOwner) {
+            revert B_PERMISSION_DENIED();
+        }
+
         uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-        bool notByOwner = msg.sender != _message.destOwner;
+        bool oneStepProcessing;
 
         if (receipt.receivedAt == 0) {
             if (
@@ -294,11 +299,6 @@ contract Bridge is EssentialContract, IBridge {
 
         if (!oneStepProcessing && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
-        }
-
-        // If the gas limit is set to zero, only the owner can process the message.
-        if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
-            revert B_PERMISSION_DENIED();
         }
 
         delete proofReceipt[msgHash];
@@ -346,7 +346,8 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        // Handle processing fee payment and refund.
+        // Pay processing fee
+        refundAmount += _message.fee - receipt.feePaid;
 
         if (notByOwner) {
             uint256 fee = _calcFee({
@@ -357,12 +358,10 @@ contract Bridge is EssentialContract, IBridge {
                     + (oneStepProcessing ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
             });
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
-            refundAmount += _message.fee - receipt.feePaid - fee;
-            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
-        } else {
-            refundAmount += _message.fee - receipt.feePaid;
-            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+            refundAmount -= fee;
         }
+        // Refund fee
+        _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
     }
 
     /// @inheritdoc IBridge
