@@ -258,7 +258,7 @@ contract Bridge is EssentialContract, IBridge {
         bool oneStepProcessing;
         uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-        bool byOwner = msg.sender == _message.destOwner;
+        bool notByOwner = msg.sender != _message.destOwner;
 
         if (receipt.receivedAt == 0) {
             if (
@@ -273,7 +273,7 @@ contract Bridge is EssentialContract, IBridge {
             receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
-                if (!byOwner) {
+                if (notByOwner) {
                     receipt.feePaid = uint160(
                         _calcFee(_message.fee, _message.gasLimit, 0, TWO_STEP_PROCESSING_GAS_STEP_1)
                             .max(type(uint160).max)
@@ -304,7 +304,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 refundAmount;
         uint256 gas;
 
-        if (!byOwner) gas = gasleft();
+        if (notByOwner) gas = gasleft();
 
         // Process message differently based on the target address
         if (
@@ -317,11 +317,7 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
             uint256 gasLimit;
-            if (byOwner) {
-                // Use the remaining gas if called by a the destOwner, else
-                // use the specified gas limit.
-                gasLimit = gasleft();
-            } else {
+            if (notByOwner) {
                 gasLimit = _message.gasLimit.max(TWO_STEP_PROCESSING_GAS) - TWO_STEP_PROCESSING_GAS;
 
                 // The "1/64th rule" refers to the gasleft at the time the call is made. When a
@@ -334,6 +330,10 @@ contract Bridge is EssentialContract, IBridge {
                 //
                 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
                 if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+            } else {
+                // Use the remaining gas if called by a the destOwner, else
+                // use the specified gas limit.
+                gasLimit = gasleft();
             }
 
             if (_invokeMessageCall(_message, msgHash, gasLimit)) {
@@ -344,10 +344,8 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Handle processing fee payment and refund.
-        if (byOwner) {
-            refundAmount += _message.fee - receipt.feePaid;
-            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
-        } else {
+
+        if (notByOwner) {
             uint256 fee = _calcFee(
                 _message.fee,
                 _message.gasLimit,
@@ -357,6 +355,9 @@ contract Bridge is EssentialContract, IBridge {
             );
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
             refundAmount += _message.fee - receipt.feePaid - fee;
+            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+        } else {
+            refundAmount += _message.fee - receipt.feePaid;
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
     }
@@ -373,8 +374,9 @@ contract Bridge is EssentialContract, IBridge {
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.destOwner.
+        bool notByOwner = msg.sender != _message.destOwner;
         if (_message.gasLimit == 0 || _isLastAttempt) {
-            if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
+            if (notByOwner) revert B_PERMISSION_DENIED();
         }
 
         bytes32 msgHash = hashMessage(_message);
@@ -385,10 +387,7 @@ contract Bridge is EssentialContract, IBridge {
         // We check gasleft() against _message.gasLimit to make sure we not only need to bridge
         // invocation call to succeed, we also need it to succeed with a gas limit no smaller than
         // the message's gasLimit.
-        if (
-            _message.gasLimit != 0 && msg.sender != _message.destOwner
-                && _message.gasLimit > (gasleft() * 63) >> 6
-        ) {
+        if (_message.gasLimit != 0 && notByOwner && _message.gasLimit > (gasleft() * 63) >> 6) {
             revert B_NOT_ENOUGH_GASLEFT();
         }
 
