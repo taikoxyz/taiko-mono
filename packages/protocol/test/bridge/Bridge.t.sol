@@ -990,7 +990,7 @@ contract BridgeTest is TaikoTest {
             id: 0, // placeholder, will be overwritten
             from: owner, // placeholder, will be overwritten
             srcChainId: uint64(block.chainid), // will be overwritten
-            refundTo: owner,
+            refundTo: address(0), // DEPRECATED!
             gasLimit: gasLimit,
             data: "",
             memo: ""
@@ -1014,7 +1014,7 @@ contract BridgeTest is TaikoTest {
                 // want to send ether
             destOwner: Alice,
             to: address(delegateOwner),
-            refundTo: address(0),
+            refundTo: address(0), // DEPRECATED!
             value: 0,
             fee: 0,
             gasLimit: 1_000_000,
