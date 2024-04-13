@@ -275,10 +275,13 @@ contract Bridge is EssentialContract, IBridge {
             if (invocationDelay != 0) {
                 if (notByOwner) {
                     receipt.feePaid = uint160(
-                        _calcFee(_message.fee, _message.gasLimit, 0, TWO_STEP_PROCESSING_GAS_STEP_1)
-                            .max(type(uint160).max)
+                        _calcFee({
+                            _messageFee: _message.fee,
+                            _messageGasLimit: _message.gasLimit,
+                            _feePaid: 0,
+                            _gasAmount: TWO_STEP_PROCESSING_GAS_STEP_1
+                        }).max(type(uint160).max)
                     );
-
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
                 proofReceipt[msgHash] = receipt;
@@ -346,13 +349,13 @@ contract Bridge is EssentialContract, IBridge {
         // Handle processing fee payment and refund.
 
         if (notByOwner) {
-            uint256 fee = _calcFee(
-                _message.fee,
-                _message.gasLimit,
-                receipt.feePaid,
-                gas - gasleft()
+            uint256 fee = _calcFee({
+                _messageFee: _message.fee,
+                _messageGasLimit: _message.gasLimit,
+                _feePaid: receipt.feePaid,
+                _gasAmount: gas - gasleft()
                     + (oneStepProcessing ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
-            );
+            });
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
             refundAmount += _message.fee - receipt.feePaid - fee;
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
