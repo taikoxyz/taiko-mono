@@ -224,7 +224,6 @@ contract Bridge is EssentialContract, IBridge {
 
         delete proofReceipt[msgHash];
         messageStatus[msgHash] = Status.RECALLED;
-        emit MessageRecalled(msgHash);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -241,6 +240,8 @@ contract Bridge is EssentialContract, IBridge {
         } else {
             _message.srcOwner.sendEtherAndVerify(_message.value, _SEND_ETHER_GAS_LIMIT);
         }
+
+        emit MessageRecalled(msgHash);
     }
 
     /// @inheritdoc IBridge
@@ -255,14 +256,9 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        // If the gas limit is set to zero, only the owner can process the message.
         bool notByOwner = msg.sender != _message.destOwner;
-        if (_message.gasLimit == 0 && notByOwner) {
-            revert B_PERMISSION_DENIED();
-        }
-
-        uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        uint256 invocationDelay = getInvocationDelay();
         bool oneStepProcessing;
 
         if (receipt.receivedAt == 0) {
@@ -301,13 +297,16 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVOCATION_TOO_EARLY();
         }
 
+        // If the gas limit is set to zero, only the owner can process the message.
+        if (_message.gasLimit == 0 && notByOwner) {
+            revert B_PERMISSION_DENIED();
+        }
+
         delete proofReceipt[msgHash];
         emit MessageExecuted(msgHash);
 
-        uint256 refundAmount;
-        uint256 gas;
-
-        if (notByOwner) gas = gasleft();
+        uint256 refundAmount = _message.fee - receipt.feePaid;
+        uint256 gas = gasleft();
 
         // Process message differently based on the target address
         if (
@@ -316,7 +315,7 @@ contract Bridge is EssentialContract, IBridge {
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
-            refundAmount = _message.value;
+            refundAmount += _message.value;
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
             uint256 gasLimit;
@@ -347,8 +346,6 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Pay processing fee
-        refundAmount += _message.fee - receipt.feePaid;
-
         if (notByOwner) {
             uint256 fee = _calcFee({
                 _messageFee: _message.fee,
@@ -357,8 +354,8 @@ contract Bridge is EssentialContract, IBridge {
                 _gasAmount: gas - gasleft()
                     + (oneStepProcessing ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
             });
-            msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
             refundAmount -= fee;
+            msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
         }
         // Refund fee
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
