@@ -349,12 +349,14 @@ contract Bridge is EssentialContract, IBridge {
         // Handle processing fee payment and refund.
 
         if (notByOwner) {
+            uint256 gasToCharge = gas - gasleft()
+                + (oneStepProcessing ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2);
+
             uint256 fee = _calcFee({
                 _messageFee: _message.fee,
                 _messageGasLimit: _message.gasLimit,
                 _feePaid: receipt.feePaid,
-                _gasAmount: gas - gasleft()
-                    + (oneStepProcessing ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
+                _gasAmount: gasToCharge
             });
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
             refundAmount += _message.fee - receipt.feePaid - fee;
