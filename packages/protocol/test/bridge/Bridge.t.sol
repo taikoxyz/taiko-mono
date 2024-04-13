@@ -20,13 +20,8 @@ contract UntrustedSendMessageRelayer {
 }
 
 contract TwoStepBridge is Bridge {
-    function getInvocationDelays()
-        public
-        pure
-        override
-        returns (uint256 invocationDelay, uint256 invocationExtraDelay)
-    {
-        return (10 hours, 2 hours);
+    function getInvocationDelay() public pure override returns (uint256) {
+        return 10 hours;
     }
 }
 
@@ -246,63 +241,8 @@ contract BridgeTest is TaikoTest {
         // Carol cannot process (as not preferred executor)
         vm.warp(block.timestamp + 6 hours);
 
-        // Too eraly for Carol
-        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        vm.prank(Carol, Carol);
-        dest2StepBridge.processMessage(message, proof);
-
         // Not too early for Bob
         vm.prank(Bob, Bob);
-        dest2StepBridge.processMessage(message, proof);
-
-        // Alice has 100 ether + 1000 wei balance
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
-    }
-
-    function test_Bridge_processMessage_with_2_steps_and_not_preferred() public {
-        IBridge.Message memory message = IBridge.Message({
-            id: 0,
-            from: address(bridge),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
-            srcOwner: Alice,
-            destOwner: Alice,
-            to: Alice,
-            refundTo: Alice,
-            value: 1000,
-            fee: 1000,
-            gasLimit: 1_000_000,
-            data: "",
-            memo: ""
-        });
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = dest2StepBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-        // This in is the first transaction setting the proofReceipt
-        vm.prank(Bob, Bob);
-        dest2StepBridge.processMessage(message, proof);
-
-        IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
-        // Still new ! Because of the delay, no processing happened
-        assertEq(status == IBridge.Status.NEW, true);
-        // Alice has 100 ether
-        assertEq(Alice.balance, 100_000_000_000_000_000_000);
-
-        // Go in the future, 11 hours, still not processable
-        vm.warp(block.timestamp + 11 hours);
-
-        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        vm.prank(Carol, Carol);
-        dest2StepBridge.processMessage(message, proof);
-
-        // Go in the future, +2 hours, all in all 13 hours
-        vm.warp(block.timestamp + 2 hours);
-
-        vm.prank(Carol, Carol);
         dest2StepBridge.processMessage(message, proof);
 
         // Alice has 100 ether + 1000 wei balance

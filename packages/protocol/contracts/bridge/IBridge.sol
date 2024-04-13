@@ -49,11 +49,8 @@ interface IBridge {
     struct ProofReceipt {
         // The time a message is marked as received on the destination chain
         uint64 receivedAt;
-        // The address that can execute the message after the invocation delay without an extra
-        // delay.
-        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
-        // invoke the message.
-        address preferredExecutor;
+        // The processing fee already paid for the message.
+        uint160 feePaid;
     }
 
     // Struct representing the context of a bridge operation.
