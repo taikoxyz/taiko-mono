@@ -47,8 +47,9 @@ abstract contract TaikoEvents {
 
     /// @notice Emitted when the Taiko token snapshot is taken.
     /// @param tkoAddress The Taiko token address.
-    /// @param id The snapshot id.
-    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 id);
+    /// @param snapshotIdx The snapshot index.
+    /// @param snapshotId The snapshot id.
+    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
 
     /// @dev Emitted when a block transition is proved or re-proved.
     /// @param blockId The ID of the proven block.

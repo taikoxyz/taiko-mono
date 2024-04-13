@@ -61,8 +61,9 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Emitted when the Taiko token snapshot is taken.
     /// @param tkoAddress The Taiko token address.
-    /// @param id The snapshot id.
-    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 id);
+    /// @param snapshotIdx The snapshot index.
+    /// @param snapshotId The snapshot id.
+    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_L1_CHAIN_ID();
@@ -179,9 +180,10 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(_parentHash, _gasExcess);
 
-        uint64 _lastSnapshotIdx = LibAutoSnapshot.autoSnapshot(this, _l1BlockId, lastSnapshotIdx);
-        if (_lastSnapshotIdx != 0) {
-            lastSnapshotIdx = _lastSnapshotIdx;
+        address taikoToken = resolve(LibStrings.B_TAIKO_TOKEN, true);
+        if (taikoToken != address(0)) {
+            uint64 idx = LibAutoSnapshot.autoSnapshot(taikoToken, _l1BlockId, lastSnapshotIdx);
+            if (idx != 0) lastSnapshotIdx = idx;
         }
     }
 
