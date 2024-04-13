@@ -21,15 +21,16 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev The gas overhead if the message is proven and executed in one step.
     /// Note that the actual gas overhead is about 160K, we add 25K on top of it.
-    uint256 public constant GAS_STEP_ONE = 185_000;
+    uint256 public constant TWO_STEP_PROCESSING_GAS_STEP_1 = 185_000;
 
     /// @dev The gas overhead if the message is proven and executed in two steps.
     /// Note that the actual gas overhead is about 200K, we add 25K on top of it.
-    uint256 public constant GAS_STEP_TWO = 225_000;
+    uint256 public constant TWO_STEP_PROCESSING_GAS_STEP_2 = 225_000;
 
-    uint256 public constant GAS_TWO_STEPS = GAS_STEP_ONE + GAS_STEP_TWO;
+    uint256 public constant TWO_STEP_PROCESSING_GAS =
+        TWO_STEP_PROCESSING_GAS_STEP_1 + TWO_STEP_PROCESSING_GAS_STEP_2;
 
-    uint256 public constant GAS_ONE_STEP = 225_000;
+    uint256 public constant ONE_STEP_PROCESSING_GAS = 225_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -274,9 +275,8 @@ contract Bridge is EssentialContract, IBridge {
             if (invocationDelay != 0) {
                 if (!byOwner) {
                     receipt.feePaid = uint160(
-                        _calcFee(_message.fee, _message.gasLimit, 0, GAS_STEP_ONE).max(
-                            type(uint160).max
-                        )
+                        _calcFee(_message.fee, _message.gasLimit, 0, TWO_STEP_PROCESSING_GAS_STEP_1)
+                            .max(type(uint160).max)
                     );
 
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
@@ -322,7 +322,7 @@ contract Bridge is EssentialContract, IBridge {
                 // use the specified gas limit.
                 gasLimit = gasleft();
             } else {
-                gasLimit = _message.gasLimit.max(GAS_TWO_STEPS) - GAS_TWO_STEPS;
+                gasLimit = _message.gasLimit.max(TWO_STEP_PROCESSING_GAS) - TWO_STEP_PROCESSING_GAS;
 
                 // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                 // contract makes a call to another contract, it can only forward 63/64 of the
@@ -352,7 +352,8 @@ contract Bridge is EssentialContract, IBridge {
                 _message.fee,
                 _message.gasLimit,
                 receipt.feePaid,
-                gas - gasleft() + (isNewlyProven ? GAS_ONE_STEP : GAS_STEP_TWO)
+                gas - gasleft()
+                    + (isNewlyProven ? ONE_STEP_PROCESSING_GAS : TWO_STEP_PROCESSING_GAS_STEP_2)
             );
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
             refundAmount += _message.fee - receipt.feePaid - fee;
