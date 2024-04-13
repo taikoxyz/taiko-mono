@@ -171,17 +171,12 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.srcChainId)
         nonReentrant
     {
-        bytes32 msgHash = hashMessage(_message);
-
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
-
-        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
-
-        (uint256 invocationDelay,) = getInvocationDelays();
+        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
         bool isNewlyProven;
-        if (receivedAt == 0) {
+        uint256 invocationDelay = getInvocationDelay();
+
+        if (receipt.receivedAt == 0) {
             address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
@@ -193,15 +188,15 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            receivedAt = uint64(block.timestamp);
             isNewlyProven = true;
+            receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
-                proofReceipt[msgHash].receivedAt = receivedAt;
+                proofReceipt[msgHash] = receipt;
             }
         }
 
-        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
+        if (_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
@@ -238,47 +233,30 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
-
-        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-
-        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        if (receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
-
-        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
+        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
         bool isNewlyProven;
-        if (receivedAt == 0) {
+        uint256 invocationDelay = getInvocationDelay();
+        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+
+        if (receipt.receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
-            receivedAt = uint64(block.timestamp);
             isNewlyProven = true;
+            receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
-                proofReceipt[msgHash] = ProofReceipt({
-                    receivedAt: receivedAt,
-                    preferredExecutor: _message.gasLimit == 0 ? _message.destOwner : msg.sender
-                });
+                proofReceipt[msgHash] = receipt;
             }
         }
 
-        if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
-            // If msg.sender is not the one that proved the message, then there
-            // is an extra delay.
-            unchecked {
-                invocationDelay += invocationExtraDelay;
-            }
-        }
-
-        if (_isPostInvocationDelay(receivedAt, invocationDelay)) {
+        if (_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
                 revert B_PERMISSION_DENIED();
             }
-
             delete proofReceipt[msgHash];
 
             uint256 refundAmount;
@@ -515,22 +493,19 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Returns invocation delay values.
+    /// @notice Returns invocation delay.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
     /// @return The minimal delay in seconds between message execution and proving.
-    /// @return The extra delay in second (to be added to invocationDelay) if the transactor is not
-    /// the preferredExecutor who proved this message.
-    function getInvocationDelays() public view virtual returns (uint256, uint256) {
+    function getInvocationDelay() public view virtual returns (uint256) {
         if (LibNetwork.isEthereumMainnetOrTestnet(block.chainid)) {
             // For Taiko mainnet and public testnets
-            // 384 seconds = 6.4 minutes = one ethereum epoch
-            return (1 hours, 384 seconds);
+            return 1 hours;
         } else if (LibNetwork.isTaikoDevnetL1(block.chainid)) {
-            return (5 minutes, 384 seconds);
+            return 5 minutes;
         } else {
             // This is a Taiko L2 chain where no delays are applied.
-            return (0, 0);
+            return 0;
         }
     }
 
@@ -718,5 +693,17 @@ contract Bridge is EssentialContract, IBridge {
         unchecked {
             return block.timestamp >= _receivedAt.max(lastUnpausedAt) + _invocationDelay;
         }
+    }
+
+    function _checkStatusAndReceipt(Message memory _message)
+        private
+        view
+        returns (bytes32 msgHash_, ProofReceipt memory receipt_)
+    {
+        msgHash_ = hashMessage(_message);
+        if (messageStatus[msgHash_] != Status.NEW) revert B_STATUS_MISMATCH();
+
+        receipt_ = proofReceipt[msgHash_];
+        if (receipt_.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
     }
 }
