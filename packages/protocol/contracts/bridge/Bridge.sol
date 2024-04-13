@@ -55,7 +55,6 @@ contract Bridge is EssentialContract, IBridge {
 
     uint256[44] private __gap;
 
-    error B_DEPRECATED_FIELD();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
@@ -131,8 +130,6 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
-        // Ensure deprecated field is 0
-        if (_message.refundTo != address(0)) revert B_DEPRECATED_FIELD();
         // Ensure the message owner is not null.
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();

@@ -173,7 +173,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: Alice,
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -211,7 +210,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: Alice,
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -268,7 +266,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: Alice,
-            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -320,7 +317,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -358,7 +354,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -708,7 +703,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: Alice,
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -848,7 +842,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(nonmaliciousContract1),
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -878,7 +871,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(maliciousContract2),
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -954,7 +946,6 @@ contract BridgeTest is TaikoTest {
             srcOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             destOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
-            refundTo: address(0),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -990,7 +981,6 @@ contract BridgeTest is TaikoTest {
             id: 0, // placeholder, will be overwritten
             from: owner, // placeholder, will be overwritten
             srcChainId: uint64(block.chainid), // will be overwritten
-            refundTo: address(0), // DEPRECATED!
             gasLimit: gasLimit,
             data: "",
             memo: ""
@@ -1014,7 +1004,6 @@ contract BridgeTest is TaikoTest {
                 // want to send ether
             destOwner: Alice,
             to: address(delegateOwner),
-            refundTo: address(0), // DEPRECATED!
             value: 0,
             fee: 0,
             gasLimit: 1_000_000,
