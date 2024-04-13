@@ -70,7 +70,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
             to: resolve(_op.destChainId, name(), false),
-            refundTo: _op.refundTo,
+            refundTo: address(0), // DEPRECATED!
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
