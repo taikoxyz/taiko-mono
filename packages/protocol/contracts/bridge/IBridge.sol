@@ -32,7 +32,7 @@ interface IBridge {
         address to;
         // value to invoke on the destination chain.
         uint256 value;
-        // The max procesing fee.
+        // The max processing fee.
         uint256 fee;
         // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
         // process the message. This value will mostly be respected when retrying
