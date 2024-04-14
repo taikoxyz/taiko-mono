@@ -140,7 +140,7 @@ library TaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
-        uint64 lastSnapshotIdx;
+        uint64 lastSyncedAt;
     }
 
     struct SlotB {
@@ -149,7 +149,7 @@ library TaikoData {
         bool provingPaused;
         uint8 __reservedB1;
         uint16 __reservedB2;
-        uint32 __reservedB3;
+        uint32 lastSnapshotIdx;
         uint64 lastUnpausedAt;
     }
 

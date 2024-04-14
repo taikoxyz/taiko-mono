@@ -63,7 +63,7 @@ contract TaikoL2 is EssentialContract {
     /// @param tkoAddress The Taiko token address.
     /// @param snapshotIdx The snapshot index.
     /// @param snapshotId The snapshot id.
-    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
+    event TaikoTokenSnapshot(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_L1_CHAIN_ID();

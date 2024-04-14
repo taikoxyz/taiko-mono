@@ -49,7 +49,7 @@ abstract contract TaikoEvents {
     /// @param tkoAddress The Taiko token address.
     /// @param snapshotIdx The snapshot index.
     /// @param snapshotId The snapshot id.
-    event TaikoTokenSnapshotTaken(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
+    event TaikoTokenSnapshot(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
 
     /// @dev Emitted when a block transition is proved or re-proved.
     /// @param blockId The ID of the proven block.
