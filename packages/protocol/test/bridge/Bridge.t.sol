@@ -169,7 +169,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             refundTo: Alice,
-            value: 1000,
+            value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -191,10 +191,10 @@ contract BridgeTest is TaikoTest {
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
-        // deduction/transfer did
-        // not happen
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
-        assertEq(Bob.balance, 1000);
+        // deduction/transfer did not happen
+        assertTrue(Alice.balance > 100 ether + 10_000);
+        assertTrue(Alice.balance < 100 ether + 10_000 + 1000);
+        assertTrue(Bob.balance > 0 && Bob.balance < 1000);
     }
 
     function test_Bridge_processMessage_with_2_steps() public {
@@ -207,7 +207,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             refundTo: Alice,
-            value: 1000,
+            value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -228,7 +228,7 @@ contract BridgeTest is TaikoTest {
         // Still new ! Because of the delay, no processing happened
         assertEq(status == IBridge.Status.NEW, true);
         // Alice has 100 ether
-        assertEq(Alice.balance, 100_000_000_000_000_000_000);
+        assertEq(Alice.balance, 100 ether);
 
         // Go in the future, 5 hours, still not processable
         vm.warp(block.timestamp + 5 hours);
@@ -242,11 +242,15 @@ contract BridgeTest is TaikoTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Not too early for Bob
+
+        uint256 bobBalance = Bob.balance;
+
         vm.prank(Bob, Bob);
         dest2StepBridge.processMessage(message, proof);
 
-        // Alice has 100 ether + 1000 wei balance
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
+        assertTrue(Bob.balance < bobBalance + 1000);
+        assertTrue(Alice.balance > 100 ether + 1000);
+        assertTrue(Alice.balance < 100 ether + 11_000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value() public {
@@ -261,7 +265,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
-            value: 1000,
+            value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -283,8 +287,8 @@ contract BridgeTest is TaikoTest {
         assertEq(status == IBridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
-        assertEq(address(goodReceiver).balance, 1000);
-        assertEq(Bob.balance, 1000);
+        assertEq(address(goodReceiver).balance, 10_000);
+        assertTrue(Bob.balance > 0 && Bob.balance < 1000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {

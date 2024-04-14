@@ -756,7 +756,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (uint256)
     {
-        if (_msgGasLimit || _msgFee == 0 || _remainingFee == 0) return 0;
+        if (_msgFee == 0 || _msgGasLimit == 0 || _remainingFee == 0) return 0;
 
         uint256 maxFee = _msgFee * _gasUsed / _msgGasLimit;
         uint256 baseFee = block.basefee * _gasUsed;
