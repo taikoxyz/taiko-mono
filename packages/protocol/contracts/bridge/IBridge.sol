@@ -80,10 +80,6 @@ interface IBridge {
     /// @param msgHash The hash of the message.
     event MessageExecuted(bytes32 indexed msgHash);
 
-    /// @notice Emitted when a message is retried.
-    /// @param msgHash The hash of the message.
-    event MessageRetried(bytes32 indexed msgHash);
-
     /// @notice Emitted when a message is marked failed.
     /// @param msgHash The hash of the message.
     event MessageFailed(bytes32 indexed msgHash);

@@ -72,6 +72,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
+    error B_RETRY_FAILED();
     error B_STATUS_MISMATCH();
 
     modifier sameChain(uint64 _chainId) {
@@ -349,8 +350,9 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
+        } else {
+            revert B_RETRY_FAILED();
         }
-        emit MessageRetried(msgHash);
     }
 
     /// @inheritdoc IBridge
