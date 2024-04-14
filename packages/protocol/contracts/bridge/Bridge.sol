@@ -241,6 +241,7 @@ contract Bridge is EssentialContract, IBridge {
         bool processInTheSameTx;
         uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        bool transactedByOwner = msg.sender == _message.destOwner;
 
         if (receipt.receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
@@ -250,6 +251,11 @@ contract Bridge is EssentialContract, IBridge {
             receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
+                // if (!transactedByOwner) {
+                //     receipt.feePaid = 0;
+                //     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
+                // }
+
                 proofReceipt[msgHash] = receipt;
                 emit MessageReceived(msgHash, _message, false);
                 return;
@@ -263,7 +269,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // If the gas limit is set to zero, only the owner can process the message.
-        bool transactedByOwner = msg.sender == _message.destOwner;
+
         if (!transactedByOwner && _message.gasLimit == 0) {
             revert B_PERMISSION_DENIED();
         }
@@ -309,13 +315,21 @@ contract Bridge is EssentialContract, IBridge {
         _updateMessageStatus(msgHash, status);
         emit MessageExecuted(msgHash);
 
-        // Refund the processing fee
-        if (transactedByOwner) {
-            refundAmount += _message.fee;
-        } else {
-            // If sender is another address, reward it and refund the rest
-            msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+        // Refund the processing fee and fee to refund
+        uint256 remainingFee;
+        unchecked {
+            // the following if-statement is only true if we have old data where
+            // receipt.feePaid bytes are used as an address
+            remainingFee = receipt.feePaid > _message.fee //
+                ? _message.fee
+                : _message.fee - receipt.feePaid;
         }
+        refundAmount += remainingFee;
+
+        if (!transactedByOwner) {
+            msg.sender.sendEtherAndVerify(remainingFee, _SEND_ETHER_GAS_LIMIT);
+        }
+
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
     }
 
