@@ -512,7 +512,7 @@ func (p *Processor) sendProcessMessageCall(
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		relayer.MessageSentEventsProcessedReverted.Inc()
 
-		return nil, errors.New("tx reverted")
+		return nil, errTxReverted
 	}
 
 	relayer.MessageSentEventsProcessed.Inc()

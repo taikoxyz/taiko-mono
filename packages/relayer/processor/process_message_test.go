@@ -45,7 +45,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 			},
 		}, []byte{})
 
-	assert.Nil(t, err)
+	assert.Equal(t, err, errTxReverted)
 }
 
 func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
