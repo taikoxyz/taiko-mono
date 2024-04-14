@@ -172,7 +172,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        bool processInOneStep;
+        bool processInTheSameTx;
         uint256 invocationDelay = getInvocationDelay();
 
         if (receipt.receivedAt == 0) {
@@ -195,10 +195,10 @@ contract Bridge is EssentialContract, IBridge {
                 return;
             }
 
-            processInOneStep = true;
+            processInTheSameTx = true;
         }
 
-        if (!processInOneStep && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!processInTheSameTx && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
 
@@ -235,7 +235,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
-        bool processInOneStep;
+        bool processInTheSameTx;
         uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
@@ -252,10 +252,10 @@ contract Bridge is EssentialContract, IBridge {
                 return;
             }
 
-            processInOneStep = true;
+            processInTheSameTx = true;
         }
 
-        if (!processInOneStep && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!processInTheSameTx && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
 
