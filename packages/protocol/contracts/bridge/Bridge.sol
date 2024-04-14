@@ -264,7 +264,15 @@ contract Bridge is EssentialContract, IBridge {
 
             if (invocationDelay != 0) {
                 if (!transactedByOwner) {
-                    receipt.feePaid = 1; // TODO
+                    receipt.feePaid = uint160(
+                        _calcFee(
+                            _message.fee,
+                            _message.gasLimit,
+                            GAS_RECEIVING,
+                            _message.fee.min(type(uint160).max)
+                        )
+                    );
+
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
 
@@ -341,8 +349,14 @@ contract Bridge is EssentialContract, IBridge {
         refundAmount += remainingFee;
 
         if (!transactedByOwner) {
-            refundAmount -= remainingFee;
-            msg.sender.sendEtherAndVerify(remainingFee, _SEND_ETHER_GAS_LIMIT);
+            uint256 fee = _calcFee(
+                _message.fee,
+                _message.gasLimit,
+                processInTheSameTx ? GAS_RECEIVING_AND_PROCESSING : GAS_PROCESSING,
+                remainingFee
+            );
+            refundAmount -= fee;
+            msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
         }
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
@@ -730,5 +744,23 @@ contract Bridge is EssentialContract, IBridge {
 
         receipt_ = proofReceipt[msgHash_];
         if (receipt_.receivedAt == type(uint64).max) revert B_MESSAGE_SUSPENDED();
+    }
+
+    function _calcFee(
+        uint256 _msgFee,
+        uint256 _msgGasLimit,
+        uint256 _gasUsed,
+        uint256 _remainingFee
+    )
+        private
+        view
+        returns (uint256)
+    {
+        assert(_remainingFee != 0);
+
+        uint256 maxGasPrice = _msgFee / _msgGasLimit;
+        uint256 gasPrice =
+            block.basefee >= maxGasPrice ? maxGasPrice : (block.basefee + maxGasPrice) >> 1;
+        return _remainingFee.min(gasPrice * _gasUsed);
     }
 }
