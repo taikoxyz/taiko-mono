@@ -50,7 +50,7 @@ contract TaikoL2 is EssentialContract {
     /// @dev Slot 4.
     uint64 public l1ChainId;
 
-    uint64 public lastSnapshotIdx;
+    uint32 public lastSnapshotIdx;
 
     uint256[46] private __gap;
 
@@ -180,7 +180,7 @@ contract TaikoL2 is EssentialContract {
 
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (tko != address(0)) {
-            uint64 idx = LibSnapshot.autoSnapshot(tko, _l1BlockId, lastSnapshotIdx);
+            uint32 idx = LibSnapshot.autoSnapshot(tko, _l1BlockId, lastSnapshotIdx);
             if (idx != 0) lastSnapshotIdx = idx;
         }
 
