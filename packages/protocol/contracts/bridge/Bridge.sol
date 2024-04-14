@@ -33,7 +33,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev Gas overhead if a message is received and processed in the same transaction.
     // The measured value is 122083
-    uint256 public constant GAS_RECEIVING_AND_PROCESSING = 15_000;
+    uint256 public constant GAS_RECEIVING_AND_PROCESSING = 150_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
