@@ -55,6 +55,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
             to: resolve(_op.destChainId, name(), false),
+            refundTo: _op.refundTo,
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,

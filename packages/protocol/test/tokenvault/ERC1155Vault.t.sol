@@ -240,6 +240,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -263,7 +264,16 @@ contract ERC1155VaultTest is TaikoTest {
         amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, address(0), Alice, address(0), tokenIds, amounts, 140_000, 140_000, ""
+            destChainId,
+            address(0),
+            Alice,
+            address(0),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
@@ -292,6 +302,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -324,6 +335,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -387,6 +399,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -439,6 +452,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -492,6 +506,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -554,6 +569,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
 
@@ -597,6 +613,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -661,6 +678,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -719,6 +737,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Bob,
             ""
         );
 
@@ -773,6 +792,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);
@@ -831,6 +851,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Bob,
             ""
         );
 
@@ -861,6 +882,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts,
             140_000,
             140_000,
+            Alice,
             ""
         );
         vm.prank(Alice, Alice);

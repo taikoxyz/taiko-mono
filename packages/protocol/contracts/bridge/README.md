@@ -38,6 +38,9 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
         address destOwner;
         // The destination address on the destination chain.
         address to;
+        // Alternate address to send any refund on the destination chain.
+        // If blank, defaults to destOwner.
+        address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
         // Processing fee for the relayer.
@@ -70,6 +73,7 @@ In case of ERC20 the transaction can be initiated by initializing a struct (belo
         uint256 amount;
         uint256 gasLimit;
         uint256 fee;
+        address refundTo;
         string memo;
     }
 ```
@@ -85,6 +89,7 @@ struct BridgeTransferOp {
         uint256[] amounts;
         uint256 gasLimit;
         uint256 fee;
+        address refundTo;
         string memo;
     }
 ```

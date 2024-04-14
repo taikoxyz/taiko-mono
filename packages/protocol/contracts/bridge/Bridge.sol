@@ -32,7 +32,7 @@ contract Bridge is EssentialContract, IBridge {
     uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
 
     /// @dev Place holder value when not using transient storage
-    uint256 private constant _PLACEHOLDER = type(uint256).max;
+    uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -298,15 +298,17 @@ contract Bridge is EssentialContract, IBridge {
                 }
             }
 
+            // Determine the refund recipient
+            address refundTo =
+                _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
+
             // Refund the processing fee
-            if (msg.sender == _message.destOwner) {
-                _message.destOwner.sendEtherAndVerify(
-                    _message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT
-                );
+            if (msg.sender == refundTo) {
+                refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
             } else {
                 // If sender is another address, reward it and refund the rest
                 msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
-                _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+                refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
             }
             emit MessageExecuted(msgHash);
         } else if (isNewlyProven) {
@@ -488,7 +490,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function context() external view returns (Context memory ctx_) {
         ctx_ = _loadContext();
-        if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(_PLACEHOLDER)) {
+        if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(PLACEHOLDER)) {
             revert B_INVALID_CONTEXT();
         }
     }
@@ -592,9 +594,7 @@ contract Bridge is EssentialContract, IBridge {
         if (LibNetwork.isDencunSupported(block.chainid)) {
             _storeContext(bytes32(0), address(0), uint64(0));
         } else {
-            _storeContext(
-                bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER)
-            );
+            _storeContext(bytes32(PLACEHOLDER), address(uint160(PLACEHOLDER)), uint64(PLACEHOLDER));
         }
     }
 
