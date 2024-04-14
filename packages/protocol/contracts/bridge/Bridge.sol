@@ -27,6 +27,10 @@ contract Bridge is EssentialContract, IBridge {
     // The measured value is 97358
     uint256 public constant GAS_PROCESSING = 120_000;
 
+    /// @dev The gas limit reserved for overheads. `message.gasLimit - GAS_RESERVED` is the gas
+    /// limit used to invoke the message call on the destination chain.
+    uint256 public constant GAS_RESERVED = GAS_RECEIVING + GAS_PROCESSING;
+
     /// @dev Gas overhead if a message is received and processed in the same transaction.
     // The measured value is 122083
     uint256 public constant GAS_RECEIVING_AND_PROCESSING = 15_000;
@@ -314,18 +318,20 @@ contract Bridge is EssentialContract, IBridge {
                 // use the specified gas limit.
                 gasLimit = gasleft();
             } else {
-                gasLimit = _message.gasLimit;
+                unchecked {
+                    gasLimit = _message.gasLimit.max(GAS_RESERVED) - GAS_RESERVED;
 
-                // The "1/64th rule" refers to the gasleft at the time the call is made. When a
-                // contract makes a call to another contract, it can only forward 63/64 of the
-                // gas remaining (gasleft) at that moment, ensuring that there is always some
-                // gas reserved for the calling contract to complete its execution after the
-                // called contract finishes. This does not necessarily relate to the gas amount
-                // specified in the call itself, but rather to the actual remaining gas at the
-                // time of the call.
-                //
-                // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-                if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+                    // The "1/64th rule" refers to the gasleft at the time the call is made. When a
+                    // contract makes a call to another contract, it can only forward 63/64 of the
+                    // gas remaining (gasleft) at that moment, ensuring that there is always some
+                    // gas reserved for the calling contract to complete its execution after the
+                    // called contract finishes. This does not necessarily relate to the gas amount
+                    // specified in the call itself, but rather to the actual remaining gas at the
+                    // time of the call.
+                    //
+                    // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+                    if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+                }
             }
 
             status = _invokeMessageCall(_message, msgHash, gasLimit) //
