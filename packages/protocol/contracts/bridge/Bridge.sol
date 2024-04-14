@@ -25,7 +25,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev Gas overhead if a message is processed.
     // The measured value is 97358
-    uint256 public constant GAS_PROCESSING = 130_000;
+    uint256 public constant GAS_PROCESSING = 120_000;
 
     /// @dev Gas overhead if a message is received and processed in the same transaction.
     // The measured value is 122083
