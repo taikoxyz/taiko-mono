@@ -419,8 +419,8 @@ contract BridgeTest is TaikoTest {
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
-            fee: 1,
+            gasLimit: 1_000_000,
+            fee: 1_000_000,
             destChain: destChainId
         });
 
@@ -492,12 +492,12 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
         uint256 amount = 0 wei;
-        uint256 fee = 1 wei;
+        uint256 fee = 1_000_000 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
+            gasLimit: 1_000_000,
             fee: fee,
             destChain: destChainId
         });
@@ -508,7 +508,7 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_recall_message_ether() public {
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
+        uint256 fee = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
@@ -535,7 +535,7 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_recall_message_ether_with_2_steps() public {
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
+        uint256 fee = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
@@ -582,7 +582,7 @@ contract BridgeTest is TaikoTest {
         // ERCXXTokenVault (message.from) but directly from the Bridge
 
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
+        uint256 fee = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
@@ -605,12 +605,12 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount() public {
         uint256 amount = 0 wei;
-        uint256 fee = 1 wei;
+        uint256 fee = 1_000_000 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
+            gasLimit: 1_000_000,
             fee: fee,
             destChain: destChainId
         });

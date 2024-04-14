@@ -57,6 +57,7 @@ contract Bridge is EssentialContract, IBridge {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
+    error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
@@ -135,6 +136,8 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();
         }
+
+        if (_message.gasLimit == 0 && _message.fee != 0) revert B_INVALID_FEE();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
@@ -238,6 +241,7 @@ contract Bridge is EssentialContract, IBridge {
         bool processInTheSameTx;
         uint256 invocationDelay = getInvocationDelay();
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        bool transactedByOwner = msg.sender == _message.destOwner;
 
         if (receipt.receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
@@ -247,6 +251,11 @@ contract Bridge is EssentialContract, IBridge {
             receipt = ProofReceipt(uint64(block.timestamp), 0);
 
             if (invocationDelay != 0) {
+                // if (!transactedByOwner) {
+                //     receipt.feePaid = 0;
+                //     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
+                // }
+
                 proofReceipt[msgHash] = receipt;
                 emit MessageReceived(msgHash, _message, false);
                 return;
@@ -260,7 +269,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // If the gas limit is set to zero, only the owner can process the message.
-        bool transactedByOwner = msg.sender == _message.destOwner;
+
         if (!transactedByOwner && _message.gasLimit == 0) {
             revert B_PERMISSION_DENIED();
         }
@@ -306,13 +315,23 @@ contract Bridge is EssentialContract, IBridge {
         _updateMessageStatus(msgHash, status);
         emit MessageExecuted(msgHash);
 
-        // Refund the processing fee
-        if (transactedByOwner) {
-            refundAmount += _message.fee;
-        } else {
-            // If sender is another address, reward it and refund the rest
-            msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+        // Refund the processing fee and fee to refund
+        uint256 remainingFee;
+        unchecked {
+            // `receipt.feePaid > _message.fee` is only true if we have old data where
+            // receipt.feePaid bytes are used as an address
+            remainingFee = receipt.feePaid == 0 || receipt.feePaid > _message.fee
+                ? _message.fee
+                : _message.fee - receipt.feePaid;
         }
+
+        refundAmount += remainingFee;
+
+        if (!transactedByOwner) {
+            refundAmount -= remainingFee;
+            msg.sender.sendEtherAndVerify(remainingFee, _SEND_ETHER_GAS_LIMIT);
+        }
+
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
     }
 
@@ -536,7 +555,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
     /// @param _gasLimit The gas limit for the message call.
-    /// @return A boolean value indicating whether the message call was successful.
+    /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
     function _invokeMessageCall(
@@ -545,11 +564,12 @@ contract Bridge is EssentialContract, IBridge {
         uint256 _gasLimit
     )
         private
-        returns (bool)
+        returns (bool success_)
     {
         assert(_message.from != address(this));
 
         if (_gasLimit == 0) return false;
+
         if (
             _message.data.length >= 4 // msg can be empty
                 && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
@@ -557,9 +577,8 @@ contract Bridge is EssentialContract, IBridge {
         ) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        bool success = _message.to.sendEther(_message.value, _gasLimit, _message.data);
+        success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         _resetContext();
-        return success;
     }
 
     /// @notice Updates the status of a bridge message.
