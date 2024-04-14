@@ -1,2 +1,1 @@
-BridgeTest:test_Bridge_send_ether_to_contract_with_value() (gas: 297123)
-BridgeTest:test_Bridge_send_ether_to_contract_with_value_and_message_data() (gas: 333220)
+BridgeTest:test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() (gas: 43232)

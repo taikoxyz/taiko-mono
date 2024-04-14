@@ -187,13 +187,8 @@ contract BridgeTest is TaikoTest {
         IBridge.Status status = destChainBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
-        // Alice has 100 ether + 1000 wei balance, because we did not use the
-        // 'sendMessage'
-        // since we mocking the proof, so therefore the 1000 wei
-        // deduction/transfer did
-        // not happen
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
-        assertEq(Bob.balance, 1000);
+        assertEq(Alice.balance, 100_000_000_000_000_002_000);
+        assertEq(Bob.balance, 0); // max fee is 1000/1_000_000 = 0
     }
 
     function test_Bridge_processMessage_with_2_steps() public {
@@ -250,8 +245,6 @@ contract BridgeTest is TaikoTest {
     function test_Bridge_send_ether_to_contract_with_value() public {
         goodReceiver = new GoodReceiver();
 
-        uint256 totalBalance = address(goodReceiver).balance + Alice.balance;
-
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
@@ -260,9 +253,9 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
-            value: 2_000_000,
-            fee: 1_000_000,
-            gasLimit: 1000,
+            value: 5_000_000,
+            fee: 2_000_000,
+            gasLimit: 1_000_000,
             data: "",
             memo: ""
         });
@@ -281,8 +274,8 @@ contract BridgeTest is TaikoTest {
 
         assertEq(status == IBridge.Status.DONE, true);
 
-        assertEq(address(goodReceiver).balance, 2_000_000);
-        // assertEq(1_000_000, address(goodReceiver).balance +  Alice.balance);
+        assertEq(address(goodReceiver).balance, 5_000_000);
+        assertTrue(Bob.balance > 0 && Bob.balance < 2_000_000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {
@@ -411,12 +404,11 @@ contract BridgeTest is TaikoTest {
     }
 
     function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {
-        // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
+            gasLimit: 1,
             fee: 1,
             destChain: destChainId
         });
