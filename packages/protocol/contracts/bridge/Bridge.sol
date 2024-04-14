@@ -57,6 +57,7 @@ contract Bridge is EssentialContract, IBridge {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
+    error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
@@ -135,6 +136,8 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
             revert B_INVALID_USER();
         }
+
+        if (_message.gasLimit == 0 && _message.fee != 0) revert B_INVALID_FEE();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
