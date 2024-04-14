@@ -756,11 +756,10 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (uint256)
     {
-        assert(_remainingFee != 0);
+        if (_msgGasLimit || _msgFee == 0 || _remainingFee == 0) return 0;
 
-        uint256 maxGasPrice = _msgFee / _msgGasLimit;
-        uint256 gasPrice =
-            block.basefee >= maxGasPrice ? maxGasPrice : (block.basefee + maxGasPrice) >> 1;
-        return _remainingFee.min(gasPrice * _gasUsed);
+        uint256 maxFee = _msgFee * _gasUsed / _msgGasLimit;
+        uint256 baseFee = block.basefee * _gasUsed;
+        return _remainingFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
     }
 }
