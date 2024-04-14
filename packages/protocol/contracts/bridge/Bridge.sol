@@ -258,14 +258,15 @@ contract Bridge is EssentialContract, IBridge {
         if (!isNewlyProven && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
             revert B_INVOCATION_TOO_EARLY();
         }
+
         // If the gas limit is set to zero, only the owner can process the message.
-        if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
+        bool transactedByOwner = msg.sender == _message.destOwner;
+        if (!transactedByOwner && _message.gasLimit == 0) {
             revert B_PERMISSION_DENIED();
         }
 
         delete proofReceipt[msgHash];
 
-        // Process message differently based on the target address
         uint256 refundAmount;
         Status status;
         if (
@@ -278,7 +279,7 @@ contract Bridge is EssentialContract, IBridge {
             status = Status.DONE;
         } else {
             uint256 gasLimit;
-            if (msg.sender == _message.destOwner) {
+            if (transactedByOwner) {
                 // Use the remaining gas if called by a the destOwner, else
                 // use the specified gas limit.
                 gasLimit = gasleft();
@@ -297,15 +298,16 @@ contract Bridge is EssentialContract, IBridge {
                 if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
             }
 
-            status =
-                _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
+            status = _invokeMessageCall(_message, msgHash, gasLimit) //
+                ? Status.DONE
+                : Status.RETRIABLE;
         }
 
         _updateMessageStatus(msgHash, status);
         emit MessageExecuted(msgHash);
 
         // Refund the processing fee
-        if (msg.sender == _message.destOwner) {
+        if (transactedByOwner) {
             refundAmount += _message.fee;
         } else {
             // If sender is another address, reward it and refund the rest
@@ -324,25 +326,22 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
-        // be the message.destOwner.
-        if (_message.gasLimit == 0 || _isLastAttempt) {
-            if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
-        }
-
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
         }
 
-        // We check gasleft() against _message.gasLimit to make sure we not only need to bridge
-        // invocation call to succeed, we also need it to succeed with a gas limit no smaller than
-        // the message's gasLimit.
-        if (
-            _message.gasLimit != 0 && msg.sender != _message.destOwner
-                && _message.gasLimit > (gasleft() * 63) >> 6
-        ) {
-            revert B_NOT_ENOUGH_GASLEFT();
+        if (msg.sender != _message.destOwner) {
+            // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
+            // be the message.destOwner.
+            if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
+
+            // We check gasleft() against _message.gasLimit to make sure we not only need to bridge
+            // invocation call to succeed, we also need it to succeed with a gas limit no smaller
+            // than the message's gasLimit.
+            if (_message.gasLimit != 0 && _message.gasLimit > (gasleft() * 63) >> 6) {
+                revert B_NOT_ENOUGH_GASLEFT();
+            }
         }
 
         // Attempt to invoke the messageCall.
