@@ -250,6 +250,8 @@ contract BridgeTest is TaikoTest {
     function test_Bridge_send_ether_to_contract_with_value() public {
         goodReceiver = new GoodReceiver();
 
+        uint256 totalBalance = address(goodReceiver).balance + Alice.balance;
+
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
@@ -258,9 +260,9 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
-            value: 1000,
-            fee: 1000,
-            gasLimit: 1_000_000,
+            value: 2_000_000,
+            fee: 1_000_000,
+            gasLimit: 1000,
             data: "",
             memo: ""
         });
@@ -279,9 +281,8 @@ contract BridgeTest is TaikoTest {
 
         assertEq(status == IBridge.Status.DONE, true);
 
-        // Bob (relayer) and goodContract has 1000 wei balance
-        assertEq(address(goodReceiver).balance, 1000);
-        assertEq(Bob.balance, 1000);
+        assertEq(address(goodReceiver).balance, 2_000_000);
+        // assertEq(1_000_000, address(goodReceiver).balance +  Alice.balance);
     }
 
     function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {

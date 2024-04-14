@@ -581,7 +581,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
     /// @param _gasLimit The gas limit for the message call.
-    /// @return success_ A boolean value indicating whether the message call was
+    /// @return A boolean value indicating whether the message call was
     /// successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
@@ -591,25 +591,22 @@ contract Bridge is EssentialContract, IBridge {
         uint256 _gasLimit
     )
         private
-        returns (bool success_)
+        returns (bool)
     {
-        if (_gasLimit == 0) revert B_INVALID_GAS_LIMIT();
-        assert(_message.from != address(this));
-
-        _storeContext(_msgHash, _message.from, _message.srcChainId);
+        if (_gasLimit == 0) return false;
 
         if (
             _message.data.length >= 4 // msg can be empty
                 && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
                 && _message.to.isContract()
-        ) {
-            success_ = false;
-        } else {
-            success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
-        }
+        ) return false;
 
-        // Must reset the context after the message call
+        assert(_message.from != address(this));
+        _storeContext(_msgHash, _message.from, _message.srcChainId);
+        bool success = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         _resetContext();
+
+        return success;
     }
 
     /// @notice Updates the status of a bridge message.
