@@ -574,7 +574,6 @@ contract BridgeTest is TaikoTest {
         // ERCXXTokenVault (message.from) but directly from the Bridge
 
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
