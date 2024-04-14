@@ -10,9 +10,9 @@ interface ISnapshot {
     function snapshot() external returns (uint256);
 }
 
-/// @title LibAutoSnapshot
+/// @title LibSnapshot
 /// @custom:security-contact security@taiko.xyz
-library LibAutoSnapshot {
+library LibSnapshot {
     uint256 public constant SNAPSHOT_INTERVAL = 200_000; // uint = 1 L1 block
 
     /// @notice Emitted when the Taiko token snapshot is taken.

@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/EssentialContract.sol";
-import "../common/LibAutoSnapshot.sol";
+import "../common/LibSnapshot.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
@@ -180,7 +180,7 @@ contract TaikoL2 is EssentialContract {
 
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, true);
         if (tko != address(0)) {
-            uint64 idx = LibAutoSnapshot.autoSnapshot(tko, _l1BlockId, lastSnapshotIdx);
+            uint64 idx = LibSnapshot.autoSnapshot(tko, _l1BlockId, lastSnapshotIdx);
             if (idx != 0) lastSnapshotIdx = idx;
         }
 

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../common/LibAutoSnapshot.sol";
+import "../../common/LibSnapshot.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
@@ -239,7 +239,7 @@ library LibProposing {
     )
         private
     {
-        uint32 idx = LibAutoSnapshot.autoSnapshot(_taikoToken, block.number, _slotB.lastSnapshotIdx);
+        uint32 idx = LibSnapshot.autoSnapshot(_taikoToken, block.number, _slotB.lastSnapshotIdx);
         if (idx != 0) {
             _state.slotB.lastSnapshotIdx = idx;
         }
