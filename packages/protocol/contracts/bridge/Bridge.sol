@@ -263,10 +263,10 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         delete proofReceipt[msgHash];
+        emit MessageExecuted(msgHash);
 
         // Process message differently based on the target address
         uint256 refundAmount;
-        IBridge.Status status;
         if (
             _message.to == address(0) || _message.to == address(this)
                 || _message.to == signalService
@@ -274,7 +274,7 @@ contract Bridge is EssentialContract, IBridge {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             refundAmount = _message.value;
-            status = Status.DONE;
+            _updateMessageStatus(msgHash, Status.DONE);
         } else {
             uint256 gasLimit;
             if (msg.sender == _message.destOwner) {
@@ -282,7 +282,6 @@ contract Bridge is EssentialContract, IBridge {
                 // use the specified gas limit.
                 gasLimit = gasleft();
             } else {
-                gasLimit = _message.gasLimit;
                 // The "1/64th rule" refers to the gasleft at the time the call is made. When a
                 // contract makes a call to another contract, it can only forward 63/64 of the
                 // gas remaining (gasleft) at that moment, ensuring that there is always some
@@ -292,23 +291,29 @@ contract Bridge is EssentialContract, IBridge {
                 // time of the call.
                 //
                 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-                if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+                if (_message.gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
+
+                gasLimit = _message.gasLimit;
             }
 
-            status = _invokeMessageCall(_message, msgHash, gasLimit) //
-                ? Status.DONE
-                : Status.RETRIABLE;
+            if (_invokeMessageCall(_message, msgHash, gasLimit)) {
+                _updateMessageStatus(msgHash, Status.DONE);
+            } else {
+                _updateMessageStatus(msgHash, Status.RETRIABLE);
+            }
         }
 
-        _updateMessageStatus(msgHash, status);
-        emit MessageExecuted(msgHash);
+        // Determine the refund recipient
+        address refundTo = _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
 
-        if (msg.sender == _message.destOwner) {
-            refundAmount += _message.fee;
+        // Refund the processing fee
+        if (msg.sender == refundTo) {
+            refundTo.sendEtherAndVerify(_message.fee + refundAmount, _SEND_ETHER_GAS_LIMIT);
         } else {
+            // If sender is another address, reward it and refund the rest
             msg.sender.sendEtherAndVerify(_message.fee, _SEND_ETHER_GAS_LIMIT);
+            refundTo.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
-        _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
     }
 
     /// @inheritdoc IBridge
@@ -343,11 +348,11 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        IBridge.Status status = _invokeMessageCall(_message, msgHash, gasleft()) //
-            ? Status.DONE
-            : Status.FAILED;
-
-        _updateMessageStatus(msgHash, status);
+        if (_invokeMessageCall(_message, msgHash, gasleft())) {
+            _updateMessageStatus(msgHash, Status.DONE);
+        } else if (_isLastAttempt) {
+            _updateMessageStatus(msgHash, Status.FAILED);
+        }
         emit MessageRetried(msgHash);
     }
 
