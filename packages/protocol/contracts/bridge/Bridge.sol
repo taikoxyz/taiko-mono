@@ -294,7 +294,6 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // If the gas limit is set to zero, only the owner can process the message.
-
         if (!transactedByOwner && _message.gasLimit == 0) {
             revert B_PERMISSION_DENIED();
         }
