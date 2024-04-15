@@ -268,7 +268,7 @@ contract Bridge is EssentialContract, IBridge {
 
             if (invocationDelay != 0) {
                 if (!transactedByOwner) {
-                receipt.gasUsed = GAS_RECEIVING;
+                    receipt.gasUsed = GAS_RECEIVING;
                     receipt.feePaid = uint160(
                         _calcFee(
                             _message.fee,
