@@ -269,12 +269,12 @@ contract Bridge is EssentialContract, IBridge {
             if (invocationDelay != 0) {
                 if (!transactedByOwner) {
                     receipt.gasUsed = GAS_RECEIVING;
-                    receipt.feePaid = uint160(
+                    receipt.feePaid = uint128(
                         _calcFee(
                             _message.fee,
                             _message.gasLimit,
                             GAS_RECEIVING,
-                            _message.fee.min(type(uint160).max)
+                            _message.fee.min(type(uint128).max)
                         )
                     );
 
