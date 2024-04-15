@@ -271,7 +271,7 @@ export abstract class Bridge {
     if (!message) throw new ReleaseError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProofForRecall({ bridgeTx });
 
-    log('Estimating gas for releaseMessage', bridgeContract.address, [message, proof]);
+    log('Estimating gas for recallMessage', bridgeContract.address, [message, proof]);
 
     const estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
     log('Estimated gas for recallMessage', estimatedGas);

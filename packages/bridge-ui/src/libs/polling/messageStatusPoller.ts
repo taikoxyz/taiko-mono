@@ -1,5 +1,6 @@
+import { getTransactionReceipt } from '@wagmi/core';
 import { EventEmitter } from 'events';
-import { createPublicClient, getContract, type Hash, http, zeroAddress } from 'viem';
+import { createPublicClient, getContract, type Hash, type Hex, http, toHex, zeroAddress } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -10,6 +11,7 @@ import { chains } from '$libs/chain';
 import { BridgeTxPollingError, NoDelaysForBridgeError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
+import { config } from '$libs/wagmi';
 
 import { isTransactionProcessable } from '../bridge/isTransactionProcessable';
 import { type BridgeTransaction, type GetProofReceiptResponse, MessageStatus } from '../bridge/types';
@@ -115,6 +117,13 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     try {
       const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([bridgeTx.msgHash]);
       emitter.emit(PollingEvent.STATUS, messageStatus);
+
+      let blockNumber: Hex;
+      if (!bridgeTx.blockNumber) {
+        const receipt = await getTransactionReceipt(config, { hash: bridgeTx.hash });
+        blockNumber = toHex(receipt.blockNumber);
+        bridgeTx.blockNumber = blockNumber;
+      }
 
       // 1. check if we already have a proof receipt for this message hash
       // 2. if not, fetch it and store it

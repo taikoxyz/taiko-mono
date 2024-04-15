@@ -213,13 +213,11 @@ export class BridgeProver {
   async getEncodedSignalProofForRecall({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
     const { message, msgHash } = bridgeTx;
 
-    // TODO do we need the blocknumber of the source chain?
-
     log('msgHash', msgHash);
     if (!message) throw new ProofGenerationError('Message is not defined');
     const { srcChainId, destChainId } = message;
 
-    let previousDestChainId = destChainId; // Initialize with the original source chain ID
+    let previousDestChainId = destChainId;
     const key = await this.getSignalSlot(
       Number(destChainId),
       routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress,
@@ -307,34 +305,7 @@ export class BridgeProver {
       const destSignalServiceAddress =
         routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
 
-      // const syncedChainData = await readContract(config, {
-      //   address: srcSignalServiceAddress,
-      //   abi: signalServiceAbi,
-      //   functionName: 'getSyncedChainData',
-      //   args: [destChainId, keccak256(toBytes('STATE_ROOT')), 0n],
-      //   chainId: Number(srcChainId),
-      // });
-
-      // log('syncedChainData', syncedChainData);
-
-      // const latestSyncedblock = syncedChainData[0];
-
-      // const synced = latestSyncedblock >= hexToBigInt(blockNumber);
-      // log('synced', synced, latestSyncedblock, hexToBigInt(blockNumber));
-      // if (!synced) {
-      //   throw new BlockNotSyncedError('block is not synced yet');
-      // }
-
-      // Get the block based on the blocknumber from the source chain
-      // let block;
-      // try {
       const block = await destChainClient.getBlock({ blockTag: 'latest' });
-      //   if (!block || block.hash === null || block.number === null) {
-      //     throw new BlockNotFoundError({ blockNumber: latestSyncedblock });
-      //   }
-      // } catch {
-      //   throw new BlockNotFoundError({ blockNumber: latestSyncedblock });
-      // }
 
       const signal = await this.getSignalForFailedMessage(msgHash);
 
@@ -437,17 +408,19 @@ export class BridgeProver {
 
     log(`calling eth_getProof with ${srcSignalServiceAddress}, ${key}, ${numberToHex(latestBlockNumber as bigint)}`);
 
-    const hopProof = await clientWithEthProofRequest.request({
+    const ethProof = await clientWithEthProofRequest.request({
       method: 'eth_getProof',
       params: [srcSignalServiceAddress, [key], numberToHex(latestBlockNumber as bigint)],
     });
 
-    log('Proof from eth_getProof', hopProof);
+    log('Proof from eth_getProof', ethProof);
 
-    if (hopProof.storageProof[0].value === toHex(0)) {
+    // check if signal is failed:
+
+    if (ethProof.storageProof[0].value === toHex(0)) {
       throw new ProofGenerationError('proof will not be valid, expected storageProof to not be 0 but was not');
     }
-    return hopProof;
+    return ethProof;
   }
 
   getLatestSrcBlockNumber = async (srcChainId: bigint, destChainId: bigint) => {
