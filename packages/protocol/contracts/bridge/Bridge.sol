@@ -31,12 +31,15 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     uint32 private constant _EXTRA_GAS_OVERHEAD = 10_000;
+
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
     /// We added _EXTRA_GAS_OVERHEAD more gas on top of a meassured value.
     uint32 public constant GAS_OVERHEAD_RECEIVING = 71_000 + _EXTRA_GAS_OVERHEAD;
+
     /// @dev The gas overhead for invoking a message if the message is processed in two steps.
     /// We added _EXTRA_GAS_OVERHEAD more gas on top of a meassured value.
     uint32 public constant GAS_OVERHEAD_INVOKING = 18_000 + _EXTRA_GAS_OVERHEAD;
+
     /// @dev The gas overhead for both receiving and invoking a message if the message is processed
     /// in a single step.
     /// We added _EXTRA_GAS_OVERHEAD more gas on top of a meassured value.
