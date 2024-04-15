@@ -190,7 +190,7 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            receipt = ProofReceipt(uint64(block.timestamp), 0);
+            receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = receipt;
@@ -248,11 +248,12 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_RECEIVED();
             }
 
-            receipt = ProofReceipt(uint64(block.timestamp), 0);
+            receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
             if (invocationDelay != 0) {
                 // if (!transactedByOwner) {
                 //     receipt.feePaid = 0;
+                //     receipt.gasUsed = 0;
                 //     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 // }
 
