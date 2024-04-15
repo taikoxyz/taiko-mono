@@ -185,9 +185,10 @@ contract Bridge is EssentialContract, IBridge {
                     revert B_MESSAGE_NOT_SENT();
                 }
 
-                bytes32 failureSignal = signalForFailedMessage(msgHash);
                 if (
-                    !_proveSignalReceived(signalService, failureSignal, _message.destChainId, _proof)
+                    !_proveSignalReceived(
+                        signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
+                    )
                 ) {
                     revert B_NOT_FAILED();
                 }
@@ -240,10 +241,15 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        uint256 gas = gasleft();
+        uint256 gas;
+
+        // If the gas limit is set to zero, only the owner can process the message.
         bool transactedByOwner = msg.sender == _message.destOwner;
-        if (!transactedByOwner && gas < _message.gasLimit) {
-            revert B_INVALID_GAS_LIMIT();
+        if (!transactedByOwner) {
+            if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
+
+            gas = gasleft();
+            if (gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
         }
 
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
@@ -281,11 +287,6 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        // If the gas limit is set to zero, only the owner can process the message.
-        if (!transactedByOwner && _message.gasLimit == 0) {
-            revert B_PERMISSION_DENIED();
-        }
-
         delete proofReceipt[msgHash];
 
         uint256 refundAmount;
@@ -299,26 +300,6 @@ contract Bridge is EssentialContract, IBridge {
             refundAmount = _message.value;
             status = Status.DONE;
         } else {
-            // uint256 gasLimit;
-            // if (transactedByOwner) {
-            //     // Use the remaining gas if called by a the destOwner, else
-            //     // use the specified gas limit.
-            //     gasLimit = gasleft();
-            // } else {
-            //     gasLimit = _message.gasLimit;
-
-            //     // The "1/64th rule" refers to the gasleft at the time the call is made. When a
-            //     // contract makes a call to another contract, it can only forward 63/64 of the
-            //     // gas remaining (gasleft) at that moment, ensuring that there is always some
-            //     // gas reserved for the calling contract to complete its execution after the
-            //     // called contract finishes. This does not necessarily relate to the gas amount
-            //     // specified in the call itself, but rather to the actual remaining gas at the
-            //     // time of the call.
-            //     //
-            //     // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-            //     if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
-            // }
-
             status = _invokeMessageCall(_message, msgHash) //
                 ? Status.DONE
                 : Status.RETRIABLE;
