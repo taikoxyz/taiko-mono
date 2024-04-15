@@ -211,13 +211,10 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_MESSAGE_NOT_SENT();
             }
 
-            if (
-                !_proveSignalReceived(
-                    signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
-                )
-            ) {
-                revert B_NOT_FAILED();
-            }
+            bool received = _proveSignalReceived(
+                signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
+            );
+            if (!received) revert B_NOT_FAILED();
 
             receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
@@ -281,13 +278,10 @@ contract Bridge is EssentialContract, IBridge {
         local.invocationDelay = getInvocationDelay();
 
         if (receipt.receivedAt == 0) {
-            if (
-                !_proveSignalReceived(
-                    local.signalService, local.msgHash, _message.srcChainId, _proof
-                )
-            ) {
-                revert B_NOT_RECEIVED();
-            }
+            bool received = _proveSignalReceived(
+                local.signalService, local.msgHash, _message.srcChainId, _proof
+            );
+            if (!received) revert B_NOT_RECEIVED();
 
             receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
