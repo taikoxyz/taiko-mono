@@ -44,7 +44,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev The gas overhead for both receiving and invoking a message if the message is processed
     /// in a single step.
     /// We added _EXTRA_GAS_OVERHEAD more gas on top of a measured value.
-    uint32 public constant GAS_OVERHEAD_RECEIVING_AND_INVOKING = 53_000 + _EXTRA_GAS_OVERHEAD;
+    uint32 public constant GAS_OVERHEAD = 53_000 + _EXTRA_GAS_OVERHEAD;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -328,10 +328,18 @@ contract Bridge is EssentialContract, IBridge {
             // mark message as DONE
             local.refundAmount = _message.value;
             _updateMessageStatus(local.msgHash, Status.DONE);
-        } else if (_invokeMessageCall(_message, local.msgHash)) {
-            _updateMessageStatus(local.msgHash, Status.DONE);
         } else {
-            _updateMessageStatus(local.msgHash, Status.RETRIABLE);
+            uint256 invocationGasLimit = _message.gasLimit.max(GAS_OVERHEAD) - GAS_OVERHEAD;
+            // check 1/64 rules
+
+            if (
+                invocationGasLimit == 0
+                    || !_invokeMessageCall(_message, local.msgHash, _message.gasLimit - GAS_OVERHEAD)
+            ) {
+                _updateMessageStatus(local.msgHash, Status.RETRIABLE);
+            } else {
+                _updateMessageStatus(local.msgHash, Status.DONE);
+            }
         }
 
         // Refund the processing fee and fee to refund
@@ -347,7 +355,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (local.notProcessedByOwner) {
             uint256 overhead = local.processInTheSameTx //
-                ? GAS_OVERHEAD_RECEIVING_AND_INVOKING
+                ? GAS_OVERHEAD
                 : GAS_OVERHEAD_INVOKING;
 
             uint256 fee = _calcFee(
@@ -384,7 +392,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(_message, msgHash)) {
+        if (_invokeMessageCall(_message, msgHash, gasleft())) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -579,7 +587,8 @@ contract Bridge is EssentialContract, IBridge {
     /// message call.
     function _invokeMessageCall(
         Message calldata _message,
-        bytes32 _msgHash
+        bytes32 _msgHash,
+        uint256 _gasLimit
     )
         private
         returns (bool success_)
@@ -593,7 +602,7 @@ contract Bridge is EssentialContract, IBridge {
         ) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        success_ = _message.to.sendEther(_message.value, gasleft(), _message.data);
+        success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         _resetContext();
     }
 
