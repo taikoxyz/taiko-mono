@@ -175,6 +175,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
 
+        // Wrap with {} to get around of Stack too deep error
         {
             bool processInTheSameTx;
             uint256 invocationDelay = getInvocationDelay();
@@ -255,7 +256,7 @@ contract Bridge is EssentialContract, IBridge {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        // wrap with {} to get around of Stack too deep error
+        // Wrap with {} to get around of Stack too deep error
         {
             bool processInTheSameTx;
             uint256 invocationDelay = getInvocationDelay();
