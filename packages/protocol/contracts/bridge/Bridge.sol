@@ -380,15 +380,16 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         if (msg.sender != _message.destOwner) {
-            // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
-            // be the message.destOwner.
-            if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-
-            // We check gasleft() against _message.gasLimit to make sure we not only need to bridge
-            // invocation call to succeed, we also need it to succeed with a gas limit no smaller
-            // than the message's gasLimit.
-            if (_message.gasLimit != 0 && _message.gasLimit > (gasleft() * 63) >> 6) {
-                revert B_NOT_ENOUGH_GASLEFT();
+            if (_message.gasLimit == 0) {
+                revert B_PERMISSION_DENIED();
+            } else {
+                if (_isLastAttempt) revert B_PERMISSION_DENIED();
+                // We check gasleft() against _message.gasLimit to make sure we not only need to
+                // bridge invocation call to succeed, we also need it to succeed with a gas limit no
+                // smaller than the message's gasLimit.
+                if (_message.gasLimit > (gasleft() * 63) >> 6) {
+                    revert B_NOT_ENOUGH_GASLEFT();
+                }
             }
         }
 
