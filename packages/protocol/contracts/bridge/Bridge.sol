@@ -329,16 +329,14 @@ contract Bridge is EssentialContract, IBridge {
             local.refundAmount = _message.value;
             _updateMessageStatus(local.msgHash, Status.DONE);
         } else {
-            uint256 invocationGasLimit = _message.gasLimit.max(GAS_OVERHEAD) - GAS_OVERHEAD;
-            // check 1/64 rules
+            uint256 invocationGasLimit = _invocationGasLimit(_message.gasLimit);
 
-            if (
-                invocationGasLimit == 0
-                    || !_invokeMessageCall(_message, local.msgHash, _message.gasLimit - GAS_OVERHEAD)
-            ) {
+            if (invocationGasLimit == 0) {
                 _updateMessageStatus(local.msgHash, Status.RETRIABLE);
             } else {
-                _updateMessageStatus(local.msgHash, Status.DONE);
+                if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_NOT_ENOUGH_GASLEFT();
+                bool success = _invokeMessageCall(_message, local.msgHash, invocationGasLimit);
+                _updateMessageStatus(local.msgHash, success ? Status.DONE : Status.RETRIABLE);
             }
         }
 
@@ -382,17 +380,23 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        if ((_message.gasLimit == 0 || _isLastAttempt) && msg.sender != _message.destOwner) {
-            revert B_PERMISSION_DENIED();
-        }
-
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
         }
 
+        uint256 invocationGasLimit;
+        if (msg.sender != _message.destOwner) {
+            if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
+
+            invocationGasLimit = _invocationGasLimit(_message.gasLimit);
+            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_NOT_ENOUGH_GASLEFT();
+        } else {
+            invocationGasLimit = gasleft();
+        }
+
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(_message, msgHash, gasleft())) {
+        if (_invokeMessageCall(_message, msgHash, invocationGasLimit)) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -759,5 +763,9 @@ contract Bridge is EssentialContract, IBridge {
         uint256 maxFee = _msgFee * _gasUsed / _msgGasLimit;
         uint256 baseFee = block.basefee * _gasUsed;
         return _remainingFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
+    }
+
+    function _invocationGasLimit(uint256 _gasLimit) private pure returns (uint256) {
+        return _gasLimit.max(GAS_OVERHEAD) - GAS_OVERHEAD;
     }
 }
