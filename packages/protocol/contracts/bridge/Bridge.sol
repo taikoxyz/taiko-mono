@@ -28,6 +28,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash;
         address signalService;
         bool processInTheSameTx;
+        bool notProcessedByOwner;
     }
 
     uint32 private constant _EXTRA_GAS_OVERHEAD = 10_000;
@@ -266,9 +267,10 @@ contract Bridge is EssentialContract, IBridge {
     {
         Local memory local;
         local.gas = gasleft();
+        local.notProcessedByOwner = msg.sender != _message.destOwner;
 
         // If the gas limit is set to zero, only the owner can process the message.
-        if (msg.sender != _message.destOwner) {
+        if (local.notProcessedByOwner) {
             if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
             if (local.gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
         }
@@ -290,7 +292,7 @@ contract Bridge is EssentialContract, IBridge {
             receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
             if (local.invocationDelay != 0) {
-                if (msg.sender != _message.destOwner) {
+                if (local.notProcessedByOwner) {
                     receipt.gasUsed =
                         uint32(local.gas - gasleft() + GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
 
@@ -349,7 +351,7 @@ contract Bridge is EssentialContract, IBridge {
 
         local.refundAmount += local.remainingFee;
 
-        if (msg.sender != _message.destOwner) {
+        if (local.notProcessedByOwner) {
             uint256 overhead = local.processInTheSameTx //
                 ? GAS_OVERHEAD_RECEIVING_AND_INVOKING
                 : GAS_OVERHEAD_INVOKING;
