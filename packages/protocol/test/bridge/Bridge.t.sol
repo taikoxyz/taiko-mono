@@ -20,13 +20,8 @@ contract UntrustedSendMessageRelayer {
 }
 
 contract TwoStepBridge is Bridge {
-    function getInvocationDelays()
-        public
-        pure
-        override
-        returns (uint256 invocationDelay, uint256 invocationExtraDelay)
-    {
-        return (10 hours, 2 hours);
+    function getInvocationDelay() public pure override returns (uint256) {
+        return 10 hours;
     }
 }
 
@@ -174,7 +169,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             refundTo: Alice,
-            value: 1000,
+            value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -196,10 +191,10 @@ contract BridgeTest is TaikoTest {
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
-        // deduction/transfer did
-        // not happen
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
-        assertEq(Bob.balance, 1000);
+        // deduction/transfer did not happen
+        assertTrue(Alice.balance > 100 ether + 10_000);
+        assertTrue(Alice.balance < 100 ether + 10_000 + 1000);
+        assertTrue(Bob.balance > 0 && Bob.balance < 1000);
     }
 
     function test_Bridge_processMessage_with_2_steps() public {
@@ -212,7 +207,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: Alice,
             refundTo: Alice,
-            value: 1000,
+            value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -233,7 +228,7 @@ contract BridgeTest is TaikoTest {
         // Still new ! Because of the delay, no processing happened
         assertEq(status == IBridge.Status.NEW, true);
         // Alice has 100 ether
-        assertEq(Alice.balance, 100_000_000_000_000_000_000);
+        assertEq(Alice.balance, 100 ether);
 
         // Go in the future, 5 hours, still not processable
         vm.warp(block.timestamp + 5 hours);
@@ -246,67 +241,16 @@ contract BridgeTest is TaikoTest {
         // Carol cannot process (as not preferred executor)
         vm.warp(block.timestamp + 6 hours);
 
-        // Too eraly for Carol
-        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        vm.prank(Carol, Carol);
-        dest2StepBridge.processMessage(message, proof);
-
         // Not too early for Bob
+
+        uint256 bobBalance = Bob.balance;
+
         vm.prank(Bob, Bob);
         dest2StepBridge.processMessage(message, proof);
 
-        // Alice has 100 ether + 1000 wei balance
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
-    }
-
-    function test_Bridge_processMessage_with_2_steps_and_not_preferred() public {
-        IBridge.Message memory message = IBridge.Message({
-            id: 0,
-            from: address(bridge),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
-            srcOwner: Alice,
-            destOwner: Alice,
-            to: Alice,
-            refundTo: Alice,
-            value: 1000,
-            fee: 1000,
-            gasLimit: 1_000_000,
-            data: "",
-            memo: ""
-        });
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = dest2StepBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-        // This in is the first transaction setting the proofReceipt
-        vm.prank(Bob, Bob);
-        dest2StepBridge.processMessage(message, proof);
-
-        IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
-        // Still new ! Because of the delay, no processing happened
-        assertEq(status == IBridge.Status.NEW, true);
-        // Alice has 100 ether
-        assertEq(Alice.balance, 100_000_000_000_000_000_000);
-
-        // Go in the future, 11 hours, still not processable
-        vm.warp(block.timestamp + 11 hours);
-
-        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        vm.prank(Carol, Carol);
-        dest2StepBridge.processMessage(message, proof);
-
-        // Go in the future, +2 hours, all in all 13 hours
-        vm.warp(block.timestamp + 2 hours);
-
-        vm.prank(Carol, Carol);
-        dest2StepBridge.processMessage(message, proof);
-
-        // Alice has 100 ether + 1000 wei balance
-        assertEq(Alice.balance, 100_000_000_000_000_001_000);
+        assertTrue(Bob.balance < bobBalance + 1000);
+        assertTrue(Alice.balance > 100 ether + 1000);
+        assertTrue(Alice.balance < 100 ether + 11_000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value() public {
@@ -321,7 +265,7 @@ contract BridgeTest is TaikoTest {
             destOwner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
-            value: 1000,
+            value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
             data: "",
@@ -343,8 +287,8 @@ contract BridgeTest is TaikoTest {
         assertEq(status == IBridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
-        assertEq(address(goodReceiver).balance, 1000);
-        assertEq(Bob.balance, 1000);
+        assertEq(address(goodReceiver).balance, 10_000);
+        assertTrue(Bob.balance > 0 && Bob.balance < 1000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {
@@ -479,8 +423,8 @@ contract BridgeTest is TaikoTest {
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
-            fee: 1,
+            gasLimit: 1_000_000,
+            fee: 1_000_000,
             destChain: destChainId
         });
 
@@ -552,12 +496,12 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
         uint256 amount = 0 wei;
-        uint256 fee = 1 wei;
+        uint256 fee = 1_000_000 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
+            gasLimit: 1_000_000,
             fee: fee,
             destChain: destChainId
         });
@@ -568,7 +512,7 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_recall_message_ether() public {
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
+        uint256 fee = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
@@ -595,7 +539,7 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_recall_message_ether_with_2_steps() public {
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
+        uint256 fee = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
@@ -642,7 +586,7 @@ contract BridgeTest is TaikoTest {
         // ERCXXTokenVault (message.from) but directly from the Bridge
 
         uint256 amount = 1 ether;
-        uint256 fee = 1 wei;
+        uint256 fee = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
@@ -665,12 +609,12 @@ contract BridgeTest is TaikoTest {
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount() public {
         uint256 amount = 0 wei;
-        uint256 fee = 1 wei;
+        uint256 fee = 1_000_000 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
             to: Alice,
             value: 0,
-            gasLimit: 0,
+            gasLimit: 1_000_000,
             fee: fee,
             destChain: destChainId
         });
@@ -803,13 +747,12 @@ contract BridgeTest is TaikoTest {
         vm.stopPrank();
 
         vm.prank(message.destOwner);
+        vm.expectRevert(Bridge.B_RETRY_FAILED.selector);
         destChainBridge.retryMessage(message, false);
-        IBridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
-        assertEq(postRetryStatus == IBridge.Status.RETRIABLE, true);
 
         vm.prank(message.destOwner);
         destChainBridge.retryMessage(message, true);
-        postRetryStatus = destChainBridge.messageStatus(msgHash);
+        IBridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == IBridge.Status.FAILED, true);
     }
 

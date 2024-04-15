@@ -30,16 +30,12 @@ interface IBridge {
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund on the destination chain.
-        // If blank, defaults to destOwner.
-        address refundTo;
+        address refundTo; // deprecated and ignored
         // value to invoke on the destination chain.
         uint256 value;
         // Processing fee for the relayer.
         uint256 fee;
-        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
-        // process the message. This value will mostly be respected when retrying
-        // (gas > gas_limit) but not when processed by the owner.
+        // gasLimit that the processMessage call must have.
         uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;
@@ -51,11 +47,10 @@ interface IBridge {
     struct ProofReceipt {
         // The time a message is marked as received on the destination chain
         uint64 receivedAt;
-        // The address that can execute the message after the invocation delay without an extra
-        // delay.
-        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
-        // invoke the message.
-        address preferredExecutor;
+        // The amount of gas paid for receiving the message.
+        uint32 gasUsed;
+        // The Ether fee paid for gasUsed.
+        uint128 feePaid;
     }
 
     // Struct representing the context of a bridge operation.
@@ -84,10 +79,6 @@ interface IBridge {
     /// @notice Emitted when a message is executed.
     /// @param msgHash The hash of the message.
     event MessageExecuted(bytes32 indexed msgHash);
-
-    /// @notice Emitted when a message is retried.
-    /// @param msgHash The hash of the message.
-    event MessageRetried(bytes32 indexed msgHash);
 
     /// @notice Emitted when a message is marked failed.
     /// @param msgHash The hash of the message.

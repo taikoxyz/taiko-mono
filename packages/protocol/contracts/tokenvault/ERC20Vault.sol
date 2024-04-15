@@ -36,7 +36,7 @@ contract ERC20Vault is BaseVault {
         uint256 amount;
         uint256 gasLimit;
         uint256 fee;
-        address refundTo;
+        address refundTo; // deprecated and ignored
         string memo;
     }
 
