@@ -89,6 +89,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
+    error B_INSUFFICIENT_GAS();
     error B_INVOCATION_TOO_EARLY();
     error B_MESSAGE_FAILED();
     error B_MESSAGE_NOT_PROVEN();
@@ -96,7 +97,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SUSPENDED();
     error B_MESSAGE_SUSPENDED();
     error B_NON_RETRIABLE();
-    error B_NOT_ENOUGH_GASLEFT();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
@@ -164,7 +164,11 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_USER();
         }
 
-        if (_message.gasLimit == 0 && _message.fee != 0) revert B_INVALID_FEE();
+        if (_message.gasLimit == 0) {
+            if (_message.fee != 0) revert B_INVALID_FEE();
+        } else if (_invocationGasLimit(_message.gasLimit) == 0) {
+            revert B_INVALID_GAS_LIMIT();
+        }
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
@@ -267,9 +271,8 @@ contract Bridge is EssentialContract, IBridge {
         local.notProcessedByOwner = msg.sender != _message.destOwner;
 
         // If the gas limit is set to zero, only the owner can process the message.
-        if (local.notProcessedByOwner) {
-            if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
-            if (local.gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
+        if (_message.gasLimit == 0 && local.notProcessedByOwner) {
+            revert B_PERMISSION_DENIED();
         }
 
         ProofReceipt memory receipt;
@@ -334,7 +337,7 @@ contract Bridge is EssentialContract, IBridge {
             if (invocationGasLimit == 0) {
                 _updateMessageStatus(local.msgHash, Status.RETRIABLE);
             } else {
-                if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_NOT_ENOUGH_GASLEFT();
+                if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
                 bool success = _invokeMessageCall(_message, local.msgHash, invocationGasLimit);
                 _updateMessageStatus(local.msgHash, success ? Status.DONE : Status.RETRIABLE);
             }
@@ -390,7 +393,7 @@ contract Bridge is EssentialContract, IBridge {
             if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
 
             invocationGasLimit = _invocationGasLimit(_message.gasLimit);
-            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_NOT_ENOUGH_GASLEFT();
+            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
         } else {
             invocationGasLimit = gasleft();
         }
