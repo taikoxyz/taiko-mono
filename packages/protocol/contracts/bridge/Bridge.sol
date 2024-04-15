@@ -374,23 +374,13 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
+        if ((_message.gasLimit == 0 || _isLastAttempt) && msg.sender != _message.destOwner) {
+            revert B_PERMISSION_DENIED();
+        }
+
         bytes32 msgHash = hashMessage(_message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
-        }
-
-        if (msg.sender != _message.destOwner) {
-            if (_message.gasLimit == 0) {
-                revert B_PERMISSION_DENIED();
-            } else {
-                if (_isLastAttempt) revert B_PERMISSION_DENIED();
-                // We check gasleft() against _message.gasLimit to make sure we not only need to
-                // bridge invocation call to succeed, we also need it to succeed with a gas limit no
-                // smaller than the message's gasLimit.
-                if (_message.gasLimit > (gasleft() * 63) >> 6) {
-                    revert B_NOT_ENOUGH_GASLEFT();
-                }
-            }
         }
 
         // Attempt to invoke the messageCall.
