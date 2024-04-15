@@ -244,8 +244,8 @@ contract Bridge is EssentialContract, IBridge {
         uint256 gas;
 
         // If the gas limit is set to zero, only the owner can process the message.
-        bool transactedByOwner = msg.sender == _message.destOwner;
-        if (!transactedByOwner) {
+        bool transactedByRelayer = msg.sender != _message.destOwner;
+        if (transactedByRelayer) {
             if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
 
             gas = gasleft();
@@ -267,7 +267,7 @@ contract Bridge is EssentialContract, IBridge {
                 receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
                 if (invocationDelay != 0) {
-                    // if (!transactedByOwner) {
+                    // if (transactedByRelayer) {
                     //     receipt.gasUsed = gas - gasleft() + 12345;
                     //     receipt.feePaid = 112345;
                     //     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
@@ -320,7 +320,7 @@ contract Bridge is EssentialContract, IBridge {
 
         refundAmount += remainingFee;
 
-        if (!transactedByOwner) {
+        if (transactedByRelayer) {
             refundAmount -= remainingFee;
             msg.sender.sendEtherAndVerify(remainingFee, _SEND_ETHER_GAS_LIMIT);
         }
