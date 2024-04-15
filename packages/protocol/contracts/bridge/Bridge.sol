@@ -19,8 +19,27 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    uint32 public constant GAS_OVERHEAD_1 = 130_000;
-    uint32 public constant GAS_OVERHEAD_2 = 120_000;
+    // A struct to get around stack too deep issue and to cache state variables for multiple reads.
+    struct LocalX {
+        uint256 gas;
+        uint256 invocationDelay;
+        uint256 refundAmount;
+        uint256 remainingFee;
+        bytes32 msgHash;
+        address signalService;
+        bool processInTheSameTx;
+    }
+
+    /// @dev The gas overhead for receiving a message if the message is processed in two steps.
+    /// We added 10000 more gas on top of a meassured value.
+    uint32 public constant GAS_OVERHEAD_RECEIVING = 71_000 + 10_000;
+    /// @dev The gas overhead for invoking a message if the message is processed in two steps.
+    /// We added 10000 more gas on top of a meassured value.
+    uint32 public constant GAS_OVERHEAD_INVOKING = 18_000 + 10_000;
+    /// @dev The gas overhead for both receiving and invoking a message if the message is processed
+    /// in a single step.
+    /// We added 10000 more gas on top of a meassured value.
+    uint32 public constant GAS_OVERHEAD_RECEIVING_AND_INVOKING = 53_000 + 10_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -241,29 +260,31 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        uint256 gas = gasleft();
+        LocalX memory x;
+        x.gas = gasleft();
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (msg.sender != _message.destOwner) {
             if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
-            if (gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
+            if (x.gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
         }
 
-        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
-        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-        uint256 invocationDelay = getInvocationDelay();
-        bool processInTheSameTx;
+        ProofReceipt memory receipt;
+        (x.msgHash, receipt) = _checkStatusAndReceipt(_message);
+        x.signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        x.invocationDelay = getInvocationDelay();
 
         if (receipt.receivedAt == 0) {
-            if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
+            if (!_proveSignalReceived(x.signalService, x.msgHash, _message.srcChainId, _proof)) {
                 revert B_NOT_RECEIVED();
             }
 
             receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
-            if (invocationDelay != 0) {
+            if (x.invocationDelay != 0) {
                 if (msg.sender != _message.destOwner) {
-                    receipt.gasUsed = uint32(gas - gasleft() + GAS_OVERHEAD_1);
+                    receipt.gasUsed = uint32(x.gas - gasleft() + GAS_OVERHEAD_RECEIVING);
+
                     receipt.feePaid = uint128(
                         _calcFee(
                             _message.fee,
@@ -276,60 +297,64 @@ contract Bridge is EssentialContract, IBridge {
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
 
-                proofReceipt[msgHash] = receipt;
-                emit MessageReceived(msgHash, _message, false);
+                proofReceipt[x.msgHash] = receipt;
+                emit MessageReceived(x.msgHash, _message, false);
                 return;
             }
 
-            processInTheSameTx = true;
+            x.processInTheSameTx = true;
         }
 
-        if (!processInTheSameTx && !_isPostInvocationDelay(receipt.receivedAt, invocationDelay)) {
+        if (!x.processInTheSameTx && !_isPostInvocationDelay(receipt.receivedAt, x.invocationDelay))
+        {
             revert B_INVOCATION_TOO_EARLY();
         }
 
-        delete proofReceipt[msgHash];
-        emit MessageExecuted(msgHash);
+        delete proofReceipt[x.msgHash];
+        emit MessageExecuted(x.msgHash);
 
-        uint256 refundAmount;
         if (
             _message.to == address(0) || _message.to == address(this)
-                || _message.to == signalService
+                || _message.to == x.signalService
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
-            refundAmount = _message.value;
-            _updateMessageStatus(msgHash, Status.DONE);
-        } else if (_invokeMessageCall(_message, msgHash)) {
-            _updateMessageStatus(msgHash, Status.DONE);
+            x.refundAmount = _message.value;
+            _updateMessageStatus(x.msgHash, Status.DONE);
+        } else if (_invokeMessageCall(_message, x.msgHash)) {
+            _updateMessageStatus(x.msgHash, Status.DONE);
         } else {
-            _updateMessageStatus(msgHash, Status.RETRIABLE);
+            _updateMessageStatus(x.msgHash, Status.RETRIABLE);
         }
 
         // Refund the processing fee and fee to refund
-        uint256 remainingFee;
         unchecked {
             // `receipt.feePaid > _message.fee` is only true if we have old data where
             // receipt.feePaid bytes are used as an address
-            remainingFee = receipt.feePaid == 0 || receipt.feePaid > _message.fee
+            x.remainingFee = receipt.feePaid == 0 || receipt.feePaid > _message.fee
                 ? _message.fee
                 : _message.fee - receipt.feePaid;
         }
 
-        refundAmount += remainingFee;
+        x.refundAmount += x.remainingFee;
 
         if (msg.sender != _message.destOwner) {
+            uint256 overhead = x.processInTheSameTx //
+                ? GAS_OVERHEAD_RECEIVING_AND_INVOKING
+                : GAS_OVERHEAD_INVOKING;
+
             uint256 fee = _calcFee(
-                _message.fee,
+                _message.fee, //
                 _message.gasLimit,
-                gas - gasleft() + GAS_OVERHEAD_2, //
-                remainingFee
+                x.gas - gasleft() + overhead,
+                x.remainingFee
             );
-            refundAmount -= fee;
+
+            x.refundAmount -= fee;
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
         }
 
-        _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
+        _message.destOwner.sendEtherAndVerify(x.refundAmount, _SEND_ETHER_GAS_LIMIT);
     }
 
     /// @inheritdoc IBridge
