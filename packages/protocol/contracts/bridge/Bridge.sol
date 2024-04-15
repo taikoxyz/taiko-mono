@@ -19,21 +19,8 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    /// @dev Gas overhead if a message is received but not processed in the same transaction.
-    // The measured value is 104047
-    uint32 public constant GAS_RECEIVING = 130_000;
-
-    /// @dev Gas overhead if a message is processed.
-    // The measured value is 97358
-    uint32 public constant GAS_PROCESSING = 120_000;
-
-    /// @dev The gas limit reserved for overheads. `message.gasLimit - GAS_RESERVED` is the gas
-    /// limit used to invoke the message call on the destination chain.
-    uint32 public constant GAS_RESERVED = GAS_RECEIVING + GAS_PROCESSING;
-
-    /// @dev Gas overhead if a message is received and processed in the same transaction.
-    // The measured value is 122083
-    uint32 public constant GAS_RECEIVING_AND_PROCESSING = 150_000;
+    uint32 public constant GAS_OVERHEAD_1 = 130_000;
+    uint32 public constant GAS_OVERHEAD_2 = 120_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -190,9 +177,8 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
     {
         (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
-
-        bool processInTheSameTx;
         uint256 invocationDelay = getInvocationDelay();
+        bool processInTheSameTx;
 
         if (receipt.receivedAt == 0) {
             address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
@@ -201,8 +187,11 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_MESSAGE_NOT_SENT();
             }
 
-            bytes32 failureSignal = signalForFailedMessage(msgHash);
-            if (!_proveSignalReceived(signalService, failureSignal, _message.destChainId, _proof)) {
+            if (
+                !_proveSignalReceived(
+                    signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
+                )
+            ) {
                 revert B_NOT_FAILED();
             }
 
@@ -222,8 +211,8 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         delete proofReceipt[msgHash];
-        messageStatus[msgHash] = Status.RECALLED;
         emit MessageRecalled(msgHash);
+        messageStatus[msgHash] = Status.RECALLED;
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -252,12 +241,18 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
+        uint256 gas = gasleft();
 
-        bool processInTheSameTx;
-        uint256 invocationDelay = getInvocationDelay();
+        // If the gas limit is set to zero, only the owner can process the message.
+        if (msg.sender != _message.destOwner) {
+            if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
+            if (gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
+        }
+
+        (bytes32 msgHash, ProofReceipt memory receipt) = _checkStatusAndReceipt(_message);
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-        bool transactedByOwner = msg.sender == _message.destOwner;
+        uint256 invocationDelay = getInvocationDelay();
+        bool processInTheSameTx;
 
         if (receipt.receivedAt == 0) {
             if (!_proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof)) {
@@ -267,22 +262,22 @@ contract Bridge is EssentialContract, IBridge {
             receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
             if (invocationDelay != 0) {
-                if (!transactedByOwner) {
-                    receipt.gasUsed = GAS_RECEIVING;
+                if (msg.sender != _message.destOwner) {
+                    receipt.gasUsed = uint32(gas - gasleft() + GAS_OVERHEAD_1);
                     receipt.feePaid = uint128(
                         _calcFee(
                             _message.fee,
                             _message.gasLimit,
-                            GAS_RECEIVING,
+                            receipt.gasUsed,
                             _message.fee.min(type(uint128).max)
                         )
                     );
 
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
+
                 proofReceipt[msgHash] = receipt;
                 emit MessageReceived(msgHash, _message, false);
-
                 return;
             }
 
@@ -293,15 +288,10 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVOCATION_TOO_EARLY();
         }
 
-        // If the gas limit is set to zero, only the owner can process the message.
-        if (!transactedByOwner && _message.gasLimit == 0) {
-            revert B_PERMISSION_DENIED();
-        }
-
         delete proofReceipt[msgHash];
+        emit MessageExecuted(msgHash);
 
         uint256 refundAmount;
-        Status status;
         if (
             _message.to == address(0) || _message.to == address(this)
                 || _message.to == signalService
@@ -309,37 +299,12 @@ contract Bridge is EssentialContract, IBridge {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             refundAmount = _message.value;
-            status = Status.DONE;
+            _updateMessageStatus(msgHash, Status.DONE);
+        } else if (_invokeMessageCall(_message, msgHash)) {
+            _updateMessageStatus(msgHash, Status.DONE);
         } else {
-            uint256 gasLimit;
-            if (transactedByOwner) {
-                // Use the remaining gas if called by a the destOwner, else
-                // use the specified gas limit.
-                gasLimit = gasleft();
-            } else {
-                unchecked {
-                    gasLimit = _message.gasLimit.max(GAS_RESERVED) - GAS_RESERVED;
-
-                    // The "1/64th rule" refers to the gasleft at the time the call is made. When a
-                    // contract makes a call to another contract, it can only forward 63/64 of the
-                    // gas remaining (gasleft) at that moment, ensuring that there is always some
-                    // gas reserved for the calling contract to complete its execution after the
-                    // called contract finishes. This does not necessarily relate to the gas amount
-                    // specified in the call itself, but rather to the actual remaining gas at the
-                    // time of the call.
-                    //
-                    // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
-                    if (gasLimit > (gasleft() * 63) >> 6) revert B_NOT_ENOUGH_GASLEFT();
-                }
-            }
-
-            status = _invokeMessageCall(_message, msgHash, gasLimit) //
-                ? Status.DONE
-                : Status.RETRIABLE;
+            _updateMessageStatus(msgHash, Status.RETRIABLE);
         }
-
-        _updateMessageStatus(msgHash, status);
-        emit MessageExecuted(msgHash);
 
         // Refund the processing fee and fee to refund
         uint256 remainingFee;
@@ -353,11 +318,11 @@ contract Bridge is EssentialContract, IBridge {
 
         refundAmount += remainingFee;
 
-        if (!transactedByOwner) {
+        if (msg.sender != _message.destOwner) {
             uint256 fee = _calcFee(
                 _message.fee,
                 _message.gasLimit,
-                processInTheSameTx ? GAS_RECEIVING_AND_PROCESSING : GAS_PROCESSING,
+                gas - gasleft() + GAS_OVERHEAD_2, //
                 remainingFee
             );
             refundAmount -= fee;
@@ -396,7 +361,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(_message, msgHash, gasleft())) {
+        if (_invokeMessageCall(_message, msgHash)) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -586,21 +551,17 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _gasLimit The gas limit for the message call.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
     function _invokeMessageCall(
         Message calldata _message,
-        bytes32 _msgHash,
-        uint256 _gasLimit
+        bytes32 _msgHash
     )
         private
         returns (bool success_)
     {
         assert(_message.from != address(this));
-
-        if (_gasLimit == 0) return false;
 
         if (
             _message.data.length >= 4 // msg can be empty
@@ -609,7 +570,7 @@ contract Bridge is EssentialContract, IBridge {
         ) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
+        success_ = _message.to.sendEther(_message.value, gasleft(), _message.data);
         _resetContext();
     }
 
