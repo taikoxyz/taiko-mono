@@ -35,9 +35,7 @@ interface IBridge {
         uint256 value;
         // Processing fee for the relayer.
         uint256 fee;
-        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
-        // process the message. This value will mostly be respected when retrying
-        // (gas > gas_limit) but not when processed by the owner.
+        // gasLimit that the processMessage call must have.
         uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;
