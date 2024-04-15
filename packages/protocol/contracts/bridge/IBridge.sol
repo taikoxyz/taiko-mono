@@ -49,8 +49,10 @@ interface IBridge {
     struct ProofReceipt {
         // The time a message is marked as received on the destination chain
         uint64 receivedAt;
-        // The processing fee already paid for the message.
-        uint160 feePaid;
+        // The amount of gas paid for receiving the message.
+        uint32 gasUsed;
+        // The Ether fee paid for gasUsed.
+        uint128 feePaid;
     }
 
     // Struct representing the context of a bridge operation.

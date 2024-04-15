@@ -21,19 +21,19 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev Gas overhead if a message is received but not processed in the same transaction.
     // The measured value is 104047
-    uint256 public constant GAS_RECEIVING = 130_000;
+    uint32 public constant GAS_RECEIVING = 130_000;
 
     /// @dev Gas overhead if a message is processed.
     // The measured value is 97358
-    uint256 public constant GAS_PROCESSING = 120_000;
+    uint32 public constant GAS_PROCESSING = 120_000;
 
     /// @dev The gas limit reserved for overheads. `message.gasLimit - GAS_RESERVED` is the gas
     /// limit used to invoke the message call on the destination chain.
-    uint256 public constant GAS_RESERVED = GAS_RECEIVING + GAS_PROCESSING;
+    uint32 public constant GAS_RESERVED = GAS_RECEIVING + GAS_PROCESSING;
 
     /// @dev Gas overhead if a message is received and processed in the same transaction.
     // The measured value is 122083
-    uint256 public constant GAS_RECEIVING_AND_PROCESSING = 150_000;
+    uint32 public constant GAS_RECEIVING_AND_PROCESSING = 150_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -206,7 +206,7 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            receipt = ProofReceipt(uint64(block.timestamp), 0);
+            receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
             if (invocationDelay != 0) {
                 proofReceipt[msgHash] = receipt;
@@ -264,10 +264,11 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_RECEIVED();
             }
 
-            receipt = ProofReceipt(uint64(block.timestamp), 0);
+            receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
             if (invocationDelay != 0) {
                 if (!transactedByOwner) {
+                receipt.gasUsed = GAS_RECEIVING;
                     receipt.feePaid = uint160(
                         _calcFee(
                             _message.fee,
@@ -279,7 +280,6 @@ contract Bridge is EssentialContract, IBridge {
 
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
-
                 proofReceipt[msgHash] = receipt;
                 emit MessageReceived(msgHash, _message, false);
 
