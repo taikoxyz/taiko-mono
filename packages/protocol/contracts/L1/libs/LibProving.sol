@@ -18,7 +18,7 @@ library LibProving {
     using SafeERC20 for IERC20;
 
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
-    struct LocalX {
+    struct Local {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
         bytes32 metaHash;
@@ -117,7 +117,7 @@ library LibProving {
             revert L1_INVALID_TRANSITION();
         }
 
-        LocalX memory x;
+        Local memory x;
         x.b = _state.slotB;
 
         // Check that the block has been proposed but has not yet been verified.
@@ -309,7 +309,7 @@ library LibProving {
         TaikoData.State storage _state,
         TaikoData.Block storage _blk,
         TaikoData.Transition memory _tran,
-        LocalX memory _x
+        Local memory _x
     )
         private
         returns (uint32 tid_, TaikoData.TransitionState storage ts_)
@@ -401,7 +401,7 @@ library LibProving {
         TaikoData.TransitionState storage _ts,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
-        LocalX memory _x,
+        Local memory _x,
         IERC20 _tko
     )
         private

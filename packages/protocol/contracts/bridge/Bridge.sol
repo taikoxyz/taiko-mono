@@ -20,7 +20,7 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address payable;
 
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
-    struct LocalX {
+    struct Local {
         uint256 gas;
         uint256 invocationDelay;
         uint256 refundAmount;
@@ -264,7 +264,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        LocalX memory x;
+        Local memory x;
         x.gas = gasleft();
 
         // If the gas limit is set to zero, only the owner can process the message.
