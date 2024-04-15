@@ -264,31 +264,35 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        Local memory x;
-        x.gas = gasleft();
+        Local memory local;
+        local.gas = gasleft();
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (msg.sender != _message.destOwner) {
             if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
-            if (x.gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
+            if (local.gas < _message.gasLimit) revert B_INVALID_GAS_LIMIT();
         }
 
         ProofReceipt memory receipt;
-        (x.msgHash, receipt) = _checkStatusAndReceipt(_message);
-        x.signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-        x.invocationDelay = getInvocationDelay();
+        (local.msgHash, receipt) = _checkStatusAndReceipt(_message);
+        local.signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        local.invocationDelay = getInvocationDelay();
 
         if (receipt.receivedAt == 0) {
-            if (!_proveSignalReceived(x.signalService, x.msgHash, _message.srcChainId, _proof)) {
+            if (
+                !_proveSignalReceived(
+                    local.signalService, local.msgHash, _message.srcChainId, _proof
+                )
+            ) {
                 revert B_NOT_RECEIVED();
             }
 
             receipt = ProofReceipt(uint64(block.timestamp), 0, 0);
 
-            if (x.invocationDelay != 0) {
+            if (local.invocationDelay != 0) {
                 if (msg.sender != _message.destOwner) {
                     receipt.gasUsed =
-                        uint32(x.gas - gasleft() + GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
+                        uint32(local.gas - gasleft() + GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
 
                     receipt.feePaid = uint128(
                         _calcFee(
@@ -302,64 +306,66 @@ contract Bridge is EssentialContract, IBridge {
                     msg.sender.sendEtherAndVerify(receipt.feePaid, _SEND_ETHER_GAS_LIMIT);
                 }
 
-                proofReceipt[x.msgHash] = receipt;
-                emit MessageReceived(x.msgHash, _message, false);
+                proofReceipt[local.msgHash] = receipt;
+                emit MessageReceived(local.msgHash, _message, false);
                 return;
             }
 
-            x.processInTheSameTx = true;
+            local.processInTheSameTx = true;
         }
 
-        if (!x.processInTheSameTx && !_isPostInvocationDelay(receipt.receivedAt, x.invocationDelay))
-        {
+        if (
+            !local.processInTheSameTx
+                && !_isPostInvocationDelay(receipt.receivedAt, local.invocationDelay)
+        ) {
             revert B_INVOCATION_TOO_EARLY();
         }
 
-        delete proofReceipt[x.msgHash];
-        emit MessageExecuted(x.msgHash);
+        delete proofReceipt[local.msgHash];
+        emit MessageExecuted(local.msgHash);
 
         if (
             _message.to == address(0) || _message.to == address(this)
-                || _message.to == x.signalService
+                || _message.to == local.signalService
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
-            x.refundAmount = _message.value;
-            _updateMessageStatus(x.msgHash, Status.DONE);
-        } else if (_invokeMessageCall(_message, x.msgHash)) {
-            _updateMessageStatus(x.msgHash, Status.DONE);
+            local.refundAmount = _message.value;
+            _updateMessageStatus(local.msgHash, Status.DONE);
+        } else if (_invokeMessageCall(_message, local.msgHash)) {
+            _updateMessageStatus(local.msgHash, Status.DONE);
         } else {
-            _updateMessageStatus(x.msgHash, Status.RETRIABLE);
+            _updateMessageStatus(local.msgHash, Status.RETRIABLE);
         }
 
         // Refund the processing fee and fee to refund
         unchecked {
             // `receipt.feePaid > _message.fee` is only true if we have old data where
             // receipt.feePaid bytes are used as an address
-            x.remainingFee = receipt.feePaid == 0 || receipt.feePaid > _message.fee
+            local.remainingFee = receipt.feePaid == 0 || receipt.feePaid > _message.fee
                 ? _message.fee
                 : _message.fee - receipt.feePaid;
         }
 
-        x.refundAmount += x.remainingFee;
+        local.refundAmount += local.remainingFee;
 
         if (msg.sender != _message.destOwner) {
-            uint256 overhead = x.processInTheSameTx //
+            uint256 overhead = local.processInTheSameTx //
                 ? GAS_OVERHEAD_RECEIVING_AND_INVOKING
                 : GAS_OVERHEAD_INVOKING;
 
             uint256 fee = _calcFee(
                 _message.fee, //
                 _message.gasLimit,
-                x.gas - gasleft() + overhead + _proof.length >> 4,
-                x.remainingFee
+                local.gas - gasleft() + overhead + _proof.length >> 4,
+                local.remainingFee
             );
 
-            x.refundAmount -= fee;
+            local.refundAmount -= fee;
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
         }
 
-        _message.destOwner.sendEtherAndVerify(x.refundAmount, _SEND_ETHER_GAS_LIMIT);
+        _message.destOwner.sendEtherAndVerify(local.refundAmount, _SEND_ETHER_GAS_LIMIT);
     }
 
     /// @inheritdoc IBridge
