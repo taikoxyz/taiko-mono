@@ -287,7 +287,8 @@ contract Bridge is EssentialContract, IBridge {
 
             if (x.invocationDelay != 0) {
                 if (msg.sender != _message.destOwner) {
-                    receipt.gasUsed = uint32(x.gas - gasleft() + GAS_OVERHEAD_RECEIVING);
+                    receipt.gasUsed =
+                        uint32(x.gas - gasleft() + GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
 
                     receipt.feePaid = uint128(
                         _calcFee(
@@ -350,7 +351,7 @@ contract Bridge is EssentialContract, IBridge {
             uint256 fee = _calcFee(
                 _message.fee, //
                 _message.gasLimit,
-                x.gas - gasleft() + overhead,
+                x.gas - gasleft() + overhead + _proof.length >> 4,
                 x.remainingFee
             );
 
