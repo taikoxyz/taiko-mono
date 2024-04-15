@@ -36,7 +36,7 @@ type Blocker struct {
 
 func (b *Blocker) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	if hash == relayer.ZeroHash {
-		return nil, errors.New("cant find block")
+		return nil, errors.New("can't find block")
 	}
 
 	return types.NewBlockWithHeader(Header), nil

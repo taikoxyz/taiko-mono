@@ -86,7 +86,7 @@ func (r *NFTBalanceRepository) SubtractBalance(
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		} else {
-			// cant subtract a balance if user never had this balance, indexing issue
+			// can't subtract a balance if user never had this balance, indexing issue
 			return nil, nil
 		}
 	}

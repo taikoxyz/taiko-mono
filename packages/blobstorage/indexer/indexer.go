@@ -110,7 +110,7 @@ func (i *Indexer) setInitialIndexingBlock(
 		return err
 	}
 
-	// if its non-zero ,we use that. if it is zero, it means we havent
+	// if its non-zero ,we use that. if it is zero, it means we haven't
 	// processed any blobs, so we should get the state variables below.
 	if latest != 0 {
 		i.latestIndexedBlockNumber = latest

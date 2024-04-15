@@ -679,7 +679,7 @@ contract BridgeTest is TaikoTest {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    // test with a known good merkle proof / message since we cant generate
+    // test with a known good merkle proof / message since we can't generate
     // proofs via rpc
     // in foundry
     function test_Bridge_process_message() public {
@@ -781,7 +781,7 @@ contract BridgeTest is TaikoTest {
         assertEq(received, true);
     }
 
-    // test with a known good merkle proof / message since we cant generate
+    // test with a known good merkle proof / message since we can't generate
     // proofs via rpc
     // in foundry
     function test_Bridge_retry_message_and_end_up_in_failed_status() public {
