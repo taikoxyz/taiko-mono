@@ -29,7 +29,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// by invoking the message call.
     /// @param _op Option for sending the ERC721 token.
     /// @return message_ The constructed message.
-    function sendToken(BridgeTransferOp memory _op)
+    function sendToken(BridgeTransferOp calldata _op)
         external
         payable
         whenNotPaused
