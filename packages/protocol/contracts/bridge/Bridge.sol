@@ -76,13 +76,10 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
-    error B_INVOCATION_TOO_EARLY();
     error B_MESSAGE_FAILED();
     error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
-    error B_MESSAGE_NOT_SUSPENDED();
     error B_MESSAGE_SUSPENDED();
-    error B_NON_EMPTY_PROOF();
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
