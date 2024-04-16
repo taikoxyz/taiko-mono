@@ -31,6 +31,8 @@ contract Bridge is EssentialContract, IBridge {
         bool notProcessedByOwner;
     }
 
+    uint32 public constant GAS_RESERVE = 300_000;
+
     uint32 private constant _EXTRA__GAS_OVERHEAD = 10_000;
 
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
@@ -46,7 +48,6 @@ contract Bridge is EssentialContract, IBridge {
     /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
     uint32 private constant _GAS_OVERHEAD_RECEIVING_INVOKING = 53_000 + _EXTRA__GAS_OVERHEAD;
 
-    uint32 public constant GAS_RESERVE = 500_000;
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -579,6 +580,21 @@ contract Bridge is EssentialContract, IBridge {
         return _msgHash ^ bytes32(uint256(Status.FAILED));
     }
 
+    /// @notice Returns the minimal gas limit required for sending a given message.
+    /// @param _message The message.
+    /// @return The minimal gas limit required for sending this message.
+    function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
+        unchecked {
+            // The message struct takes 11 slots in total.
+            // For each byte, we reserve 16 gas, but since a message can be processed in
+            // two steps, we need to reserve 32 gas per byte (>>5).
+            uint256 calldataCost =
+                (_message.data.length + bytes(_message.memo).length + 9 * 32) >> 5;
+
+            return uint32((GAS_RESERVE + calldataCost + 1).min(type(uint32).max));
+        }
+    }
+
     /// @notice Checks if the given address can pause and/or unpause the bridge.
     /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
@@ -777,8 +793,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function _invocationGasLimit(Message calldata _message) private pure returns (uint256) {
-        uint256 reserve =
-            GAS_RESERVE + (_message.data.length + bytes(_message.memo).length + 9 * 32) >> 4;
-        return _message.gasLimit.max(reserve) - reserve;
+        unchecked {
+            uint256 minGasRequired = getMessageMinGasLimit(_message);
+            return _message.gasLimit.max(minGasRequired) - minGasRequired;
+        }
     }
 }
