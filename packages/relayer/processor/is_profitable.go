@@ -14,19 +14,34 @@ import (
 // check the processing fee, if one does not exist at all, it is definitely not
 // profitable. Otherwise, we compare it to the estimated cost.
 func (p *Processor) isProfitable(
-	ctx context.Context, message bridge.IBridgeMessage, cost *big.Int) (bool, error) {
+	ctx context.Context,
+	message bridge.IBridgeMessage,
+	destChainBaseFee uint64,
+) (bool, error) {
 	processingFee := message.Fee
 
-	if processingFee == nil || processingFee.Cmp(big.NewInt(0)) != 1 {
-		return false, nil
+	gasLimit := message.GasLimit
+
+	var shouldProcess bool = false
+
+	if processingFee == nil ||
+		processingFee.Cmp(big.NewInt(0)) != 1 ||
+		gasLimit == nil ||
+		message.GasLimit.Cmp(big.NewInt(0)) != 1 {
+		return shouldProcess, nil
 	}
 
-	shouldProcess := processingFee.Cmp(cost) == 1
+	res := destChainBaseFee * gasLimit.Uint64()
+	if processingFee.Uint64() > res {
+		shouldProcess = true
+	}
 
 	slog.Info("isProfitable",
 		"processingFee", processingFee.Uint64(),
-		"cost", cost,
+		"destChainBaseFee", destChainBaseFee,
+		"messageGasLimit", message.GasLimit.Uint64(),
 		"shouldProcess", shouldProcess,
+		"result", res,
 	)
 
 	if !shouldProcess {
