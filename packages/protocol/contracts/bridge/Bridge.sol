@@ -35,7 +35,8 @@ contract Bridge is EssentialContract, IBridge {
     /// invocation gas limit.
     uint32 private constant _GAS_RESERVE = 250_000;
 
-    uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 32;
+    /// @dev The max number of proof bytes to charge fee.
+    uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 512;
 
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
     /// We added 20_000 more gas on top of a measured value.
