@@ -507,9 +507,15 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	relayer.MessageSentEventsProcessed.Inc()
-
 	slog.Info("Mined tx", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()))
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		relayer.MessageSentEventsProcessedReverted.Inc()
+
+		return nil, errTxReverted
+	}
+
+	relayer.MessageSentEventsProcessed.Inc()
 
 	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
 		return nil, err
