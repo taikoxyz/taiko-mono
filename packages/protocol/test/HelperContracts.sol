@@ -46,5 +46,6 @@ contract SkipProofCheckSignal is SignalService {
         public
         pure
         override
+        returns (uint256)
     { }
 }

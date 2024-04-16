@@ -715,16 +715,6 @@ contract BridgeTest is TaikoTest {
         assertEq(status == IBridge.Status.DONE, true);
     }
 
-    function test_Bridge_prove_message_received() public {
-        vm.startPrank(Alice);
-        (IBridge.Message memory message, bytes memory proof) =
-            setUpPredefinedSuccessfulProcessMessageCall();
-
-        bool received = destChainBridge.proveMessageReceived(message, proof);
-
-        assertEq(received, true);
-    }
-
     // test with a known good merkle proof / message since we cant generate
     // proofs via rpc
     // in foundry

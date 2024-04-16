@@ -24,6 +24,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 gas;
         uint256 invocationDelay;
         uint256 refundAmount;
+        uint256 numCacheOps;
         bytes32 msgHash;
         uint64 remainingFee;
         address signalService;
@@ -37,6 +38,9 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev The max number of proof bytes to charge fee.
     uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 512;
+
+    /// @dev The amount of gas not to charge fee per cache operation.
+    uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
     /// We added 20_000 more gas on top of a measured value.
@@ -222,7 +226,7 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_MESSAGE_NOT_SENT();
             }
 
-            bool received = _proveSignalReceived(
+            (bool received,) = _proveSignalReceived(
                 signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
             );
             if (!received) revert B_NOT_FAILED();
@@ -288,7 +292,8 @@ contract Bridge is EssentialContract, IBridge {
         local.invocationDelay = getInvocationDelay();
 
         if (receipt.receivedAt == 0) {
-            bool received = _proveSignalReceived(
+            bool received;
+            (received, local.numCacheOps) = _proveSignalReceived(
                 local.signalService, local.msgHash, _message.srcChainId, _proof
             );
             if (!received) revert B_NOT_RECEIVED();
@@ -297,9 +302,8 @@ contract Bridge is EssentialContract, IBridge {
 
             if (local.invocationDelay != 0) {
                 if (local.notProcessedByOwner) {
-                    receipt.gasUsed = uint32(
-                        local.gas - gasleft() + _GAS_OVERHEAD_RECEIVING
-                            + _proof.length.min(_MAX_PROOF_BYTES_TO_CHARGE) >> 4
+                    receipt.gasUsed = _calcGasUsed(
+                        local.gas, _GAS_OVERHEAD_RECEIVING, _proof.length, local.numCacheOps
                     );
 
                     receipt.feePaid = uint64(
@@ -373,8 +377,7 @@ contract Bridge is EssentialContract, IBridge {
             uint256 fee = _calcFee(
                 _message.fee, //
                 _message.gasLimit,
-                local.gas - gasleft() + overhead + _proof.length.min(_MAX_PROOF_BYTES_TO_CHARGE)
-                    >> 4,
+                _calcGasUsed(local.gas, overhead, _proof.length, local.numCacheOps),
                 local.remainingFee
             );
 
@@ -444,49 +447,6 @@ contract Bridge is EssentialContract, IBridge {
             _app: address(this),
             _signal: hashMessage(_message)
         });
-    }
-
-    /// @notice Checks if a msgHash has failed on its destination chain and caches cross-chain data
-    /// if requested.
-    /// @param _message The message.
-    /// @param _proof The merkle inclusion proof.
-    /// @return true if the message has failed, false otherwise.
-    function proveMessageFailed(
-        Message calldata _message,
-        bytes calldata _proof
-    )
-        external
-        returns (bool)
-    {
-        if (_message.srcChainId != block.chainid) return false;
-
-        return _proveSignalReceived(
-            resolve(LibStrings.B_SIGNAL_SERVICE, false),
-            signalForFailedMessage(hashMessage(_message)),
-            _message.destChainId,
-            _proof
-        );
-    }
-
-    /// @notice Verifies with a merkle proof if the given message has been received on the source
-    /// chain.
-    /// @param _message The message.
-    /// @param _proof The merkle inclusion proof.
-    /// @return true if the message has been received, false otherwise.
-    function proveMessageReceived(
-        Message calldata _message,
-        bytes calldata _proof
-    )
-        external
-        returns (bool)
-    {
-        if (_message.destChainId != block.chainid) return false;
-        return _proveSignalReceived(
-            resolve(LibStrings.B_SIGNAL_SERVICE, false),
-            hashMessage(_message),
-            _message.srcChainId,
-            _proof
-        );
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
@@ -709,7 +669,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    /// @return true if the message was received.
+    /// @return success_ true if the message was received.
+    /// @return numCached_ Num of cached items
     function _proveSignalReceived(
         address _signalService,
         bytes32 _signal,
@@ -717,14 +678,15 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        returns (bool)
+        returns (bool success_, uint256 numCached_)
     {
         try ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
-        ) {
-            return true;
+        ) returns (uint256 numCached) {
+            numCached_ = numCached;
+            success_ = true;
         } catch {
-            return false;
+            success_ = false;
         }
     }
 
@@ -794,6 +756,25 @@ contract Bridge is EssentialContract, IBridge {
         uint256 maxFee = _msgFee * _gasUsed / _msgGasLimit;
         uint256 baseFee = block.basefee * _gasUsed;
         return _remainingFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
+    }
+
+    function _calcGasUsed(
+        uint256 _gasStart,
+        uint256 _gasOverhead,
+        uint256 _calldataBytes,
+        uint256 _numCacheOps
+    )
+        private
+        view
+        returns (uint32)
+    {
+        unchecked {
+            uint256 gasUsed = _gasStart - gasleft() + _gasOverhead
+                + _calldataBytes.min(_MAX_PROOF_BYTES_TO_CHARGE) >> 4;
+
+            uint256 refund = _numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
+            return uint32((gasUsed.max(refund) - refund).max(type(uint32).max));
+        }
     }
 
     function _invocationGasLimit(
