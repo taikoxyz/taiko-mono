@@ -17,6 +17,7 @@ func (p *Processor) isProfitable(
 	ctx context.Context,
 	message bridge.IBridgeMessage,
 	destChainBaseFee uint64,
+	gasTipCap uint64,
 ) (bool, error) {
 	processingFee := message.Fee
 
@@ -31,7 +32,9 @@ func (p *Processor) isProfitable(
 		return shouldProcess, nil
 	}
 
-	res := destChainBaseFee * gasLimit.Uint64()
+	// if procesing fee is higher than baseFee * gasLimit,
+	// we should process.
+	res := (destChainBaseFee + gasTipCap) * gasLimit.Uint64()
 	if processingFee.Uint64() > res {
 		shouldProcess = true
 	}

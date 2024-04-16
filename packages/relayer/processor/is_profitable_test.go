@@ -16,6 +16,7 @@ func Test_isProfitable(t *testing.T) {
 		name           string
 		message        bridge.IBridgeMessage
 		baseFee        uint64
+		gasTipCap      uint64
 		wantProfitable bool
 		wantErr        error
 	}{
@@ -25,12 +26,14 @@ func Test_isProfitable(t *testing.T) {
 				Fee: big.NewInt(0),
 			},
 			1,
+			1,
 			false,
 			nil,
 		},
 		{
 			"nilProcessingFee",
 			bridge.IBridgeMessage{},
+			1,
 			1,
 			false,
 			nil,
@@ -42,6 +45,7 @@ func Test_isProfitable(t *testing.T) {
 				Fee:      big.NewInt(600000000600001),
 			},
 			1000000000,
+			1,
 			true,
 			nil,
 		},
@@ -52,6 +56,7 @@ func Test_isProfitable(t *testing.T) {
 				Fee:      big.NewInt(590000000600000),
 			},
 			1000000000,
+			1,
 			false,
 			nil,
 		},
@@ -63,6 +68,7 @@ func Test_isProfitable(t *testing.T) {
 				context.Background(),
 				tt.message,
 				tt.baseFee,
+				tt.gasTipCap,
 			)
 
 			assert.Equal(t, tt.wantProfitable, profitable)

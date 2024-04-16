@@ -308,18 +308,6 @@ func (p *Processor) sendProcessMessageCall(
 	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Receipt, error) {
-	baseFee, err := p.getBaseFee(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if bool(p.profitableOnly) {
-		profitable, err := p.isProfitable(ctx, event.Message, baseFee.Uint64())
-		if err != nil || !profitable {
-			return nil, relayer.ErrUnprofitable
-		}
-	}
-
 	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
 	if err != nil {
 		return nil, err
@@ -335,6 +323,28 @@ func (p *Processor) sendProcessMessageCall(
 		relayer.MessagesNotReceivedOnDestChain.Inc()
 
 		return nil, errors.New("message not received")
+	}
+
+	baseFee, err := p.getBaseFee(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if bool(p.profitableOnly) {
+		profitable, err := p.isProfitable(
+			ctx,
+			event.Message,
+			baseFee.Uint64(),
+			gasTipCap.Uint64(),
+		)
+		if err != nil || !profitable {
+			return nil, relayer.ErrUnprofitable
+		}
 	}
 
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
