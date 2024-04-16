@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -335,6 +336,11 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
+	if err != nil {
+		return nil, err
+	}
+
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
@@ -345,11 +351,31 @@ func (p *Processor) sendProcessMessageCall(
 		if err != nil || !profitable {
 			return nil, relayer.ErrUnprofitable
 		}
-	}
+		// now simulate the transaction and lets confirm
+		// it is profitable
 
-	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
-	if err != nil {
-		return nil, err
+		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
+		if err != nil {
+			return nil, err
+		}
+
+		msg := ethereum.CallMsg{
+			From:     auth.From,
+			To:       &p.cfg.DestBridgeAddress,
+			GasPrice: auth.GasPrice,
+			Data:     nil,
+		}
+
+		msg.Data = data
+
+		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
+		if err != nil {
+			return nil, err
+		}
+
+		if gasUsed > event.Message.GasLimit.Uint64() {
+			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
+		}
 	}
 
 	candidate := txmgr.TxCandidate{
