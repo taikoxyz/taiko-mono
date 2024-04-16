@@ -266,7 +266,7 @@ contract SignalService is EssentialContract, ISignalService {
             || _action.option == CacheOption.CACHE_STATE_ROOT;
 
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
-            numCached_ += 1;
+            numCached_ = 1;
             _syncChainData(
                 _action.chainId, LibStrings.H_STATE_ROOT, _action.blockId, _action.rootHash
             );

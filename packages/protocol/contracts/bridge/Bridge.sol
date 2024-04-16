@@ -773,7 +773,8 @@ contract Bridge is EssentialContract, IBridge {
                 + _calldataBytes.min(_MAX_PROOF_BYTES_TO_CHARGE) >> 4;
 
             uint256 refund = _numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-            return uint32((gasUsed.max(refund) - refund).max(type(uint32).max));
+
+            return uint32(gasUsed.max(refund) - refund);
         }
     }
 
