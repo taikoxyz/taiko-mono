@@ -35,7 +35,7 @@
 				"expected_address": "Expected address",
 				"healthchecks": "Healthchecks",
 				"status": "Status",
-				"uptime": "Uptime {uptime}%"
+				"uptime": "Uptime"
 			}
 		},
 		"table": {

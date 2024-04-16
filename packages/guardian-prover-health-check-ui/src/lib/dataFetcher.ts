@@ -1,11 +1,11 @@
 import { fetchGuardianProversFromContract } from './guardianProver/fetchGuardianProversFromContract';
-import { GuardianProverStatus, type Guardian, type SignedBlocks } from './types';
+import { GuardianProverStatus, type Guardian, type NodeInfo, type SignedBlocks } from './types';
 import { fetchSignedBlocksFromApi } from './api/signedBlocksApiCalls';
 import { getGuardianProverIdsPerBlockNumber } from './blocks/getGuardianProverIdsPerBlockNumber';
 import { sortSignedBlocksDescending } from './blocks/sortSignedBlocks';
 import { publicClient } from './wagmi/publicClient';
 import { formatEther, type Address } from 'viem';
-import { fetchLatestGuardianProverHealthCheckFromApi, fetchUptimeFromApi } from './api';
+import { fetchLatestGuardianProverHealthCheckFromApi, fetchStartupDataFromApi, fetchUptimeFromApi } from './api';
 import { fetchGuardianProverRequirementsFromContract } from './guardianProver/fetchGuardianProverRequirementsFromContract';
 import {
 	minGuardianRequirement,
@@ -17,6 +17,7 @@ import {
 	totalGuardianProvers
 } from '$stores';
 import { get, writable } from 'svelte/store';
+import { getPseudonym } from './guardianProver/addressToPseudonym';
 
 const BLOCKS_TO_CHECK = 20;
 const THRESHOLD = BLOCKS_TO_CHECK / 2;
@@ -57,17 +58,11 @@ export async function refreshData() {
 	if (get(loading) === true) return;
 	loading.set(true);
 
-	if (get(guardianProvers)?.length === 0) {
-		await fetchGuardians();
-		const block = fetchSignedBlockStats();
-		const liveness = determineLiveliness();
-		await Promise.all([block, liveness]);
-	} else {
-		const guardian = fetchGuardians();
-		const block = fetchSignedBlockStats();
-		const liveness = determineLiveliness();
-		await Promise.all([block, guardian, liveness]);
-	}
+	await fetchGuardians();
+	const block = fetchSignedBlockStats();
+	const liveness = determineLiveliness();
+	const stats = fetchStats();
+	await Promise.all([block, stats, liveness]);
 
 	loading.set(false);
 }
@@ -81,6 +76,7 @@ async function fetchGuardians() {
 	totalGuardianProvers.set(rawData.length);
 
 	const guardianFetchPromises = rawData.map(async (guardian) => {
+		guardian.name = await getPseudonym(guardian.address);
 		const balance = await publicClient.getBalance({
 			address: guardian.address as Address
 		});
@@ -152,5 +148,26 @@ async function determineLiveliness(): Promise<void> {
 		};
 	});
 
+	tempGuardianStore.set(guardians);
+}
+
+async function fetchStats(): Promise<void> {
+	const tempData = get(tempGuardianStore);
+
+	const guardianPromises = tempData.map(async (guardian) => {
+		const data = await fetchStartupDataFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.id);
+		const info: NodeInfo = {
+			guardianProverAddress: data.guardianProverAddress,
+			guardianProverID: data.guardianProverID,
+			guardianVersion: data.version,
+			l1NodeVersion: data.revision,
+			l2NodeVersion: data.revision,
+			revision: data.revision,
+		};
+
+		return { ...guardian, nodeInfo: info, lastRestart: data.createdAt };
+	});
+
+	const guardians = await Promise.all(guardianPromises);
 	guardianProvers.set(guardians);
 }
