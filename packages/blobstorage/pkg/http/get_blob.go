@@ -15,8 +15,9 @@ type getBlobResponse struct {
 }
 
 type blobData struct {
-	Blob          string `bson:"blob_hash" json:"blob_hash"`
+	BlobHash      string `bson:"blob_hash" json:"blob_hash"`
 	KzgCommitment string `bson:"kzg_commitment" json:"kzg_commitment"`
+	Blob          string `bson:"blob" json:"blob"`
 }
 
 // GetBlob
@@ -37,6 +38,7 @@ func (srv *Server) GetBlob(c echo.Context) error {
 	}
 
 	data, err := srv.getBlobData(strings.Split(blobHashes, ","))
+
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusBadRequest, err)
 	}
@@ -48,8 +50,9 @@ func (srv *Server) GetBlob(c echo.Context) error {
 	// Convert data to the correct type
 	for _, d := range data {
 		response.Data = append(response.Data, blobData{
-			Blob:          d.Blob,
+			BlobHash:      d.BlobHash,
 			KzgCommitment: d.KzgCommitment,
+			Blob:          d.Blob,
 		},
 		)
 	}
@@ -69,15 +72,17 @@ func (srv *Server) getBlobData(blobHashes []string) ([]blobData, error) {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				// Handle case where blob hash is not found
-				result.Blob = "NOT_FOUND"
+				result.BlobHash = "NOT_FOUND"
 				result.KzgCommitment = "NOT_FOUND"
+				result.Blob = "NOT_FOUND"
 			} else {
 				// Return error for other types of errors
 				return nil, err
 			}
 		} else {
-			result.Blob = bh.BlobHash
+			result.BlobHash = bh.BlobHash
 			result.KzgCommitment = bh.KzgCommitment
+			result.Blob = bh.BlobData
 
 			results = append(results, result)
 		}

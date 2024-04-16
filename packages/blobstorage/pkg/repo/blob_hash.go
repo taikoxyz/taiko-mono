@@ -25,31 +25,15 @@ func (r *BlobHashRepository) startQuery() *gorm.DB {
 
 func (r *BlobHashRepository) Save(opts blobstorage.SaveBlobHashOpts) error {
 	b := &blobstorage.BlobHash{
-		BlobHash:       opts.BlobHash,
-		KzgCommitment:  opts.KzgCommitment,
-		BlockTimestamp: opts.BlockTimestamp,
-		BlobData:       opts.BlobData,
-		BlockID:        opts.BlockID,
-		EmittedBlockID: opts.EmittedBlockID,
+		BlobHash:      opts.BlobHash,
+		KzgCommitment: opts.KzgCommitment,
+		BlobData:      opts.BlobData,
 	}
 	if err := r.startQuery().Create(b).Error; err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (r *BlobHashRepository) FindLatestBlockID() (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
-	FROM blob_hashes`
-
-	var b uint64
-
-	if err := r.startQuery().Raw(q).Scan(&b).Error; err != nil {
-		return 0, err
-	}
-
-	return b, nil
 }
 
 func (r *BlobHashRepository) FirstByBlobHash(blobHash string) (*blobstorage.BlobHash, error) {
@@ -65,8 +49,13 @@ func (r *BlobHashRepository) FirstByBlobHash(blobHash string) (*blobstorage.Blob
 // DeleteAllAfterBlockID is used when a reorg is detected
 func (r *BlobHashRepository) DeleteAllAfterBlockID(blockID uint64) error {
 	query := `
-DELETE FROM blob_hashes
-WHERE block_id >= ?`
+        DELETE FROM blob_hashes
+        WHERE blob_hash IN (
+            SELECT blob_hashes.blob_hash
+            FROM blob_hashes
+            INNER JOIN block_meta ON blob_hashes.blob_hash = block_meta.blob_hash
+            WHERE block_meta.block_id >= ?
+        )`
 
 	if err := r.startQuery().Exec(query, blockID).Error; err != nil {
 		return err

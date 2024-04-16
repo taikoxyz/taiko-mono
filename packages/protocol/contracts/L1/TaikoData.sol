@@ -30,49 +30,39 @@ library TaikoData {
         // The amount of Taiko token as a prover liveness bond
         uint96 livenessBond;
         // ---------------------------------------------------------------------
-        // Group 4: ETH deposit related configs
+        // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The size of the ETH deposit ring buffer.
-        uint256 ethDepositRingBufferSize;
-        // The minimum number of ETH deposits allowed per block.
-        uint64 ethDepositMinCountPerBlock;
-        // The maximum number of ETH deposits allowed per block.
-        uint64 ethDepositMaxCountPerBlock;
-        // The minimum amount of ETH required for a deposit.
-        uint96 ethDepositMinAmount;
-        // The maximum amount of ETH allowed for a deposit.
-        uint96 ethDepositMaxAmount;
-        // The gas cost for processing an ETH deposit.
-        uint256 ethDepositGas;
-        // The maximum fee allowed for an ETH deposit.
-        uint256 ethDepositMaxFee;
         // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
         // syncing)
         uint8 blockSyncThreshold;
     }
 
-    /// @dev Struct representing prover assignment
+    /// @dev Struct representing prover fees per given tier
     struct TierFee {
         uint16 tier;
         uint128 fee;
     }
 
+    /// @dev A proof and the tier of proof it belongs to
     struct TierProof {
         uint16 tier;
         bytes data;
     }
 
+    /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
         address hook;
         bytes data;
     }
 
+    /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
         address assignedProver;
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
+        bytes signature;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -93,7 +83,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender;
+        address sender; // a.k.a proposer
     }
 
     /// @dev Struct representing transition to be proven.
@@ -101,7 +91,7 @@ library TaikoData {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        bytes32 graffiti;
+        bytes32 graffiti; // Arbitrary data that the prover can use for various purposes.
     }
 
     /// @dev Struct representing state transition data.
@@ -116,24 +106,25 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
-        uint8 contestations;
+        uint8 __reserved1;
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 3 slots used.
+    /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
-        uint64 __reserved1;
+        uint64 proposedIn; // L1 block number, required/used by node/client.
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
     }
 
     /// @dev Struct representing an Ethereum deposit.
-    /// 1 slot used.
+    /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
+    /// return values stayed for now.
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -148,17 +139,17 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 numEthDeposits;
-        uint64 nextEthDepositToProcess;
+        uint64 lastSyncedBlockId;
+        uint64 lastSynecdAt;
     }
 
     struct SlotB {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool provingPaused;
-        uint8 __reserved1;
-        uint16 __reserved2;
-        uint32 __reserved3;
+        uint8 __reservedB1;
+        uint16 __reservedB2;
+        uint32 __reservedB3;
         uint64 lastUnpausedAt;
     }
 
@@ -174,7 +165,7 @@ library TaikoData {
                 => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
         // Ring buffer for Ether deposits
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256 depositAmount) ethDeposits;
+        bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
         uint256[44] __gap;

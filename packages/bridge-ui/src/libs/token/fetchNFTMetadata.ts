@@ -4,6 +4,7 @@ import { get } from 'svelte/store';
 import { destNetwork } from '$components/Bridge/state';
 import { ipfsConfig } from '$config';
 import { FetchMetadataError, NoMetadataFoundError, WrongChainError } from '$libs/error';
+import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { getMetadataFromCache, isMetadataCached, metadataCache } from '$stores/metadata';
@@ -42,6 +43,29 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
     // https://eips.ethereum.org/EIPS/eip-681
     // TODO: implement EIP-681, for now we treat it as invalid URI
     uri = '';
+  } else if (uri && uri.startsWith('data:application/json;base64')) {
+    // we have a base64 encoded json
+    const base64 = uri.replace('data:application/json;base64,', '');
+    const decodedData = decodeBase64ToJson(base64);
+    const metadata: NFTMetadata = {
+      ...decodedData,
+      image: decodedData.image,
+      name: decodedData.name,
+      description: decodedData.description,
+      external_url: decodedData.external_url,
+    };
+    if (decodedData.image) {
+      // Update cache
+      metadataCache.update((cache) => {
+        const key = tokenInfo.canonical?.address;
+
+        if (key) {
+          cache.set(key, metadata);
+        }
+        return cache;
+      });
+      return metadata;
+    }
   }
   if (!uri || uri === '') {
     const crossChainMetadata = await crossChainFetchNFTMetadata(token);

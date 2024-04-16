@@ -1,5 +1,32 @@
 # Changelog
 
+## [4.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v3.0.0...bridge-ui-v4.0.0) (2024-04-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230))
+
+### Features
+
+* **bridge-ui:** add testnet name to header ([#16619](https://github.com/taikoxyz/taiko-mono/issues/16619)) ([294bb01](https://github.com/taikoxyz/taiko-mono/commit/294bb017d90e4b8c2e1338a09f1cef90cdb54831))
+* **bridge-ui:** base64 NFT data ([#16645](https://github.com/taikoxyz/taiko-mono/issues/16645)) ([4516d0a](https://github.com/taikoxyz/taiko-mono/commit/4516d0aaa3c9ff0c50f16d1abc82999a8ac3d02f))
+* **bridge-ui:** prepare for hekla ([#16618](https://github.com/taikoxyz/taiko-mono/issues/16618)) ([6953b3c](https://github.com/taikoxyz/taiko-mono/commit/6953b3c141a1dec744a0e0bfa8c9aa0a1f405407))
+* **bridge-ui:** retry dialog ([#16536](https://github.com/taikoxyz/taiko-mono/issues/16536)) ([3beba21](https://github.com/taikoxyz/taiko-mono/commit/3beba214e62ad196bafd716cadaa3f133ecdb021))
+* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230)) ([71babae](https://github.com/taikoxyz/taiko-mono/commit/71babae14645ff267c7baa101706860aa6f556f0))
+* **protocol:** risc0 verifier contract ([#16331](https://github.com/taikoxyz/taiko-mono/issues/16331)) ([17abc18](https://github.com/taikoxyz/taiko-mono/commit/17abc189ca3d2752beb5400c036a650fd5b9c895))
+
+
+### Bug Fixes
+
+* **bridge-ui:** add missing labels to i18n ([#16633](https://github.com/taikoxyz/taiko-mono/issues/16633)) ([3854467](https://github.com/taikoxyz/taiko-mono/commit/38544675bf6578bc1016ecfd60cb3a1f93207516))
+* **bridge-ui:** balance updating when connecting ([#16481](https://github.com/taikoxyz/taiko-mono/issues/16481)) ([2ec333f](https://github.com/taikoxyz/taiko-mono/commit/2ec333f5d3f3330c11dc0ab3afacc027c33cd5e0))
+* **bridge-ui:** canonical check can use wrong chain, incorrect supported chain check ([#16526](https://github.com/taikoxyz/taiko-mono/issues/16526)) ([d826e88](https://github.com/taikoxyz/taiko-mono/commit/d826e886eba989c35b3f28145f815642684f84d7))
+* **bridge-ui:** correct display of forward arrow and handling of invalid pagination input ([#16485](https://github.com/taikoxyz/taiko-mono/issues/16485)) ([d4d9ce9](https://github.com/taikoxyz/taiko-mono/commit/d4d9ce9bb7914b21f8ce6fc1ac5f986eb64d41f8))
+* **bridge-ui:** fix issue where balance is shown for wrong token ([#16541](https://github.com/taikoxyz/taiko-mono/issues/16541)) ([1dd47cf](https://github.com/taikoxyz/taiko-mono/commit/1dd47cf5eca91d47375547b23203a9f942e22e80))
+* **bridge-ui:** move label to i18n, fix some typos ([#16522](https://github.com/taikoxyz/taiko-mono/issues/16522)) ([c8c4773](https://github.com/taikoxyz/taiko-mono/commit/c8c4773dd3fe41decf13306eace73d65a9829529))
+* **bridge-ui:** prevent reverse tabnabbing attacks ([#16583](https://github.com/taikoxyz/taiko-mono/issues/16583)) ([fc57d82](https://github.com/taikoxyz/taiko-mono/commit/fc57d82cb7c049a656c2f08d947f4a5a42ffacf3))
+
 ## [3.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v3.0.0) (2024-03-08)
 
 

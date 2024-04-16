@@ -1,5 +1,60 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.2.0...protocol-v1.3.0) (2024-04-10)
+
+
+### Features
+
+* **protocol:** add `TaikoL1.getTransition(blockId, transitionID)` function ([2c63cb0](https://github.com/taikoxyz/taiko-mono/commit/2c63cb0c796495948f1dd887662044397394d852))
+* **protocol:** allow assigned prover to prove blocks outside proving window (liveness bond not returned) ([2c63cb0](https://github.com/taikoxyz/taiko-mono/commit/2c63cb0c796495948f1dd887662044397394d852))
+* **protocol:** allow bridge to fail a message by the owner without retrying it ([#16669](https://github.com/taikoxyz/taiko-mono/issues/16669)) ([dce651e](https://github.com/taikoxyz/taiko-mono/commit/dce651e2647013b0d13d7947e0fd0115f38fe639))
+* **protocol:** remove `contestations` from `TransitionState` and events (it's buggy) ([2c63cb0](https://github.com/taikoxyz/taiko-mono/commit/2c63cb0c796495948f1dd887662044397394d852))
+* **protocol:** use 35000 as gas limit for sending Ether in Brdge ([#16666](https://github.com/taikoxyz/taiko-mono/issues/16666)) ([4909782](https://github.com/taikoxyz/taiko-mono/commit/4909782194ae025ff78438126c1e595f404e16a9))
+
+
+### Bug Fixes
+
+* **protocol:** add GovernorSettingsUpgradeable ([#16687](https://github.com/taikoxyz/taiko-mono/issues/16687)) ([eba82ba](https://github.com/taikoxyz/taiko-mono/commit/eba82bad1075afc695f3203304160f26e42627a9))
+* **protocol:** check invocation gas limit also in `retryMessage` ([#16660](https://github.com/taikoxyz/taiko-mono/issues/16660)) ([8209a43](https://github.com/taikoxyz/taiko-mono/commit/8209a437436f9a84d1e75bbafe6780952401d6a2))
+* **protocol:** check no loops in multi-hop in Bridge ([#16659](https://github.com/taikoxyz/taiko-mono/issues/16659)) ([447cd52](https://github.com/taikoxyz/taiko-mono/commit/447cd5252d141dfd38a2764d570b9168762c0d4b))
+* **protocol:** fix potential 1271 signature replay if proposers are smart contracts ([#16665](https://github.com/taikoxyz/taiko-mono/issues/16665)) ([2b27477](https://github.com/taikoxyz/taiko-mono/commit/2b27477ec0f9e5f0e0326d302531f93ff2c65de3))
+* **protocol:** return liveness bond only to assigned prover ([2c63cb0](https://github.com/taikoxyz/taiko-mono/commit/2c63cb0c796495948f1dd887662044397394d852))
+
+## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.1.0...protocol-v1.2.0) (2024-04-05)
+
+
+### Features
+
+* **protocol:** add `lastSyncedBlockId ` for L2 DAO vote aggregation ([#16654](https://github.com/taikoxyz/taiko-mono/issues/16654)) ([edbae8d](https://github.com/taikoxyz/taiko-mono/commit/edbae8d42a3929db13965ce5b445449b6372fc6b))
+* **protocol:** add a view function isSignalReceived for Bridge relayer/UI ([#16591](https://github.com/taikoxyz/taiko-mono/issues/16591)) ([39d4be6](https://github.com/taikoxyz/taiko-mono/commit/39d4be6e003d5e1c9d182dbaa76c54abe09a6112))
+* **protocol:** add readonly functions isMessageFailed & isMessageReceived to Bridge ([#16608](https://github.com/taikoxyz/taiko-mono/issues/16608)) ([2fbd948](https://github.com/taikoxyz/taiko-mono/commit/2fbd94866d5520864de59507239e00fa218ffd06))
+* **protocol:** allow ERC20Airdrop.delegateBySig to fail ([#16622](https://github.com/taikoxyz/taiko-mono/issues/16622)) ([d375cc1](https://github.com/taikoxyz/taiko-mono/commit/d375cc13a245880951e71cd18b64a0e2e2d21ada))
+* **protocol:** avoid proving-fee payment if amount is 0 ([#16595](https://github.com/taikoxyz/taiko-mono/issues/16595)) ([761a066](https://github.com/taikoxyz/taiko-mono/commit/761a06609cbe498b5ab5877ed81e5d663526c6e0))
+* **protocol:** change `INSTANCE_VALIDITY_DELAY` to `0` at first ([#16656](https://github.com/taikoxyz/taiko-mono/issues/16656)) ([86a41ac](https://github.com/taikoxyz/taiko-mono/commit/86a41ac415e76caa3ebd69cea444cb556258f469))
+* **protocol:** remove and clear `proposedIn` from TaikoData.Block ([#16630](https://github.com/taikoxyz/taiko-mono/issues/16630)) ([511c18d](https://github.com/taikoxyz/taiko-mono/commit/511c18d4dd949aecbf5892623c541ce50a17518e))
+* **protocol:** remove banning address ([#16604](https://github.com/taikoxyz/taiko-mono/issues/16604)) ([c4b705b](https://github.com/taikoxyz/taiko-mono/commit/c4b705b3a977322268ce14eacf2e4f5327536593))
+* **protocol:** remove the ETHDeposit feature completely ([#16638](https://github.com/taikoxyz/taiko-mono/issues/16638)) ([643b4b1](https://github.com/taikoxyz/taiko-mono/commit/643b4b1158ae645e9ee4416c4c2fec9dc9395fd7))
+
+
+### Bug Fixes
+
+* **protocol:** add 1 to _REENTRY_SLOT in EssentialContract ([#16593](https://github.com/taikoxyz/taiko-mono/issues/16593)) ([a381ddd](https://github.com/taikoxyz/taiko-mono/commit/a381dddeae95a715f80a9c21fb8990fe6549a94d))
+* **protocol:** call _disableInitializers in AddressResolver's constructor. ([#16564](https://github.com/taikoxyz/taiko-mono/issues/16564)) ([f137077](https://github.com/taikoxyz/taiko-mono/commit/f1370778346db18bd2a85836aeb497314c6ca7d3))
+* **protocol:** check 63/64 gasleft() not smaller than specified gaslimit ([#16613](https://github.com/taikoxyz/taiko-mono/issues/16613)) ([12f73cd](https://github.com/taikoxyz/taiko-mono/commit/12f73cda76800ee79d217e8e4b44312689defb05))
+* **protocol:** check blob capability in LibProposing using LibNetwork.isDencunSupported ([#16657](https://github.com/taikoxyz/taiko-mono/issues/16657)) ([e787493](https://github.com/taikoxyz/taiko-mono/commit/e787493e02238735b3bb4ff1690f7a02004cbd0c))
+* **protocol:** fix a SGX bug in pemCertChainLib ([#16639](https://github.com/taikoxyz/taiko-mono/issues/16639)) ([83db3da](https://github.com/taikoxyz/taiko-mono/commit/83db3da8cb477c3bc7d75254d8bb6b88b8defd36))
+* **protocol:** fix bridge unpause will delay execution ([#16612](https://github.com/taikoxyz/taiko-mono/issues/16612)) ([381f8b8](https://github.com/taikoxyz/taiko-mono/commit/381f8b8b180958091187f26f32c514932bc1f7fe))
+* **protocol:** fix Bridge.sol gap size ([#16594](https://github.com/taikoxyz/taiko-mono/issues/16594)) ([5f75dd8](https://github.com/taikoxyz/taiko-mono/commit/5f75dd89f4139c4415d874ee10cbb26a5e96d41c))
+* **protocol:** fix ERC20Airdrop2.sol with an extended withdrawal window ([#16596](https://github.com/taikoxyz/taiko-mono/issues/16596)) ([bc542d8](https://github.com/taikoxyz/taiko-mono/commit/bc542d89f98bff34a6331a5ed6bb2c9bbe15b148))
+* **protocol:** fix guardian prover ([#16606](https://github.com/taikoxyz/taiko-mono/issues/16606)) ([643bd17](https://github.com/taikoxyz/taiko-mono/commit/643bd17c393503ae685df465e58b450192731a6d))
+* **protocol:** fix msg.sender == first_proposer bug ([#16605](https://github.com/taikoxyz/taiko-mono/issues/16605)) ([b019975](https://github.com/taikoxyz/taiko-mono/commit/b019975eb2d46251ddc80f0c3650e8e5a89d1dab))
+* **protocol:** fix parent metahash check for the first block ([#16607](https://github.com/taikoxyz/taiko-mono/issues/16607)) ([ce9e67b](https://github.com/taikoxyz/taiko-mono/commit/ce9e67b35750b44c841346ed9fe7e8f2affd568f))
+* **protocol:** fix signature reuse bug ([#16611](https://github.com/taikoxyz/taiko-mono/issues/16611)) ([ff2dc11](https://github.com/taikoxyz/taiko-mono/commit/ff2dc11f37e07299609c57ba2839a8216ab47b35))
+* **protocol:** fix supportsInterface in BaseVault, fix typo and visibility ([#16600](https://github.com/taikoxyz/taiko-mono/issues/16600)) ([f6efe97](https://github.com/taikoxyz/taiko-mono/commit/f6efe975274cd95e33f98de6c6e5d7fc39d21966))
+* **protocol:** revert removing `proposedIn` (being used by node/client) ([#16644](https://github.com/taikoxyz/taiko-mono/issues/16644)) ([2c311e1](https://github.com/taikoxyz/taiko-mono/commit/2c311e1aea456bca815f8cbbe42b2f5810d0db9f))
+* **protocol:** use signature check to verify if msg.sender is EOA ([#16641](https://github.com/taikoxyz/taiko-mono/issues/16641)) ([b853c08](https://github.com/taikoxyz/taiko-mono/commit/b853c08eb82cf93bba81b51169c1add8b42f4b09))
+* **repo:** typos ([#16589](https://github.com/taikoxyz/taiko-mono/issues/16589)) ([8836e50](https://github.com/taikoxyz/taiko-mono/commit/8836e5029d32ca3c7d45321a8e48910680626704))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.0.0...protocol-v1.1.0) (2024-03-29)
 
 

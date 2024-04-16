@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../../common/IAddressResolver.sol";
+import "../../common/LibStrings.sol";
+import "../../libs/LibAddress.sol";
+import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
-import "./LibDepositing.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library LibProposing {
     using LibAddress for address;
+
+    // = keccak256(abi.encode(new TaikoData.EthDeposit[](0)))
+    bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
+        0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
@@ -33,8 +41,8 @@ library LibProposing {
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_HOOK();
     error L1_INVALID_PROVER();
+    error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
-    error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
@@ -46,14 +54,13 @@ library LibProposing {
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata.
-    /// @return deposits_ The EthDeposit array about processed deposits in this proposed
-    /// block.
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bool _checkEOAForCalldataDA
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
@@ -92,10 +99,6 @@ library LibProposing {
             revert L1_UNEXPECTED_PARENT();
         }
 
-        // Each transaction must handle a specific quantity of L1-to-L2
-        // Ether deposits.
-        deposits_ = LibDepositing.processDeposits(_state, _config, params.coinbase);
-
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
@@ -106,7 +109,7 @@ library LibProposing {
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
-                depositsHash: keccak256(abi.encode(deposits_)),
+                depositsHash: _EMPTY_ETH_DEPOSIT_HASH,
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -121,7 +124,7 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (block.chainid != 1) revert L1_BLOB_NOT_AVAILABLE();
+            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
@@ -130,11 +133,18 @@ library LibProposing {
             meta_.blobHash = blobhash(0);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
+            meta_.blobHash = keccak256(_txList);
+
             // This function must be called as the outmost transaction (not an internal one) for
             // the node to extract the calldata easily.
-            if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
-
-            meta_.blobHash = keccak256(_txList);
+            // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
+            // 7645: Alias ORIGIN to SENDER
+            if (
+                _checkEOAForCalldataDA
+                    && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
+            ) {
+                revert L1_INVALID_SIG();
+            }
         }
 
         // Following the Merge, the L1 mixHash incorporates the
@@ -145,9 +155,8 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve("tier_provider", false)).getMinTier(
-            uint256(meta_.difficulty)
-        );
+        meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
+            .getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -158,7 +167,7 @@ library LibProposing {
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
-            __reserved1: 0,
+            proposedIn: uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
@@ -175,7 +184,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
+            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -187,10 +196,10 @@ library LibProposing {
                     revert L1_INVALID_HOOK();
                 }
 
-                // When a hook is called, all ether in this contract will be send to the hook.
+                // When a hook is called, all ether in this contract will be sent to the hook.
                 // If the ether sent to the hook is not used entirely, the hook shall send the Ether
                 // back to this contract for the next hook to use.
-                // Proposers shall choose use extra hooks wisely.
+                // Proposers shall choose to use extra hooks wisely.
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta_, params.hookCalls[i].data
                 );
@@ -211,6 +220,7 @@ library LibProposing {
             }
         }
 
+        deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
@@ -230,13 +240,13 @@ library LibProposing {
     {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve("proposer_one", true);
+            address proposerOne = _resolver.resolve(LibStrings.B_PROPOSER_ONE, true);
             if (proposerOne != address(0)) {
                 return msg.sender == proposerOne;
             }
         }
 
-        address proposer = _resolver.resolve("proposer", true);
+        address proposer = _resolver.resolve(LibStrings.B_PROPOSER, true);
         return proposer == address(0) || msg.sender == proposer;
     }
 }

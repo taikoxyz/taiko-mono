@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
@@ -32,8 +33,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
-        string memory _symbol,
-        string memory _name
+        string calldata _symbol,
+        string calldata _name
     )
         external
         initializer
@@ -55,9 +56,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 _tokenId
     )
         external
-        nonReentrant
         whenNotPaused
-        onlyFromNamed("erc721_vault")
+        onlyFromNamed(LibStrings.B_ERC721_VAULT)
+        nonReentrant
     {
         _safeMint(_account, _tokenId);
     }
@@ -70,9 +71,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 _tokenId
     )
         external
-        nonReentrant
         whenNotPaused
-        onlyFromNamed("erc721_vault")
+        onlyFromNamed(LibStrings.B_ERC721_VAULT)
+        nonReentrant
     {
         // Check if the caller is the owner of the token.
         if (ownerOf(_tokenId) != _account) {
@@ -107,11 +108,14 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         // https://github.com/crytic/slither/wiki/Detector-Documentation#abi-encodePacked-collision
         // The abi.encodePacked() call below takes multiple dynamic arguments. This is known and
         // considered acceptable in terms of risk.
-        return string(
-            abi.encodePacked(
-                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
-            )
-        );
+        return LibBridgedToken.buildURI(srcToken, srcChainId, Strings.toString(_tokenId));
+    }
+
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
+    function canonical() external view returns (address, uint256) {
+        return (srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(

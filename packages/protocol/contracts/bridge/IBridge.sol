@@ -38,7 +38,8 @@ interface IBridge {
         // Processing fee for the relayer.
         uint256 fee;
         // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
-        // process the message.
+        // process the message. This value will mostly be respected when retrying
+        // (gas > gas_limit) but not when processed by the owner.
         uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;
@@ -87,6 +88,10 @@ interface IBridge {
     /// @notice Emitted when a message is retried.
     /// @param msgHash The hash of the message.
     event MessageRetried(bytes32 indexed msgHash);
+
+    /// @notice Emitted when a message is marked failed.
+    /// @param msgHash The hash of the message.
+    event MessageFailed(bytes32 indexed msgHash);
 
     /// @notice Emitted when the status of a message changes.
     /// @param msgHash The hash of the message.
@@ -142,6 +147,12 @@ interface IBridge {
     /// @param _isLastAttempt Specifies if this is the last attempt to retry the
     /// message.
     function retryMessage(Message calldata _message, bool _isLastAttempt) external;
+
+    /// @notice Mark a message as failed if the message is currently retriable.
+    /// @dev This function can only be called by `message.destOwner`.
+    /// @param _message The message to fail.
+    /// message.
+    function failMessage(Message calldata _message) external;
 
     /// @notice Returns the bridge state context.
     /// @return ctx_ The context of the current bridge operation.

@@ -83,9 +83,10 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         view
         returns (address payable addr_)
     {
-        if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+        address _addressManager = addressManager;
+        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
 
-        addr_ = payable(IAddressManager(addressManager).getAddress(_chainId, _name));
+        addr_ = payable(IAddressManager(_addressManager).getAddress(_chainId, _name));
 
         if (!_allowZeroAddress && addr_ == address(0)) {
             revert RESOLVER_ZERO_ADDR(_chainId, _name);

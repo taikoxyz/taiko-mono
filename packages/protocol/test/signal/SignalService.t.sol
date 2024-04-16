@@ -82,7 +82,7 @@ contract TestSignalService is TaikoTest {
         bytes32 stateRoot = hex"7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819";
         uint64 blockId = 5570;
         vm.prank(Alice);
-        realSignalService.syncChainData(32_382, LibSignals.STATE_ROOT, blockId, stateRoot);
+        realSignalService.syncChainData(32_382, LibStrings.H_STATE_ROOT, blockId, stateRoot);
 
         realSignalService.proveSignalReceived(32_382, srcBridge, msgHash, proof);
     }
@@ -319,7 +319,7 @@ contract TestSignalService is TaikoTest {
         // relay the signal root
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+            srcChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
         signalService.proveSignalReceived({
             _chainId: srcChainId,
@@ -334,7 +334,7 @@ contract TestSignalService is TaikoTest {
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+            srcChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
     }
 
@@ -365,7 +365,7 @@ contract TestSignalService is TaikoTest {
         // relay the state root
         vm.prank(taiko);
         signalService.syncChainData(
-            srcChainId, LibSignals.STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
+            srcChainId, LibStrings.H_STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
 
         // Should not revert
@@ -378,7 +378,7 @@ contract TestSignalService is TaikoTest {
 
         assertEq(
             signalService.isChainDataSynced(
-                srcChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
+                srcChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
             ),
             false
         );
@@ -444,9 +444,58 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
+            proofs[1].chainId, LibStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
+        signalService.proveSignalReceived({
+            _chainId: srcChainId,
+            _app: randAddress(),
+            _signal: randBytes32(),
+            _proof: abi.encode(proofs)
+        });
+    }
+
+    function test_SignalService_proveSignalReceived_revert_with_a_loop() public {
+        uint64 srcChainId = uint64(block.chainid + 1);
+
+        vm.prank(Alice);
+        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+
+        SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
+
+        // first hop with full merkle proof
+        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].blockId = 1;
+        proofs[0].rootHash = randBytes32();
+        proofs[0].accountProof = new bytes[](1);
+        proofs[0].storageProof = new bytes[](10);
+
+        // second hop with storage merkle proof
+        proofs[1].chainId = proofs[0].chainId; // same
+        proofs[1].blockId = 2;
+        proofs[1].rootHash = randBytes32();
+        proofs[1].accountProof = new bytes[](0);
+        proofs[1].storageProof = new bytes[](10);
+
+        // third/last hop with full merkle proof
+        proofs[2].chainId = uint64(block.chainid);
+        proofs[2].blockId = 3;
+        proofs[2].rootHash = randBytes32();
+        proofs[2].accountProof = new bytes[](1);
+        proofs[2].storageProof = new bytes[](10);
+
+        // Add two trusted hop relayers
+        vm.startPrank(Alice);
+        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        vm.stopPrank();
+
+        vm.prank(taiko);
+        signalService.syncChainData(
+            proofs[1].chainId, LibStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
+        );
+
+        vm.expectRevert(SignalService.SS_INVALID_HOPS_WITH_LOOP.selector);
         signalService.proveSignalReceived({
             _chainId: srcChainId,
             _app: randAddress(),
@@ -545,7 +594,7 @@ contract TestSignalService is TaikoTest {
 
         vm.prank(taiko);
         signalService.syncChainData(
-            proofs[7].chainId, LibSignals.STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
+            proofs[7].chainId, LibStrings.H_STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
         );
 
         signalService.proveSignalReceived({
@@ -586,13 +635,13 @@ contract TestSignalService is TaikoTest {
         private
     {
         assertEq(
-            signalService.isChainDataSynced(chainId, LibSignals.STATE_ROOT, blockId, stateRoot),
+            signalService.isChainDataSynced(chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot),
             stateRootCached
         );
 
         assertEq(
             signalService.isChainDataSynced(
-                chainId, LibSignals.SIGNAL_ROOT, blockId, bytes32(uint256(789))
+                chainId, LibStrings.H_SIGNAL_ROOT, blockId, bytes32(uint256(789))
             ),
             signalRootCached
         );

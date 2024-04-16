@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
+import "../../common/LibStrings.sol";
 import "../../signal/ISignalService.sol";
-import "../../signal/LibSignals.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
@@ -19,20 +19,16 @@ library LibVerifying {
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
     /// @param blockId The block ID.
-    /// @param assignedProver The assigned prover of the block.
     /// @param prover The actual prover of the block.
     /// @param blockHash The block hash.
     /// @param stateRoot The state root.
     /// @param tier The tier of the transition used for verification.
-    /// @param contestations The number of contestations.
     event BlockVerified(
         uint256 indexed blockId,
-        address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
-        uint16 tier,
-        uint8 contestations
+        uint16 tier
     );
 
     /// @notice Emitted when some state variable values changed.
@@ -43,6 +39,7 @@ library LibVerifying {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
+    error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_ID_ZERO();
 
     /// @notice Initializes the Taiko protocol state.
@@ -54,9 +51,10 @@ library LibVerifying {
         TaikoData.Config memory _config,
         bytes32 _genesisBlockHash
     )
-        external
+        internal
     {
         if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
 
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -78,12 +76,10 @@ library LibVerifying {
 
         emit BlockVerified({
             blockId: 0,
-            assignedProver: address(0),
             prover: address(0),
             blockHash: _genesisBlockHash,
             stateRoot: 0,
-            tier: 0,
-            contestations: 0
+            tier: 0
         });
     }
 
@@ -123,6 +119,8 @@ library LibVerifying {
         uint64 numBlocksVerified;
         address tierProvider;
 
+        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
@@ -152,7 +150,7 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve("tier_provider", false);
+                        tierProvider = _resolver.resolve(LibStrings.B_TIER_PROVIDER, false);
                     }
 
                     if (
@@ -175,44 +173,21 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                // We consistently return the liveness bond and the validity
-                // bond to the actual prover of the transition utilized for
-                // block verification. If the actual prover happens to be the
-                // block's assigned prover, he will receive both deposits,
-                // ultimately earning the proving fee paid during block
-                // proposal. In contrast, if the actual prover is different from
-                // the block's assigned prover, the liveness bond serves as a
-                // reward to the actual prover, while the assigned prover
-                // forfeits his liveness bond due to failure to fulfill their
-                // commitment.
-                uint256 bondToReturn = uint256(ts.validityBond) + blk.livenessBond;
-
-                // Nevertheless, it's possible for the actual prover to be the
-                // same individual or entity as the block's assigned prover.
-                // Consequently, we have chosen to grant the actual prover only
-                // half of the liveness bond as a reward.
-                if (ts.prover != blk.assignedProver) {
-                    bondToReturn -= blk.livenessBond >> 1;
-                }
-
-                IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
-                tko.safeTransfer(ts.prover, bondToReturn);
+                tko.safeTransfer(ts.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
                 // other transitions for this block, we disregard them entirely.
-                // The bonds for these other transitions are burned either when
-                // the transitions are generated or proven. In such cases, both
-                // the provers and contesters of those transitions forfeit their bonds.
+                // The bonds for these other transitions are burned (more precisely held in custody)
+                // either when the transitions are generated or proven. In such cases, both the
+                // provers and contesters of those transitions forfeit their bonds.
 
                 emit BlockVerified({
                     blockId: blockId,
-                    assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    tier: ts.tier,
-                    contestations: ts.contestations
+                    tier: ts.tier
                 });
 
                 ++blockId;
@@ -225,8 +200,8 @@ library LibVerifying {
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // sync chain data
-                _syncChainData(_config, _resolver, lastVerifiedBlockId, stateRoot);
+                // Sync chain data
+                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
             }
         }
     }
@@ -237,6 +212,7 @@ library LibVerifying {
     }
 
     function _syncChainData(
+        TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _lastVerifiedBlockId,
@@ -244,15 +220,19 @@ library LibVerifying {
     )
         private
     {
-        ISignalService signalService = ISignalService(_resolver.resolve("signal_service", false));
+        ISignalService signalService =
+            ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
         (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibSignals.STATE_ROOT, 0 /* latest block Id*/
+            _config.chainId, LibStrings.H_STATE_ROOT, 0 /* latest block Id*/
         );
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
+            _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
+            _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
             signalService.syncChainData(
-                _config.chainId, LibSignals.STATE_ROOT, _lastVerifiedBlockId, _stateRoot
+                _config.chainId, LibStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
             );
         }
     }
@@ -260,19 +240,9 @@ library LibVerifying {
     function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
         if (
             _config.chainId <= 1 || _config.chainId == block.chainid //
-                || _config.blockMaxProposals == 1
+                || _config.blockMaxProposals <= 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
                 || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
-                || _config.ethDepositRingBufferSize <= 1 || _config.ethDepositMinCountPerBlock == 0
-            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
-            // TaikoL1.sol) costs 72_502 gas.
-            || _config.ethDepositMaxCountPerBlock > 32
-                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
-                || _config.ethDepositMinAmount == 0
-                || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
-                || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
-                || _config.ethDepositMaxFee == 0
-                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;

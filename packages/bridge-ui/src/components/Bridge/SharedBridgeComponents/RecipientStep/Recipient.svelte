@@ -90,7 +90,7 @@
       {#if displayedRecipient}
         {shortenAddress(displayedRecipient, 8, 10)}
         {#if displayedRecipient !== $account?.address}
-          <span class="text-primary-link">| Customized</span>
+          <span class="text-primary-link">| {$t('common.customized')}</span>
         {/if}
       {:else}
         {$t('recipient.placeholder')}

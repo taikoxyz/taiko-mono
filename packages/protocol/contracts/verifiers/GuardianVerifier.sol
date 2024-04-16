@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "../L1/tiers/ITierProvider.sol";
 import "./IVerifier.sol";
 
@@ -33,7 +34,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
             revert GV_INVALID_PROOF();
         }
 
-        if (_ctx.msgSender != resolve("guardian_prover", false)) {
+        if (_ctx.msgSender != resolve(LibStrings.B_GUARDIAN_PROVER, false)) {
             revert GV_PERMISSION_DENIED();
         }
     }

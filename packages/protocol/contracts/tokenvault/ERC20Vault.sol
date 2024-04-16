@@ -140,6 +140,13 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+    }
+
     /// @notice Change bridged token.
     /// @param _ctoken The canonical token.
     /// @param _btokenNew The new bridged token address.
@@ -149,9 +156,9 @@ contract ERC20Vault is BaseVault {
         address _btokenNew
     )
         external
-        nonReentrant
         whenNotPaused
         onlyOwner
+        nonReentrant
         returns (address btokenOld_)
     {
         if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
@@ -206,8 +213,8 @@ contract ERC20Vault is BaseVault {
     function sendToken(BridgeTransferOp calldata _op)
         external
         payable
-        nonReentrant
         whenNotPaused
+        nonReentrant
         returns (IBridge.Message memory message_)
     {
         if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
@@ -235,7 +242,7 @@ contract ERC20Vault is BaseVault {
 
         bytes32 msgHash;
         (msgHash, message_) =
-            IBridge(resolve("bridge", false)).sendMessage{ value: msg.value }(message);
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -249,7 +256,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) public payable nonReentrant whenNotPaused {
+    function onMessageInvocation(bytes calldata _data) public payable whenNotPaused nonReentrant {
         (CanonicalERC20 memory ctoken, address from, address to, uint256 amount) =
             abi.decode(_data, (CanonicalERC20, address, address, uint256));
 
@@ -283,8 +290,8 @@ contract ERC20Vault is BaseVault {
         external
         payable
         override
-        nonReentrant
         whenNotPaused
+        nonReentrant
     {
         // `onlyFromBridge` checked in checkRecallMessageContext
         checkRecallMessageContext();
@@ -412,7 +419,7 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        btoken = address(new ERC1967Proxy(resolve("bridged_erc20", false), data));
+        btoken = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC20, false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

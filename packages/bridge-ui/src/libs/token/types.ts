@@ -34,7 +34,7 @@ export type NFT = Token & {
 // Based on https://docs.opensea.io/docs/metadata-standards
 export type NFTMetadata = {
   description: string;
-  external_url: string;
+  external_url?: string;
   image: string;
   name: string;
   //todo: more metadata?

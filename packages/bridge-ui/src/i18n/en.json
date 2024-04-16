@@ -239,6 +239,7 @@
     "ok": "Okay",
     "recipient": "Recipient",
     "review": "Review",
+    "see_results": "See results",
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
@@ -357,6 +358,10 @@
     "token": "Token",
     "transactions": "Transactions"
   },
+  "paginator": {
+    "of": "of",
+    "page": "Page"
+  },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communication channels for more information. ",
     "title": "Bridge under maintenance!"
@@ -380,7 +385,7 @@
     },
     "recommended": {
       "calculating": "Calculating",
-      "error": "Error calculating",
+      "error": "Error calculating processing fee, you will need to claim manually!",
       "label": "Recommended"
     },
     "title": "Processing fee",

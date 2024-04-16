@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -35,6 +35,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 type DB interface {
@@ -54,6 +55,7 @@ type ethClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 }
 
 // hop is a struct which needs to be created based on the config parameters
@@ -401,6 +403,14 @@ func (p *Processor) Start() error {
 
 	go p.eventLoop(ctx)
 
+	go func() {
+		if err := backoff.Retry(func() error {
+			return utils.ScanBlocks(ctx, p.srcEthClient, p.wg)
+		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			slog.Error("scan blocks backoff retry", "error", err)
+		}
+	}()
+
 	return nil
 }
 
@@ -430,26 +440,12 @@ func (p *Processor) eventLoop(ctx context.Context) {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					case errors.Is(err, relayer.ErrUnprofitable):
-						// we want to add it to the unprofitable queue, to be iterated
-						// and picked up by a processor that will periodically check
-						// if the messages are now estimated to be profitable, rather than
-						// just discard those messages.
-						marshalled, err := json.Marshal(m)
-						if err != nil {
-							slog.Error("error marshaling queue message", "error", err)
-							// if we cant marshal it, we cant publish it. we should negatively acknowledge
-							// the emssage so it goes to the dead letter queue.
-							if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
-								slog.Error("Err nacking message", "err", err.Error())
-							}
-
-							return
-						}
+						slog.Info("publishing to unprofitable queue")
 
 						if err := p.queue.Publish(
 							ctx,
 							fmt.Sprintf("%v-unprofitable", p.queueName()),
-							marshalled,
+							m.Body,
 							p.cfg.UnprofitableMessageQueueExpiration,
 						); err != nil {
 							slog.Error("error publishing to unprofitable queue", "error", err)
@@ -459,6 +455,14 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						// from our main queue.
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
+						}
+					case errors.Is(err, context.Canceled):
+						slog.Error("process message failed due to context cancel", "err", err.Error())
+
+						// we want to negatively acknowledge the message and make sure
+						// we requeue it
+						if err := p.queue.Nack(ctx, m, true); err != nil {
+							slog.Error("Err nacking message", "err", err.Error())
 						}
 					default:
 						slog.Error("process message failed", "err", err.Error())

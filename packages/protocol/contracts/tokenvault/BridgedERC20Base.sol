@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
 
 /// @title BridgedERC20Base
@@ -38,9 +39,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         bool _migratingInbound
     )
         external
-        nonReentrant
         whenNotPaused
-        onlyFromOwnerOrNamed("erc20_vault")
+        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
+        nonReentrant
     {
         if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
             revert BB_INVALID_PARAMS();
@@ -54,14 +55,15 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @notice Mints tokens to the specified account.
     /// @param _account The address of the account to receive the tokens.
     /// @param _amount The amount of tokens to mint.
-    function mint(address _account, uint256 _amount) external nonReentrant whenNotPaused {
+    function mint(address _account, uint256 _amount) external whenNotPaused nonReentrant {
         // mint is disabled while migrating outbound.
         if (_isMigratingOut()) revert BB_MINT_DISALLOWED();
 
-        if (msg.sender == migratingAddress) {
+        address _migratingAddress = migratingAddress;
+        if (msg.sender == _migratingAddress) {
             // Inbound migration
-            emit MigratedTo(migratingAddress, _account, _amount);
-        } else if (msg.sender != resolve("erc20_vault", true)) {
+            emit MigratedTo(_migratingAddress, _account, _amount);
+        } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
         }
@@ -72,7 +74,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @notice Burns tokens from the specified account.
     /// @param _account The address of the account to burn the tokens from.
     /// @param _amount The amount of tokens to burn.
-    function burn(address _account, uint256 _amount) external nonReentrant whenNotPaused {
+    function burn(address _account, uint256 _amount) external whenNotPaused nonReentrant {
         if (_isMigratingOut()) {
             // Only the owner of the tokens himself can migrate out
             if (msg.sender != _account) revert BB_PERMISSION_DENIED();
@@ -80,7 +82,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             emit MigratedTo(migratingAddress, _account, _amount);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(migratingAddress).mint(_account, _amount);
-        } else if (msg.sender != resolve("erc20_vault", true)) {
+        } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // Only the vault can burn tokens when not migrating out
             revert RESOLVER_DENIED();
         }

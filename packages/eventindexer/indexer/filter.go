@@ -71,7 +71,7 @@ func filterFunc(
 		})
 
 		wg.Go(func() error {
-			blockVerifiedEvents, err := i.taikol1.FilterBlockVerified(filterOpts, nil, nil, nil)
+			blockVerifiedEvents, err := i.taikol1.FilterBlockVerified(filterOpts, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
 			}
@@ -154,6 +154,22 @@ func filterFunc(
 				return nil
 			})
 		}
+	}
+
+	if i.sgxVerifier != nil {
+		wg.Go(func() error {
+			instancesAdded, err := i.sgxVerifier.FilterInstanceAdded(filterOpts, nil, nil)
+			if err != nil {
+				return errors.Wrap(err, "i.sgxVerifier.FilterInstanceAdded")
+			}
+
+			err = i.saveInstanceAddedEvents(ctx, chainID, instancesAdded)
+			if err != nil {
+				return errors.Wrap(err, "i.saveInstanceAddedEvents")
+			}
+
+			return nil
+		})
 	}
 
 	wg.Go(func() error {

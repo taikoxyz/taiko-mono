@@ -12,7 +12,7 @@ import "./MerkleClaimable.sol";
 contract ERC20Airdrop is MerkleClaimable {
     using SafeERC20 for IERC20;
 
-    /// @notice The address of the token contract.
+    /// @notice The address of the Taiko token contract.
     address public token;
 
     /// @notice The address of the vault contract.
@@ -63,7 +63,8 @@ contract ERC20Airdrop is MerkleClaimable {
         _verifyClaim(abi.encode(user, amount), proof);
 
         // Transfer the tokens
-        IERC20(token).safeTransferFrom(vault, user, amount);
+        address _token = token;
+        IERC20(_token).safeTransferFrom(vault, user, amount);
 
         // Delegate the voting power to delegatee.
         // Note that the signature (v,r,s) may not correspond to the user address,
@@ -71,6 +72,8 @@ contract ERC20Airdrop is MerkleClaimable {
         // client can change the data to call delegateBySig for another user.
         (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(delegationData, (address, uint256, uint256, uint8, bytes32, bytes32));
-        IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
+
+        // Allow delegateBySig to fail to avoid potential frontfun
+        try IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s) { } catch { }
     }
 }

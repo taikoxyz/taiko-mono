@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 
+import "../contracts/common/LibStrings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
@@ -67,13 +68,15 @@ contract DeployOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr =
-            AddressManager(sharedAddressManager).getAddress(uint64(block.chainid), "signal_service");
+        address signalServiceAddr = AddressManager(sharedAddressManager).getAddress(
+            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE
+        );
         addressNotNull(signalServiceAddr, "signalServiceAddr");
         SignalService signalService = SignalService(signalServiceAddr);
 
-        address taikoL1Addr =
-            AddressManager(rollupAddressManager).getAddress(uint64(block.chainid), "taiko");
+        address taikoL1Addr = AddressManager(rollupAddressManager).getAddress(
+            uint64(block.chainid), LibStrings.B_TAIKO
+        );
         addressNotNull(taikoL1Addr, "taikoL1Addr");
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
 
@@ -243,21 +246,21 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
-            data: abi.encodeCall(BaseVault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC20Vault.init, (timelock, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
         deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
-            data: abi.encodeCall(BaseVault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC721Vault.init, (timelock, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
         deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
-            data: abi.encodeCall(BaseVault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC1155Vault.init, (timelock, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 

@@ -36,8 +36,8 @@ abstract contract Guardians is EssentialContract {
     /// @notice Emitted when an approval is made
     /// @param operationId The operation ID
     /// @param approvalBits The new approval bits
-    /// @param proofSubmitted If the proof was submitted
-    event Approved(uint256 indexed operationId, uint256 approvalBits, bool proofSubmitted);
+    /// @param minGuardiansReached If the proof was submitted
+    event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
 
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
@@ -103,17 +103,19 @@ abstract contract Guardians is EssentialContract {
         return guardians.length;
     }
 
-    function approve(uint256 _operationId, bytes32 _hash) internal returns (bool approved_) {
+    function approve(uint256 _blockId, bytes32 _hash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
+        uint32 _version = version;
+
         unchecked {
-            _approvals[version][_hash] |= 1 << (id - 1);
+            _approvals[_version][_hash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[version][_hash];
+        uint256 _approval = _approvals[_version][_hash];
         approved_ = isApproved(_approval);
-        emit Approved(_operationId, _approval, approved_);
+        emit Approved(_blockId, _approval, approved_);
     }
 
     function deleteApproval(bytes32 _hash) internal {
