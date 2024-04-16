@@ -229,7 +229,7 @@ library LibVerifying {
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
             _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
-            _state.slotA.lastSyncedAt = uint64(block.timestamp);
+            _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
             signalService.syncChainData(
                 _config.chainId, LibStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
