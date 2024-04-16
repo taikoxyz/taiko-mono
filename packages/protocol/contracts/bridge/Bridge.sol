@@ -23,16 +23,18 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit.
 
-    uint32 private constant _GAS_RESERVE = 250_000;
+    /// @dev The gas reserved for relayer to process a message. Note that this doesn't cover proof
+    /// calldata and invocation. This value should be fine-tuned with production data.
+    uint32 public constant GAS_RESERVE = 250_000;
+    /// @dev The gas overhead for both receiving and invoking a message. This value should be
+    /// fine-tuned with production data.
+    uint32 public constant GAS_OVERHEAD = 60_000;
 
     /// @dev The max number of proof bytes to charge fee.
     uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 512;
 
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
-
-    /// @dev The gas overhead for both receiving and invoking a message.
-    uint32 private constant _GAS_OVERHEAD = 60_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -245,7 +247,7 @@ contract Bridge is EssentialContract, IBridge {
         refundAmount += _message.fee;
 
         if (msg.sender != _message.destOwner) {
-            uint256 gasUsed = _calcGasToCharge(gas, _GAS_OVERHEAD, _proof.length, numCacheOps);
+            uint256 gasUsed = _calcGasToCharge(gas, GAS_OVERHEAD, _proof.length, numCacheOps);
             uint256 fee = _calcFee(_message.fee, _message.gasLimit, gasUsed);
             refundAmount -= fee;
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
@@ -402,7 +404,7 @@ contract Bridge is EssentialContract, IBridge {
     function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
         unchecked {
             uint256 calldataCost = (_message.data.length + 192) >> 4;
-            return uint32(_GAS_RESERVE + calldataCost + 1);
+            return uint32(GAS_RESERVE + calldataCost + 1);
         }
     }
 
