@@ -150,12 +150,10 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: Alice,
-            refundTo: Alice,
             value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: "",
-            memo: ""
+            data: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
@@ -190,12 +188,10 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
-            refundTo: Alice,
             value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: "",
-            memo: ""
+            data: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
@@ -229,12 +225,10 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
-            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol)),
-            memo: ""
+            data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol))
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
@@ -593,12 +587,10 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(nonmaliciousContract1),
-            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: "",
-            memo: ""
+            data: ""
         });
 
         bytes memory proof = hex"00";
@@ -623,12 +615,10 @@ contract BridgeTest is TaikoTest {
             srcOwner: Alice,
             destOwner: Alice,
             to: address(maliciousContract2),
-            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: "",
-            memo: ""
+            data: ""
         });
 
         bytes memory proof = hex"00";
@@ -699,12 +689,10 @@ contract BridgeTest is TaikoTest {
             srcOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             destOwner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
-            refundTo: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: "",
-            memo: ""
+            data: ""
         });
 
         bytes memory proof =
@@ -735,10 +723,8 @@ contract BridgeTest is TaikoTest {
             id: 0, // placeholder, will be overwritten
             from: owner, // placeholder, will be overwritten
             srcChainId: uint64(block.chainid), // will be overwritten
-            refundTo: owner,
             gasLimit: gasLimit,
-            data: "",
-            memo: ""
+            data: ""
         });
     }
 
@@ -759,12 +745,10 @@ contract BridgeTest is TaikoTest {
                 // want to send ether
             destOwner: Alice,
             to: address(delegateOwner),
-            refundTo: Alice,
             value: 0,
             fee: 0,
             gasLimit: 1_000_000,
-            data: encodedCall,
-            memo: ""
+            data: encodedCall
         });
     }
 }

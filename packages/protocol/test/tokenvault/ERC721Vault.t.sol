@@ -242,13 +242,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts, // With ERC721 still need to specify 1
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts // With ERC721 still need to specify 1
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -269,16 +267,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
-            address(0),
-            Alice,
-            address(0),
-            tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            destChainId, address(0), Alice, 500_000, address(0), 500_000, tokenIds, amounts
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
@@ -300,13 +289,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
@@ -332,13 +319,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -385,13 +370,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -433,13 +416,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -476,13 +457,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             David,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: etherValue }(sendOpts);
@@ -535,13 +514,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
 
         vm.prank(Alice, Alice);
@@ -576,13 +553,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -631,13 +606,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -679,16 +652,7 @@ contract ERC721VaultTest is TaikoTest {
         ERC721(deployedContract).approve(address(destChainErc721Vault), 1);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId,
-            address(0),
-            Bob,
-            address(deployedContract),
-            tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Bob,
-            ""
+            chainId, address(0), Bob, 500_000, address(deployedContract), 500_000, tokenIds, amounts
         );
 
         vm.prank(Bob, Bob);
@@ -730,13 +694,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);
@@ -782,13 +744,11 @@ contract ERC721VaultTest is TaikoTest {
             chainId,
             address(0),
             Alice,
+            500_000,
             address(deployedContract),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Bob,
-            ""
+            amounts
         );
 
         vm.prank(Alice, Alice);
@@ -814,13 +774,11 @@ contract ERC721VaultTest is TaikoTest {
             destChainId,
             address(0),
             Alice,
+            500_000,
             address(canonicalToken721),
+            500_000,
             tokenIds,
-            amounts,
-            500_000,
-            500_000,
-            Alice,
-            ""
+            amounts
         );
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 500_000 }(sendOpts);

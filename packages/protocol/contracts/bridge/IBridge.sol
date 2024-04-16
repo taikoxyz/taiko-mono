@@ -40,13 +40,10 @@ interface IBridge {
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        address refundTo; // deprecated and ignored
         // value to invoke on the destination chain.
         uint256 value;
         // callData to invoke on the destination chain.
         bytes data;
-        // Optional memo.
-        string memo;
     }
 
     // Struct representing the context of a bridge operation.

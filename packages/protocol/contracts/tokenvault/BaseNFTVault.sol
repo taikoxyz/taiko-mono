@@ -37,9 +37,6 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] tokenIds;
         // Amounts of tokens to transfer.
         uint256[] amounts;
-        address refundTo; // deprecated and ignored
-        // Optional memo.
-        string memo;
     }
 
     /// @notice ERC1155 interface ID.

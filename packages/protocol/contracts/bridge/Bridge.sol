@@ -399,11 +399,10 @@ contract Bridge is EssentialContract, IBridge {
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
         unchecked {
-            // The message struct takes 8 slots in total.
+            // The message struct takes 7 slots in total.
             // For each byte, we reserve 16 gas, but since a message can be processed in
             // two steps, we need to reserve 32 gas per byte (>>5).
-            uint256 calldataCost =
-                (_message.data.length + bytes(_message.memo).length + 6 * 32) >> 5;
+            uint256 calldataCost = (_message.data.length + 6 * 32) >> 5;
 
             return uint32((_GAS_RESERVE + calldataCost + 1).min(type(uint32).max));
         }
