@@ -248,10 +248,10 @@ def:
     #       globs:
     #         - "mobile/*"
 
-    - title: "Changes in node"
+    - title: "node"
       description: "This shows changes to node files"
       sub:
-        - title: "first layer"
+        - title: "This adds taikoAuth namespace for authenticated APIs."
           globs:
             - "node/*"
 
@@ -289,10 +289,10 @@ def:
     #       globs:
     #         - "rlp/*/*/*"
 
-    - title: "Changes in rpc"
+    - title: "rpc"
       description: "This shows changes to the rpc files"
       sub:
-        - title: "first layer"
+        - title: "This adds taikoAuth namespace for authenticated APIs."
           globs:
             - "rpc/*"
     #     - title: "second layer"
