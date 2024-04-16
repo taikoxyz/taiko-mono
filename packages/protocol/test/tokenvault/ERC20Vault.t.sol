@@ -32,7 +32,7 @@ contract PrankDestBridge {
         ERC20Vault.CanonicalERC20 calldata canonicalToken,
         address from,
         address to,
-        uint256 amount,
+        uint64 amount,
         bytes32 msgHash,
         address srcChainERC20Vault,
         uint64 srcChainId,
@@ -182,7 +182,7 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_send_erc20_no_processing_fee() public {
         vm.startPrank(Alice);
 
-        uint256 amount = 2 wei;
+        uint64 amount = 2 wei;
         erc20.approve(address(erc20Vault), amount);
 
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
@@ -204,7 +204,7 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_send_erc20_processing_fee_reverts_if_msg_value_too_low() public {
         vm.startPrank(Alice);
 
-        uint256 amount = 2 wei;
+        uint64 amount = 2 wei;
         erc20.approve(address(erc20Vault), amount);
 
         vm.expectRevert();
@@ -218,7 +218,7 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_send_erc20_processing_fee() public {
         vm.startPrank(Alice);
 
-        uint256 amount = 2 wei;
+        uint64 amount = 2 wei;
         erc20.approve(address(erc20Vault), amount);
 
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
@@ -248,7 +248,7 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_send_erc20_reverts_invalid_amount() public {
         vm.startPrank(Alice);
 
-        uint256 amount = 0;
+        uint64 amount = 0;
 
         vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
@@ -261,7 +261,7 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_send_erc20_reverts_invalid_token_address() public {
         vm.startPrank(Alice);
 
-        uint256 amount = 1;
+        uint64 amount = 1;
 
         vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
@@ -280,7 +280,7 @@ contract TestERC20Vault is TaikoTest {
 
         erc20.mint(address(erc20Vault));
 
-        uint256 amount = 1;
+        uint64 amount = 1;
         address to = Bob;
 
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
@@ -311,7 +311,7 @@ contract TestERC20Vault is TaikoTest {
 
         erc20.mint(address(erc20Vault));
 
-        uint256 amount = 1;
+        uint64 amount = 1;
         uint256 etherAmount = 0.1 ether;
         address to = David;
 
@@ -345,7 +345,7 @@ contract TestERC20Vault is TaikoTest {
 
         vm.chainId(destChainId);
 
-        uint256 amount = 1;
+        uint64 amount = 1;
 
         destChainIdBridge.setERC20Vault(address(destChainIdERC20Vault));
 
@@ -393,7 +393,7 @@ contract TestERC20Vault is TaikoTest {
 
         vm.chainId(destChainId);
 
-        uint256 amount = 1;
+        uint64 amount = 1;
 
         destChainIdBridge.setERC20Vault(address(destChainIdERC20Vault));
 
@@ -440,7 +440,7 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_onMessageRecalled_20() public {
         vm.startPrank(Alice);
 
-        uint256 amount = 2 wei;
+        uint64 amount = 2 wei;
         erc20.approve(address(erc20Vault), amount);
 
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);

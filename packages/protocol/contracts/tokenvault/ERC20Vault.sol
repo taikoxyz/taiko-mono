@@ -32,10 +32,10 @@ contract ERC20Vault is BaseVault {
         uint64 destChainId;
         address destOwner;
         address to;
+        uint64 fee;
         address token;
+        uint32 gasLimit;
         uint256 amount;
-        uint256 gasLimit;
-        uint256 fee;
         address refundTo; // deprecated and ignored
         string memo;
     }
