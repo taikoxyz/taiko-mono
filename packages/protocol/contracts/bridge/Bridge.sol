@@ -33,6 +33,8 @@ contract Bridge is EssentialContract, IBridge {
 
     uint32 private constant _EXTRA__GAS_OVERHEAD = 10_000;
 
+    uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 32;
+
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
     /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
     uint32 private constant _GAS_OVERHEAD_RECEIVING = 71_000 + _EXTRA__GAS_OVERHEAD;
@@ -293,8 +295,10 @@ contract Bridge is EssentialContract, IBridge {
 
             if (local.invocationDelay != 0) {
                 if (local.notProcessedByOwner) {
-                    receipt.gasUsed =
-                        uint32(local.gas - gasleft() + _GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
+                    receipt.gasUsed = uint32(
+                        local.gas - gasleft() + _GAS_OVERHEAD_RECEIVING
+                            + _proof.length.min(_MAX_PROOF_BYTES_TO_CHARGE) >> 4
+                    );
 
                     receipt.feePaid = uint64(
                         _calcFee(
@@ -370,7 +374,8 @@ contract Bridge is EssentialContract, IBridge {
             uint256 fee = _calcFee(
                 _message.fee, //
                 _message.gasLimit,
-                local.gas - gasleft() + overhead + _proof.length >> 4,
+                local.gas - gasleft() + overhead + _proof.length.min(_MAX_PROOF_BYTES_TO_CHARGE)
+                    >> 4,
                 local.remainingFee
             );
 
