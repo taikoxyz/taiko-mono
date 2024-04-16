@@ -98,13 +98,15 @@ interface ISignalService {
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
     /// source chain.
+    /// @return numCached_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
         address _app,
         bytes32 _signal,
         bytes calldata _proof
     )
-        external;
+        external
+        returns (uint256 numCached_);
 
     /// @notice Verifies if a signal has been received on the target chain.
     /// This is the "readonly" version of proveSignalReceived.
