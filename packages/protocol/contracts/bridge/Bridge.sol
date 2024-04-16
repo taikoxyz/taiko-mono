@@ -78,7 +78,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_FAILED();
     error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
-    error B_MESSAGE_SUSPENDED();
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
