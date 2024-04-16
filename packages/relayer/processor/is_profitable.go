@@ -32,7 +32,7 @@ func (p *Processor) isProfitable(
 		return shouldProcess, nil
 	}
 
-	// if procesing fee is higher than baseFee * gasLimit,
+	// if proccesing fee is higher than baseFee * gasLimit,
 	// we should process.
 	res := (destChainBaseFee + gasTipCap) * gasLimit.Uint64()
 	if processingFee.Uint64() > res {
