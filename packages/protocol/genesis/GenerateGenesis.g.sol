@@ -167,8 +167,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
-                data: "",
-                memo: ""
+                data: ""
             }),
             ""
         );
