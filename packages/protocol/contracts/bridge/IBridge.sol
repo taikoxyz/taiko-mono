@@ -33,7 +33,13 @@ interface IBridge {
         address refundTo; // deprecated and ignored
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer.
+        // The max processing fee for the relayer. This fee has 3 parts:
+        // - the fee for message calldata.
+        // - the minimal fee reserve for general processing, excluding function call.
+        // - the invocation fee for the function call.
+        // Any unpaid fee will be refunded to the destOwner on the destination chain.
+        // Note that fee must be 0 if gasLimit is 0, or large enough to make the invocation fee
+        // non-zero.
         uint256 fee;
         // gasLimit that the processMessage call must have.
         uint256 gasLimit;
