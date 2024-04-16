@@ -31,6 +31,8 @@ contract Bridge is EssentialContract, IBridge {
         bool notProcessedByOwner;
     }
 
+    /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
+    /// invocation gas limit.
     uint32 public constant GAS_RESERVE = 300_000;
 
     uint32 private constant _EXTRA__GAS_OVERHEAD = 10_000;
@@ -169,7 +171,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
-        } else if (_invocationGasLimit(_message) == 0) {
+        } else if (_invocationGasLimit(_message, false) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
 
@@ -336,13 +338,9 @@ contract Bridge is EssentialContract, IBridge {
             local.refundAmount = _message.value;
             status = Status.DONE;
         } else {
-            uint256 invocationGasLimit = _invocationGasLimit(_message);
-
-            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
-
-            status = _invokeMessageCall(_message, local.msgHash, invocationGasLimit)
-                ? Status.DONE
-                : Status.RETRIABLE;
+            status = _invokeMessageCall(
+                _message, local.msgHash, _invocationGasLimit(_message, true)
+            ) ? Status.DONE : Status.RETRIABLE;
         }
 
         _updateMessageStatus(local.msgHash, status);
@@ -397,9 +395,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
             if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-
-            invocationGasLimit = _invocationGasLimit(_message);
-            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
+            invocationGasLimit = _invocationGasLimit(_message, true);
         } else {
             // The owner uses all gas left in message invocation
             invocationGasLimit = gasleft();
@@ -792,10 +788,21 @@ contract Bridge is EssentialContract, IBridge {
         return _remainingFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
     }
 
-    function _invocationGasLimit(Message calldata _message) private pure returns (uint256) {
+    function _invocationGasLimit(
+        Message calldata _message,
+        bool _check64Rule
+    )
+        private
+        view
+        returns (uint256 gasLimit_)
+    {
         unchecked {
             uint256 minGasRequired = getMessageMinGasLimit(_message);
-            return _message.gasLimit.max(minGasRequired) - minGasRequired;
+            gasLimit_ = _message.gasLimit.max(minGasRequired) - minGasRequired;
+        }
+
+        if (_check64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
+            revert B_INSUFFICIENT_GAS();
         }
     }
 }
