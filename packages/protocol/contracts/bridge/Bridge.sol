@@ -31,24 +31,25 @@ contract Bridge is EssentialContract, IBridge {
         bool notProcessedByOwner;
     }
 
-    uint32 private constant _EXTRA__GAS_OVERHEAD = 10_000;
+    /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
+    /// invocation gas limit.
+    uint32 private constant _GAS_RESERVE = 250_000;
 
     uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 32;
 
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
-    /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
-    uint32 private constant _GAS_OVERHEAD_RECEIVING = 71_000 + _EXTRA__GAS_OVERHEAD;
+    /// We added 20_000 more gas on top of a measured value.
+    uint32 private constant _GAS_OVERHEAD_RECEIVING = 71_000 + 20_000;
 
     /// @dev The gas overhead for invoking a message if the message is processed in two steps.
-    /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
-    uint32 private constant _GAS_OVERHEAD_INVOKING = 18_000 + _EXTRA__GAS_OVERHEAD;
+    /// We added 20_000 more gas on top of a measured value.
+    uint32 private constant _GAS_OVERHEAD_INVOKING = 18_000 + 20_000;
 
     /// @dev The gas overhead for both receiving and invoking a message if the message is processed
     /// in a single step.
-    /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
-    uint32 private constant _GAS_OVERHEAD_RECEIVING_INVOKING = 53_000 + _EXTRA__GAS_OVERHEAD;
+    /// We added 20_000 more gas on top of a measured value.
+    uint32 private constant _GAS_OVERHEAD_RECEIVING_INVOKING = 53_000 + 20_000;
 
-    uint32 public constant GAS_RESERVE = 500_000;
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -171,7 +172,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
-        } else if (_invocationGasLimit(_message) == 0) {
+        } else if (_invocationGasLimit(_message, false) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
 
@@ -333,6 +334,7 @@ contract Bridge is EssentialContract, IBridge {
         delete proofReceipt[local.msgHash];
         emit MessageExecuted(local.msgHash);
 
+        Status status;
         if (
             _message.to == address(0) || _message.to == address(this)
                 || _message.to == local.signalService
@@ -340,18 +342,14 @@ contract Bridge is EssentialContract, IBridge {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             local.refundAmount = _message.value;
-            _updateMessageStatus(local.msgHash, Status.DONE);
+            status = Status.DONE;
         } else {
-            uint256 invocationGasLimit = _invocationGasLimit(_message);
-
-            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
-
-            if (_invokeMessageCall(_message, local.msgHash, invocationGasLimit)) {
-                _updateMessageStatus(local.msgHash, Status.DONE);
-            } else {
-                _updateMessageStatus(local.msgHash, Status.RETRIABLE);
-            }
+            status = _invokeMessageCall(
+                _message, local.msgHash, _invocationGasLimit(_message, true)
+            ) ? Status.DONE : Status.RETRIABLE;
         }
+
+        _updateMessageStatus(local.msgHash, status);
 
         // Refund the processing fee and fee to refund
         unchecked {
@@ -404,9 +402,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
             if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-
-            invocationGasLimit = _invocationGasLimit(_message);
-            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
+            invocationGasLimit = _invocationGasLimit(_message, true);
         } else {
             // The owner uses all gas left in message invocation
             invocationGasLimit = gasleft();
@@ -585,6 +581,21 @@ contract Bridge is EssentialContract, IBridge {
     /// @return The failed representation of it as bytes32.
     function signalForFailedMessage(bytes32 _msgHash) public pure returns (bytes32) {
         return _msgHash ^ bytes32(uint256(Status.FAILED));
+    }
+
+    /// @notice Returns the minimal gas limit required for sending a given message.
+    /// @param _message The message.
+    /// @return The minimal gas limit required for sending this message.
+    function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
+        unchecked {
+            // The message struct takes 11 slots in total.
+            // For each byte, we reserve 16 gas, but since a message can be processed in
+            // two steps, we need to reserve 32 gas per byte (>>5).
+            uint256 calldataCost =
+                (_message.data.length + bytes(_message.memo).length + 9 * 32) >> 5;
+
+            return uint32((_GAS_RESERVE + calldataCost + 1).min(type(uint32).max));
+        }
     }
 
     /// @notice Checks if the given address can pause and/or unpause the bridge.
@@ -784,9 +795,21 @@ contract Bridge is EssentialContract, IBridge {
         return _remainingFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
     }
 
-    function _invocationGasLimit(Message calldata _message) private pure returns (uint256) {
-        uint256 reserve =
-            GAS_RESERVE + (_message.data.length + bytes(_message.memo).length + 9 * 32) >> 4;
-        return _message.gasLimit.max(reserve) - reserve;
+    function _invocationGasLimit(
+        Message calldata _message,
+        bool _check64Rule
+    )
+        private
+        view
+        returns (uint256 gasLimit_)
+    {
+        unchecked {
+            uint256 minGasRequired = getMessageMinGasLimit(_message);
+            gasLimit_ = _message.gasLimit.max(minGasRequired) - minGasRequired;
+        }
+
+        if (_check64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
+            revert B_INSUFFICIENT_GAS();
+        }
     }
 }

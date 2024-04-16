@@ -238,13 +238,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -270,14 +270,14 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
     }
 
     function test_1155Vault_sendToken_with_0_tokens_1155() public {
@@ -300,14 +300,14 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
     }
 
     function test_1155Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155(
@@ -333,13 +333,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -397,13 +397,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -450,13 +450,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 7);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 3);
@@ -504,8 +504,8 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
@@ -567,14 +567,14 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
 
         vm.prank(Alice, Alice);
-        IBridge.Message memory message = erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        IBridge.Message memory message = erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -611,13 +611,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -676,13 +676,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 1);
 
@@ -735,14 +735,14 @@ contract ERC1155VaultTest is TaikoTest {
             address(deployedContract),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Bob,
             ""
         );
 
         vm.prank(Bob, Bob);
-        destChainErc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        destChainErc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         vm.chainId(chainId);
 
@@ -790,13 +790,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 1);
 
@@ -849,15 +849,15 @@ contract ERC1155VaultTest is TaikoTest {
             address(deployedContract),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Bob,
             ""
         );
 
         vm.prank(Alice, Alice);
         vm.expectRevert("ERC1155: burn amount exceeds balance");
-        destChainErc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        destChainErc1155Vault.sendToken{ value: 500_000 }(sendOpts);
     }
 
     function test_1155Vault_upgrade_bridged_tokens_1155() public {
@@ -880,13 +880,13 @@ contract ERC1155VaultTest is TaikoTest {
             address(ctoken1155),
             tokenIds,
             amounts,
-            140_000,
-            140_000,
+            500_000,
+            500_000,
             Alice,
             ""
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        erc1155Vault.sendToken{ value: 500_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
