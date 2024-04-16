@@ -94,10 +94,6 @@ var (
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",
 	})
-	TransactionsSuspended = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "transactions_suspended_ops_total",
-		Help: "The total number of suspended transactions",
-	})
 	BridgePaused = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "bridge_paused_opts_total",
 		Help: "The total number of times the bridge has been paused",
