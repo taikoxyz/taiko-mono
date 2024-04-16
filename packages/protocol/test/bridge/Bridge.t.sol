@@ -246,7 +246,7 @@ contract BridgeTest is TaikoTest {
         uint256 bobBalance = Bob.balance;
 
         vm.prank(Bob, Bob);
-        dest2StepBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, new bytes[](0));
 
         assertTrue(Bob.balance < bobBalance + 1000);
         assertTrue(Alice.balance > 100 ether + 1000);
@@ -709,7 +709,7 @@ contract BridgeTest is TaikoTest {
         vm.warp(block.timestamp + 30 days);
 
         vm.prank(Alice);
-        dest2StepBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, new bytes[](0));
 
         IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.DONE, true);

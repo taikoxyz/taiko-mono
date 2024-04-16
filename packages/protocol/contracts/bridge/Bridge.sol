@@ -98,6 +98,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SENT();
     error B_MESSAGE_NOT_SUSPENDED();
     error B_MESSAGE_SUSPENDED();
+    error B_NON_EMPTY_PROOF();
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
@@ -313,6 +314,9 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             local.processInTheSameTx = true;
+        } else if (_proof.length != 0) {
+            // Making sure the proof is empty so we don't charge the user for calldata.
+            revert B_NON_EMPTY_PROOF();
         }
 
         if (
