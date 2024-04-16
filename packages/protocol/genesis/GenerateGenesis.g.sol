@@ -164,12 +164,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 srcOwner: address(0),
                 destOwner: address(0),
                 to: address(0),
-                refundTo: address(0),
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
-                data: "",
-                memo: ""
+                data: ""
             }),
             ""
         );
@@ -190,12 +188,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 srcOwner: address(0),
                 destOwner: address(0),
                 to: address(0),
-                refundTo: address(0),
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
-                data: "",
-                memo: ""
+                data: ""
             }),
             ""
         );

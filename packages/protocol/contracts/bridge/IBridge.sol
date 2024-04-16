@@ -16,23 +16,7 @@ interface IBridge {
 
     struct Message {
         // Message ID whose value is automatically assigned.
-        uint128 id;
-        // The address, EOA or contract, that interacts with this bridge.
-        // The value is automatically assigned.
-        address from;
-        // Source chain ID whose value is automatically assigned.
-        uint64 srcChainId;
-        // Destination chain ID where the `to` address lives.
-        uint64 destChainId;
-        // The owner of the message on the source chain.
-        address srcOwner;
-        // The owner of the message on the destination chain.
-        address destOwner;
-        // The destination address on the destination chain.
-        address to;
-        address refundTo; // deprecated and ignored
-        // value to invoke on the destination chain.
-        uint256 value;
+        uint64 id;
         // The max processing fee for the relayer. This fee has 3 parts:
         // - the fee for message calldata.
         // - the minimal fee reserve for general processing, excluding function call.
@@ -40,23 +24,26 @@ interface IBridge {
         // Any unpaid fee will be refunded to the destOwner on the destination chain.
         // Note that fee must be 0 if gasLimit is 0, or large enough to make the invocation fee
         // non-zero.
-        uint256 fee;
+        uint64 fee;
         // gasLimit that the processMessage call must have.
-        uint256 gasLimit;
+        uint32 gasLimit;
+        // The address, EOA or contract, that interacts with this bridge.
+        // The value is automatically assigned.
+        address from;
+        // Source chain ID whose value is automatically assigned.
+        uint64 srcChainId;
+        // The owner of the message on the source chain.
+        address srcOwner;
+        // Destination chain ID where the `to` address lives.
+        uint64 destChainId;
+        // The owner of the message on the destination chain.
+        address destOwner;
+        // The destination address on the destination chain.
+        address to;
+        // value to invoke on the destination chain.
+        uint256 value;
         // callData to invoke on the destination chain.
         bytes data;
-        // Optional memo.
-        string memo;
-    }
-
-    // Note that this struct shall take only 1 slot to minimize gas cost
-    struct ProofReceipt {
-        // The time a message is marked as received on the destination chain
-        uint64 receivedAt;
-        // The amount of gas paid for receiving the message.
-        uint32 gasUsed;
-        // The Ether fee paid for gasUsed, up to 18.44 Ether
-        uint64 feePaid;
     }
 
     // Struct representing the context of a bridge operation.
@@ -71,12 +58,6 @@ interface IBridge {
     /// @param msgHash The hash of the message.
     /// @param message The message.
     event MessageSent(bytes32 indexed msgHash, Message message);
-
-    /// @notice Emitted when a message is received.
-    /// @param msgHash The hash of the message.
-    /// @param message The message.
-    /// @param isRecall True if the message is a recall.
-    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
 
     /// @notice Emitted when a message is recalled.
     /// @param msgHash The hash of the message.
@@ -94,17 +75,6 @@ interface IBridge {
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-
-    /// @notice Emitted when a message is suspended or unsuspended.
-    /// @param msgHash The hash of the message.
-    /// @param suspended True if the message is suspended.
-    /// @param receivedAt The received-at timestamp, 0 if suspended is true.
-    event MessageSuspended(bytes32 msgHash, bool suspended, uint64 receivedAt);
-
-    /// @notice Emitted when an address is banned or unbanned.
-    /// @param addr The address to ban or unban.
-    /// @param banned True if the address is banned.
-    event AddressBanned(address indexed addr, bool banned);
 
     /// @notice Sends a message to the destination chain and takes custody
     /// of Ether required in this contract.

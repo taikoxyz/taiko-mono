@@ -19,7 +19,8 @@ abstract contract BaseNFTVault is BaseVault {
         string name;
     }
 
-    // Struct representing the details of a bridged token transfer operation.
+    /// @devStruct representing the details of a bridged token transfer operation.
+    /// 5 slots
     struct BridgeTransferOp {
         // Destination chain ID.
         uint64 destChainId;
@@ -27,19 +28,16 @@ abstract contract BaseNFTVault is BaseVault {
         address destOwner;
         // Recipient address.
         address to;
+        // Processing fee for the relayer.
+        uint64 fee;
         // Address of the token.
         address token;
+        // Gas limit for the operation.
+        uint32 gasLimit;
         // IDs of the tokens to transfer.
         uint256[] tokenIds;
         // Amounts of tokens to transfer.
         uint256[] amounts;
-        // Gas limit for the operation.
-        uint256 gasLimit;
-        // Processing fee for the relayer.
-        uint256 fee;
-        address refundTo; // deprecated and ignored
-        // Optional memo.
-        string memo;
     }
 
     /// @notice ERC1155 interface ID.
