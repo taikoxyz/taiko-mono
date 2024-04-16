@@ -31,20 +31,20 @@ contract Bridge is EssentialContract, IBridge {
         bool notProcessedByOwner;
     }
 
-    uint32 private constant _EXTRA_GAS_OVERHEAD = 10_000;
+    uint32 private constant _EXTRA__GAS_OVERHEAD = 10_000;
 
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
-    /// We added _EXTRA_GAS_OVERHEAD more gas on top of a measured value.
-    uint32 public constant GAS_OVERHEAD_RECEIVING = 71_000 + _EXTRA_GAS_OVERHEAD;
+    /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
+    uint32 private constant _GAS_OVERHEAD_RECEIVING = 71_000 + _EXTRA__GAS_OVERHEAD;
 
     /// @dev The gas overhead for invoking a message if the message is processed in two steps.
-    /// We added _EXTRA_GAS_OVERHEAD more gas on top of a measured value.
-    uint32 public constant GAS_OVERHEAD_INVOKING = 18_000 + _EXTRA_GAS_OVERHEAD;
+    /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
+    uint32 private constant _GAS_OVERHEAD_INVOKING = 18_000 + _EXTRA__GAS_OVERHEAD;
 
     /// @dev The gas overhead for both receiving and invoking a message if the message is processed
     /// in a single step.
-    /// We added _EXTRA_GAS_OVERHEAD more gas on top of a measured value.
-    uint32 public constant GAS_OVERHEAD_RECEIVING_INVOKING = 53_000 + _EXTRA_GAS_OVERHEAD;
+    /// We added _EXTRA__GAS_OVERHEAD more gas on top of a measured value.
+    uint32 private constant _GAS_OVERHEAD_RECEIVING_INVOKING = 53_000 + _EXTRA__GAS_OVERHEAD;
 
     uint32 public constant GAS_RESERVE = 500_000;
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
@@ -64,7 +64,8 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice The next message ID.
     /// @dev Slot 1.
-    uint128 public nextMessageId;
+    uint64 private __reserved1;
+    uint64 public nextMessageId;
 
     /// @notice Mapping to store the status of a message from its hash.
     /// @dev Slot 2.
@@ -75,7 +76,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Mapping to store banned addresses.
     /// @dev Slot 5.
-    uint256 private __reserved1;
+    uint256 private __reserved2;
 
     /// @notice Mapping to store the proof receipt of a message from its hash.
     /// @dev Slot 6.
@@ -292,7 +293,7 @@ contract Bridge is EssentialContract, IBridge {
             if (local.invocationDelay != 0) {
                 if (local.notProcessedByOwner) {
                     receipt.gasUsed =
-                        uint32(local.gas - gasleft() + GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
+                        uint32(local.gas - gasleft() + _GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
 
                     receipt.feePaid = uint64(
                         _calcFee(
@@ -359,8 +360,8 @@ contract Bridge is EssentialContract, IBridge {
 
         if (local.notProcessedByOwner) {
             uint256 overhead = local.processInTheSameTx //
-                ? GAS_OVERHEAD_RECEIVING_INVOKING
-                : GAS_OVERHEAD_INVOKING;
+                ? _GAS_OVERHEAD_RECEIVING_INVOKING
+                : _GAS_OVERHEAD_INVOKING;
 
             uint256 fee = _calcFee(
                 _message.fee, //
