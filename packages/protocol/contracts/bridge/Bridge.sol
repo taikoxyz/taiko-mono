@@ -29,9 +29,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
-    /// @dev The gas overhead for both receiving and invoking a message if the message is processed
-    /// in a single step. We added 20_000 more gas on top of a measured value.
-    uint32 private constant _GAS_OVERHEAD = 53_000 + 20_000;
+    /// @dev The gas overhead for both receiving and invoking a message.
+    uint32 private constant _GAS_OVERHEAD = 60_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -403,12 +402,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
         unchecked {
-            // The message struct takes 7 slots in total.
-            // For each byte, we reserve 16 gas, but since a message can be processed in
-            // two steps, we need to reserve 32 gas per byte (>>5).
-            uint256 calldataCost = (_message.data.length + 6 * 32) >> 5;
-
-            return uint32((_GAS_RESERVE + calldataCost + 1).min(type(uint32).max));
+            uint256 calldataCost = (_message.data.length + 192) >> 4;
+            return uint32(_GAS_RESERVE + calldataCost + 1);
         }
     }
 
