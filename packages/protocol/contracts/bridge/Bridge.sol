@@ -35,6 +35,9 @@ contract Bridge is EssentialContract, IBridge {
     /// invocation gas limit.
     uint32 private constant _GAS_RESERVE = 250_000;
 
+    /// @dev The max number of proof bytes to charge fee.
+    uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 512;
+
     /// @dev The gas overhead for receiving a message if the message is processed in two steps.
     /// We added 20_000 more gas on top of a measured value.
     uint32 private constant _GAS_OVERHEAD_RECEIVING = 71_000 + 20_000;
@@ -99,6 +102,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SENT();
     error B_MESSAGE_NOT_SUSPENDED();
     error B_MESSAGE_SUSPENDED();
+    error B_NON_EMPTY_PROOF();
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
@@ -293,8 +297,10 @@ contract Bridge is EssentialContract, IBridge {
 
             if (local.invocationDelay != 0) {
                 if (local.notProcessedByOwner) {
-                    receipt.gasUsed =
-                        uint32(local.gas - gasleft() + _GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
+                    receipt.gasUsed = uint32(
+                        local.gas - gasleft() + _GAS_OVERHEAD_RECEIVING
+                            + _proof.length.min(_MAX_PROOF_BYTES_TO_CHARGE) >> 4
+                    );
 
                     receipt.feePaid = uint64(
                         _calcFee(
@@ -314,6 +320,9 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             local.processInTheSameTx = true;
+        } else if (_proof.length != 0) {
+            // Making sure the proof is empty so we don't charge the user for calldata.
+            revert B_NON_EMPTY_PROOF();
         }
 
         if (
@@ -364,7 +373,8 @@ contract Bridge is EssentialContract, IBridge {
             uint256 fee = _calcFee(
                 _message.fee, //
                 _message.gasLimit,
-                local.gas - gasleft() + overhead + _proof.length >> 4,
+                local.gas - gasleft() + overhead + _proof.length.min(_MAX_PROOF_BYTES_TO_CHARGE)
+                    >> 4,
                 local.remainingFee
             );
 

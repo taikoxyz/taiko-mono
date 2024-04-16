@@ -235,7 +235,7 @@ contract BridgeTest is TaikoTest {
 
         vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
         vm.prank(Bob, Bob);
-        dest2StepBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, "");
 
         // Go in the future, +6 hours, all in all 11 hours from first processing
         // Carol cannot process (as not preferred executor)
@@ -246,7 +246,7 @@ contract BridgeTest is TaikoTest {
         uint256 bobBalance = Bob.balance;
 
         vm.prank(Bob, Bob);
-        dest2StepBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, "");
 
         assertTrue(Bob.balance < bobBalance + 1000);
         assertTrue(Alice.balance > 100 ether + 1000);
@@ -703,13 +703,13 @@ contract BridgeTest is TaikoTest {
 
         vm.prank(Alice);
         vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
-        dest2StepBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, "");
 
         // Go in the future and try again
         vm.warp(block.timestamp + 30 days);
 
         vm.prank(Alice);
-        dest2StepBridge.processMessage(message, proof);
+        dest2StepBridge.processMessage(message, "");
 
         IBridge.Status status = dest2StepBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.DONE, true);
