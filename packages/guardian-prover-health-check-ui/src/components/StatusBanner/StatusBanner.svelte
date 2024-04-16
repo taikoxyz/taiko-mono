@@ -14,7 +14,9 @@
 	$: configuredCorrectly = $guardianProvers && $totalGuardianProvers !== 0;
 
 	$: healthy = configuredCorrectly && proverStatusesAlive === $totalGuardianProvers;
-	$: unhealthy = configuredCorrectly && proverStatusesAlive === $totalGuardianProvers - 1;
+	$: unhealthy = configuredCorrectly && 
+              proverStatusesAlive < $totalGuardianProvers && 
+              proverStatusesAlive >= $minGuardianRequirement;
 	$: critical = configuredCorrectly && proverStatusesAlive <= $minGuardianRequirement;
 
 	$: statusType =
