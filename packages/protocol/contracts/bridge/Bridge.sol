@@ -517,7 +517,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
     /// @return success_ true if the message was received.
-    /// @return numCached_ Num of cached items
+    /// @return numCacheOps_ Num of cached items
     function _proveSignalReceived(
         address _signalService,
         bytes32 _signal,
@@ -525,12 +525,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        returns (bool success_, uint256 numCached_)
+        returns (bool success_, uint256 numCacheOps_)
     {
         try ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
-        ) returns (uint256 numCached) {
-            numCached_ = numCached;
+        ) returns (uint256 numCacheOps) {
+            numCacheOps_ = numCacheOps;
             success_ = true;
         } catch {
             success_ = false;
