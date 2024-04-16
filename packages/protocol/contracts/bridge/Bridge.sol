@@ -105,6 +105,13 @@ contract Bridge is EssentialContract, IBridge {
         __Essential_init(_owner, _addressManager);
     }
 
+    function init2() external onlyOwner reinitializer(2) {
+        // reset some previously used slots for future reuse
+        __reserved1 = 0;
+        __reserved2 = 0;
+        __reserved3 = 0;
+    }
+
     /// @inheritdoc IBridge
     function sendMessage(Message calldata _message)
         external
