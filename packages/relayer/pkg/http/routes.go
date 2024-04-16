@@ -6,6 +6,5 @@ func (srv *Server) configureRoutes() {
 
 	srv.echo.GET("/events", srv.GetEventsByAddress)
 	srv.echo.GET("/blockInfo", srv.GetBlockInfo)
-	srv.echo.GET("/suspendedTransactions", srv.GetSuspendedTransactions)
 	srv.echo.GET("/recommendedProcessingFees", srv.GetRecommendedProcessingFees)
 }
