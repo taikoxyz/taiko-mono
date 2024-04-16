@@ -28,6 +28,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @dev Represents an operation to send tokens to another chain.
+    /// 4 slots
     struct BridgeTransferOp {
         uint64 destChainId;
         address destOwner;
