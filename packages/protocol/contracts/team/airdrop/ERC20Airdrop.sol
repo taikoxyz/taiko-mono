@@ -54,7 +54,6 @@ contract ERC20Airdrop is MerkleClaimable {
         _verifyClaim(abi.encode(user, amount), proof);
 
         // Transfer the tokens
-        address _token = token;
-        IERC20(_token).safeTransferFrom(vault, user, amount);
+        IERC20(token).safeTransferFrom(vault, user, amount);
     }
 }
