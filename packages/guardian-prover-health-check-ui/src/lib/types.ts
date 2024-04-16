@@ -78,7 +78,8 @@ export enum PageTabs {
 export enum GuardianProverStatus {
 	DEAD,
 	ALIVE,
-	UNHEALTHY
+	UNHEALTHY,
+	UNKNOWN
 }
 
 export enum GlobalHealth {

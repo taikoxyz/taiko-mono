@@ -3,22 +3,24 @@
 	import { t } from 'svelte-i18n';
 	import { AlertType } from '$components/Alert/types';
 	import { Spinner } from '$components/Spinner';
-	import { guardianProvers, minGuardianRequirement, loading, totalGuardianProvers } from '$stores';
-	import { GuardianProverStatus, type Guardian } from '$lib/types';
-
-	$: proverStatusesAlive =
-		$guardianProvers?.filter(
-			(guardianProver: Guardian) => guardianProver.alive === GuardianProverStatus.ALIVE
-		).length ?? 0;
+	import {
+		guardianProvers,
+		minGuardianRequirement,
+		loading,
+		totalGuardianProvers,
+		guardianStatusCounts
+	} from '$stores';
 
 	$: configuredCorrectly = $guardianProvers && $totalGuardianProvers !== 0;
 
-	$: healthy = configuredCorrectly && proverStatusesAlive === $totalGuardianProvers;
+	$: healthy = configuredCorrectly && $guardianStatusCounts.alive === $totalGuardianProvers;
+
 	$: unhealthy =
 		configuredCorrectly &&
-		proverStatusesAlive !== $totalGuardianProvers &&
-		proverStatusesAlive >= $minGuardianRequirement;
-	$: critical = configuredCorrectly && proverStatusesAlive <= $minGuardianRequirement;
+		$guardianStatusCounts.alive !== $totalGuardianProvers &&
+		$guardianStatusCounts.alive >= $minGuardianRequirement;
+
+	$: critical = configuredCorrectly && $guardianStatusCounts.alive <= $minGuardianRequirement;
 
 	$: statusType =
 		healthy && configuredCorrectly
@@ -27,9 +29,9 @@
 				? AlertType.WARNING
 				: critical
 					? AlertType.ERROR
-					: AlertType.ERROR;
+					: AlertType.NEUTRAL;
 
-	$: proversOnline = `${proverStatusesAlive}`;
+	$: proversOnline = `${$guardianStatusCounts.alive}`;
 </script>
 
 {#if $loading}

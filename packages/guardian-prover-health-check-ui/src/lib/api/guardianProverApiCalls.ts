@@ -47,7 +47,6 @@ export async function fetchUptimeFromApi(
 	return resp.data.uptime;
 }
 
-
 export async function fetchStartupDataFromApi(baseURL: string, guardianProverId: number) {
 	const url = `${baseURL}/${mostRecentStartupRoute}/${guardianProverId}`;
 
