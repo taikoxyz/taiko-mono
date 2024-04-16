@@ -84,6 +84,10 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         return super.transferFrom(_from, _to, _amount);
     }
 
+    function currentSnapshotId() public view returns (uint256) {
+        return _getCurrentSnapshotId();
+    }
+
     function _beforeTokenTransfer(
         address _from,
         address _to,

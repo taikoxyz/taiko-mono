@@ -121,6 +121,10 @@ contract BridgedERC20 is
         return __srcDecimals;
     }
 
+    function currentSnapshotId() public view returns (uint256) {
+        return _getCurrentSnapshotId();
+    }
+
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
