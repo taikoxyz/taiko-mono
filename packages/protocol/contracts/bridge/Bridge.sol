@@ -325,6 +325,7 @@ contract Bridge is EssentialContract, IBridge {
         delete proofReceipt[local.msgHash];
         emit MessageExecuted(local.msgHash);
 
+        Status status;
         if (
             _message.to == address(0) || _message.to == address(this)
                 || _message.to == local.signalService
@@ -332,18 +333,18 @@ contract Bridge is EssentialContract, IBridge {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             local.refundAmount = _message.value;
-            _updateMessageStatus(local.msgHash, Status.DONE);
+            status = Status.DONE;
         } else {
             uint256 invocationGasLimit = _invocationGasLimit(_message);
 
             if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
 
-            if (_invokeMessageCall(_message, local.msgHash, invocationGasLimit)) {
-                _updateMessageStatus(local.msgHash, Status.DONE);
-            } else {
-                _updateMessageStatus(local.msgHash, Status.RETRIABLE);
-            }
+            status = _invokeMessageCall(_message, local.msgHash, invocationGasLimit)
+                ? Status.DONE
+                : Status.RETRIABLE;
         }
+
+        _updateMessageStatus(local.msgHash, status);
 
         // Refund the processing fee and fee to refund
         unchecked {
