@@ -19,8 +19,10 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
+    event GasChargedByRelayer(uint256 gasUsed);
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit.
+
     uint32 private constant _GAS_RESERVE = 250_000;
 
     /// @dev The max number of proof bytes to charge fee.
@@ -243,14 +245,12 @@ contract Bridge is EssentialContract, IBridge {
         refundAmount += _message.fee;
 
         if (msg.sender != _message.destOwner) {
-            uint256 fee = _calcFee(
-                _message.fee, //
-                _message.gasLimit,
-                _calcGasUsed(gas, _GAS_OVERHEAD, _proof.length, numCacheOps)
-            );
-
+            uint256 gasUsed = _calcGasToCharge(gas, _GAS_OVERHEAD, _proof.length, numCacheOps);
+            uint256 fee = _calcFee(_message.fee, _message.gasLimit, gasUsed);
             refundAmount -= fee;
             msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+
+            emit GasChargedByRelayer(gasUsed);
         }
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
@@ -579,7 +579,7 @@ contract Bridge is EssentialContract, IBridge {
         return _msgFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
     }
 
-    function _calcGasUsed(
+    function _calcGasToCharge(
         uint256 _gasStart,
         uint256 _gasOverhead,
         uint256 _calldataBytes,
