@@ -24,8 +24,8 @@ contract Bridge is EssentialContract, IBridge {
         uint256 gas;
         uint256 invocationDelay;
         uint256 refundAmount;
-        uint256 remainingFee;
         bytes32 msgHash;
+        uint64 remainingFee;
         address signalService;
         bool processInTheSameTx;
         bool notProcessedByOwner;
@@ -44,8 +44,9 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev The gas overhead for both receiving and invoking a message if the message is processed
     /// in a single step.
     /// We added _EXTRA_GAS_OVERHEAD more gas on top of a measured value.
-    uint32 public constant GAS_OVERHEAD = 53_000 + _EXTRA_GAS_OVERHEAD;
+    uint32 public constant GAS_OVERHEAD_RECEIVING_INVOKING = 53_000 + _EXTRA_GAS_OVERHEAD;
 
+    uint32 public constant GAS_RESERVE = 500_000;
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -166,7 +167,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
-        } else if (_invocationGasLimit(_message.gasLimit) == 0) {
+        } else if (_invocationGasLimit(_message) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
 
@@ -293,12 +294,12 @@ contract Bridge is EssentialContract, IBridge {
                     receipt.gasUsed =
                         uint32(local.gas - gasleft() + GAS_OVERHEAD_RECEIVING + _proof.length >> 4);
 
-                    receipt.feePaid = uint128(
+                    receipt.feePaid = uint64(
                         _calcFee(
                             _message.fee,
                             _message.gasLimit,
                             receipt.gasUsed,
-                            _message.fee.min(type(uint128).max)
+                            _message.fee.min(type(uint64).max)
                         )
                     );
 
@@ -332,14 +333,14 @@ contract Bridge is EssentialContract, IBridge {
             local.refundAmount = _message.value;
             _updateMessageStatus(local.msgHash, Status.DONE);
         } else {
-            uint256 invocationGasLimit = _invocationGasLimit(_message.gasLimit);
+            uint256 invocationGasLimit = _invocationGasLimit(_message);
 
-            if (invocationGasLimit == 0) {
-                _updateMessageStatus(local.msgHash, Status.RETRIABLE);
+            if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
+
+            if (_invokeMessageCall(_message, local.msgHash, invocationGasLimit)) {
+                _updateMessageStatus(local.msgHash, Status.DONE);
             } else {
-                if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
-                bool success = _invokeMessageCall(_message, local.msgHash, invocationGasLimit);
-                _updateMessageStatus(local.msgHash, success ? Status.DONE : Status.RETRIABLE);
+                _updateMessageStatus(local.msgHash, Status.RETRIABLE);
             }
         }
 
@@ -347,16 +348,18 @@ contract Bridge is EssentialContract, IBridge {
         unchecked {
             // `receipt.feePaid > _message.fee` is only true if we have old data where
             // receipt.feePaid bytes are used as an address
-            local.remainingFee = receipt.feePaid == 0 || receipt.feePaid > _message.fee
-                ? _message.fee
-                : _message.fee - receipt.feePaid;
+            local.remainingFee = uint64(
+                receipt.feePaid == 0 || receipt.feePaid > _message.fee
+                    ? _message.fee
+                    : _message.fee - receipt.feePaid
+            );
         }
 
         local.refundAmount += local.remainingFee;
 
         if (local.notProcessedByOwner) {
             uint256 overhead = local.processInTheSameTx //
-                ? GAS_OVERHEAD
+                ? GAS_OVERHEAD_RECEIVING_INVOKING
                 : GAS_OVERHEAD_INVOKING;
 
             uint256 fee = _calcFee(
@@ -392,9 +395,10 @@ contract Bridge is EssentialContract, IBridge {
         if (msg.sender != _message.destOwner) {
             if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
 
-            invocationGasLimit = _invocationGasLimit(_message.gasLimit);
+            invocationGasLimit = _invocationGasLimit(_message);
             if ((gasleft() * 63) >> 6 < invocationGasLimit) revert B_INSUFFICIENT_GAS();
         } else {
+            // The owner uses all gas left in message invocation
             invocationGasLimit = gasleft();
         }
 
@@ -602,6 +606,8 @@ contract Bridge is EssentialContract, IBridge {
     {
         assert(_message.from != address(this));
 
+        if (_gasLimit == 0) return false;
+
         if (
             _message.data.length >= 4 // msg can be empty
                 && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
@@ -768,7 +774,9 @@ contract Bridge is EssentialContract, IBridge {
         return _remainingFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
     }
 
-    function _invocationGasLimit(uint256 _gasLimit) private pure returns (uint256) {
-        return _gasLimit.max(GAS_OVERHEAD) - GAS_OVERHEAD;
+    function _invocationGasLimit(Message calldata _message) private pure returns (uint256) {
+        uint256 reserve =
+            GAS_RESERVE + (_message.data.length + bytes(_message.memo).length + 9 * 32) >> 4;
+        return _message.gasLimit.max(reserve) - reserve;
     }
 }

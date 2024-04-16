@@ -49,8 +49,8 @@ interface IBridge {
         uint64 receivedAt;
         // The amount of gas paid for receiving the message.
         uint32 gasUsed;
-        // The Ether fee paid for gasUsed.
-        uint128 feePaid;
+        // The Ether fee paid for gasUsed, up to 18.44 Ether
+        uint64 feePaid;
     }
 
     // Struct representing the context of a bridge operation.
