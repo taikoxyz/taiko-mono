@@ -583,7 +583,7 @@ contract Bridge is EssentialContract, IBridge {
 
     function _invocationGasLimit(
         Message calldata _message,
-        bool _check64Rule
+        bool _checkThe63Over64Rule
     )
         private
         view
@@ -594,7 +594,7 @@ contract Bridge is EssentialContract, IBridge {
             gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
 
-        if (_check64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
+        if (_checkThe63Over64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
             revert B_INSUFFICIENT_GAS();
         }
     }
