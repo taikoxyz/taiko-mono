@@ -43,7 +43,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @param _op Option for sending the ERC1155 token.
     /// @return message_ The constructed message.
 
-    function sendToken(BridgeTransferOp memory _op)
+    function sendToken(BridgeTransferOp calldata _op)
         external
         payable
         whenNotPaused
@@ -70,12 +70,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
             to: resolve(_op.destChainId, name(), false),
-            refundTo: _op.refundTo,
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
-            data: data,
-            memo: _op.memo
+            data: data
         });
 
         // Send the message and obtain the message hash
