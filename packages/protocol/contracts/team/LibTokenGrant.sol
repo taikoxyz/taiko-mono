@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../libs/LibMath.sol";
-
 library LibTokenGrant {
-    using LibMath for uint256;
-
     error INVALID_PARAMS();
 
     function calcVestedAmount(
@@ -33,8 +29,9 @@ library LibTokenGrant {
     {
         if (_vestDuration == 0 && _unlockDuration == 0) revert INVALID_PARAMS();
 
-        uint256 a = _vestDuration.min(_unlockDuration);
-        uint256 b = _vestDuration.max(_unlockDuration);
+        (uint256 a, uint256 b) = _vestDuration >= _unlockDuration
+            ? (_unlockDuration, _vestDuration)
+            : (_vestDuration, _unlockDuration);
 
         if (a == 0) {
             return _portion(_grantAmount, _time, b);
@@ -47,7 +44,8 @@ library LibTokenGrant {
     }
 
     function _portion(uint256 z, uint256 t, uint256 tMax) private pure returns (uint256) {
-        return z * t.min(tMax) / tMax;
+        if (t >= tMax) return z;
+        else return z * t / tMax;
     }
 
     function _triagleArea(
@@ -62,7 +60,8 @@ library LibTokenGrant {
         returns (uint256)
     {
         if (a > b) revert INVALID_PARAMS();
-        uint256 _t = t.max(tMin) - tMin;
+        if (t <= tMin) return 0;
+        uint256 _t = t - tMin;
         return z * _t * _t / b / a / 2;
     }
 }
