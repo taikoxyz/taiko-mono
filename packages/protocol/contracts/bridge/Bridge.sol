@@ -415,7 +415,7 @@ contract Bridge is EssentialContract, IBridge {
         unchecked {
             // Message struct takes 7*32=224 bytes + a variable length array.
             // Since ABI.encode pads data to multiples of 32 bytes, we over-charge 32 bytes
-            return GAS_RESERVE + (_message.data.length + 256) >> 4;
+            return GAS_RESERVE + uint32((_message.data.length + 256) >> 4);
         }
     }
 
@@ -586,7 +586,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         unchecked {
             uint256 minGasRequired = getMessageMinGasLimit(_message);
-            gasLimit_ = _message.gasLimit.max(minGasRequired) - minGasRequired;
+            gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
 
         if (_check64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
