@@ -8,7 +8,7 @@ library LibVestAndUnlock {
 
     function calcVestedAmount(
         uint256 _grantAmount,
-        uint256 _grantDuration,
+        uint256 _vestDuration,
         uint256 _unlockDuration,
         uint256 _time
     )
@@ -16,13 +16,13 @@ library LibVestAndUnlock {
         pure
         returns (uint256)
     {
-        if (_grantDuration == 0) return _grantAmount;
-        return _grantAmount * _time.min(_grantDuration) / _grantDuration;
+        if (_vestDuration == 0) return _grantAmount;
+        return _grantAmount * _time.min(_vestDuration) / _vestDuration;
     }
 
     function calcUnlockedAmount(
         uint256 _grantAmount,
-        uint256 _grantDuration,
+        uint256 _vestDuration,
         uint256 _unlockDuration,
         uint256 _time
     )
@@ -30,8 +30,8 @@ library LibVestAndUnlock {
         pure
         returns (uint256)
     {
-        uint256 a = _grantDuration.min(_unlockDuration);
-        uint256 b = _grantDuration.max(_unlockDuration);
+        uint256 a = _vestDuration.min(_unlockDuration);
+        uint256 b = _vestDuration.max(_unlockDuration);
 
         return _uint(_grantAmount, a, b, _time, 0) + _uint(_grantAmount, a, b, _time, a + b)
             - _uint(_grantAmount, a, b, _time, a) - _uint(_grantAmount, a, b, _time, b);
@@ -48,11 +48,11 @@ library LibVestAndUnlock {
         pure
         returns (uint256 r)
     {
-        assert(a <= b);
+        assert(a < b);
         uint256 _t = t.max(tMin) - tMin;
-        r = z * _t / b / 2;
+        r = z * _t / b;
         if (a != 0) {
-            r = r * _t / a;
+            r = r * _t / a / 2;
         }
     }
 }
