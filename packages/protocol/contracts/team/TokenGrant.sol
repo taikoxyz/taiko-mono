@@ -19,10 +19,11 @@ contract TokenGrant is EssentialContract {
     address public constant USTC_TOKEN = address(2);
 
     event GrantCreated(string memo);
-    event GrantWithdrawn(uint256 amount);
+    event GrantWithdrawn(uint256 amount, uint256 cost);
 
-    error NOT_WITHDRAWABLE();
     error INVALID_PARAMS();
+    error NOT_WITHDRAWABLE();
+    error PERMISSION_DENIED();
 
     address public recipient;
     uint256 public grantAmount;
@@ -30,6 +31,7 @@ contract TokenGrant is EssentialContract {
     uint64 public startedAt;
     uint64 public vestDuration;
     uint64 public unlockDuration;
+    uint256 public costPerTko;
 
     function init(
         address _owner,
@@ -39,6 +41,7 @@ contract TokenGrant is EssentialContract {
         uint64 _startedAt,
         uint64 _vestDuration,
         uint64 _unlockDuration,
+        uint256 _costPerTko,
         string calldata memo
     )
         external
@@ -58,11 +61,14 @@ contract TokenGrant is EssentialContract {
         startedAt = _startedAt;
         vestDuration = _vestDuration;
         unlockDuration = _unlockDuration;
+        costPerTko = _costPerTko;
 
         emit GrantCreated(memo);
     }
 
     function withdraw() external whenNotPaused nonReentrant {
+        if (msg.sender != recipient) revert PERMISSION_DENIED();
+
         uint256 amount = withdrawableAmount();
         if (amount == 0) revert NOT_WITHDRAWABLE();
         amountWithdrawn += amount;
@@ -70,7 +76,12 @@ contract TokenGrant is EssentialContract {
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
         tko.safeTransfer(recipient, amount);
 
-        emit GrantWithdrawn(amount);
+        uint256 cost = amount * costPerTko / 1e18;
+        if (cost != 0) {
+            IERC20(USTC_TOKEN).safeTransferFrom(msg.sender, owner(), cost);
+        }
+
+        emit GrantWithdrawn(amount, cost);
     }
 
     function vestedAmount() public view returns (uint256) {
