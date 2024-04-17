@@ -19,19 +19,18 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    event GasChargedByRelayer(uint256 gasUsed);
+    event GasChargedByRelayer(uint256 gasMeasured, uint256 overhead);
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit.
 
     /// @dev The gas reserved for relayer to process a message. Note that this doesn't cover proof
     /// calldata and invocation. This value should be fine-tuned with production data.
     uint32 public constant GAS_RESERVE = 250_000;
-    /// @dev The gas overhead for both receiving and invoking a message. This value should be
-    /// fine-tuned with production data.
-    uint32 public constant GAS_OVERHEAD = 60_000;
 
-    /// @dev The max number of proof bytes to charge fee.
-    uint256 private constant _MAX_PROOF_BYTES_TO_CHARGE = 512;
+    /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
+    /// calldata cost.
+    /// This value should be fine-tuned with production data.
+    uint32 public constant GAS_OVERHEAD = 60_000;
 
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
@@ -244,15 +243,26 @@ contract Bridge is EssentialContract, IBridge {
 
         emit MessageExecuted(msgHash);
 
-        refundAmount += _message.fee;
+        if (_message.fee != 0) {
+            refundAmount += _message.fee;
 
-        if (msg.sender != _message.destOwner) {
-            uint256 gasUsed = _calcGasToCharge(gas, GAS_OVERHEAD, _proof.length, numCacheOps);
-            uint256 fee = _calcFee(_message.fee, _message.gasLimit, gasUsed);
-            refundAmount -= fee;
-            msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+            if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
+                unchecked {
+                    uint256 gasUsed = gas - gasleft();
+                    emit GasChargedByRelayer(gasUsed, GAS_OVERHEAD);
 
-            emit GasChargedByRelayer(gasUsed);
+                    uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
+                    gasUsed = (GAS_OVERHEAD + gasUsed).max(refund) - refund;
+
+                    uint256 maxFee = gasUsed * _message.fee / _message.gasLimit;
+                    uint256 baseFee = gasUsed * block.basefee;
+                    uint256 fee =
+                        (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
+
+                    refundAmount -= fee;
+                    msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+                }
+            }
         }
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
@@ -403,8 +413,9 @@ contract Bridge is EssentialContract, IBridge {
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
         unchecked {
-            uint256 calldataCost = (_message.data.length + 192) >> 4;
-            return uint32(GAS_RESERVE + calldataCost + 1);
+            // Message struct takes 7*32=224 bytes + a variable length array.
+            // Since ABI.encode pads data to multiples of 32 bytes, we over-charge 32 bytes
+            return GAS_RESERVE + (_message.data.length + 256) >> 4;
         }
     }
 
@@ -565,42 +576,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    function _calcFee(
-        uint256 _msgFee,
-        uint256 _msgGasLimit,
-        uint256 _gasUsed
-    )
-        private
-        view
-        returns (uint256)
-    {
-        if (_msgFee == 0 || _msgGasLimit == 0) return 0;
-
-        uint256 maxFee = _msgFee * _gasUsed / _msgGasLimit;
-        uint256 baseFee = block.basefee * _gasUsed;
-        return _msgFee.min(baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1);
-    }
-
-    function _calcGasToCharge(
-        uint256 _gasStart,
-        uint256 _gasOverhead,
-        uint256 _calldataBytes,
-        uint256 _numCacheOps
-    )
-        private
-        view
-        returns (uint32)
-    {
-        unchecked {
-            uint256 gasUsed = _gasStart - gasleft() + _gasOverhead
-                + _calldataBytes.min(_MAX_PROOF_BYTES_TO_CHARGE) >> 4;
-
-            uint256 refund = _numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-
-            return uint32(gasUsed.max(refund) - refund);
-        }
-    }
-
     function _invocationGasLimit(
         Message calldata _message,
         bool _check64Rule
@@ -611,7 +586,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         unchecked {
             uint256 minGasRequired = getMessageMinGasLimit(_message);
-            gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
+            gasLimit_ = _message.gasLimit.max(minGasRequired) - minGasRequired;
         }
 
         if (_check64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
