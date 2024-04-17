@@ -642,7 +642,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        vm.expectRevert(Bridge.B_NON_RETRIABLE.selector);
+        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
         destChainBridge.retryMessage(message, true);
     }
 

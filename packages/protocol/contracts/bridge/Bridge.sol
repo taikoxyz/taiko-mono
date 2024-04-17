@@ -83,15 +83,10 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
-    error B_MESSAGE_FAILED();
-    error B_MESSAGE_NOT_PROVEN();
     error B_MESSAGE_NOT_SENT();
-    error B_NON_RETRIABLE();
-    error B_NOT_FAILED();
-    error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
     error B_RETRY_FAILED();
-    error B_STATUS_MISMATCH();
+    error B_SIGNAL_NOT_RECEIVED();
 
     modifier sameChain(uint64 _chainId) {
         if (_chainId != block.chainid) revert B_INVALID_CHAINID();
@@ -170,7 +165,7 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
+        _checkStatus(msgHash, Status.NEW);
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
@@ -181,7 +176,7 @@ contract Bridge is EssentialContract, IBridge {
         (bool received,) = _proveSignalReceived(
             signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
         );
-        if (!received) revert B_NOT_FAILED();
+        if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         _updateMessageStatus(msgHash, Status.RECALLED);
 
@@ -220,13 +215,13 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
+        _checkStatus(msgHash, Status.NEW);
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
         (bool received, uint256 numCacheOps) =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
-        if (!received) revert B_NOT_RECEIVED();
+        if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         uint256 refundAmount;
         if (
@@ -281,9 +276,7 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.RETRIABLE) {
-            revert B_NON_RETRIABLE();
-        }
+        _checkStatus(msgHash, Status.RETRIABLE);
 
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
@@ -318,7 +311,7 @@ contract Bridge is EssentialContract, IBridge {
         if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
 
         bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.RETRIABLE) revert B_NON_RETRIABLE();
+        _checkStatus(msgHash, Status.RETRIABLE);
 
         _updateMessageStatus(msgHash, Status.FAILED);
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
@@ -591,5 +584,9 @@ contract Bridge is EssentialContract, IBridge {
         if (_checkThe63Over64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
             revert B_INSUFFICIENT_GAS();
         }
+    }
+
+    function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
+        if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
 }
