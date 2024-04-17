@@ -6,10 +6,11 @@ import "../libs/LibMath.sol";
 library LibVestAndUnlock {
     using LibMath for uint256;
 
+    error INVALID_PARAMS();
+
     function calcVestedAmount(
         uint256 _grantAmount,
         uint256 _vestDuration,
-        uint256 _unlockDuration,
         uint256 _time
     )
         internal
@@ -17,7 +18,7 @@ library LibVestAndUnlock {
         returns (uint256)
     {
         if (_vestDuration == 0) return _grantAmount;
-        return _grantAmount * _time.min(_vestDuration) / _vestDuration;
+        return _portion(_grantAmount, _time, _vestDuration);
     }
 
     function calcUnlockedAmount(
@@ -30,14 +31,26 @@ library LibVestAndUnlock {
         pure
         returns (uint256)
     {
+        if (_vestDuration == 0 && _unlockDuration == 0) revert INVALID_PARAMS();
+
         uint256 a = _vestDuration.min(_unlockDuration);
         uint256 b = _vestDuration.max(_unlockDuration);
 
-        return _uint(_grantAmount, a, b, _time, 0) + _uint(_grantAmount, a, b, _time, a + b)
-            - _uint(_grantAmount, a, b, _time, a) - _uint(_grantAmount, a, b, _time, b);
+        if (a == 0) {
+            return _portion(_grantAmount, _time, b);
+        }
+
+        return _triagleArea(_grantAmount, a, b, _time, 0)
+            + _triagleArea(_grantAmount, a, b, _time, a + b)
+            - _triagleArea(_grantAmount, a, b, _time, a) //
+            - _triagleArea(_grantAmount, a, b, _time, b);
     }
 
-    function _uint(
+    function _portion(uint256 z, uint256 t, uint256 tMax) private pure returns (uint256) {
+        return z * t.min(tMax) / tMax;
+    }
+
+    function _triagleArea(
         uint256 z,
         uint256 a,
         uint256 b,
@@ -46,13 +59,10 @@ library LibVestAndUnlock {
     )
         private
         pure
-        returns (uint256 r)
+        returns (uint256)
     {
-        assert(a < b);
+        if (a > b) revert INVALID_PARAMS();
         uint256 _t = t.max(tMin) - tMin;
-        r = z * _t / b;
-        if (a != 0) {
-            r = r * _t / a / 2;
-        }
+        return z * _t * _t / b / a / 2;
     }
 }

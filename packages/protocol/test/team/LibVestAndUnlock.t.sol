@@ -9,20 +9,20 @@ import { LibVestAndUnlock as L } from "../../contracts/team/LibVestAndUnlock.sol
 contract LibVestAndUnlockTest is TaikoTest {
     function test_calcVestedAmount_non0_vestDuration() public {
         uint256 g = 1e18;
-        assertEq(L.calcVestedAmount(g, 100 days, 100 days, 0), 0);
-        assertEq(L.calcVestedAmount(g, 100 days, 100 days, 100 days), g);
-        assertEq(L.calcVestedAmount(g, 100 days, 100 days, 100 days + 1 seconds), g);
-        assertEq(L.calcVestedAmount(g, 100 days, 100 days, 10 days), g / 10);
-        assertEq(L.calcVestedAmount(g, 100 days, 100 days, 90 days), g * 9 / 10);
+        assertEq(L.calcVestedAmount(g, 100 days, 0), 0);
+        assertEq(L.calcVestedAmount(g, 100 days, 100 days), g);
+        assertEq(L.calcVestedAmount(g, 100 days, 100 days + 1 seconds), g);
+        assertEq(L.calcVestedAmount(g, 100 days, 10 days), g / 10);
+        assertEq(L.calcVestedAmount(g, 100 days, 90 days), g * 9 / 10);
     }
 
     function test_calcVestedAmount_0_vestDuration() public {
         uint256 g = 1e18;
-        assertEq(L.calcVestedAmount(g, 0 days, 100 days, 0), g);
-        assertEq(L.calcVestedAmount(g, 0 days, 100 days, 100 days), g);
-        assertEq(L.calcVestedAmount(g, 0 days, 100 days, 100 days + 1 seconds), g);
-        assertEq(L.calcVestedAmount(g, 0 days, 100 days, 10 days), g);
-        assertEq(L.calcVestedAmount(g, 0 days, 100 days, 90 days), g);
+        assertEq(L.calcVestedAmount(g, 0 days, 0), g);
+        assertEq(L.calcVestedAmount(g, 0 days, 100 days), g);
+        assertEq(L.calcVestedAmount(g, 0 days, 100 days + 1 seconds), g);
+        assertEq(L.calcVestedAmount(g, 0 days, 10 days), g);
+        assertEq(L.calcVestedAmount(g, 0 days, 90 days), g);
     }
 
     function test_calcUnlockedAmount_vestDuration_larger_than_unlockDuration() public {
