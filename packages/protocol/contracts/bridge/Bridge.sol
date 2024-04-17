@@ -156,7 +156,6 @@ contract Bridge is EssentialContract, IBridge {
         msgHash_ = hashMessage(message_);
 
         emit MessageSent(msgHash_, message_);
-
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
     }
 
