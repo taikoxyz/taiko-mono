@@ -28,16 +28,15 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @dev Represents an operation to send tokens to another chain.
+    /// 4 slots
     struct BridgeTransferOp {
         uint64 destChainId;
         address destOwner;
         address to;
+        uint64 fee;
         address token;
+        uint32 gasLimit;
         uint256 amount;
-        uint256 gasLimit;
-        uint256 fee;
-        address refundTo;
-        string memo;
     }
 
     /// @notice Mappings from bridged tokens to their canonical tokens.
@@ -232,12 +231,10 @@ contract ERC20Vault is BaseVault {
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
             to: resolve(_op.destChainId, name(), false),
-            refundTo: _op.refundTo,
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
-            data: data,
-            memo: _op.memo
+            data: data
         });
 
         bytes32 msgHash;
