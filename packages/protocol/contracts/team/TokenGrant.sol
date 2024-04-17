@@ -49,12 +49,11 @@ contract TokenGrant is EssentialContract {
     {
         __Essential_init(_owner, _addressManager);
 
-        if (
-            _feeToken == address(0) || _recipient == address(0) || _grantAmount == 0
-                || _startedAt == 0
-        ) {
+        if (_recipient == address(0) || _grantAmount == 0 || _startedAt == 0) {
             revert INVALID_PARAMS();
         }
+
+        if (_costPerTko != 0 && _feeToken == address(0)) revert INVALID_PARAMS();
 
         // These two parameters cannot be both zero
         if (_vestDuration == 0 && _unlockDuration == 0) revert INVALID_PARAMS();
