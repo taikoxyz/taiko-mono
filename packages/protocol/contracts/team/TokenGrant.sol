@@ -18,6 +18,7 @@ contract TokenGrant is EssentialContract {
 
     event GrantCreated(string memo);
     event GrantWithdrawn(uint256 amount, uint256 cost);
+    event GrantTerminated(uint256 amount);
 
     error INVALID_PARAMS();
     error NOT_WITHDRAWABLE();
@@ -84,6 +85,16 @@ contract TokenGrant is EssentialContract {
         }
 
         emit GrantWithdrawn(amount, cost);
+    }
+
+    function terminate() external onlyOwner {
+        grantAmount = 0;
+
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        uint256 amount = tko.balanceOf(address(this));
+        tko.safeTransfer(owner(), amount);
+
+        emit GrantTerminated(amount);
     }
 
     function vestedAmount() public view returns (uint256) {
