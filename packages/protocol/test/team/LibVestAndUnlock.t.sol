@@ -4,9 +4,9 @@
 pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
-import { LibVestAndUnlock as L } from "../../contracts/team/LibVestAndUnlock.sol";
+import { LibTokenGrant as L } from "../../contracts/team/LibTokenGrant.sol";
 
-contract LibVestAndUnlockTest is TaikoTest {
+contract LibTokenGrantTest is TaikoTest {
     function test_calcVestedAmount_non0_vestDuration() public {
         uint256 g = 1e18;
         assertEq(L.calcVestedAmount(g, 100 days, 0), 0);

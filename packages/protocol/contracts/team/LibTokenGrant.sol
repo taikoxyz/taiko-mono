@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../libs/LibMath.sol";
 
-library LibVestAndUnlock {
+library LibTokenGrant {
     using LibMath for uint256;
 
     error INVALID_PARAMS();
