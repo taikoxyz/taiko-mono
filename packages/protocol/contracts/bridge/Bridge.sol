@@ -19,7 +19,13 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    event GasChargedByRelayer(uint256 gasMeasured, uint256 overhead, uint256 proofSize);
+    event GasChargedByRelayer(
+        uint256 indexed messageId,
+        uint256 gasMeasured,
+        uint256 overhead,
+        uint256 proofSize,
+        uint256 numCacheOps
+    );
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit.
 
@@ -249,7 +255,9 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
                     uint256 gasUsed = gas - gasleft();
-                    emit GasChargedByRelayer(gasUsed, GAS_OVERHEAD, _proof.length);
+                    emit GasChargedByRelayer(
+                        _message.id, gasUsed, GAS_OVERHEAD, _proof.length, numCacheOps
+                    );
 
                     uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     gasUsed = (GAS_OVERHEAD + gasUsed).max(refund) - refund;
