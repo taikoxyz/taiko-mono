@@ -16,8 +16,6 @@ contract TokenGrant is EssentialContract {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
-    address public constant USTC_TOKEN = address(2);
-
     event GrantCreated(string memo);
     event GrantWithdrawn(uint256 amount, uint256 cost);
 
@@ -25,23 +23,25 @@ contract TokenGrant is EssentialContract {
     error NOT_WITHDRAWABLE();
     error PERMISSION_DENIED();
 
-    address public recipient;
     uint256 public grantAmount;
     uint256 public amountWithdrawn;
+    address public feeToken;
     uint64 public startedAt;
+    address public recipient;
     uint64 public vestDuration;
     uint64 public unlockDuration;
-    uint256 public costPerTko;
+    uint128 public costPerTko;
 
     function init(
         address _owner,
         address _addressManager,
+        address _feeToken,
         address _recipient,
         uint256 _grantAmount,
         uint64 _startedAt,
         uint64 _vestDuration,
         uint64 _unlockDuration,
-        uint256 _costPerTko,
+        uint128 _costPerTko,
         string calldata memo
     )
         external
@@ -49,13 +49,17 @@ contract TokenGrant is EssentialContract {
     {
         __Essential_init(_owner, _addressManager);
 
-        if (_recipient == address(0) || _grantAmount == 0 || _startedAt == 0) {
+        if (
+            _feeToken == address(0) || _recipient == address(0) || _grantAmount == 0
+                || _startedAt == 0
+        ) {
             revert INVALID_PARAMS();
         }
 
         // These two parameters cannot be both zero
         if (_vestDuration == 0 && _unlockDuration == 0) revert INVALID_PARAMS();
 
+        feeToken = _feeToken;
         recipient = _recipient;
         grantAmount = _grantAmount;
         startedAt = _startedAt;
@@ -73,12 +77,11 @@ contract TokenGrant is EssentialContract {
         if (amount == 0) revert NOT_WITHDRAWABLE();
         amountWithdrawn += amount;
 
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-        tko.safeTransfer(recipient, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
 
         uint256 cost = amount * costPerTko / 1e18;
         if (cost != 0) {
-            IERC20(USTC_TOKEN).safeTransferFrom(msg.sender, owner(), cost);
+            IERC20(feeToken).safeTransferFrom(msg.sender, owner(), cost);
         }
 
         emit GrantWithdrawn(amount, cost);
