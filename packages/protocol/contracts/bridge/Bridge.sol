@@ -183,8 +183,7 @@ contract Bridge is EssentialContract, IBridge {
         );
         if (!received) revert B_NOT_FAILED();
 
-        emit MessageRecalled(msgHash);
-        messageStatus[msgHash] = Status.RECALLED;
+        _updateMessageStatus(msgHash, Status.RECALLED);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -246,8 +245,6 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, status);
         }
 
-        emit MessageExecuted(msgHash);
-
         if (_message.fee != 0) {
             refundAmount += _message.fee;
 
@@ -302,6 +299,10 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
+
+            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
+                signalForFailedMessage(msgHash)
+            );
         } else {
             revert B_RETRY_FAILED();
         }
@@ -317,12 +318,12 @@ contract Bridge is EssentialContract, IBridge {
         if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
 
         bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.RETRIABLE) {
-            revert B_NON_RETRIABLE();
-        }
+        if (messageStatus[msgHash] != Status.RETRIABLE) revert B_NON_RETRIABLE();
 
         _updateMessageStatus(msgHash, Status.FAILED);
-        emit MessageFailed(msgHash);
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
+            signalForFailedMessage(msgHash)
+        );
     }
 
     /// @inheritdoc IBridge
@@ -472,16 +473,9 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _msgHash The hash of the message.
     /// @param _status The new status of the message.
     function _updateMessageStatus(bytes32 _msgHash, Status _status) private {
-        if (messageStatus[_msgHash] == _status) return;
-
+        if (messageStatus[_msgHash] == _status) revert B_INVALID_STATUS();
         messageStatus[_msgHash] = _status;
         emit MessageStatusChanged(_msgHash, _status);
-
-        if (_status == Status.FAILED) {
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
-                signalForFailedMessage(_msgHash)
-            );
-        }
     }
 
     /// @notice Resets the call context
