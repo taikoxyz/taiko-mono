@@ -319,11 +319,12 @@ contract Bridge is EssentialContract, IBridge {
         if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
 
         bytes32 msgHash = hashMessage(_message);
-        if (messageStatus[msgHash] != Status.RETRIABLE) {
-            revert B_NON_RETRIABLE();
-        }
+        if (messageStatus[msgHash] != Status.RETRIABLE) revert B_NON_RETRIABLE();
 
-        _updateMessageStatus(msgHash, Status.RECALLED);
+        _updateMessageStatus(msgHash, Status.FAILED);
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
+            signalForFailedMessage(msgHash)
+        );
     }
 
     /// @inheritdoc IBridge
