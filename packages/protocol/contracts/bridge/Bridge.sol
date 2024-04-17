@@ -20,7 +20,7 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address payable;
 
     /// @dev An event for fine-tune gas related constants in the future.
-    event GasDebug(
+    event GasLog(
         uint256 indexed messageId,
         uint256 gasMeasured,
         uint256 overhead,
@@ -254,7 +254,7 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
                     uint256 gasUsed = gas - gasleft();
-                    emit GasDebug(_message.id, gasUsed, GAS_OVERHEAD, _proof.length, numCacheOps);
+                    emit GasLog(_message.id, gasUsed, GAS_OVERHEAD, _proof.length, numCacheOps);
 
                     uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     gasUsed = (GAS_OVERHEAD + gasUsed).max(refund) - refund;
