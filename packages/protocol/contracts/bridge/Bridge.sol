@@ -19,6 +19,7 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
+    /// @dev An event for fine-tune gas related constants in the future.
     event GasChargedByRelayer(
         uint256 indexed messageId,
         uint256 gasMeasured,
@@ -26,11 +27,9 @@ contract Bridge is EssentialContract, IBridge {
         uint256 proofSize,
         uint256 numCacheOps
     );
-    /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
-    /// invocation gas limit.
 
-    /// @dev The gas reserved for relayer to process a message. Note that this doesn't cover proof
-    /// calldata and invocation. This value should be fine-tuned with production data.
+    /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
+    /// invocation gas limit. This value should be fine-tuned with production data.
     uint32 public constant GAS_RESERVE = 250_000;
 
     /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
