@@ -100,12 +100,13 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         whenNotPaused
         nonReentrant
+        returns (uint256 numCacheOps_)
     {
         CacheAction[] memory actions = // actions for caching
          _verifySignalReceived(_chainId, _app, _signal, _proof, true);
 
         for (uint256 i; i < actions.length; ++i) {
-            _cache(actions[i]);
+            numCacheOps_ += _cache(actions[i]);
         }
     }
 
@@ -259,12 +260,13 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _cache(CacheAction memory _action) private {
+    function _cache(CacheAction memory _action) private returns (uint256 numCacheOps_) {
         // cache state root
         bool cacheStateRoot = _action.option == CacheOption.CACHE_BOTH
             || _action.option == CacheOption.CACHE_STATE_ROOT;
 
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
+            numCacheOps_ = 1;
             _syncChainData(
                 _action.chainId, LibStrings.H_STATE_ROOT, _action.blockId, _action.rootHash
             );
@@ -275,6 +277,7 @@ contract SignalService is EssentialContract, ISignalService {
             || _action.option == CacheOption.CACHE_SIGNAL_ROOT;
 
         if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
+            numCacheOps_ += 1;
             _syncChainData(
                 _action.chainId, LibStrings.H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
             );

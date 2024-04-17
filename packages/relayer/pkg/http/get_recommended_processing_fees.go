@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"net/http"
+	"strconv"
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,6 +21,7 @@ type fee struct {
 	Type        string `json:"type"`
 	Amount      string `json:"amount"`
 	DestChainID uint64 `json:"destChainID"`
+	GasLimit    string `json:"gasLimit"`
 }
 
 type FeeType uint64
@@ -122,12 +124,14 @@ func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 			Type:        f.String(),
 			Amount:      srv.getCost(c.Request().Context(), uint64(f), destGasTipCap, destBaseFee, Layer1).String(),
 			DestChainID: srcChainID.Uint64(),
+			GasLimit:    strconv.Itoa(int(f)),
 		})
 
 		fees = append(fees, fee{
 			Type:        f.String(),
 			Amount:      srv.getCost(c.Request().Context(), uint64(f), srcGasTipCap, srcBaseFee, Layer2).String(),
 			DestChainID: destChainID.Uint64(),
+			GasLimit:    strconv.Itoa(int(f)),
 		})
 	}
 
