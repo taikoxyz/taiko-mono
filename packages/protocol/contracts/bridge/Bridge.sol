@@ -206,6 +206,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
+    /// @dev This transaction's gas limit must not be smaller than:
+    /// `(message.gasLimit - GAS_RESERVE) * 24 / 23 + GAS_RESERVE`,
+    /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 24/23`.
     function processMessage(
         Message calldata _message,
         bytes calldata _proof
