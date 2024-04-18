@@ -187,7 +187,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_snapshot() external {
-        vm.prank(tko.owner(), tko.owner());
+        vm.prank(address(L1));
         tko.snapshot();
 
         uint256 totalSupplyAtSnapshot = tko.totalSupplyAt(1);

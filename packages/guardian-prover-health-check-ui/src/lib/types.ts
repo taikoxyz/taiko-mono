@@ -29,6 +29,14 @@ export type UptimeResponse = {
 	numHealthChecksLast24Hours: number;
 };
 
+export type StartupResponse = {
+	guardianProverID: number;
+	guardianProverAddress: string;
+	revision: string;
+	version: string;
+	createdAt: string;
+};
+
 export type PageResponse<T> = {
 	items: T[];
 	page: number;
@@ -42,12 +50,24 @@ export type PageResponse<T> = {
 };
 
 export type Guardian = {
+	name: string;
 	address: string;
 	id: number;
 	latestHealthCheck: HealthCheck;
 	alive: GuardianProverStatus;
 	balance?: string;
+	lastRestart?: string;
 	uptime?: number;
+	nodeInfo?: NodeInfo;
+};
+
+export type NodeInfo = {
+	guardianProverAddress: string;
+	guardianProverID: number;
+	guardianVersion: string;
+	l1NodeVersion: string;
+	l2NodeVersion: string;
+	revision: string;
 };
 
 export enum PageTabs {
@@ -58,7 +78,8 @@ export enum PageTabs {
 export enum GuardianProverStatus {
 	DEAD,
 	ALIVE,
-	UNHEALTHY
+	UNHEALTHY,
+	UNKNOWN
 }
 
 export enum GlobalHealth {
