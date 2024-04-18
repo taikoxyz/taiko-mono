@@ -16,6 +16,13 @@ abstract contract TokenGrant is EssentialContract {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
+    struct Config {
+        uint64 vestCliff;
+        uint64 vestDuration;
+        uint64 unlockDuration;
+        uint128 costPerTko;
+    }
+
     event GrantCreated(string memo);
     event GrantWithdrawn(uint256 amount, uint256 cost);
     event GrantTerminated(uint256 amount);
@@ -23,13 +30,6 @@ abstract contract TokenGrant is EssentialContract {
     error INVALID_PARAMS();
     error NONE_WITHDRAWABLE();
     error PERMISSION_DENIED();
-
-    struct Config {
-        uint64 vestCliff;
-        uint64 vestDuration;
-        uint64 unlockDuration;
-        uint128 costPerTko;
-    }
 
     uint256 public grantAmount;
     uint256 public amountWithdrawn;
