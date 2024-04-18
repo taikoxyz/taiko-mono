@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -55,6 +56,11 @@ func (p *Processor) waitHeaderSynced(
 			}
 
 			if event != nil {
+				slog.Info("chainDataSynced done",
+					"syncedBlockID", event.BlockID,
+					"blockIDWaitingFor", blockNum,
+				)
+
 				return event, nil
 			}
 		}
