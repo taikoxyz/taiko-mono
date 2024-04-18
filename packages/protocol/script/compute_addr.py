@@ -8,7 +8,7 @@ def compute_create2_address(deployer_address, salt, keccak256_bytecode):
     bytecode_hash_bytes = Web3.to_bytes(hexstr=keccak256_bytecode)
     combined = b'\xff' + deployer_address_bytes + salt_bytes + bytecode_hash_bytes
     address_hash = Web3.keccak(combined)
-    return '0x' + address_hash[-20:].hex()
+    return address_hash[-20:].hex()
 
 def load_state(file_path):
     if os.path.exists(file_path):
