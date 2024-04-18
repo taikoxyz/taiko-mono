@@ -391,7 +391,10 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	slog.Info("Mined tx", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()))
+	slog.Info("Mined tx",
+		"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+		"srcTxHash", event.Raw.TxHash.Hex(),
+	)
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		relayer.MessageSentEventsProcessedReverted.Inc()
