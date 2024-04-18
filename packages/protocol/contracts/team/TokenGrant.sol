@@ -12,7 +12,7 @@ import "./LibTokenGrant.sol";
 /// @notice Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
 /// @custom:security-contact security@taiko.xyz
-contract TokenGrant is EssentialContract {
+abstract contract TokenGrant is EssentialContract {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
@@ -24,27 +24,26 @@ contract TokenGrant is EssentialContract {
     error NONE_WITHDRAWABLE();
     error PERMISSION_DENIED();
 
+    struct Config {
+        uint64 vestCliff;
+        uint64 vestDuration;
+        uint64 unlockDuration;
+        uint128 costPerTko;
+    }
+
     uint256 public grantAmount;
     uint256 public amountWithdrawn;
-    address public feeToken;
-    uint64 public startedAt;
     address public recipient;
-    uint64 public vestDuration;
-    uint64 public vestCliffDuration;
-    uint64 public unlockDuration;
-    uint128 public costPerTko;
+    uint64 public startedAt;
+    address public feeToken;
 
     function init(
         address _owner,
         address _addressManager,
-        address _feeToken,
         address _recipient,
         uint256 _grantAmount,
         uint64 _startedAt,
-        uint64 _vestDuration,
-        uint64 _vestCliffDuration,
-        uint64 _unlockDuration,
-        uint128 _costPerTko,
+        address _feeToken,
         string calldata memo
     )
         external
@@ -56,19 +55,17 @@ contract TokenGrant is EssentialContract {
             revert INVALID_PARAMS();
         }
 
-        if (_costPerTko != 0 && _feeToken == address(0)) revert INVALID_PARAMS();
+        Config memory c = config();
+
+        if (c.costPerTko != 0 && _feeToken == address(0)) revert INVALID_PARAMS();
 
         // These two parameters cannot be both zero
-        if (_vestDuration == 0 && _unlockDuration == 0) revert INVALID_PARAMS();
+        if (c.vestDuration == 0 && c.unlockDuration == 0) revert INVALID_PARAMS();
 
-        feeToken = _feeToken;
         recipient = _recipient;
         grantAmount = _grantAmount;
         startedAt = _startedAt;
-        vestDuration = _vestDuration;
-        vestCliffDuration = _vestCliffDuration;
-        unlockDuration = _unlockDuration;
-        costPerTko = _costPerTko;
+        feeToken = _feeToken;
 
         emit GrantCreated(memo);
     }
@@ -85,7 +82,8 @@ contract TokenGrant is EssentialContract {
         amountWithdrawn += amountToWithdraw;
         tko.safeTransfer(recipient, amountToWithdraw);
 
-        uint256 cost = amountToWithdraw * costPerTko / 1e18;
+        Config memory c = config();
+        uint256 cost = amountToWithdraw * c.costPerTko / 1e18;
         if (cost != 0) {
             IERC20(feeToken).safeTransferFrom(msg.sender, owner(), cost);
         }
@@ -104,19 +102,23 @@ contract TokenGrant is EssentialContract {
     }
 
     function vestedAmount() public view returns (uint256) {
-        if (block.timestamp <= startedAt + vestCliffDuration) return 0;
+        Config memory c = config();
+        if (block.timestamp <= startedAt + c.vestCliff) return 0;
         uint256 t = block.timestamp - startedAt;
-        return LibTokenGrant.calcVestedAmount(grantAmount, vestDuration, t);
+        return LibTokenGrant.calcVestedAmount(grantAmount, c.vestDuration, t);
     }
 
     function unlockedAmount() public view returns (uint256) {
-        if (block.timestamp <= startedAt + vestCliffDuration) return 0;
+        Config memory c = config();
+        if (block.timestamp <= startedAt + c.vestCliff) return 0;
         uint256 t = block.timestamp - startedAt;
-        return LibTokenGrant.calcUnlockedAmount(grantAmount, vestDuration, unlockDuration, t);
+        return LibTokenGrant.calcUnlockedAmount(grantAmount, c.vestDuration, c.unlockDuration, t);
     }
 
     function withdrawableAmount() public view returns (uint256) {
         uint256 x = amountWithdrawn;
         return unlockedAmount().max(x) - x;
     }
+
+    function config() public pure virtual returns (Config memory);
 }
