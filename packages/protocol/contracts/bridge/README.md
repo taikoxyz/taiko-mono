@@ -24,33 +24,34 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
 ```
     struct Message {
         // Message ID whose value is automatically assigned.
-        uint128 id;
+        uint64 id;
+        // The max processing fee for the relayer. This fee has 3 parts:
+        // - the fee for message calldata.
+        // - the minimal fee reserve for general processing, excluding function call.
+        // - the invocation fee for the function call.
+        // Any unpaid fee will be refunded to the destOwner on the destination chain.
+        // Note that fee must be 0 if gasLimit is 0, or large enough to make the invocation fee
+        // non-zero.
+        uint64 fee;
+        // gasLimit that the processMessage call must have.
+        uint32 gasLimit;
         // The address, EOA or contract, that interacts with this bridge.
         // The value is automatically assigned.
         address from;
         // Source chain ID whose value is automatically assigned.
         uint64 srcChainId;
-        // Destination chain ID where the `to` address lives.
-        uint64 destChainId;
         // The owner of the message on the source chain.
         address srcOwner;
+        // Destination chain ID where the `to` address lives.
+        uint64 destChainId;
         // The owner of the message on the destination chain.
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund on the destination chain.
-        // If blank, defaults to destOwner.
-        address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer.
-        uint256 fee;
-        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can process the message.
-        uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;
-        // Optional memo.
-        string memo;
     }
 ```
 
@@ -66,31 +67,29 @@ If user wants to bridge other tokens (`ERC20`, `ERC1155` or `ERC721`.) he/she wi
 In case of ERC20 the transaction can be initiated by initializing a struct (below) and calling `sendToken`:
 
 ```
-    struct BridgeTransferOp {
-        uint256 destChainId;
+  struct BridgeTransferOp {
+        uint64 destChainId;
+        address destOwner;
         address to;
+        uint64 fee;
         address token;
+        uint32 gasLimit;
         uint256 amount;
-        uint256 gasLimit;
-        uint256 fee;
-        address refundTo;
-        string memo;
     }
 ```
 
 In case of `ERC1155` or `ERC721`, the mechanism is the same but struct looks like this:
 
 ```
-struct BridgeTransferOp {
-        uint256 destChainId;
+    struct BridgeTransferOp {
+        uint64 destChainId;
+        address destOwner;
         address to;
+        uint64 fee;
         address token;
+        uint32 gasLimit;
         uint256[] tokenIds;
         uint256[] amounts;
-        uint256 gasLimit;
-        uint256 fee;
-        address refundTo;
-        string memo;
     }
 ```
 
