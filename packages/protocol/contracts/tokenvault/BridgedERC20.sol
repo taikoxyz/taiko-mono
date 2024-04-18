@@ -116,8 +116,8 @@ contract BridgedERC20 is
         return __srcDecimals;
     }
 
-    /// @notice Get the current snapshot ID.
-    /// @returns The current snapshot ID.
+    /// @notice Gets the current snapshot ID.
+    /// @return The current snapshot ID.
     function currentSnapshotId() public view returns (uint256) {
         return _getCurrentSnapshotId();
     }
