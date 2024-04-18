@@ -314,6 +314,11 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	slog.Info("message received on dest chain",
+		"received", received,
+		"srcTxHash", event.Raw.TxHash.Hex(),
+	)
+
 	// message will fail when we try to process it
 	if !received {
 		slog.Warn("Message not received on dest chain",
@@ -363,17 +368,15 @@ func (p *Processor) sendProcessMessageCall(
 			From:     auth.From,
 			To:       &p.cfg.DestBridgeAddress,
 			GasPrice: auth.GasPrice,
-			Data:     nil,
+			Data:     data,
 		}
-
-		msg.Data = data
 
 		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
 		if err != nil {
 			return nil, err
 		}
 
-		if gasUsed > uint64(event.Message.GasLimit) {
+		if gasUsed > uint64(float64(event.Message.GasLimit)*1.1) {
 			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
 		}
 	}
