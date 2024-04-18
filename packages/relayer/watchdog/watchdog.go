@@ -26,7 +26,6 @@ import (
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -315,24 +314,24 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
-func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
-	data, err := encoding.BridgeABI.Pack("pause")
-	if err != nil {
-		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
-	}
+// func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
+// 	data, err := encoding.BridgeABI.Pack("pause")
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
+// 	}
 
-	// pause the src bridge, which is the DESTINATION of the original message.
-	candidate := txmgr.TxCandidate{
-		TxData: data,
-		Blobs:  nil,
-		To:     &w.cfg.SrcBridgeAddress,
-	}
+// 	// pause the src bridge, which is the DESTINATION of the original message.
+// 	candidate := txmgr.TxCandidate{
+// 		TxData: data,
+// 		Blobs:  nil,
+// 		To:     &w.cfg.SrcBridgeAddress,
+// 	}
 
-	receipt, err := w.txmgr.Send(ctx, candidate)
-	if err != nil {
-		slog.Warn("Failed to send pause transaction", "error", err.Error())
-		return nil, err
-	}
+// 	receipt, err := w.txmgr.Send(ctx, candidate)
+// 	if err != nil {
+// 		slog.Warn("Failed to send pause transaction", "error", err.Error())
+// 		return nil, err
+// 	}
 
-	return receipt, nil
-}
+// 	return receipt, nil
+// }

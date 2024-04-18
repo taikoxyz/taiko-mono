@@ -394,10 +394,6 @@ func (i *Indexer) filter(ctx context.Context) error {
 					return errors.Wrap(err, "i.indexChainDataSyncedEvents")
 				}
 			}
-		case relayer.EventNameMessageReceived:
-			// if err := i.withRetry(func() error { return i.indexMessageReceivedEvents(ctx, filterOpts) }); err != nil {
-			// 	return errors.Wrap(err, "i.indexMessageReceivedEvents")
-			// }
 		}
 
 		i.latestIndexedBlockNumber = end
