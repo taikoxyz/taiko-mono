@@ -37,10 +37,10 @@ library LibTokenGrant {
             return _portion(_grantAmount, _time, b);
         }
 
-        return _triagleArea(_grantAmount, a, b, _time, 0)
-            + _triagleArea(_grantAmount, a, b, _time, a + b)
-            - _triagleArea(_grantAmount, a, b, _time, a) //
-            - _triagleArea(_grantAmount, a, b, _time, b);
+        return _triangleArea(_grantAmount, a, b, _time, 0)
+            + _triangleArea(_grantAmount, a, b, _time, a + b)
+            - _triangleArea(_grantAmount, a, b, _time, a) //
+            - _triangleArea(_grantAmount, a, b, _time, b);
     }
 
     function _portion(uint256 z, uint256 t, uint256 tMax) private pure returns (uint256) {
@@ -48,7 +48,7 @@ library LibTokenGrant {
         else return z * t / tMax;
     }
 
-    function _triagleArea(
+    function _triangleArea(
         uint256 z,
         uint256 a,
         uint256 b,
