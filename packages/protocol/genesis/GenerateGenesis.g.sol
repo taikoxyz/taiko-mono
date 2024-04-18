@@ -154,7 +154,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(ownerSecurityCouncil, bridgeProxy.owner());
 
-        vm.expectRevert(Bridge.B_NOT_RECEIVED.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         bridgeProxy.processMessage(
             IBridge.Message({
                 id: 0,
@@ -164,12 +164,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 srcOwner: address(0),
                 destOwner: address(0),
                 to: address(0),
-                refundTo: address(0),
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
-                data: "",
-                memo: ""
+                data: ""
             }),
             ""
         );
@@ -190,12 +188,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 srcOwner: address(0),
                 destOwner: address(0),
                 to: address(0),
-                refundTo: address(0),
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
-                data: "",
-                memo: ""
+                data: ""
             }),
             ""
         );

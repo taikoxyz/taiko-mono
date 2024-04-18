@@ -16,46 +16,34 @@ interface IBridge {
 
     struct Message {
         // Message ID whose value is automatically assigned.
-        uint128 id;
+        uint64 id;
+        // The max processing fee for the relayer. This fee has 3 parts:
+        // - the fee for message calldata.
+        // - the minimal fee reserve for general processing, excluding function call.
+        // - the invocation fee for the function call.
+        // Any unpaid fee will be refunded to the destOwner on the destination chain.
+        // Note that fee must be 0 if gasLimit is 0, or large enough to make the invocation fee
+        // non-zero.
+        uint64 fee;
+        // gasLimit that the processMessage call must have.
+        uint32 gasLimit;
         // The address, EOA or contract, that interacts with this bridge.
         // The value is automatically assigned.
         address from;
         // Source chain ID whose value is automatically assigned.
         uint64 srcChainId;
-        // Destination chain ID where the `to` address lives.
-        uint64 destChainId;
         // The owner of the message on the source chain.
         address srcOwner;
+        // Destination chain ID where the `to` address lives.
+        uint64 destChainId;
         // The owner of the message on the destination chain.
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund on the destination chain.
-        // If blank, defaults to destOwner.
-        address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer.
-        uint256 fee;
-        // gasLimit to invoke on the destination chain. If this value is zero, only destOwner can
-        // process the message. This value will mostly be respected when retrying
-        // (gas > gas_limit) but not when processed by the owner.
-        uint256 gasLimit;
         // callData to invoke on the destination chain.
         bytes data;
-        // Optional memo.
-        string memo;
-    }
-
-    // Note that this struct shall take only 1 slot to minimize gas cost
-    struct ProofReceipt {
-        // The time a message is marked as received on the destination chain
-        uint64 receivedAt;
-        // The address that can execute the message after the invocation delay without an extra
-        // delay.
-        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
-        // invoke the message.
-        address preferredExecutor;
     }
 
     // Struct representing the context of a bridge operation.
@@ -71,43 +59,10 @@ interface IBridge {
     /// @param message The message.
     event MessageSent(bytes32 indexed msgHash, Message message);
 
-    /// @notice Emitted when a message is received.
-    /// @param msgHash The hash of the message.
-    /// @param message The message.
-    /// @param isRecall True if the message is a recall.
-    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
-
-    /// @notice Emitted when a message is recalled.
-    /// @param msgHash The hash of the message.
-    event MessageRecalled(bytes32 indexed msgHash);
-
-    /// @notice Emitted when a message is executed.
-    /// @param msgHash The hash of the message.
-    event MessageExecuted(bytes32 indexed msgHash);
-
-    /// @notice Emitted when a message is retried.
-    /// @param msgHash The hash of the message.
-    event MessageRetried(bytes32 indexed msgHash);
-
-    /// @notice Emitted when a message is marked failed.
-    /// @param msgHash The hash of the message.
-    event MessageFailed(bytes32 indexed msgHash);
-
     /// @notice Emitted when the status of a message changes.
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-
-    /// @notice Emitted when a message is suspended or unsuspended.
-    /// @param msgHash The hash of the message.
-    /// @param suspended True if the message is suspended.
-    /// @param receivedAt The received-at timestamp, 0 if suspended is true.
-    event MessageSuspended(bytes32 msgHash, bool suspended, uint64 receivedAt);
-
-    /// @notice Emitted when an address is banned or unbanned.
-    /// @param addr The address to ban or unban.
-    /// @param banned True if the address is banned.
-    event AddressBanned(address indexed addr, bool banned);
 
     /// @notice Sends a message to the destination chain and takes custody
     /// of Ether required in this contract.
