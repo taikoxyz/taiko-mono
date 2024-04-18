@@ -25,6 +25,11 @@ func (p *Processor) isProfitable(
 	var shouldProcess bool = false
 
 	if processingFee == 0 || gasLimit == 0 {
+		slog.Info("unprofitable: no gasLimit or processingFee",
+			"processingFee", processingFee,
+			"gasLimit", gasLimit,
+		)
+
 		return shouldProcess, nil
 	}
 
