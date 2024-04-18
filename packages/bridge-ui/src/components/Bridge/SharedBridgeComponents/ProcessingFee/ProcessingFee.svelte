@@ -138,8 +138,8 @@
       <span class=" text-primary-content mt-[4px]">
         {#if calculatingRecommendedAmount}
           <LoadingText mask="0.0017730224073" /> ETH
-        {:else if errorCalculatingRecommendedAmount}
-          {$t('processing_fee.recommended.error')}
+        {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
+          <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
         {:else}
           {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
             <span class="text-primary-link">| {$t('common.customized')}</span>
@@ -152,8 +152,8 @@
   <span class="text-primary-content mt-[4px] {$$props.class}">
     {#if calculatingRecommendedAmount}
       <LoadingText mask="0.0017730224073" />
-    {:else if errorCalculatingRecommendedAmount}
-      {$t('processing_fee.recommended.error')}
+    {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
+      <span class="text-warning-sentiment">{$t('processing_fee.recommended.error')}</span>
     {:else}
       {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
         <span class="text-primary-link">| {$t('common.customized')}</span>
@@ -178,8 +178,8 @@
     <span class="body-small-regular text-secondary-content mt-[4px]">
       {#if calculatingRecommendedAmount}
         <LoadingText mask="0.0001" /> ETH
-      {:else if errorCalculatingRecommendedAmount}
-        {$t('processing_fee.recommended.error')}
+      {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
+        <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
       {:else}
         {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
           <span class="text-primary-link">| {$t('common.customized')}</span>
@@ -212,7 +212,7 @@
                   {#if calculatingRecommendedAmount}
                     <LoadingText mask="0.0001" /> ETH
                   {:else if errorCalculatingRecommendedAmount}
-                    {$t('processing_fee.recommended.error')}
+                    <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
                   {:else}
                     {formatEther(recommendedAmount)} ETH
                   {/if}
@@ -299,7 +299,10 @@
   </div>
 {/if}
 
-<RecommendedFee bind:amount={recommendedAmount} bind:calculating={calculatingRecommendedAmount} />
+<RecommendedFee
+  bind:amount={recommendedAmount}
+  bind:calculating={calculatingRecommendedAmount}
+  bind:error={errorCalculatingRecommendedAmount} />
 
 <NoneOption
   bind:enoughEth={hasEnoughEth}

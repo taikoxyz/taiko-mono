@@ -385,7 +385,7 @@
     },
     "recommended": {
       "calculating": "Calculating",
-      "error": "Error calculating",
+      "error": "Error calculating processing fee, you will need to claim manually!",
       "label": "Recommended"
     },
     "title": "Processing fee",
