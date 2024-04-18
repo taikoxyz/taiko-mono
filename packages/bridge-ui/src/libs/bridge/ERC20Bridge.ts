@@ -26,7 +26,7 @@ const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
-    const { to, amount, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed, memo = '' } = args;
+    const { to, amount, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed } = args;
     if (!wallet || !wallet.account) throw new Error('No wallet found');
 
     const tokenVaultContract = getContract({
@@ -34,8 +34,6 @@ export class ERC20Bridge extends Bridge {
       abi: erc20VaultAbi,
       address: tokenVaultAddress,
     });
-
-    const refundTo = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noERC20TokenDeployedGasLimit)
@@ -49,10 +47,8 @@ export class ERC20Bridge extends Bridge {
       to,
       token,
       amount,
-      gasLimit,
+      gasLimit: Number(gasLimit),
       fee,
-      refundTo,
-      memo,
     };
 
     log('Preparing transaction with args', sendERC20Args);
@@ -186,23 +182,17 @@ export class ERC20Bridge extends Bridge {
     try {
       log('Calling sendERC20 with value', fee);
 
-      // const { request } = await simulateContract(config, {
-      //   address: tokenVaultContract.address,
-      //   abi: erc20VaultAbi,
-      //   functionName: 'sendToken',
-      //   args: [sendERC20Args],
-      //   value: fee,
-      // });
-      // log('Simulate contract', request);
-
-      const txHash = await writeContract(config, {
+      const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
         abi: erc20VaultAbi,
         functionName: 'sendToken',
+        // @ts-ignore
         args: [sendERC20Args],
-        chainId: wallet.chain.id,
         value: fee,
       });
+      log('Simulate contract', request);
+
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for sendERC20 call', txHash);
 

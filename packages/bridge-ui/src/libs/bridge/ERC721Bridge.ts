@@ -193,18 +193,7 @@ export class ERC721Bridge extends Bridge {
   }
 
   private static async _prepareTransaction(args: ERC721BridgeArgs) {
-    const {
-      to,
-      wallet,
-      destChainId,
-      token,
-      fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      memo = '',
-      tokenIds,
-      amounts,
-    } = args;
+    const { to, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed, tokenIds, amounts } = args;
 
     const tokenVaultContract = getContract({
       client: wallet,
@@ -213,7 +202,6 @@ export class ERC721Bridge extends Bridge {
     });
 
     if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
-    const refundTo = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noERC721TokenDeployedGasLimit)
@@ -226,10 +214,8 @@ export class ERC721Bridge extends Bridge {
       to,
       destOwner: to,
       token,
-      gasLimit,
+      gasLimit: Number(gasLimit),
       fee,
-      refundTo,
-      memo,
       tokenIds,
       amounts,
     };

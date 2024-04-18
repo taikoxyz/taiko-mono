@@ -15,7 +15,6 @@
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
-  import { TWO_STEP_STATE } from '../ClaimDialog/types';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
@@ -140,8 +139,7 @@
           on:claim={handleClaimClick}
           bind:claiming={retrying}
           bind:canClaim={canContinue}
-          bind:claimingDone={retryDone}
-          proveOrClaimStep={TWO_STEP_STATE.CLAIM} />
+          bind:claimingDone={retryDone} />
       {/if}
       <div class="f-col text-left self-end h-full w-full">
         <div class="f-col gap-4 mt-[20px]">

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError, zeroAddress } from 'viem';
+  import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
@@ -13,9 +13,7 @@
     warningToast,
   } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import { getInvocationDelaysForDestBridge } from '$libs/bridge/getInvocationDelaysForDestBridge';
-  import { getProofReceiptForMsgHash } from '$libs/bridge/getProofReceiptForMsgHash';
-  import type { BridgeTransaction, GetProofReceiptResponse } from '$libs/bridge/types';
+  import type { BridgeTransaction } from '$libs/bridge/types';
   import {
     InsufficientBalanceError,
     InvalidProofError,
@@ -23,7 +21,6 @@
     ProcessMessageError,
     RetryError,
   } from '$libs/error';
-  import type { startPolling } from '$libs/polling/messageStatusPoller';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
@@ -35,7 +32,7 @@
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
   import ClaimPreCheck from './ClaimSteps/ClaimPreCheck.svelte';
-  import { ClaimSteps, INITIAL_STEP, TWO_STEP_STATE } from './types';
+  import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
 
@@ -44,15 +41,9 @@
 
   export let dialogOpen = false;
 
-  export let polling: ReturnType<typeof startPolling>;
-
-  export let delays: readonly bigint[];
-
   export let loading = false;
 
   export let nft: NFT | null = null;
-
-  export let proofReceipt: GetProofReceiptResponse;
 
   export let activeStep: ClaimSteps = INITIAL_STEP;
 
@@ -115,25 +106,14 @@
 
     dispatch('claimingDone');
 
-    if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
-      successToast({
-        title: $t('transactions.actions.claim.success.title'),
-        message: $t('transactions.actions.claim.success.message', {
-          values: {
-            network: $connectedSourceChain.name,
-          },
-        }),
-      });
-    } else if (proveOrClaimStep === TWO_STEP_STATE.CLAIM) {
-      successToast({
-        title: $t('transactions.actions.claim.success.title'),
-        message: $t('transactions.actions.claim.success.message', {
-          values: {
-            network: $connectedSourceChain.name,
-          },
-        }),
-      });
-    }
+    successToast({
+      title: $t('transactions.actions.claim.success.title'),
+      message: $t('transactions.actions.claim.success.message', {
+        values: {
+          network: $connectedSourceChain.name,
+        },
+      }),
+    });
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
@@ -194,45 +174,11 @@
   };
 
   let checkingPrerequisites: boolean;
-  const fetchDelayAndReceipt = async () => {
-    checkingPrerequisites = true;
-
-    if (!proofReceipt) {
-      const receipt = await getProofReceiptForMsgHash({
-        msgHash: bridgeTx.msgHash,
-        srcChainId: bridgeTx.srcChainId,
-        destChainId: bridgeTx.destChainId,
-      });
-
-      if (receipt) {
-        proofReceipt = receipt;
-      }
-    }
-
-    if (!delays) {
-      delays = await getInvocationDelaysForDestBridge({
-        srcChainId: bridgeTx.srcChainId,
-        destChainId: bridgeTx.destChainId,
-      });
-    }
-    checkingPrerequisites = false;
-  };
 
   let previousStep: ClaimSteps;
   $: if (activeStep !== previousStep) {
     previousStep = activeStep;
-    fetchDelayAndReceipt();
   }
-  $: if (dialogOpen) {
-    fetchDelayAndReceipt();
-  }
-
-  $: proveOrClaimStep =
-    proofReceipt && proofReceipt[1] !== zeroAddress
-      ? TWO_STEP_STATE.CLAIM
-      : delays && delays[0] > 0n
-        ? TWO_STEP_STATE.PROVE
-        : TWO_STEP_STATE.CLAIM;
 </script>
 
 <dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
@@ -259,13 +205,7 @@
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck
-          tx={bridgeTx}
-          bind:canContinue
-          bind:proofReceipt
-          {polling}
-          bridgeDelays={delays}
-          {checkingPrerequisites} />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue {checkingPrerequisites} />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
@@ -275,8 +215,7 @@
           on:claim={handleClaimClick}
           bind:claiming
           bind:canClaim={canContinue}
-          bind:claimingDone
-          bind:proveOrClaimStep />
+          bind:claimingDone />
       {/if}
       <div class="f-col text-left self-end h-full w-full">
         <div class="f-col gap-4 mt-[20px]">

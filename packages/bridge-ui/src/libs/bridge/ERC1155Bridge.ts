@@ -192,18 +192,7 @@ export class ERC1155Bridge extends Bridge {
   }
 
   private static async _prepareTransaction(args: ERC1155BridgeArgs) {
-    const {
-      to,
-      wallet,
-      destChainId,
-      token,
-      fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      memo = '',
-      tokenIds,
-      amounts,
-    } = args;
+    const { to, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed, tokenIds, amounts } = args;
 
     if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
 
@@ -212,8 +201,6 @@ export class ERC1155Bridge extends Bridge {
       abi: erc1155VaultAbi,
       address: tokenVaultAddress,
     });
-
-    const refundTo = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noERC1155TokenDeployedGasLimit)
@@ -226,10 +213,8 @@ export class ERC1155Bridge extends Bridge {
       to,
       destOwner: to,
       token,
-      gasLimit,
+      gasLimit: Number(gasLimit),
       fee,
-      refundTo,
-      memo,
       tokenIds,
       amounts,
     };
