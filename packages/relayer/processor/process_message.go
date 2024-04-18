@@ -376,7 +376,7 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, err
 		}
 
-		if gasUsed > uint64(float64(event.Message.GasLimit)*1.1) {
+		if gasUsed > uint64(float64(event.Message.GasLimit)*2) {
 			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
 		}
 	}
@@ -385,7 +385,7 @@ func (p *Processor) sendProcessMessageCall(
 		TxData:   data,
 		Blobs:    nil,
 		To:       &p.cfg.DestBridgeAddress,
-		GasLimit: uint64(float64(event.Message.GasLimit) * 1.1),
+		GasLimit: uint64(float64(event.Message.GasLimit) * 2),
 	}
 
 	receipt, err := p.txmgr.Send(ctx, candidate)
