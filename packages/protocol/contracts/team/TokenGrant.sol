@@ -73,11 +73,18 @@ contract TokenGrant is EssentialContract {
     function withdraw() external whenNotPaused nonReentrant {
         if (msg.sender != recipient) revert PERMISSION_DENIED();
 
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        uint256 balance = tko.balanceOf(address(this));
+
         uint256 amount = withdrawableAmount();
+        if (balance < amount) {
+            amount = balance;
+        }
+
         if (amount == 0) revert NOT_WITHDRAWABLE();
         amountWithdrawn += amount;
 
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
+        tko.safeTransfer(recipient, amount);
 
         uint256 cost = amount * costPerTko / 1e18;
         if (cost != 0) {
@@ -91,10 +98,10 @@ contract TokenGrant is EssentialContract {
         grantAmount = 0;
 
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-        uint256 amount = tko.balanceOf(address(this));
-        tko.safeTransfer(owner(), amount);
+        uint256 balance = tko.balanceOf(address(this));
+        tko.safeTransfer(owner(), balance);
 
-        emit GrantTerminated(amount);
+        emit GrantTerminated(balance);
     }
 
     function vestedAmount() public view returns (uint256) {
