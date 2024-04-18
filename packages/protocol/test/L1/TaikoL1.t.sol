@@ -28,7 +28,12 @@ contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
             payable(
-                deployProxy({ name: "taiko", impl: address(new TaikoL1_NoCooldown()), data: "" })
+                deployProxy({
+                    name: "taiko",
+                    impl: address(new TaikoL1_NoCooldown()),
+                    data: "",
+                    salt: 0
+                })
             )
         );
     }

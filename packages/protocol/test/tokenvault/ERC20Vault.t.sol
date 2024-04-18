@@ -89,7 +89,8 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
+                data: abi.encodeCall(AddressManager.init, (address(0))),
+                salt: 0
             })
         );
 
@@ -100,7 +101,8 @@ contract TestERC20Vault is TaikoTest {
                 data: abi.encodeCall(
                     TaikoToken.init,
                     (address(0), "Taiko Token", "TTKOk", address(this), address(addressManager))
-                    )
+                    ),
+                salt: 0
             })
         );
 
@@ -110,7 +112,8 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 
@@ -118,7 +121,8 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 
@@ -131,7 +135,8 @@ contract TestERC20Vault is TaikoTest {
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
-                    registerTo: address(addressManager)
+                    registerTo: address(addressManager),
+                    salt: 0
                 })
             )
         );
@@ -143,7 +148,8 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 

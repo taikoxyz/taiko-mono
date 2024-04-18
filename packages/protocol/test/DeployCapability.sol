@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 
 import "forge-std/src/console2.sol";
 import "forge-std/src/Script.sol";
@@ -18,12 +19,18 @@ abstract contract DeployCapability is Script {
         string memory name,
         address impl,
         bytes memory data,
-        address registerTo
+        address registerTo,
+        bytes32 salt
     )
         internal
         returns (address proxy)
     {
-        proxy = address(new ERC1967Proxy(impl, data));
+        bytes memory bytecode =
+            abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(impl, data));
+
+        proxy = address(Create2.deploy(0, salt, bytecode));
+
+        // proxy = address(new ERC1967Proxy(impl, data));
 
         if (registerTo != address(0)) {
             AddressManager(registerTo).setAddress(
@@ -37,6 +44,7 @@ abstract contract DeployCapability is Script {
         console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
         console2.log("  msg.sender :", msg.sender);
         console2.log("  this       :", address(this));
+        console2.logBytes32(keccak256(bytecode));
 
         vm.writeJson(
             vm.serializeAddress("deployment", name, proxy),
@@ -47,12 +55,13 @@ abstract contract DeployCapability is Script {
     function deployProxy(
         string memory name,
         address impl,
-        bytes memory data
+        bytes memory data,
+        bytes32 salt
     )
         internal
-        returns (address proxy)
+        returns (address)
     {
-        return deployProxy(name, impl, data, address(0));
+        return deployProxy(name, impl, data, address(0), salt);
     }
 
     function register(address registerTo, string memory name, address addr) internal {

@@ -6,8 +6,9 @@ import "../L1/TaikoL1TestBase.sol";
 /// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestGuardianVerifier is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
-        return
-            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+        return TaikoL1(
+            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "", salt: 0 }))
+        );
     }
 
     function setUp() public override {

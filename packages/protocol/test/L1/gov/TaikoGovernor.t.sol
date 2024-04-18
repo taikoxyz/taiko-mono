@@ -13,8 +13,9 @@ contract TestTaikoGovernor is TaikoL1TestBase {
     TaikoTimelockController public taikoTimelockController;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
-        return
-            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+        return TaikoL1(
+            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "", salt: 0 }))
+        );
     }
 
     function setUp() public override {

@@ -29,8 +29,9 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
     MockRiscZeroRemoteVerifier riscZeroRemoteVerifier;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
-        return
-            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+        return TaikoL1(
+            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "", salt: 0 }))
+        );
     }
 
     function setUp() public override {
@@ -48,7 +49,8 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
                 data: abi.encodeCall(
                     RiscZeroVerifier.init,
                     (address(0), address(addressManager), address(riscZeroRemoteVerifier))
-                    )
+                    ),
+                salt: 0
             })
         );
 

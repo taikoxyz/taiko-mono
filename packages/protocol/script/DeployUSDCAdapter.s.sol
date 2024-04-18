@@ -38,7 +38,8 @@ contract DeployUSDCAdapter is DeployCapability {
             impl: address(new USDCAdapter()),
             data: abi.encodeCall(
                 USDCAdapter.init, (address(0), l2SharedAddressManager, IUSDC(usdcProxyL2))
-                )
+                ),
+            salt: 0
         });
 
         USDCAdapter(adapterProxy).transferOwnership(erc20VaultOwner);

@@ -84,7 +84,8 @@ contract TestERC20Airdrop is TaikoTest {
             deployProxy({
                 name: "vault",
                 impl: address(new SimpleERC20Vault()),
-                data: abi.encodeCall(SimpleERC20Vault.init, ())
+                data: abi.encodeCall(SimpleERC20Vault.init, ()),
+                salt: 0
             })
         );
 
@@ -102,7 +103,8 @@ contract TestERC20Airdrop is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(addressManager), randAddress(), 100, 18, "TKO", "Taiko Token")
-                    )
+                    ),
+                salt: 0
             })
         );
 
@@ -129,7 +131,8 @@ contract TestERC20Airdrop is TaikoTest {
                 data: abi.encodeCall(
                     ERC20Airdrop.init,
                     (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
-                    )
+                    ),
+                salt: 0
             })
         );
 

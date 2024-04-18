@@ -85,7 +85,8 @@ contract TestERC721Airdrop is TaikoTest {
             deployProxy({
                 name: "vault",
                 impl: address(new SimpleERC721Vault()),
-                data: abi.encodeCall(SimpleERC721Vault.init, (address(0)))
+                data: abi.encodeCall(SimpleERC721Vault.init, (address(0))),
+                salt: 0
             })
         );
 
@@ -110,7 +111,8 @@ contract TestERC721Airdrop is TaikoTest {
                         "TKOP",
                         "Taiko Points Token"
                     )
-                    )
+                    ),
+                salt: 0
             })
         );
 
@@ -142,7 +144,8 @@ contract TestERC721Airdrop is TaikoTest {
                 data: abi.encodeCall(
                     ERC721Airdrop.init,
                     (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
-                    )
+                    ),
+                salt: 0
             })
         );
 

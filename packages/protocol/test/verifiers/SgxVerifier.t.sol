@@ -14,8 +14,9 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         0xde9b0c39e60bb0404347b588c6891947db2c873942b553d5d15c03ea30c04c63;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
-        return
-            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+        return TaikoL1(
+            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "", salt: 0 }))
+        );
     }
 
     function setUp() public override {

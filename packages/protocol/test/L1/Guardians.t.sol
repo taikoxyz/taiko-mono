@@ -31,7 +31,8 @@ contract TestGuardianProver is TaikoTest {
             deployProxy({
                 name: "guardians",
                 impl: address(new DummyGuardians()),
-                data: abi.encodeCall(DummyGuardians.init, ())
+                data: abi.encodeCall(DummyGuardians.init, ()),
+                salt: 0
             })
         );
     }

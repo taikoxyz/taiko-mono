@@ -37,7 +37,8 @@ contract TestMerkleClaimable is TaikoTest {
             deployProxy({
                 name: "MockMerkleClaimable",
                 impl: address(new MockMerkleClaimable()),
-                data: abi.encodeCall(MockMerkleClaimable.init, (0, 0, merkleRoot))
+                data: abi.encodeCall(MockMerkleClaimable.init, (0, 0, merkleRoot)),
+                salt: 0
             })
         );
 

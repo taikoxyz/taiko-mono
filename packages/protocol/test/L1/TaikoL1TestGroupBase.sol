@@ -19,7 +19,9 @@ contract TaikoL1New is TaikoL1 {
 abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
-            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1New()), data: "" }))
+            payable(
+                deployProxy({ name: "taiko", impl: address(new TaikoL1New()), data: "", salt: 0 })
+            )
         );
     }
 

@@ -40,7 +40,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
+                data: abi.encodeCall(AddressManager.init, (address(0))),
+                salt: 0
             })
         );
 
@@ -48,7 +49,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
         ss.authorize(address(L1), true);
@@ -57,7 +59,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
-                data: abi.encodeCall(SgxVerifier.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(SgxVerifier.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 
@@ -69,7 +72,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
-                data: abi.encodeCall(GuardianVerifier.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(GuardianVerifier.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 
@@ -77,7 +81,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
-                data: abi.encodeCall(GuardianProver.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(GuardianProver.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 
@@ -87,7 +92,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "tier_provider",
                 impl: address(new TierProviderV1()),
-                data: abi.encodeCall(TierProviderV1.init, (address(0)))
+                data: abi.encodeCall(TierProviderV1.init, (address(0))),
+                salt: 0
             })
         );
 
@@ -97,7 +103,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
-                    registerTo: address(addressManager)
+                    registerTo: address(addressManager),
+                    salt: 0
                 })
             )
         );
@@ -106,7 +113,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: abi.encodeCall(AssignmentHook.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(AssignmentHook.init, (address(0), address(addressManager))),
+                salt: 0
             })
         );
 
@@ -128,7 +136,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
                     TaikoToken.init,
                     (address(0), "Taiko Token", "TTKOk", address(this), address(addressManager))
                     ),
-                registerTo: address(addressManager)
+                registerTo: address(addressManager),
+                salt: 0
             })
         );
 
