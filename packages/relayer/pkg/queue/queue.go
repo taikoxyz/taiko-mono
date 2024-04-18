@@ -27,8 +27,8 @@ type QueueMessageSentBody struct {
 	ID    int
 }
 
-type QueueMessageReceivedBody struct {
-	Event *bridge.BridgeMessageReceived
+type QueueMessageStatusChangedBody struct {
+	Event *bridge.BridgeMessageStatusChanged
 	ID    int
 }
 

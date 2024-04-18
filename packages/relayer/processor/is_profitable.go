@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"math/big"
 
 	"log/slog"
 
@@ -25,24 +24,21 @@ func (p *Processor) isProfitable(
 
 	var shouldProcess bool = false
 
-	if processingFee == nil ||
-		processingFee.Cmp(big.NewInt(0)) != 1 ||
-		gasLimit == nil ||
-		message.GasLimit.Cmp(big.NewInt(0)) != 1 {
+	if processingFee == 0 || gasLimit == 0 {
 		return shouldProcess, nil
 	}
 
 	// if processing fee is higher than baseFee * gasLimit,
 	// we should process.
-	res := (destChainBaseFee + gasTipCap) * gasLimit.Uint64()
-	if processingFee.Uint64() > res {
+	res := (destChainBaseFee + gasTipCap) * uint64(gasLimit)
+	if processingFee > res {
 		shouldProcess = true
 	}
 
 	slog.Info("isProfitable",
-		"processingFee", processingFee.Uint64(),
+		"processingFee", processingFee,
 		"destChainBaseFee", destChainBaseFee,
-		"messageGasLimit", message.GasLimit.Uint64(),
+		"messageGasLimit", message.GasLimit,
 		"shouldProcess", shouldProcess,
 		"result", res,
 	)

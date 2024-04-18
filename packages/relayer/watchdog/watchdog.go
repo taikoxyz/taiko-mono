@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -283,35 +282,35 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 // that the message was actually sent on the source chain. If it wasn't,
 // we send a suspend transaction.
 func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
-	msgBody := &queue.QueueMessageReceivedBody{}
+	msgBody := &queue.QueueMessageStatusChangedBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
 
-	// check if the source chain sent this message
-	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
-	if err != nil {
-		return errors.Wrap(err, "w.destBridge.IsMessageSent")
-	}
+	// // check if the source chain sent this message
+	// sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
+	// if err != nil {
+	// 	return errors.Wrap(err, "w.destBridge.IsMessageSent")
+	// }
 
-	// if so, do nothing, acknowledge message
-	if sent {
-		slog.Info("dest bridge did send this message. returning early",
-			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-			"sent", sent,
-		)
+	// // if so, do nothing, acknowledge message
+	// if sent {
+	// 	slog.Info("dest bridge did send this message. returning early",
+	// 		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+	// 		"sent", sent,
+	// 	)
 
-		return nil
-	}
+	// 	return nil
+	// }
 
-	pauseReceipt, err := w.pauseBridge(ctx)
-	if err != nil {
-		return err
-	}
+	// pauseReceipt, err := w.pauseBridge(ctx)
+	// if err != nil {
+	// 	return err
+	// }
 
-	slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
+	// slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
 
-	relayer.BridgePaused.Inc()
+	// relayer.BridgePaused.Inc()
 
 	return nil
 }

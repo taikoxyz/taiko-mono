@@ -42,29 +42,6 @@ func (b *Bridge) IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessa
 	return false, nil
 }
 
-func (b *Bridge) GetInvocationDelays(opts *bind.CallOpts) (*big.Int, *big.Int, error) {
-	return common.Big0, common.Big0, nil
-}
-func (b *Bridge) ProofReceipt(opts *bind.CallOpts, msgHash [32]byte) (struct {
-	ReceivedAt        uint64
-	PreferredExecutor common.Address
-}, error) {
-	return struct {
-		ReceivedAt        uint64
-		PreferredExecutor common.Address
-	}{
-		ReceivedAt:        0,
-		PreferredExecutor: relayer.ZeroAddress,
-	}, nil
-}
-
-func (b *Bridge) FilterMessageReceived(
-	opts *bind.FilterOpts,
-	msgHash [][32]byte,
-) (*bridge.BridgeMessageReceivedIterator, error) {
-	return &bridge.BridgeMessageReceivedIterator{}, nil
-}
-
 func (b *Bridge) FilterMessageSent(
 	opts *bind.FilterOpts,
 	signal [][32]byte,

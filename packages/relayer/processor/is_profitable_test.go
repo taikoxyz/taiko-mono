@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,7 +22,7 @@ func Test_isProfitable(t *testing.T) {
 		{
 			"zeroProcessingFee",
 			bridge.IBridgeMessage{
-				Fee: big.NewInt(0),
+				Fee: 0,
 			},
 			1,
 			1,
@@ -41,8 +40,8 @@ func Test_isProfitable(t *testing.T) {
 		{
 			"profitable",
 			bridge.IBridgeMessage{
-				GasLimit: big.NewInt(600000),
-				Fee:      big.NewInt(600000000600001),
+				GasLimit: 600000,
+				Fee:      600000000600001,
 			},
 			1000000000,
 			1,
@@ -52,8 +51,8 @@ func Test_isProfitable(t *testing.T) {
 		{
 			"unprofitable",
 			bridge.IBridgeMessage{
-				GasLimit: big.NewInt(600000),
-				Fee:      big.NewInt(590000000600000),
+				GasLimit: 600000,
+				Fee:      590000000600000,
 			},
 			1000000000,
 			1,

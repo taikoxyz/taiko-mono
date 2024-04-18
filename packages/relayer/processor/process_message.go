@@ -78,7 +78,7 @@ func (p *Processor) processMessage(
 		eventStatus,
 		msgBody.Event.Message.SrcOwner,
 		p.relayerAddr,
-		msgBody.Event.Message.GasLimit,
+		uint64(msgBody.Event.Message.GasLimit),
 	) {
 		return false, nil
 	}
@@ -373,7 +373,7 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, err
 		}
 
-		if gasUsed > event.Message.GasLimit.Uint64() {
+		if gasUsed > uint64(event.Message.GasLimit) {
 			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
 		}
 	}
@@ -382,7 +382,7 @@ func (p *Processor) sendProcessMessageCall(
 		TxData:   data,
 		Blobs:    nil,
 		To:       &p.cfg.DestBridgeAddress,
-		GasLimit: event.Message.GasLimit.Uint64(),
+		GasLimit: uint64(event.Message.GasLimit),
 	}
 
 	receipt, err := p.txmgr.Send(ctx, candidate)
