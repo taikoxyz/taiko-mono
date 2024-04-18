@@ -127,11 +127,14 @@ contract BridgedERC20 is
     /// @return true if the address can perform a snapshot, false otherwise.
     function isAuthorizedForSnapshot(address addr) public view returns (bool) {
         if (addr == address(0)) return false;
-        if (addr == snapshooter) return true;
+
         if (
             addr == resolve(LibStrings.B_TAIKO, true)
                 && address(this) == resolve(LibStrings.B_TAIKO_TOKEN, true)
         ) return true;
+
+        if (addr == snapshooter) return true;
+
         return false;
     }
 
