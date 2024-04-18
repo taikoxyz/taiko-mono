@@ -378,11 +378,13 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
+	var padding uint64 = 100000
+
 	candidate := txmgr.TxCandidate{
 		TxData:   data,
 		Blobs:    nil,
 		To:       &p.cfg.DestBridgeAddress,
-		GasLimit: uint64(event.Message.GasLimit),
+		GasLimit: uint64(event.Message.GasLimit) + padding,
 	}
 
 	receipt, err := p.txmgr.Send(ctx, candidate)
