@@ -378,7 +378,7 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	var padding uint64 = 100000
+	var padding uint64 = 150000
 
 	candidate := txmgr.TxCandidate{
 		TxData:   data,
