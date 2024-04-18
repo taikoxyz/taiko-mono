@@ -21,7 +21,7 @@ contract TokenGrant is EssentialContract {
     event GrantTerminated(uint256 amount);
 
     error INVALID_PARAMS();
-    error NOT_WITHDRAWABLE();
+    error NONE_WITHDRAWABLE();
     error PERMISSION_DENIED();
 
     uint256 public grantAmount;
@@ -30,6 +30,7 @@ contract TokenGrant is EssentialContract {
     uint64 public startedAt;
     address public recipient;
     uint64 public vestDuration;
+    uint64 public vestCliffDuration;
     uint64 public unlockDuration;
     uint128 public costPerTko;
 
@@ -41,6 +42,7 @@ contract TokenGrant is EssentialContract {
         uint256 _grantAmount,
         uint64 _startedAt,
         uint64 _vestDuration,
+        uint64 _vestCliffDuration,
         uint64 _unlockDuration,
         uint128 _costPerTko,
         string calldata memo
@@ -64,34 +66,31 @@ contract TokenGrant is EssentialContract {
         grantAmount = _grantAmount;
         startedAt = _startedAt;
         vestDuration = _vestDuration;
+        vestCliffDuration = _vestCliffDuration;
         unlockDuration = _unlockDuration;
         costPerTko = _costPerTko;
 
         emit GrantCreated(memo);
     }
 
-    function withdraw() external whenNotPaused nonReentrant {
+    function withdraw(uint256 amount) external whenNotPaused nonReentrant {
         if (msg.sender != recipient) revert PERMISSION_DENIED();
 
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-        uint256 balance = tko.balanceOf(address(this));
+        uint256 amountToWithdraw =
+            withdrawableAmount().min(tko.balanceOf(address(this))).min(amount);
 
-        uint256 amount = withdrawableAmount();
-        if (balance < amount) {
-            amount = balance;
-        }
+        if (amountToWithdraw == 0) revert NONE_WITHDRAWABLE();
 
-        if (amount == 0) revert NOT_WITHDRAWABLE();
-        amountWithdrawn += amount;
+        amountWithdrawn += amountToWithdraw;
+        tko.safeTransfer(recipient, amountToWithdraw);
 
-        tko.safeTransfer(recipient, amount);
-
-        uint256 cost = amount * costPerTko / 1e18;
+        uint256 cost = amountToWithdraw * costPerTko / 1e18;
         if (cost != 0) {
             IERC20(feeToken).safeTransferFrom(msg.sender, owner(), cost);
         }
 
-        emit GrantWithdrawn(amount, cost);
+        emit GrantWithdrawn(amountToWithdraw, cost);
     }
 
     function terminate() external onlyOwner {
@@ -105,13 +104,13 @@ contract TokenGrant is EssentialContract {
     }
 
     function vestedAmount() public view returns (uint256) {
-        if (block.timestamp <= startedAt) return 0;
+        if (block.timestamp <= startedAt + vestCliffDuration) return 0;
         uint256 t = block.timestamp - startedAt;
         return LibTokenGrant.calcVestedAmount(grantAmount, vestDuration, t);
     }
 
     function unlockedAmount() public view returns (uint256) {
-        if (block.timestamp <= startedAt) return 0;
+        if (block.timestamp <= startedAt + vestCliffDuration) return 0;
         uint256 t = block.timestamp - startedAt;
         return LibTokenGrant.calcUnlockedAmount(grantAmount, vestDuration, unlockDuration, t);
     }
