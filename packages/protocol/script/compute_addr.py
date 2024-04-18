@@ -29,7 +29,7 @@ def find_smallest_address(deployer_address, keccak256_bytecode, shared_state, lo
         salt_hex = Web3.to_hex(current_salt)
         new_address = compute_create2_address(deployer_address, salt_hex, keccak256_bytecode)
         if count % 100000 == 0:  # Report every 100000 iterations
-            print(f"Process {os.getpid()}: Checking salt {salt_hex}, current smallest: {shared_state[0]}")
+            print(f"Process {os.getpid()}: current salt {salt_hex}, current smallest: {shared_state[0]}")
         with lock:
             smallest_address, smallest_salt = shared_state[0], shared_state[1]
             if new_address < smallest_address:
