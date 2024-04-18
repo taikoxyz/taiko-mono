@@ -1,5 +1,5 @@
-import { healthCheckRoute, livenessRoute, uptimeRoute } from '$lib/routes';
-import type { HealthCheck, PageResponse, UptimeResponse } from '$lib/types';
+import { healthCheckRoute, livenessRoute, mostRecentStartupRoute, uptimeRoute } from '$lib/routes';
+import type { HealthCheck, PageResponse, StartupResponse, UptimeResponse } from '$lib/types';
 import axios from 'axios';
 
 export async function fetchGuardianProverHealthChecksFromApi(
@@ -45,4 +45,12 @@ export async function fetchUptimeFromApi(
 	const resp = await axios.get<UptimeResponse>(url);
 
 	return resp.data.uptime;
+}
+
+export async function fetchStartupDataFromApi(baseURL: string, guardianProverId: number) {
+	const url = `${baseURL}/${mostRecentStartupRoute}/${guardianProverId}`;
+
+	const resp = await axios.get<StartupResponse>(url);
+
+	return resp.data;
 }
