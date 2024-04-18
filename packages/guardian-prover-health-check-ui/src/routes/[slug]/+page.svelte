@@ -12,8 +12,6 @@
 
 	let selected: Guardian = null;
 
-	$: currentId = selected?.id ? selected.id : parseInt(data.slug);
-
 	$: if (get(guardianProvers)) {
 		selected = $guardianProvers.find(
 			(guardianProver) => Number(guardianProver.id) === parseInt(data.slug)
@@ -41,7 +39,7 @@
 	<div class="flex pl-[10px] pr-[5px] hidden md:inline-block items-center">
 		<Icon type="chevron-right" size={22} class="mt-[8px]" />
 	</div>
-	<span class="font-bold">{$t('common.prover')} {currentId}</span>
+	<span class="font-bold">{selected?.name}</span>
 </div>
 
 <div class="mt-[12px]">
