@@ -36,10 +36,12 @@ export class ERC20Bridge extends Bridge {
     });
 
     const gasLimit = !isTokenAlreadyDeployed
-      ? BigInt(bridgeService.noERC20TokenDeployedGasLimit)
+      ? Number(bridgeService.noERC20TokenDeployedGasLimit)
       : fee > 0
-        ? bridgeService.noOwnerGasLimit
+        ? Number(bridgeService.noOwnerGasLimit)
         : BigInt(0);
+
+    log('Calculated gasLimit for message', gasLimit);
 
     const sendERC20Args: BridgeTransferOp = {
       destChainId: BigInt(destChainId),
@@ -127,13 +129,7 @@ export class ERC20Bridge extends Bridge {
 
       if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
-      const txHash = await writeContract(config, {
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [spenderAddress, amount],
-        chainId: wallet.chain.id,
-      });
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for approve call', txHash);
 

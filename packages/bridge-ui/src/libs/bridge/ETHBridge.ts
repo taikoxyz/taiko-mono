@@ -2,6 +2,7 @@ import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
+import { recommendProcessingFeeConfig } from '$config';
 import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -56,16 +57,18 @@ export class ETHBridge extends Bridge {
       id: BigInt(0), // will be set in contract
     };
 
-    const getMinGasLimit = await bridgeContract.read.getMessageMinGasLimit([message]);
-    log('Min gas limit for message', getMinGasLimit);
+    const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([message]);
+    log('Min gas limit for message', minGasLimit);
 
-    // set msg.gasLimit to 105% of getMinGasLimit
-    const gasLimitPercentage = 105;
-    const getMinGasLimitPercentage = (getMinGasLimit * gasLimitPercentage) / 100;
-    // round it to the nearest integer
-    const gasLimit = Math.round(getMinGasLimitPercentage);
-
+    const gasLimit = recommendProcessingFeeConfig.GAS_RESERVE + minGasLimit;
     log('Calculated gasLimit for message', gasLimit);
+
+    // // set msg.gasLimit to 105% of getMinGasLimit
+    // const gasLimitPercentage = 105;
+    // const getMinGasLimitPercentage = (getMinGasLimit * gasLimitPercentage) / 100;
+    // // round it to the nearest integer
+    // const gasLimit = Math.round(getMinGasLimitPercentage);
+
     message.gasLimit = gasLimit;
 
     log('Preparing transaction with message', message);
