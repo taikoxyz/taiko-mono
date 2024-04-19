@@ -12,7 +12,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
-// handleMessageProcessedEvent handles an individual MessagProcessed event
+// handleMessageProcessedEvent handles an individual MessageProcessed event
 func (i *Indexer) handleMessageProcessedEvent(
 	ctx context.Context,
 	chainID *big.Int,
