@@ -168,15 +168,6 @@ contract DeployOnL1 is DeployCapability {
         internal
         returns (address sharedAddressManager, address timelock, address governor)
     {
-        sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
-        if (sharedAddressManager != address(0)) {
-            return (
-                sharedAddressManager,
-                vm.envAddress("TIMELOCK_CONTROLLER"),
-                vm.envAddress("TAIKO_GOVERNOR")
-            );
-        }
-
         // Deploy the timelock
         timelock = deployProxy({
             name: "timelock_controller",
@@ -184,27 +175,33 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(TaikoTimelockController.init, (address(0), 7 days))
         });
 
-        sharedAddressManager = deployProxy({
-            name: "shared_address_manager",
-            impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, (address(0)))
-        });
+        sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
+        if (sharedAddressManager == address(0)) {
+            sharedAddressManager = deployProxy({
+                name: "shared_address_manager",
+                impl: address(new AddressManager()),
+                data: abi.encodeCall(AddressManager.init, (address(0)))
+            });
+        }
 
-        address taikoToken = deployProxy({
-            name: "taiko_token",
-            impl: address(new TaikoToken()),
-            data: abi.encodeCall(
-                TaikoToken.init,
-                (
-                    timelock,
-                    vm.envString("TAIKO_TOKEN_NAME"),
-                    vm.envString("TAIKO_TOKEN_SYMBOL"),
-                    vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"),
-                    address(sharedAddressManager)
-                )
+        address taikoToken = vm.envAddress("TAIKO_TOKEN");
+        if (taikoToken == address(0)) {
+            taikoToken = deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: abi.encodeCall(
+                    TaikoToken.init,
+                    (
+                        timelock,
+                        vm.envString("TAIKO_TOKEN_NAME"),
+                        vm.envString("TAIKO_TOKEN_SYMBOL"),
+                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"),
+                        address(sharedAddressManager)
+                    )
                 ),
-            registerTo: sharedAddressManager
-        });
+                registerTo: sharedAddressManager
+            });
+        }
 
         governor = deployProxy({
             name: "taiko_governor",
@@ -216,7 +213,7 @@ contract DeployOnL1 is DeployCapability {
                     IVotesUpgradeable(taikoToken),
                     TimelockControllerUpgradeable(payable(timelock))
                 )
-                )
+            )
         });
 
         // Deploy Bridging contracts
@@ -307,7 +304,7 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new TaikoL1()),
             data: abi.encodeCall(
                 TaikoL1.init, (timelock, rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
-                ),
+            ),
             registerTo: rollupAddressManager
         });
 
