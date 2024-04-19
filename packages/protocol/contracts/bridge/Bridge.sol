@@ -43,7 +43,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
     /// calldata cost.
     /// This value should be fine-tuned with production data.
-    uint32 public constant GAS_OVERHEAD = 60_000;
+    uint32 public constant GAS_OVERHEAD = 120_000;
 
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
@@ -262,11 +262,9 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
                     uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = stats.start - gasleft();
+                    stats.gasUsedInFeeCalc = GAS_OVERHEAD + stats.start - gasleft();
 
-                    uint256 gasCharged =
-                        (GAS_OVERHEAD + stats.gasUsedInFeeCalc).max(refund) - refund;
-
+                    uint256 gasCharged = stats.gasUsedInFeeCalc.max(refund) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
                     uint256 fee =
