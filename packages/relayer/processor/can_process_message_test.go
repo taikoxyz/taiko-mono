@@ -51,7 +51,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusNew,
 			common.HexToAddress("0x"),
 			relayerAddr,
-			5,
+			0,
 			false,
 		},
 		{
