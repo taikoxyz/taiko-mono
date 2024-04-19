@@ -18,9 +18,9 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-// Disperser is a subcommand which is intended to be run on an interval, like
-// a cronjob, to parse the indexed data from the database, and generate
-// time series data that can easily be displayed via charting libraries.
+// Disperser is a subcommand intended to be run at intervals,
+// like a cronjob, to parse indexed data from the database
+// and generate time series data that can be easily displayed via charting libraries.
 type Disperser struct {
 	db                DB
 	dispersalAmount   *big.Int

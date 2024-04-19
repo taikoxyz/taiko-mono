@@ -12,7 +12,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// Serve starts the metrics server on the given address, will be closed when the given
+// Serve starts the metrics server on the given address and will be closed when the given
 // context is cancelled.
 func Serve(ctx context.Context, c *cli.Context) (*echo.Echo, func() error) {
 	// Enable metrics middleware

@@ -13,7 +13,7 @@ var (
 	gasPaddingAmt uint64 = 80000
 )
 
-// estimateGas estimates the gas for a ProcessMessage call. it will add a gasPaddingAmt
+// estimateGas estimates the gas for a ProcessMessage call. It will add a gasPaddingAmt
 // in case, because the amount of exact gas is hard to predict due to proof verification
 // on chain.
 func (p *Processor) estimateGas(

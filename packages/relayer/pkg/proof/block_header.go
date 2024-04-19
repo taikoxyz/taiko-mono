@@ -10,7 +10,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 )
 
-// blockHeader fetches block via rpc, then converts an ethereum block to the BlockHeader type that LibBridgeData
+// blockHeader fetches a block via RPC, then converts an ethereum block to the BlockHeader type that LibBridgeData
 // uses in our contracts
 func (p *Prover) blockHeader(
 	ctx context.Context,

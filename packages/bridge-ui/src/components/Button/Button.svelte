@@ -32,7 +32,7 @@
     borderClasses = 'border-0';
   }
 
-  // Remember, with Tailwind's classes you cannot use string interpolation: `btn-${type}`.
+  // Remember, with Tailwind's classes, you cannot use string interpolation: `btn-${type}`.
   // The whole class name must appear in the code in order for Tailwind compiler to know
   // it must be included during build-time.
   // https://tailwindcss.com/docs/content-configuration#dynamic-class-names

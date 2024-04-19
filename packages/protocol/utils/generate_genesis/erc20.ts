@@ -8,7 +8,7 @@ export const TOKEN_NAME = "RegularERC20";
 export const TOKEN_SYMBOL = "RGL";
 export const PREMINT_SEED_ACCOUNT_BALANCE = ethers.BigNumber.from(1024000);
 
-// deployERC20 generates a L2 genesis alloc of an ERC-20 contract,
+// deployERC20 generates an L2 genesis allocation of an ERC-20 contract,
 // and premints some tokens for the seed accounts given in the configurations.
 export async function deployERC20(
     config: any,
