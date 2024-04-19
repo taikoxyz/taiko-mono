@@ -20,10 +20,8 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address payable;
 
     struct ProcessingStats {
-        uint32 gasStart;
-        uint32 gasUsedInInvocation;
         uint32 gasUsedInFeeCalc;
-        uint32 gasEnd;
+        uint32 gasUsedTotal;
         uint32 proofSize;
         uint32 numCacheOps;
     }
@@ -213,8 +211,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        ProcessingStats memory stats;
-        stats.gasStart = uint32(gasleft());
+        uint256 gasStart = gasleft();
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
@@ -226,7 +223,10 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        (bool received, uint256 numCacheOps) =
+        ProcessingStats memory stats;
+        bool received;
+
+        (received, stats.numCacheOps) =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
@@ -240,12 +240,9 @@ contract Bridge is EssentialContract, IBridge {
             refundAmount = _message.value;
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
-            uint256 beforeInvocation = gasleft();
             Status status = _invokeMessageCall(
                 _message, msgHash, _invocationGasLimit(_message, true)
             ) ? Status.DONE : Status.RETRIABLE;
-
-            stats.gasUsedInInvocation = uint32(beforeInvocation - gasleft());
             _updateMessageStatus(msgHash, status);
         }
 
@@ -254,9 +251,8 @@ contract Bridge is EssentialContract, IBridge {
 
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
-                    uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = GAS_OVERHEAD + stats.gasStart - uint32(gasleft());
-
+                    uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
+                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
@@ -271,9 +267,8 @@ contract Bridge is EssentialContract, IBridge {
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
-        stats.gasEnd = uint32(gasleft());
+        stats.gasUsedTotal = uint32(gasStart - gasleft());
         stats.proofSize = uint32(_proof.length);
-        stats.numCacheOps = uint32(numCacheOps);
         emit MessageProcessed(msgHash, stats);
     }
 
@@ -542,12 +537,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        returns (bool success_, uint256 numCacheOps_)
+        returns (bool success_, uint32 numCacheOps_)
     {
         try ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) returns (uint256 numCacheOps) {
-            numCacheOps_ = numCacheOps;
+            numCacheOps_ = uint32(numCacheOps);
             success_ = true;
         } catch {
             success_ = false;
