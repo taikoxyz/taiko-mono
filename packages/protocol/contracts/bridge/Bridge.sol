@@ -21,6 +21,7 @@ contract Bridge is EssentialContract, IBridge {
 
     struct ProcessingStats {
         uint32 gasUsedInFeeCalc;
+        uint32 proofSize;
         uint32 numCacheOps;
     }
 
@@ -265,6 +266,7 @@ contract Bridge is EssentialContract, IBridge {
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
+        stats.proofSize = uint32(_proof.length);
         emit MessageProcessed(msgHash, stats);
     }
 
