@@ -56,7 +56,7 @@
 					)}
 					<div class="grid grid-cols-4 items-center border-b py-[24px]">
 						<div class="f-col">
-							<p class="font-bold">{$t('common.prover')} {p.guardianProverID}</p>
+							<p class="font-bold">{guardianProver?.name}</p>
 						</div>
 
 						<div class="space-y-[10px] text-sm w-full col-span-3">
