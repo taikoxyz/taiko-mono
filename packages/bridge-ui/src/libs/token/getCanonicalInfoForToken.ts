@@ -189,9 +189,9 @@ const _getStatus = async ({ address, srcChainId, destChainId, type }: CheckCanon
     ])) as Address;
 
     if (checkDestChainForCanonicalChain === zeroAddress) {
-      canonicalChain = srcChainId;
-    } else {
       canonicalChain = destChainId;
+    } else {
+      canonicalChain = srcChainId;
     }
   } else if (destCanonicalCheck !== zeroAddress) {
     // if the destination is not zero, we found a canonical address there
