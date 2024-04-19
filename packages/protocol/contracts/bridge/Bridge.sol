@@ -21,8 +21,7 @@ contract Bridge is EssentialContract, IBridge {
 
     struct ProcesssingStats {
         uint32 gasStart;
-        uint32 gasBeforeInvocation;
-        uint32 gasAfterInvocation;
+        uint32 gasUsedInInvocation;
         uint32 gasUsedInFeeCalc;
         uint32 gasEnd;
         uint32 proofSize;
@@ -241,12 +240,12 @@ contract Bridge is EssentialContract, IBridge {
             refundAmount = _message.value;
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
-            stats.gasBeforeInvocation = uint32(gasleft());
+            uint256 beforeInvocation = gasleft();
             Status status = _invokeMessageCall(
                 _message, msgHash, _invocationGasLimit(_message, true)
             ) ? Status.DONE : Status.RETRIABLE;
 
-            stats.gasAfterInvocation = uint32(gasleft());
+            stats.gasUsedInInvocation = uint32(beforeInvocation - gasleft());
             _updateMessageStatus(msgHash, status);
         }
 
