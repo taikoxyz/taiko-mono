@@ -96,7 +96,13 @@
 			<div class="font-bold">
 				{guardianProver.name}
 			</div>
-			<div class="text-secondary-content">{shortenAddress(guardianProver.address)}</div>
+			<div class="text-secondary-content">
+				{#if isDesktopOrLarger}
+					{guardianProver.address}
+				{:else}
+					{shortenAddress(guardianProver.address)}
+				{/if}
+			</div>
 		</div>
 		{#if !single && !$loading}
 			<IconFlipper
@@ -110,8 +116,12 @@
 		{/if}
 	</div>
 	<div class="collapse-content bg-grey-10">
-		<div class="{isDesktopOrLarger ? 'f-row' : 'f-col space-y-[5px] py-[16px]'} items-center">
-			<div class="min-w-[150px]" />
+		<div
+			class="{isDesktopOrLarger
+				? 'f-row flex-wrap space-x-[16px]'
+				: 'f-col space-y-[5px] py-[16px]'} items-center"
+		>
+			<div class="min-w-[134px]" />
 
 			<DataPoint
 				headline={$t('overview.table.balance')}
@@ -119,21 +129,45 @@
 			/>
 
 			<DataPoint
-				headline={$t('overview.detail.table.uptime')}
-				dataPoint={truncateDecimal(guardianProver.uptime, 2).toString() + '%'}
-			/>
-
-			<DataPoint
 				headline={$t('overview.table.no_blocks_created')}
 				dataPoint="{signedBlocksPerGuardian(guardianProver.id)}/{$signedBlocks.length}"
 			/>
 
-			<DataPoint headline="L1 Node Version" dataPoint={guardianProver?.nodeInfo?.l1NodeVersion} />
-			<DataPoint headline="L2 Node Version" dataPoint={guardianProver?.nodeInfo?.l2NodeVersion} />
-			<DataPoint headline="Revision" dataPoint={guardianProver?.nodeInfo?.revision} />
+			<DataPoint
+				headline={$t('overview.table.latest_l1_block')}
+				dataPoint={guardianProver?.blockInfo?.latestL1BlockNumber.toString()}
+			/>
+
+			<DataPoint
+				headline={$t('overview.table.latest_l2_block')}
+				dataPoint={guardianProver?.blockInfo?.latestL2BlockNumber.toString()}
+			/>
+
+			<DataPoint
+				headline={$t('overview.detail.table.uptime')}
+				dataPoint={truncateDecimal(guardianProver.uptime, 2).toString() + '%'}
+			/>
+
+			<DataPoint headline="Revision" dataPoint={guardianProver?.versionInfo?.revision} />
 			<DataPoint
 				headline="Last restart"
 				dataPoint={formatISODateTime(guardianProver?.lastRestart)}
+			/>
+		</div>
+		<div
+			class="{isDesktopOrLarger
+				? 'f-row flex-wrap space-x-[16px]'
+				: 'f-col space-y-[5px] py-[16px]'} items-center"
+		>
+			<div class="min-w-[134px]" />
+
+			<DataPoint
+				headline="L1 Node Version"
+				dataPoint={guardianProver?.versionInfo?.l1NodeVersion}
+			/>
+			<DataPoint
+				headline="L2 Node Version"
+				dataPoint={guardianProver?.versionInfo?.l2NodeVersion}
 			/>
 
 			{#if !single}
