@@ -40,7 +40,7 @@ contract DeployTaikoToken is DeployCapability {
                     premintRecipient,
                     address(sharedAddressManager)
                 )
-            ),
+                ),
             registerTo: sharedAddressManager
         });
     }

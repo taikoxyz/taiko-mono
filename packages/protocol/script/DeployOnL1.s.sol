@@ -198,7 +198,7 @@ contract DeployOnL1 is DeployCapability {
                         vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"),
                         address(sharedAddressManager)
                     )
-                ),
+                    ),
                 registerTo: sharedAddressManager
             });
         }
@@ -213,7 +213,7 @@ contract DeployOnL1 is DeployCapability {
                     IVotesUpgradeable(taikoToken),
                     TimelockControllerUpgradeable(payable(timelock))
                 )
-            )
+                )
         });
 
         // Deploy Bridging contracts
@@ -304,7 +304,7 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new TaikoL1()),
             data: abi.encodeCall(
                 TaikoL1.init, (timelock, rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
