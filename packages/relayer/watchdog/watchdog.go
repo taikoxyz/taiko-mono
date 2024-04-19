@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -26,6 +27,7 @@ import (
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -281,57 +283,57 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 // that the message was actually sent on the source chain. If it wasn't,
 // we send a suspend transaction.
 func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
-	msgBody := &queue.QueueMessageStatusChangedBody{}
+	msgBody := &queue.QueueMessageProcessedBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
 
-	// // check if the source chain sent this message
-	// sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
-	// if err != nil {
-	// 	return errors.Wrap(err, "w.destBridge.IsMessageSent")
-	// }
+	// check if the source chain sent this message
+	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
+	if err != nil {
+		return errors.Wrap(err, "w.destBridge.IsMessageSent")
+	}
 
-	// // if so, do nothing, acknowledge message
-	// if sent {
-	// 	slog.Info("dest bridge did send this message. returning early",
-	// 		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	// 		"sent", sent,
-	// 	)
+	// if so, do nothing, acknowledge message
+	if sent {
+		slog.Info("dest bridge did send this message. returning early",
+			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+			"sent", sent,
+		)
 
-	// 	return nil
-	// }
+		return nil
+	}
 
-	// pauseReceipt, err := w.pauseBridge(ctx)
-	// if err != nil {
-	// 	return err
-	// }
+	pauseReceipt, err := w.pauseBridge(ctx)
+	if err != nil {
+		return err
+	}
 
-	// slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
+	slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
 
-	// relayer.BridgePaused.Inc()
+	relayer.BridgePaused.Inc()
 
 	return nil
 }
 
-// func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
-// 	data, err := encoding.BridgeABI.Pack("pause")
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
-// 	}
+func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
+	data, err := encoding.BridgeABI.Pack("pause")
+	if err != nil {
+		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
+	}
 
-// 	// pause the src bridge, which is the DESTINATION of the original message.
-// 	candidate := txmgr.TxCandidate{
-// 		TxData: data,
-// 		Blobs:  nil,
-// 		To:     &w.cfg.SrcBridgeAddress,
-// 	}
+	// pause the src bridge, which is the DESTINATION of the original message.
+	candidate := txmgr.TxCandidate{
+		TxData: data,
+		Blobs:  nil,
+		To:     &w.cfg.SrcBridgeAddress,
+	}
 
-// 	receipt, err := w.txmgr.Send(ctx, candidate)
-// 	if err != nil {
-// 		slog.Warn("Failed to send pause transaction", "error", err.Error())
-// 		return nil, err
-// 	}
+	receipt, err := w.txmgr.Send(ctx, candidate)
+	if err != nil {
+		slog.Warn("Failed to send pause transaction", "error", err.Error())
+		return nil, err
+	}
 
-// 	return receipt, nil
-// }
+	return receipt, nil
+}

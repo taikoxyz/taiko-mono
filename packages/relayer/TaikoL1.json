@@ -197,7 +197,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -745,7 +745,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -827,7 +827,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1419,7 +1419,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1469,7 +1469,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1479,6 +1479,56 @@
             "internalType": "uint64"
           }
         ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TaikoTokenSnapshot",
+    "inputs": [
+      {
+        "name": "tkoAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "snapshotIdx",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "snapshotId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TaikoTokenSnapshot",
+    "inputs": [
+      {
+        "name": "tkoAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "snapshotIdx",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "snapshotId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
