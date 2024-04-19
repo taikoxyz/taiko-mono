@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 
 	echo "github.com/labstack/echo/v4"
 )
@@ -15,6 +17,8 @@ import (
 type ethClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 	ChainID(ctx context.Context) (*big.Int, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
 
 // @title Taiko Relayer API
@@ -30,20 +34,24 @@ type ethClient interface {
 // @host relayer.katla.taiko.xyz
 // Server represents an relayer http server instance.
 type Server struct {
-	echo            *echo.Echo
-	eventRepo       relayer.EventRepository
-	suspendedTxRepo relayer.SuspendedTransactionRepository
-	srcEthClient    ethClient
-	destEthClient   ethClient
+	echo                    *echo.Echo
+	eventRepo               relayer.EventRepository
+	suspendedTxRepo         relayer.SuspendedTransactionRepository
+	srcEthClient            ethClient
+	destEthClient           ethClient
+	processingFeeMultiplier float64
+	taikoL2                 *taikol2.TaikoL2
 }
 
 type NewServerOpts struct {
-	Echo            *echo.Echo
-	EventRepo       relayer.EventRepository
-	SuspendedTxRepo relayer.SuspendedTransactionRepository
-	CorsOrigins     []string
-	SrcEthClient    ethClient
-	DestEthClient   ethClient
+	Echo                    *echo.Echo
+	EventRepo               relayer.EventRepository
+	SuspendedTxRepo         relayer.SuspendedTransactionRepository
+	CorsOrigins             []string
+	SrcEthClient            ethClient
+	DestEthClient           ethClient
+	ProcessingFeeMultiplier float64
+	TaikoL2                 *taikol2.TaikoL2
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -76,11 +84,13 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		echo:            opts.Echo,
-		eventRepo:       opts.EventRepo,
-		suspendedTxRepo: opts.SuspendedTxRepo,
-		srcEthClient:    opts.SrcEthClient,
-		destEthClient:   opts.DestEthClient,
+		echo:                    opts.Echo,
+		eventRepo:               opts.EventRepo,
+		suspendedTxRepo:         opts.SuspendedTxRepo,
+		srcEthClient:            opts.SrcEthClient,
+		destEthClient:           opts.DestEthClient,
+		processingFeeMultiplier: opts.ProcessingFeeMultiplier,
+		taikoL2:                 opts.TaikoL2,
 	}
 
 	corsOrigins := opts.CorsOrigins

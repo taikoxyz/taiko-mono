@@ -4,7 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
+import "../../common/LibSnapshot.sol";
 import "../../libs/LibAddress.sol";
+import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
 
@@ -122,7 +124,7 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (block.chainid != 1) revert L1_BLOB_NOT_AVAILABLE();
+            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
@@ -153,9 +155,8 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve("tier_provider", false)).getMinTier(
-            uint256(meta_.difficulty)
-        );
+        meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
+            .getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -183,7 +184,9 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve("taiko_token", false));
+            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+            _takeTaikoTokenSnapshot(_state, address(tko), b);
+
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -195,10 +198,10 @@ library LibProposing {
                     revert L1_INVALID_HOOK();
                 }
 
-                // When a hook is called, all ether in this contract will be send to the hook.
+                // When a hook is called, all ether in this contract will be sent to the hook.
                 // If the ether sent to the hook is not used entirely, the hook shall send the Ether
                 // back to this contract for the next hook to use.
-                // Proposers shall choose use extra hooks wisely.
+                // Proposers shall choose to use extra hooks wisely.
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta_, params.hookCalls[i].data
                 );
@@ -229,6 +232,19 @@ library LibProposing {
         });
     }
 
+    function _takeTaikoTokenSnapshot(
+        TaikoData.State storage _state,
+        address _taikoToken,
+        TaikoData.SlotB memory _slotB
+    )
+        private
+    {
+        uint32 idx = LibSnapshot.autoSnapshot(_taikoToken, block.number, _slotB.lastSnapshotIdx);
+        if (idx != 0) {
+            _state.slotB.lastSnapshotIdx = idx;
+        }
+    }
+
     function _isProposerPermitted(
         TaikoData.SlotB memory _slotB,
         IAddressResolver _resolver
@@ -239,13 +255,13 @@ library LibProposing {
     {
         if (_slotB.numBlocks == 1) {
             // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve("proposer_one", true);
+            address proposerOne = _resolver.resolve(LibStrings.B_PROPOSER_ONE, true);
             if (proposerOne != address(0)) {
                 return msg.sender == proposerOne;
             }
         }
 
-        address proposer = _resolver.resolve("proposer", true);
+        address proposer = _resolver.resolve(LibStrings.B_PROPOSER, true);
         return proposer == address(0) || msg.sender == proposer;
     }
 }

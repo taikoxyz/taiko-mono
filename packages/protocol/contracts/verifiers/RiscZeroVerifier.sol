@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "../thirdparty/risczero/IRiscZeroReceiptVerifier.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
@@ -71,7 +72,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        uint64 chainId = ITaikoL1(resolve("taiko", false)).getConfig().chainId;
+        uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
         bytes32 hash = LibPublicInput.hashPublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
         );

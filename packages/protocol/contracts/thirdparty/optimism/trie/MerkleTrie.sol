@@ -205,11 +205,8 @@ library MerkleTrie {
     function _parseProof(bytes[] memory _proof) private pure returns (TrieNode[] memory proof_) {
         uint256 length = _proof.length;
         proof_ = new TrieNode[](length);
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ++i) {
             proof_[i] = TrieNode({ encoded: _proof[i], decoded: RLPReader.readList(_proof[i]) });
-            unchecked {
-                ++i;
-            }
         }
     }
 

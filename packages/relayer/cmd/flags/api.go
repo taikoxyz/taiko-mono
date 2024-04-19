@@ -20,10 +20,19 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"HTTP_CORS_ORIGINS"},
 	}
+	ProcessingFeeMultiplier = &cli.Float64Flag{
+		Name:     "processingFeeMultiplier",
+		Usage:    "Processing fee multiplier",
+		Category: indexerCategory,
+		Value:    2.5,
+		EnvVars:  []string{"PROCESSING_FEE_MULTIPLIER"},
+	}
 )
 
 var APIFlags = MergeFlags(CommonFlags, []cli.Flag{
 	// optional
 	HTTPPort,
 	CORSOrigins,
+	ProcessingFeeMultiplier,
+	DestTaikoAddress,
 })

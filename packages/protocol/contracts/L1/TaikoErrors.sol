@@ -11,12 +11,13 @@ pragma solidity 0.8.24;
 abstract contract TaikoErrors {
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
-    error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOCK_MISMATCH();
+    error L1_CANNOT_CONTEST();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
+    error L1_INVALID_GENESIS_HASH();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
@@ -30,7 +31,6 @@ abstract contract TaikoErrors {
     error L1_PROVING_PAUSED();
     error L1_RECEIVE_DISABLED();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TOO_MANY_TIERS();
     error L1_TRANSITION_ID_ZERO();
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNAUTHORIZED();

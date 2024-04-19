@@ -37,22 +37,25 @@ library TaikoData {
         uint8 blockSyncThreshold;
     }
 
-    /// @dev Struct representing prover assignment
+    /// @dev Struct representing prover fees per given tier
     struct TierFee {
         uint16 tier;
         uint128 fee;
     }
 
+    /// @dev A proof and the tier of proof it belongs to
     struct TierProof {
         uint16 tier;
         bytes data;
     }
 
+    /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
         address hook;
         bytes data;
     }
 
+    /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
         address assignedProver;
         address coinbase;
@@ -80,7 +83,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender;
+        address sender; // a.k.a proposer
     }
 
     /// @dev Struct representing transition to be proven.
@@ -88,7 +91,7 @@ library TaikoData {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        bytes32 graffiti;
+        bytes32 graffiti; // Arbitrary data that the prover can use for various purposes.
     }
 
     /// @dev Struct representing state transition data.
@@ -103,11 +106,11 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
-        uint8 contestations;
+        uint8 __reserved1;
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 3 slots used.
+    /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
@@ -120,7 +123,8 @@ library TaikoData {
     }
 
     /// @dev Struct representing an Ethereum deposit.
-    /// 1 slot used.
+    /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
+    /// return values stayed for now.
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -135,8 +139,8 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reservedA1;
-        uint64 __reservedA2;
+        uint64 lastSyncedBlockId;
+        uint64 lastSynecdAt; // typo!
     }
 
     struct SlotB {
@@ -145,7 +149,7 @@ library TaikoData {
         bool provingPaused;
         uint8 __reservedB1;
         uint16 __reservedB2;
-        uint32 __reservedB3;
+        uint32 lastSnapshotIdx;
         uint64 lastUnpausedAt;
     }
 
@@ -160,7 +164,6 @@ library TaikoData {
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
-        // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6

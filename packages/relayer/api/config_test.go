@@ -14,6 +14,7 @@ var (
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
 	HTTPPort                = "1000"
+	destTaikoAddress        = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 )
 
 func setupApp() *cli.App {
@@ -44,6 +45,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(1000), c.HTTPPort)
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
+		assert.Equal(t, destTaikoAddress, c.DestTaikoAddress.Hex())
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -67,5 +69,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.HTTPPort.Name, HTTPPort,
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"--" + flags.DestTaikoAddress.Name, destTaikoAddress,
 	}))
 }

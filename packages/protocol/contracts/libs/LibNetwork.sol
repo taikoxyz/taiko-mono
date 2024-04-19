@@ -28,10 +28,11 @@ library LibNetwork {
         return _chainId == LibNetwork.MAINNET || isEthereumTestnet(_chainId);
     }
 
-    /// @dev Checks if the chain ID represents an internal Taiko devnet.
+    /// @dev Checks if the chain ID represents an internal Taiko devnet's base layer.
     /// @param _chainId The chain ID.
-    /// @return true if the chain ID represents an internal Taiko devnet, false otherwise.
-    function isTaikoDevnet(uint256 _chainId) internal pure returns (bool) {
+    /// @return true if the chain ID represents an internal Taiko devnet's base layer, false
+    /// otherwise.
+    function isTaikoDevnetL1(uint256 _chainId) internal pure returns (bool) {
         return _chainId >= 32_300 && _chainId <= 32_400;
     }
 
@@ -41,6 +42,6 @@ library LibNetwork {
     /// @return true if the chain supports Dencun hardfork, false otherwise.
     function isDencunSupported(uint256 _chainId) internal pure returns (bool) {
         return _chainId == LibNetwork.MAINNET || _chainId == LibNetwork.HOLESKY
-            || _chainId == LibNetwork.SEPOLIA;
+            || _chainId == LibNetwork.SEPOLIA || isTaikoDevnetL1(_chainId);
     }
 }

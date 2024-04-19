@@ -11,6 +11,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,6 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
@@ -68,6 +70,7 @@ type ethClient interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 }
 
 // DB is a local interface that lets us narrow down a database type for testing.
@@ -271,6 +274,14 @@ func (i *Indexer) Start() error {
 	i.wg.Add(1)
 
 	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
+
+	go func() {
+		if err := backoff.Retry(func() error {
+			return utils.ScanBlocks(i.ctx, i.srcEthClient, i.wg)
+		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			slog.Error("scan blocks backoff retry", "error", err)
+		}
+	}()
 
 	return nil
 }

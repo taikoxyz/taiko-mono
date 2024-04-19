@@ -12,7 +12,8 @@
 			"$stores/*": ["./src/stores/*"],
 			"$stores": ["./src/stores/index.ts"],
 			"$config": ["./src/app.config.ts"],
-			"$lib/*": ["./src/lib/*"]
+			"$lib/*": ["./src/lib/*"],
+			"$config/*": ["./src/config/*"]
 		},
 		/**
 		 * Typecheck JS in `.svelte` and `.js` files by default.

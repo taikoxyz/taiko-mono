@@ -29,7 +29,7 @@ type Indexer struct {
 	startHeight              *uint64
 	taikoL1                  *taikol1.TaikoL1
 	db                       DB
-	blobHashRepo             blobstorage.BlobHashRepository
+	repositories             *repo.Repositories
 	cfg                      *Config
 	wg                       *sync.WaitGroup
 	ctx                      context.Context
@@ -53,7 +53,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
-	blobHashRepo, err := repo.NewBlobHashRepository(db)
+	repositories, err := repo.NewRepositories(db)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
-	i.blobHashRepo = blobHashRepo
+	i.repositories = repositories
 	i.ethClient = client
 	i.taikoL1 = taikoL1
 	i.startHeight = cfg.StartingBlockID
@@ -103,7 +103,9 @@ func (i *Indexer) setInitialIndexingBlock(
 	ctx context.Context,
 ) error {
 	// get most recently processed block height from the DB
-	latest, err := i.blobHashRepo.FindLatestBlockID()
+	// latest, err := i.blobHashRepo.FindLatestBlockID()
+	latest, err := i.repositories.BlockMetaRepo.FindLatestBlockID()
+	// latest, err := i.blockMetaRepo.FindLatestBlockID()
 	if err != nil {
 		return err
 	}
@@ -117,12 +119,12 @@ func (i *Indexer) setInitialIndexingBlock(
 	}
 
 	// and then start from the genesis height.
-	stateVars, err := i.taikoL1.GetStateVariables(nil)
+	slotA, _, err := i.taikoL1.GetStateVariables(nil)
 	if err != nil {
 		return err
 	}
 
-	i.latestIndexedBlockNumber = stateVars.A.GenesisHeight - 1
+	i.latestIndexedBlockNumber = slotA.GenesisHeight - 1
 
 	return nil
 }
@@ -269,7 +271,8 @@ func calculateBlobHash(commitmentStr string) common.Hash {
 }
 
 func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	n, err := i.blobHashRepo.FindLatestBlockID()
+	// n, err := i.blockMetaRepo.FindLatestBlockID()
+	n, err := i.repositories.BlockMetaRepo.FindLatestBlockID()
 	if err != nil {
 		return err
 	}
@@ -277,7 +280,7 @@ func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockPro
 	if n >= event.Raw.BlockNumber {
 		slog.Info("reorg detected", "event emitted in", event.Raw.BlockNumber, "latest emitted block id from db", n)
 		// reorg detected, we have seen a higher block number than this already.
-		return i.blobHashRepo.DeleteAllAfterBlockID(event.Raw.BlockNumber)
+		return i.repositories.DeleteAllAfterBlockID(ctx, event.Raw.BlockNumber)
 	}
 
 	return nil
@@ -311,11 +314,20 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 		metaBlobHash := common.BytesToHash(event.Meta.BlobHash[:])
 		// Comparing the hex strings of meta.blobHash (blobHash)
 		if calculateBlobHash(data.KzgCommitment) == metaBlobHash {
-			slog.Info("storing blobHash in db", "blobHash", metaBlobHash.String())
+			saveBlockMetaOpts := &blobstorage.SaveBlockMetaOpts{
+				BlobHash:       metaBlobHash.String(),
+				BlockID:        event.BlockId.Uint64(),
+				EmittedBlockID: event.Raw.BlockNumber,
+			}
+			saveBlobHashOpts := &blobstorage.SaveBlobHashOpts{
+				BlobHash:      metaBlobHash.String(),
+				KzgCommitment: data.KzgCommitment,
+				BlobData:      data.Blob,
+			}
 
-			err = i.storeBlobInDB(metaBlobHash.String(), data.KzgCommitment, data.Blob, event.BlockId.Uint64(), event.Raw.BlockNumber)
+			err := i.repositories.SaveBlobAndBlockMeta(ctx, saveBlockMetaOpts, saveBlobHashOpts)
 			if err != nil {
-				slog.Error("Error storing blob in DB", "error", err)
+				slog.Error("Error storing Blob and BlockMeta in DB", "error", err)
 				return err
 			}
 
@@ -324,14 +336,4 @@ func (i *Indexer) storeBlob(ctx context.Context, event *taikol1.TaikoL1BlockProp
 	}
 
 	return errors.New("BLOB not found")
-}
-
-func (i *Indexer) storeBlobInDB(blobHashInMeta, kzgCommitment, blob string, blockID uint64, emittedBlockID uint64) error {
-	return i.blobHashRepo.Save(blobstorage.SaveBlobHashOpts{
-		BlobHash:       blobHashInMeta,
-		KzgCommitment:  kzgCommitment,
-		BlockID:        blockID,
-		BlobData:       blob,
-		EmittedBlockID: emittedBlockID,
-	})
 }

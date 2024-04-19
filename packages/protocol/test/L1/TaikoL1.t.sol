@@ -57,13 +57,13 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Carol, 1);
+            verifyBlock(1);
             parentHash = blockHash;
         }
         printVariables("");
@@ -90,17 +90,17 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
 
-            verifyBlock(Alice, 2);
+            verifyBlock(2);
 
-            (TaikoData.Block memory blk, TaikoData.TransitionState memory ts) = L1.getBlock(meta.id);
+            TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(meta.id, blk.blockId);
 
-            ts = L1.getTransition(meta.id, parentHash);
+            TaikoData.TransitionState memory ts = L1.getTransition(meta.id, parentHash);
             assertEq(ts.prover, Bob);
 
             parentHash = blockHash;
@@ -128,14 +128,14 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
         vm.roll(block.number + 15 * 12);
-        verifyBlock(Alice, conf.blockMaxProposals - 1);
+        verifyBlock(conf.blockMaxProposals - 1);
         printVariables("after verify");
-        verifyBlock(Alice, conf.blockMaxProposals);
+        verifyBlock(conf.blockMaxProposals);
         printVariables("after verify");
     }
 
@@ -151,7 +151,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
-            Bob,
             Bob,
             meta,
             GENESIS_BLOCK_HASH,
@@ -188,7 +187,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_snapshot() external {
-        vm.prank(tko.owner(), tko.owner());
+        vm.prank(address(L1));
         tko.snapshot();
 
         uint256 totalSupplyAtSnapshot = tko.totalSupplyAt(1);

@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../tiers/ITierProvider.sol";
 import "../ITaikoL1.sol";
 import "./Guardians.sol";
+import "../../common/LibStrings.sol";
 
 /// @title GuardianProver
 /// @custom:security-contact security@taiko.xyz
@@ -57,7 +58,9 @@ contract GuardianProver is Guardians {
 
         if (approved_) {
             deleteApproval(hash);
-            ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
+            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
+                _meta.id, abi.encode(_meta, _tran, _proof)
+            );
         }
     }
 }

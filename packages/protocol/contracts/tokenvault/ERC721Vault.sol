@@ -29,7 +29,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// by invoking the message call.
     /// @param _op Option for sending the ERC721 token.
     /// @return message_ The constructed message.
-    function sendToken(BridgeTransferOp memory _op)
+    function sendToken(BridgeTransferOp calldata _op)
         external
         payable
         whenNotPaused
@@ -55,17 +55,15 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
             to: resolve(_op.destChainId, name(), false),
-            refundTo: _op.refundTo,
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
-            data: data,
-            memo: _op.memo
+            data: data
         });
 
         bytes32 msgHash;
         (msgHash, message_) =
-            IBridge(resolve("bridge", false)).sendMessage{ value: msg.value }(message);
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -249,7 +247,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
-        btoken_ = address(new ERC1967Proxy(resolve("bridged_erc721", false), data));
+        btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC721, false), data));
         bridgedToCanonical[btoken_] = _ctoken;
         canonicalToBridged[_ctoken.chainId][_ctoken.addr] = btoken_;
 

@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "../bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -64,7 +65,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @inheritdoc IMessageInvocable
     /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
     /// represents calls to address(this).
-    function onMessageInvocation(bytes calldata _data) external payable onlyFromNamed("bridge") {
+    function onMessageInvocation(bytes calldata _data)
+        external
+        payable
+        onlyFromNamed(LibStrings.B_BRIDGE)
+    {
         (uint64 txId, address target, bytes memory txdata) =
             abi.decode(_data, (uint64, address, bytes));
 
@@ -74,13 +79,13 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
             revert DO_PERMISSION_DENIED();
         }
-
+        nextTxId++;
         // Sending ether along with the function call. Although this is sending Ether from this
         // contract back to itself, txData's function can now be payable.
         (bool success,) = target.call{ value: msg.value }(txdata);
         if (!success) revert DO_TX_REVERTED();
 
-        emit TransactionExecuted(nextTxId++, target, bytes4(txdata));
+        emit TransactionExecuted(txId, target, bytes4(txdata));
     }
 
     function acceptOwnership(address target) external {

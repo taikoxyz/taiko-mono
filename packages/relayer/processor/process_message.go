@@ -33,7 +33,6 @@ var (
 // get it's on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
 	ctx context.Context,
-	gasLimit *big.Int,
 	signal [32]byte,
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
@@ -67,7 +66,9 @@ func (p *Processor) processMessage(
 		return false, errors.Wrap(err, "json.Unmarshal")
 	}
 
-	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.Message.GasLimit, msgBody.Event.MsgHash)
+	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
+
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
@@ -87,7 +88,7 @@ func (p *Processor) processMessage(
 	)
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
-		return false, errors.Wrap(err, "p.waitForConfirmations")
+		return false, err
 	}
 
 	slog.Info("done waiting for confirmations",
@@ -96,21 +97,19 @@ func (p *Processor) processMessage(
 
 	// we need to check the invocation delays and proof receipt to see if
 	// this is currently processable, or we need to wait.
-	invocationDelays, err := p.destBridge.GetInvocationDelays(nil)
+	invocationDelay, extraDelay, err := p.destBridge.GetInvocationDelays(&bind.CallOpts{
+		Context: ctx,
+	})
 	if err != nil {
 		return false, errors.Wrap(err, "p.destBridge.invocationDelays")
 	}
 
-	proofReceipt, err := p.destBridge.ProofReceipt(nil, msgBody.Event.MsgHash)
+	proofReceipt, err := p.destBridge.ProofReceipt(&bind.CallOpts{
+		Context: ctx,
+	}, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
 	}
-
-	slog.Info("proofReceipt",
-		"receivedAt", proofReceipt.ReceivedAt,
-		"preferredExecutor", proofReceipt.PreferredExecutor.Hex(),
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
 
 	var encodedSignalProof []byte
 
@@ -118,19 +117,15 @@ func (p *Processor) processMessage(
 	if proofReceipt.ReceivedAt == 0 {
 		encodedSignalProof, err = p.generateEncodedSignalProof(ctx, msgBody.Event)
 		if err != nil {
-			return false, errors.Wrap(err, "p.generateEncodedSignalProof")
+			return false, err
 		}
-
-		slog.Info("proof generated",
-			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-		)
 	} else {
 		// proof has been submitted
 		// we need to check the invocation delay and
 		// preferred exeuctor, if it wasnt us
 		// who proved it, there is an extra delay.
-		if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
-			return false, errors.Wrap(err, "p.waitForInvocationDelay")
+		if err := p.waitForInvocationDelay(ctx, invocationDelay, extraDelay, proofReceipt); err != nil {
+			return false, err
 		}
 	}
 
@@ -159,17 +154,19 @@ func (p *Processor) processMessage(
 			slog.Info("waiting for invocation delay",
 				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex())
 
-			proofReceipt, err := p.destBridge.ProofReceipt(nil, msgBody.Event.MsgHash)
+			proofReceipt, err := p.destBridge.ProofReceipt(&bind.CallOpts{
+				Context: ctx,
+			}, msgBody.Event.MsgHash)
 			if err != nil {
-				return false, errors.Wrap(err, "p.destBridge.ProofReceipt")
+				return false, err
 			}
 
-			if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
-				return false, errors.Wrap(err, "p.waitForInvocationDelay")
+			if err := p.waitForInvocationDelay(ctx, invocationDelay, extraDelay, proofReceipt); err != nil {
+				return false, err
 			}
 
 			if _, err := p.sendProcessMessageCall(ctx, msgBody.Event, nil); err != nil {
-				return false, errors.Wrap(err, "p.sendProcessMessageAndWaitForReceipt")
+				return false, err
 			}
 		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
 			// if we got MessageExecuted, the message is finished processing. this occurs
@@ -181,7 +178,9 @@ func (p *Processor) processMessage(
 		}
 	}
 
-	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{}, msgBody.Event.MsgHash)
+	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
+		Context: ctx,
+	}, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
@@ -203,7 +202,7 @@ func (p *Processor) processMessage(
 	if msg.Internal != nil {
 		// update message status
 		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-			return false, errors.Wrap(err, fmt.Sprintf("p.eventRepo.UpdateStatus, id: %v", msgBody.ID))
+			return false, err
 		}
 	}
 
@@ -214,45 +213,41 @@ func (p *Processor) processMessage(
 // if one exists, or return immediately if not.
 func (p *Processor) waitForInvocationDelay(
 	ctx context.Context,
-	invocationDelays struct {
-		InvocationDelay      *big.Int
-		InvocationExtraDelay *big.Int
-	},
+	invocationDelay *big.Int,
+	extraDelay *big.Int,
 	proofReceipt struct {
 		ReceivedAt        uint64
 		PreferredExecutor common.Address
 	},
 ) error {
-	invocationDelay := invocationDelays.InvocationDelay
 	preferredExecutor := proofReceipt.PreferredExecutor
 
+	delay := invocationDelay
+
 	if invocationDelay.Cmp(common.Big0) == 1 && preferredExecutor.Cmp(p.relayerAddr) != 0 {
-		invocationDelay = new(big.Int).Add(invocationDelay, invocationDelays.InvocationExtraDelay)
+		delay = new(big.Int).Add(invocationDelay, extraDelay)
 	}
 
-	processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), invocationDelay)
+	processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), delay)
 	// check invocation delays and make sure we can submit it
 	if time.Now().UTC().Unix() >= processableAt.Int64() {
 		// if its passed already, we can submit
 		return nil
 	}
-	// its unprocessable, we shouldnt send the transaction.
-	// wait until it's processable.
-	t := time.NewTicker(60 * time.Second)
 
-	defer t.Stop()
+	slog.Info("waiting for invocation delay",
+		"delay", delay.String(),
+		"processableAt", processableAt.String(),
+		"now", time.Now().UTC().Unix(),
+		"difference", new(big.Int).Sub(processableAt, new(big.Int).SetInt64(time.Now().UTC().Unix())),
+	)
 
-	w := time.After(time.Duration(invocationDelay.Int64()) * time.Second)
+	w := time.After(time.Duration(delay.Int64()) * time.Second)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
-		case <-t.C:
-			slog.Info("waiting for invocation delay",
-				"processableAt", processableAt.String(),
-				"now", time.Now().UTC().Unix(),
-			)
+			return ctx.Err()
 		case <-w:
 			slog.Info("done waiting for invocation delay")
 			return nil
@@ -300,13 +295,13 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 		event, err := p.waitHeaderSynced(ctx, hopEthClient, hopChainID.Uint64(), blockNum)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.waitHeaderSynced")
+			return nil, err
 		}
 
 		blockNum = event.SyncedInBlockID
 	} else {
 		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
-			return nil, errors.Wrap(err, "p.waitHeaderSynced")
+			return nil, err
 		}
 	}
 
@@ -319,7 +314,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
+		return nil, err
 	}
 
 	// if we have no hops, this is strictly a srcChain => destChain message.
@@ -332,7 +327,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			p.srcChainId.Uint64(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater")
+			return nil, err
 		}
 
 		hops = append(hops, proof.HopParams{
@@ -373,10 +368,12 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			new(big.Int).SetUint64(blockNum),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.blockHeader")
+			return nil, err
 		}
 
-		hopStorageSlotKey, err := hop.signalService.GetSignalSlot(&bind.CallOpts{},
+		hopStorageSlotKey, err := hop.signalService.GetSignalSlot(&bind.CallOpts{
+			Context: ctx,
+		},
 			hop.chainID.Uint64(),
 			hop.taikoAddress,
 			block.Root(),
@@ -414,7 +411,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"hopsLength", len(hops),
 		)
 
-		return nil, errors.Wrap(err, "p.prover.GetEncodedSignalProof")
+		return nil, err
 	}
 
 	return encodedSignalProof, nil
@@ -427,11 +424,9 @@ func (p *Processor) sendProcessMessageCall(
 	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Receipt, error) {
-	slog.Info("sending process message call")
-
 	eventType, canonicalToken, _, err := relayer.DecodeMessageData(event.Message.Data, event.Message.Value)
 	if err != nil {
-		return nil, errors.Wrap(err, "relayer.DecodeMessageData")
+		return nil, err
 	}
 
 	var gas uint64
@@ -440,7 +435,7 @@ func (p *Processor) sendProcessMessageCall(
 
 	needsContractDeployment, err := p.needsContractDeployment(ctx, event, eventType, canonicalToken)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.needsContractDeployment")
+		return nil, err
 	}
 
 	if needsContractDeployment {
@@ -455,7 +450,7 @@ func (p *Processor) sendProcessMessageCall(
 
 			gas, err = p.hardcodeGasLimit(ctx, event, eventType, canonicalToken)
 			if err != nil {
-				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
+				return nil, err
 			}
 		}
 	}
@@ -467,7 +462,7 @@ func (p *Processor) sendProcessMessageCall(
 
 	cost, err = p.getCost(ctx, gas, gasTipCap, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.getCost")
+		return nil, err
 	}
 
 	if bool(p.profitableOnly) {
@@ -477,9 +472,26 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
+	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
+	if err != nil {
+		return nil, err
+	}
+
+	// message will fail when we try to process it
+	if !received {
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId,
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
+		return nil, errors.New("message not received")
+	}
+
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
 	if err != nil {
-		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
+		return nil, err
 	}
 
 	candidate := txmgr.TxCandidate{
@@ -495,12 +507,18 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	relayer.MessageSentEventsProcessed.Inc()
-
 	slog.Info("Mined tx", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()))
 
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		relayer.MessageSentEventsProcessedReverted.Inc()
+
+		return nil, errTxReverted
+	}
+
+	relayer.MessageSentEventsProcessed.Inc()
+
 	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
-		return nil, errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
+		return nil, err
 	}
 
 	return receipt, nil
@@ -584,32 +602,38 @@ func (p *Processor) hardcodeGasLimit(
 	case relayer.EventTypeSendERC20:
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(
-			nil,
+			&bind.CallOpts{
+				Context: ctx,
+			},
 			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return 0, errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
+			return 0, err
 		}
 	case relayer.EventTypeSendERC721:
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(
-			nil,
+			&bind.CallOpts{
+				Context: ctx,
+			},
 			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return 0, errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
+			return 0, err
 		}
 	case relayer.EventTypeSendERC1155:
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(
-			nil,
+			&bind.CallOpts{
+				Context: ctx,
+			},
 			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return 0, errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
+			return 0, err
 		}
 	default:
 		return 0, errors.New("unexpected event type")
@@ -637,7 +661,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 ) error {
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
 	if err != nil {
-		return errors.Wrap(err, "abi.JSON")
+		return err
 	}
 
 	m := make(map[string]interface{})
@@ -647,7 +671,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
 			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
 			if err != nil {
-				return errors.Wrap(err, "abi.UnpackIntoInterface")
+				return err
 			}
 
 			break
@@ -688,12 +712,14 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 		var baseFee *big.Int
 
 		if p.taikoL2 != nil {
-			gasUsed := uint32(blk.GasUsed())
-			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
-			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
-
+			latestL2Block, err := p.destEthClient.BlockByNumber(ctx, nil)
 			if err != nil {
-				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
+				return nil, err
+			}
+
+			bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
+			if err != nil {
+				return nil, err
 			}
 
 			baseFee = bf.Basefee
@@ -702,10 +728,21 @@ func (p *Processor) getCost(ctx context.Context, gas uint64, gasTipCap *big.Int,
 			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
 		}
 
+		slog.Info("cost estimation",
+			"gas", gas,
+			"gasTipCap", gasTipCap.String(),
+			"baseFee", baseFee.String(),
+		)
+
 		return new(big.Int).Mul(
 			new(big.Int).SetUint64(gas),
 			new(big.Int).Add(gasTipCap, baseFee)), nil
 	} else {
+		slog.Info("cost estimation",
+			"gas", gas,
+			"gasPrice", gasPrice.String(),
+		)
+
 		return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gas)), nil
 	}
 }

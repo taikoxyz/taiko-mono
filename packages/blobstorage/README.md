@@ -28,8 +28,8 @@ Repository for BLOB storage (archive and serve data)
 
    ```bash
    cd ./migrations
-   goose mysql "root:passw00d@tcp(localhost:3306)/blobs" status
-   goose mysql "root:passw00d@tcp(localhost:3306)/blobs" up
+   goose mysql "<user>:<password>@tcp(localhost:3306)/blobs" status
+   goose mysql "<user>:<password>@tcp(localhost:3306)/blobs" up
    ```
 
    These commands apply migrations to the `blobs` database.

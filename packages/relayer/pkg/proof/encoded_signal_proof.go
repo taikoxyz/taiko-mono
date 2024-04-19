@@ -60,12 +60,6 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 			return nil, errors.Wrap(err, "hop p.getEncodedMerkleProof")
 		}
 
-		slog.Info("generated hop proof",
-			"chainID", hop.ChainID.Uint64(),
-			"blockID", block.NumberU64(),
-			"rootHash", block.Root(),
-		)
-
 		hopProofs = append(hopProofs, encoding.HopProof{
 			BlockID:      block.NumberU64(),
 			ChainID:      hop.ChainID.Uint64(),
@@ -113,10 +107,6 @@ func (p *Prover) getProof(
 	if err != nil {
 		return nil, errors.Wrap(err, "c.CallContext")
 	}
-
-	slog.Info("proof generated",
-		"value", common.Bytes2Hex(ethProof.StorageProof[0].Value),
-	)
 
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() == int64(0) {
 		return nil, errors.New("proof will not be valid, expected storageProof to not be 0 but was not")

@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
@@ -56,7 +57,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         external
         whenNotPaused
-        onlyFromNamed("erc721_vault")
+        onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
         _safeMint(_account, _tokenId);
@@ -71,7 +72,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         external
         whenNotPaused
-        onlyFromNamed("erc721_vault")
+        onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
         // Check if the caller is the owner of the token.
@@ -107,11 +108,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         // https://github.com/crytic/slither/wiki/Detector-Documentation#abi-encodePacked-collision
         // The abi.encodePacked() call below takes multiple dynamic arguments. This is known and
         // considered acceptable in terms of risk.
-        return string(
-            abi.encodePacked(
-                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
-            )
-        );
+        return LibBridgedToken.buildURI(srcToken, srcChainId, Strings.toString(_tokenId));
     }
 
     /// @notice Gets the canonical token's address and chain ID.

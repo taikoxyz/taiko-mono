@@ -51,6 +51,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
 	}
+	SgxVerifierAddress = &cli.StringFlag{
+		Name:     "sgxVerifierAddress",
+		Usage:    "Address of the SGXVerifier contract",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"SGX_VERIFIER_ADDRESS"},
+	}
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
 		Usage:    "Block batch size when iterating through blocks",
@@ -90,6 +97,7 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1TaikoAddress,
 	BridgeAddress,
 	SwapAddresses,
+	SgxVerifierAddress,
 	AssignmentHookAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,

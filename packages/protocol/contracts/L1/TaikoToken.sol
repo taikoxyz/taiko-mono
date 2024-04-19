@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
+import "../common/LibStrings.sol";
 
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
@@ -52,7 +53,7 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() public onlyFromOwnerOrNamed("snapshooter") returns (uint256) {
+    function snapshot() public onlyFromNamed(LibStrings.B_TAIKO) returns (uint256) {
         return _snapshot();
     }
 
@@ -81,6 +82,10 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     {
         if (_to == address(this)) revert TKO_INVALID_ADDR();
         return super.transferFrom(_from, _to, _amount);
+    }
+
+    function currentSnapshotId() public view returns (uint256) {
+        return _getCurrentSnapshotId();
     }
 
     function _beforeTokenTransfer(

@@ -42,17 +42,8 @@ func (b *Bridge) IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessa
 	return false, nil
 }
 
-func (b *Bridge) GetInvocationDelays(opts *bind.CallOpts) (struct {
-	InvocationDelay      *big.Int
-	InvocationExtraDelay *big.Int
-}, error) {
-	return struct {
-		InvocationDelay      *big.Int
-		InvocationExtraDelay *big.Int
-	}{
-		InvocationDelay:      common.Big0,
-		InvocationExtraDelay: common.Big0,
-	}, nil
+func (b *Bridge) GetInvocationDelays(opts *bind.CallOpts) (*big.Int, *big.Int, error) {
+	return common.Big0, common.Big0, nil
 }
 func (b *Bridge) ProofReceipt(opts *bind.CallOpts, msgHash [32]byte) (struct {
 	ReceivedAt        uint64
@@ -114,4 +105,8 @@ func (b *Bridge) ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, err
 
 func (b *Bridge) SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage) (*types.Transaction, error) {
 	return ProcessMessageTx, nil
+}
+
+func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error) {
+	return true, nil
 }

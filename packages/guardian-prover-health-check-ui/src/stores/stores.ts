@@ -9,7 +9,7 @@ import { type Writable, writable, derived } from 'svelte/store';
 
 // Healtchecks
 export const apiResponse: Writable<HealthCheck[]> = writable([]);
-export const lastGuardianFetchTimestamp: Writable<number> = writable(0);
+export const lastGuardianFetchTimestamp: Writable<number> = writable(Date.now());
 
 // Guardian provers
 export const guardianProvers: Writable<Guardian[]> = writable(null);

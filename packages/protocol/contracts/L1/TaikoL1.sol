@@ -57,11 +57,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
-        state.slotA.__reservedA1 = 0;
-        state.slotA.__reservedA2 = 0;
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
-        state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
@@ -140,18 +137,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    /// @return ts_ The transition used to verify this block.
-    function getBlock(uint64 _blockId)
-        public
-        view
-        returns (TaikoData.Block memory blk_, TaikoData.TransitionState memory ts_)
-    {
-        uint64 slot;
-        (blk_, slot) = LibUtils.getBlock(state, getConfig(), _blockId);
-
-        if (blk_.verifiedTransitionId != 0) {
-            ts_ = state.transitions[slot][blk_.verifiedTransitionId];
-        }
+    function getBlock(uint64 _blockId) public view returns (TaikoData.Block memory blk_) {
+        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the state transition for a specific block.
@@ -169,16 +156,43 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
     }
 
+    /// @notice Gets the state transition for a specific block.
+    /// @param _blockId Index of the block.
+    /// @param _tid The transition id.
+    /// @return The state transition data of the block.
+    function getTransition(
+        uint64 _blockId,
+        uint32 _tid
+    )
+        public
+        view
+        returns (TaikoData.TransitionState memory)
+    {
+        return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
+    }
     /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @return a_ State variables stored at SlotA.
-    /// @return b_ State variables stored at SlotB.
+    /// @dev This method can be deleted once node/client stops using it.
+    /// @return State variables stored at SlotA.
+    /// @return State variables stored at SlotB.
+
     function getStateVariables()
         public
         view
-        returns (TaikoData.SlotA memory a_, TaikoData.SlotB memory b_)
+        returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
-        a_ = state.slotA;
-        b_ = state.slotB;
+        return (state.slotA, state.slotB);
+    }
+
+    /// @notice Gets SlotA
+    /// @return  State variables stored at SlotA.
+    function slotA() public view returns (TaikoData.SlotA memory) {
+        return state.slotA;
+    }
+
+    /// @notice Gets SlotB
+    /// @return  State variables stored at SlotB.
+    function slotB() public view returns (TaikoData.SlotB memory) {
+        return state.slotB;
     }
 
     /// @inheritdoc ITaikoL1
@@ -213,7 +227,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         view
         virtual
         override
-        onlyFromOwnerOrNamed("chain_pauser")
+        onlyFromOwnerOrNamed(LibStrings.B_CHAIN_PAUSER)
     { }
 
     function _checkEOAForCalldataDA() internal pure virtual returns (bool) {

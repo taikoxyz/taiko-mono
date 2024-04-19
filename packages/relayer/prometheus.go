@@ -6,6 +6,10 @@ import (
 )
 
 var (
+	BlocksScanned = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "blocks_scanned_ops_total",
+		Help: "The total number of blocks scanned",
+	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
 		Help: "The total number of acknowledged queue events",
@@ -45,6 +49,10 @@ var (
 	MessageSentEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_processed_ops_total",
 		Help: "The total number of MessageSent processed events",
+	})
+	MessageSentEventsProcessedReverted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_processed_reverted_ops_total",
+		Help: "The total number of MessageSent processed events that reverted",
 	})
 	MessageSentEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_indexed_ops_total",

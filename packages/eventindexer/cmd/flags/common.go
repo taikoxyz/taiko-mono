@@ -8,6 +8,7 @@ var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
 	generatorCategory = "GENERATOR"
+	disperserCategory = "DISPERSER"
 )
 
 var (
@@ -71,7 +72,6 @@ var (
 		Value:    6061,
 		EnvVars:  []string{"METRICS_HTTP_PORT"},
 	}
-
 	Layer = &cli.StringFlag{
 		Name:     "layer",
 		Usage:    "Which layer indexing is occurring on",

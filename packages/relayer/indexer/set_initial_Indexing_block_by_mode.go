@@ -18,12 +18,12 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	var startingBlock uint64 = 0
 
 	if i.taikol1 != nil {
-		stateVars, err := i.taikol1.GetStateVariables(nil)
+		slotA, _, err := i.taikol1.GetStateVariables(nil)
 		if err != nil {
 			return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
 		}
 
-		startingBlock = stateVars.A.GenesisHeight - 1
+		startingBlock = slotA.GenesisHeight - 1
 	}
 
 	switch mode {
