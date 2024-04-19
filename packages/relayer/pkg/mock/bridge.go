@@ -49,6 +49,12 @@ func (b *Bridge) FilterMessageSent(
 	return &bridge.BridgeMessageSentIterator{}, nil
 }
 
+func (b *Bridge) FilterMessageProcessed(
+	opts *bind.FilterOpts,
+) (*bridge.BridgeMessageProcessedIterator, error) {
+	return &bridge.BridgeMessageProcessedIterator{}, nil
+}
+
 func (b *Bridge) FilterMessageStatusChanged(
 	opts *bind.FilterOpts,
 	signal [][32]byte,

@@ -247,7 +247,7 @@ func (w *Watchdog) Start() error {
 }
 
 func (w *Watchdog) queueName() string {
-	return fmt.Sprintf("%v-%v-%v-queue", w.srcChainId.String(), w.destChainId.String(), relayer.EventNameMessageReceived)
+	return fmt.Sprintf("%v-%v-%v-queue", w.srcChainId.String(), w.destChainId.String(), relayer.EventNameMessageProcessed)
 }
 
 func (w *Watchdog) eventLoop(ctx context.Context) {

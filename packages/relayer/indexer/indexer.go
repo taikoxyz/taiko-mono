@@ -394,6 +394,10 @@ func (i *Indexer) filter(ctx context.Context) error {
 					return errors.Wrap(err, "i.indexChainDataSyncedEvents")
 				}
 			}
+		case relayer.EventNameMessageProcessed:
+			if err := i.withRetry(func() error { return i.indexMessageProcessedEvents(ctx, filterOpts) }); err != nil {
+				return errors.Wrap(err, "i.indexMessageProcessedEvents")
+			}
 		}
 
 		i.latestIndexedBlockNumber = end
@@ -465,54 +469,54 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 	return nil
 }
 
-// indexMessageReceivedEvents indexes `MessageReceived` events on the bridge contract
+// indexMessageProcessedEvents indexes `MessageProcessed` events on the bridge contract
 // and stores them to the database, and adds the message to the queue if it has not been
 // seen before.
-// func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
-// 	filterOpts *bind.FilterOpts,
-// ) error {
-// 	events, err := i.bridge.FilterMessageReceived(filterOpts, nil)
-// 	if err != nil {
-// 		return errors.Wrap(err, "bridge.FilterMessageReceived")
-// 	}
+func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	events, err := i.bridge.FilterMessageProcessed(filterOpts)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageProcessed")
+	}
 
-// 	group, _ := errgroup.WithContext(ctx)
-// 	group.SetLimit(i.numGoroutines)
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
 
-// 	first := true
+	first := true
 
-// 	for events.Next() {
-// 		event := events.Event
+	for events.Next() {
+		event := events.Event
 
-// 		if i.watchMode != CrawlPastBlocks && first {
-// 			first = false
+		if i.watchMode != CrawlPastBlocks && first {
+			first = false
 
-// 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
-// 				return err
-// 			}
-// 		}
+			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				return err
+			}
+		}
 
-// 		group.Go(func() error {
-// 			err := i.handleMessageReceivedEvent(ctx, i.srcChainId, event, true)
-// 			if err != nil {
-// 				relayer.MessageReceivedEventsIndexingErrors.Inc()
-// 				// log error but always return nil to keep other goroutines active
-// 				slog.Error("error handling event", "err", err.Error())
+		group.Go(func() error {
+			err := i.handleMessageProcessedEvent(ctx, i.srcChainId, event, true)
+			if err != nil {
+				relayer.MessageProcessedEventsIndexingErrors.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
 
-// 				return err
-// 			}
+				return err
+			}
 
-// 			return nil
-// 		})
-// 	}
+			return nil
+		})
+	}
 
-// 	// wait for the last of the goroutines to finish
-// 	if err := group.Wait(); err != nil {
-// 		return errors.Wrap(err, "group.Wait")
-// 	}
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
 // indexMessageStatusChangedEvents indexes `MessageStatusChanged` events on the bridge contract
 // and stores them to the database. It does not add them to any queue.

@@ -1,105 +1,104 @@
 package indexer
 
-// handleMessageReceivedEvent handles an individual MessageReceived event
-// func (i *Indexer) handleMessageReceivedEvent(
-// 	ctx context.Context,
-// 	chainID *big.Int,
-// 	event *bridge.BridgeMessageReceived,
-// 	waitForConfirmations bool,
-// ) error {
-// 	slog.Info("msg received event found for msgHash",
-// 		"msgHash", common.Hash(event.MsgHash).Hex(),
-// 		"txHash", event.Raw.TxHash.Hex(),
-// 	)
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+	"math/big"
 
-// 	// if the destination doesnt match our source chain, we dont want to handle this event.
-// 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.srcChainId) != 0 {
-// 		slog.Info("skipping event, wrong chainID",
-// 			"messageDestChainID",
-// 			event.Message.DestChainId,
-// 			"indexerSrcChainID",
-// 			i.srcChainId.Uint64(),
-// 		)
+	"github.com/pkg/errors"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+)
 
-// 		return nil
-// 	}
+// handleMessageProcessedEvent handles an individual MessagProcessed event
+func (i *Indexer) handleMessageProcessedEvent(
+	ctx context.Context,
+	chainID *big.Int,
+	event *bridge.BridgeMessageProcessed,
+	waitForConfirmations bool,
+) error {
+	slog.Info("msg received event found",
+		"txHash", event.Raw.TxHash.Hex(),
+	)
 
-// 	if event.Raw.Removed {
-// 		slog.Info("event is removed")
-// 		return nil
-// 	}
+	// if the destination doesnt match our source chain, we dont want to handle this event.
+	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.srcChainId) != 0 {
+		slog.Info("skipping event, wrong chainID",
+			"messageDestChainID",
+			event.Message.DestChainId,
+			"indexerSrcChainID",
+			i.srcChainId.Uint64(),
+		)
 
-// 	// we should never see an empty msgHash, but if we do, we dont process.
-// 	if event.MsgHash == relayer.ZeroHash {
-// 		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
-// 		return nil
-// 	}
+		return nil
+	}
 
-// 	if waitForConfirmations {
-// 		// we need to wait for confirmations to confirm this event is not being reverted,
-// 		// removed, or reorged now.
-// 		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
+	if event.Raw.Removed {
+		slog.Info("event is removed")
+		return nil
+	}
 
-// 		defer confCtxCancel()
+	if waitForConfirmations {
+		// we need to wait for confirmations to confirm this event is not being reverted,
+		// removed, or reorged now.
+		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
 
-// 		if err := relayer.WaitConfirmations(
-// 			confCtx,
-// 			i.srcEthClient,
-// 			uint64(defaultConfirmations),
-// 			event.Raw.TxHash,
-// 		); err != nil {
-// 			return err
-// 		}
-// 	}
+		defer confCtxCancel()
 
-// 	// get event status from msgHash on chain
-// 	eventStatus, err := i.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
-// 	if err != nil {
-// 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
-// 	}
+		if err := relayer.WaitConfirmations(
+			confCtx,
+			i.srcEthClient,
+			uint64(defaultConfirmations),
+			event.Raw.TxHash,
+		); err != nil {
+			return err
+		}
+	}
 
-// 	// if the message is not status new, and we are iterating crawling past blocks,
-// 	// we also dont want to handle this event. it has already been handled.
-// 	if i.watchMode == CrawlPastBlocks && eventStatus != relayer.EventStatusNew {
-// 		// we can return early, this message has been processed as expected.
-// 		return nil
-// 	}
+	// if the message is not status new, and we are iterating crawling past blocks,
+	// we also dont want to handle this event. it has already been handled.
+	if i.watchMode == CrawlPastBlocks {
+		// we can return early, this message has been processed as expected.
+		return nil
+	}
 
-// 	marshaled, err := json.Marshal(event)
-// 	if err != nil {
-// 		return errors.Wrap(err, "json.Marshal(event)")
-// 	}
+	marshaled, err := json.Marshal(event)
+	if err != nil {
+		return errors.Wrap(err, "json.Marshal(event)")
+	}
 
-// 	id, err := i.saveEventToDB(
-// 		ctx,
-// 		marshaled,
-// 		common.Hash(event.MsgHash).Hex(),
-// 		chainID,
-// 		eventStatus,
-// 		event.Message.SrcOwner.Hex(),
-// 		event.Message.Data,
-// 		event.Message.Value,
-// 		event.Raw.BlockNumber,
-// 	)
-// 	if err != nil {
-// 		return errors.Wrap(err, "i.saveEventToDB")
-// 	}
+	id, err := i.saveEventToDB(
+		ctx,
+		marshaled,
+		"0x",
+		chainID,
+		1,
+		event.Message.SrcOwner.Hex(),
+		event.Message.Data,
+		event.Message.Value,
+		event.Raw.BlockNumber,
+	)
+	if err != nil {
+		return errors.Wrap(err, "i.saveEventToDB")
+	}
 
-// 	msg := queue.QueueMessageReceivedBody{
-// 		ID:    id,
-// 		Event: event,
-// 	}
+	msg := queue.QueueMessageProcessedBody{
+		ID:    id,
+		Event: event,
+	}
 
-// 	marshalledMsg, err := json.Marshal(msg)
-// 	if err != nil {
-// 		return errors.Wrap(err, "json.Marshal")
-// 	}
+	marshalledMsg, err := json.Marshal(msg)
+	if err != nil {
+		return errors.Wrap(err, "json.Marshal")
+	}
 
-// 	// we add it to the queue, so the processor can pick up and attempt to process
-// 	// the message onchain.
-// 	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil); err != nil {
-// 		return errors.Wrap(err, "i.queue.Publish")
-// 	}
+	// we add it to the queue, so the processor can pick up and attempt to process
+	// the message onchain.
+	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil); err != nil {
+		return errors.Wrap(err, "i.queue.Publish")
+	}
 
-// 	return nil
-// }
+	return nil
+}
