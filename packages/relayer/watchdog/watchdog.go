@@ -297,7 +297,6 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	// if so, do nothing, acknowledge message
 	if sent {
 		slog.Info("dest bridge did send this message. returning early",
-			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
 			"sent", sent,
 		)
 
