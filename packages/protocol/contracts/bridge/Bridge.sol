@@ -254,7 +254,7 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, status);
         }
 
-        emit MessageProcessed(msgHash);
+        emit MessageProcessed(_message);
 
         if (_message.fee != 0) {
             refundAmount += _message.fee;

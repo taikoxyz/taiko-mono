@@ -60,8 +60,8 @@ interface IBridge {
     event MessageSent(bytes32 indexed msgHash, Message message);
 
     /// @notice Emitted when a message is processed.
-    /// @param msgHash The hash of the message.
-    event MessageProcessed(bytes32 indexed msgHash);
+    /// @param message The essage.
+    event MessageProcessed(Message message);
 
     /// @notice Emitted when the status of a message changes.
     /// @param msgHash The hash of the message.
