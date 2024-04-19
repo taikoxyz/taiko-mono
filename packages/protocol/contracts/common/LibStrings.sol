@@ -7,9 +7,6 @@ library LibStrings {
     /// @notice bytes32 representation of the string "chain_pauser".
     bytes32 internal constant B_CHAIN_PAUSER = bytes32("chain_pauser");
 
-    /// @notice bytes32 representation of the string "snapshooter".
-    bytes32 internal constant B_SNAPSHOOTER = bytes32("snapshooter");
-
     /// @notice bytes32 representation of the string "withdrawer".
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
 
