@@ -35,7 +35,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
     /// calldata cost.
     /// This value should be fine-tuned with production data.
-    uint32 public constant GAS_OVERHEAD = 60_000;
+    uint32 public constant GAS_OVERHEAD = 120_000;
 
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
