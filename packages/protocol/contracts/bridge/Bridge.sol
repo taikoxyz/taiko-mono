@@ -19,7 +19,7 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    struct GasStats {
+    struct ProcesssingStats {
         uint32 gasStart;
         uint32 gasBeforeInvocation;
         uint32 gasAfterInvocation;
@@ -30,7 +30,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
-    event MessageProcessed(bytes32 indexed msgHash, GasStats stats);
+    event MessageProcessed(bytes32 indexed msgHash, ProcesssingStats stats);
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
@@ -214,7 +214,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        GasStats memory stats;
+        ProcesssingStats memory stats;
         stats.gasStart = uint32(gasleft());
 
         // If the gas limit is set to zero, only the owner can process the message.
