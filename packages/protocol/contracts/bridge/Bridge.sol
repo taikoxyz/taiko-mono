@@ -255,10 +255,9 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
                     uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = stats.gasStart - uint32(gasleft());
+                    stats.gasUsedInFeeCalc = GAS_OVERHEAD + stats.gasStart - uint32(gasleft());
 
-                    uint256 gasCharged = refund.max(GAS_OVERHEAD + stats.gasUsedInFeeCalc) - refund;
-
+                    uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
                     uint256 fee =
