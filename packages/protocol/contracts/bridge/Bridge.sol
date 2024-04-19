@@ -172,7 +172,7 @@ contract Bridge is EssentialContract, IBridge {
             revert B_MESSAGE_NOT_SENT();
         }
 
-        bool received = _proveSignalReceived(
+        bool received = _isSignalReceived(
             signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
         );
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
@@ -222,7 +222,7 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        bool received = _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
+        bool received = _isSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         uint256 refundAmount;
@@ -349,7 +349,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.srcChainId != block.chainid) return false;
 
-        return _proveSignalReceived(
+        return _isSignalReceived(
             resolve(LibStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
@@ -371,7 +371,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         if (_message.destChainId != block.chainid) return false;
-        return _proveSignalReceived(
+        return _isSignalReceived(
             resolve(LibStrings.B_SIGNAL_SERVICE, false),
             hashMessage(_message),
             _message.srcChainId,
@@ -528,7 +528,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message was received.
-    function _proveSignalReceived(
+    function _isSignalReceived(
         address _signalService,
         bytes32 _signal,
         uint64 _chainId,
