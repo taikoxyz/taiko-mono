@@ -10,13 +10,6 @@ pragma solidity 0.8.24;
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService {
-    enum CacheOption {
-        CACHE_NOTHING,
-        CACHE_SIGNAL_ROOT,
-        CACHE_STATE_ROOT,
-        CACHE_BOTH
-    }
-
     struct HopProof {
         /// @notice This hop's destination chain ID. If there is a next hop, this ID is the next
         /// hop's source chain ID.
@@ -33,9 +26,6 @@ interface ISignalService {
         /// LibStrings.H_STATE_ROOT to get the most recent block ID synced, then call
         /// `getSyncedChainData` to read the synchronized data.
         bytes32 rootHash;
-        /// @notice Options to cache either the state roots or signal roots of middle-hops to the
-        /// current chain.
-        CacheOption cacheOption;
         /// @notice The signal service's account proof. If this value is empty, then `rootHash` will
         /// be used as the signal root, otherwise, `rootHash` will be used as the state root.
         bytes[] accountProof;
@@ -91,24 +81,7 @@ interface ISignalService {
         external
         returns (bytes32 signal_);
 
-    /// @notice Verifies if a signal has been received on the target chain.
-    /// @param _chainId The identifier for the source chain from which the
-    /// signal originated.
-    /// @param _app The address that initiated the signal.
-    /// @param _signal The signal (message) to send.
-    /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain.
-    /// @return numCacheOps_ The number of newly cached items.
-    function proveSignalReceived(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes calldata _proof
-    )
-        external
-        returns (uint256 numCacheOps_);
-
-    /// @notice Verifies if a signal has been received on the target chain.
+    /// @notice Proves if a signal has been received on the target chain.
     /// This is the "readonly" version of proveSignalReceived.
     /// @param _chainId The identifier for the source chain from which the
     /// signal originated.
@@ -116,7 +89,7 @@ interface ISignalService {
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
     /// source chain.
-    function verifySignalReceived(
+    function proveSignalReceived(
         uint64 _chainId,
         address _app,
         bytes32 _signal,
@@ -164,12 +137,12 @@ interface ISignalService {
         view
         returns (uint64 blockId_, bytes32 chainData_);
 
-    /// @notice Returns the data to be used for caching slot generation.
+    /// @notice Returns the data to be used for slot generation.
     /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
-    /// @return signal_ The signal used for caching slot creation.
+    /// @return signal_ The signal used for slot creation.
     function signalForChainData(
         uint64 _chainId,
         bytes32 _kind,

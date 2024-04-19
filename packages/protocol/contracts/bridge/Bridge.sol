@@ -28,13 +28,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
-    event GasLog(
-        bytes32 indexed msgHash,
-        GasStats stats,
-        uint256 overhead,
-        uint256 proofSize,
-        uint256 numCacheOps
-    );
+    event GasLog(bytes32 indexed msgHash, GasStats stats, uint256 overhead, uint256 proofSize);
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
@@ -44,9 +38,6 @@ contract Bridge is EssentialContract, IBridge {
     /// calldata cost.
     /// This value should be fine-tuned with production data.
     uint32 public constant GAS_OVERHEAD = 60_000;
-
-    /// @dev The amount of gas not to charge fee per cache operation.
-    uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
@@ -181,7 +172,7 @@ contract Bridge is EssentialContract, IBridge {
             revert B_MESSAGE_NOT_SENT();
         }
 
-        (bool received,) = _proveSignalReceived(
+        bool received = _proveSignalReceived(
             signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
         );
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
@@ -231,8 +222,7 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        (bool received, uint256 numCacheOps) =
-            _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
+        bool received = _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         uint256 refundAmount;
@@ -261,12 +251,9 @@ contract Bridge is EssentialContract, IBridge {
 
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
-                    uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     stats.gasUsedInFeeCalc = stats.start - gasleft();
 
-                    uint256 gasCharged =
-                        (GAS_OVERHEAD + stats.gasUsedInFeeCalc).max(refund) - refund;
-
+                    uint256 gasCharged = GAS_OVERHEAD + stats.gasUsedInFeeCalc;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
                     uint256 fee =
@@ -281,7 +268,7 @@ contract Bridge is EssentialContract, IBridge {
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
         stats.end = gasleft();
-        emit GasLog(msgHash, stats, GAS_OVERHEAD, _proof.length, numCacheOps);
+        emit GasLog(msgHash, stats, GAS_OVERHEAD, _proof.length);
     }
 
     /// @inheritdoc IBridge
@@ -362,7 +349,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.srcChainId != block.chainid) return false;
 
-        return _isSignalReceived(
+        return _proveSignalReceived(
             resolve(LibStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
@@ -384,7 +371,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         if (_message.destChainId != block.chainid) return false;
-        return _isSignalReceived(
+        return _proveSignalReceived(
             resolve(LibStrings.B_SIGNAL_SERVICE, false),
             hashMessage(_message),
             _message.srcChainId,
@@ -535,40 +522,13 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Checks if the signal was received and caches cross-chain data if requested.
-    /// @param _signalService The signal service address.
-    /// @param _signal The signal.
-    /// @param _chainId The ID of the chain the signal is stored on.
-    /// @param _proof The merkle inclusion proof.
-    /// @return success_ true if the message was received.
-    /// @return numCacheOps_ Num of cached items
-    function _proveSignalReceived(
-        address _signalService,
-        bytes32 _signal,
-        uint64 _chainId,
-        bytes calldata _proof
-    )
-        private
-        returns (bool success_, uint256 numCacheOps_)
-    {
-        try ISignalService(_signalService).proveSignalReceived(
-            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
-            numCacheOps_ = numCacheOps;
-            success_ = true;
-        } catch {
-            success_ = false;
-        }
-    }
-
     /// @notice Checks if the signal was received.
-    /// This is the 'readonly' version of _proveSignalReceived.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message was received.
-    function _isSignalReceived(
+    function _proveSignalReceived(
         address _signalService,
         bytes32 _signal,
         uint64 _chainId,
@@ -578,7 +538,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        try ISignalService(_signalService).verifySignalReceived(
+        try ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) {
             return true;
