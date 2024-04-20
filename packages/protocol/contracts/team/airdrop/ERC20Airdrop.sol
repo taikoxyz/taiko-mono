@@ -45,35 +45,15 @@ contract ERC20Airdrop is MerkleClaimable {
         vault = _vault;
     }
 
-    /// @notice Claims the airdrop for the user and delegates the voting power to the delegatee.
+    /// @notice Claims the airdrop for the user.
     /// @param user The address of the user.
     /// @param amount The amount of tokens to claim.
     /// @param proof The merkle proof.
-    /// @param delegationData The data for delegating the voting power.
-    function claimAndDelegate(
-        address user,
-        uint256 amount,
-        bytes32[] calldata proof,
-        bytes calldata delegationData
-    )
-        external
-        nonReentrant
-    {
+    function claim(address user, uint256 amount, bytes32[] calldata proof) external nonReentrant {
         // Check if this can be claimed
         _verifyClaim(abi.encode(user, amount), proof);
 
         // Transfer the tokens
-        address _token = token;
-        IERC20(_token).safeTransferFrom(vault, user, amount);
-
-        // Delegate the voting power to delegatee.
-        // Note that the signature (v,r,s) may not correspond to the user address,
-        // but since the data is provided by Taiko backend, it's not an issue even if
-        // client can change the data to call delegateBySig for another user.
-        (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
-            abi.decode(delegationData, (address, uint256, uint256, uint8, bytes32, bytes32));
-
-        // Allow delegateBySig to fail to avoid potential frontfun
-        try IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s) { } catch { }
+        IERC20(token).safeTransferFrom(vault, user, amount);
     }
 }

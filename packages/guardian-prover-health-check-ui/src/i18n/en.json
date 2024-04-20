@@ -15,7 +15,8 @@
 			"all": "All",
 			"dead": "Offline",
 			"title": "Sort by status",
-			"unhealthy": "Unhealthy"
+			"unhealthy": "Unhealthy",
+			"unknown": "Unknown"
 		}
 	},
 	"headings": {
@@ -35,15 +36,18 @@
 				"expected_address": "Expected address",
 				"healthchecks": "Healthchecks",
 				"status": "Status",
-				"uptime": "Uptime {uptime}%"
+				"uptime": "Uptime"
 			}
 		},
 		"table": {
 			"address": "Address",
 			"balance": "Balance",
 			"guardian_prover": "Guardian Prover",
-			"no_blocks_created": "Signed",
-			"status": "Status"
+			"latest_l1_block": "Latest L1 Block",
+			"latest_l2_block": "Latest L2 Block",
+			"no_blocks_created": "Signed Blocks",
+			"status": "Status",
+			"view_details": "View Healthchecks"
 		}
 	},
 	"page": {
@@ -55,8 +59,8 @@
 	},
 	"status": {
 		"configuration_error": "Amount of provers does not match configuration!",
-		"critical": "CRITICAL: only {online} of required {required} provers online",
-		"degraded": "WARNING: only {online} of {total} provers online (min: {required})",
+		"critical": "CRITICAL: {online} of required {required} provers online",
+		"degraded": "WARNING: {online} of {total} provers online (min: {required})",
 		"operational": " {online} of {total} provers online. (min: {required})"
 	}
 }

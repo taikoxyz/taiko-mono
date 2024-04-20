@@ -3,9 +3,9 @@
 # export LOG_LEVEL=DEBUG
 # export REPORT_GAS=true
 # replace with the address of the verifier/attester/pemCertChain.
-export SGX_VERIFIER_ADDRESS=0x558E38a3286916934Cb63ced04558A52F7Ce67a9
-export ATTESTATION_ADDRESS=0x9a3A019b2820ae3D396120fb9b2782D37be4799c
-export PEM_CERTCHAIN_ADDRESS=0x2Ec730f0830803A022262e46375E33023faD65e5
+export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
+export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
+export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
 # for setMrEnclave which should be called by the owner of the verifier
 export MR_ENCLAVE=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 # for setMrSigner which should be called by the owner of the verifier
@@ -21,7 +21,7 @@ export V3_QUOTE_BYTES=03000200000000000a000f00939a7233f79c4ca9940a0db3957f060712
 # export TASK_ENABLE="1,1,1,1,0" # owner config
 export TASK_ENABLE="0,0,0,0,1"  # public register
 forge script script/SetDcapParams.s.sol:SetDcapParams \
-    --fork-url https://l1rpc.internal.taiko.xyz \
+    --fork-url https://any-holesky-rpc-url/ \
     --broadcast \
     --ffi \
     -vvvv \

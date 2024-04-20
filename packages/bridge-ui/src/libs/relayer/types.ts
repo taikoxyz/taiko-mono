@@ -98,3 +98,23 @@ export type RelayerConfig = {
 export type ConfiguredRelayer = {
   configuredRelayer: RelayerConfig[];
 };
+
+export const FeeTypes = {
+  Eth: 'eth',
+  Erc20Deployed: 'erc20Deployed',
+  Erc20NotDeployed: 'erc20NotDeployed',
+  Erc721Deployed: 'erc721Deployed',
+  Erc721NotDeployed: 'erc721NotDeployed',
+  Erc1155NotDeployed: 'erc1155NotDeployed',
+  Erc1155Deployed: 'erc1155Deployed',
+} as const;
+
+export type FeeType = (typeof FeeTypes)[keyof typeof FeeTypes];
+
+export type Fee = {
+  type: FeeType;
+  amount: string;
+  destChainID: number;
+};
+
+export type ProcessingFeeApiResponse = { fees: Fee[] };

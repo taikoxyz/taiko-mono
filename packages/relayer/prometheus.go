@@ -50,6 +50,10 @@ var (
 		Name: "message_sent_events_processed_ops_total",
 		Help: "The total number of MessageSent processed events",
 	})
+	MessageSentEventsProcessedReverted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_processed_reverted_ops_total",
+		Help: "The total number of MessageSent processed events that reverted",
+	})
 	MessageSentEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_indexed_ops_total",
 		Help: "The total number of MessageSent indexed events",

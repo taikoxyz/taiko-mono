@@ -161,21 +161,13 @@ contract DeployOnL1 is DeployCapability {
         _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
         _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
         _timelock.transferOwnership(securityCouncil);
+        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
     }
 
     function deploySharedContracts()
         internal
         returns (address sharedAddressManager, address timelock, address governor)
     {
-        sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
-        if (sharedAddressManager != address(0)) {
-            return (
-                sharedAddressManager,
-                vm.envAddress("TIMELOCK_CONTROLLER"),
-                vm.envAddress("TAIKO_GOVERNOR")
-            );
-        }
-
         // Deploy the timelock
         timelock = deployProxy({
             name: "timelock_controller",
@@ -183,27 +175,33 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(TaikoTimelockController.init, (address(0), 7 days))
         });
 
-        sharedAddressManager = deployProxy({
-            name: "shared_address_manager",
-            impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, (address(0)))
-        });
+        sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
+        if (sharedAddressManager == address(0)) {
+            sharedAddressManager = deployProxy({
+                name: "shared_address_manager",
+                impl: address(new AddressManager()),
+                data: abi.encodeCall(AddressManager.init, (address(0)))
+            });
+        }
 
-        address taikoToken = deployProxy({
-            name: "taiko_token",
-            impl: address(new TaikoToken()),
-            data: abi.encodeCall(
-                TaikoToken.init,
-                (
-                    timelock,
-                    vm.envString("TAIKO_TOKEN_NAME"),
-                    vm.envString("TAIKO_TOKEN_SYMBOL"),
-                    vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"),
-                    address(sharedAddressManager)
-                )
-                ),
-            registerTo: sharedAddressManager
-        });
+        address taikoToken = vm.envAddress("TAIKO_TOKEN");
+        if (taikoToken == address(0)) {
+            taikoToken = deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: abi.encodeCall(
+                    TaikoToken.init,
+                    (
+                        timelock,
+                        vm.envString("TAIKO_TOKEN_NAME"),
+                        vm.envString("TAIKO_TOKEN_SYMBOL"),
+                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"),
+                        address(sharedAddressManager)
+                    )
+                    ),
+                registerTo: sharedAddressManager
+            });
+        }
 
         governor = deployProxy({
             name: "taiko_governor",

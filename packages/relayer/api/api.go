@@ -85,6 +85,7 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 	api.httpPort = cfg.HTTPPort
 	api.ctx = ctx
 	api.wg = &sync.WaitGroup{}
+	api.srcEthClient = srcEthClient
 
 	return nil
 }

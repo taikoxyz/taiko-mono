@@ -1,665 +1,741 @@
 export const guardianProverABI = [
 	{
+		type: 'function',
+		name: 'acceptOwnership',
 		inputs: [],
-		name: 'INVALID_GUARDIAN',
-		type: 'error'
+		outputs: [],
+		stateMutability: 'nonpayable'
 	},
 	{
-		inputs: [],
-		name: 'INVALID_GUARDIAN_SET',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'INVALID_MIN_GUARDIANS',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'INVALID_PAUSE_STATUS',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'INVALID_PROOF',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'PROVING_FAILED',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'REENTRANT_CALL',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'RESOLVER_DENIED',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'RESOLVER_INVALID_MANAGER',
-		type: 'error'
-	},
-	{
-		inputs: [],
-		name: 'RESOLVER_UNEXPECTED_CHAINID',
-		type: 'error'
-	},
-	{
-		inputs: [
-			{
-				internalType: 'uint64',
-				name: 'chainId',
-				type: 'uint64'
-			},
-			{
-				internalType: 'string',
-				name: 'name',
-				type: 'string'
-			}
-		],
-		name: 'RESOLVER_ZERO_ADDR',
-		type: 'error'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: false,
-				internalType: 'address',
-				name: 'previousAdmin',
-				type: 'address'
-			},
-			{
-				indexed: false,
-				internalType: 'address',
-				name: 'newAdmin',
-				type: 'address'
-			}
-		],
-		name: 'AdminChanged',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: true,
-				internalType: 'uint256',
-				name: 'operationId',
-				type: 'uint256'
-			},
-			{
-				indexed: false,
-				internalType: 'uint256',
-				name: 'approvalBits',
-				type: 'uint256'
-			},
-			{
-				indexed: false,
-				internalType: 'bool',
-				name: 'proofSubmitted',
-				type: 'bool'
-			}
-		],
-		name: 'Approved',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: true,
-				internalType: 'address',
-				name: 'beacon',
-				type: 'address'
-			}
-		],
-		name: 'BeaconUpgraded',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: false,
-				internalType: 'uint32',
-				name: 'version',
-				type: 'uint32'
-			},
-			{
-				indexed: false,
-				internalType: 'address[]',
-				name: 'guardians',
-				type: 'address[]'
-			}
-		],
-		name: 'GuardiansUpdated',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: false,
-				internalType: 'uint8',
-				name: 'version',
-				type: 'uint8'
-			}
-		],
-		name: 'Initialized',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: true,
-				internalType: 'address',
-				name: 'previousOwner',
-				type: 'address'
-			},
-			{
-				indexed: true,
-				internalType: 'address',
-				name: 'newOwner',
-				type: 'address'
-			}
-		],
-		name: 'OwnershipTransferred',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: false,
-				internalType: 'address',
-				name: 'account',
-				type: 'address'
-			}
-		],
-		name: 'Paused',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: false,
-				internalType: 'address',
-				name: 'account',
-				type: 'address'
-			}
-		],
-		name: 'Unpaused',
-		type: 'event'
-	},
-	{
-		anonymous: false,
-		inputs: [
-			{
-				indexed: true,
-				internalType: 'address',
-				name: 'implementation',
-				type: 'address'
-			}
-		],
-		name: 'Upgraded',
-		type: 'event'
-	},
-	{
-		inputs: [],
-		name: 'MIN_NUM_GUARDIANS',
-		outputs: [
-			{
-				internalType: 'uint256',
-				name: '',
-				type: 'uint256'
-			}
-		],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [],
+		type: 'function',
 		name: 'addressManager',
+		inputs: [],
 		outputs: [
 			{
-				internalType: 'address',
 				name: '',
-				type: 'address'
+				type: 'address',
+				internalType: 'address'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
-		inputs: [
-			{
-				components: [
-					{
-						internalType: 'bytes32',
-						name: 'l1Hash',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'difficulty',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'blobHash',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'extraData',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'depositsHash',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'address',
-						name: 'coinbase',
-						type: 'address'
-					},
-					{
-						internalType: 'uint64',
-						name: 'id',
-						type: 'uint64'
-					},
-					{
-						internalType: 'uint32',
-						name: 'gasLimit',
-						type: 'uint32'
-					},
-					{
-						internalType: 'uint64',
-						name: 'timestamp',
-						type: 'uint64'
-					},
-					{
-						internalType: 'uint64',
-						name: 'l1Height',
-						type: 'uint64'
-					},
-					{
-						internalType: 'uint24',
-						name: 'txListByteOffset',
-						type: 'uint24'
-					},
-					{
-						internalType: 'uint24',
-						name: 'txListByteSize',
-						type: 'uint24'
-					},
-					{
-						internalType: 'uint16',
-						name: 'minTier',
-						type: 'uint16'
-					},
-					{
-						internalType: 'bool',
-						name: 'blobUsed',
-						type: 'bool'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'parentMetaHash',
-						type: 'bytes32'
-					}
-				],
-				internalType: 'struct TaikoData.BlockMetadata',
-				name: 'meta',
-				type: 'tuple'
-			},
-			{
-				components: [
-					{
-						internalType: 'bytes32',
-						name: 'parentHash',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'blockHash',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'signalRoot',
-						type: 'bytes32'
-					},
-					{
-						internalType: 'bytes32',
-						name: 'graffiti',
-						type: 'bytes32'
-					}
-				],
-				internalType: 'struct TaikoData.Transition',
-				name: 'tran',
-				type: 'tuple'
-			},
-			{
-				components: [
-					{
-						internalType: 'uint16',
-						name: 'tier',
-						type: 'uint16'
-					},
-					{
-						internalType: 'bytes',
-						name: 'data',
-						type: 'bytes'
-					}
-				],
-				internalType: 'struct TaikoData.TierProof',
-				name: 'proof',
-				type: 'tuple'
-			}
-		],
+		type: 'function',
 		name: 'approve',
-		outputs: [
-			{
-				internalType: 'bool',
-				name: 'approved',
-				type: 'bool'
-			}
-		],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	},
-	{
 		inputs: [
 			{
-				internalType: 'address',
-				name: 'guardian',
-				type: 'address'
+				name: '_meta',
+				type: 'tuple',
+				internalType: 'struct TaikoData.BlockMetadata',
+				components: [
+					{
+						name: 'l1Hash',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'difficulty',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'blobHash',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'extraData',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'depositsHash',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'coinbase',
+						type: 'address',
+						internalType: 'address'
+					},
+					{
+						name: 'id',
+						type: 'uint64',
+						internalType: 'uint64'
+					},
+					{
+						name: 'gasLimit',
+						type: 'uint32',
+						internalType: 'uint32'
+					},
+					{
+						name: 'timestamp',
+						type: 'uint64',
+						internalType: 'uint64'
+					},
+					{
+						name: 'l1Height',
+						type: 'uint64',
+						internalType: 'uint64'
+					},
+					{
+						name: 'minTier',
+						type: 'uint16',
+						internalType: 'uint16'
+					},
+					{
+						name: 'blobUsed',
+						type: 'bool',
+						internalType: 'bool'
+					},
+					{
+						name: 'parentMetaHash',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'sender',
+						type: 'address',
+						internalType: 'address'
+					}
+				]
+			},
+			{
+				name: '_tran',
+				type: 'tuple',
+				internalType: 'struct TaikoData.Transition',
+				components: [
+					{
+						name: 'parentHash',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'blockHash',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'stateRoot',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					},
+					{
+						name: 'graffiti',
+						type: 'bytes32',
+						internalType: 'bytes32'
+					}
+				]
+			},
+			{
+				name: '_proof',
+				type: 'tuple',
+				internalType: 'struct TaikoData.TierProof',
+				components: [
+					{
+						name: 'tier',
+						type: 'uint16',
+						internalType: 'uint16'
+					},
+					{
+						name: 'data',
+						type: 'bytes',
+						internalType: 'bytes'
+					}
+				]
 			}
 		],
+		outputs: [
+			{
+				name: 'approved_',
+				type: 'bool',
+				internalType: 'bool'
+			}
+		],
+		stateMutability: 'nonpayable'
+	},
+	{
+		type: 'function',
 		name: 'guardianIds',
+		inputs: [
+			{
+				name: 'guardian',
+				type: 'address',
+				internalType: 'address'
+			}
+		],
 		outputs: [
 			{
-				internalType: 'uint256',
 				name: 'id',
-				type: 'uint256'
+				type: 'uint256',
+				internalType: 'uint256'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
-		inputs: [
-			{
-				internalType: 'uint256',
-				name: '',
-				type: 'uint256'
-			}
-		],
+		type: 'function',
 		name: 'guardians',
-		outputs: [
-			{
-				internalType: 'address',
-				name: '',
-				type: 'address'
-			}
-		],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
 		inputs: [
 			{
-				internalType: 'address',
-				name: '_addressManager',
-				type: 'address'
+				name: '',
+				type: 'uint256',
+				internalType: 'uint256'
 			}
 		],
+		outputs: [
+			{
+				name: '',
+				type: 'address',
+				internalType: 'address'
+			}
+		],
+		stateMutability: 'view'
+	},
+	{
+		type: 'function',
 		name: 'init',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	},
-	{
 		inputs: [
 			{
-				internalType: 'bytes32',
-				name: 'hash',
-				type: 'bytes32'
+				name: '_owner',
+				type: 'address',
+				internalType: 'address'
+			},
+			{
+				name: '_addressManager',
+				type: 'address',
+				internalType: 'address'
 			}
 		],
+		outputs: [],
+		stateMutability: 'nonpayable'
+	},
+	{
+		type: 'function',
 		name: 'isApproved',
-		outputs: [
+		inputs: [
 			{
-				internalType: 'bool',
-				name: '',
-				type: 'bool'
+				name: '_hash',
+				type: 'bytes32',
+				internalType: 'bytes32'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		outputs: [
+			{
+				name: '',
+				type: 'bool',
+				internalType: 'bool'
+			}
+		],
+		stateMutability: 'view'
 	},
 	{
+		type: 'function',
+		name: 'lastUnpausedAt',
 		inputs: [],
+		outputs: [
+			{
+				name: '',
+				type: 'uint64',
+				internalType: 'uint64'
+			}
+		],
+		stateMutability: 'view'
+	},
+	{
+		type: 'function',
 		name: 'minGuardians',
+		inputs: [],
 		outputs: [
 			{
-				internalType: 'uint32',
 				name: '',
-				type: 'uint32'
+				type: 'uint32',
+				internalType: 'uint32'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
-		inputs: [],
+		type: 'function',
 		name: 'numGuardians',
+		inputs: [],
 		outputs: [
 			{
-				internalType: 'uint256',
 				name: '',
-				type: 'uint256'
+				type: 'uint256',
+				internalType: 'uint256'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
-		inputs: [],
+		type: 'function',
 		name: 'owner',
+		inputs: [],
 		outputs: [
 			{
-				internalType: 'address',
 				name: '',
-				type: 'address'
+				type: 'address',
+				internalType: 'address'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
-		inputs: [],
+		type: 'function',
 		name: 'pause',
+		inputs: [],
 		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
+		stateMutability: 'nonpayable'
 	},
 	{
-		inputs: [],
+		type: 'function',
 		name: 'paused',
+		inputs: [],
 		outputs: [
 			{
-				internalType: 'bool',
 				name: '',
-				type: 'bool'
+				type: 'bool',
+				internalType: 'bool'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
+		type: 'function',
+		name: 'pendingOwner',
 		inputs: [],
+		outputs: [
+			{
+				name: '',
+				type: 'address',
+				internalType: 'address'
+			}
+		],
+		stateMutability: 'view'
+	},
+	{
+		type: 'function',
 		name: 'proxiableUUID',
+		inputs: [],
 		outputs: [
 			{
-				internalType: 'bytes32',
 				name: '',
-				type: 'bytes32'
+				type: 'bytes32',
+				internalType: 'bytes32'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
 	},
 	{
-		inputs: [],
+		type: 'function',
 		name: 'renounceOwnership',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	},
-	{
-		inputs: [
-			{
-				internalType: 'uint64',
-				name: 'chainId',
-				type: 'uint64'
-			},
-			{
-				internalType: 'bytes32',
-				name: 'name',
-				type: 'bytes32'
-			},
-			{
-				internalType: 'bool',
-				name: 'allowZeroAddress',
-				type: 'bool'
-			}
-		],
-		name: 'resolve',
-		outputs: [
-			{
-				internalType: 'address payable',
-				name: 'addr',
-				type: 'address'
-			}
-		],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [
-			{
-				internalType: 'bytes32',
-				name: 'name',
-				type: 'bytes32'
-			},
-			{
-				internalType: 'bool',
-				name: 'allowZeroAddress',
-				type: 'bool'
-			}
-		],
-		name: 'resolve',
-		outputs: [
-			{
-				internalType: 'address payable',
-				name: 'addr',
-				type: 'address'
-			}
-		],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [
-			{
-				internalType: 'address[]',
-				name: '_guardians',
-				type: 'address[]'
-			},
-			{
-				internalType: 'uint8',
-				name: '_minGuardians',
-				type: 'uint8'
-			}
-		],
-		name: 'setGuardians',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	},
-	{
-		inputs: [
-			{
-				internalType: 'address',
-				name: 'newOwner',
-				type: 'address'
-			}
-		],
-		name: 'transferOwnership',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	},
-	{
 		inputs: [],
-		name: 'unpause',
 		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
+		stateMutability: 'nonpayable'
 	},
 	{
+		type: 'function',
+		name: 'resolve',
 		inputs: [
 			{
-				internalType: 'address',
-				name: 'newImplementation',
-				type: 'address'
-			}
-		],
-		name: 'upgradeTo',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	},
-	{
-		inputs: [
-			{
-				internalType: 'address',
-				name: 'newImplementation',
-				type: 'address'
+				name: '_chainId',
+				type: 'uint64',
+				internalType: 'uint64'
 			},
 			{
-				internalType: 'bytes',
-				name: 'data',
-				type: 'bytes'
+				name: '_name',
+				type: 'bytes32',
+				internalType: 'bytes32'
+			},
+			{
+				name: '_allowZeroAddress',
+				type: 'bool',
+				internalType: 'bool'
 			}
 		],
-		name: 'upgradeToAndCall',
-		outputs: [],
-		stateMutability: 'payable',
-		type: 'function'
-	},
-	{
-		inputs: [],
-		name: 'version',
 		outputs: [
 			{
-				internalType: 'uint32',
 				name: '',
-				type: 'uint32'
+				type: 'address',
+				internalType: 'address payable'
 			}
 		],
-		stateMutability: 'view',
-		type: 'function'
+		stateMutability: 'view'
+	},
+	{
+		type: 'function',
+		name: 'resolve',
+		inputs: [
+			{
+				name: '_name',
+				type: 'bytes32',
+				internalType: 'bytes32'
+			},
+			{
+				name: '_allowZeroAddress',
+				type: 'bool',
+				internalType: 'bool'
+			}
+		],
+		outputs: [
+			{
+				name: '',
+				type: 'address',
+				internalType: 'address payable'
+			}
+		],
+		stateMutability: 'view'
+	},
+	{
+		type: 'function',
+		name: 'setGuardians',
+		inputs: [
+			{
+				name: '_newGuardians',
+				type: 'address[]',
+				internalType: 'address[]'
+			},
+			{
+				name: '_minGuardians',
+				type: 'uint8',
+				internalType: 'uint8'
+			}
+		],
+		outputs: [],
+		stateMutability: 'nonpayable'
+	},
+	{
+		type: 'function',
+		name: 'transferOwnership',
+		inputs: [
+			{
+				name: 'newOwner',
+				type: 'address',
+				internalType: 'address'
+			}
+		],
+		outputs: [],
+		stateMutability: 'nonpayable'
+	},
+	{
+		type: 'function',
+		name: 'unpause',
+		inputs: [],
+		outputs: [],
+		stateMutability: 'nonpayable'
+	},
+	{
+		type: 'function',
+		name: 'upgradeTo',
+		inputs: [
+			{
+				name: 'newImplementation',
+				type: 'address',
+				internalType: 'address'
+			}
+		],
+		outputs: [],
+		stateMutability: 'nonpayable'
+	},
+	{
+		type: 'function',
+		name: 'upgradeToAndCall',
+		inputs: [
+			{
+				name: 'newImplementation',
+				type: 'address',
+				internalType: 'address'
+			},
+			{
+				name: 'data',
+				type: 'bytes',
+				internalType: 'bytes'
+			}
+		],
+		outputs: [],
+		stateMutability: 'payable'
+	},
+	{
+		type: 'function',
+		name: 'version',
+		inputs: [],
+		outputs: [
+			{
+				name: '',
+				type: 'uint32',
+				internalType: 'uint32'
+			}
+		],
+		stateMutability: 'view'
+	},
+	{
+		type: 'event',
+		name: 'AdminChanged',
+		inputs: [
+			{
+				name: 'previousAdmin',
+				type: 'address',
+				indexed: false,
+				internalType: 'address'
+			},
+			{
+				name: 'newAdmin',
+				type: 'address',
+				indexed: false,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'Approved',
+		inputs: [
+			{
+				name: 'operationId',
+				type: 'uint256',
+				indexed: true,
+				internalType: 'uint256'
+			},
+			{
+				name: 'approvalBits',
+				type: 'uint256',
+				indexed: false,
+				internalType: 'uint256'
+			},
+			{
+				name: 'minGuardiansReached',
+				type: 'bool',
+				indexed: false,
+				internalType: 'bool'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'BeaconUpgraded',
+		inputs: [
+			{
+				name: 'beacon',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'GuardianApproval',
+		inputs: [
+			{
+				name: 'addr',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			},
+			{
+				name: 'blockId',
+				type: 'uint256',
+				indexed: true,
+				internalType: 'uint256'
+			},
+			{
+				name: 'blockHash',
+				type: 'bytes32',
+				indexed: true,
+				internalType: 'bytes32'
+			},
+			{
+				name: 'approved',
+				type: 'bool',
+				indexed: false,
+				internalType: 'bool'
+			},
+			{
+				name: 'proofData',
+				type: 'bytes',
+				indexed: false,
+				internalType: 'bytes'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'GuardiansUpdated',
+		inputs: [
+			{
+				name: 'version',
+				type: 'uint32',
+				indexed: false,
+				internalType: 'uint32'
+			},
+			{
+				name: 'guardians',
+				type: 'address[]',
+				indexed: false,
+				internalType: 'address[]'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'Initialized',
+		inputs: [
+			{
+				name: 'version',
+				type: 'uint8',
+				indexed: false,
+				internalType: 'uint8'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'OwnershipTransferStarted',
+		inputs: [
+			{
+				name: 'previousOwner',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			},
+			{
+				name: 'newOwner',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'OwnershipTransferred',
+		inputs: [
+			{
+				name: 'previousOwner',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			},
+			{
+				name: 'newOwner',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'Paused',
+		inputs: [
+			{
+				name: 'account',
+				type: 'address',
+				indexed: false,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'Unpaused',
+		inputs: [
+			{
+				name: 'account',
+				type: 'address',
+				indexed: false,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'event',
+		name: 'Upgraded',
+		inputs: [
+			{
+				name: 'implementation',
+				type: 'address',
+				indexed: true,
+				internalType: 'address'
+			}
+		],
+		anonymous: false
+	},
+	{
+		type: 'error',
+		name: 'INVALID_GUARDIAN',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'INVALID_GUARDIAN_SET',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'INVALID_MIN_GUARDIANS',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'INVALID_PAUSE_STATUS',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'INVALID_PROOF',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'REENTRANT_CALL',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'RESOLVER_DENIED',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'RESOLVER_INVALID_MANAGER',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'RESOLVER_UNEXPECTED_CHAINID',
+		inputs: []
+	},
+	{
+		type: 'error',
+		name: 'RESOLVER_ZERO_ADDR',
+		inputs: [
+			{
+				name: 'chainId',
+				type: 'uint64',
+				internalType: 'uint64'
+			},
+			{
+				name: 'name',
+				type: 'bytes32',
+				internalType: 'bytes32'
+			}
+		]
+	},
+	{
+		type: 'error',
+		name: 'ZERO_ADDR_MANAGER',
+		inputs: []
 	}
 ];
