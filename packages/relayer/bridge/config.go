@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -48,7 +49,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	bridgeMessageValue, ok := new(big.Int).SetString(c.String(flags.BridgeMessageValue.Name), 10)
 	if !ok {
-		return nil, fmt.Errorf("invalid bridgeMessageValue")
+		return nil, errors.New("invalid bridgeMessageValue")
 	}
 
 	return &Config{

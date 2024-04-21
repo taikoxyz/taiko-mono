@@ -3,6 +3,7 @@ package disperser
 import (
 	"crypto/ecdsa"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -52,7 +53,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	dispersalAmount, ok := new(big.Int).SetString(c.String(flags.DispersalAmount.Name), 10)
 	if !ok {
-		return nil, fmt.Errorf("Invalid dispersal amount")
+		return nil, errors.New("Invalid dispersal amount")
 	}
 
 	return &Config{
