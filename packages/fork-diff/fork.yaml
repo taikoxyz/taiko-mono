@@ -15,38 +15,12 @@ def:
     This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`taiko` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`{{ TAG_VERSION }}` tag).
 
   sub:
-    # - title: "Changes in accounts"
-    #   description: this show mods to accounts files
-    #   sub:
-    #     - title: "second layer"
-    #       globs:
-    #         - "accounts/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "accounts/*/*/*"
-    #     - title: "fourth layer"
-    #       globs:
-    #         - "accounts/*/*/*/*"
-
     - title: "beacon/engine"
       description: This shows modifications to beacon files.
       sub:
         - title: "Files"
           globs:
             - "beacon/*/*"
-
-    # - title: "Changes in build"
-    #   description: This shows modifications to build files
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "build/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "build/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "build/*/*/*"
 
     - title: "cmd"
       description: This shows modifications to cmd files.
@@ -56,33 +30,13 @@ def:
           globs:
             - "cmd/*/*"
 
-    # - title: "Changes in common"
-    #   description: This shows modifications to common files
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "common/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "common/*/*"
-
     - title: "consensus"
       description: "This shows modifications to consensus files."
       sub:
-        # - title: "first layer"
-        #   globs:
-        #     - "consensus/*"
         - title: "Files"
           description: "This is our Taiko consensus engine, built for the L2 rollup."
           globs:
             - "consensus/*/*"
-
-    # - title: "Changes in console"
-    #   description: "This shows changes to console files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "console/*"
 
     - title: "core"
       description: This shows modifications to core files.
@@ -93,35 +47,6 @@ def:
         - title: "Second layer"
           globs:
             - "core/*/*"
-
-    # - title: "Changes in crypto"
-    #   description: This shows modifications to crypto files
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "crypto/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "crypto/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "crypto/*/*/*"
-    #     - title: "fourth layer"
-    #       globs:
-    #         - "crypto/*/*/*/*"
-    #     - title: "fifth layer"
-    #       globs:
-    #         - "crypto/*/*/*/*/*"
-    #     - title: "sixth layer"
-    #       globs:
-    #         - "crypto/*/*/*/*/*/*"
-
-    # - title: "Changes in docs"
-    #   description: "This shows changes to docs files"
-    #   sub:
-    #     - title: "second layer"
-    #       globs:
-    #         - "docs/*/*"
 
     - title: "eth"
       description: This shows changes to eth files.
@@ -134,18 +59,6 @@ def:
           description: "This adds Taiko protocol specific logic into the API."
           globs:
             - "eth/*/*"
-        # - title: "third layer"
-        #   globs:
-        #     - "eth/*/*/*"
-        # - title: "fourth layer"
-        #   globs:
-        #     - "eth/*/*/*/*"
-        # - title: "fifth layer"
-        #   globs:
-        #     - "eth/*/*/*/*/*"
-        # - title: "sixth layer"
-        #   globs:
-        #     - "eth/*/*/*/*/*/*"
 
     - title: "ethclient"
       description: This shows changes to ethclient files.
@@ -154,84 +67,6 @@ def:
           description: "This provides API calls for L1 and L2 Origins, as well as Throwaway Block Receipts."
           globs:
             - "ethclient/*"
-        # - title: "second layer"
-        #   globs:
-        #     - "ethclient/*/*"
-
-    # - title: "Changes in ethdb"
-    #   description: "This shows changes to ethdb files"
-    #   sub:
-    #     - title: "second layer"
-    #       globs:
-    #         - "ethdb/*/*"
-
-    # - title: "Changes in ethstats"
-    #   description: "This shows changes to ethstats files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "ethstats/*"
-
-    # - title: "Changes in event"
-    #   description: "This shows changes to event files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "event/*"
-
-    # - title: "Changes in graphql"
-    #   description: "This shows changes to graphql files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "graphql/*"
-
-    # - title: "Changes in internal"
-    #   description: "This shows changes to internal files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "internal/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "internal/*/*"
-
-    # - title: "les"
-    #   description: "This shows changes to les files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "les/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "les/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "les/*/*/*"
-
-    # - title: "Changes in light"
-    #   description: "This shows changes to light files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "light/*"
-
-    # - title: "Changes in log"
-    #   description: "This shows changes to log files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #       - "log/*"
-
-    # - title: "Changes in metrics"
-    #   description: "This shows changes to metrics files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #       - "metrics/*"
-    #     - title: "second layer"
-    #       globs:
-    #       - "metrics/*/*"
 
     - title: "miner"
       description: "This shows changes to miner files."
@@ -241,33 +76,6 @@ def:
           globs:
             - "miner/*"
 
-    # - title: "Changes in mobile"
-    #   description: "This shows changes to mobile files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "mobile/*"
-
-    - title: "node"
-      description: "This shows changes to node files"
-      sub:
-        - title: "This adds taikoAuth namespace for authenticated APIs."
-          globs:
-            - "node/*"
-
-    # - title: "Changes in p2p"
-    #   description: "This shows changes to p2p files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "p2p/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "p2p/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "p2p/*/*/*"
-
     - title: "params"
       description: "This shows changes to params files."
       sub:
@@ -275,63 +83,6 @@ def:
           description: "This adds Taiko config values such as chain IDs and Network IDs."
           globs:
             - "params/*"
-
-    # - title: "Changes in rlp"
-    #   description: "This shows changes to rlp files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "rlp/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "rlp/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "rlp/*/*/*"
-
-    - title: "rpc"
-      description: "This shows changes to the rpc files"
-      sub:
-        - title: "This adds taikoAuth namespace for authenticated APIs."
-          globs:
-            - "rpc/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "rpc/*/*"
-
-    # - title: "Changes in signer"
-    #   description: "This shows changes to the signer files"
-    #   sub:
-    #     - title: "second layer"
-    #       globs:
-    #         - "signer/*/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "signer/*/*/*"
-
-    # - title: "Changes in swarm"
-    #   description: "This shows changes to the swarm files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "swarm/*"
-
-    # - title: "Changes in tests"
-    #   description: "This shows changes to the tests files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "tests/*"
-    #     - title: "third layer"
-    #       globs:
-    #         - "tests/*/*/*"
-
-    # - title: "Changes in trie"
-    #   description: "This shows changes to the trie files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "trie/*"
 
 # files can be ignored globally, these will be listed in a separate grayed-out section,
 # and do not count towards the total line count.
