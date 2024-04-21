@@ -23,6 +23,7 @@ func (r *BlobHashRepository) startQuery() *gorm.DB {
 	return r.db.GormDB().Table("blob_hashes")
 }
 
+/* Save a blob_hash record */
 func (r *BlobHashRepository) Save(opts blobstorage.SaveBlobHashOpts) error {
 	b := &blobstorage.BlobHash{
 		BlobHash:      opts.BlobHash,
@@ -36,6 +37,7 @@ func (r *BlobHashRepository) Save(opts blobstorage.SaveBlobHashOpts) error {
 	return nil
 }
 
+/* Get a block_hash record by a blobHash */
 func (r *BlobHashRepository) FirstByBlobHash(blobHash string) (*blobstorage.BlobHash, error) {
 	var b blobstorage.BlobHash
 
@@ -46,7 +48,7 @@ func (r *BlobHashRepository) FirstByBlobHash(blobHash string) (*blobstorage.Blob
 	return &b, nil
 }
 
-// DeleteAllAfterBlockID is used when a reorg is detected
+/* Delete all records from block_hash tables starting from a blockID */
 func (r *BlobHashRepository) DeleteAllAfterBlockID(blockID uint64) error {
 	query := `
         DELETE FROM blob_hashes

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/cyberhorsey/errors"
+
 	"gorm.io/gorm"
 )
 
@@ -14,4 +15,5 @@ var (
 type DB interface {
 	DB() (*sql.DB, error)
 	GormDB() *gorm.DB
+	// Begin() *gorm.DB
 }

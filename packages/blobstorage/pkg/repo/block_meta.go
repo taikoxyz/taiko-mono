@@ -37,8 +37,7 @@ func (r *BlockMetaRepository) Save(opts blobstorage.SaveBlockMetaOpts) error {
 }
 
 func (r *BlockMetaRepository) FindLatestBlockID() (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
-	FROM blocks_meta`
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0) FROM blocks_meta`
 
 	var b uint64
 
@@ -51,9 +50,7 @@ func (r *BlockMetaRepository) FindLatestBlockID() (uint64, error) {
 
 // DeleteAllAfterBlockID is used when a reorg is detected
 func (r *BlockMetaRepository) DeleteAllAfterBlockID(blockID uint64) error {
-	query := `
-DELETE FROM blob_hashes
-WHERE block_id >= ?`
+	query := `DELETE FROM blob_hashes WHERE block_id >= ?`
 
 	if err := r.startQuery().Exec(query, blockID).Error; err != nil {
 		return err
