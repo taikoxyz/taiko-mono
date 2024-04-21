@@ -3,6 +3,7 @@ module github.com/taikoxyz/taiko-mono
 go 1.21
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/buildkite/terminal-to-html/v3 v3.8.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -35,6 +36,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/mysql v1.5.6
+	gorm.io/driver/sqlite v1.4.3
 	gorm.io/gorm v1.25.9
 	gotest.tools v2.2.0+incompatible
 )
@@ -129,6 +131,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/mattn/go-sqlite3 v1.14.15 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.21 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
@@ -158,6 +161,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect

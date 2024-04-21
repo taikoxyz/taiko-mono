@@ -103,9 +103,7 @@ func (i *Indexer) setInitialIndexingBlock(
 	ctx context.Context,
 ) error {
 	// get most recently processed block height from the DB
-	// latest, err := i.blobHashRepo.FindLatestBlockID()
 	latest, err := i.repositories.BlockMetaRepo.FindLatestBlockID()
-	// latest, err := i.blockMetaRepo.FindLatestBlockID()
 	if err != nil {
 		return err
 	}
@@ -271,7 +269,6 @@ func calculateBlobHash(commitmentStr string) common.Hash {
 }
 
 func (i *Indexer) checkReorg(ctx context.Context, event *taikol1.TaikoL1BlockProposed) error {
-	// n, err := i.blockMetaRepo.FindLatestBlockID()
 	n, err := i.repositories.BlockMetaRepo.FindLatestBlockID()
 	if err != nil {
 		return err

@@ -8,13 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
-type DBTransaction interface {
-	Begin() *DB
-}
-
 type Repositories struct {
-	BlobHashRepo  *BlobHashRepository
-	BlockMetaRepo *BlockMetaRepository
+	BlobHashRepo  blobstorage.BlobHashRepository
+	BlockMetaRepo blobstorage.BlockMetaRepository
 	dbTransaction DB
 }
 
@@ -40,7 +36,6 @@ func NewRepositories(db DB) (*Repositories, error) {
 }
 
 // Database transaction to store blobs and blocks meta
-// func (r *Repositories) SaveBlobAndBlockMeta(ctx context.Context, opts *blobstorage.SaveBlobAndBlockMetaOpts) error {
 func (r *Repositories) SaveBlobAndBlockMeta(
 	ctx context.Context,
 	saveBlockMetaOpts *blobstorage.SaveBlockMetaOpts,
