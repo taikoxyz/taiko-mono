@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
 import "./ITierProvider.sol";
 
 /// @title TierProviderV1
@@ -20,7 +21,7 @@ contract TierProviderV1 is EssentialContract, ITierProvider {
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
-                verifierName: "tier_optimistic",
+                verifierName: "",
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
@@ -31,7 +32,7 @@ contract TierProviderV1 is EssentialContract, ITierProvider {
 
         if (_tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
-                verifierName: "tier_sgx",
+                verifierName: LibStrings.B_TIER_SGX,
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
@@ -42,7 +43,7 @@ contract TierProviderV1 is EssentialContract, ITierProvider {
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
-                verifierName: "tier_guardian",
+                verifierName: LibStrings.B_TIER_GUARDIAN,
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 60, //1 hours
