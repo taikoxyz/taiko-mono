@@ -44,13 +44,17 @@ contract TestBridgedERC20 is TaikoTest {
         vm.stopPrank();
     }
 
-    function test_20Vault_migration___only_vault_can_min_burn_when_migration_off() public {
+    function test_20Vault_migration___only_vault_can_min__but_cannot_burn_when_migration_off()
+        public
+    {
         BridgedERC20 btoken = deployBridgedToken("BAR");
         // only erc20_vault can brun and mint
         vm.startPrank(vault);
         btoken.mint(Bob, 1000);
+        //Vault cannot burn only if it owns the tokens
+        vm.expectRevert();
         btoken.burn(Bob, 600);
-        assertEq(btoken.balanceOf(Bob), 400);
+        assertEq(btoken.balanceOf(Bob), 1000);
         vm.stopPrank();
 
         // Owner cannot burn/mint
@@ -131,9 +135,10 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         newToken.burn(Bob, 10);
 
-        vm.prank(vault);
-        newToken.burn(Bob, 25);
-        assertEq(newToken.balanceOf(Bob), 200);
+        // Vault cannot burn as itself only if owns the tokens.
+        // vm.prank(vault);
+        // newToken.burn(Bob, 25);
+        // assertEq(newToken.balanceOf(Bob), 200);
     }
 
     function deployBridgedToken(string memory name) internal returns (BridgedERC20) {

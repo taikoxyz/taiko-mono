@@ -83,9 +83,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             emit MigratedTo(migratingAddress, _account, _amount);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(migratingAddress).mint(_account, _amount);
-        } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
-            // Only the vault can burn tokens when not migrating out
-            revert RESOLVER_DENIED();
+        } else {
+            // When user wants to burn tokens only during 'migrating out' phase is possible. If
+            // ERC20Vault burns the tokens, that will go thru the burn(amount) function.
+            revert BB_MINT_DISALLOWED();
         }
 
         _burn(_account, _amount);
