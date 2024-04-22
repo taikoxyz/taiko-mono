@@ -13,7 +13,7 @@ import (
 var (
 	EventNameMessageSent          = "MessageSent"
 	EventNameMessageStatusChanged = "MessageStatusChanged"
-	EventNameMessageReceived      = "MessageReceived"
+	EventNameMessageProcessed     = "MessageProcessed"
 	EventNameChainDataSynced      = "ChainDataSynced"
 )
 

@@ -19,5 +19,5 @@ func Test_queueName(t *testing.T) {
 		destChainId: big.NewInt(2),
 	}
 
-	assert.Equal(t, "1-2-MessageReceived-queue", w.queueName())
+	assert.Equal(t, "1-2-MessageProcessed-queue", w.queueName())
 }

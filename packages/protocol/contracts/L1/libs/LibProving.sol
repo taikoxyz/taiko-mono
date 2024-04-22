@@ -70,13 +70,12 @@ library LibProving {
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
     error L1_BLOCK_MISMATCH();
+    error L1_CANNOT_CONTEST();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
-    error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_CANNOT_CONTEST();
 
     /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
@@ -183,30 +182,22 @@ library LibProving {
         //
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
-        {
-            address verifier = _resolver.resolve(local.tier.verifierName, true);
+        if (local.tier.verifierName != "") {
+            address verifier = _resolver.resolve(local.tier.verifierName, false);
+            bool isContesting = _proof.tier == ts.tier && local.tier.contestBond != 0;
 
-            if (verifier != address(0)) {
-                bool isContesting = _proof.tier == ts.tier && local.tier.contestBond != 0;
+            IVerifier.Context memory ctx = IVerifier.Context({
+                metaHash: local.metaHash,
+                blobHash: _meta.blobHash,
+                // Separate msgSender to allow the prover to be any address in the future.
+                prover: msg.sender,
+                msgSender: msg.sender,
+                blockId: local.blockId,
+                isContesting: isContesting,
+                blobUsed: _meta.blobUsed
+            });
 
-                IVerifier.Context memory ctx = IVerifier.Context({
-                    metaHash: local.metaHash,
-                    blobHash: _meta.blobHash,
-                    // Separate msgSender to allow the prover to be any address in the future.
-                    prover: msg.sender,
-                    msgSender: msg.sender,
-                    blockId: local.blockId,
-                    isContesting: isContesting,
-                    blobUsed: _meta.blobUsed
-                });
-
-                IVerifier(verifier).verifyProof(ctx, _tran, _proof);
-            } else if (local.tier.verifierName != LibStrings.B_TIER_OP) {
-                // The verifier can be address-zero, signifying that there are no
-                // proof checks for the tier. In practice, this only applies to
-                // optimistic proofs.
-                revert L1_MISSING_VERIFIER();
-            }
+            IVerifier(verifier).verifyProof(ctx, _tran, _proof);
         }
 
         local.isTopTier = local.tier.contestBond == 0;

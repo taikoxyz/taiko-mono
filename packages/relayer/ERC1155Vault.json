@@ -236,8 +236,18 @@
         "components": [
           {
             "name": "id",
-            "type": "uint128",
-            "internalType": "uint128"
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fee",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "gasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
           },
           {
             "name": "from",
@@ -250,14 +260,14 @@
             "internalType": "uint64"
           },
           {
-            "name": "destChainId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
             "name": "srcOwner",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "destChainId",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "destOwner",
@@ -270,22 +280,7 @@
             "internalType": "address"
           },
           {
-            "name": "refundTo",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "value",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "fee",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "gasLimit",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -293,11 +288,6 @@
             "name": "data",
             "type": "bytes",
             "internalType": "bytes"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
           }
         ]
       },
@@ -454,9 +444,19 @@
             "internalType": "address"
           },
           {
+            "name": "fee",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
             "name": "token",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "gasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
           },
           {
             "name": "tokenIds",
@@ -467,26 +467,6 @@
             "name": "amounts",
             "type": "uint256[]",
             "internalType": "uint256[]"
-          },
-          {
-            "name": "gasLimit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "fee",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "refundTo",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
           }
         ]
       }
@@ -499,8 +479,18 @@
         "components": [
           {
             "name": "id",
-            "type": "uint128",
-            "internalType": "uint128"
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fee",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "gasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
           },
           {
             "name": "from",
@@ -513,14 +503,14 @@
             "internalType": "uint64"
           },
           {
-            "name": "destChainId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
             "name": "srcOwner",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "destChainId",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "destOwner",
@@ -533,22 +523,7 @@
             "internalType": "address"
           },
           {
-            "name": "refundTo",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "value",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "fee",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "gasLimit",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -556,11 +531,6 @@
             "name": "data",
             "type": "bytes",
             "internalType": "bytes"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
           }
         ]
       }

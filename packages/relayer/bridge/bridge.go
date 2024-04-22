@@ -218,19 +218,17 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 	auth.Value = value
 
 	message := bridge.IBridgeMessage{
-		Id:          big.NewInt(0),
+		Id:          0,
 		From:        b.addr,
 		SrcChainId:  srcChainId.Uint64(),
 		DestChainId: destChainId.Uint64(),
 		SrcOwner:    b.addr,
 		DestOwner:   b.addr,
 		To:          b.addr,
-		RefundTo:    b.addr,
 		Value:       b.bridgeMessageValue,
-		Fee:         processingFee,
-		GasLimit:    big.NewInt(140000),
+		Fee:         processingFee.Uint64(),
+		GasLimit:    140000,
 		Data:        []byte{},
-		Memo:        "",
 	}
 
 	gas, err := b.estimateGas(ctx, message)

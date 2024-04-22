@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Guardian } from '$lib/types';
-	import Spinner from '$components/Spinner/Spinner.svelte';
 	import { GuardianProverTableHeader, GuardianProverTableRow } from '../GuardianProver/';
 	import { selectedGuardianProver, guardianProvers } from '$stores';
-	import { t } from 'svelte-i18n';
 	import Filter from './Filter.svelte';
 	import { refreshData } from '$lib/dataFetcher';
 	import { goto } from '$app/navigation';
@@ -17,9 +15,7 @@
 	let filteredGuardianProvers = [];
 
 	const manualRefresh = async () => {
-		loading = true;
 		await refreshData();
-		loading = false;
 	};
 
 	const openDetails = (guardianProver: Guardian) => {
@@ -39,26 +35,19 @@
 </script>
 
 <div class="mt-[12px]">
-	{#if loading}
-		<Filter bind:filteredGuardianProvers refreshData={manualRefresh} bind:loading bind:filtered />
-		<div class="flex justify-center items-center w-full h-full my-[30px]">
-			<Spinner />
-			<span class="ml-5">{$t('loading')}</span>
-		</div>
-	{:else}
-		<Filter bind:filteredGuardianProvers refreshData={manualRefresh} bind:loading bind:filtered />
+	<Filter bind:filteredGuardianProvers refreshData={manualRefresh} bind:loading bind:filtered />
 
-		<GuardianProverTableHeader />
-		<div class="space-y-[8px]">
-			{#each dataToDisplay as guardianProver (guardianProver.id)}
-				<GuardianProverTableRow
-					{guardianProver}
-					on:click={() => openDetails(guardianProver)}
-					on:keydown={() => openDetails(guardianProver)}
-				/>
-			{/each}
-		</div>
-	{/if}
+	<GuardianProverTableHeader />
+	<div class="space-y-[8px]">
+		{#each dataToDisplay as guardianProver (guardianProver.id)}
+			<GuardianProverTableRow
+				{guardianProver}
+				on:click={() => openDetails(guardianProver)}
+				on:keydown={() => openDetails(guardianProver)}
+			/>
+		{/each}
+	</div>
+	<!-- {/if} -->
 </div>
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />

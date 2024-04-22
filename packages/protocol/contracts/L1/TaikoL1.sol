@@ -59,7 +59,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
-        state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
@@ -203,7 +202,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: 167_009,
+            chainId: LibNetwork.TAIKO,
             // Assume the block time is 3s, the protocol will allow ~90 days of
             // new blocks without any verification.
             blockMaxProposals: 3_000_000,
