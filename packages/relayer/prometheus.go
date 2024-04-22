@@ -114,4 +114,12 @@ var (
 		Name: "messages_not_received_on_dest_chain_opts_total",
 		Help: "The total number of messages that were not received on the destination chain",
 	})
+	ProfitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "profitable_message_after_transacting_ops_total",
+		Help: "The total number of processed events that ended up profitable",
+	})
+	UnprofitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "unprofitable_message_after_transacting_ops_total",
+		Help: "The total number of processed events that ended up unprofitable",
+	})
 )

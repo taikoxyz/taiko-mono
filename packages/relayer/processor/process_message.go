@@ -349,10 +349,13 @@ func (p *Processor) sendProcessMessageCall(
 	// mul by 1.05 for padding
 	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
 
+	var estimatedCost uint64 = 0
+
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
-			event.Message,
+			event.Message.Fee,
+			gasLimit,
 			baseFee.Uint64(),
 			gasTipCap.Uint64(),
 		)
@@ -386,15 +389,17 @@ func (p *Processor) sendProcessMessageCall(
 		)
 
 		if gasUsed > gasLimit {
-			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
+			return nil, relayer.ErrUnprofitable
 		}
+
+		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
 	}
 
 	candidate := txmgr.TxCandidate{
 		TxData:   data,
 		Blobs:    nil,
 		To:       &p.cfg.DestBridgeAddress,
-		GasLimit: uint64(float64(event.Message.GasLimit) * 1.05),
+		GasLimit: gasLimit,
 	}
 
 	receipt, err := p.txmgr.Send(ctx, candidate)
@@ -415,6 +420,22 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	relayer.MessageSentEventsProcessed.Inc()
+
+	if p.profitableOnly {
+		cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
+
+		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"actualCost", cost,
+			"estimatedCost", estimatedCost,
+		)
+
+		if cost > estimatedCost {
+			relayer.UnprofitableMessageAfterTransacting.Inc()
+		} else {
+			relayer.ProfitableMessageAfterTransacting.Inc()
+		}
+	}
 
 	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
 		return nil, err
