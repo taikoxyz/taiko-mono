@@ -13,7 +13,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
     uint256 internal logCount;
     RiscZeroVerifier public rv;
     SgxVerifier public sv;
-    GuardianVerifier public gv;
     GuardianProver public gp;
     TierProviderV1 public cp;
     Bridge public bridge;
@@ -65,14 +64,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
-        gv = GuardianVerifier(
-            deployProxy({
-                name: "guardian_verifier",
-                impl: address(new GuardianVerifier()),
-                data: abi.encodeCall(GuardianVerifier.init, (address(0), address(addressManager)))
-            })
-        );
-
         gp = GuardianProver(
             deployProxy({
                 name: "guardian_prover",
@@ -112,7 +103,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         registerAddress("taiko", address(L1));
         registerAddress("tier_sgx", address(sv));
-        registerAddress("tier_guardian", address(gv));
+        registerAddress("tier_guardian", address(gp));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
         registerAddress("guardian_prover", address(gp));

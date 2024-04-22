@@ -22,7 +22,6 @@ import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
-import "../contracts/verifiers/GuardianVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
@@ -322,13 +321,6 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "tier_guardian",
-            impl: address(new GuardianVerifier()),
-            data: abi.encodeCall(GuardianVerifier.init, (timelock, rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
-
-        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (timelock, rollupAddressManager)),
@@ -341,6 +333,8 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
             registerTo: rollupAddressManager
         });
+
+        register(rollupAddressManager, "tier_guardian", guardianProver);
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
