@@ -395,7 +395,7 @@ func (p *Processor) sendProcessMessageCall(
 		TxData:   data,
 		Blobs:    nil,
 		To:       &p.cfg.DestBridgeAddress,
-		GasLimit: uint64(float64(event.Message.GasLimit) * 1.05),
+		GasLimit: gasLimit,
 	}
 
 	receipt, err := p.txmgr.Send(ctx, candidate)
