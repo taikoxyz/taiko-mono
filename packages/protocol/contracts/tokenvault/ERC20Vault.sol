@@ -344,8 +344,6 @@ contract ERC20Vault is BaseVault {
         private
         returns (bytes memory msgData_, CanonicalERC20 memory ctoken_, uint256 balanceChange_)
     {
-        // _op.token, _op.to, _op.amount);
-
         // If it's a bridged token
         CanonicalERC20 storage _ctoken = bridgedToCanonical[_op.token];
         if (_ctoken.addr != address(0)) {
