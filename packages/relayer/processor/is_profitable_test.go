@@ -2,12 +2,10 @@ package processor
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
 func Test_isProfitable(t *testing.T) {
@@ -16,44 +14,49 @@ func Test_isProfitable(t *testing.T) {
 	tests := []struct {
 		name           string
 		message        bridge.IBridgeMessage
-		cost           *big.Int
+		baseFee        uint64
+		gasTipCap      uint64
 		wantProfitable bool
 		wantErr        error
 	}{
 		{
 			"zeroProcessingFee",
 			bridge.IBridgeMessage{
-				Fee: big.NewInt(0),
+				Fee: 0,
 			},
-			big.NewInt(1),
+			1,
+			1,
 			false,
 			nil,
 		},
 		{
 			"nilProcessingFee",
 			bridge.IBridgeMessage{},
-			big.NewInt(1),
+			1,
+			1,
 			false,
 			nil,
 		},
 		{
-			"lowProcessingFeeHighCost",
+			"profitable",
 			bridge.IBridgeMessage{
-				Fee:         new(big.Int).Sub(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
-				DestChainId: 167001,
+				GasLimit: 600000,
+				Fee:      600000000600001,
 			},
-			big.NewInt(1000000),
-			false,
-			nil,
-		},
-		{
-			"profitableProcessingFee",
-			bridge.IBridgeMessage{
-				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
-				DestChainId: 167001,
-			},
-			big.NewInt(1),
+			1000000000,
+			1,
 			true,
+			nil,
+		},
+		{
+			"unprofitable",
+			bridge.IBridgeMessage{
+				GasLimit: 600000,
+				Fee:      590000000600000,
+			},
+			1000000000,
+			1,
+			false,
 			nil,
 		},
 	}
@@ -63,7 +66,8 @@ func Test_isProfitable(t *testing.T) {
 			profitable, err := p.isProfitable(
 				context.Background(),
 				tt.message,
-				tt.cost,
+				tt.baseFee,
+				tt.gasTipCap,
 			)
 
 			assert.Equal(t, tt.wantProfitable, profitable)
