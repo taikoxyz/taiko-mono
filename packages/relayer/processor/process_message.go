@@ -365,10 +365,9 @@ func (p *Processor) sendProcessMessageCall(
 		}
 
 		msg := ethereum.CallMsg{
-			From:     auth.From,
-			To:       &p.cfg.DestBridgeAddress,
-			GasPrice: auth.GasPrice,
-			Data:     data,
+			From: auth.From,
+			To:   &p.cfg.DestBridgeAddress,
+			Data: data,
 		}
 
 		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
