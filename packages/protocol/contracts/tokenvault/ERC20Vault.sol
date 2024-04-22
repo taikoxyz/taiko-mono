@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
@@ -133,9 +134,11 @@ contract ERC20Vault is BaseVault {
 
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
+    error VAULT_ERROR_IN_SPECIAL_OPS();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_NEW_BTOKEN();
+    error VAULT_NOT_POSSIBLE_SPECIAL_OPERATION();
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 
@@ -328,6 +331,8 @@ contract ERC20Vault is BaseVault {
             IERC20(token_).safeTransfer(_to, _amount);
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
+            //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
+            // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
     }
@@ -355,7 +360,17 @@ contract ERC20Vault is BaseVault {
         // If it's a bridged token
         if (bridgedToCanonical[_token].addr != address(0)) {
             ctoken_ = bridgedToCanonical[_token];
-            IBridgedERC20(_token).burn(msg.sender, _amount);
+
+            bytes[] memory encodedCalls = _getBurnLowLevelCalls(_token, _user, _amount);
+            if (encodedCalls.length != 0) {
+                for (uint256 i; i < encodedCalls.length; ++i) {
+                    (bool result,) = _token.call(encodedCalls[i]);
+
+                    if (!result) revert VAULT_ERROR_IN_SPECIAL_OPS();
+                }
+            } else {
+                IBridgedERC20(_token).burn(msg.sender, _amount);
+            }
             balanceChange_ = _amount;
         } else {
             // If it's a canonical token
@@ -428,5 +443,35 @@ contract ERC20Vault is BaseVault {
             ctokenName: ctoken.name,
             ctokenDecimal: ctoken.decimals
         });
+    }
+
+    /// @dev If a token requires specific (e.g.: native USDC) operations to be burnt, then return
+    /// the low level calls.
+    /// @param toBeBurnt Token to be burnt.
+    /// @param user User trying to bridge.
+    /// @param amount Token amount to be burnt.
+    /// @return encodedCalls Address of the bridged token contract.
+    function _getBurnLowLevelCalls(
+        address toBeBurnt,
+        address user,
+        uint256 amount
+    )
+        private
+        returns (bytes[] memory encodedCalls)
+    {
+        if (toBeBurnt == resolve(LibStrings.B_BRIDGED_NATIVE_USDC, true)) {
+            // If this is a native USDC, then we need to:
+            // 1.transfer tokens from user to ERC20Vault
+            // 2. burn (supposing ERC20Vault has minterRole)
+            encodedCalls = new bytes[](2);
+            // 1. transfer to ERC20Vault
+            encodedCalls[0] = abi.encodeWithSignature(
+                "transferFrom(address,address,uint)", user, address(this), amount
+            );
+            // 2. burn
+            encodedCalls[1] = abi.encodeWithSignature("burn(uint)", amount);
+        }
+        // In case we will support other native tokens, custom logic can go here..
+        //else if() {...}
     }
 }
