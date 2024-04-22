@@ -349,7 +349,7 @@ contract ERC20Vault is BaseVault {
         // If it's a bridged token
         if (bridgedToCanonical[_op.token].addr != address(0)) {
             ctoken_ = bridgedToCanonical[_op.token];
-            IBridgedERC20(_op.token).burn(address(this), _op.amount);
+            IBridgedERC20(_op.token).burn(msg.sender, _op.amount);
             balanceChange_ = _op.amount;
         } else {
             // If it's a canonical token
