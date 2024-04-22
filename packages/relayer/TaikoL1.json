@@ -80,63 +80,6 @@
             "internalType": "uint32"
           }
         ]
-      },
-      {
-        "name": "ts_",
-        "type": "tuple",
-        "internalType": "struct TaikoData.TransitionState",
-        "components": [
-          {
-            "name": "key",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "blockHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "stateRoot",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "prover",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "validityBond",
-            "type": "uint96",
-            "internalType": "uint96"
-          },
-          {
-            "name": "contester",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "contestBond",
-            "type": "uint96",
-            "internalType": "uint96"
-          },
-          {
-            "name": "timestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "tier",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
-            "name": "contestations",
-            "type": "uint8",
-            "internalType": "uint8"
-          }
-        ]
       }
     ],
     "stateMutability": "view"
@@ -254,7 +197,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -262,6 +205,82 @@
             "name": "lastUnpausedAt",
             "type": "uint64",
             "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTransition",
+    "inputs": [
+      {
+        "name": "_blockId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "_tid",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct TaikoData.TransitionState",
+        "components": [
+          {
+            "name": "key",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "blockHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "stateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "prover",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "validityBond",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "contester",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "contestBond",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "tier",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "__reserved1",
+            "type": "uint8",
+            "internalType": "uint8"
           }
         ]
       }
@@ -335,7 +354,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "contestations",
+            "name": "__reserved1",
             "type": "uint8",
             "internalType": "uint8"
           }
@@ -726,7 +745,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -808,7 +827,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1181,12 +1200,6 @@
         "internalType": "uint256"
       },
       {
-        "name": "assignedProver",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
         "name": "prover",
         "type": "address",
         "indexed": true,
@@ -1209,12 +1222,6 @@
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
-      },
-      {
-        "name": "contestations",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
       }
     ],
     "anonymous": false
@@ -1230,12 +1237,6 @@
         "internalType": "uint256"
       },
       {
-        "name": "assignedProver",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
         "name": "prover",
         "type": "address",
         "indexed": true,
@@ -1258,12 +1259,6 @@
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
-      },
-      {
-        "name": "contestations",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
       }
     ],
     "anonymous": false
@@ -1424,7 +1419,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1474,7 +1469,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "__reservedB3",
+            "name": "lastSnapshotIdx",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1484,6 +1479,56 @@
             "internalType": "uint64"
           }
         ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TaikoTokenSnapshot",
+    "inputs": [
+      {
+        "name": "tkoAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "snapshotIdx",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "snapshotId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TaikoTokenSnapshot",
+    "inputs": [
+      {
+        "name": "tkoAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "snapshotIdx",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "snapshotId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1782,16 +1827,6 @@
   },
   {
     "type": "error",
-    "name": "L1_ASSIGNED_PROVER_NOT_ALLOWED",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_ASSIGNED_PROVER_NOT_ALLOWED",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "L1_BLOB_NOT_AVAILABLE",
     "inputs": []
   },
@@ -1827,7 +1862,7 @@
   },
   {
     "type": "error",
-    "name": "L1_BLOCK_MISMATCH",
+    "name": "L1_CANNOT_CONTEST",
     "inputs": []
   },
   {
@@ -1858,6 +1893,16 @@
   {
     "type": "error",
     "name": "L1_INVALID_CONFIG",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_INVALID_GENESIS_HASH",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_INVALID_GENESIS_HASH",
     "inputs": []
   },
   {
@@ -1973,11 +2018,6 @@
   {
     "type": "error",
     "name": "L1_TOO_MANY_BLOCKS",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_TOO_MANY_TIERS",
     "inputs": []
   },
   {

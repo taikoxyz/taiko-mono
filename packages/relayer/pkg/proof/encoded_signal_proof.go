@@ -39,8 +39,6 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 	hopProofs := []encoding.HopProof{}
 
 	for _, hop := range hopParams {
-		slog.Info("generating hop proof")
-
 		block, err := hop.Blocker.BlockByNumber(
 			ctx,
 			new(big.Int).SetUint64(hop.BlockNumber),

@@ -3,7 +3,6 @@ package processor
 import (
 	"context"
 	"log/slog"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -21,10 +20,10 @@ func canProcessMessage(
 	eventStatus relayer.EventStatus,
 	messageOwner common.Address,
 	relayerAddress common.Address,
-	gasLimit *big.Int,
+	gasLimit uint64,
 ) bool {
 	// we can not process, exit early
-	if eventStatus == relayer.EventStatusNew && gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
+	if eventStatus == relayer.EventStatusNew && gasLimit == 0 {
 		if messageOwner != relayerAddress {
 			slog.Info("gasLimit == 0 and owner is not the current relayer key, can not process.")
 			return false

@@ -56,6 +56,7 @@ type ethClient interface {
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
+	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 }
 
 // hop is a struct which needs to be created based on the config parameters

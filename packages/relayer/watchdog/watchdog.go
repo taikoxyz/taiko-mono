@@ -54,8 +54,7 @@ type ethClient interface {
 type Watchdog struct {
 	cancel context.CancelFunc
 
-	eventRepo       relayer.EventRepository
-	suspendedTxRepo relayer.SuspendedTransactionRepository
+	eventRepo relayer.EventRepository
 
 	queue queue.Queue
 
@@ -108,11 +107,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	}
 
 	eventRepository, err := repo.NewEventRepository(db)
-	if err != nil {
-		return err
-	}
-
-	suspendedTxRepo, err := repo.NewSuspendedTransactionRepository(db)
 	if err != nil {
 		return err
 	}
@@ -171,7 +165,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	}
 
 	w.eventRepo = eventRepository
-	w.suspendedTxRepo = suspendedTxRepo
 
 	w.srcEthClient = srcEthClient
 	w.destEthClient = destEthClient
@@ -254,7 +247,7 @@ func (w *Watchdog) Start() error {
 }
 
 func (w *Watchdog) queueName() string {
-	return fmt.Sprintf("%v-%v-%v-queue", w.srcChainId.String(), w.destChainId.String(), relayer.EventNameMessageReceived)
+	return fmt.Sprintf("%v-%v-%v-queue", w.srcChainId.String(), w.destChainId.String(), relayer.EventNameMessageProcessed)
 }
 
 func (w *Watchdog) eventLoop(ctx context.Context) {
@@ -290,7 +283,7 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 // that the message was actually sent on the source chain. If it wasn't,
 // we send a suspend transaction.
 func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
-	msgBody := &queue.QueueMessageReceivedBody{}
+	msgBody := &queue.QueueMessageProcessedBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
@@ -304,21 +297,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	// if so, do nothing, acknowledge message
 	if sent {
 		slog.Info("dest bridge did send this message. returning early",
-			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
 			"sent", sent,
 		)
 
 		return nil
 	}
-
-	receipt, err := w.suspendMessage(ctx, msgBody.Event.MsgHash)
-	if err != nil {
-		return err
-	}
-
-	slog.Info("Mined suspend tx", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()))
-
-	relayer.TransactionsSuspended.Inc()
 
 	pauseReceipt, err := w.pauseBridge(ctx)
 	if err != nil {
@@ -329,40 +312,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	relayer.BridgePaused.Inc()
 
-	if _, err := w.suspendedTxRepo.Save(ctx,
-		relayer.SuspendTransactionOpts{
-			MessageID:    int(msgBody.Event.Message.Id.Int64()),
-			SrcChainID:   int(msgBody.Event.Message.SrcChainId),
-			DestChainID:  int(msgBody.Event.Message.DestChainId),
-			MessageOwner: msgBody.Event.Message.From.Hex(),
-			Suspended:    true,
-			MsgHash:      common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-		}); err != nil {
-		return errors.Wrap(err, "w.suspendedTxRepo.Save")
-	}
-
 	return nil
-}
-
-func (w *Watchdog) suspendMessage(ctx context.Context, msgHash [32]byte) (*types.Receipt, error) {
-	data, err := encoding.BridgeABI.Pack("suspendMessages", [][32]byte{msgHash}, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
-	}
-
-	candidate := txmgr.TxCandidate{
-		TxData: data,
-		Blobs:  nil,
-		To:     &w.cfg.SrcBridgeAddress,
-	}
-
-	receipt, err := w.txmgr.Send(ctx, candidate)
-	if err != nil {
-		slog.Warn("Failed to send SuspendMessage transaction", "error", err.Error())
-		return nil, err
-	}
-
-	return receipt, nil
 }
 
 func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
