@@ -425,13 +425,13 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Returns the minimal gas limit required for sending a given message.
-    /// @param _message The message.
+    /// @param dataLength The length of message.data.
     /// @return The minimal gas limit required for sending this message.
-    function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
+    function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         unchecked {
             // Message struct takes 7*32=224 bytes + a variable length array.
             // Since ABI.encode pads data to multiples of 32 bytes, we over-charge 32 bytes
-            return GAS_RESERVE + uint32((_message.data.length + 256) >> 4);
+            return GAS_RESERVE + uint32((dataLength + 256) >> 4);
         }
     }
 
@@ -594,7 +594,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (uint256 gasLimit_)
     {
         unchecked {
-            uint256 minGasRequired = getMessageMinGasLimit(_message);
+            uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
             gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
 
