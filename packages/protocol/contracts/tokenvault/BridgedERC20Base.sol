@@ -68,7 +68,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             revert BB_PERMISSION_DENIED();
         }
 
-        _mintToken(_account, _amount);
+        _mint(_account, _amount);
     }
 
     /// @notice Burns tokens from the specified account.
@@ -87,7 +87,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             revert RESOLVER_DENIED();
         }
 
-        _burnToken(_account, _amount);
+        _burn(_account, _amount);
     }
 
     /// @notice Returns the owner.
@@ -96,9 +96,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         return super.owner();
     }
 
-    function _mintToken(address _account, uint256 _amount) internal virtual;
+    function _mint(address _account, uint256 _amount) internal virtual;
 
-    function _burnToken(address _from, uint256 _amount) internal virtual;
+    function _burn(address _from, uint256 _amount) internal virtual;
 
     function _isMigratingOut() private view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;
