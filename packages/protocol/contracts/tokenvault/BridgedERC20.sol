@@ -31,14 +31,6 @@ contract BridgedERC20 is
     uint256[47] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
-    error BTOKEN_UNAUTHORIZED();
-
-    modifier onlyOwnerOrSnapshooter() {
-        if (msg.sender != owner() && msg.sender != snapshooter) {
-            revert BTOKEN_UNAUTHORIZED();
-        }
-        _;
-    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -72,17 +64,6 @@ contract BridgedERC20 is
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         __srcDecimals = _decimals;
-    }
-
-    /// @notice Set the snapshoter address.
-    /// @param _snapshooter snapshooter address.
-    function setSnapshooter(address _snapshooter) external onlyOwner {
-        snapshooter = _snapshooter;
-    }
-
-    /// @notice Creates a new token snapshot.
-    function snapshot() external onlyOwnerOrSnapshooter returns (uint256) {
-        return _snapshot();
     }
 
     /// @notice Gets the name of the token.
