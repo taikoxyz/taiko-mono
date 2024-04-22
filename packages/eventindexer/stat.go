@@ -10,7 +10,7 @@ var (
 	StatTypeProofReward = "proofReward"
 )
 
-// Event represents a stored EVM event. The fields will be serialized
+// Stat represents a stored EVM event. The fields will be serialized
 // into the Data field to be unmarshalled into a concrete struct
 // dependant on the name of the event
 type Stat struct {
