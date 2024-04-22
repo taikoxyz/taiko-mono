@@ -327,18 +327,31 @@ contract DeployOnL1 is DeployCapability {
             registerTo: rollupAddressManager
         });
 
-        address guardianProver = deployProxy({
-            name: "guardian_prover",
-            impl: address(new GuardianProver()),
+        address guardianProverImpl = address(new GuardianProver());
+
+        address guardianProverMinority = deployProxy({
+            name: "guardian_prover_minority",
+            impl: guardianProverImpl,
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
+        address guardianProver = deployProxy({
+            name: "guardian_prover",
+            impl: guardianProverImpl,
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
+            registerTo: rollupAddressManager
+        });
+
+        register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
-        uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
-        GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
+
+        GuardianProver(guardianProverMinority).setGuardians(guardians, 1);
+        GuardianProver(guardianProverMinority).transferOwnership(timelock);
+
+        GuardianProver(guardianProver).setGuardians(guardians, uint8(vm.envUint("MIN_GUARDIANS")));
         GuardianProver(guardianProver).transferOwnership(timelock);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
