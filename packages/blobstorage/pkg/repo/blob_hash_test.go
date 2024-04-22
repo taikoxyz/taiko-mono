@@ -152,7 +152,7 @@ func TestBlobHashRepo_DeleteAllAfterBlockID(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name:    "successful to delete a blob_hashes starting from a blockID",
+			name:    "successful to delete a blob_hashs starting from a blockID",
 			blockID: 123,
 			setupMock: func(mock sqlmock.Sqlmock) {
 				query := `DELETE FROM blob_hashes WHERE blob_hash IN \(\s*SELECT blob_hashes\.blob_hash FROM blob_hashes INNER JOIN block_meta ON blob_hashes\.blob_hash = block_meta\.blob_hash WHERE block_meta\.block_id >= \?\s*\)`
@@ -163,7 +163,7 @@ func TestBlobHashRepo_DeleteAllAfterBlockID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "delete to to delete a blob_hashes starting from a blockID",
+			name:    "delete to to delete a blob_hashs starting from a blockID",
 			blockID: 123,
 			setupMock: func(mock sqlmock.Sqlmock) {
 				query := `DELETE FROM blob_hashes WHERE blob_hash IN \(\s*SELECT blob_hashes\.blob_hash FROM blob_hashes INNER JOIN block_meta ON blob_hashes\.blob_hash = block_meta\.blob_hash WHERE block_meta\.block_id >= \?\s*\)`
