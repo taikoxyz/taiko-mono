@@ -346,6 +346,9 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	// mul by 1.05 for padding
+	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
+
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
@@ -378,9 +381,11 @@ func (p *Processor) sendProcessMessageCall(
 		slog.Info("estimatedGasUsed",
 			"gasUsed", gasUsed,
 			"messageGasLimit", event.Message.GasLimit,
+			"paddedGasLimit", gasLimit,
+			"srcTxHash", event.Raw.TxHash.Hex(),
 		)
 
-		if gasUsed > uint64(float64(event.Message.GasLimit)*1.05) {
+		if gasUsed > gasLimit {
 			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
 		}
 	}
