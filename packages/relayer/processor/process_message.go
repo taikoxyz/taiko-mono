@@ -352,7 +352,8 @@ func (p *Processor) sendProcessMessageCall(
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
-			event.Message,
+			event.Message.Fee,
+			gasLimit,
 			baseFee.Uint64(),
 			gasTipCap.Uint64(),
 		)
@@ -386,7 +387,7 @@ func (p *Processor) sendProcessMessageCall(
 		)
 
 		if gasUsed > gasLimit {
-			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
+			return nil, relayer.ErrUnprofitable
 		}
 	}
 
