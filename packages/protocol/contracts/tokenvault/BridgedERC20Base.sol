@@ -29,6 +29,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 
     error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();
+    error BB_INVALID_BURN_AMOUNT();
     error BB_MINT_DISALLOWED();
 
     /// @notice Start or stop migration to/from a specified contract.
@@ -88,6 +89,21 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         }
 
         _burn(_account, _amount);
+    }
+
+    /// @notice Burns tokens from msg.sender, if this is the ERC20Vault. Otherwise do not allow
+    /// anyone to burn (e.g. USDC) or other coins, as it would be changing the supply (on other
+    /// chains too).
+    /// @param _amount The amount of tokens to burn.
+    function burn(uint256 _amount)
+        external
+        whenNotPaused
+        nonReentrant
+        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+    {
+        if (_amount == 0) revert BB_INVALID_BURN_AMOUNT();
+        //All the necessary other checks (balance, etc.) are handled in the ERC20Upgradeable._burn()
+        _burn(msg.sender, _amount);
     }
 
     /// @notice Returns the owner.
