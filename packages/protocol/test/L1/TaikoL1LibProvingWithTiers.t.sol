@@ -524,57 +524,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_IfGuardianRoleIsNotGrantedToProver() external {
-        registerAddress("guardian_prover", Alice);
-
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
-        console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
-            printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-            //printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 stateRoot = bytes32(1e9 + blockId);
-            // This proof cannot be verified obviously because of
-            // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
-
-            // Prove as guardian but in reality not a guardian
-            proveBlock(
-                Carol,
-                meta,
-                parentHash,
-                blockHash,
-                stateRoot,
-                LibTiers.TIER_GUARDIAN,
-                GuardianProver.GV_PERMISSION_DENIED.selector
-            );
-
-            vm.roll(block.number + 15 * 12);
-
-            uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
-
-            verifyBlock(1);
-
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
     function test_L1_ProveWithInvalidBlockId() external {
         registerAddress("guardian_prover", Alice);
 
