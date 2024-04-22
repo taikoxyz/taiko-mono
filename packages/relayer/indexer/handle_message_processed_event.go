@@ -37,6 +37,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 	}
 
 	inputs := make(map[string]interface{})
+
 	err = method.Inputs.UnpackIntoMap(inputs, transaction.Data()[4:])
 	if err != nil {
 		return err
