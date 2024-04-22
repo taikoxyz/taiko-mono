@@ -34,9 +34,6 @@ library LibStrings {
     /// @notice bytes32 representation of the string "bridged_erc20".
     bytes32 internal constant B_BRIDGED_ERC20 = bytes32("bridged_erc20");
 
-    /// @notice bytes32 representation of the string "bridged_native_usdc".
-    bytes32 internal constant B_BRIDGED_NATIVE_USDC = bytes32("bridged_native_usdc");
-
     /// @notice bytes32 representation of the string "erc1155_vault".
     bytes32 internal constant B_ERC1155_VAULT = bytes32("erc1155_vault");
 
