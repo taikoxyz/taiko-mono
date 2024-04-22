@@ -201,7 +201,7 @@ func main() {
 
 			err := enc.Encode(FilePatch{filePatch: fps.Patch})
 			if err != nil {
-				return "", fmt.Errorf("")
+				return "", errors.New("")
 			}
 			return string(t2html.Render(out.Bytes())), nil
 		},
