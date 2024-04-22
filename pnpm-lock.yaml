@@ -328,8 +328,8 @@ importers:
         specifier: 0.7.3
         version: 0.7.3
       solhint:
-        specifier: ^4.5.4
-        version: 4.5.4(typescript@5.4.3)
+        specifier: ^4.5.2
+        version: 4.5.2(typescript@5.4.3)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@20.11.20)(typescript@5.4.3)
@@ -12242,8 +12242,8 @@ packages:
       - debug
     dev: true
 
-  /solhint@4.5.4(typescript@5.4.3):
-    resolution: {integrity: sha512-Cu1XiJXub2q1eCr9kkJ9VPv1sGcmj3V7Zb76B0CoezDOB9bu3DxKIFFH7ggCl9fWpEPD6xBmRLfZrYijkVmujQ==}
+  /solhint@4.5.2(typescript@5.4.3):
+    resolution: {integrity: sha512-o7MNYS5QPgE6l+PTGOTAUtCzo0ZLnffQsv586hntSHBe2JbSDfkoxfhAOcjZjN4OesTgaX4UEEjCjH9y/4BP5w==}
     hasBin: true
     dependencies:
       '@solidity-parser/parser': 0.18.0

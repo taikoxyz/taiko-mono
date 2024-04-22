@@ -33,8 +33,10 @@ contract BridgedERC20 is
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_UNAUTHORIZED();
 
-    modifier onlyAuthorizedForSnapshot() {
-        if (!isAuthorizedForSnapshot(msg.sender)) revert BTOKEN_UNAUTHORIZED();
+    modifier onlyOwnerOrSnapshooter() {
+        if (msg.sender != owner() && msg.sender != snapshooter) {
+            revert BTOKEN_UNAUTHORIZED();
+        }
         _;
     }
 
@@ -79,7 +81,7 @@ contract BridgedERC20 is
     }
 
     /// @notice Creates a new token snapshot.
-    function snapshot() external onlyAuthorizedForSnapshot returns (uint256) {
+    function snapshot() external onlyOwnerOrSnapshooter returns (uint256) {
         return _snapshot();
     }
 
@@ -114,28 +116,6 @@ contract BridgedERC20 is
         returns (uint8)
     {
         return __srcDecimals;
-    }
-
-    /// @notice Gets the current snapshot ID.
-    /// @return The current snapshot ID.
-    function currentSnapshotId() public view returns (uint256) {
-        return _getCurrentSnapshotId();
-    }
-
-    /// @notice Checks if an address can take a snapshot.
-    /// @param addr The address.
-    /// @return true if the address can perform a snapshot, false otherwise.
-    function isAuthorizedForSnapshot(address addr) public view returns (bool) {
-        if (addr == address(0)) return false;
-
-        if (
-            addr == resolve(LibStrings.B_TAIKO, true)
-                && address(this) == resolve(LibStrings.B_TAIKO_TOKEN, true)
-        ) return true;
-
-        if (addr == snapshooter) return true;
-
-        return false;
     }
 
     /// @notice Gets the canonical token's address and chain ID.

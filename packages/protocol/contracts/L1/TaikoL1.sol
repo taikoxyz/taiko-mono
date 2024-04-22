@@ -59,6 +59,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
+        state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
