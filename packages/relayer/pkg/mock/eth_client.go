@@ -35,6 +35,10 @@ func (s *Subscription) Unsubscribe() {}
 type EthClient struct {
 }
 
+func (c *EthClient) TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error) {
+	return &types.Transaction{}, false, nil
+}
+
 func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	return big.NewInt(100), nil
 }

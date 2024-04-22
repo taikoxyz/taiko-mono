@@ -346,6 +346,9 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	// mul by 1.05 for padding
+	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
+
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
@@ -365,10 +368,9 @@ func (p *Processor) sendProcessMessageCall(
 		}
 
 		msg := ethereum.CallMsg{
-			From:     auth.From,
-			To:       &p.cfg.DestBridgeAddress,
-			GasPrice: auth.GasPrice,
-			Data:     data,
+			From: auth.From,
+			To:   &p.cfg.DestBridgeAddress,
+			Data: data,
 		}
 
 		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
@@ -376,7 +378,14 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, err
 		}
 
-		if gasUsed > uint64(float64(event.Message.GasLimit)*1.1) {
+		slog.Info("estimatedGasUsed",
+			"gasUsed", gasUsed,
+			"messageGasLimit", event.Message.GasLimit,
+			"paddedGasLimit", gasLimit,
+			"srcTxHash", event.Raw.TxHash.Hex(),
+		)
+
+		if gasUsed > gasLimit {
 			return nil, errors.New("gasUsed > gasLimit, will not be profitable")
 		}
 	}
@@ -385,7 +394,7 @@ func (p *Processor) sendProcessMessageCall(
 		TxData:   data,
 		Blobs:    nil,
 		To:       &p.cfg.DestBridgeAddress,
-		GasLimit: uint64(float64(event.Message.GasLimit) * 1.1),
+		GasLimit: uint64(float64(event.Message.GasLimit) * 1.05),
 	}
 
 	receipt, err := p.txmgr.Send(ctx, candidate)
