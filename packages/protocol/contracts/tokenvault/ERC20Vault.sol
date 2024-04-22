@@ -347,8 +347,9 @@ contract ERC20Vault is BaseVault {
         // _op.token, _op.to, _op.amount);
 
         // If it's a bridged token
-        if (bridgedToCanonical[_op.token].addr != address(0)) {
-            ctoken_ = bridgedToCanonical[_op.token];
+        CanonicalERC20 storage _ctoken = bridgedToCanonical[_op.token];
+        if (_ctoken.addr != address(0)) {
+            ctoken_ = _ctoken;
             IBridgedERC20(_op.token).burn(msg.sender, _op.amount);
             balanceChange_ = _op.amount;
         } else {

@@ -246,8 +246,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         unchecked {
             // is a btoken, meaning, it does not live on this chain
-            if (bridgedToCanonical[_op.token].addr != address(0)) {
-                ctoken_ = bridgedToCanonical[_op.token];
+            CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
+            if (_ctoken.addr != address(0)) {
+                ctoken_ = _ctoken;
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
                     BridgedERC1155(_op.token).burn(msg.sender, _op.tokenIds[i], _op.amounts[i]);
                 }
