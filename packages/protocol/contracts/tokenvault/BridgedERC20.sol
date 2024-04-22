@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "./LibBridgedToken.sol";
@@ -11,12 +10,7 @@ import "./BridgedERC20Base.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is
-    BridgedERC20Base,
-    IERC20MetadataUpgradeable,
-    ERC20SnapshotUpgradeable,
-    ERC20VotesUpgradeable
-{
+contract BridgedERC20 is BridgedERC20Base, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
@@ -85,34 +79,19 @@ contract BridgedERC20 is
 
     /// @notice Gets the name of the token.
     /// @return The name.
-    function name()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (string memory)
-    {
+    function name() public view override(ERC20Upgradeable) returns (string memory) {
         return LibBridgedToken.buildName(super.name(), srcChainId);
     }
 
     /// @notice Gets the symbol of the bridged token.
     /// @return The symbol.
-    function symbol()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (string memory)
-    {
+    function symbol() public view override(ERC20Upgradeable) returns (string memory) {
         return LibBridgedToken.buildSymbol(super.symbol());
     }
 
     /// @notice Gets the number of decimal places of the token.
     /// @return The number of decimal places of the token.
-    function decimals()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (uint8)
-    {
+    function decimals() public view override(ERC20Upgradeable) returns (uint8) {
         return __srcDecimals;
     }
 
