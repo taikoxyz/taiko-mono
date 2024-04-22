@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../libs/LibAddress.sol";
-import "../common/LibStrings.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
@@ -134,11 +133,9 @@ contract ERC20Vault is BaseVault {
 
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
-    error VAULT_ERROR_IN_SPECIAL_OPS();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_NEW_BTOKEN();
-    error VAULT_NOT_POSSIBLE_SPECIAL_OPERATION();
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
 

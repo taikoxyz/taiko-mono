@@ -29,7 +29,6 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 
     error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();
-    error BB_INVALID_BURN_AMOUNT();
     error BB_MINT_DISALLOWED();
 
     /// @notice Start or stop migration to/from a specified contract.
