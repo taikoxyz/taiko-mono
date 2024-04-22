@@ -22,7 +22,6 @@ import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
-import "../contracts/verifiers/GuardianVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
@@ -322,29 +321,37 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "tier_guardian",
-            impl: address(new GuardianVerifier()),
-            data: abi.encodeCall(GuardianVerifier.init, (timelock, rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
-
-        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (timelock, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
-        address guardianProver = deployProxy({
-            name: "guardian_prover",
-            impl: address(new GuardianProver()),
+        address guardianProverImpl = address(new GuardianProver());
+
+        address guardianProverMinority = deployProxy({
+            name: "guardian_prover_minority",
+            impl: guardianProverImpl,
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
+        address guardianProver = deployProxy({
+            name: "guardian_prover",
+            impl: guardianProverImpl,
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
+            registerTo: rollupAddressManager
+        });
+
+        register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
+        register(rollupAddressManager, "tier_guardian", guardianProver);
+
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
-        uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
-        GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
+
+        GuardianProver(guardianProverMinority).setGuardians(guardians, 1);
+        GuardianProver(guardianProverMinority).transferOwnership(timelock);
+
+        GuardianProver(guardianProver).setGuardians(guardians, uint8(vm.envUint("MIN_GUARDIANS")));
         GuardianProver(guardianProver).transferOwnership(timelock);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply

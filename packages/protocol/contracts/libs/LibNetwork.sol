@@ -11,6 +11,8 @@ library LibNetwork {
     uint256 internal constant HOLESKY = 17_000;
     uint256 internal constant SEPOLIA = 11_155_111;
 
+    uint64 internal constant TAIKO = 167_000;
+
     /// @dev Checks if the chain ID represents an Ethereum testnet.
     /// @param _chainId The chain ID.
     /// @return true if the chain ID represents an Ethereum testnet, false otherwise.
@@ -26,6 +28,13 @@ library LibNetwork {
     /// otherwise.
     function isEthereumMainnetOrTestnet(uint256 _chainId) internal pure returns (bool) {
         return _chainId == LibNetwork.MAINNET || isEthereumTestnet(_chainId);
+    }
+
+    /// @dev Checks if the chain ID represents the Taiko L2 mainnet.
+    /// @param _chainId The chain ID.
+    /// @return true if the chain ID represents the Taiko L2 mainnet.
+    function isTaikoMainnet(uint256 _chainId) internal pure returns (bool) {
+        return _chainId == TAIKO;
     }
 
     /// @dev Checks if the chain ID represents an internal Taiko devnet's base layer.

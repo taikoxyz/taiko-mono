@@ -26,7 +26,6 @@ abstract contract TaikoErrors {
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
-    error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
     error L1_RECEIVE_DISABLED();
