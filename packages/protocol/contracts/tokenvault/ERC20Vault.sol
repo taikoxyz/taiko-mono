@@ -459,7 +459,7 @@ contract ERC20Vault is BaseVault {
         private
         returns (bytes[] memory encodedCalls)
     {
-        if (toBeBurnt == resolve(LibStrings.B_BRIDGED_NATIVE_USDC, true)) {
+        if (toBeBurnt == resolve(LibStrings.B_BRIDGED_NATIVE_USDC, false)) {
             // If this is a native USDC, then we need to:
             // 1.transfer tokens from user to ERC20Vault
             // 2. burn (supposing ERC20Vault has minterRole)
