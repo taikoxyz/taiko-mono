@@ -13,13 +13,9 @@ interface IBridgedERC20 {
     /// @param _amount The amount of tokens to mint.
     function mint(address _account, uint256 _amount) external;
 
-    /// @notice Burns `amount` tokens from the `from` address.
-    /// @param _from The account from which the tokens will be burned.
-    /// @param _amount The amount of tokens to burn.
-    function burn(address _from, uint256 _amount) external;
-
-    /// @notice Burns `amount` tokens from the `msg.sender` address - if the caller is the
-    /// ERC20Vault.
+    /// @notice Burns `amount` tokens from the `msg.sender` address - either if tokens are migrating
+    /// out to a new bridged token or if the caller is the or if the caller is ERC20Vault (during
+    /// "bridging back").
     /// @param _amount The amount of tokens to burn.
     function burn(uint256 _amount) external;
 

@@ -49,21 +49,19 @@ contract TestBridgedERC20 is TaikoTest {
     {
         BridgedERC20 btoken = deployBridgedToken("BAR");
         // only erc20_vault can brun and mint
-        vm.startPrank(vault);
+        vm.prank(vault, vault);
         btoken.mint(Bob, 1000);
         //Vault cannot burn only if it owns the tokens
         vm.expectRevert();
-        btoken.burn(Bob, 600);
+        vm.prank(Bob, Bob);
+        btoken.burn(600);
         assertEq(btoken.balanceOf(Bob), 1000);
         vm.stopPrank();
 
         // Owner cannot burn/mint
-        vm.startPrank(owner);
         vm.expectRevert();
+        vm.prank(owner, owner);
         btoken.mint(Bob, 1000);
-        vm.expectRevert();
-        btoken.burn(Bob, 100);
-        vm.stopPrank();
     }
 
     function test_20Vault_migration__old_to_new() public {
@@ -92,23 +90,9 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         oldToken.mint(Bob, 10);
 
-        // 2. burning can NOT be done by anyone
-        vm.prank(randAddress());
-        vm.expectRevert();
-        oldToken.burn(Bob, 10);
-
-        // including the owners
-        vm.prank(oldToken.owner());
-        vm.expectRevert();
-        oldToken.burn(Bob, 10);
-
-        vm.prank(newToken.owner());
-        vm.expectRevert();
-        oldToken.burn(Bob, 10);
-
-        // but can be done by the token owner
+        // but can be done by the token owner - if migrating out phase
         vm.prank(Bob);
-        oldToken.burn(Bob, 10);
+        oldToken.burn(10);
         assertEq(oldToken.balanceOf(Bob), 90);
         assertEq(newToken.balanceOf(Bob), 210);
 
@@ -126,19 +110,25 @@ contract TestBridgedERC20 is TaikoTest {
         newToken.mint(Bob, 15);
         assertEq(newToken.balanceOf(Bob), 225);
 
-        // 2. Nobody can burn except the vault
+        // Vault can only burn if it owns the tokens
+        vm.prank(vault);
+        vm.expectRevert();
+        newToken.burn(25);
+        assertEq(newToken.balanceOf(Bob), 225);
+
+        // Imitate current bridge-back operation, as Bob gave approval (for bridging back) and then
+        // ERC20Vault does the "transfer and burn"
         vm.prank(Bob);
-        vm.expectRevert();
-        newToken.burn(Bob, 10);
+        newToken.approve(vault, 25);
 
-        vm.prank(owner);
-        vm.expectRevert();
-        newToken.burn(Bob, 10);
+        // Following the "transfer and burn" pattern
+        vm.prank(vault);
+        newToken.transferFrom(Bob, vault, 25);
 
-        // Vault cannot burn as itself only if owns the tokens.
-        // vm.prank(vault);
-        // newToken.burn(Bob, 25);
-        // assertEq(newToken.balanceOf(Bob), 200);
+        vm.prank(vault);
+        newToken.burn(25);
+
+        assertEq(newToken.balanceOf(Bob), 200);
     }
 
     function deployBridgedToken(string memory name) internal returns (BridgedERC20) {

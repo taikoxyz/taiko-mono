@@ -72,38 +72,21 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         _mint(_account, _amount);
     }
 
-    /// @notice Burns tokens from the specified account.
-    /// @param _account The address of the account to burn the tokens from.
+    /// @notice Burns tokens in case of 'migrating out' from msg.sender (EOA) or from teh ERC20Vault
+    /// if bridging back to canonical token.
     /// @param _amount The amount of tokens to burn.
-    function burn(address _account, uint256 _amount) external whenNotPaused nonReentrant {
+    function burn(uint256 _amount) external whenNotPaused nonReentrant {
         if (_isMigratingOut()) {
-            // Only the owner of the tokens himself can migrate out
-            if (msg.sender != _account) revert BB_PERMISSION_DENIED();
             // Outbound migration
-            emit MigratedTo(migratingAddress, _account, _amount);
+            emit MigratedTo(migratingAddress, msg.sender, _amount);
             // Ask the new bridged token to mint token for the user.
-            IBridgedERC20(migratingAddress).mint(_account, _amount);
-        } else {
+            IBridgedERC20(migratingAddress).mint(msg.sender, _amount);
+        } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // When user wants to burn tokens only during 'migrating out' phase is possible. If
             // ERC20Vault burns the tokens, that will go thru the burn(amount) function.
-            revert BB_MINT_DISALLOWED();
+            revert RESOLVER_DENIED();
         }
 
-        _burn(_account, _amount);
-    }
-
-    /// @notice Burns tokens from msg.sender, if this is the ERC20Vault. Otherwise do not allow
-    /// anyone to burn (e.g. USDC) or other coins, as it would be changing the supply (on other
-    /// chains too).
-    /// @param _amount The amount of tokens to burn.
-    function burn(uint256 _amount)
-        external
-        whenNotPaused
-        nonReentrant
-        onlyFromNamed(LibStrings.B_ERC20_VAULT)
-    {
-        if (_amount == 0) revert BB_INVALID_BURN_AMOUNT();
-        //All the necessary other checks (balance, etc.) are handled in the ERC20Upgradeable._burn()
         _burn(msg.sender, _amount);
     }
 
