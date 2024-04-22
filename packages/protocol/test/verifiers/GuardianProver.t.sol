@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../L1/TaikoL1TestBase.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
-contract TestGuardianVerifier is TaikoL1TestBase {
+contract TestGuardianProver is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
@@ -41,7 +41,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
-        gv.verifyProof(ctx, transition, proof);
+        gp.verifyProof(ctx, transition, proof);
     }
 
     // Tests `verifyProof()` with the wrong prover
@@ -70,7 +70,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
             TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()` with invalid ctx.prover
-        vm.expectRevert(GuardianVerifier.GV_PERMISSION_DENIED.selector);
-        gv.verifyProof(ctx, transition, proof);
+        vm.expectRevert(GuardianProver.GV_PERMISSION_DENIED.selector);
+        gp.verifyProof(ctx, transition, proof);
     }
 }

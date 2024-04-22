@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "../../common/LibStrings.sol";
+import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
 import "../ITaikoL1.sol";
 import "./Guardians.sol";
-import "../../common/LibStrings.sol";
 
 /// @title GuardianProver
+/// This prover uses itself as the verifier.
 /// @custom:security-contact security@taiko.xyz
-contract GuardianProver is Guardians {
+contract GuardianProver is IVerifier, Guardians {
+    error GV_PERMISSION_DENIED();
+
     uint256[50] private __gap;
 
     /// @notice Emitted when a guardian proof is approved.
@@ -62,5 +66,17 @@ contract GuardianProver is Guardians {
                 _meta.id, abi.encode(_meta, _tran, _proof)
             );
         }
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyProof(
+        Context calldata _ctx,
+        TaikoData.Transition calldata,
+        TaikoData.TierProof calldata
+    )
+        external
+        view
+    {
+        if (_ctx.msgSender != address(this)) revert GV_PERMISSION_DENIED();
     }
 }
