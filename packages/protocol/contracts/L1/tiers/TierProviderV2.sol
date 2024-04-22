@@ -44,8 +44,8 @@ contract TierProviderV2 is EssentialContract, ITierProvider {
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_TIER_GUARDIAN_MINORITY,
-                validityBond: 1000 ether, // TKO
-                contestBond: 6560 ether, // =1000TKO * 6.5625
+                validityBond: 500 ether, // TKO
+                contestBond: 3280 ether, // =500TKO * 6.5625
                 cooldownWindow: 60, //1 hours
                 provingWindow: 2880, // 48 hours
                 maxBlocksToVerifyPerProof: 16
