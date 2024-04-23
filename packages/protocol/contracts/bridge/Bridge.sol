@@ -428,7 +428,7 @@ contract Bridge is EssentialContract, IBridge {
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
         // Owenr and chain_pauser can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_PAUSER, true)) return;
+        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
         if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
