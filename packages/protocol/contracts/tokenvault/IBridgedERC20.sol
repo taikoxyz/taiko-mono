@@ -13,13 +13,13 @@ interface IBridgedERC20 {
     /// @param _amount The amount of tokens to mint.
     function mint(address _account, uint256 _amount) external;
 
-    /// @notice Burns `amount` tokens from the `msg.sender` address - either if tokens are migrating
-    /// out to a new bridged token or if the caller is the or if the caller is ERC20Vault (during
-    /// "bridging back").
+    /// @notice Burns tokens from msg.sender. This is only allowed if:
+    /// - 1) tokens are migrating out to a new bridged token
+    /// - 2) The token is burned by ERC20Vault to bridge back to the canonical chain.
     /// @param _amount The amount of tokens to burn.
     function burn(uint256 _amount) external;
 
-    /// @notice Start or stop migration to/from a specified contract.
+    /// @notice Starts or stops migration to/from a specified contract.
     /// @param _addr The address migrating 'to' or 'from'.
     /// @param _inbound If false then signals migrating 'from', true if migrating 'into'.
     function changeMigrationStatus(address _addr, bool _inbound) external;
