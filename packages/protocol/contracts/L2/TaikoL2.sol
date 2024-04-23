@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/EssentialContract.sol";
-import "../common/LibSnapshot.sol";
+import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
@@ -47,10 +47,7 @@ contract TaikoL2 is EssentialContract {
     uint64 private __currentBlockTimestamp;
 
     /// @notice The L1's chain ID.
-    /// @dev Slot 4.
     uint64 public l1ChainId;
-
-    uint32 public lastSnapshotIdx;
 
     uint256[46] private __gap;
 
@@ -58,12 +55,6 @@ contract TaikoL2 is EssentialContract {
     /// @param parentHash The hash of the parent block.
     /// @param gasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 gasExcess);
-
-    /// @notice Emitted when the Taiko token snapshot is taken.
-    /// @param tkoAddress The Taiko token address.
-    /// @param snapshotIdx The snapshot index.
-    /// @param snapshotId The snapshot id.
-    event TaikoTokenSnapshot(address tkoAddress, uint256 snapshotIdx, uint256 snapshotId);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_L1_CHAIN_ID();
@@ -114,7 +105,6 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
-    /// @dev The gas limit for this transaction is set to 250K in geth and raiko.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
@@ -177,12 +167,6 @@ contract TaikoL2 is EssentialContract {
         parentTimestamp = __currentBlockTimestamp;
         __currentBlockTimestamp = uint64(block.timestamp);
         gasExcess = _gasExcess;
-
-        address tko = resolve(LibStrings.B_TAIKO_TOKEN, true);
-        if (tko != address(0)) {
-            uint32 idx = LibSnapshot.autoSnapshot(tko, _l1BlockId, lastSnapshotIdx);
-            if (idx != 0) lastSnapshotIdx = idx;
-        }
 
         emit Anchored(_parentHash, _gasExcess);
     }
