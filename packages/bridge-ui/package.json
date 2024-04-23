@@ -62,7 +62,7 @@
   "dependencies": {
     "@wagmi/connectors": "^4.1.18",
     "@wagmi/core": "^2.6.9",
-    "@walletconnect/ethereum-provider": "^2.11.3",
+    "@walletconnect/ethereum-provider": "^2.12.2",
     "@walletconnect/modal": "^2.6.2",
     "@web3modal/wagmi": "^4.1.1",
     "@zerodevx/svelte-toast": "^0.9.5",
