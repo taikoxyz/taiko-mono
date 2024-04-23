@@ -348,8 +348,6 @@ func (p *Processor) sendProcessMessageCall(
 	// mul by 1.05 for padding
 	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
 
-	// var estimatedCost uint64 = 0
-
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
@@ -361,37 +359,6 @@ func (p *Processor) sendProcessMessageCall(
 		if err != nil || !profitable {
 			return nil, relayer.ErrUnprofitable
 		}
-		// now simulate the transaction and lets confirm
-		// it is profitable
-
-		// auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		// msg := ethereum.CallMsg{
-		// 	From: auth.From,
-		// 	To:   &p.cfg.DestBridgeAddress,
-		// 	Data: data,
-		// }
-
-		// gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		// slog.Info("estimatedGasUsed",
-		// 	"gasUsed", gasUsed,
-		// 	"messageGasLimit", event.Message.GasLimit,
-		// 	"paddedGasLimit", gasLimit,
-		// 	"srcTxHash", event.Raw.TxHash.Hex(),
-		// )
-
-		// if gasUsed > gasLimit {
-		// 	return nil, relayer.ErrUnprofitable
-		// }
-
-		// estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
 	}
 
 	candidate := txmgr.TxCandidate{
@@ -419,22 +386,6 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	relayer.MessageSentEventsProcessed.Inc()
-
-	// if p.profitableOnly {
-	// 	cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
-
-	// 	slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
-	// 		"srcTxHash", event.Raw.TxHash.Hex(),
-	// 		"actualCost", cost,
-	// 		"estimatedCost", estimatedCost,
-	// 	)
-
-	// 	if cost > estimatedCost {
-	// 		relayer.UnprofitableMessageAfterTransacting.Inc()
-	// 	} else {
-	// 		relayer.ProfitableMessageAfterTransacting.Inc()
-	// 	}
-	// }
 
 	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
 		return nil, err
