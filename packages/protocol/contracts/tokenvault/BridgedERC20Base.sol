@@ -71,7 +71,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         _mint(_account, _amount);
     }
 
-    /// @notice Burns tokens in case of 'migrating out' from msg.sender (EOA) or from teh ERC20Vault
+    /// @notice Burns tokens in case of 'migrating out' from msg.sender (EOA) or from the ERC20Vault
     /// if bridging back to canonical token.
     /// @param _amount The amount of tokens to burn.
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
