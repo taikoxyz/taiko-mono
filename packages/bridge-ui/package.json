@@ -43,7 +43,7 @@
     "ethereum-address": "^0.0.4",
     "jsdom": "^24.0.0",
     "lokijs": "^1.5.12",
-    "postcss": "^8.4.35",
+    "postcss": "^8.4.38",
     "prettier": "^3.2.5",
     "prettier-plugin-svelte": "^3.2.2",
     "svelte": "^4.2.12",
