@@ -26,7 +26,7 @@ contract BridgedERC20 is BridgedERC20Base_, ERC20VotesUpgradeable {
     uint256 public srcChainId;
 
     /// @dev Slot 3.
-    address private __reserved1;
+    address private __deprecated1;
 
     uint256[47] private __gap;
 
