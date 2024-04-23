@@ -6,7 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 // isProfitable determines whether a message is profitable or not. It should
@@ -14,19 +13,16 @@ import (
 // profitable. Otherwise, we compare it to the estimated cost.
 func (p *Processor) isProfitable(
 	ctx context.Context,
-	message bridge.IBridgeMessage,
+	fee uint64,
+	gasLimit uint64,
 	destChainBaseFee uint64,
 	gasTipCap uint64,
 ) (bool, error) {
-	processingFee := message.Fee
-
-	gasLimit := message.GasLimit
-
 	var shouldProcess bool = false
 
-	if processingFee == 0 || gasLimit == 0 {
+	if fee == 0 || gasLimit == 0 {
 		slog.Info("unprofitable: no gasLimit or processingFee",
-			"processingFee", processingFee,
+			"processingFee", fee,
 			"gasLimit", gasLimit,
 		)
 
@@ -36,14 +32,14 @@ func (p *Processor) isProfitable(
 	// if processing fee is higher than baseFee * gasLimit,
 	// we should process.
 	res := (destChainBaseFee + gasTipCap) * uint64(gasLimit)
-	if processingFee > res {
+	if fee > res {
 		shouldProcess = true
 	}
 
 	slog.Info("isProfitable",
-		"processingFee", processingFee,
+		"processingFee", fee,
 		"destChainBaseFee", destChainBaseFee,
-		"messageGasLimit", message.GasLimit,
+		"gasLimit", gasLimit,
 		"shouldProcess", shouldProcess,
 		"result", res,
 	)
