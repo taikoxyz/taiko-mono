@@ -9,6 +9,7 @@ import "../common/LibStrings.sol";
 /// @notice TaikoToken was `EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable`.
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
 /// contract list.
+/// We can simplify the code since we no longer need to maintain upgradability with Hekla.
 abstract contract EssentialContract_ is EssentialContract {
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
 }

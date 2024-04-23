@@ -8,6 +8,7 @@ import "./BridgedERC20Base.sol";
 /// @notice BridgedERC20 was `BridgedERC20Base, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable`.
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
 /// contract list.
+/// We can simplify the code since we no longer need to maintain upgradability with Hekla.
 abstract contract BridgedERC20Base_ is BridgedERC20Base {
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
 }
