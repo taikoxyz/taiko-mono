@@ -82,7 +82,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             IBridgedERC20(migratingAddress).mint(msg.sender, _amount);
         } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // When user wants to burn tokens only during 'migrating out' phase is possible. If
-            // ERC20Vault burns the tokens, that will go thru the burn(amount) function.
+            // ERC20Vault burns the tokens, that will go through the burn(amount) function.
             revert RESOLVER_DENIED();
         }
 
