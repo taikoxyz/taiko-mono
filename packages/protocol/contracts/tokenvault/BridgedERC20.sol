@@ -106,14 +106,6 @@ contract BridgedERC20 is
         return (srcToken, srcChainId);
     }
 
-    function _mintToken(address _account, uint256 _amount) internal override {
-        return _mint(_account, _amount);
-    }
-
-    function _burnToken(address _from, uint256 _amount) internal override {
-        return _burn(_from, _amount);
-    }
-
     /// @dev For ERC20SnapshotUpgradeable and ERC20VotesUpgradeable, need to implement the following
     /// functions
     function _beforeTokenTransfer(
@@ -145,7 +137,7 @@ contract BridgedERC20 is
         uint256 _amount
     )
         internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+        override(ERC20Upgradeable, ERC20VotesUpgradeable, BridgedERC20Base)
     {
         return super._mint(_to, _amount);
     }
@@ -155,7 +147,7 @@ contract BridgedERC20 is
         uint256 _amount
     )
         internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+        override(ERC20Upgradeable, ERC20VotesUpgradeable, BridgedERC20Base)
     {
         return super._burn(_from, _amount);
     }
