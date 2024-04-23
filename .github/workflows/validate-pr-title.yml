@@ -40,7 +40,7 @@ jobs:
             protocol
             relayer
             taikoon
-            opcontracts
+            supplementary-contracts
           requireScope: true
           subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
           subjectPatternError: |

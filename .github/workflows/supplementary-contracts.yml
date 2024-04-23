@@ -1,13 +1,13 @@
-name: Opcontracts
+name: Supplementary-Contracts
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/opcontracts/**"
+      - "packages/supplementary-contracts/**"
   pull_request:
     paths:
-      - "packages/opcontracts/**"
+      - "packages/supplementary-contracts/**"
 
 jobs:
   build:
@@ -32,9 +32,9 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Check formatting
-        working-directory: ./packages/opcontracts
+        working-directory: ./packages/supplementary-contracts
         run: forge fmt --check
 
       - name: Unit Tests
-        working-directory: ./packages/opcontracts
+        working-directory: ./packages/supplementary-contracts
         run: pnpm clean && pnpm test

@@ -1,5 +1,5 @@
 {
-  "name": "@taiko/opcontracts",
+  "name": "@taiko/supplementary-contracts",
   "version": "1.0.0",
   "private": true,
   "scripts": {
