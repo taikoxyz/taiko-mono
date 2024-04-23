@@ -346,7 +346,7 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	// mul by 1.05 for padding
-	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
+	gasLimit := uint64(float64(event.Message.GasLimit) * 1.1)
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(

@@ -39,7 +39,6 @@ func (i *Indexer) indexRawBlockData(
 				txs := block.Transactions()
 
 				for _, tx := range txs {
-					slog.Info("transaction found", "hash", tx.Hash())
 					receipt, err := i.ethClient.TransactionReceipt(ctx, tx.Hash())
 
 					if err != nil {
