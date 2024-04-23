@@ -1982,16 +1982,6 @@
   },
   {
     "type": "error",
-    "name": "L1_MISSING_VERIFIER",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_MISSING_VERIFIER",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "L1_NOT_ASSIGNED_PROVER",
     "inputs": []
   },

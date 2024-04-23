@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
-	pkgFlags "github.com/taikoxyz/taiko-mono/packages/relayer/pkg/flags"
+	pkgFlags "github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/flags"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

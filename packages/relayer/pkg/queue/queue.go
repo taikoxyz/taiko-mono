@@ -28,8 +28,8 @@ type QueueMessageSentBody struct {
 }
 
 type QueueMessageProcessedBody struct {
-	Event *bridge.BridgeMessageProcessed
-	ID    int
+	Message bridge.IBridgeMessage
+	ID      int
 }
 
 type Message struct {

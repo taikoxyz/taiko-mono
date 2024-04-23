@@ -2,10 +2,17 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+
+/// @notice TaikoToken was `EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable`.
+/// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
+/// contract list.
+/// We can simplify the code since we no longer need to maintain upgradability with Hekla.
+abstract contract EssentialContract_ is EssentialContract {
+    uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
+}
 
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
@@ -13,7 +20,7 @@ import "../common/LibStrings.sol";
 /// precision.
 /// @dev Labeled in AddressResolver as "taiko_token"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
+contract TaikoToken is EssentialContract_, ERC20VotesUpgradeable {
     uint256[50] private __gap;
 
     error TKO_INVALID_ADDR();
@@ -37,7 +44,6 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         __Essential_init(_owner, _addressManager);
         __Context_init_unchained();
         __ERC20_init(_name, _symbol);
-        __ERC20Snapshot_init();
         __ERC20Votes_init();
         __ERC20Permit_init(_name);
 
@@ -77,47 +83,5 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     {
         if (_to == address(this)) revert TKO_INVALID_ADDR();
         return super.transferFrom(_from, _to, _amount);
-    }
-
-    function _beforeTokenTransfer(
-        address _from,
-        address _to,
-        uint256 _amount
-    )
-        internal
-        override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
-    {
-        return super._beforeTokenTransfer(_from, _to, _amount);
-    }
-
-    function _afterTokenTransfer(
-        address _from,
-        address _to,
-        uint256 _amount
-    )
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
-    {
-        return super._afterTokenTransfer(_from, _to, _amount);
-    }
-
-    function _mint(
-        address _to,
-        uint256 _amount
-    )
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
-    {
-        return super._mint(_to, _amount);
-    }
-
-    function _burn(
-        address _from,
-        uint256 _amount
-    )
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
-    {
-        return super._burn(_from, _amount);
     }
 }

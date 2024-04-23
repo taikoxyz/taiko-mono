@@ -289,7 +289,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	}
 
 	// check if the source chain sent this message
-	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Event.Message)
+	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Message)
 	if err != nil {
 		return errors.Wrap(err, "w.destBridge.IsMessageSent")
 	}
