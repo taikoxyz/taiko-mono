@@ -5,7 +5,7 @@ import "../test/DeployCapability.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 
 /// @dev This script shall be run on Taiko chain to hook up a native USDC deployment and the USDC
-/// deployed on EThereum.
+/// deployed on Ethereum.
 /// To deploy a native USDC contract on Taiko, run:
 /// https://github.com/taikoxyz/USDC/blob/main/script/DeployUSDC.s.sol
 contract SetupUSDCBridging is DeployCapability {
