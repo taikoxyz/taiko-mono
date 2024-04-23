@@ -186,19 +186,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(balanceBeforeBurn - 1 ether, balanceAfterBurn);
     }
 
-    function test_snapshot() external {
-        vm.prank(address(L1));
-        tko.snapshot();
-
-        uint256 totalSupplyAtSnapshot = tko.totalSupplyAt(1);
-
-        vm.prank(tko.owner(), tko.owner());
-        tko.burn(address(this), 1 ether);
-
-        // At snapshot date vs. now, the total supply differs
-        assertEq(totalSupplyAtSnapshot, tko.totalSupply() + 1 ether);
-    }
-
     function test_getTierIds() external {
         uint16[] memory tiers = cp.getTierIds();
         assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
