@@ -39,6 +39,7 @@ jobs:
             guardian-prover-health-check-ui
             protocol
             relayer
+            taikoon
             opcontracts
           requireScope: true
           subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
