@@ -1,0 +1,7 @@
+node_modules/
+lib/
+contracts/test/TestLibRLPReader.sol
+**/contracts/thirdparty/**/*.sol
+/contracts/automata-attestation/
+test/GasComparison.t.sol
+test/TestLn.sol
