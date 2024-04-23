@@ -107,14 +107,6 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 
 	tokenID := vLog.Topics[3].Big().Int64()
 
-	slog.Info(
-		"erc721 transfer found",
-		"from", from,
-		"to", to,
-		"tokenID", tokenID,
-		"contractAddress", vLog.Address.Hex(),
-	)
-
 	// increment To address's balance
 
 	_, err := i.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
@@ -188,14 +180,6 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 		transfers = t
 	}
-
-	slog.Info(
-		"erc1155 transfer found",
-		"from", from,
-		"to", to,
-		"transfers", transfers,
-		"contractAddress", vLog.Address.Hex(),
-	)
 
 	// increment To address's balance
 
