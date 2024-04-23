@@ -156,15 +156,14 @@
     $computingBalance = true;
     value = '';
     $enteredAmount = 0n;
-    if ($account && $account.address && $account?.isConnected) {
+    if ($account && $account.address && $account?.isConnected && $selectedToken) {
       validateAmount($selectedToken);
       refreshUserBalance();
-      if ($selectedToken)
-        $tokenBalance = await fetchBalance({
-          userAddress: $account.address,
-          token: $selectedToken,
-          srcChainId: $connectedSourceChain?.id,
-        });
+      $tokenBalance = await fetchBalance({
+        userAddress: $account.address,
+        token: $selectedToken,
+        srcChainId: $connectedSourceChain?.id,
+      });
       previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';

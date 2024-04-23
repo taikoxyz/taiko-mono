@@ -2,7 +2,7 @@ import type { Address, GetContractReturnType, Hash, Hex, TransactionReceipt, Wal
 
 import type { bridgeAbi } from '$abi';
 import type { ChainID } from '$libs/chain';
-import type { Token, TokenType } from '$libs/token';
+import type { NFT, Token, TokenType } from '$libs/token';
 
 export enum MessageStatus {
   NEW,
@@ -155,7 +155,7 @@ export type BridgeArgs = {
   srcChainId: number;
   destChainId: number;
   fee: bigint;
-  memo?: string;
+  tokenObject: Token | NFT;
 };
 
 export type ETHBridgeArgs = BridgeArgs & {
@@ -174,8 +174,8 @@ export type ERC721BridgeArgs = BridgeArgs & {
   token: Address;
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
-  tokenIds: bigint[];
-  amounts: bigint[];
+  tokenIds: number[];
+  amounts: number[];
 };
 
 export type ERC1155BridgeArgs = ERC721BridgeArgs;

@@ -13,26 +13,18 @@ import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
 import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
 import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
 import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
-import {
-  InvalidParametersProvidedError,
-  NoCanonicalInfoFoundError,
-  NotConnectedError,
-  NoTokenError,
-  UnknownTokenTypeError,
-} from '$libs/error';
+import { InvalidParametersProvidedError, NotConnectedError, NoTokenError, UnknownTokenTypeError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { account, connectedSourceChain } from '$stores';
 
 import { checkOwnershipOfNFT } from './checkOwnership';
-import { getTokenAddresses } from './getTokenAddresses';
 import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:getTokenApprovalStatus');
 
 export enum ApprovalStatus {
   ETH_NO_APPROVAL_REQUIRED,
-  BRIDGED_NO_APPROVAL_REQUIRED,
   APPROVAL_REQUIRED,
   NO_APPROVAL_REQUIRED,
 }
@@ -58,21 +50,6 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   const ownerAddress = get(account)?.address;
   const tokenAddress = get(selectedToken)?.addresses[currentChainId];
   log('selectedToken', get(selectedToken));
-
-  const tokenInfo = await getTokenAddresses({ token, srcChainId: currentChainId, destChainId: destinationChainId });
-  if (!tokenInfo) {
-    log('no token info found');
-    throw new NoCanonicalInfoFoundError();
-  }
-  if (tokenInfo.bridged && tokenInfo.bridged.address) {
-    const { address: bridgedTokenAddress } = tokenInfo.bridged;
-    if (bridgedTokenAddress === tokenAddress) {
-      // we have a bridged token, no need for allowance check as we will burn the token
-      log('token is bridged, no need for allowance check');
-      allApproved.set(true);
-      return ApprovalStatus.BRIDGED_NO_APPROVAL_REQUIRED;
-    }
-  }
 
   if (!ownerAddress || !tokenAddress) {
     log('no ownerAddress or tokenAddress', ownerAddress, tokenAddress);

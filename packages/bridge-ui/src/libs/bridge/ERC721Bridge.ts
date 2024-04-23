@@ -1,7 +1,8 @@
-import { getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, UserRejectedRequestError } from 'viem';
 
-import { erc721Abi, erc721VaultAbi } from '$abi';
+import { bridgeAbi, erc721Abi, erc721VaultAbi } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
 import {
   ApproveError,
@@ -19,6 +20,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
+import { calculateMessageDataSize } from './calculateMessageDataSize';
 import type { ERC721BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC721Bridge');
@@ -68,6 +70,7 @@ export class ERC721Bridge extends Bridge {
 
   async bridge(args: ERC721BridgeArgs) {
     const { token, tokenVaultAddress, tokenIds, wallet, srcChainId, destChainId } = args;
+
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee } = sendERC721Args;
 
@@ -90,7 +93,7 @@ export class ERC721Bridge extends Bridge {
         const requireApproval = await this.requiresApproval({
           tokenAddress: token,
           spenderAddress: tokenVaultAddress,
-          tokenId: tokenId,
+          tokenId: BigInt(tokenId),
           chainId: wallet.chain.id,
         });
         if (requireApproval) {
@@ -165,7 +168,6 @@ export class ERC721Bridge extends Bridge {
     try {
       log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
 
-      // const txHash = await tokenContract.write.approve([spenderAddress, tokenId]);
       const { request } = await simulateContract(config, {
         address: tokenAddress,
         abi: erc721Abi,
@@ -193,7 +195,19 @@ export class ERC721Bridge extends Bridge {
   }
 
   private static async _prepareTransaction(args: ERC721BridgeArgs) {
-    const { to, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed, tokenIds, amounts } = args;
+    const {
+      to,
+      wallet,
+      srcChainId,
+      destChainId,
+      tokenObject,
+      token,
+      fee,
+      tokenVaultAddress,
+      isTokenAlreadyDeployed,
+      tokenIds,
+      amounts,
+    } = args;
 
     const tokenVaultContract = getContract({
       client: wallet,
@@ -203,10 +217,24 @@ export class ERC721Bridge extends Bridge {
 
     if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
 
+    const { size } = await calculateMessageDataSize({ token: tokenObject, chainId: srcChainId, tokenIds });
+
+    const client = await getPublicClient(config, { chainId: destChainId });
+    if (!client) throw new Error('Could not get public client');
+
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
+    const destBridgeContract = getContract({
+      client,
+      abi: bridgeAbi,
+      address: destBridgeAddress,
+    });
+
+    const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
+
     const gasLimit = !isTokenAlreadyDeployed
-      ? BigInt(bridgeService.noERC721TokenDeployedGasLimit)
+      ? minGasLimit + Number(bridgeService.noERC721TokenDeployedGasLimit)
       : fee > 0
-        ? bridgeService.noOwnerGasLimit
+        ? minGasLimit + Number(bridgeService.erc721GasLimitThreshold)
         : BigInt(0);
 
     const sendERC721Args: NFTBridgeTransferOp = {
@@ -216,9 +244,9 @@ export class ERC721Bridge extends Bridge {
       token,
       gasLimit: Number(gasLimit),
       fee,
-      tokenIds,
-      amounts,
-    };
+      tokenIds: tokenIds.map(BigInt),
+      amounts: amounts.map(BigInt),
+    } satisfies NFTBridgeTransferOp;
 
     log('Preparing transaction with args', sendERC721Args);
 

@@ -170,6 +170,7 @@
         srcChainId: $connectedSourceChain.id,
         destChainId: $destNetwork?.id,
         fee: $processingFee,
+        tokenObject: $selectedToken,
       };
 
       const type: TokenType = $selectedToken.type;
@@ -178,7 +179,7 @@
         if (!tokenIds) throw new Error('tokenIds not found');
         const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, tokenIds);
 
-        const args = { ...bridgeArgs, tokenIds };
+        const args = { ...bridgeArgs, tokenIds, tokenObject: $selectedToken };
 
         bridgeTxHash = await $bridgeService.bridge(args);
       } else {
@@ -203,6 +204,7 @@
   onMount(() => (bridgingStatus = BridgingStatus.PENDING));
 </script>
 
+processingFee {$processingFee}
 <div class="mt-[30px]">
   <section id="txStatus">
     <div class="flex flex-col justify-content-center items-center">

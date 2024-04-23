@@ -78,26 +78,7 @@ export const bridgeAbi = [
   },
   {
     type: 'function',
-    inputs: [
-      {
-        name: '_message',
-        internalType: 'struct IBridge.Message',
-        type: 'tuple',
-        components: [
-          { name: 'id', internalType: 'uint64', type: 'uint64' },
-          { name: 'fee', internalType: 'uint64', type: 'uint64' },
-          { name: 'gasLimit', internalType: 'uint32', type: 'uint32' },
-          { name: 'from', internalType: 'address', type: 'address' },
-          { name: 'srcChainId', internalType: 'uint64', type: 'uint64' },
-          { name: 'srcOwner', internalType: 'address', type: 'address' },
-          { name: 'destChainId', internalType: 'uint64', type: 'uint64' },
-          { name: 'destOwner', internalType: 'address', type: 'address' },
-          { name: 'to', internalType: 'address', type: 'address' },
-          { name: 'value', internalType: 'uint256', type: 'uint256' },
-          { name: 'data', internalType: 'bytes', type: 'bytes' },
-        ],
-      },
-    ],
+    inputs: [{ name: 'dataLength', internalType: 'uint256', type: 'uint256' }],
     name: 'getMessageMinGasLimit',
     outputs: [{ name: '', internalType: 'uint32', type: 'uint32' }],
     stateMutability: 'pure',
@@ -524,58 +505,6 @@ export const bridgeAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      {
-        name: 'msgHash',
-        internalType: 'bytes32',
-        type: 'bytes32',
-        indexed: true,
-      },
-      {
-        name: 'stats',
-        internalType: 'struct Bridge.GasStats',
-        type: 'tuple',
-        components: [
-          { name: 'start', internalType: 'uint256', type: 'uint256' },
-          {
-            name: 'beforeInvocation',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'afterInvocation', internalType: 'uint256', type: 'uint256' },
-          {
-            name: 'gasUsedInFeeCalc',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'end', internalType: 'uint256', type: 'uint256' },
-        ],
-        indexed: false,
-      },
-      {
-        name: 'overhead',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'proofSize',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'numCacheOps',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'GasLog',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
       { name: 'version', internalType: 'uint8', type: 'uint8', indexed: false },
     ],
     name: 'Initialized',
@@ -584,6 +513,12 @@ export const bridgeAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
+      {
+        name: 'msgHash',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: true,
+      },
       {
         name: 'message',
         internalType: 'struct IBridge.Message',
@@ -600,6 +535,17 @@ export const bridgeAbi = [
           { name: 'to', internalType: 'address', type: 'address' },
           { name: 'value', internalType: 'uint256', type: 'uint256' },
           { name: 'data', internalType: 'bytes', type: 'bytes' },
+        ],
+        indexed: false,
+      },
+      {
+        name: 'stats',
+        internalType: 'struct Bridge.ProcessingStats',
+        type: 'tuple',
+        components: [
+          { name: 'gasUsedInFeeCalc', internalType: 'uint32', type: 'uint32' },
+          { name: 'proofSize', internalType: 'uint32', type: 'uint32' },
+          { name: 'numCacheOps', internalType: 'uint32', type: 'uint32' },
         ],
         indexed: false,
       },
@@ -3160,10 +3106,7 @@ export const erc20Abi = [
   },
   {
     type: 'function',
-    inputs: [
-      { name: '_account', internalType: 'address', type: 'address' },
-      { name: '_amount', internalType: 'uint256', type: 'uint256' },
-    ],
+    inputs: [{ name: '_amount', internalType: 'uint256', type: 'uint256' }],
     name: 'burn',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -3213,13 +3156,6 @@ export const erc20Abi = [
     inputs: [],
     name: 'clock',
     outputs: [{ name: '', internalType: 'uint48', type: 'uint48' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'currentSnapshotId',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -3330,13 +3266,6 @@ export const erc20Abi = [
     name: 'init',
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'addr', internalType: 'address', type: 'address' }],
-    name: 'isAuthorizedForSnapshot',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -3470,26 +3399,10 @@ export const erc20Abi = [
   },
   {
     type: 'function',
-    inputs: [
-      { name: '_snapshooter', internalType: 'address', type: 'address' },
-    ],
-    name: 'setSnapshooter',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
     inputs: [],
     name: 'snapshooter',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'snapshot',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -3840,7 +3753,6 @@ export const erc20Abi = [
   { type: 'error', inputs: [], name: 'BB_PERMISSION_DENIED' },
   { type: 'error', inputs: [], name: 'BTOKEN_CANNOT_RECEIVE' },
   { type: 'error', inputs: [], name: 'BTOKEN_INVALID_PARAMS' },
-  { type: 'error', inputs: [], name: 'BTOKEN_UNAUTHORIZED' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
