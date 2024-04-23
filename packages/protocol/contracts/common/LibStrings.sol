@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 /// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
-    bytes32 internal constant B_CHAIN_PAUSER = bytes32("chain_pauser");
+    bytes32 internal constant B_CHAIN_WATCHDOG = bytes32("rollup_watchdog");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant B_PROPOSER = bytes32("proposer");
     bytes32 internal constant B_PROPOSER_ONE = bytes32("proposer_one");
@@ -19,7 +19,7 @@ library LibStrings {
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
     bytes32 internal constant B_BRIDGED_ERC721 = bytes32("bridged_erc721");
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");
-    bytes32 internal constant B_ROLLUP_WATCHDOG = bytes32("rollup_watchdog");
+    bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
     bytes32 internal constant B_TIER_PROVIDER = bytes32("tier_provider");
     bytes32 internal constant B_TIER_SGX = bytes32("tier_sgx");
     bytes32 internal constant B_TIER_SGX_ZKVM = bytes32("tier_sgx_zkvm");
