@@ -204,7 +204,6 @@
   onMount(() => (bridgingStatus = BridgingStatus.PENDING));
 </script>
 
-processingFee {$processingFee}
 <div class="mt-[30px]">
   <section id="txStatus">
     <div class="flex flex-col justify-content-center items-center">

@@ -37,11 +37,12 @@
 
     const balance = await getBalance(config, { address, chainId });
 
-    if (balance.value < parseEther(String(claimConfig.minimumEthToClaim))) {
+    if (balance.value <= parseEther(String(claimConfig.minimumEthToClaim))) {
       hasEnoughEth = false;
-      checkingPrerequisites = false;
+    } else {
+      hasEnoughEth = true;
     }
-    hasEnoughEth = true;
+
     checkingPrerequisites = false;
   };
 
@@ -105,5 +106,19 @@
           switchChains();
         }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
     </div>
+
+    <!-- {#if !canContinue && correctChain}
+      <div class="h-sep" />
+    <div class="f-col space-y-[16px]">
+      <ActionButton
+        onPopup
+        priority="primary"
+        disabled={$switchingNetwork}
+        loading={$switchingNetwork}
+        on:click={() => {
+          switchChains();
+        }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
+    </div>
+    {/if} -->
   {/if}
 </div>

@@ -65,11 +65,12 @@
   }
 
   $: isNextStepDisabled =
-    !(activeStep === ClaimSteps.CHECK && canContinue) &&
-    (loading || (activeStep === ClaimSteps.CONFIRM && !claimingDone));
+    loading ||
+    (activeStep === ClaimSteps.CHECK && !canContinue) ||
+    (activeStep === ClaimSteps.CONFIRM && !claimingDone);
 </script>
 
-{#if (activeStep !== ClaimSteps.CONFIRM || claimingDone) && (activeStep !== ClaimSteps.CHECK || canContinue)}
+{#if activeStep !== ClaimSteps.CONFIRM || claimingDone}
   <div class="h-sep" />
   <ActionButton onPopup priority="primary" disabled={isNextStepDisabled} {loading} on:click={handleNextStep}>
     {nextStepButtonText}

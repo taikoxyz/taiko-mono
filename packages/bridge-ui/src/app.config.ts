@@ -40,7 +40,7 @@ export const bridgeTransactionPoller = {
 };
 
 export const claimConfig = {
-  minimumEthToClaim: 0.0001,
+  minimumEthToClaim: 0.001,
 };
 
 export const transactionConfig = {

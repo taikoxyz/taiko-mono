@@ -168,12 +168,19 @@ export abstract class Bridge {
 
   async processMessage(args: ClaimArgs): Promise<Hash> {
     const { messageStatus, destBridgeAddress } = await this.beforeProcessing(args);
-    const { blockNumber } = args.bridgeTx;
+    let blockNumber;
+
+    if (!args.bridgeTx.blockNumber && args.bridgeTx.receipt) {
+      blockNumber = args.bridgeTx.receipt?.blockNumber;
+    } else if (args.bridgeTx.blockNumber) {
+      blockNumber = args.bridgeTx.blockNumber;
+    } else {
+      throw new ProcessMessageError('Blocknumber is not defined');
+    }
+
     const { message, msgHash } = args.bridgeTx;
-    if (!message || !msgHash || !blockNumber)
-      throw new ProcessMessageError(
-        `message, msgHash or blocknumber is not defined, ${message}, ${msgHash}, ${blockNumber}`,
-      );
+    if (!message || !msgHash)
+      throw new ProcessMessageError(`message or msgHash  is not defined, ${message}, ${msgHash}, ${blockNumber}`);
 
     const client = await getConnectedWallet();
     if (!client) throw new Error('Client not found');
@@ -223,8 +230,19 @@ export abstract class Bridge {
     const { message } = bridgeTx;
     if (!message) throw new ProcessMessageError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+
     const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
     log('Estimated gas for processMessage', estimatedGas);
+
+    // const wallet = await getConnectedWallet();
+
+    // return await wallet.writeContract({
+    //   address: bridgeContract.address,
+    //   abi: bridgeContract.abi,
+    //   functionName: 'processMessage',
+    //   args: [message, proof],
+    //   gas: 1000000n,
+    // });
 
     const { request } = await simulateContract(config, {
       address: bridgeContract.address,

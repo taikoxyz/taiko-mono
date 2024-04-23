@@ -1,4 +1,4 @@
-import { getPublicClient, getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi, erc20Abi, erc20VaultAbi } from '$abi';
@@ -184,26 +184,16 @@ export class ERC20Bridge extends Bridge {
     const { fee } = sendERC20Args;
 
     try {
-      const client = getWalletClient(config);
-      log('Calling sendERC20 with value', fee);
-
-      const txHash = (await client).writeContract({
+      const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
         abi: erc20VaultAbi,
         functionName: 'sendToken',
         args: [sendERC20Args],
         value: fee,
       });
-      // const { request } = await simulateContract(config, {
-      //   address: tokenVaultContract.address,
-      //   abi: erc20VaultAbi,
-      //   functionName: 'sendToken',
-      //   args: [sendERC20Args],
-      //   value: fee,
-      // });
-      // log('Simulate contract', request);
+      log('Simulate contract', request);
 
-      // const txHash = await writeContract(config, request);
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for sendERC20 call', txHash);
 

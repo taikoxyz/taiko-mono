@@ -98,28 +98,17 @@ export class ERC1155Bridge extends Bridge {
       log('Sending ERC1155 with fee', fee);
       log('Sending ERC1155 with args', sendERC1155Args);
 
-      // try {
-      //   const { request } = await simulateContract(config, {
-      //     address: tokenVaultContract.address,
-      //     abi: erc1155VaultAbi,
-      //     functionName: 'sendToken',
-      //     args: [sendERC1155Args],
-      //     value: fee,
-      //   });
-      //   log('Simulate contract', request);
-      // } catch (err) {
-      //   // TODO: Handle error
-      //   console.error(err);
-      // }
-
-      const tx = await writeContract(config, {
+      const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
         abi: erc1155VaultAbi,
         functionName: 'sendToken',
+        //@ts-ignore
         args: [sendERC1155Args],
-        chainId: wallet.chain.id,
         value: fee,
       });
+      log('Simulate contract', request);
+
+      const tx = await writeContract(config, request);
 
       log('ERC1155 sent', tx);
 

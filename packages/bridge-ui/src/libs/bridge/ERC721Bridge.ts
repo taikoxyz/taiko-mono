@@ -110,28 +110,17 @@ export class ERC721Bridge extends Bridge {
       log('Sending ERC721 with fee', fee);
       log('Sending ERC721 with args', sendERC721Args);
 
-      // try {
-      //   const { request } = await simulateContract(config, {
-      //     address: tokenVaultContract.address,
-      //     abi: erc721VaultAbi,
-      //     functionName: 'sendToken',
-      //     args: [sendERC721Args],
-      //     value: fee,
-      //   });
-      //   log('Simulate contract', request);
-      // } catch (err) {
-      //   // TODO: Handle error
-      //   console.error(err);
-      // }
-
-      const txHash = await writeContract(config, {
+      const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
         abi: erc721VaultAbi,
         functionName: 'sendToken',
+        //@ts-ignore
         args: [sendERC721Args],
-        chainId: wallet.chain.id,
         value: fee,
       });
+      log('Simulate contract', request);
+
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for sendERC20 call', txHash);
 
