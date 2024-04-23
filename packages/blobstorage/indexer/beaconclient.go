@@ -22,10 +22,12 @@ type GetSpecResponse struct {
 	Data map[string]string `json:"data"`
 }
 
+type GenesisData struct {
+	GenesisTime string `json:"genesis_time"`
+}
+
 type GenesisResponse struct {
-	Data struct {
-		GenesisTime string `json:"genesis_time"`
-	} `json:"data"`
+	Data GenesisData `json:"data"`
 }
 
 type BeaconClient struct {
@@ -35,13 +37,15 @@ type BeaconClient struct {
 	secondsPerSlot uint64
 }
 
+type BlobData struct {
+	Index            string `json:"index"`
+	Blob             string `json:"blob"`
+	KzgCommitment    string `json:"kzg_commitment"`
+	KzgCommitmentHex []byte `json:"-"`
+}
+
 type BlobsResponse struct {
-	Data []struct {
-		Index            string `json:"index"`
-		Blob             string `json:"blob"`
-		KzgCommitment    string `json:"kzg_commitment"`
-		KzgCommitmentHex []byte `json:"-"`
-	} `json:"data"`
+	Data []BlobData `json:"data"`
 }
 
 func NewBeaconClient(cfg *Config, timeout time.Duration) (*BeaconClient, error) {
@@ -117,6 +121,10 @@ func (c *BeaconClient) getBlobs(ctx context.Context, blockID uint64) (*BlobsResp
 		return nil, err
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned non-OK status: %s", response.Status)
+	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
