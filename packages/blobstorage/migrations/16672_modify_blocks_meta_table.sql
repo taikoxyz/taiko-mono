@@ -1,0 +1,7 @@
+-- +goose Up
+ALTER TABLE blocks_meta DROP PRIMARY KEY;
+ALTER TABLE blocks_meta ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST;
+
+-- +goose Down
+ALTER TABLE blocks_meta DROP COLUMN id;
+ALTER TABLE blocks_meta ADD PRIMARY KEY (block_id);
