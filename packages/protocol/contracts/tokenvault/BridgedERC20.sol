@@ -95,4 +95,24 @@ contract BridgedERC20 is BridgedERC20Base_, ERC20VotesUpgradeable {
         if (paused()) revert INVALID_PAUSE_STATUS();
         return super._beforeTokenTransfer(_from, _to, _amount);
     }
+
+    function _mint(
+        address _to,
+        uint256 _amount
+    )
+        internal
+        override(BridgedERC20Base, ERC20VotesUpgradeable)
+    {
+        return super._mint(_to, _amount);
+    }
+
+    function _burn(
+        address _from,
+        uint256 _amount
+    )
+        internal
+        override(BridgedERC20Base, ERC20VotesUpgradeable)
+    {
+        return super._burn(_from, _amount);
+    }
 }
