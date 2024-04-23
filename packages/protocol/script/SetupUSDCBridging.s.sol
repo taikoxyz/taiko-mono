@@ -33,7 +33,9 @@ contract SetupUSDCBridging is DeployCapability {
 
         vm.startBroadcast(privateKey);
         vault.changeBridgedToken(ctoken, usdcOnL2);
-        vault.unpause();
+        if (vault.paused()) {
+            vault.unpause();
+        }
         vm.stopBroadcast();
 
         address newBridgedToken = vault.canonicalToBridged(1, USDC);
