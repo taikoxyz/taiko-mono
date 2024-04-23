@@ -30,16 +30,17 @@ contract SetupUSDCBridging is DeployCapability {
         address currBridgedtoken = vault.canonicalToBridged(1, usdcOnL1);
         console2.log("current btoken for usdc:", currBridgedtoken);
 
-        ERC20Vault.CanonicalERC20 memory ctoken = ERC20Vault.CanonicalERC20({
-            chainId: 1,
-            addr: usdcOnL1,
-            decimals: 6,
-            symbol: "USDC",
-            name: "USD Coin"
-        });
-
         vm.startBroadcast(privateKey);
-        vault.changeBridgedToken(ctoken, usdcOnL2);
+        vault.changeBridgedToken(
+            ERC20Vault.CanonicalERC20({
+                chainId: 1,
+                addr: usdcOnL1,
+                decimals: 6,
+                symbol: "USDC",
+                name: "USD Coin"
+            }),
+            usdcOnL2
+        );
         if (vault.paused()) {
             vault.unpause();
         }
