@@ -109,6 +109,10 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	return Header, nil
 }
 
+func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	return 1, nil
+}
+
 func (c *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
 	go func() {
 		t := time.NewTicker(time.Second * 1)

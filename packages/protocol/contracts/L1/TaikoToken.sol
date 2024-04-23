@@ -52,11 +52,6 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         return _burn(_from, _amount);
     }
 
-    /// @notice Creates a new token snapshot.
-    function snapshot() public onlyFromNamed(LibStrings.B_TAIKO) returns (uint256) {
-        return _snapshot();
-    }
-
     /// @notice Transfers tokens to a specified address.
     /// @param _to The address to transfer tokens to.
     /// @param _amount The amount of tokens to transfer.
@@ -82,10 +77,6 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     {
         if (_to == address(this)) revert TKO_INVALID_ADDR();
         return super.transferFrom(_from, _to, _amount);
-    }
-
-    function currentSnapshotId() public view returns (uint256) {
-        return _getCurrentSnapshotId();
     }
 
     function _beforeTokenTransfer(

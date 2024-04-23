@@ -155,7 +155,6 @@ contract ERC20Vault is BaseVault {
         address _btokenNew
     )
         external
-        whenNotPaused
         onlyOwner
         nonReentrant
         returns (address btokenOld_)

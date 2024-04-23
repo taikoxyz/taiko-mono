@@ -394,9 +394,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 					return errors.Wrap(err, "i.indexChainDataSyncedEvents")
 				}
 			}
-		case relayer.EventNameMessageReceived:
-			if err := i.withRetry(func() error { return i.indexMessageReceivedEvents(ctx, filterOpts) }); err != nil {
-				return errors.Wrap(err, "i.indexMessageReceivedEvents")
+		case relayer.EventNameMessageProcessed:
+			if err := i.withRetry(func() error { return i.indexMessageProcessedEvents(ctx, filterOpts) }); err != nil {
+				return errors.Wrap(err, "i.indexMessageProcessedEvents")
 			}
 		}
 
@@ -469,15 +469,15 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 	return nil
 }
 
-// indexMessageReceivedEvents indexes `MessageReceived` events on the bridge contract
+// indexMessageProcessedEvents indexes `MessageProcessed` events on the bridge contract
 // and stores them to the database, and adds the message to the queue if it has not been
 // seen before.
-func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
+func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	events, err := i.bridge.FilterMessageReceived(filterOpts, nil)
+	events, err := i.bridge.FilterMessageProcessed(filterOpts)
 	if err != nil {
-		return errors.Wrap(err, "bridge.FilterMessageReceived")
+		return errors.Wrap(err, "bridge.FilterMessageProcessed")
 	}
 
 	group, _ := errgroup.WithContext(ctx)
@@ -497,9 +497,9 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 		}
 
 		group.Go(func() error {
-			err := i.handleMessageReceivedEvent(ctx, i.srcChainId, event, true)
+			err := i.handleMessageProcessedEvent(ctx, i.srcChainId, event, true)
 			if err != nil {
-				relayer.MessageReceivedEventsIndexingErrors.Inc()
+				relayer.MessageProcessedEventsIndexingErrors.Inc()
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling event", "err", err.Error())
 
