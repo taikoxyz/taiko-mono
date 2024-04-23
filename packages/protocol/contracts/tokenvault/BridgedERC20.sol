@@ -9,7 +9,7 @@ import "./BridgedERC20Base.sol";
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
 /// contract list.
 abstract contract BridgedERC20Base_ is BridgedERC20Base {
-    uint256[50] private __gap;
+    uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
 }
 
 /// @title BridgedERC20
