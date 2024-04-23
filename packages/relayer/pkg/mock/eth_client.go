@@ -35,6 +35,10 @@ func (s *Subscription) Unsubscribe() {}
 type EthClient struct {
 }
 
+func (c *EthClient) TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error) {
+	return &types.Transaction{}, false, nil
+}
+
 func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	return big.NewInt(100), nil
 }
@@ -107,6 +111,10 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	}
 
 	return Header, nil
+}
+
+func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	return 1, nil
 }
 
 func (c *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {

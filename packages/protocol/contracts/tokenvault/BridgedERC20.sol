@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "./LibBridgedToken.sol";
@@ -11,12 +10,7 @@ import "./BridgedERC20Base.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is
-    BridgedERC20Base,
-    IERC20MetadataUpgradeable,
-    ERC20SnapshotUpgradeable,
-    ERC20VotesUpgradeable
-{
+contract BridgedERC20 is BridgedERC20Base, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
@@ -31,12 +25,6 @@ contract BridgedERC20 is
     uint256[47] private __gap;
 
     error BTOKEN_CANNOT_RECEIVE();
-    error BTOKEN_UNAUTHORIZED();
-
-    modifier onlyAuthorizedForSnapshot() {
-        if (!isAuthorizedForSnapshot(msg.sender)) revert BTOKEN_UNAUTHORIZED();
-        _;
-    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -72,70 +60,22 @@ contract BridgedERC20 is
         __srcDecimals = _decimals;
     }
 
-    /// @notice Set the snapshoter address.
-    /// @param _snapshooter snapshooter address.
-    function setSnapshooter(address _snapshooter) external onlyOwner {
-        snapshooter = _snapshooter;
-    }
-
-    /// @notice Creates a new token snapshot.
-    function snapshot() external onlyAuthorizedForSnapshot returns (uint256) {
-        return _snapshot();
-    }
-
     /// @notice Gets the name of the token.
     /// @return The name.
-    function name()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (string memory)
-    {
+    function name() public view override returns (string memory) {
         return LibBridgedToken.buildName(super.name(), srcChainId);
     }
 
     /// @notice Gets the symbol of the bridged token.
     /// @return The symbol.
-    function symbol()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (string memory)
-    {
+    function symbol() public view override returns (string memory) {
         return LibBridgedToken.buildSymbol(super.symbol());
     }
 
     /// @notice Gets the number of decimal places of the token.
     /// @return The number of decimal places of the token.
-    function decimals()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (uint8)
-    {
+    function decimals() public view override returns (uint8) {
         return __srcDecimals;
-    }
-
-    /// @notice Gets the current snapshot ID.
-    /// @return The current snapshot ID.
-    function currentSnapshotId() public view returns (uint256) {
-        return _getCurrentSnapshotId();
-    }
-
-    /// @notice Checks if an address can take a snapshot.
-    /// @param addr The address.
-    /// @return true if the address can perform a snapshot, false otherwise.
-    function isAuthorizedForSnapshot(address addr) public view returns (bool) {
-        if (addr == address(0)) return false;
-
-        if (
-            addr == resolve(LibStrings.B_TAIKO, true)
-                && address(this) == resolve(LibStrings.B_TAIKO_TOKEN, true)
-        ) return true;
-
-        if (addr == snapshooter) return true;
-
-        return false;
     }
 
     /// @notice Gets the canonical token's address and chain ID.
@@ -143,14 +83,6 @@ contract BridgedERC20 is
     /// @return The canonical token's chain ID.
     function canonical() external view returns (address, uint256) {
         return (srcToken, srcChainId);
-    }
-
-    function _mintToken(address _account, uint256 _amount) internal override {
-        return _mint(_account, _amount);
-    }
-
-    function _burnToken(address _from, uint256 _amount) internal override {
-        return _burn(_from, _amount);
     }
 
     /// @dev For ERC20SnapshotUpgradeable and ERC20VotesUpgradeable, need to implement the following
@@ -184,7 +116,7 @@ contract BridgedERC20 is
         uint256 _amount
     )
         internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+        override(ERC20Upgradeable, ERC20VotesUpgradeable, BridgedERC20Base)
     {
         return super._mint(_to, _amount);
     }
@@ -194,7 +126,7 @@ contract BridgedERC20 is
         uint256 _amount
     )
         internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
+        override(ERC20Upgradeable, ERC20VotesUpgradeable, BridgedERC20Base)
     {
         return super._burn(_from, _amount);
     }

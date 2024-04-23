@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +19,7 @@ func Test_canProcessMessage(t *testing.T) {
 		eventStatus    relayer.EventStatus
 		messageOwner   common.Address
 		relayerAddress common.Address
-		gasLimit       *big.Int
+		gasLimit       uint64
 		want           bool
 	}{
 		{
@@ -28,7 +27,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusNew,
 			relayerAddr,
 			relayerAddr,
-			big.NewInt(5),
+			5,
 			true,
 		},
 		{
@@ -36,7 +35,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusDone,
 			relayerAddr,
 			relayerAddr,
-			big.NewInt(5),
+			5,
 			false,
 		},
 		{
@@ -44,7 +43,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusRetriable,
 			relayerAddr,
 			relayerAddr,
-			big.NewInt(5),
+			5,
 			false,
 		},
 		{
@@ -52,7 +51,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusNew,
 			common.HexToAddress("0x"),
 			relayerAddr,
-			big.NewInt(0),
+			0,
 			false,
 		},
 		{
@@ -60,7 +59,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusFailed,
 			common.HexToAddress("0x"),
 			relayerAddr,
-			big.NewInt(5),
+			5,
 			false,
 		},
 		{
@@ -68,7 +67,7 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusNew,
 			relayerAddr,
 			relayerAddr,
-			big.NewInt(0),
+			5,
 			true,
 		},
 	}

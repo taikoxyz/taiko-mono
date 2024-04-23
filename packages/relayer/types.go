@@ -146,13 +146,13 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 	chunks := splitByteArray(decodedData, 32)
 
 	if len(chunks) < 4 {
-		return token, big.NewInt(0), fmt.Errorf("data too short")
+		return token, big.NewInt(0), errors.New("data too short")
 	}
 
 	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
 
 	if !ok {
-		return token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
+		return token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
 	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
@@ -172,7 +172,7 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 
 	amount, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+3])), 16)
 	if !ok {
-		return token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
+		return token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
 	return token, amount, nil
@@ -187,7 +187,7 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
 
 	if !ok || offset.Int64()%32 != 0 {
-		return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
 	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
@@ -211,14 +211,14 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	} else if offset.Int64() == 160 {
 		offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+4])), 16)
 		if !ok || offset.Int64()%32 != 0 {
-			return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
+			return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
 		}
 
 		indexOffset := canonicalTokenDataStartingindex + int64(offset.Int64()/32)
 
 		length, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[indexOffset])), 16)
 		if !ok {
-			return EventTypeSendETH, token, big.NewInt(0), fmt.Errorf("data for BigInt is invalid")
+			return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
 		}
 
 		amount := big.NewInt(0)
@@ -364,7 +364,7 @@ func DecodeRevertReason(hexStr string) (string, error) {
 
 	// Ensure the data is long enough to contain a valid revert reason
 	if len(data) < 68 {
-		return "", fmt.Errorf("data too short to contain a valid revert reason")
+		return "", errors.New("data too short to contain a valid revert reason")
 	}
 
 	// The revert reason is encoded in the data returned by a failed transaction call
@@ -377,7 +377,7 @@ func DecodeRevertReason(hexStr string) (string, error) {
 
 	// Ensure the data contains the full revert string
 	if uint64(len(data)) < 68+strLen {
-		return "", fmt.Errorf("data too short to contain the full revert reason")
+		return "", errors.New("data too short to contain the full revert reason")
 	}
 
 	// Extract the revert reason string
