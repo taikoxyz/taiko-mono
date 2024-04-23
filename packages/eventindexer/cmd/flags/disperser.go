@@ -33,7 +33,7 @@ var (
 	}
 )
 
-var DisperserFlags = MergeFlags(CommonFlags, []cli.Flag{
+var DisperserFlags = MergeFlags(CommonFlags, TxmgrFlags, []cli.Flag{
 	DisperserPrivateKey,
 	TaikoTokenAddress,
 	DispersalAmount,

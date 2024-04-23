@@ -90,14 +90,6 @@ contract BridgedERC20 is BridgedERC20Base_, ERC20VotesUpgradeable {
         return (srcToken, srcChainId);
     }
 
-    function _mintToken(address _account, uint256 _amount) internal override {
-        return _mint(_account, _amount);
-    }
-
-    function _burnToken(address _from, uint256 _amount) internal override {
-        return _burn(_from, _amount);
-    }
-
     function _beforeTokenTransfer(address _from, address _to, uint256 _amount) internal override {
         if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
