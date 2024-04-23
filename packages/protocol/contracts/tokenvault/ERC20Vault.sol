@@ -327,6 +327,8 @@ contract ERC20Vault is BaseVault {
             IERC20(token_).safeTransfer(_to, _amount);
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
+            //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
+            // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
     }
@@ -347,7 +349,9 @@ contract ERC20Vault is BaseVault {
         CanonicalERC20 storage _ctoken = bridgedToCanonical[_op.token];
         if (_ctoken.addr != address(0)) {
             ctoken_ = _ctoken;
-            IBridgedERC20(_op.token).burn(msg.sender, _op.amount);
+            // Following the "transfer and burn" pattern, as used by USDC
+            IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+            IBridgedERC20(_token).burn(_amount);
             balanceChange_ = _op.amount;
         } else {
             // If it's a canonical token
