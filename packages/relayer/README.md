@@ -131,7 +131,7 @@ Optional:
 `eventType`: filter events by event type. Default: all eventType. Options: Enum value, `0` for sendETH, `1` for sendERC20.
 `event`: filter events by event name. Default: all event names. Options: `MessageSent`, `MessageStatusChanged`
 
-Pagination:
+Pagination-1:
 `page`: page number to retrieve. Default: 0.
 `size`: size to retrieve per page. Default: 100
 
