@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -349,7 +348,7 @@ func (p *Processor) sendProcessMessageCall(
 	// mul by 1.05 for padding
 	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
 
-	var estimatedCost uint64 = 0
+	// var estimatedCost uint64 = 0
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
@@ -365,34 +364,34 @@ func (p *Processor) sendProcessMessageCall(
 		// now simulate the transaction and lets confirm
 		// it is profitable
 
-		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
-		if err != nil {
-			return nil, err
-		}
+		// auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
-		msg := ethereum.CallMsg{
-			From: auth.From,
-			To:   &p.cfg.DestBridgeAddress,
-			Data: data,
-		}
+		// msg := ethereum.CallMsg{
+		// 	From: auth.From,
+		// 	To:   &p.cfg.DestBridgeAddress,
+		// 	Data: data,
+		// }
 
-		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
-		if err != nil {
-			return nil, err
-		}
+		// gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
-		slog.Info("estimatedGasUsed",
-			"gasUsed", gasUsed,
-			"messageGasLimit", event.Message.GasLimit,
-			"paddedGasLimit", gasLimit,
-			"srcTxHash", event.Raw.TxHash.Hex(),
-		)
+		// slog.Info("estimatedGasUsed",
+		// 	"gasUsed", gasUsed,
+		// 	"messageGasLimit", event.Message.GasLimit,
+		// 	"paddedGasLimit", gasLimit,
+		// 	"srcTxHash", event.Raw.TxHash.Hex(),
+		// )
 
-		if gasUsed > gasLimit {
-			return nil, relayer.ErrUnprofitable
-		}
+		// if gasUsed > gasLimit {
+		// 	return nil, relayer.ErrUnprofitable
+		// }
 
-		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
+		// estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
 	}
 
 	candidate := txmgr.TxCandidate{
@@ -421,21 +420,21 @@ func (p *Processor) sendProcessMessageCall(
 
 	relayer.MessageSentEventsProcessed.Inc()
 
-	if p.profitableOnly {
-		cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
+	// if p.profitableOnly {
+	// 	cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
 
-		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
-			"srcTxHash", event.Raw.TxHash.Hex(),
-			"actualCost", cost,
-			"estimatedCost", estimatedCost,
-		)
+	// 	slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+	// 		"srcTxHash", event.Raw.TxHash.Hex(),
+	// 		"actualCost", cost,
+	// 		"estimatedCost", estimatedCost,
+	// 	)
 
-		if cost > estimatedCost {
-			relayer.UnprofitableMessageAfterTransacting.Inc()
-		} else {
-			relayer.ProfitableMessageAfterTransacting.Inc()
-		}
-	}
+	// 	if cost > estimatedCost {
+	// 		relayer.UnprofitableMessageAfterTransacting.Inc()
+	// 	} else {
+	// 		relayer.ProfitableMessageAfterTransacting.Inc()
+	// 	}
+	// }
 
 	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
 		return nil, err
