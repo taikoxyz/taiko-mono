@@ -1,7 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
 
 import { recommendProcessingFeeConfig } from '$config';
-import { PUBLIC_BASE_FEE_MULITPLIER } from '$env/static/public';
+import { PUBLIC_BASE_FEE_MULTIPLIER } from '$env/static/public';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
@@ -84,7 +84,7 @@ export async function recommendProcessingFee({
   }
   if (!gasLimit) throw new Error('Unable to calculate fee');
 
-  const fee = gasLimit * (BigInt(PUBLIC_BASE_FEE_MULITPLIER) * (baseFee + maxPriorityFee));
+  const fee = gasLimit * (BigInt(PUBLIC_BASE_FEE_MULTIPLIER) * (baseFee + maxPriorityFee));
   log(`Recommended fee: ${fee.toString()}`);
   return roundWeiTo6DecimalPlaces(fee);
 }
