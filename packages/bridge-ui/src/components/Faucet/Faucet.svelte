@@ -188,7 +188,7 @@
         direction={ChainSelectorDirection.SOURCE}
         label={$t('chain_selector.currently_on')}
         switchWallet />
-      <TokenDropdown tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
+      <TokenDropdown {disabled} tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
     </div>
 
     {#if alertMessage}
