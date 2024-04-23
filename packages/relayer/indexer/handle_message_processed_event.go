@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
@@ -24,26 +23,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 		"txHash", event.Raw.TxHash.Hex(),
 	)
 
-	// get the function arguments
-
-	transaction, _, err := i.srcEthClient.TransactionByHash(context.Background(), event.Raw.TxHash)
-	if err != nil {
-		return err
-	}
-
-	method, err := encoding.BridgeABI.MethodById(transaction.Data())
-	if err != nil {
-		return err
-	}
-
-	inputs := make(map[string]interface{})
-
-	err = method.Inputs.UnpackIntoMap(inputs, transaction.Data()[4:])
-	if err != nil {
-		return err
-	}
-
-	message := inputs["message"].(bridge.IBridgeMessage)
+	message := event.Message
 
 	// if the destination doesnt match our source chain, we dont want to handle this event.
 	if new(big.Int).SetUint64(message.DestChainId).Cmp(i.srcChainId) != 0 {

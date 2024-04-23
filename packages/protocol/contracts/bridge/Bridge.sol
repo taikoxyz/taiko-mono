@@ -26,7 +26,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
-    event MessageProcessed(bytes32 indexed msgHash, ProcessingStats stats);
+    event MessageProcessed(bytes32 indexed msgHash, Message message, ProcessingStats stats);
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
@@ -267,7 +267,7 @@ contract Bridge is EssentialContract, IBridge {
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
         stats.proofSize = uint32(_proof.length);
-        emit MessageProcessed(msgHash, stats);
+        emit MessageProcessed(msgHash, _message, stats);
     }
 
     /// @inheritdoc IBridge
