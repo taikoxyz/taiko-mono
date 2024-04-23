@@ -412,6 +412,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 // seen before.
 func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts) error {
+	slog.Info("indexing messageSent events")
+
 	events, err := i.bridge.FilterMessageSent(filterOpts, nil)
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
@@ -476,6 +478,8 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
+	slog.Info("indexing messageProcessed events")
+
 	events, err := i.bridge.FilterMessageProcessed(filterOpts, nil)
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageProcessed")
