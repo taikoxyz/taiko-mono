@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 func Test_isProfitable(t *testing.T) {
@@ -13,7 +12,8 @@ func Test_isProfitable(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		message        bridge.IBridgeMessage
+		fee            uint64
+		gasLimit       uint64
 		baseFee        uint64
 		gasTipCap      uint64
 		wantProfitable bool
@@ -21,17 +21,8 @@ func Test_isProfitable(t *testing.T) {
 	}{
 		{
 			"zeroProcessingFee",
-			bridge.IBridgeMessage{
-				Fee: 0,
-			},
+			0,
 			1,
-			1,
-			false,
-			nil,
-		},
-		{
-			"nilProcessingFee",
-			bridge.IBridgeMessage{},
 			1,
 			1,
 			false,
@@ -39,10 +30,8 @@ func Test_isProfitable(t *testing.T) {
 		},
 		{
 			"profitable",
-			bridge.IBridgeMessage{
-				GasLimit: 600000,
-				Fee:      600000000600001,
-			},
+			600000000600001,
+			600000,
 			1000000000,
 			1,
 			true,
@@ -50,10 +39,8 @@ func Test_isProfitable(t *testing.T) {
 		},
 		{
 			"unprofitable",
-			bridge.IBridgeMessage{
-				GasLimit: 600000,
-				Fee:      590000000600000,
-			},
+			590000000600000,
+			600000,
 			1000000000,
 			1,
 			false,
@@ -65,7 +52,8 @@ func Test_isProfitable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profitable, err := p.isProfitable(
 				context.Background(),
-				tt.message,
+				tt.fee,
+				tt.gasLimit,
 				tt.baseFee,
 				tt.gasTipCap,
 			)

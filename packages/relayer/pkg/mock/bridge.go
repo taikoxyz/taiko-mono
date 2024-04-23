@@ -51,6 +51,7 @@ func (b *Bridge) FilterMessageSent(
 
 func (b *Bridge) FilterMessageProcessed(
 	opts *bind.FilterOpts,
+	msgHash [][32]byte,
 ) (*bridge.BridgeMessageProcessedIterator, error) {
 	return &bridge.BridgeMessageProcessedIterator{}, nil
 }

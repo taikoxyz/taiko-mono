@@ -9,6 +9,7 @@ var (
 	indexerCategory   = "INDEXER"
 	generatorCategory = "GENERATOR"
 	disperserCategory = "DISPERSER"
+	txmgrCategory     = "TX_MANAGER"
 )
 
 var (

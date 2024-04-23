@@ -23,11 +23,13 @@ func (i *Indexer) handleMessageProcessedEvent(
 		"txHash", event.Raw.TxHash.Hex(),
 	)
 
+	message := event.Message
+
 	// if the destination doesnt match our source chain, we dont want to handle this event.
-	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.srcChainId) != 0 {
+	if new(big.Int).SetUint64(message.DestChainId).Cmp(i.srcChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
-			event.Message.DestChainId,
+			message.DestChainId,
 			"indexerSrcChainID",
 			i.srcChainId.Uint64(),
 		)
@@ -75,9 +77,9 @@ func (i *Indexer) handleMessageProcessedEvent(
 		"0x",
 		chainID,
 		1,
-		event.Message.SrcOwner.Hex(),
-		event.Message.Data,
-		event.Message.Value,
+		message.SrcOwner.Hex(),
+		message.Data,
+		message.Value,
 		event.Raw.BlockNumber,
 	)
 	if err != nil {
@@ -85,8 +87,8 @@ func (i *Indexer) handleMessageProcessedEvent(
 	}
 
 	msg := queue.QueueMessageProcessedBody{
-		ID:    id,
-		Event: event,
+		ID:      id,
+		Message: message,
 	}
 
 	marshalledMsg, err := json.Marshal(msg)
