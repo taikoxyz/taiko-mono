@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.1.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v4.0.0...bridge-ui-v4.1.0) (2024-04-24)
+
+
+### Features
+
+* **bridge-ui:** processingFee from API ([#16708](https://github.com/taikoxyz/taiko-mono/issues/16708)) ([3cd7cce](https://github.com/taikoxyz/taiko-mono/commit/3cd7cce1c52f94276011f4581143390c26acb49e))
+
+
+### Bug Fixes
+
+* **bridge-ui:** custom and none fee selection overwritten by error fetching recommended fee ([#16737](https://github.com/taikoxyz/taiko-mono/issues/16737)) ([9166ee3](https://github.com/taikoxyz/taiko-mono/commit/9166ee3e0a968db19d8cec2002565413d79cd708))
+* **bridge-ui:** defaulting to source chain explorer for link to canonical address ([#16701](https://github.com/taikoxyz/taiko-mono/issues/16701)) ([68bd435](https://github.com/taikoxyz/taiko-mono/commit/68bd4354d03429ceccd4b311db6e59066111af09))
+* **bridge-ui:** fix ERC721 and ERC1155 detection in NFT bridge ([#16680](https://github.com/taikoxyz/taiko-mono/issues/16680)) ([ca45aa6](https://github.com/taikoxyz/taiko-mono/commit/ca45aa6da6101f15fe9ef4c485e5d61a64f66f84))
+* **bridge-ui:** update disabled for chainselector ([#16814](https://github.com/taikoxyz/taiko-mono/issues/16814)) ([406b15a](https://github.com/taikoxyz/taiko-mono/commit/406b15a301c7a3454957518a2cc33a44fbf21cde))
+
 ## [4.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v3.0.0...bridge-ui-v4.0.0) (2024-04-04)
 
 
