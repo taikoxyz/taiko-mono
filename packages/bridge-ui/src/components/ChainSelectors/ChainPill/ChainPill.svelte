@@ -13,6 +13,7 @@
 
   export let value: Maybe<Chain> | null = null;
   export let label = '';
+  export let readOnly = false;
   export let selectChain: (event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) => Promise<void>;
 
   export let switchWallet = false;
