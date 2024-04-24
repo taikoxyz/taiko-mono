@@ -5,6 +5,7 @@
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { DialogStep, DialogStepper } from '$components/Dialogs/Stepper';
   import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -39,6 +40,7 @@
   let retrying: boolean;
   let retryDone = false;
   let ClaimComponent: Claim;
+  let isDesktopOrLarger = false;
 
   let txHash: Hash;
 
@@ -102,7 +104,7 @@
 
 <dialog
   id={dialogId}
-  class="modal"
+  class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}"
   class:modal-open={dialogOpen}
   use:closeOnEscapeOrOutsideClick={{ enabled: dialogOpen, callback: closeDialog, uuid: dialogId }}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute">
@@ -160,3 +162,5 @@
 <Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleRetryError} on:claimingTxSent={handleRetryTxSent} />
 
 <OnAccount change={handleAccountChange} />
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

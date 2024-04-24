@@ -5,6 +5,7 @@
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { errorToast, successToast, warningToast } from '$components/NotificationToast';
   import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -45,6 +46,7 @@
   let releasingDone = false;
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
+  let isDesktopOrLarger = false;
 
   const closeDialog = () => {
     dialogOpen = false;
@@ -156,7 +158,7 @@
   $: loading = releasing;
 </script>
 
-<dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
+<dialog id={dialogId} class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}" class:modal-open={dialogOpen}>
   <div class="modal-box relative w-full bg-neutral-background absolute">
     <div class="w-full f-between-center">
       <CloseButton onClick={closeDialog} />
@@ -210,3 +212,5 @@
 <Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleClaimError} on:claimingTxSent={handleClaimTxSent} />
 
 <OnAccount change={handleAccountChange} />
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
