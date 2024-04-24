@@ -147,7 +147,7 @@ End game: multiple zkVMs (Guardians removed)
 
 There are a few risks associated with the protocol:
 
-- The protocol does not have a robust on-chain fee estimation mechanism. On calling the on-chain functions, the relayers should provide the contracts with upto date prices for users or atleast maintain a default amount of gas to send across.
+- The protocol does not have a robust on-chain fee estimation mechanism. On calling the on-chain functions, the relayers should provide the contracts with up to date prices for users or at least maintain a default amount of gas to send across.
 - The protocol would not work perfectly with swapping protocols. This is because the bridge includes invocation delays which can cause swaps to go outdated.
 - There is an issue related to custom coinbase transfers which can create a risk among block proposers.
 
