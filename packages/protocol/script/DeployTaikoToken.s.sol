@@ -32,16 +32,8 @@ contract DeployTaikoToken is DeployCapability {
             name: "taiko_token",
             impl: address(new TaikoToken()),
             data: abi.encodeCall(
-                TaikoToken.init,
-                (
-                    securityCouncil,
-                    tokenName,
-                    tokenSymbol,
-                    premintRecipient,
-                    address(sharedAddressManager)
+                TaikoToken.init, (securityCouncil, tokenName, tokenSymbol, premintRecipient)
                 )
-                ),
-            registerTo: sharedAddressManager
         });
     }
 }
