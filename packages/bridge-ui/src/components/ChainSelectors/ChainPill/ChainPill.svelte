@@ -36,7 +36,7 @@
     }
   };
 
-  $: disabled = !$account || !$account.isConnected;
+  $: disabled = !$account || !$account.isConnected || readOnly;
 </script>
 
 <div class={classes}>
