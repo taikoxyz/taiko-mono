@@ -119,12 +119,7 @@
         break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);
-        if (err.message.includes('B_INVOCATION_TOO_EARLY')) {
-          errorToast({
-            title: $t('bridge.errors.claim.too_early.title'),
-            message: $t('bridge.errors.claim.too_early.message'),
-          });
-        } else if (err.message.includes('B_NOT_RECEIVED')) {
+        if (err.message.includes('B_NOT_RECEIVED')) {
           errorToast({
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
