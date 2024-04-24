@@ -59,7 +59,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
-        (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(msg.sender, _op);
+        (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
         // Create a message to send to the destination chain
         IBridge.Message memory message = IBridge.Message({
@@ -237,23 +237,20 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     /// @dev Handles the message on the source chain and returns the encoded
     /// call on the destination call.
-    /// @param _user The user's address.
     /// @param _op BridgeTransferOp data.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
-    function _handleMessage(
-        address _user,
-        BridgeTransferOp memory _op
-    )
+    function _handleMessage(BridgeTransferOp calldata _op)
         private
         returns (bytes memory msgData_, CanonicalNFT memory ctoken_)
     {
         unchecked {
             // is a btoken, meaning, it does not live on this chain
-            if (bridgedToCanonical[_op.token].addr != address(0)) {
-                ctoken_ = bridgedToCanonical[_op.token];
+            CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
+            if (_ctoken.addr != address(0)) {
+                ctoken_ = _ctoken;
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    BridgedERC1155(_op.token).burn(_user, _op.tokenIds[i], _op.amounts[i]);
+                    BridgedERC1155(_op.token).burn(msg.sender, _op.tokenIds[i], _op.amounts[i]);
                 }
             } else {
                 // is a ctoken token, meaning, it lives on this chain
@@ -282,7 +279,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
         msgData_ = abi.encodeCall(
-            this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds, _op.amounts)
+            this.onMessageInvocation,
+            abi.encode(ctoken_, msg.sender, _op.to, _op.tokenIds, _op.amounts)
         );
     }
 

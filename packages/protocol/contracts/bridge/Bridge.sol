@@ -19,22 +19,14 @@ contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
     using LibAddress for address payable;
 
-    struct GasStats {
-        uint256 start;
-        uint256 beforeInvocation;
-        uint256 afterInvocation;
-        uint256 gasUsedInFeeCalc;
-        uint256 end;
+    struct ProcessingStats {
+        uint32 gasUsedInFeeCalc;
+        uint32 proofSize;
+        uint32 numCacheOps;
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
-    event GasLog(
-        bytes32 indexed msgHash,
-        GasStats stats,
-        uint256 overhead,
-        uint256 proofSize,
-        uint256 numCacheOps
-    );
+    event MessageProcessed(bytes32 indexed msgHash, Message message, ProcessingStats stats);
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
@@ -218,8 +210,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(_message.destChainId)
         nonReentrant
     {
-        GasStats memory stats;
-        stats.start = gasleft();
+        uint256 gasStart = gasleft();
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
@@ -231,7 +222,10 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        (bool received, uint256 numCacheOps) =
+        ProcessingStats memory stats;
+        bool received;
+
+        (received, stats.numCacheOps) =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
@@ -245,26 +239,20 @@ contract Bridge is EssentialContract, IBridge {
             refundAmount = _message.value;
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
-            stats.beforeInvocation = gasleft();
             Status status = _invokeMessageCall(
                 _message, msgHash, _invocationGasLimit(_message, true)
             ) ? Status.DONE : Status.RETRIABLE;
-
-            stats.afterInvocation = gasleft();
             _updateMessageStatus(msgHash, status);
         }
-
-        emit MessageProcessed(_message);
 
         if (_message.fee != 0) {
             refundAmount += _message.fee;
 
             if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
                 unchecked {
-                    uint256 refund = numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = GAS_OVERHEAD + stats.start - gasleft();
-
-                    uint256 gasCharged = stats.gasUsedInFeeCalc.max(refund) - refund;
+                    uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
+                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
+                    uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
                     uint256 fee =
@@ -278,8 +266,8 @@ contract Bridge is EssentialContract, IBridge {
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
-        stats.end = gasleft();
-        emit GasLog(msgHash, stats, GAS_OVERHEAD, _proof.length, numCacheOps);
+        stats.proofSize = uint32(_proof.length);
+        emit MessageProcessed(msgHash, _message, stats);
     }
 
     /// @inheritdoc IBridge
@@ -425,13 +413,13 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Returns the minimal gas limit required for sending a given message.
-    /// @param _message The message.
+    /// @param dataLength The length of message.data.
     /// @return The minimal gas limit required for sending this message.
-    function getMessageMinGasLimit(Message calldata _message) public pure returns (uint32) {
+    function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         unchecked {
             // Message struct takes 7*32=224 bytes + a variable length array.
             // Since ABI.encode pads data to multiples of 32 bytes, we over-charge 32 bytes
-            return GAS_RESERVE + uint32((_message.data.length + 256) >> 4);
+            return GAS_RESERVE + uint32((dataLength + 256) >> 4);
         }
     }
 
@@ -440,7 +428,7 @@ contract Bridge is EssentialContract, IBridge {
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
         // Owenr and chain_pauser can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_PAUSER, true)) return;
+        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
         if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
@@ -547,12 +535,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        returns (bool success_, uint256 numCacheOps_)
+        returns (bool success_, uint32 numCacheOps_)
     {
         try ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) returns (uint256 numCacheOps) {
-            numCacheOps_ = numCacheOps;
+            numCacheOps_ = uint32(numCacheOps);
             success_ = true;
         } catch {
             success_ = false;
@@ -594,7 +582,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (uint256 gasLimit_)
     {
         unchecked {
-            uint256 minGasRequired = getMessageMinGasLimit(_message);
+            uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
             gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
 

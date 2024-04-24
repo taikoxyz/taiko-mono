@@ -149,7 +149,7 @@ library TaikoData {
         bool provingPaused;
         uint8 __reservedB1;
         uint16 __reservedB2;
-        uint32 lastSnapshotIdx;
+        uint32 __reservedB3;
         uint64 lastUnpausedAt;
     }
 
@@ -164,6 +164,7 @@ library TaikoData {
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
             ) transitions;
+        // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6

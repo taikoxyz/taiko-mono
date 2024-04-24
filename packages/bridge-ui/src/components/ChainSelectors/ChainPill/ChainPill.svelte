@@ -9,6 +9,7 @@
   import { classNames } from '$libs/util/classNames';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
+  import { account } from '$stores';
 
   export let value: Maybe<Chain> | null = null;
   export let label = '';
@@ -34,6 +35,8 @@
       modalOpen = true;
     }
   };
+
+  $: disabled = !$account || !$account.isConnected || readOnly;
 </script>
 
 <div class={classes}>
@@ -44,7 +47,7 @@
     <button
       id={buttonId}
       type="button"
-      disabled={readOnly}
+      {disabled}
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}

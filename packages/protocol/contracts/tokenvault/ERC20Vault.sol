@@ -155,7 +155,6 @@ contract ERC20Vault is BaseVault {
         address _btokenNew
     )
         external
-        whenNotPaused
         onlyOwner
         nonReentrant
         returns (address btokenOld_)
@@ -221,7 +220,7 @@ contract ERC20Vault is BaseVault {
         if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
-            _handleMessage(msg.sender, _op.token, _op.to, _op.amount);
+            _handleMessage(_op);
 
         IBridge.Message memory message = IBridge.Message({
             id: 0, // will receive a new value
@@ -328,41 +327,38 @@ contract ERC20Vault is BaseVault {
             IERC20(token_).safeTransfer(_to, _amount);
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
+            //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
+            // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
     /// call on the destination call.
-    /// @param _user The user's address.
-    /// @param _token The token address.
-    /// @param _to To address.
-    /// @param _amount Amount to be sent.
+    /// @param _op The BridgeTransferOp object.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
     /// @return balanceChange_ User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transferred away.
-    function _handleMessage(
-        address _user,
-        address _token,
-        address _to,
-        uint256 _amount
-    )
+    function _handleMessage(BridgeTransferOp calldata _op)
         private
         returns (bytes memory msgData_, CanonicalERC20 memory ctoken_, uint256 balanceChange_)
     {
         // If it's a bridged token
-        if (bridgedToCanonical[_token].addr != address(0)) {
-            ctoken_ = bridgedToCanonical[_token];
-            IBridgedERC20(_token).burn(msg.sender, _amount);
-            balanceChange_ = _amount;
+        CanonicalERC20 storage _ctoken = bridgedToCanonical[_op.token];
+        if (_ctoken.addr != address(0)) {
+            ctoken_ = _ctoken;
+            // Following the "transfer and burn" pattern, as used by USDC
+            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), _op.amount);
+            IBridgedERC20(_op.token).burn(_op.amount);
+            balanceChange_ = _op.amount;
         } else {
             // If it's a canonical token
-            IERC20Metadata meta = IERC20Metadata(_token);
+            IERC20Metadata meta = IERC20Metadata(_op.token);
             ctoken_ = CanonicalERC20({
                 chainId: uint64(block.chainid),
-                addr: _token,
+                addr: _op.token,
                 decimals: meta.decimals(),
                 symbol: meta.symbol(),
                 name: meta.name()
@@ -372,14 +368,14 @@ contract ERC20Vault is BaseVault {
             // token transferred into this address, this is more accurate than
             // simply using `amount` -- some contract may deduct a fee from the
             // transferred amount.
-            IERC20 t = IERC20(_token);
+            IERC20 t = IERC20(_op.token);
             uint256 _balance = t.balanceOf(address(this));
-            t.safeTransferFrom({ from: msg.sender, to: address(this), value: _amount });
+            t.safeTransferFrom(msg.sender, address(this), _op.amount);
             balanceChange_ = t.balanceOf(address(this)) - _balance;
         }
 
         msgData_ = abi.encodeCall(
-            this.onMessageInvocation, abi.encode(ctoken_, _user, _to, balanceChange_)
+            this.onMessageInvocation, abi.encode(ctoken_, msg.sender, _op.to, balanceChange_)
         );
     }
 

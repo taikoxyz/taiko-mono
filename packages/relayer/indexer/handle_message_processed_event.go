@@ -3,34 +3,33 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"math/big"
 
-	"log/slog"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
-// handleMessageReceivedEvent handles an individual MessageReceived event
-func (i *Indexer) handleMessageReceivedEvent(
+// handleMessageProcessedEvent handles an individual MessageProcessed event
+func (i *Indexer) handleMessageProcessedEvent(
 	ctx context.Context,
 	chainID *big.Int,
-	event *bridge.BridgeMessageReceived,
+	event *bridge.BridgeMessageProcessed,
 	waitForConfirmations bool,
 ) error {
-	slog.Info("msg received event found for msgHash",
-		"msgHash", common.Hash(event.MsgHash).Hex(),
+	slog.Info("msg received event found",
 		"txHash", event.Raw.TxHash.Hex(),
 	)
 
+	message := event.Message
+
 	// if the destination doesnt match our source chain, we dont want to handle this event.
-	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.srcChainId) != 0 {
+	if new(big.Int).SetUint64(message.DestChainId).Cmp(i.srcChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
-			event.Message.DestChainId,
+			message.DestChainId,
 			"indexerSrcChainID",
 			i.srcChainId.Uint64(),
 		)
@@ -40,12 +39,6 @@ func (i *Indexer) handleMessageReceivedEvent(
 
 	if event.Raw.Removed {
 		slog.Info("event is removed")
-		return nil
-	}
-
-	// we should never see an empty msgHash, but if we do, we dont process.
-	if event.MsgHash == relayer.ZeroHash {
-		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
 		return nil
 	}
 
@@ -66,15 +59,9 @@ func (i *Indexer) handleMessageReceivedEvent(
 		}
 	}
 
-	// get event status from msgHash on chain
-	eventStatus, err := i.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
-	if err != nil {
-		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
-	}
-
 	// if the message is not status new, and we are iterating crawling past blocks,
 	// we also dont want to handle this event. it has already been handled.
-	if i.watchMode == CrawlPastBlocks && eventStatus != relayer.EventStatusNew {
+	if i.watchMode == CrawlPastBlocks {
 		// we can return early, this message has been processed as expected.
 		return nil
 	}
@@ -87,21 +74,21 @@ func (i *Indexer) handleMessageReceivedEvent(
 	id, err := i.saveEventToDB(
 		ctx,
 		marshaled,
-		common.Hash(event.MsgHash).Hex(),
+		"0x",
 		chainID,
-		eventStatus,
-		event.Message.SrcOwner.Hex(),
-		event.Message.Data,
-		event.Message.Value,
+		1,
+		message.SrcOwner.Hex(),
+		message.Data,
+		message.Value,
 		event.Raw.BlockNumber,
 	)
 	if err != nil {
 		return errors.Wrap(err, "i.saveEventToDB")
 	}
 
-	msg := queue.QueueMessageReceivedBody{
-		ID:    id,
-		Event: event,
+	msg := queue.QueueMessageProcessedBody{
+		ID:      id,
+		Message: message,
 	}
 
 	marshalledMsg, err := json.Marshal(msg)
