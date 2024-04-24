@@ -44,6 +44,7 @@
   let releasing: boolean;
   let releasingDone = false;
   let ClaimComponent: Claim;
+  let hideContinueButton: boolean;
 
   const closeDialog = () => {
     dialogOpen = false;
@@ -178,7 +179,7 @@
           isActive={activeStep === ReleaseSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
       {#if activeStep === ReleaseSteps.CHECK}
-        <ReleasePreCheck tx={bridgeTx} bind:canContinue />
+        <ReleasePreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
       {:else if activeStep === ReleaseSteps.REVIEW}
         <ReviewStep tx={bridgeTx} />
       {:else if activeStep === ReleaseSteps.CONFIRM}
@@ -195,6 +196,7 @@
           <ReleaseStepNavigation
             bind:activeStep
             bind:canContinue
+            {hideContinueButton}
             bind:loading
             bind:releasing
             on:closeDialog={closeDialog}

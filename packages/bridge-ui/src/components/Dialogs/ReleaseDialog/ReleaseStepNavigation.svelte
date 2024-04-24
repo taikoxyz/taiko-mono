@@ -14,6 +14,7 @@
   export let canContinue = false;
   export let releasingDone = false;
   export let releasing = false;
+  export let hideContinueButton: boolean;
 
   const INITIAL_STEP = ReleaseSteps.CHECK;
 
@@ -65,11 +66,12 @@
   }
 
   $: isNextStepDisabled =
-    !(activeStep === ReleaseSteps.CHECK && canContinue) &&
-    (loading || (activeStep === ReleaseSteps.CONFIRM && !releasingDone));
+    loading ||
+    (activeStep === ReleaseSteps.CHECK && !canContinue) ||
+    (activeStep === ReleaseSteps.CONFIRM && !releasingDone);
 </script>
 
-{#if (activeStep !== ReleaseSteps.CONFIRM || releasingDone) && (activeStep !== ReleaseSteps.CHECK || canContinue)}
+{#if (activeStep !== ReleaseSteps.CONFIRM || releasingDone) && (activeStep !== ReleaseSteps.CHECK || canContinue) && !hideContinueButton}
   <div class="h-sep" />
   <ActionButton onPopup priority="primary" disabled={isNextStepDisabled} {loading} on:click={handleNextStep}>
     {nextStepButtonText}

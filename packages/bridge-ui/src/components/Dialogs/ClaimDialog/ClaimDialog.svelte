@@ -59,6 +59,7 @@
   let claimingDone = false;
   let ClaimComponent: Claim;
   let txHash: Hash;
+  let hideContinueButton: boolean;
 
   const handleAccountChange = () => {
     reset();
@@ -188,7 +189,7 @@
       <h3 class="title-body-bold">{$t('transactions.claim.steps.title')}</h3>
     </div>
     <div class="h-sep mx-[-24px] mt-[20px]" />
-
+    {hideContinueButton}
     <div class="w-full h-full f-col">
       <DialogStepper>
         <DialogStep
@@ -205,7 +206,7 @@
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue {checkingPrerequisites} />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue {checkingPrerequisites} bind:hideContinueButton />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}
@@ -224,6 +225,7 @@
             bind:canContinue
             bind:loading
             bind:claiming
+            {hideContinueButton}
             on:closeDialog={closeDialog}
             bind:claimingDone />
         </div>

@@ -14,6 +14,7 @@
   export let canContinue = false;
   export let claimingDone = false;
   export let claiming = false;
+  export let hideContinueButton: boolean;
 
   const INITIAL_STEP = ClaimSteps.CHECK;
 
@@ -70,7 +71,7 @@
     (activeStep === ClaimSteps.CONFIRM && !claimingDone);
 </script>
 
-{#if activeStep !== ClaimSteps.CONFIRM || claimingDone}
+{#if (activeStep !== ClaimSteps.CONFIRM || claimingDone) && !hideContinueButton}
   <div class="h-sep" />
   <ActionButton onPopup priority="primary" disabled={isNextStepDisabled} {loading} on:click={handleNextStep}>
     {nextStepButtonText}

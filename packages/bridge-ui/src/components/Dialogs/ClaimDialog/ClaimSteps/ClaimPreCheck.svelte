@@ -15,6 +15,8 @@
 
   export let tx: BridgeTransaction;
   export let canContinue = false;
+  export let checkingPrerequisites: boolean;
+  export let hideContinueButton = false;
 
   const switchChains = async () => {
     $switchingNetwork = true;
@@ -26,8 +28,6 @@
       $switchingNetwork = false;
     }
   };
-
-  export let checkingPrerequisites: boolean;
 
   const checkEnoughBalance = async (address: Maybe<Address>, chainId: number) => {
     if (!address) {
@@ -55,8 +55,12 @@
   $: correctChain = Number(tx.destChainId) === $connectedSourceChain.id;
 
   $: if (correctChain && !checkingPrerequisites && hasEnoughEth && $account && preferredDelayInSeconds <= 0) {
+    hideContinueButton = false;
     canContinue = true;
   } else {
+    if (!correctChain) {
+      hideContinueButton = true;
+    }
     canContinue = false;
   }
 
