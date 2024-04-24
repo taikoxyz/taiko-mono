@@ -13,6 +13,7 @@
   export let tx: BridgeTransaction;
 
   export let canContinue = false;
+  export let hideContinueButton = false;
 
   const switchChains = async () => {
     $switchingNetwork = true;
@@ -30,9 +31,10 @@
   $: correctChain = Number(tx.srcChainId) === $connectedSourceChain.id;
 
   $: if (correctChain && $account) {
-    //localhost:5173/transactions
+    hideContinueButton = false;
     canContinue = true;
   } else {
+    hideContinueButton = true;
     canContinue = false;
   }
 </script>
