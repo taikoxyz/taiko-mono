@@ -104,6 +104,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [ -z $FORK_URL ]; then
+    FORK_URL="http://localhost:8545/" # any-eth-node-rpc-url
+fi
+
 # TASK_FLAG: [setMrEnclave,setMrSigner,configQE,configTCB,registerSgxInstanceWithQuote]
 TASK_ENABLE_MASK="$set_mrenclave,$set_mrsigner,$config_qe,$config_tcb,$verify_quote"
 
@@ -115,7 +119,7 @@ QEID_PATH=$QEID_PATH \
 TCB_INFO_PATH=$TCB_INFO_PATH \
 V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
 forge script script/SetDcapParams.s.sol:SetDcapParams \
-    --fork-url https://any-holesky-rpc-url/ \
+    --fork-url $FORK_URL \
     --broadcast \
     --ffi \
     -vvvv \
