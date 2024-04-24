@@ -64,12 +64,12 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
-      - name: Login to GCR
+      - name: Login to GAR
         uses: docker/login-action@v3
         with:
-          registry: gcr.io
+          registry: us-docker.pkg.dev
           username: _json_key
-          password: ${{ secrets.GCR_JSON_KEY }}
+          password: ${{ secrets.GAR_JSON_KEY }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -82,7 +82,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            gcr.io/evmchain/relayer
+            us-docker.pkg.dev/evmchain/images/relayer
           tags: |
             type=ref,event=branch
             type=ref,event=pr
