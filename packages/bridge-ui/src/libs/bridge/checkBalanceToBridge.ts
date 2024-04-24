@@ -122,10 +122,12 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
     estimatedCost = await estimateCostOfBridging(bridges.ERC1155, {
       ...args,
       wallet,
-      amounts: _amount,
+      amounts: _amount.map((a) => Number(a)),
       token: tokenAddress,
       tokenVaultAddress: erc1155VaultAddress,
       isTokenAlreadyDeployed,
+      tokenObject: token,
+      tokenIds: args.tokenIds?.map((a) => Number(a)),
     } as ERC1155BridgeArgs);
   } catch (err) {
     console.error(err);
@@ -182,6 +184,7 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
         token: tokenAddress,
         tokenVaultAddress: erc20VaultAddress,
         isTokenAlreadyDeployed,
+        tokenObject: token,
       } as ERC20BridgeArgs);
     } catch (err) {
       // TODO: same here. Error code or instance would be better

@@ -5,9 +5,9 @@
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
+  import { DialogStep, DialogStepper } from '$components/Dialogs/Stepper';
   import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
-  import { DialogStep, DialogStepper } from '$components/Transactions/Dialogs/Stepper';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { getLogger } from '$libs/util/logger';
@@ -15,9 +15,8 @@
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
-  import ClaimConfirmStep from '../ClaimDialog/ClaimSteps/ClaimConfirmStep.svelte';
-  import ClaimReviewStep from '../ClaimDialog/ClaimSteps/ClaimReviewStep.svelte';
-  import { TWO_STEP_STATE } from '../ClaimDialog/types';
+  import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
   import RetryOptionStep from './RetrySteps/RetryOptionStep.svelte';
   import { selectedRetryMethod } from './state';
@@ -64,7 +63,7 @@
 
   export const handleClaimClick = async () => {
     retrying = true;
-    await ClaimComponent.claim();
+    await ClaimComponent.claim(ClaimAction.RETRY);
   };
 
   const handleRetryTxSent = async (event: CustomEvent<{ txHash: Hash }>) => {
@@ -132,7 +131,7 @@
       {#if activeStep === RetrySteps.SELECT}
         <RetryOptionStep bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}
-        <ClaimReviewStep bind:tx={bridgeTx} />
+        <ReviewStep bind:tx={bridgeTx} />
       {:else if activeStep === RetrySteps.CONFIRM}
         <ClaimConfirmStep
           {bridgeTx}
@@ -140,8 +139,7 @@
           on:claim={handleClaimClick}
           bind:claiming={retrying}
           bind:canClaim={canContinue}
-          bind:claimingDone={retryDone}
-          proveOrClaimStep={TWO_STEP_STATE.CLAIM} />
+          bind:claimingDone={retryDone} />
       {/if}
       <div class="f-col text-left self-end h-full w-full">
         <div class="f-col gap-4 mt-[20px]">

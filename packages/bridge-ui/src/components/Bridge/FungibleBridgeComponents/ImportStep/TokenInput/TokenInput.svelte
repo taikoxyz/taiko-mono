@@ -25,8 +25,7 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { getMaxAmountToBridge } from '$libs/bridge';
-  import { UnknownTokenTypeError } from '$libs/error';
-  import { fetchBalance, tokens, TokenType } from '$libs/token';
+  import { fetchBalance, tokens } from '$libs/token';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -70,30 +69,6 @@
       return;
     }
 
-    if (!$tokenBalance) {
-      $tokenBalance = await fetchBalance({ userAddress: user, token, srcChainId: $connectedSourceChain?.id });
-      if (!$tokenBalance?.value) {
-        $insufficientBalance = true;
-        $validatingAmount = false;
-      }
-    }
-
-    switch (token.type) {
-      case TokenType.ERC20:
-      case TokenType.ERC1155:
-        if ($tokenBalance?.value && ($ethBalance <= 0n || $enteredAmount > $tokenBalance?.value)) {
-          $insufficientBalance = true;
-        }
-        break;
-      case TokenType.ETH:
-      case TokenType.ERC721:
-        if ($enteredAmount >= $ethBalance) {
-          $insufficientBalance = true;
-        }
-        break;
-      default:
-        throw new UnknownTokenTypeError();
-    }
     $validatingAmount = false;
     $computingBalance = false;
   }
@@ -105,22 +80,7 @@
     $validatingAmount = true;
     $errorComputingBalance = false;
 
-    if ($selectedToken.type === TokenType.ERC1155) {
-      // For ERC1155, no decimals are allowed
-      if (/[.,]/.test(value)) {
-        $errorComputingBalance = true;
-        return;
-      }
-    }
-    if (
-      $selectedToken.type !== TokenType.ERC1155 &&
-      $selectedToken.type !== TokenType.ERC721 &&
-      !$selectedToken.decimals
-    ) {
-      $enteredAmount = BigInt(value);
-    } else {
-      $enteredAmount = parseUnits(value, $selectedToken.decimals);
-    }
+    $enteredAmount = parseUnits(value, $selectedToken.decimals);
     debouncedValidateAmount();
   };
 
@@ -156,15 +116,14 @@
     $computingBalance = true;
     value = '';
     $enteredAmount = 0n;
-    if ($account && $account.address && $account?.isConnected) {
+    if ($account && $account.address && $account?.isConnected && $selectedToken) {
       validateAmount($selectedToken);
       refreshUserBalance();
-      if ($selectedToken)
-        $tokenBalance = await fetchBalance({
-          userAddress: $account.address,
-          token: $selectedToken,
-          srcChainId: $connectedSourceChain?.id,
-        });
+      $tokenBalance = await fetchBalance({
+        userAddress: $account.address,
+        token: $selectedToken,
+        srcChainId: $connectedSourceChain?.id,
+      });
       previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';

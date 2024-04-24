@@ -8,7 +8,6 @@
   import { warningToast } from '$components/NotificationToast';
   import { InvalidParametersProvidedError, UnknownTokenTypeError } from '$libs/error';
   import { ETHToken, fetchBalance, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
-  import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
@@ -27,7 +26,7 @@
     selectedToken,
     tokenBalance,
     validatingAmount,
-  } from './state';
+  } from '../../state';
 
   const log = getLogger('component:Amount');
 
@@ -212,7 +211,7 @@
           {#if computingMaxAmount}
             <LoadingText mask={$tokenBalance?.toString() || '100'} />
           {:else}
-            {renderBalance($tokenBalance)}
+            <!-- {renderBalance($tokenBalance)} -->
           {/if}
         </span>
       {/if}
@@ -231,7 +230,6 @@
         on:input={inputAmount}
         bind:this={inputBox}
         class="py-6 pr-16 px-[26px] title-subsection-bold border-0  {$$props.class}" />
-      <!-- TODO: talk to Jane about the MAX button and its styling -->
       {#if maxButtonEnabled}
         <button class="absolute right-6 uppercase hover:font-bold" on:click={useMaxAmount}>
           {$t('inputs.amount.button.max')}
