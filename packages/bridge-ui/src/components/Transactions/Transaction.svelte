@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatEther, formatUnits } from 'viem';
 
@@ -18,7 +17,6 @@
 
   import ChainSymbolName from './ChainSymbolName.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
-  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import { Status } from './Status';
 
   export let item: BridgeTransaction;
@@ -26,7 +24,6 @@
 
   let token: NFT;
   let insufficientModal = false;
-  let detailsOpen = false;
   let nftInfoOpen = false;
   let isDesktopOrLarger = false;
 
@@ -34,35 +31,12 @@
 
   const placeholderUrl = '/placeholder.svg';
 
-  const dispatch = createEventDispatcher();
-
-  const handleClick = () => {
-    openDetails();
-    dispatch('click');
-  };
-
-  const handlePress = () => {
-    openDetails();
-    dispatch('press');
-  };
-
-  const closeDetails = () => {
-    detailsOpen = false;
-  };
-
-  const openDetails = () => {
-    if (!isDesktopOrLarger) {
-      detailsOpen = true;
-    }
-  };
-
   const openNFTInfo = () => {
     nftInfoOpen = true;
   };
 
   const handleInsufficientFunds = () => {
     insufficientModal = true;
-    openDetails();
   };
 
   async function analyzeTransactionInput(): Promise<void> {
@@ -97,7 +71,6 @@
 {#if isNFT}
   <!-- We disable these warnings as we dynamically add the role -->
   <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="flex items-center text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
       <div class="flex md:w-3/12 gap-[8px]">
@@ -155,7 +128,7 @@
             <LoadingText mask="&nbsp;" class="min-w-[50px] max-w-[50px] h-3" />
           </div>
         {:else}
-          <div class="f-col" {...attrs} tabindex="0" on:click={handleClick} on:keydown={handlePress}>
+          <div class="f-col" {...attrs} tabindex="0">
             <div class="f-row font-bold">
               {truncateString(getChainName(Number(item.srcChainId)), 8)}
               <i role="img" aria-label="arrow to" class="mx-auto px-2">
@@ -168,17 +141,8 @@
         {/if}
       </div>
     {/if}
-    <div
-      class="flex md:w-2/12 py-2 flex flex-col justify-center text-center"
-      {...attrs}
-      tabindex="0"
-      on:click={handleClick}
-      on:keydown={handlePress}>
-      <Status
-        on:click={isDesktopOrLarger ? undefined : openDetails}
-        bridgeTx={item}
-        nft={token}
-        on:insufficientFunds={handleInsufficientFunds} />
+    <div class="flex md:w-2/12 py-2 flex flex-col justify-center text-center" {...attrs} tabindex="0">
+      <Status bridgeTx={item} nft={token} on:insufficientFunds={handleInsufficientFunds} />
     </div>
     <div class="hidden md:flex grow py-2 flex flex-col justify-center">
       <a
@@ -191,15 +155,7 @@
     </div>
   </div>
 {:else}
-  <!-- We disable these warnings as we dynamically add the role -->
-  <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div
-    {...attrs}
-    tabindex="0"
-    on:click={handleClick}
-    on:keydown={handlePress}
-    class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
+  <div {...attrs} class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
       <div class="w-1/5 py-2 flex flex-row">
         <ChainSymbolName chainId={item.srcChainId} />
@@ -238,10 +194,7 @@
     {/if}
 
     <div class="md:w-1/5 py-2 flex flex-col justify-center">
-      <Status
-        on:click={isDesktopOrLarger ? undefined : openDetails}
-        bridgeTx={item}
-        on:insufficientFunds={handleInsufficientFunds} />
+      <Status bridgeTx={item} on:insufficientFunds={handleInsufficientFunds} />
     </div>
     <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
       <a
@@ -252,19 +205,11 @@
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
       </a>
     </div>
-    <!-- <button on:click={() => (claimModalOpen = true)}>test</button> -->
   </div>
 {/if}
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
 
-<MobileDetailsDialog
-  {token}
-  {closeDetails}
-  {detailsOpen}
-  selectedItem={item}
-  on:insufficientFunds={handleInsufficientFunds} />
-
-<NftInfoDialog nft={token} bind:modalOpen={nftInfoOpen} on:close={closeDetails} viewOnly />
+<NftInfoDialog nft={token} bind:modalOpen={nftInfoOpen} viewOnly />
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />
