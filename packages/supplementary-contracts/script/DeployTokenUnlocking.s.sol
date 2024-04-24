@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
+
+import "../lib/forge-std/src/Script.sol";
+import "../lib/forge-std/src/console2.sol";
+
+import "../contracts/TokenUnlocking.sol";
 import "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {Script, console2} from "forge-std/Script.sol";
-import {TokenUnlocking} from "../contracts/TokenUnlocking.sol";
 
 contract DeployTokenUnlocking is Script {
-    address public constant CONTRACT_OWNER = vm.envAddress("TAIKO_LABS_MULTISIG");
-    address public constant TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
-    address public constant COST_TOKEN = vm.envAddress("COST_TOKEN");
-    address public constant SHARED_TOKEN_VAULT = vm.envAddress("SHARED_TOKEN_VAULT");
-    address public constant GRANTEE = vm.envAddress("GRANTEE");
+    address public CONTRACT_OWNER = vm.envAddress("TAIKO_LABS_MULTISIG");
+    address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
+    address public COST_TOKEN = vm.envAddress("COST_TOKEN");
+    address public SHARED_TOKEN_VAULT = vm.envAddress("SHARED_TOKEN_VAULT");
+    address public GRANTEE = vm.envAddress("GRANTEE");
 
     address tokenUnlocking;
 
@@ -25,7 +28,6 @@ contract DeployTokenUnlocking is Script {
         });
         vm.stopBroadcast();
     }
-    
 
     function deployProxy(
         address impl,

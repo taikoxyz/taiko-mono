@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/src/Test.sol";
+import "../lib/forge-std/src/Test.sol";
+import "../lib/forge-std/src/console2.sol";
 
+import "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "../script/DeployTokenUnlocking.s.sol";
 
 contract MyERC20 is ERC20 {
     constructor(address owner) ERC20("Taiko Token", "TKO") {
@@ -22,7 +25,10 @@ contract USDC is ERC20 {
 }
 
 contract TestTokenUnlocking is Test {
-    address internal Vault = randAddress();
+    address internal Owner = vm.addr(0x1);
+    address internal Alice = vm.addr(0x2);
+    address internal Bob = vm.addr(0x3);
+    address internal Vault = vm.addr(0x4);
 
     ERC20 tko = new MyERC20(Vault);
     ERC20 usdc = new USDC(Alice);
@@ -32,25 +38,31 @@ contract TestTokenUnlocking is Test {
     // 0.01 USDC if decimals are 6 (as in our test)
     uint64 strikePrice1 = uint64(10 ** usdc.decimals() / 100);
 
-    TimelockTokenPool pool;
+    TokenUnlocking tokenUnlocking;
 
     function setUp() public {
-        pool = TimelockTokenPool(
+        tokenUnlocking = TokenUnlocking(
             deployProxy({
-                name: "time_lock_token_pool",
-                impl: address(new TimelockTokenPool()),
-                data: abi.encodeCall(
-                    TimelockTokenPool.init, (address(0), address(tko), address(usdc), Vault)
-                    )
+                impl: address(new TokenUnlocking()),
+                data: abi.encodeCall(TokenUnlocking.init, (Owner, address(tko), address(usdc), Vault, Alice))
             })
         );
     }
 
-    function test_invalid_granting() public {
-        vm.expectRevert(TimelockTokenPool.INVALID_GRANT.selector);
-        pool.grant(Alice, TimelockTokenPool.Grant(0, 0, 0, 0, 0, 0, 0, 0));
+    function test_nr_one() pure public {
+        console2.log("test_nr_one");
+    }
 
-        vm.expectRevert(TimelockTokenPool.INVALID_PARAM.selector);
-        pool.grant(address(0), TimelockTokenPool.Grant(100e18, 0, 0, 0, 0, 0, 0, 0));
+    function deployProxy(
+        address impl,
+        bytes memory data
+    )
+        public
+        returns (address proxy)
+    {
+        proxy = address(new ERC1967Proxy(impl, data));
+
+        console2.log("  proxy      :", proxy);
+        console2.log("  impl       :", impl);
     }
 }
