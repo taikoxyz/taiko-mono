@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
+  import TokenAmountInput from '$components/Bridge/NFTBridgeComponents/ImportStep/TokenAmountInput.svelte';
   import { enteredAmount, selectedNFTs, tokenBalance } from '$components/Bridge/state';
-  import TokenAmountInput from '$components/Bridge/TokenAmountInput.svelte';
   import { ImportMethod } from '$components/Bridge/types';
   import { ActionButton, Button } from '$components/Button';
   import { IconFlipper } from '$components/Icon';

@@ -1,4 +1,5 @@
 export const recommendProcessingFeeConfig = {
+  GAS_RESERVE: 650_000, // based on Bridge.sol
   ethGasLimit: BigInt(900_000),
   erc20NotDeployedGasLimit: BigInt(1_650_000),
   erc20DeployedGasLimit: BigInt(1_100_000),
@@ -39,7 +40,7 @@ export const bridgeTransactionPoller = {
 };
 
 export const claimConfig = {
-  minimumEthToClaim: 0.0001,
+  minimumEthToClaim: 0.001,
 };
 
 export const transactionConfig = {

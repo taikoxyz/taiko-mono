@@ -170,6 +170,7 @@
         srcChainId: $connectedSourceChain.id,
         destChainId: $destNetwork?.id,
         fee: $processingFee,
+        tokenObject: $selectedToken,
       };
 
       const type: TokenType = $selectedToken.type;
@@ -178,7 +179,7 @@
         if (!tokenIds) throw new Error('tokenIds not found');
         const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, tokenIds);
 
-        const args = { ...bridgeArgs, tokenIds };
+        const args = { ...bridgeArgs, tokenIds, tokenObject: $selectedToken };
 
         bridgeTxHash = await $bridgeService.bridge(args);
       } else {

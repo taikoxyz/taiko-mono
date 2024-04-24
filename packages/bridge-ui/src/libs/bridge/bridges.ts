@@ -8,13 +8,28 @@ import { ERC721Bridge } from './ERC721Bridge';
 import { ERC1155Bridge } from './ERC1155Bridge';
 import { ETHBridge } from './ETHBridge';
 
-const prover = new BridgeProver();
+let proverInstance: BridgeProver | null = null;
+
+function getProverInstance(): BridgeProver {
+  if (!proverInstance) {
+    proverInstance = new BridgeProver();
+  }
+  return proverInstance;
+}
 
 export const bridges: Record<TokenType, Bridge> = {
-  ETH: new ETHBridge(prover),
-  ERC20: new ERC20Bridge(prover),
-  ERC721: new ERC721Bridge(prover),
-  ERC1155: new ERC1155Bridge(prover),
+  get ETH() {
+    return new ETHBridge(getProverInstance());
+  },
+  get ERC20() {
+    return new ERC20Bridge(getProverInstance());
+  },
+  get ERC721() {
+    return new ERC721Bridge(getProverInstance());
+  },
+  get ERC1155() {
+    return new ERC1155Bridge(getProverInstance());
+  },
 };
 
 export const hasBridge = (srcChainId: number, destChainId: number): boolean => {

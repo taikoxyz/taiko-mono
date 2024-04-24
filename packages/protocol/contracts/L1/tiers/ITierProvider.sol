@@ -44,6 +44,9 @@ library LibTiers {
     /// @notice SGX + ZKVM tier ID.
     uint16 public constant TIER_SGX_ZKVM = 300;
 
-    /// @notice Guardian tier ID.
+    /// @notice Guardian tier ID with minority approval.
+    uint16 public constant TIER_GUARDIAN_MINORITY = 900;
+
+    /// @notice Guardian tier ID with majority approval.
     uint16 public constant TIER_GUARDIAN = 1000;
 }

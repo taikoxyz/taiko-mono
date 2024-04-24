@@ -194,15 +194,13 @@ export class RelayerAPIService {
           to: tx.data.Message.To,
           destOwner: tx.data.Message.DestOwner,
           data: data as Hex,
-          memo: tx.data.Message.Memo,
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
-          gasLimit: BigInt(tx.data.Message.GasLimit),
+          gasLimit: Number(tx.data.Message.GasLimit),
           value: BigInt(tx.data.Message.Value),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
           fee: BigInt(tx.data.Message.Fee),
-          refundTo: tx.data.Message.RefundTo,
         },
       } satisfies BridgeTransaction;
 

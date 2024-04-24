@@ -36,7 +36,6 @@ type ethClient interface {
 type Server struct {
 	echo                    *echo.Echo
 	eventRepo               relayer.EventRepository
-	suspendedTxRepo         relayer.SuspendedTransactionRepository
 	srcEthClient            ethClient
 	destEthClient           ethClient
 	processingFeeMultiplier float64
@@ -46,7 +45,6 @@ type Server struct {
 type NewServerOpts struct {
 	Echo                    *echo.Echo
 	EventRepo               relayer.EventRepository
-	SuspendedTxRepo         relayer.SuspendedTransactionRepository
 	CorsOrigins             []string
 	SrcEthClient            ethClient
 	DestEthClient           ethClient
@@ -86,7 +84,6 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	srv := &Server{
 		echo:                    opts.Echo,
 		eventRepo:               opts.EventRepo,
-		suspendedTxRepo:         opts.SuspendedTxRepo,
 		srcEthClient:            opts.SrcEthClient,
 		destEthClient:           opts.DestEthClient,
 		processingFeeMultiplier: opts.ProcessingFeeMultiplier,
