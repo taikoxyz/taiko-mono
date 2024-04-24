@@ -5,6 +5,7 @@
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { errorToast, successToast, warningToast } from '$components/NotificationToast';
   import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -45,6 +46,7 @@
   let releasingDone = false;
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
+  let isDesktopOrLarger = false;
 
   const closeDialog = () => {
     dialogOpen = false;
@@ -117,12 +119,7 @@
         break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);
-        if (err.message.includes('B_INVOCATION_TOO_EARLY')) {
-          errorToast({
-            title: $t('bridge.errors.claim.too_early.title'),
-            message: $t('bridge.errors.claim.too_early.message'),
-          });
-        } else if (err.message.includes('B_NOT_RECEIVED')) {
+        if (err.message.includes('B_NOT_RECEIVED')) {
           errorToast({
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
@@ -156,7 +153,7 @@
   $: loading = releasing;
 </script>
 
-<dialog id={dialogId} class="modal" class:modal-open={dialogOpen}>
+<dialog id={dialogId} class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}" class:modal-open={dialogOpen}>
   <div class="modal-box relative w-full bg-neutral-background absolute">
     <div class="w-full f-between-center">
       <CloseButton onClick={closeDialog} />
@@ -210,3 +207,5 @@
 <Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleClaimError} on:claimingTxSent={handleClaimTxSent} />
 
 <OnAccount change={handleAccountChange} />
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
