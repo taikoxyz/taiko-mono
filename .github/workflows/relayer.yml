@@ -82,7 +82,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            gcr.io/evmchain/relayer
+            us-docker.pkg.dev/evmchain/images/relayer
           tags: |
             type=ref,event=branch
             type=ref,event=pr
