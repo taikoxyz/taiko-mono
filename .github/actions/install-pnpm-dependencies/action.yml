@@ -10,7 +10,7 @@ runs:
         node-version: 18
 
     - name: Install pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v3
       id: pnpm-install
       with:
         version: 8
