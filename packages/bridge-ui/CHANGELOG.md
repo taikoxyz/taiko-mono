@@ -1,15 +1,12 @@
 # Changelog
 
-## [5.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v4.1.0...bridge-ui-v5.0.0) (2024-04-24)
+## [4.2.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v4.1.0...bridge-ui-v4.2.0) (2024-04-24)
 
-
-### ⚠ BREAKING CHANGES
-
-* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230))
-* **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324))
 
 ### Features
 
+* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230))
+* **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324))
 * **bridge-ui:** add testnet name to header ([#16619](https://github.com/taikoxyz/taiko-mono/issues/16619)) ([294bb01](https://github.com/taikoxyz/taiko-mono/commit/294bb017d90e4b8c2e1338a09f1cef90cdb54831))
 * **bridge-ui:** base64 NFT data ([#16645](https://github.com/taikoxyz/taiko-mono/issues/16645)) ([4516d0a](https://github.com/taikoxyz/taiko-mono/commit/4516d0aaa3c9ff0c50f16d1abc82999a8ac3d02f))
 * **bridge-ui:** mobile style for claim dialogs ([#16823](https://github.com/taikoxyz/taiko-mono/issues/16823)) ([63f15c9](https://github.com/taikoxyz/taiko-mono/commit/63f15c9dcad96aba755f7d618064b4149526cc22))
