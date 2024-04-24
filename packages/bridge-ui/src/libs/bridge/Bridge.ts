@@ -1,5 +1,5 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
-import { getContract, type Hash, UserRejectedRequestError } from 'viem';
+import { getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -11,6 +11,7 @@ import { config } from '$libs/wagmi';
 
 import {
   type BridgeArgs,
+  type BridgeTransaction,
   type ClaimArgs,
   MessageStatus,
   type ProcessMessageType,
@@ -29,24 +30,15 @@ export abstract class Bridge {
 
   /**
    * We are gonna run some common checks here:
-   * 1. Check that the wallet is connected to the destination chain
-   * 2. Check that the message is owned by the user
-   * 3. Check that the message has not been claimed already
-   * 4. Check that the message has not failed
-   *
-   * Important: wallet must be connected to the destination chain
+   * 1. Check that the message is owned by the user
+   * 2. Check that the message has not been claimed already
    */
-  protected async beforeClaiming({ bridgeTx, wallet }: ClaimArgs) {
-    const connectedChainId = await wallet.getChainId();
+  protected async beforeProcessing({ bridgeTx, wallet }: ClaimArgs) {
     const { msgHash, message } = bridgeTx;
     if (!message || !msgHash) throw new Error('Message is not defined');
 
-    const destChainId = Number(message.destChainId);
     const srcChainId = Number(message.srcChainId);
-    // Are we connected to the destination chain?
-    if (connectedChainId !== destChainId) {
-      throw new WrongChainError('wallet must be connected to the destination chain');
-    }
+    const destChainId = Number(message.destChainId);
 
     const { srcOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
@@ -57,15 +49,52 @@ export abstract class Bridge {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
-    const destBridgeAddress = routingContractsMap[connectedChainId][srcChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const messageStatus = await readContract(config, {
       address: destBridgeAddress,
       abi: bridgeAbi,
       functionName: 'messageStatus',
       args: [msgHash],
-      chainId: connectedChainId,
+      chainId: destChainId,
     });
+
+    log(`Claiming message with status ${messageStatus}`);
+
+    // Has it been claimed already?
+    if (messageStatus === MessageStatus.DONE) {
+      throw new MessageStatusError('message already processed');
+    }
+    return { messageStatus, destBridgeAddress };
+  }
+
+  /**
+   * 1. Check that the wallet is connected to the destination chain
+   * 2. Check that the message is owned by the user
+   * 3. Check that the message has not been claimed already
+   * 4. Check that the message has not failed
+   *
+   * Important: wallet must be connected to the destination chain
+   */
+  protected async beforeClaiming({
+    bridgeTx,
+    wallet,
+    messageStatus,
+  }: {
+    bridgeTx: BridgeTransaction;
+    wallet: WalletClient;
+    messageStatus: MessageStatus;
+  }) {
+    const connectedChainId = await wallet.getChainId();
+    const { msgHash, message } = bridgeTx;
+    if (!message || !msgHash) throw new Error('Message is not defined');
+
+    const destChainId = Number(message.destChainId);
+
+    // Are we connected to the correct chain?
+    if (connectedChainId !== destChainId) {
+      throw new WrongChainError('wallet must be connected to the destination chain');
+    }
 
     log(`Claiming message with status ${messageStatus}`);
 
@@ -78,49 +107,55 @@ export abstract class Bridge {
     if (messageStatus === MessageStatus.FAILED) {
       throw new MessageStatusError('user can not process this as message has failed');
     }
+  }
 
-    return { messageStatus, destBridgeAddress };
+  // Currently identical to beforeClaiming
+  protected async beforeRetrying({
+    bridgeTx,
+    wallet,
+    messageStatus,
+  }: {
+    bridgeTx: BridgeTransaction;
+    wallet: WalletClient;
+    messageStatus: MessageStatus;
+  }) {
+    await this.beforeClaiming({ bridgeTx, wallet, messageStatus });
   }
 
   /**
-   * We are gonna run the following checks here:
-   * 1. Check that the wallet is connected to the source chain
+   * 1. Check that the wallet is connected to the destination chain
    * 2. Check that the message is owned by the user
-   * 3. Check that the message has failed
+   * 3. Check that the message has not been claimed already
+   * 4. Check that the message has not failed
+   *
+   * Important: wallet must be connected to the destination chain
    */
-  protected async beforeReleasing({ bridgeTx, wallet }: ClaimArgs) {
+  protected async beforeReleasing({
+    bridgeTx,
+    wallet,
+    messageStatus,
+  }: {
+    bridgeTx: BridgeTransaction;
+    wallet: WalletClient;
+    messageStatus: MessageStatus;
+  }) {
     const connectedChainId = await wallet.getChainId();
     const { msgHash, message } = bridgeTx;
     if (!message || !msgHash) throw new Error('Message is not defined');
 
     const srcChainId = Number(message.srcChainId);
-    // Are we connected to the source chain?
+
+    // Are we connected to the correct chain?
     if (connectedChainId !== srcChainId) {
-      throw new WrongChainError('wallet must be connected to the source chain');
+      throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
-    const { srcOwner } = message;
-    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
+    log(`Claiming message with status ${messageStatus}`);
 
-    const userAddress = wallet.account.address;
-    // Are we the owner of the message?
-    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
-      throw new WrongOwnerError('user cannot process this as it is not their message');
+    // Has it been claimed already?
+    if (messageStatus === MessageStatus.DONE) {
+      throw new MessageStatusError('message already processed');
     }
-
-    // Before releasing we need to make sure the message has failed
-    const destChainId = Number(message.destChainId);
-    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-
-    const messageStatus = await readContract(config, {
-      address: destBridgeAddress,
-      abi: bridgeAbi,
-      functionName: 'messageStatus',
-      args: [msgHash],
-      chainId: connectedChainId,
-    });
-
-    log(`Releasing message with status ${messageStatus}`);
 
     if (messageStatus !== MessageStatus.FAILED) {
       throw new MessageStatusError('message must fail to release funds');
@@ -131,14 +166,21 @@ export abstract class Bridge {
   abstract estimateGas(args: BridgeArgs): Promise<bigint>;
   abstract bridge(args: BridgeArgs): Promise<Hash>;
 
-  async claim(args: ClaimArgs): Promise<Hash> {
-    const { messageStatus, destBridgeAddress } = await this.beforeClaiming(args);
-    const { blockNumber } = args.bridgeTx;
+  async processMessage(args: ClaimArgs): Promise<Hash> {
+    const { messageStatus, destBridgeAddress } = await this.beforeProcessing(args);
+    let blockNumber;
+
+    if (!args.bridgeTx.blockNumber && args.bridgeTx.receipt) {
+      blockNumber = args.bridgeTx.receipt?.blockNumber;
+    } else if (args.bridgeTx.blockNumber) {
+      blockNumber = args.bridgeTx.blockNumber;
+    } else {
+      throw new ProcessMessageError('Blocknumber is not defined');
+    }
+
     const { message, msgHash } = args.bridgeTx;
-    if (!message || !msgHash || !blockNumber)
-      throw new ProcessMessageError(
-        `message, msgHash or blocknumber is not defined, ${message}, ${msgHash}, ${blockNumber}`,
-      );
+    if (!message || !msgHash)
+      throw new ProcessMessageError(`message or msgHash  is not defined, ${message}, ${msgHash}, ${blockNumber}`);
 
     const client = await getConnectedWallet();
     if (!client) throw new Error('Client not found');
@@ -149,14 +191,27 @@ export abstract class Bridge {
       address: destBridgeAddress,
     });
 
+    const srcBridgeContract = await getContract({
+      client,
+      abi: bridgeAbi,
+      address: routingContractsMap[Number(message.srcChainId)][Number(message.destChainId)].bridgeAddress,
+    });
+
     try {
       let txHash: Hash;
       if (messageStatus === MessageStatus.NEW) {
+        // Initial claim
+        await this.beforeClaiming({ ...args, messageStatus });
+
         txHash = await this.processNewMessage({ ...args, bridgeContract, client });
       } else if (messageStatus === MessageStatus.RETRIABLE) {
+        // Claiming after a failed attempt
+        await this.beforeRetrying({ ...args, messageStatus });
         txHash = await this.retryMessage({ ...args, bridgeContract, client });
       } else if (messageStatus === MessageStatus.FAILED) {
-        txHash = await this.release({ ...args, bridgeContract, client });
+        // Release if the message has failed and the user wants to release the funds
+        await this.beforeReleasing({ ...args, messageStatus });
+        txHash = await this.release({ ...args, bridgeContract: srcBridgeContract, client });
       } else {
         throw new ProcessMessageError('Message status not supported for claiming.');
       }
@@ -175,8 +230,19 @@ export abstract class Bridge {
     const { message } = bridgeTx;
     if (!message) throw new ProcessMessageError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+
     const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
     log('Estimated gas for processMessage', estimatedGas);
+
+    // const wallet = await getConnectedWallet();
+
+    // return await wallet.writeContract({
+    //   address: bridgeContract.address,
+    //   abi: bridgeContract.abi,
+    //   functionName: 'processMessage',
+    //   args: [message, proof],
+    //   gas: 1000000n,
+    // });
 
     const { request } = await simulateContract(config, {
       address: bridgeContract.address,
@@ -218,14 +284,15 @@ export abstract class Bridge {
   }
 
   private async release(args: ReleaseArgs) {
-    await this.beforeReleasing(args);
-
     const { bridgeTx, bridgeContract, client } = args;
     const { message } = bridgeTx;
     if (!message) throw new ReleaseError('Message is not defined');
-    const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    const proof = await this._prover.getEncodedSignalProofForRecall({ bridgeTx });
+
+    log('Estimating gas for recallMessage', bridgeContract.address, [message, proof]);
+
     const estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
-    log('Estimated gas for processMessage', estimatedGas);
+    log('Estimated gas for recallMessage', estimatedGas);
 
     const { request } = await simulateContract(config, {
       address: bridgeContract.address,
@@ -234,7 +301,7 @@ export abstract class Bridge {
       args: [message, proof],
       gas: estimatedGas,
     });
-    log('Simulate contract for processMessage', request);
+    log('Simulate contract for recallMessage', request);
 
     return await writeContract(config, request);
   }

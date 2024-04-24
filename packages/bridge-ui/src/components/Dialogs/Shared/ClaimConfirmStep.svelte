@@ -10,15 +10,11 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { theme } from '$stores/theme';
 
-  import { TWO_STEP_STATE } from '../types';
-
   export let canClaim = false;
 
   export let claimingDone = false;
 
   export let claiming = false;
-
-  export let proveOrClaimStep: TWO_STEP_STATE | null;
 
   export let bridgeTx: BridgeTransaction;
 
@@ -31,18 +27,12 @@
   };
 
   const getSuccessTitle = () => {
-    if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
-      return $t('bridge.step.confirm.success.prove');
-    }
-
     return $t('bridge.step.confirm.success.claim');
   };
 
   const getSuccessDescription = () => {
     if (!txHash) return;
-    if (proveOrClaimStep === TWO_STEP_STATE.PROVE) {
-      return $t('bridge.step.confirm.success.prove_description');
-    }
+
     const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
     const url = `${explorer}/tx/${txHash}`;
 
@@ -52,21 +42,6 @@
   $: if (txHash && claimingDone) {
     getSuccessDescription();
   }
-
-  $: claimOrProveActionButton =
-    proveOrClaimStep === TWO_STEP_STATE.CLAIM
-      ? $t('transactions.claim.steps.confirm.claim_button')
-      : $t('transactions.claim.steps.confirm.prove');
-
-  $: proceedText =
-    proveOrClaimStep === TWO_STEP_STATE.CLAIM
-      ? $t('transactions.claim.steps.confirm.proceed')
-      : $t('transactions.claim.steps.confirm.prove');
-
-  $: proceedDescription =
-    proveOrClaimStep === TWO_STEP_STATE.CLAIM
-      ? $t('transactions.claim.steps.confirm.claim_description')
-      : $t('transactions.claim.steps.confirm.prove_description');
 
   $: bridgeIcon = `bridge-${$theme}` as IconType;
   $: successIcon = `success-${$theme}` as IconType;
@@ -98,8 +73,8 @@
         {:else if !claiming && !claimingDone}
           <Icon type={bridgeIcon} size={160} />
           <div id="text" class="f-col my-[30px] text-center">
-            <h1 class="mb-[16px]">{proceedText}</h1>
-            <span>{proceedDescription}</span>
+            <h1 class="mb-[16px]">{$t('transactions.claim.steps.confirm.proceed')}</h1>
+            <span>{$t('transactions.claim.steps.confirm.claim_description')}</span>
           </div>
         {/if}
       </div>
@@ -112,7 +87,7 @@
           priority="primary"
           loading={claiming}
           on:click={() => handleClaimClick()}
-          disabled={claimDisabled}>{claimOrProveActionButton}</ActionButton>
+          disabled={claimDisabled}>{$t('transactions.claim.steps.confirm.claim_button')}</ActionButton>
       </section>
     {/if}
   </div>

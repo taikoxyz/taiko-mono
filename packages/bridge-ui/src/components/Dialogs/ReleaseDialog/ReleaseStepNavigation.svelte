@@ -5,30 +5,31 @@
   import { ActionButton } from '$components/Button';
   import { StepBack } from '$components/Stepper';
 
-  import { ClaimSteps } from './types';
+  import { ReleaseSteps } from './types';
 
   const dispatch = createEventDispatcher();
 
-  export let activeStep: ClaimSteps;
+  export let activeStep: ReleaseSteps;
   export let loading = false;
   export let canContinue = false;
-  export let claimingDone = false;
-  export let claiming = false;
+  export let releasingDone = false;
+  export let releasing = false;
+  export let hideContinueButton: boolean;
 
-  const INITIAL_STEP = ClaimSteps.CHECK;
+  const INITIAL_STEP = ReleaseSteps.CHECK;
 
-  const getNextStepText = (step: ClaimSteps) => {
-    if (step === ClaimSteps.REVIEW) {
+  const getNextStepText = (step: ReleaseSteps) => {
+    if (step === ReleaseSteps.REVIEW) {
       return $t('common.confirm');
     }
-    if (step === ClaimSteps.CONFIRM) {
+    if (step === ReleaseSteps.CONFIRM) {
       return $t('common.ok');
     } else {
       return $t('common.continue');
     }
   };
 
-  const getPrevStepText = (step: ClaimSteps) => {
+  const getPrevStepText = (step: ReleaseSteps) => {
     if (step === INITIAL_STEP) {
       return $t('common.cancel');
     }
@@ -37,10 +38,10 @@
 
   const handleNextStep = () => {
     if (activeStep === INITIAL_STEP) {
-      activeStep = ClaimSteps.REVIEW;
-    } else if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.CONFIRM;
-    } else if (activeStep === ClaimSteps.CONFIRM) {
+      activeStep = ReleaseSteps.REVIEW;
+    } else if (activeStep === ReleaseSteps.REVIEW) {
+      activeStep = ReleaseSteps.CONFIRM;
+    } else if (activeStep === ReleaseSteps.CONFIRM) {
       dispatch('closeDialog');
     }
   };
@@ -49,10 +50,10 @@
     if (activeStep === INITIAL_STEP) {
       dispatch('closeDialog');
     }
-    if (activeStep === ClaimSteps.REVIEW) {
-      activeStep = ClaimSteps.CHECK;
-    } else if (activeStep === ClaimSteps.CONFIRM) {
-      activeStep = ClaimSteps.REVIEW;
+    if (activeStep === ReleaseSteps.REVIEW) {
+      activeStep = ReleaseSteps.CHECK;
+    } else if (activeStep === ReleaseSteps.CONFIRM) {
+      activeStep = ReleaseSteps.REVIEW;
     }
   };
 
@@ -65,16 +66,17 @@
   }
 
   $: isNextStepDisabled =
-    !(activeStep === ClaimSteps.CHECK && canContinue) &&
-    (loading || (activeStep === ClaimSteps.CONFIRM && !claimingDone));
+    loading ||
+    (activeStep === ReleaseSteps.CHECK && !canContinue) ||
+    (activeStep === ReleaseSteps.CONFIRM && !releasingDone);
 </script>
 
-{#if (activeStep !== ClaimSteps.CONFIRM || claimingDone) && (activeStep !== ClaimSteps.CHECK || canContinue)}
+{#if (activeStep !== ReleaseSteps.CONFIRM || releasingDone) && (activeStep !== ReleaseSteps.CHECK || canContinue) && !hideContinueButton}
   <div class="h-sep" />
   <ActionButton onPopup priority="primary" disabled={isNextStepDisabled} {loading} on:click={handleNextStep}>
     {nextStepButtonText}
   </ActionButton>
 {/if}
-{#if !claimingDone && !claiming}
+{#if !releasingDone && !releasing}
   <StepBack on:click={handlePreviousStep}>{prevStepButtonText}</StepBack>
 {/if}

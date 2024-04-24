@@ -2,7 +2,7 @@ import type { Address, GetContractReturnType, Hash, Hex, TransactionReceipt, Wal
 
 import type { bridgeAbi } from '$abi';
 import type { ChainID } from '$libs/chain';
-import type { Token, TokenType } from '$libs/token';
+import type { NFT, Token, TokenType } from '$libs/token';
 
 export enum MessageStatus {
   NEW,
@@ -12,9 +12,37 @@ export enum MessageStatus {
   PROVEN, // UI ONLY
 }
 
-// Bridge sendMessage()
-// Claim/Retry processMessage()/retryMessage()
-// Release releaseEther()/releaseERC20()
+// struct Message {
+// Message ID whose value is automatically assigned.
+// uint64 id;
+// The max processing fee for the relayer. This fee has 3 parts:
+// - the fee for message calldata.
+// - the minimal fee reserve for general processing, excluding function call.
+// - the invocation fee for the function call.
+// Any unpaid fee will be refunded to the destOwner on the destination chain.
+// Note that fee must be 0 if gasLimit is 0, or large enough to make the invocation fee
+// non-zero.
+// uint64 fee;
+// gasLimit that the processMessage call must have.
+// uint32 gasLimit;
+// The address, EOA or contract, that interacts with this bridge.
+// The value is automatically assigned.
+// address from;
+// Source chain ID whose value is automatically assigned.
+// uint64 srcChainId;
+// The owner of the message on the source chain.
+// address srcOwner;
+// Destination chain ID where the `to` address lives.
+// uint64 destChainId;
+// The owner of the message on the destination chain.
+// address destOwner;
+// The destination address on the destination chain.
+// address to;
+// value to invoke on the destination chain.
+// uint256 value;
+// callData to invoke on the destination chain.
+// bytes data;
+// }
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
@@ -30,18 +58,14 @@ export type Message = {
   destOwner: Address;
   // Destination owner address
   to: Address;
-  // Alternate address to send any refund. If blank, defaults to owner.
-  refundTo: Address;
   // value to invoke on the destination chain, for ERC20 transfers.
   value: bigint;
   // Processing fee for the relayer. Zero if owner will process themself.
   fee: bigint;
   // gasLimit to invoke on the destination chain, for ERC20 transfers.
-  gasLimit: bigint;
+  gasLimit: number;
   // callData to invoke on the destination chain, for ERC20 transfers.
   data: Hex;
-  // Optional memo / unused at the moment
-  memo: string;
 };
 
 // Todo: adjust relayer to return same as bridge
@@ -57,7 +81,7 @@ export type RelayerMessage = {
   RefundTo: Address;
   Value: bigint;
   Fee: bigint;
-  GasLimit: bigint;
+  GasLimit: number;
   Data: Hex | string;
   Memo: string;
 };
@@ -91,10 +115,8 @@ interface BaseBridgeTransferOp {
   destOwner: Address;
   to: Address;
   token: Address;
-  gasLimit: bigint;
+  gasLimit: number;
   fee: bigint;
-  refundTo: Address;
-  memo: string;
 }
 
 export interface BridgeTransferOp extends BaseBridgeTransferOp {
@@ -106,10 +128,8 @@ export interface NFTBridgeTransferOp {
   destOwner: Address;
   to: Address;
   token: Address;
-  gasLimit: bigint;
+  gasLimit: number;
   fee: bigint;
-  refundTo: Address;
-  memo: string;
   tokenIds: bigint[];
   amounts: bigint[];
 }
@@ -135,7 +155,7 @@ export type BridgeArgs = {
   srcChainId: number;
   destChainId: number;
   fee: bigint;
-  memo?: string;
+  tokenObject: Token | NFT;
 };
 
 export type ETHBridgeArgs = BridgeArgs & {
@@ -154,8 +174,8 @@ export type ERC721BridgeArgs = BridgeArgs & {
   token: Address;
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
-  tokenIds: bigint[];
-  amounts: bigint[];
+  tokenIds: number[];
+  amounts: number[];
 };
 
 export type ERC1155BridgeArgs = ERC721BridgeArgs;
@@ -243,20 +263,6 @@ export type GetContractAddressType = {
   destChainId: number;
   tokenType: TokenType;
   contractType: ContractType;
-};
-
-export type GetProofReceiptParams = {
-  msgHash: Hash;
-  destChainId: bigint;
-  srcChainId: bigint;
-};
-
-// timestamp, preferred claimer address
-export type GetProofReceiptResponse = readonly [bigint, Address];
-
-export type DetermineTransactionStatusArgs = {
-  tx: BridgeTransaction;
-  claimer: Maybe<Address>;
 };
 
 export type GetMaxToBridgeArgs = {

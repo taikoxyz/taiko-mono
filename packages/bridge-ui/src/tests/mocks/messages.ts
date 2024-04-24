@@ -17,10 +17,8 @@ export const MOCK_MESSAGE_L1_L2 = {
   destOwner: ALICE,
   value: 0n,
   data: '0x',
-  refundTo: ALICE,
   fee: 0n,
-  gasLimit: 0n,
-  memo: '',
+  gasLimit: 0,
   id: 420n,
 } satisfies Message;
 
@@ -33,9 +31,7 @@ export const MOCK_MESSAGE_L2_L1 = {
   destOwner: ALICE,
   value: 0n,
   data: '0x',
-  refundTo: ALICE,
   fee: 0n,
-  gasLimit: 0n,
-  memo: '',
+  gasLimit: 0,
   id: 420n,
 } satisfies Message;

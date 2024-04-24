@@ -165,14 +165,10 @@
   }
 
   const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
-    if (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount) updateBalance();
+    if (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount) reset();
   };
 
-  $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
-
-  onDestroy(() => closeMenu());
-
-  onMount(async () => {
+  const reset = async () => {
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     const user = $account?.address;
@@ -182,8 +178,15 @@
     $computingBalance = true;
     value = tokens[0];
     $selectedToken = value;
-    await updateBalance();
     $computingBalance = false;
+  };
+
+  $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
+
+  onDestroy(() => closeMenu());
+
+  onMount(async () => {
+    reset();
   });
 </script>
 
