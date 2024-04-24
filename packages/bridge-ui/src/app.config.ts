@@ -1,8 +1,8 @@
-export const recommendProcessingFeeConfig = {
+export const gasLimitConfig = {
   GAS_RESERVE: 650_000, // based on Bridge.sol
-  ethGasLimit: BigInt(900_000),
-  erc20NotDeployedGasLimit: BigInt(1_650_000),
-  erc20DeployedGasLimit: BigInt(1_100_000),
+  ethGasLimit: BigInt(100_000),
+  erc20NotDeployedGasLimit: BigInt(650_000),
+  erc20DeployedGasLimit: BigInt(50_000),
   erc721NotDeployedGasLimit: BigInt(2_400_000),
   erc721DeployedGasLimit: BigInt(1_100_000),
   erc1155NotDeployedGasLimit: BigInt(2_600_000),
@@ -12,18 +12,6 @@ export const recommendProcessingFeeConfig = {
 export const processingFeeComponent = {
   closingDelayOptionClick: 300,
   intervalComputeRecommendedFee: 20_000,
-};
-
-export const bridgeService = {
-  noOwnerGasLimit: BigInt(140_000),
-  noERC20TokenDeployedGasLimit: BigInt(3_000_000),
-  erc20GasLimitThreshold: BigInt(2_500_000),
-
-  noERC721TokenDeployedGasLimit: BigInt(2_400_000),
-  erc721GasLimitThreshold: BigInt(3_000_000),
-
-  noERC1155TokenDeployedGasLimit: BigInt(2_600_000),
-  erc1155GasLimitThreshold: BigInt(3_000_000),
 };
 
 export const pendingTransaction = {
