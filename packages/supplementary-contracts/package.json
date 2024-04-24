@@ -1,0 +1,39 @@
+{
+  "name": "@taiko/supplementary-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf abis cache* && forge clean",
+    "compile": "forge build --build-info --extra-output storage-layout",
+    "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
+    "fmt:sol": "forge fmt",
+    "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
+    "test": "forge test -vvv --match-path test/*.t.sol"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.20",
+    "@typescript-eslint/eslint-plugin": "^7.4.0",
+    "@typescript-eslint/parser": "^7.7.0",
+    "eslint": "^8.51.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.28.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "eslint-plugin-promise": "^6.1.1",
+    "ethers": "^5.7.2",
+    "solc": "0.7.3",
+    "solhint": "^4.5.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "4.9.6",
+    "@openzeppelin/contracts-upgradeable": "4.9.6",
+    "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
+    "forge-std": "github:foundry-rs/forge-std#v1.7.5",
+    "merkletreejs": "^0.3.11",
+    "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
+    "solady": "github:Vectorized/solady#v0.0.167"
+  }
+}
