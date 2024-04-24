@@ -30,18 +30,16 @@ contract TaikoToken is EssentialContract_, ERC20VotesUpgradeable {
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
-    /// @param _addressManager The AddressManager address.
     function init(
         address _owner,
         string calldata _name,
         string calldata _symbol,
-        address _recipient,
-        address _addressManager
+        address _recipient
     )
         public
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner);
         __Context_init_unchained();
         __ERC20_init(_name, _symbol);
         __ERC20Votes_init();
