@@ -54,7 +54,7 @@
 
   $: correctChain = Number(tx.destChainId) === $connectedSourceChain.id;
 
-  $: if (correctChain && !checkingPrerequisites && hasEnoughEth && $account && preferredDelayInSeconds <= 0) {
+  $: if (correctChain && !checkingPrerequisites && hasEnoughEth && $account) {
     hideContinueButton = false;
     canContinue = true;
   } else {
@@ -66,7 +66,6 @@
 
   $: $account && tx.destChainId, checkConditions();
 
-  $: preferredDelayInSeconds = 0;
   $: hasEnoughEth = false;
 </script>
 
@@ -110,19 +109,5 @@
           switchChains();
         }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
     </div>
-
-    <!-- {#if !canContinue && correctChain}
-      <div class="h-sep" />
-    <div class="f-col space-y-[16px]">
-      <ActionButton
-        onPopup
-        priority="primary"
-        disabled={$switchingNetwork}
-        loading={$switchingNetwork}
-        on:click={() => {
-          switchChains();
-        }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
-    </div>
-    {/if} -->
   {/if}
 </div>

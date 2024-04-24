@@ -141,12 +141,7 @@
         break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);
-        if (err.message.includes('B_INVOCATION_TOO_EARLY')) {
-          errorToast({
-            title: $t('bridge.errors.claim.too_early.title'),
-            message: $t('bridge.errors.claim.too_early.message'),
-          });
-        } else if (err.message.includes('B_NOT_RECEIVED')) {
+        if (err.message.includes('B_NOT_RECEIVED')) {
           errorToast({
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
@@ -189,7 +184,6 @@
       <h3 class="title-body-bold">{$t('transactions.claim.steps.title')}</h3>
     </div>
     <div class="h-sep mx-[-24px] mt-[20px]" />
-    {hideContinueButton}
     <div class="w-full h-full f-col">
       <DialogStepper>
         <DialogStep

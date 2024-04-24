@@ -19,8 +19,6 @@ const log = getLogger('bridge:messageStatusPoller');
 export enum PollingEvent {
   STOP = 'stop',
   STATUS = 'status', // emits MessageStatus
-  DELAY = 'remainingDelayInSeconds', // emits remaining claim delay in seconds
-  PROOFRECEIPT = 'proofReceipt', // emits proof receipt
 
   // Whether or not the tx can be clamied/retried/released
   PROCESSABLE = 'processable',
