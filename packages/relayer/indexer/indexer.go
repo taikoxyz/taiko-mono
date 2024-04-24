@@ -71,6 +71,7 @@ type ethClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
 }
 
 // DB is a local interface that lets us narrow down a database type for testing.
@@ -475,7 +476,7 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	events, err := i.bridge.FilterMessageProcessed(filterOpts)
+	events, err := i.bridge.FilterMessageProcessed(filterOpts, nil)
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageProcessed")
 	}

@@ -68,26 +68,25 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             revert BB_PERMISSION_DENIED();
         }
 
-        _mintToken(_account, _amount);
+        _mint(_account, _amount);
     }
 
-    /// @notice Burns tokens from the specified account.
-    /// @param _account The address of the account to burn the tokens from.
+    /// @notice Burns tokens in case of 'migrating out' from msg.sender (EOA) or from the ERC20Vault
+    /// if bridging back to canonical token.
     /// @param _amount The amount of tokens to burn.
-    function burn(address _account, uint256 _amount) external whenNotPaused nonReentrant {
+    function burn(uint256 _amount) external whenNotPaused nonReentrant {
         if (_isMigratingOut()) {
-            // Only the owner of the tokens himself can migrate out
-            if (msg.sender != _account) revert BB_PERMISSION_DENIED();
             // Outbound migration
-            emit MigratedTo(migratingAddress, _account, _amount);
+            emit MigratedTo(migratingAddress, msg.sender, _amount);
             // Ask the new bridged token to mint token for the user.
-            IBridgedERC20(migratingAddress).mint(_account, _amount);
+            IBridgedERC20(migratingAddress).mint(msg.sender, _amount);
         } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
-            // Only the vault can burn tokens when not migrating out
+            // When user wants to burn tokens only during 'migrating out' phase is possible. If
+            // ERC20Vault burns the tokens, that will go through the burn(amount) function.
             revert RESOLVER_DENIED();
         }
 
-        _burnToken(_account, _amount);
+        _burn(msg.sender, _amount);
     }
 
     /// @notice Returns the owner.
@@ -96,9 +95,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         return super.owner();
     }
 
-    function _mintToken(address _account, uint256 _amount) internal virtual;
+    function _mint(address _account, uint256 _amount) internal virtual;
 
-    function _burnToken(address _from, uint256 _amount) internal virtual;
+    function _burn(address _from, uint256 _amount) internal virtual;
 
     function _isMigratingOut() private view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;
