@@ -28,45 +28,23 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
-    // Variables, which shall be same for everybody, it is part of the GrantInfo struct.
-    struct UnlockTiming {
-        /// @notice Shall be TGE date.
-        uint64 unlockStartDate;
-        /// @notice The end date of cliff period. Shall be 1 year post TGE (date).
-        uint64 unlockCliffDate;
-        /// @notice Shall be 4 years (period)
-        uint32 unlockPeriod;
-    }
-
-    // Variables, which shall be unique per grantee
-    struct GrantInfo {
-        // This variable has to be set, before we handle any withdrawals
-        UnlockTiming unlockTiming;
-        /// @notice It is basically the same as "amount deposited" or "total amount vested" (so
-        /// far).
-        uint128 amountVested;
-        /// @notice Represents how many tokens withdrawn already and helps with: withdrawable
-        /// amount.
-        // - The current "withdrawable amount" is determined by the help of this variable =
-        // (amountVested *(% of unlocked) ) - amountWithdrawn
-        uint128 amountWithdrawn;
-        /// @notice The address of the recipient.
-        address grantRecipient;
-        // This can define which grant is this (grant 1, grant 2, etc.). Only informative
-        // purposes.
-        uint8 grantId;
-    }
-
-    // Holding any grant information
-    GrantInfo public grantInfo;
-
+    /// @notice It is basically the same as "amount deposited" or "total amount vested" (so
+    /// far).
+    uint128 amountVested;
+    /// @notice Represents how many tokens withdrawn already and helps with: withdrawable
+    /// amount.
+    // - The current "withdrawable amount" is determined by the help of this variable =
+    // (amountVested *(% of unlocked) ) - amountWithdrawn
+    uint128 amountWithdrawn;
+    /// @notice The address of the recipient.
+    address grantRecipient;
+    /// @notice For tests or sub-contracts, getTgeTimestamp() can be overriden.
+    uint64 tgeTimestamp;
     /// @notice The Taiko token address.
     address public taikoToken;
-
     /// @notice The shared vault address, from which tko token deposits will be triggered by the
     /// depositToGrantee() function
     address public sharedVault;
-
     /// @notice Mapping of recipient address to the next withdrawal nonce.
     mapping(address recipient => uint256 withdrawalNonce) public withdrawalNonces;
 
@@ -77,20 +55,18 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @param unlockStartDate The TGE date.
     /// @param unlockCliffDate The end date of cliff period.
     /// @param unlockPeriod The unlock period.
-    /// @param grantId The id of the grant.
-    event GrantInfoInitialized(
+    event GrantInitialized(
         address indexed recipient,
         uint64 unlockStartDate,
         uint64 unlockCliffDate,
-        uint32 unlockPeriod,
-        uint8 grantId
+        uint32 unlockPeriod
     );
 
-    /// @notice Emitted when a grant is made.
+    /// @notice Emitted during vesting events.
     /// @param recipient The grant recipient address.
     /// @param currentDeposit The current deposited tko amount.
     /// @param totalVestedAmount The total vested amount so far.
-    event DepositTriggered(
+    event VestTokenTriggered(
         address indexed recipient, uint128 currentDeposit, uint128 totalVestedAmount
     );
 
@@ -111,7 +87,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     error WRONG_GRANTEE_RECIPIENT();
 
     /// @notice Initializes the contract.
-    /// @param _owner The owner address.
+    /// @param _owner The contract owner address.
     /// @param _taikoToken The Taiko token address.
     /// @param _sharedVault The shared vault address.
     /// @param _grantRecipient Who will be the grantee for this contract.
@@ -119,13 +95,14 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address _owner,
         address _taikoToken,
         address _sharedVault,
-        address _grantRecipient
+        address _grantRecipient,
+        uint64 _tgeTimestamp
     )
         external
         initializer
     {
         if (
-            _taikoToken == address(0) || _sharedVault == address(0) || _grantRecipient == address(0)
+            _taikoToken == address(0) || _sharedVault == address(0) || _grantRecipient == address(0) || _tgeTimestamp == 0
         ) {
             revert INVALID_PARAM();
         }
@@ -138,49 +115,18 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         taikoToken = _taikoToken;
         sharedVault = _sharedVault;
 
-        // Initializing here, that the contract belongs to this grant recipient.
-        grantInfo.grantRecipient = _grantRecipient;
-    }
+        // Initializing here, that the contract belongs to this grant recipient, and TGE starts or started at _tgeTimestamp.
+        grantRecipient = _grantRecipient;
+        tgeTimestamp= _tgeTimestamp;
 
-    /// @notice Set correct unlocking dates (TGE, cliff, duration) and the id for the recipient.
-    /// @param _recipient The recipient.
-    /// @param _unlockStartDate TGE date.
-    /// @param _unlockCliffDate The end date of cliff period.
-    /// @param _unlockPeriod The unlock period (4 years acc. to current token grant letter).
-    /// @param _grantId The id of the grant (informative purposes).
-    function setupGrantData(
-        address _recipient,
-        uint64 _unlockStartDate,
-        uint64 _unlockCliffDate,
-        uint32 _unlockPeriod,
-        uint8 _grantId
-    )
-        external
-        onlyOwner
-    {
-        // Theoretically the rest can be 0, if we want no cliff or no unlock period.
-        if (_unlockStartDate == 0) revert INVALID_PARAM();
-        if (_recipient != grantInfo.grantRecipient) revert INVALID_GRANTEE();
-
-        // Timing related data
-        grantInfo.unlockTiming.unlockStartDate = _unlockStartDate;
-        grantInfo.unlockTiming.unlockCliffDate = _unlockCliffDate;
-        grantInfo.unlockTiming.unlockPeriod = _unlockPeriod;
-
-        //Only init grantId, since recipient is filled when contract is initialized and amount of
-        // vested and withdrawn are 0 at this time
-        grantInfo.grantId = _grantId;
-
-        emit GrantInfoInitialized(
-            _recipient, _unlockStartDate, _unlockCliffDate, _unlockPeriod, _grantId
-        );
+        emit GrantInitialized(_grantRecipient, _tgeTimestamp, getCliffEndTimestamp(), getUnlockPeriod());
     }
 
     /// @notice Triggers a deposits through the vault to this contract.
     /// This transaction should happen on a regular basis, e.g., quarterly.
     /// @param _recipient The grant recipient address.
     /// @param _currentDeposit The current deposit.
-    function depositToGrantee(
+    function vestToken(
         address _recipient,
         uint128 _currentDeposit
     )
@@ -188,16 +134,16 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         onlyOwner
         nonReentrant
     {
-        if (_recipient != grantInfo.grantRecipient) revert INVALID_GRANTEE();
-        if (grantInfo.unlockTiming.unlockStartDate == 0) revert GRANT_NOT_INITIALIZED();
+        if (_recipient != grantRecipient) revert INVALID_GRANTEE();
 
         // This contract shall be appproved() on the sharedVault for the given _currentDeposit
         // amount
+        //This is needed becasue this is the way we can be sure, we know exactly how much vested already. Simple transfer from TaikoTreasury will not update anything hence it does not trigger receive() or fallback().
         IERC20(taikoToken).safeTransferFrom(sharedVault, address(this), _currentDeposit);
 
-        grantInfo.amountVested += _currentDeposit;
+        amountVested += _currentDeposit;
 
-        emit DepositTriggered(_recipient, _currentDeposit, grantInfo.amountVested);
+        emit VestTokenTriggered(_recipient, _currentDeposit, amountVested);
     }
 
     /// @notice Withdraws all withdrawable tokens.
@@ -213,7 +159,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (_to == address(0)) revert INVALID_PARAM();
 
         address account =
-            ECDSA.recover(getWithdrawalHash(grantInfo.grantRecipient, _to, _nonce), _sig);
+            ECDSA.recover(getWithdrawalHash(grantRecipient, _to, _nonce), _sig);
         if (account == address(0)) revert INVALID_SIGNATURE();
         if (withdrawalNonces[account] != _nonce) revert INVALID_NONCE();
 
@@ -236,76 +182,75 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         returns (bytes32)
     {
         return keccak256(
-            abi.encode("WITHDRAW_GRANT", _grantOwner, block.chainid, address(this), grantInfo.grantId, _to, _nonce)
+            abi.encode("WITHDRAW_GRANT", _grantOwner, block.chainid, address(this), _to, _nonce)
         );
     }
 
     /// @notice Returns the summary of the grant for a given recipient. Does not reverts if this
     /// contract does not belong to _recipient, but returns all 0.
     /// @param _recipient The supposed recipient.
-    /// @return amountVested The overall amount vested (including the already withdrawn).
-    /// @return amountUnlocked The overall amount unlocked (including the already withdrawn).
-    /// @return amountWithdrawn Already withdrawn amount.
-    /// @return amountToWithdraw Currently withdrawable.
+    /// @return amountVested_ The overall amount vested (including the already withdrawn).
+    /// @return amountUnlocked_ The overall amount unlocked (including the already withdrawn).
+    /// @return amountWithdrawn_ Already withdrawn amount.
+    /// @return amountToWithdraw_ Currently withdrawable.
     function getMyGrantSummary(address _recipient)
         public
         view
         returns (
-            uint128 amountVested,
-            uint128 amountUnlocked,
-            uint128 amountWithdrawn,
-            uint128 amountToWithdraw
+            uint128 amountVested_,
+            uint128 amountUnlocked_,
+            uint128 amountWithdrawn_,
+            uint128 amountToWithdraw_
         )
     {
-        if (_recipient != grantInfo.grantRecipient) {
+        if (_recipient != grantRecipient) {
             // This unlocking contract is not for the supplied _recipient, so obviously 0
             // everywhere.
             return (0, 0, 0, 0);
         }
 
-        amountVested = grantInfo.amountVested;
+        amountVested_ = amountVested;
         /// @notice Amount unlocked obviously represents the all unlocked per vested tokens so:
         /// (amountUnlocked >= amountToWithdraw) && (amountUnlocked >= amountWithdrawn) -> Always
         /// true. Because there might be some amount already withdrawn, but amountUnlocked does not
         /// take into account that amount (!).
-        amountUnlocked = _calcAmountUnlocked(
-            grantInfo.amountVested,
-            grantInfo.unlockTiming.unlockStartDate,
-            grantInfo.unlockTiming.unlockCliffDate,
-            grantInfo.unlockTiming.unlockPeriod
+        amountUnlocked_ = _calcAmountUnlocked(
+            amountVested,
+            getTgeTimestamp(),
+            getCliffEndTimestamp(),
+            getUnlockPeriod()
         );
 
-        amountWithdrawn = grantInfo.amountWithdrawn;
-        amountToWithdraw = amountUnlocked - amountWithdrawn;
+        amountWithdrawn_ = amountWithdrawn;
+        amountToWithdraw_ = amountUnlocked_ - amountWithdrawn_;
     }
 
-    /// @notice Returns the grant for a given recipient. Reverts if this contract does not belong to
-    /// _recipient.
-    /// @param _recipient The grant recipient address.
-    /// @return The grant.
-    function getGrantInfo(address _recipient) public view returns (GrantInfo memory) {
-        if (_recipient != grantInfo.grantRecipient) {
-            // This unlocking contract is not for the supplied _recipient, so revert.
-            revert WRONG_GRANTEE_RECIPIENT();
-        }
+    function getTgeTimestamp() public view virtual returns (uint64) {
+        return tgeTimestamp;
+    }
 
-        return grantInfo;
+    function getCliffEndTimestamp() public view virtual returns (uint64) {
+        return (getTgeTimestamp() + 365 days);
+    }
+
+    function getUnlockPeriod() public view virtual returns (uint32) {
+        return (4*365 days);
     }
 
     function _withdraw(address _recipient, address _to) private {
-        if (_recipient != grantInfo.grantRecipient) {
+        if (_recipient != grantRecipient) {
             // This unlocking contract is not for the supplied _recipient, so revert.
             revert WRONG_GRANTEE_RECIPIENT();
         }
 
         (,,, uint128 amountToWithdraw) = getMyGrantSummary(_recipient);
 
-        grantInfo.amountWithdrawn = amountToWithdraw;
+        amountWithdrawn = amountToWithdraw;
 
         // _to address get's the tokens
         IERC20(taikoToken).safeTransferFrom(sharedVault, _to, amountToWithdraw);
 
-        emit Withdrawn(_recipient, _to, amountToWithdraw, grantInfo.amountWithdrawn);
+        emit Withdrawn(_recipient, _to, amountToWithdraw, amountWithdrawn);
     }
 
     function _calcAmountUnlocked(

@@ -13,6 +13,7 @@ contract DeployTokenUnlocking is Script {
     address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
     address public SHARED_TOKEN_VAULT = vm.envAddress("SHARED_TOKEN_VAULT");
     address public GRANTEE = vm.envAddress("GRANTEE");
+    uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
 
     address tokenUnlocking;
 
@@ -23,7 +24,7 @@ contract DeployTokenUnlocking is Script {
         tokenUnlocking = deployProxy({
             impl: address(new TokenUnlocking()),
             data: abi.encodeCall(
-                TokenUnlocking.init, (CONTRACT_OWNER, TAIKO_TOKEN, SHARED_TOKEN_VAULT, GRANTEE)
+                TokenUnlocking.init, (CONTRACT_OWNER, TAIKO_TOKEN, SHARED_TOKEN_VAULT, GRANTEE, uint64(TGE))
                 )
         });
         vm.stopBroadcast();
