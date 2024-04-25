@@ -348,7 +348,7 @@ func (p *Processor) sendProcessMessageCall(
 		)
 		if err != nil || !profitable {
 			if err == errImpossible {
-				return nil, nil
+				return nil, errImpossible
 			}
 
 			return nil, relayer.ErrUnprofitable
