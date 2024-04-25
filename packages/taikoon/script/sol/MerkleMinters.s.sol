@@ -16,14 +16,11 @@ contract MerkleMintersScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-
     bytes32[] public leaves;
 
     bytes32 public root;
 
     function setUp() public {
-
-
         string memory treeJson =
             vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/hardhat.json"));
         bytes memory treeRaw = treeJson.parseRaw(".tree");
@@ -127,16 +124,12 @@ contract MerkleMintersScript is Script {
     }
 
     function run() public {
-
-
-            UtilsScript utils = new UtilsScript();
+        UtilsScript utils = new UtilsScript();
         utils.setUp();
-
 
         deployerPrivateKey = utils.getPrivateKey();
         deployerAddress = utils.getAddress();
         vm.startBroadcast(deployerPrivateKey);
-
 
         string memory path = utils.getContractJsonLocation();
         string memory json = vm.readFile(path);
@@ -145,7 +138,6 @@ contract MerkleMintersScript is Script {
         bytes memory addressRaw = json.parseRaw(".TaikoonToken");
         address tokenAddress = abi.decode(addressRaw, (address));
         TaikoonToken token = TaikoonToken(tokenAddress);
-
 
         Merkle tree = new Merkle();
 
