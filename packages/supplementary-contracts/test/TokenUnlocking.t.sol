@@ -42,7 +42,9 @@ contract TestTokenUnlocking is Test {
         tokenUnlocking = TokenUnlocking(
             deployProxy({
                 impl: address(new TokenUnlocking()),
-                data: abi.encodeCall(TokenUnlocking.init, (Owner, address(tko), Vault, Alice, uint64(block.timestamp)))
+                data: abi.encodeCall(
+                    TokenUnlocking.init, (Owner, address(tko), Vault, Alice, uint64(block.timestamp))
+                    )
             })
         );
     }

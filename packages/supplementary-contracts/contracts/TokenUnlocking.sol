@@ -102,7 +102,8 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         initializer
     {
         if (
-            _taikoToken == address(0) || _sharedVault == address(0) || _grantRecipient == address(0) || _tgeTimestamp == 0
+            _taikoToken == address(0) || _sharedVault == address(0) || _grantRecipient == address(0)
+                || _tgeTimestamp == 0
         ) {
             revert INVALID_PARAM();
         }
@@ -115,11 +116,14 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         taikoToken = _taikoToken;
         sharedVault = _sharedVault;
 
-        // Initializing here, that the contract belongs to this grant recipient, and TGE starts or started at _tgeTimestamp.
+        // Initializing here, that the contract belongs to this grant recipient, and TGE starts or
+        // started at _tgeTimestamp.
         grantRecipient = _grantRecipient;
-        tgeTimestamp= _tgeTimestamp;
+        tgeTimestamp = _tgeTimestamp;
 
-        emit GrantInitialized(_grantRecipient, _tgeTimestamp, getCliffEndTimestamp(), getUnlockPeriod());
+        emit GrantInitialized(
+            _grantRecipient, _tgeTimestamp, getCliffEndTimestamp(), getUnlockPeriod()
+        );
     }
 
     /// @notice Triggers a deposits through the vault to this contract.
@@ -138,7 +142,9 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // This contract shall be appproved() on the sharedVault for the given _currentDeposit
         // amount
-        //This is needed becasue this is the way we can be sure, we know exactly how much vested already. Simple transfer from TaikoTreasury will not update anything hence it does not trigger receive() or fallback().
+        //This is needed becasue this is the way we can be sure, we know exactly how much vested
+        // already. Simple transfer from TaikoTreasury will not update anything hence it does not
+        // trigger receive() or fallback().
         IERC20(taikoToken).safeTransferFrom(sharedVault, address(this), _currentDeposit);
 
         amountVested += _currentDeposit;
@@ -158,8 +164,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function withdraw(address _to, uint256 _nonce, bytes calldata _sig) external nonReentrant {
         if (_to == address(0)) revert INVALID_PARAM();
 
-        address account =
-            ECDSA.recover(getWithdrawalHash(grantRecipient, _to, _nonce), _sig);
+        address account = ECDSA.recover(getWithdrawalHash(grantRecipient, _to, _nonce), _sig);
         if (account == address(0)) revert INVALID_SIGNATURE();
         if (withdrawalNonces[account] != _nonce) revert INVALID_NONCE();
 
@@ -215,10 +220,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         /// true. Because there might be some amount already withdrawn, but amountUnlocked does not
         /// take into account that amount (!).
         amountUnlocked_ = _calcAmountUnlocked(
-            amountVested,
-            getTgeTimestamp(),
-            getCliffEndTimestamp(),
-            getUnlockPeriod()
+            amountVested, getTgeTimestamp(), getCliffEndTimestamp(), getUnlockPeriod()
         );
 
         amountWithdrawn_ = amountWithdrawn;
@@ -234,7 +236,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function getUnlockPeriod() public view virtual returns (uint32) {
-        return (4*365 days);
+        return (4 * 365 days);
     }
 
     function _withdraw(address _recipient, address _to) private {

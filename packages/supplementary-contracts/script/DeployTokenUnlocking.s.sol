@@ -24,7 +24,8 @@ contract DeployTokenUnlocking is Script {
         tokenUnlocking = deployProxy({
             impl: address(new TokenUnlocking()),
             data: abi.encodeCall(
-                TokenUnlocking.init, (CONTRACT_OWNER, TAIKO_TOKEN, SHARED_TOKEN_VAULT, GRANTEE, uint64(TGE))
+                TokenUnlocking.init,
+                (CONTRACT_OWNER, TAIKO_TOKEN, SHARED_TOKEN_VAULT, GRANTEE, uint64(TGE))
                 )
         });
         vm.stopBroadcast();
