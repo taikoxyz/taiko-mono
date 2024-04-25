@@ -127,8 +127,7 @@
                     'w-full'
                 )}
             >
-                Your NFTs were minted for a price of 0 ETH. They are now in your Ethereum wallet and
-                displayed on <Link
+                Your NFTs were minted! They are now in your Ethereum wallet and displayed on <Link
                     class={classNames(
                         'hover:text-content-link-hover',
                         'text-content-link-primary',

@@ -2,8 +2,7 @@ import { taikoonTokenAddress } from '../../generated/abi'
 import { web3modal } from '../../lib/connect'
 import type { IChainId } from '../../types'
 import { balanceOf } from './balanceOf'
-import { calculateFreeMints } from './calculateFreeMints'
-import { canFreeMint } from './canFreeMint'
+import { canMint } from './canMint'
 import { estimateMintGasCost } from './estimateMintGasCost'
 import { maxSupply } from './maxSupply'
 import { mint } from './mint'
@@ -31,8 +30,7 @@ const Token = {
     address,
     ownerOf,
     balanceOf,
-    canFreeMint,
-    calculateFreeMints,
+    canMint,
     maxSupply,
     mint,
     tokenOfOwner,

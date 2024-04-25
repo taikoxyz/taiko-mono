@@ -7,8 +7,8 @@ import { config } from '$wagmi-config'
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi'
 import { web3modal } from '../../lib/connect'
 import type { IChainId } from '../../types'
-import { canFreeMint } from './canFreeMint'
-import { freeMintsLeft } from './mintsLeft'
+import { totalWhitelistMintCount } from '../user/totalWhitelistMintCount'
+import { canMint } from './canMint'
 
 export async function mint({
     freeMintCount,
@@ -22,19 +22,19 @@ export async function mint({
     let tx: any
     const chainId = selectedNetworkId as IChainId
 
-    const freeMintLeft = await freeMintsLeft()
+    const mintCount = await totalWhitelistMintCount()
 
-    if (freeMintCount > freeMintLeft) {
+    if (freeMintCount > mintCount) {
         throw new Error('Not enough free mints left')
     }
 
-    if (await canFreeMint()) {
+    if (await canMint()) {
         const proof = getProof()
         tx = await writeContract(config, {
             abi: taikoonTokenAbi,
             address: taikoonTokenAddress[chainId],
             functionName: 'mint',
-            args: [proof, BigInt(freeMintLeft), BigInt(freeMintCount)],
+            args: [proof, BigInt(mintCount)],
             chainId,
         })
 

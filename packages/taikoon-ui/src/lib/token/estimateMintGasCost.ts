@@ -5,9 +5,9 @@ import getProof from '$lib/whitelist/getProof'
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi'
 import type { IChainId } from '../../types'
 import { web3modal } from '../connect'
+import { totalWhitelistMintCount } from '../user/totalWhitelistMintCount'
 import estimateContractGas from '../wagmi/estimateContractGas'
-import { canFreeMint } from './canFreeMint'
-import { freeMintsLeft } from './mintsLeft'
+import { canMint } from './canMint'
 
 export async function estimateMintGasCost({
     freeMintCount,
@@ -19,16 +19,16 @@ export async function estimateMintGasCost({
     if (!selectedNetworkId) return -1
     const chainId = selectedNetworkId as IChainId
 
-    const freeMintLeft = await freeMintsLeft()
+    const freeMintLeft = await totalWhitelistMintCount()
 
-    if (await canFreeMint()) {
+    if (await canMint()) {
         const proof = getProof()
 
         const gasEstimate = await estimateContractGas({
             abi: taikoonTokenAbi,
             address: taikoonTokenAddress[chainId],
             functionName: 'mint',
-            args: [proof, BigInt(freeMintLeft), BigInt(freeMintCount)],
+            args: [proof, BigInt(freeMintLeft)],
         })
         return parseFloat(formatGwei(gasEstimate))
     }

@@ -6,6 +6,7 @@
     import InfoRow from '$components/core/InfoRow/InfoRow.svelte'
     import NumberInput from '$components/core/NumberInput/NumberInput.svelte'
     import { ResponsiveController } from '$components/core/ResponsiveController'
+    import User from '$lib/user'
     import { classNames } from '$lib/util/classNames'
     import { connectedSourceChain } from '$stores/network'
     import { Button } from '$ui/Button'
@@ -71,7 +72,7 @@
     $: mintMax = 0
     $: progress = Math.floor((totalSupply / 888) * 100)
 
-    $: canFreeMint = false
+    $: canMint = false
     $: canMint = false
 
     $: freeMintsLeft = 0
@@ -101,11 +102,9 @@
         progress = Math.floor((totalSupply / mintMax) * 100)
         isReady = true
 
-        canFreeMint = await Token.canFreeMint()
+        canMint = await Token.canMint()
 
-        canMint = canFreeMint
-
-        freeMintsLeft = await Token.calculateFreeMints()
+        freeMintsLeft = await User.totalWhitelistMintCount()
     }
 
     connectedSourceChain.subscribe(async () => {
@@ -178,36 +177,33 @@
                 <ProgressBar {progress} />
             </div>
 
-            {#if freeMintsLeft > 0}
-                <NumberInput
-                    min={0}
-                    bind:value={freeMintCount}
-                    max={freeMintsLeft}
-                    disabled={freeMintsLeft <= 0 || $mintState.isMinting}
-                    label={`Free mints left: ${freeMintsLeft - freeMintCount}`}
-                />
-            {/if}
+            <NumberInput
+                min={0}
+                value={canMint ? freeMintsLeft : 0}
+                max={freeMintsLeft}
+                disabled
+                label={`Mints left: ${canMint ? freeMintsLeft : 0}`}
+            />
 
-            {#if freeMintsLeft > 0}
-                <Divider />
+            <Divider />
 
+            {#if gasCost > 0}
                 <div class="w-full gap-4 flex flex-col">
-                    <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
-                    <InfoRow label="Total cost" loading={isCalculating} value={`Ξ ${gasCost}`} />
+                    <InfoRow
+                        label="Estimated gas fee"
+                        loading={isCalculating}
+                        value={`Ξ ${gasCost}`}
+                    />
                 </div>
-                <Button
-                    disabled={freeMintCount === 0 || $mintState.isMinting || !canMint}
-                    on:click={mint}
-                    class={buttonClasses}
-                    wide
-                    block
-                    type="primary">Mint</Button
-                >
-            {:else if $mintState.address !== ZeroXAddress}
-                <Button type="primary" wide block href={`/collection/${$mintState.address}`}
-                    >Your Taikoons</Button
-                >
             {/if}
+            <Button
+                disabled={!canMint}
+                on:click={mint}
+                class={buttonClasses}
+                wide
+                block
+                type="primary">Mint</Button
+            >
         </div>
     {:else}
         <Spinner size="lg" />

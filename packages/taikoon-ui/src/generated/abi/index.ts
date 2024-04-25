@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xFEa8a9Bf822e58571aF7A1Cee58bF7bBFcc85586)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83)
  * -
  */
 export const taikoonTokenAbi = [
@@ -121,9 +121,9 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    inputs: [{ name: 'leaf', internalType: 'bytes32', type: 'bytes32' }],
     name: 'minted',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    outputs: [{ name: 'hasMinted', internalType: 'bool', type: 'bool' }],
     stateMutability: 'view',
   },
   {
@@ -292,9 +292,24 @@ export const taikoonTokenAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: 'owner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'approved', internalType: 'address', type: 'address', indexed: true },
-      { name: 'tokenId', internalType: 'uint256', type: 'uint256', indexed: true },
+      {
+        name: 'owner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'approved',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'tokenId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
     ],
     name: 'Approval',
   },
@@ -302,8 +317,18 @@ export const taikoonTokenAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: 'owner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'operator', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'owner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'operator',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
       { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
     ],
     name: 'ApprovalForAll',
@@ -311,15 +336,32 @@ export const taikoonTokenAbi = [
   {
     type: 'event',
     anonymous: false,
-    inputs: [{ name: 'version', internalType: 'uint64', type: 'uint64', indexed: false }],
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: false,
+      },
+    ],
     name: 'Initialized',
   },
   {
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: '_minter', internalType: 'address', type: 'address', indexed: false },
-      { name: '_mintAmount', internalType: 'uint256', type: 'uint256', indexed: false },
+      {
+        name: '_minter',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: '_mintAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
     ],
     name: 'MintConsumed',
   },
@@ -327,8 +369,18 @@ export const taikoonTokenAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
     ],
     name: 'OwnershipTransferStarted',
   },
@@ -336,15 +388,32 @@ export const taikoonTokenAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
     ],
     name: 'OwnershipTransferred',
   },
   {
     type: 'event',
     anonymous: false,
-    inputs: [{ name: '_root', internalType: 'bytes32', type: 'bytes32', indexed: false }],
+    inputs: [
+      {
+        name: '_root',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: false,
+      },
+    ],
     name: 'RootUpdated',
   },
   {
@@ -353,14 +422,26 @@ export const taikoonTokenAbi = [
     inputs: [
       { name: 'from', internalType: 'address', type: 'address', indexed: true },
       { name: 'to', internalType: 'address', type: 'address', indexed: true },
-      { name: 'tokenId', internalType: 'uint256', type: 'uint256', indexed: true },
+      {
+        name: 'tokenId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
     ],
     name: 'Transfer',
   },
   {
     type: 'event',
     anonymous: false,
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    inputs: [
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
     name: 'Upgraded',
   },
   {
@@ -370,7 +451,9 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -459,16 +542,19 @@ export const taikoonTokenAbi = [
 ] as const
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xFEa8a9Bf822e58571aF7A1Cee58bF7bBFcc85586)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83)
  * -
  */
 export const taikoonTokenAddress = {
-  17000: '0xFEa8a9Bf822e58571aF7A1Cee58bF7bBFcc85586',
-  31337: '0xfbC22278A96299D91d41C453234d97b4F5Eb9B2d',
+  17000: '0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83',
+  31337: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
 } as const
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xFEa8a9Bf822e58571aF7A1Cee58bF7bBFcc85586)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83)
  * -
  */
-export const taikoonTokenConfig = { address: taikoonTokenAddress, abi: taikoonTokenAbi } as const
+export const taikoonTokenConfig = {
+  address: taikoonTokenAddress,
+  abi: taikoonTokenAbi,
+} as const

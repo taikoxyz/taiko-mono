@@ -12,124 +12,30 @@ import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
 contract MerkleMintersScript is Script {
     using stdJson for string;
 
+    UtilsScript public utils;
     string public jsonLocation;
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    bytes32[] public leaves;
+    TaikoonToken token;
 
-    bytes32 public root;
+    // bytes32[] public leaves;
+
+    //  bytes32[] public holeskyLeaves;
+
+    bytes32 public holeskyRoot;
+
+    bytes32 public localhostRoot;
+
+    string public hardhatTreeJson;
+    string public holeskyTreeJson;
 
     function setUp() public {
-        string memory treeJson =
-            vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/hardhat.json"));
-        bytes memory treeRaw = treeJson.parseRaw(".tree");
-        leaves = abi.decode(treeRaw, (bytes32[]));
-
-        bytes memory rootRaw = treeJson.parseRaw(".root");
-        root = abi.decode(rootRaw, (bytes32));
-    }
-    /*
-    function getHoleskyCsvMinters()
-        public
-        view
-        returns (uint256[] memory freeMints, address[] memory minters)
-    {
-        string memory csvPath = './data/whitelist/holesky.csv';
-        string memory line = vm.readLine(csvPath);
-        // extract header
-        line = vm.readLine(csvPath);
-
-        freeMints = new uint256[](10);
-        minters = new address[](10);
-
-        // read the csv lines
-        bool linesLeft = true;
-        uint256 lineCount = 0;
-        while (linesLeft) {
-            (uint256 _freeMints, address _minter) = CSVParser.parseLine(line);
-
-            freeMints[lineCount] = _freeMints;
-            minters[lineCount] = _minter;
-
-            console.log(
-                'Free mints: %s, Paid mints: %s, Minter: %s',
-                freeMints[lineCount],
-                minters[lineCount]
-            );
-
-            lineCount++;
-
-            line = vm.readLine(csvPath);
-            linesLeft = bytes(line).length >= 27;
-        }
-
-        return (freeMints, minters);
-    }
-
-    */
-
-    function getHardhatCsvMinters()
-        public
-        view
-        returns (uint256[] memory freeMints, address[] memory minters, bytes32[] memory)
-    {
-        uint256 minterCount = 5;
-        string memory csvPath = "./data/whitelist/hardhat.csv";
-        string memory line = vm.readLine(csvPath);
-        // extract header
-        line = vm.readLine(csvPath);
-
-        freeMints = new uint256[](minterCount);
-        minters = new address[](minterCount);
-
-        // read the csv lines
-        bool linesLeft = true;
-        uint256 lineCount = 0;
-        while (linesLeft) {
-            (uint256 _freeMints, address _minter) = CSVParser.parseLine(line);
-
-            freeMints[lineCount] = _freeMints;
-            minters[lineCount] = _minter;
-
-            console.log("Free mints: %s, Minter: %s", freeMints[lineCount], minters[lineCount]);
-
-            lineCount++;
-
-            line = vm.readLine(csvPath);
-            linesLeft = bytes(line).length >= 27;
-        }
-
-        return (freeMints, minters, leaves);
-    }
-
-    function getMerkleData()
-        public
-        view
-        returns (uint256[] memory freeMints, address[] memory minters, bytes32[] memory)
-    {
-        uint256 chainId = block.chainid;
-
-        if (chainId == 31_337) {
-            return getHardhatCsvMinters();
-        } /*else if (chainId == 17000) {
-            return getHoleskyCsvMinters();
-        }*/ else {
-            revert("Unsupported chainId");
-        }
-    }
-
-    function getMerkleInfo() public view returns (bytes32, bytes32[] memory) {
-        return (root, leaves);
-    }
-
-    function run() public {
-        UtilsScript utils = new UtilsScript();
+        utils = new UtilsScript();
         utils.setUp();
 
         deployerPrivateKey = utils.getPrivateKey();
         deployerAddress = utils.getAddress();
-        vm.startBroadcast(deployerPrivateKey);
 
         string memory path = utils.getContractJsonLocation();
         string memory json = vm.readFile(path);
@@ -137,7 +43,55 @@ contract MerkleMintersScript is Script {
         // TaikoonToken
         bytes memory addressRaw = json.parseRaw(".TaikoonToken");
         address tokenAddress = abi.decode(addressRaw, (address));
-        TaikoonToken token = TaikoonToken(tokenAddress);
+        token = TaikoonToken(tokenAddress);
+
+        hardhatTreeJson = vm.readFile(
+            string.concat(vm.projectRoot(), '/data/whitelist/hardhat.json')
+        );
+        //bytes memory treeRaw = hardhatTreeJson.parseRaw('.tree');
+        // leaves = abi.decode(treeRaw, (bytes32[]));
+
+        bytes memory rootRaw = hardhatTreeJson.parseRaw('.root');
+        localhostRoot = abi.decode(rootRaw, (bytes32));
+
+        holeskyTreeJson = vm.readFile(
+            string.concat(vm.projectRoot(), '/data/whitelist/holesky.json')
+        );
+
+        // treeRaw = holeskyTreeJson.parseRaw('.tree');
+        //   holeskyLeaves = abi.decode(treeRaw, (bytes32[]));
+        rootRaw = holeskyTreeJson.parseRaw('.root');
+        holeskyRoot = abi.decode(rootRaw, (bytes32));
+    }
+
+    function getMerkleRoot() public view returns (bytes32) {
+        uint256 chainId = block.chainid;
+        if (chainId == 31337) {
+            return localhostRoot;
+        } else if (chainId == 17000) {
+            return holeskyRoot;
+        } else {
+            revert('Unsupported chainId');
+        }
+    }
+
+    function run() public {
+        vm.startBroadcast(deployerPrivateKey);
+        uint256 chainId = block.chainid;
+
+        bytes32 root = getMerkleRoot();
+        bytes32[] memory leaves;
+        if (chainId == 31337) {
+            // hardhat/localhost
+            bytes memory treeRaw = hardhatTreeJson.parseRaw('.tree');
+            leaves = abi.decode(treeRaw, (bytes32[]));
+        } else if (chainId == 17000) {
+            // holesky
+            bytes memory treeRaw = holeskyTreeJson.parseRaw('.tree');
+            leaves = abi.decode(treeRaw, (bytes32[]));
+        } else {
+            revert('Unsupported chainId');
+        }
 
         Merkle tree = new Merkle();
 

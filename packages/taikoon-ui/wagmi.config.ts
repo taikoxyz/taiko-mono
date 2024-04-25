@@ -10,14 +10,16 @@ import TaikoonToken from '../taikoon/out/TaikoonToken.sol/TaikoonToken.json'
 
 
 function generateNetworkWhitelist(network: string){
-   const treePath = '../taikoon/data/whitelist/hardhat.json'
     const tree = StandardMerkleTree.load(JSON.parse(
-        readFileSync(treePath, 'utf8')
+        readFileSync(
+            `../taikoon/data/whitelist/${network}.json`,
+             'utf8')
     ))
 
     writeFileSync(`./src/generated/whitelist/${network}.json`,
-     JSON.stringify(tree.dump(), null, 2))
-    console.log(tree.root)
+    JSON.stringify(tree.dump(), null, 2))
+
+    console.log(`Whitelist merkle root for network ${network}: ${tree.root}`)
 
 }
 function generateWhitelistJson() {
@@ -35,7 +37,7 @@ generateWhitelistJson();
 
 export default defineConfig({
     out: 'src/generated/abi/index.ts',
-    taikoon: [
+    contracts: [
         {
             name: 'TaikoonToken',
             address: {

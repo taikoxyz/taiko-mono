@@ -1,23 +1,23 @@
 import { getAccount, readContract } from '@wagmi/core'
 
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi'
-import getConfig from '../../lib/wagmi/getConfig'
 import type { IAddress } from '../../types'
-import { freeMintsLeft } from './mintsLeft'
+import { totalWhitelistMintCount } from '../user/totalWhitelistMintCount'
+import getConfig from '../wagmi/getConfig'
 
-export async function canFreeMint(): Promise<boolean> {
+export async function canMint(): Promise<boolean> {
     const { config, chainId } = getConfig()
 
     const account = getAccount(config)
     if (!account.address) return false
     const accountAddress = account.address as IAddress
 
-    const freeMintCount = await freeMintsLeft()
+    const freeMintCount = await totalWhitelistMintCount()
 
     const result = await readContract(config, {
         abi: taikoonTokenAbi,
         address: taikoonTokenAddress[chainId],
-        functionName: 'canFreeMint',
+        functionName: 'canMint',
         args: [accountAddress, BigInt(freeMintCount)],
         chainId,
     })
