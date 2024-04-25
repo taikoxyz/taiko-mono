@@ -83,17 +83,9 @@ func (p *Processor) processMessage(
 		return false, nil
 	}
 
-	slog.Info("waiting for confirmations",
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
-
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
 		return false, err
 	}
-
-	slog.Info("done waiting for confirmations",
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
 
 	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
 	if err != nil {
@@ -314,11 +306,6 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	slog.Info("message received on dest chain",
-		"received", received,
-		"srcTxHash", event.Raw.TxHash.Hex(),
-	)
-
 	// message will fail when we try to process it
 	if !received {
 		slog.Warn("Message not received on dest chain",
@@ -522,10 +509,6 @@ func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
 	}
-
-	slog.Info("destChain base fee",
-		"baseFee", baseFee.String(),
-	)
 
 	return baseFee, nil
 }
