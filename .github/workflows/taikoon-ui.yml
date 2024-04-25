@@ -32,4 +32,6 @@ jobs:
 
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
-        run: pnpm build
+        run: |
+          export PUBLIC_WALLETCONNECT_PROJECT_ID="fake_project_id"
+          pnpm build
