@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.3.0...protocol-v1.4.0) (2024-04-25)
+
+
+### Features
+
+* **protocol:** add `DeployTaikoToken` script ([#16771](https://github.com/taikoxyz/taiko-mono/issues/16771)) ([00f8954](https://github.com/taikoxyz/taiko-mono/commit/00f8954536c3572fe0062b7de0a9537921f38323))
+* **protocol:** add a new tier B_TIER_GUARDIAN_MINORITY ([#16790](https://github.com/taikoxyz/taiko-mono/issues/16790)) ([cab4071](https://github.com/taikoxyz/taiko-mono/commit/cab4071e649bdcf122aeca8025d484d5a0a21a47))
+* **protocol:** add a script to use native USDC token as the bridged token ([#16812](https://github.com/taikoxyz/taiko-mono/issues/16812)) ([63fe93d](https://github.com/taikoxyz/taiko-mono/commit/63fe93d4787f71f83c402d4603e874f3cd44f53b))
+* **protocol:** add back EventProcessed event and improve gas logging in Bridge ([#16760](https://github.com/taikoxyz/taiko-mono/issues/16760)) ([530457b](https://github.com/taikoxyz/taiko-mono/commit/530457b5523057276ea290727af0cc64ec5b78f3))
+* **protocol:** allow GuardianProver set TKO allowance for TaikoL1 ([#16831](https://github.com/taikoxyz/taiko-mono/issues/16831)) ([ce7076c](https://github.com/taikoxyz/taiko-mono/commit/ce7076ce8b19a6059bd16579f6366fd07ab38153))
+* **protocol:** increase GAS_OVERHEAD value based on testnet data ([#16769](https://github.com/taikoxyz/taiko-mono/issues/16769)) ([fb9334c](https://github.com/taikoxyz/taiko-mono/commit/fb9334c3391dc42972ebf8c3aeac427dc9e8ed5b))
+* **protocol:** pause ERC20Vault by default on L2 so owner can deploy native USDC ([#16791](https://github.com/taikoxyz/taiko-mono/issues/16791)) ([cd682a0](https://github.com/taikoxyz/taiko-mono/commit/cd682a02c47a46efd55000fc063dca979f74589f))
+* **protocol:** redesign Bridge fee & gasLimit and remove 2-step processing ([#16739](https://github.com/taikoxyz/taiko-mono/issues/16739)) ([3049b0c](https://github.com/taikoxyz/taiko-mono/commit/3049b0c96812d8994117e3bda3bb56c1772b12a3))
+* **protocol:** remove ERC20SnapshotUpgradeable from TaikoToken and BrigedERC20 tokens ([#16809](https://github.com/taikoxyz/taiko-mono/issues/16809)) ([f20a02f](https://github.com/taikoxyz/taiko-mono/commit/f20a02f048da1349269da2cc75b61cd8a3c8fd22))
+* **protocol:** trigger simultaneous recurring TKO snapshots ([#16715](https://github.com/taikoxyz/taiko-mono/issues/16715)) ([bffc8dc](https://github.com/taikoxyz/taiko-mono/commit/bffc8dc7519d8805d1eebfe4594a7c38519adda7))
+
+
+### Bug Fixes
+
+* **protocol:** change to transfer and mint pattern with BridgedERC20 tokens ([#16796](https://github.com/taikoxyz/taiko-mono/issues/16796)) ([75841ec](https://github.com/taikoxyz/taiko-mono/commit/75841ecc21b982d48da9ac5576a8013574a39a56))
+* **protocol:** fix an issue in `DevnetTierProvider` ([#16798](https://github.com/taikoxyz/taiko-mono/issues/16798)) ([2714dd2](https://github.com/taikoxyz/taiko-mono/commit/2714dd28d74f6e7b9636ffc93726d82993f7ea4d))
+* **protocol:** renounce timelock_admin role from msg.sender ([#16751](https://github.com/taikoxyz/taiko-mono/issues/16751)) ([abd18e8](https://github.com/taikoxyz/taiko-mono/commit/abd18e83fe6dfec9e53753d2607af845925e9928))
+* **protocol:** revert auto snapshot PR ([#16801](https://github.com/taikoxyz/taiko-mono/issues/16801)) ([ef00cae](https://github.com/taikoxyz/taiko-mono/commit/ef00caecb841c9a2697c4b37a4fe17bfed4665f2))
+
 ## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.2.0...protocol-v1.3.0) (2024-04-10)
 
 
