@@ -22,7 +22,7 @@ async function main() {
 
     // Get the images to upload from the local filesystem (/images)
     console.log(`Importing images from the images/ directory...`)
-    const imgDirPath = path.join(path.resolve(__dirname, '..'), 'images')
+    const imgDirPath = path.join(path.resolve(__dirname, '../../data'), 'images')
     const filesName = await fsPromises.readdir(imgDirPath, (err) => {
         if (err) {
             console.log('Import from directory failed: ', err)
@@ -31,7 +31,7 @@ async function main() {
     const imagesName = filesName.filter((fileName) => fileName.includes('.png'))
     let imagesData = []
     for await (const imageName of imagesName) {
-        let imageFilePath = path.join(path.resolve(__dirname, '..'), 'images', imageName)
+        let imageFilePath = path.join(path.resolve(__dirname, '../../data'), 'images', imageName)
         let imageData = await fsPromises.readFile(imageFilePath)
         imagesData.push(imageData)
     }
@@ -68,12 +68,12 @@ async function main() {
 
         // write into a file
         fs.writeFileSync(
-            path.join(path.resolve(__dirname, '..'), 'metadata', `${taikoonId}.json`),
+            path.join(path.resolve(__dirname, '../../data'), 'metadata', `${taikoonId}.json`),
             JSON.stringify(populateNFTMetadata(`Taikoon ${taikoonId}`, "A Taikoon", imageCID.toString()))
         )
 
 
-        console.log(path.join(path.resolve(__dirname, '..'), 'metadata', `${taikoonId}.json`))
+        console.log(path.join(path.resolve(__dirname, '../../data'), 'metadata', `${taikoonId}.json`))
         metadataCIDs.push(metadataCID);
         for (let i = 0; i < imagesSummary.length; i ++) {
             if (imagesSummary[i].imageCID == imageCID) {
@@ -85,7 +85,7 @@ async function main() {
     console.log(` `);
 
     fs.writeFileSync(
-        path.join(path.resolve(__dirname, '..'), 'metadata', 'summary.json'),
+        path.join(path.resolve(__dirname, '../../data'), 'metadata', 'summary.json'),
         JSON.stringify({imagesSummary})
     )
 

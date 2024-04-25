@@ -12,7 +12,7 @@ function shuffleArray(array) {
   }
 
 async function main(){
-    const taikoonsDir = path.join(__dirname, '../original/')
+    const taikoonsDir = path.join(__dirname, '../../data/original/')
 
     const blobs = []
     // iterate over files in the directory
@@ -30,7 +30,7 @@ async function main(){
             if (!file.endsWith('.png')) continue
             const fileIndex = file.split('.')[0]
             const sourceFilePath = path.join(taikoonsDir, file)
-            const destinationFilePath = path.join(__dirname, '../images/', file)
+            const destinationFilePath = path.join(__dirname, '../../data/images/', file)
 
             const sharpImage = sharp(sourceFilePath).resize(
                 finalImageSize,
@@ -49,7 +49,7 @@ async function main(){
         }
         console.log(`Converted ${blobs.length} Taikoon PNG files to 32x32 base64.`)
 
-       // fs.writeFileSync(path.join(__dirname, '../taikoons-32.json'), JSON.stringify({blobs}, null, 2))
+       // fs.writeFileSync(path.join(__dirname, '../../data/taikoons-32.json'), JSON.stringify({blobs}, null, 2))
 
     })
 
