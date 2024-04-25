@@ -6,7 +6,8 @@ import { Ownable2StepUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { ERC721EnumerableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { UUPSUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import { MerkleWhitelist } from "./MerkleWhitelist.sol";
 

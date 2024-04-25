@@ -2,7 +2,8 @@
 pragma solidity 0.8.24;
 
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import { ContextUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 /// @title MerkleWhitelist
 /// @dev Merkle Tree Whitelist
