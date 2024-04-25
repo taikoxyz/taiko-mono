@@ -7,7 +7,7 @@ import { MerkleMintersScript } from "./MerkleMinters.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { Upgrades } from "@openzeppelin/foundry-upgrades/Upgrades.sol";
 
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
+import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import { Test, console } from "forge-std/Test.sol";
 import { TaikoonToken } from "../contracts/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { MerkleMintersScript } from "../script/MerkleMinters.s.sol";
+import { MerkleMintersScript } from "../script/sol/MerkleMinters.s.sol";
 import "forge-std/StdJson.sol";
 
 import { Upgrades } from "@openzeppelin/foundry-upgrades/Upgrades.sol";

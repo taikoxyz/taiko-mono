@@ -6,37 +6,23 @@ import "forge-std/StdJson.sol";
 import { UtilsScript } from "./Utils.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "./CsvParser.sol";
-import { MerkleWhitelist } from "../contracts/MerkleWhitelist.sol";
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
+import { MerkleWhitelist } from "../../contracts/MerkleWhitelist.sol";
+import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
 
 contract MerkleMintersScript is Script {
     using stdJson for string;
 
-    UtilsScript public utils;
     string public jsonLocation;
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    TaikoonToken token;
 
     bytes32[] public leaves;
 
     bytes32 public root;
 
     function setUp() public {
-        utils = new UtilsScript();
-        utils.setUp();
 
-        deployerPrivateKey = utils.getPrivateKey();
-        deployerAddress = utils.getAddress();
-
-        string memory path = utils.getContractJsonLocation();
-        string memory json = vm.readFile(path);
-
-        // TaikoonToken
-        bytes memory addressRaw = json.parseRaw(".TaikoonToken");
-        address tokenAddress = abi.decode(addressRaw, (address));
-        token = TaikoonToken(tokenAddress);
 
         string memory treeJson =
             vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/hardhat.json"));
@@ -141,7 +127,25 @@ contract MerkleMintersScript is Script {
     }
 
     function run() public {
+
+
+            UtilsScript utils = new UtilsScript();
+        utils.setUp();
+
+
+        deployerPrivateKey = utils.getPrivateKey();
+        deployerAddress = utils.getAddress();
         vm.startBroadcast(deployerPrivateKey);
+
+
+        string memory path = utils.getContractJsonLocation();
+        string memory json = vm.readFile(path);
+
+        // TaikoonToken
+        bytes memory addressRaw = json.parseRaw(".TaikoonToken");
+        address tokenAddress = abi.decode(addressRaw, (address));
+        TaikoonToken token = TaikoonToken(tokenAddress);
+
 
         Merkle tree = new Merkle();
 
