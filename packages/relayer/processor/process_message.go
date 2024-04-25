@@ -360,6 +360,10 @@ func (p *Processor) sendProcessMessageCall(
 			gasTipCap.Uint64(),
 		)
 		if err != nil || !profitable {
+			if err == errImpossible {
+				return nil, nil
+			}
+
 			return nil, relayer.ErrUnprofitable
 		}
 		// now simulate the transaction and lets confirm
