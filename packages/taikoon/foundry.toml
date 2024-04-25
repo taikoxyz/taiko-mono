@@ -21,6 +21,7 @@ remappings = [
   "p256-verifier/=node_modules/p256-verifier/",
   "murky/=node_modules/murky/src/",
   "@openzeppelin/foundry-upgrades/=node_modules/@openzeppelin/foundry-upgrades/src/",
+  "solidity-stringutils/=node_modules/solidity-stringutils/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
