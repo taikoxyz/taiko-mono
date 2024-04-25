@@ -8,7 +8,7 @@
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
-    "test": "forge test -vvv --match-path test/*.t.sol"
+    "test": "forge test --match-path 'test/*.t.sol' -vvv"
   },
   "devDependencies": {
     "@types/node": "^20.11.20",
@@ -28,12 +28,14 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "4.9.6",
-    "@openzeppelin/contracts-upgradeable": "4.9.6",
+    "@openzeppelin/contracts": "5.0.2",
+    "@openzeppelin/contracts-upgradeable": "5.0.2",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "github:foundry-rs/forge-std#v1.7.5",
+    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
     "merkletreejs": "^0.3.11",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "solady": "github:Vectorized/solady#v0.0.167"
+    "solady": "github:Vectorized/solady#v0.0.167",
+    "murky": "github:dmfxyz/murky",
+    "@openzeppelin/foundry-upgrades": "github:OpenZeppelin/openzeppelin-foundry-upgrades"
   }
 }
