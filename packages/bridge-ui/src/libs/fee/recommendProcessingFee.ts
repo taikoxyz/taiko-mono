@@ -1,7 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
 
-import { recommendProcessingFeeConfig } from '$config';
-import { PUBLIC_BASE_FEE_MULTIPLIER } from '$env/static/public';
+import { gasLimitConfig } from '$config';
+import { PUBLIC_FEE_MULTIPLIER } from '$env/static/public';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
@@ -26,7 +26,7 @@ export async function recommendProcessingFee({
     return 0n;
   }
 
-  let gasLimit;
+  let estimatedMsgGaslimit;
 
   const baseFee = await getBaseFee(BigInt(destChainId));
   log(`Base fee: ${baseFee}`);
@@ -52,39 +52,48 @@ export async function recommendProcessingFee({
         isTokenAlreadyDeployed = true;
       }
     }
-
     if (token.type === TokenType.ERC20) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE) + 516n;
+
+        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20DeployedGasLimit;
+        log(
+          `calculation ${gasLimitConfig.GAS_RESERVE} + ${gasLimitConfig.erc20DeployedGasLimit} = ${estimatedMsgGaslimit}`,
+        );
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE) + 516n;
+        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20NotDeployedGasLimit;
+        log(
+          `calculation ${gasLimitConfig.GAS_RESERVE} + ${gasLimitConfig.erc20NotDeployedGasLimit} = ${estimatedMsgGaslimit}`,
+        );
       }
     } else if (token.type === TokenType.ERC721) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE) + 600n;
+        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc721DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE) + 600n;
+        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc721NotDeployedGasLimit;
       }
     } else if (token.type === TokenType.ERC1155) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE) + 600n;
+        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc1155DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE) + 600n;
+        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc1155NotDeployedGasLimit;
       }
     }
   } else {
     log(`Fee for ETH bridging`);
-    gasLimit = BigInt(recommendProcessingFeeConfig.GAS_RESERVE);
+    estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE);
+    log(`calculation ${gasLimitConfig.GAS_RESERVE}  = ${estimatedMsgGaslimit}`);
   }
-  if (!gasLimit) throw new Error('Unable to calculate fee');
+  if (!estimatedMsgGaslimit) throw new Error('Unable to calculate fee');
 
-  const fee = gasLimit * (BigInt(PUBLIC_BASE_FEE_MULTIPLIER) * (baseFee + maxPriorityFee));
+  const fee = estimatedMsgGaslimit * (BigInt(PUBLIC_FEE_MULTIPLIER) * (baseFee + maxPriorityFee));
+  log(`Formula: ${estimatedMsgGaslimit} * ${PUBLIC_FEE_MULTIPLIER} * (${baseFee} + ${maxPriorityFee})) = ${fee}`);
+
   log(`Recommended fee: ${fee.toString()}`);
   return roundWeiTo6DecimalPlaces(fee);
 }

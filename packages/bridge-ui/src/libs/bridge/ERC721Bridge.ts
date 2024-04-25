@@ -3,7 +3,7 @@ import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi, erc721Abi, erc721VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { bridgeService } from '$config';
+import { gasLimitConfig } from '$config';
 import {
   ApproveError,
   BridgePausedError,
@@ -220,11 +220,12 @@ export class ERC721Bridge extends Bridge {
 
     const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
 
-    const gasLimit = !isTokenAlreadyDeployed
-      ? minGasLimit + Number(bridgeService.noERC721TokenDeployedGasLimit)
-      : fee > 0
-        ? minGasLimit + Number(bridgeService.erc721GasLimitThreshold)
-        : BigInt(0);
+    const gasLimit =
+      fee === 0n
+        ? BigInt(0) // user wants to claim
+        : !isTokenAlreadyDeployed
+          ? BigInt(minGasLimit) + gasLimitConfig.erc721NotDeployedGasLimit // Token is not deployed
+          : BigInt(minGasLimit) + gasLimitConfig.erc721DeployedGasLimit; // Token is deployed
 
     const sendERC721Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
