@@ -12,7 +12,7 @@
     "node": "anvil",
     "merkle": "node script/js/generate-merkle-tree.js",
     "deploy:localhost": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
-    "deploy:holesky": "forge clean && forge script script/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
+    "deploy:holesky": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
     "deploy:ipfs": "rm -rf data/metadata/* && node script/js/resize-images.js && node script/js/add-images-ipfs.js && echo 'IPFS Base URI:' && ipfs add -r ./data/metadata/ && echo 'Update your .env file with the new IPFS URI'"
   },
   "devDependencies": {
