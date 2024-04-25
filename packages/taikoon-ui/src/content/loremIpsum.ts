@@ -62,8 +62,7 @@ wife. That was, of course, absurd, but certainly there was
 still something not entirely hobbitlike about them, and
 once in a while members of the Took-clan would go and
 have adventures. They discreetly disappeared, and the
-family hushed it up; but the fact remained that the Tooks
-were not as respectable as the Bagginses, though they
+family hushed it up; but the fact remained that the were not as respectable as the Bagginses, though they
 were undoubtedly richer.
 Not that Belladonna Took ever had any adventures
 after she became Mrs. Bungo Baggins. Bungo, that was

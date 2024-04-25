@@ -39,7 +39,7 @@ font-family: ClashGrotesk-Variable;
 
 ## 6. (Optional)
 
-Use `font-variation-settings` rule to controll axes of variable fonts:
+Use `font-variation-settings` rule to controlaxes of variable fonts:
 wght 700.0
 
 Available axes:

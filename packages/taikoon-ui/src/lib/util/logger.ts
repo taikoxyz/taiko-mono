@@ -1,5 +1,5 @@
 import debug from 'debug';
 
-export function getLogger(namesapce: string) {
-  return debug(`nft-lab:${namesapce}`);
+export function getLogger(namespace: string) {
+  return debug(`nft-lab:${namespace}`);
 }

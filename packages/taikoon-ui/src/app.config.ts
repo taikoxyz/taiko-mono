@@ -1,4 +1,4 @@
-export const recommentProcessingFee = {
+export const recommendedProcessingFee = {
   ethGasLimit: BigInt(900_000),
   erc20NotDeployedGasLimit: BigInt(3_100_000),
   erc20DeployedGasLimit: BigInt(1_100_000),
