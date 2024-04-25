@@ -438,6 +438,9 @@ importers:
       solady:
         specifier: github:Vectorized/solady#v0.0.167
         version: github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+      solidity-stringutils:
+        specifier: github:Arachnid/solidity-stringutils
+        version: github.com/Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
     devDependencies:
       '@types/node':
         specifier: ^20.11.20
@@ -14551,6 +14554,12 @@ packages:
     dependencies:
       react: 18.2.0
       use-sync-external-store: 1.2.0(react@18.2.0)
+    dev: false
+
+  github.com/Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
+    resolution: {tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
+    name: solidity-stringutils
+    version: 0.0.0
     dev: false
 
   github.com/OpenZeppelin/openzeppelin-foundry-upgrades/332bd3306242e09520df2685b2edb99ebd7f5d37:
