@@ -11,3 +11,5 @@ jobs:
 
       - name: Check for typos
         uses: crate-ci/typos@master
+        with:
+          config: ${{github.workspace}}/.github/_typos.toml
