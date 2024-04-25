@@ -38,7 +38,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint128 amountWithdrawn;
     /// @notice The address of the recipient.
     address grantRecipient;
-    /// @notice For tests or sub-contracts, getTgeTimestamp() can be overriden.
+    /// @notice For tests or sub-contracts, getTgeTimestamp() can be overridden.
     uint64 tgeTimestamp;
     /// @notice The Taiko token address.
     address public taikoToken;
@@ -74,7 +74,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @param recipient The grant recipient address.
     /// @param to The address where the granted and unlocked tokens shall be sent to.
     /// @param amount The amount of tokens withdrawn.
-    /// @param allAmountWithdrawn The all amount (inclduing the current) already withdrawn.
+    /// @param allAmountWithdrawn The all amount (including the current) already withdrawn.
     event Withdrawn(
         address indexed recipient, address to, uint128 amount, uint128 allAmountWithdrawn
     );
@@ -142,7 +142,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // This contract shall be appproved() on the sharedVault for the given _currentDeposit
         // amount
-        //This is needed becasue this is the way we can be sure, we know exactly how much vested
+        //This is needed because this is the way we can be sure, we know exactly how much vested
         // already. Simple transfer from TaikoTreasury will not update anything hence it does not
         // trigger receive() or fallback().
         IERC20(taikoToken).safeTransferFrom(sharedVault, address(this), _currentDeposit);
