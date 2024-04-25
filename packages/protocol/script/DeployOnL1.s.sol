@@ -194,8 +194,7 @@ contract DeployOnL1 is DeployCapability {
                         timelock,
                         vm.envString("TAIKO_TOKEN_NAME"),
                         vm.envString("TAIKO_TOKEN_SYMBOL"),
-                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"),
-                        address(sharedAddressManager)
+                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
                     )
                     ),
                 registerTo: sharedAddressManager

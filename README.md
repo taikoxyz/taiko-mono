@@ -44,7 +44,9 @@ taiko-mono/
 │   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check service.
 │   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI.
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol smart contracts.
-│   └── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
+│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
+│   ├── <a href="./packages/taikoon">taikoon</a>: Taikoon NFT contracts.
+│   └── <a href="./packages/supplementary-contracts">supplementary-contracts</a>: Supplementary smart contracts that are not part of the Taiko rollup protocol.
 ...
 </pre>
 

@@ -3,6 +3,7 @@ import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi, erc20Abi, erc20VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import { gasLimitConfig } from '$config';
 import {
   ApproveError,
   BridgePausedError,
@@ -58,7 +59,12 @@ export class ERC20Bridge extends Bridge {
 
     const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
 
-    const gasLimit = !isTokenAlreadyDeployed ? minGasLimit + 650_000 : fee > 0n ? minGasLimit + 650_000 : BigInt(0);
+    const gasLimit =
+      fee === 0n
+        ? BigInt(0) // user wants to claim
+        : !isTokenAlreadyDeployed
+          ? BigInt(minGasLimit) + gasLimitConfig.erc20NotDeployedGasLimit // Token is not deployed
+          : BigInt(minGasLimit) + gasLimitConfig.erc20DeployedGasLimit; // Token is deployed
 
     log('Calculated gasLimit for message', gasLimit);
 

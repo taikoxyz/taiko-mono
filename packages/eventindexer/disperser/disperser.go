@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"os"
 
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/encoding"
@@ -92,6 +93,8 @@ func (d *Disperser) Start() error {
 
 		slog.Info("sent tx", "tx", receipt.TxHash.Hex())
 	}
+
+	os.Exit(0)
 
 	return nil
 }
