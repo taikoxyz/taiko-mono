@@ -31,3 +31,12 @@ broadcast
 
 #coverage
 lcov.info
+
+# Custom
+broadcast
+.states
+coverage
+data/original
+data/images
+data/metadata
+lcov.info
