@@ -338,7 +338,7 @@
     "swap": "Swap"
   },
   "paused_modal": {
-    "description": "The bridge is currently not available. Follow our official communcation channels for more information. ",
+    "description": "The bridge is currently not available. Follow our official communicationchannels for more information. ",
     "title": "Bridge under maintenance!"
   },
   "processing_fee": {
