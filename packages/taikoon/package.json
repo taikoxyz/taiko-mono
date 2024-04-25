@@ -8,7 +8,12 @@
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
-    "test": "forge test --match-path 'test/*.t.sol' -vvv"
+    "test": "forge test --match-path 'test/*.t.sol' -vvv",
+    "node": "anvil",
+    "merkle": "node script/js/generate-merkle-tree.js",
+    "deploy:localhost": "forge clean && forge script script/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:holesky": "forge clean && forge script script/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
+    "deploy:ipfs": "rm -rf data/metadata/* && node script/js/resize-images.js && node script/js/add-images-ipfs.js && echo 'IPFS Base URI:' && ipfs add -r ./data/metadata/ && echo 'Update your .env file with the new IPFS URI'"
   },
   "devDependencies": {
     "@types/node": "^20.11.20",
@@ -30,13 +35,15 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
+    "@openzeppelin/foundry-upgrades": "github:OpenZeppelin/openzeppelin-foundry-upgrades",
+    "@openzeppelin/merkle-tree": "^1.0.6",
+    "convert-csv-to-json": "^2.46.0",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.8.1",
     "merkletreejs": "^0.3.11",
+    "murky": "github:dmfxyz/murky",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "solady": "github:Vectorized/solady#v0.0.167",
-    "murky": "github:dmfxyz/murky",
-    "solidity-stringutils": "github:Arachnid/solidity-stringutils",
-    "@openzeppelin/foundry-upgrades": "github:OpenZeppelin/openzeppelin-foundry-upgrades"
+    "solidity-stringutils": "github:Arachnid/solidity-stringutils"
   }
 }
