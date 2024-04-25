@@ -19,7 +19,7 @@ contract MerkleWhitelist is ContextUpgradeable {
     /// @notice Merkle Tree Root
     bytes32 public root;
     /// @notice Tracker for minted leaves
-    mapping(bytes32 => bool) public minted;
+    mapping(bytes32 leaf => bool hasMinted) public minted;
 
     uint256[48] private __gap;
 
