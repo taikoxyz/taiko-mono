@@ -12,7 +12,7 @@ import (
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
-func Test_GetStartupsByGuardianProverID(t *testing.T) {
+func Test_GetStartupsByGuardianProverAddress(t *testing.T) {
 	srv := newTestServer("")
 
 	err := srv.startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
@@ -36,7 +36,7 @@ func Test_GetStartupsByGuardianProverID(t *testing.T) {
 	}{
 		{
 			"success",
-			"1",
+			"0x123",
 			http.StatusOK,
 			// nolint: lll
 			[]string{`{"items":\[{"guardianProverID":1,"guardianProverAddress":"0x123","l1NodeVersion":"v1.0.0","l2NodeVersion":"v1.0.0","revision":"asdf","guardianVersion":"v1.0.0","createdAt":"0001-01-01T00:00:00Z"}\],"page":0,"size":0,"max_page":0,"total_pages":0,"total":0,"last":false,"first":false,"visible":0}`},

@@ -1,8 +1,8 @@
 package http
 
 import (
+	"errors"
 	"net/http"
-	"strconv"
 
 	echo "github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
@@ -12,26 +12,25 @@ import (
 //
 //	 returns signed block data by each guardian prover.
 //
-//			@Summary		Get most recent signed block by guardian prover ID
-//			@ID			   	get-most-recent-signed-block-by-guardian-prover-ID
+//			@Summary		Get most recent signed block by guardian prover address
+//			@ID			   	get-most-recent-signed-block-by-guardian-prover-address
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} block
-//			@Router			/signedBlocks/:id[get]
+//			@Router			/signedBlocks/:address[get]
 
-func (srv *Server) GetMostRecentSignedBlockByGuardianProverID(c echo.Context) error {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		log.Error("Failed to convert id to integer", "error", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+func (srv *Server) GetMostRecentSignedBlockByGuardianProverAddress(c echo.Context) error {
+	address := c.Param("address")
+	if address == "" {
+		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	signedBlock, err := srv.signedBlockRepo.GetMostRecentByGuardianProverID(
-		id,
+	signedBlock, err := srv.signedBlockRepo.GetMostRecentByGuardianProverAddress(
+		address,
 	)
 
 	if err != nil {
-		log.Error("Failed to most recent block by guardian prover ID", "error", err)
+		log.Error("Failed to most recent block by guardian prover address", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 

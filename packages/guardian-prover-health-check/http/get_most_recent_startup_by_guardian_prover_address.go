@@ -3,36 +3,30 @@ package http
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	echo "github.com/labstack/echo/v4"
 )
 
-// GetMostRecentStartupByGuardianProverID
+// GetMostRecentStartupByGuardianProverAddress
 //
 //	 returns the startup
 //
-//			@Summary		GetMostRecentStartupByGuardianProverID
-//			@ID			   	get-most-recent-startup-by-guardian-prover-id
+//			@Summary		GetMostRecentStartupByGuardianProverAddress
+//			@ID			   	get-most-recent-startup-by-guardian-prover-address
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} guardianproverhealthcheck.Startup
-//			@Router			/mostRecentStartup/:id [get]
+//			@Router			/mostRecentStartup/:address [get]
 
-func (srv *Server) GetMostRecentStartupByGuardianProverID(
+func (srv *Server) GetMostRecentStartupByGuardianProverAddress(
 	c echo.Context,
 ) error {
-	idParam := c.Param("id")
-	if idParam == "" {
-		return c.JSON(http.StatusBadRequest, errors.New("no id provided"))
+	address := c.Param("address")
+	if address == "" {
+		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, err)
-	}
-
-	startup, err := srv.startupRepo.GetMostRecentByGuardianProverID(c.Request().Context(), id)
+	startup, err := srv.startupRepo.GetMostRecentByGuardianProverAddress(c.Request().Context(), address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}

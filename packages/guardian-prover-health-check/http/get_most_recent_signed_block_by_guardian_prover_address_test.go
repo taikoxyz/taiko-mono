@@ -12,7 +12,7 @@ import (
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
-func Test_GetMostRecentSignedBlockByGuardianProverID(t *testing.T) {
+func Test_GetMostRecentSignedBlockByGuardianProverAddress(t *testing.T) {
 	srv := newTestServer("")
 
 	for i := 0; i < 10; i++ {
@@ -35,7 +35,7 @@ func Test_GetMostRecentSignedBlockByGuardianProverID(t *testing.T) {
 	}{
 		{
 			"success",
-			"1",
+			"0x123",
 			http.StatusOK,
 			// nolint: lll
 			[]string{`{"guardianProverID":1,"blockID":9,"blockHash":"0x123","signature":"0x123","recoveredAddress":"0x123","createdAt":"0001-01-01T00:00:00Z"}`},

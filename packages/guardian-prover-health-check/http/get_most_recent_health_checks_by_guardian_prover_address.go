@@ -3,36 +3,30 @@ package http
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	echo "github.com/labstack/echo/v4"
 )
 
-// GetMostRecentHealthCheckByGuardianProverID
+// GetMostRecentHealthCheckByGuardianProverAddress
 //
 //	 returns the health checks.
 //
-//			@Summary		GetMostRecentHealthCheckByGuardianProverID
-//			@ID			   	get-most-recent-health-checks-by-guardian-prover-id
+//			@Summary		GetMostRecentHealthCheckByGuardianProverAddress
+//			@ID			   	get-most-recent-health-checks-by-guardian-prover-address
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} paginate.Page
 //			@Router			/liveness [get]
 
-func (srv *Server) GetMostRecentHealthCheckByGuardianProverID(
+func (srv *Server) GetMostRecentHealthCheckByGuardianProverAddress(
 	c echo.Context,
 ) error {
-	idParam := c.Param("id")
-	if idParam == "" {
-		return c.JSON(http.StatusBadRequest, errors.New("no id provided"))
+	address := c.Param("address")
+	if address == "" {
+		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, err)
-	}
-
-	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverID(c.Request().Context(), c.Request(), id)
+	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverAddress(c.Request().Context(), c.Request(), address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}

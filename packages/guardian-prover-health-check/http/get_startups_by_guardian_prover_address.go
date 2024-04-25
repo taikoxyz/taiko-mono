@@ -3,35 +3,29 @@ package http
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	echo "github.com/labstack/echo/v4"
 )
 
-// GetStartupsByGuardianProverID
+// GetStartupsByGuardianProverAddress
 //
-//	 returns a paginated list of startups by guardian prover iD
+//	 returns a paginated list of startups by guardian prover address
 //
-//			@Summary		Get startups by guardian prover ID
-//			@ID			   	get-startups-by-guardian-prover-id
+//			@Summary		Get startups by guardian prover address
+//			@ID			   	get-startups-by-guardian-prover-address
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} paginate.Page
 //			@Router			/startups [get]
-//		    @Param			id	string		true	"guardian prover ID with which to query"
+//		    @Param			address	string		true	"guardian prover address with which to query"
 
-func (srv *Server) GetStartupsByGuardianProverID(c echo.Context) error {
-	idParam := c.Param("id")
-	if idParam == "" {
-		return c.JSON(http.StatusBadRequest, errors.New("no id provided"))
+func (srv *Server) GetStartupsByGuardianProverAddress(c echo.Context) error {
+	address := c.Param("address")
+	if address == "" {
+		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, err)
-	}
-
-	page, err := srv.startupRepo.GetByGuardianProverID(c.Request().Context(), c.Request(), id)
+	page, err := srv.startupRepo.GetByGuardianProverAddress(c.Request().Context(), c.Request(), address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}

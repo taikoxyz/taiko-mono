@@ -37,7 +37,7 @@ func Test_GetHealthChecksByGuardianProverID(t *testing.T) {
 	}{
 		{
 			"success",
-			"1",
+			"0x123",
 			http.StatusOK,
 			// nolint: lll
 			[]string{`[{"id":0,"guardianProverId":1,"alive":true,"expectedAddress":"0x123","recoveredAddress":"0x123","signedResponse":"0x123"}]`},
