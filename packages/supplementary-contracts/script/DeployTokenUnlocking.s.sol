@@ -11,7 +11,6 @@ import "../contracts/TokenUnlocking.sol";
 contract DeployTokenUnlocking is Script {
     address public CONTRACT_OWNER = vm.envAddress("TAIKO_LABS_MULTISIG");
     address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
-    address public COST_TOKEN = vm.envAddress("COST_TOKEN");
     address public SHARED_TOKEN_VAULT = vm.envAddress("SHARED_TOKEN_VAULT");
     address public GRANTEE = vm.envAddress("GRANTEE");
 
@@ -24,8 +23,7 @@ contract DeployTokenUnlocking is Script {
         tokenUnlocking = deployProxy({
             impl: address(new TokenUnlocking()),
             data: abi.encodeCall(
-                TokenUnlocking.init,
-                (CONTRACT_OWNER, TAIKO_TOKEN, COST_TOKEN, SHARED_TOKEN_VAULT, GRANTEE)
+                TokenUnlocking.init, (CONTRACT_OWNER, TAIKO_TOKEN, SHARED_TOKEN_VAULT, GRANTEE)
                 )
         });
         vm.stopBroadcast();

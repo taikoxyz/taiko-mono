@@ -36,18 +36,13 @@ contract TestTokenUnlocking is Test {
 
     uint128 public constant ONE_TKO_UNIT = 1e18;
 
-    // 0.01 USDC if decimals are 6 (as in our test)
-    uint64 strikePrice1 = uint64(10 ** usdc.decimals() / 100);
-
     TokenUnlocking tokenUnlocking;
 
     function setUp() public {
         tokenUnlocking = TokenUnlocking(
             deployProxy({
                 impl: address(new TokenUnlocking()),
-                data: abi.encodeCall(
-                    TokenUnlocking.init, (Owner, address(tko), address(usdc), Vault, Alice)
-                    )
+                data: abi.encodeCall(TokenUnlocking.init, (Owner, address(tko), Vault, Alice))
             })
         );
     }
