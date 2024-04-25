@@ -1,1 +1,1 @@
-export type TypeToast = 'success' | 'error' | 'warning' | 'info' | 'unknown'
+export type TypeToast = 'success' | 'error' | 'warning' | 'info' | 'unknown';

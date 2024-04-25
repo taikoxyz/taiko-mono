@@ -1,4 +1,4 @@
-import getBalance from './getBalance'
-import { startWatching, stopWatching } from './watcher'
+import getBalance from './getBalance';
+import { startWatching, stopWatching } from './watcher';
 
-export { getBalance, startWatching, stopWatching }
+export { getBalance, startWatching, stopWatching };

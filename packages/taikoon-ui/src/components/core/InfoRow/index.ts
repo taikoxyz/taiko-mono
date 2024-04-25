@@ -1,1 +1,1 @@
-export { default as InfoRow } from './InfoRow.svelte'
+export { default as InfoRow } from './InfoRow.svelte';

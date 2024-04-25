@@ -1,1 +1,1 @@
-export { default as Mint } from './Mint.svelte'
+export { default as Mint } from './Mint.svelte';

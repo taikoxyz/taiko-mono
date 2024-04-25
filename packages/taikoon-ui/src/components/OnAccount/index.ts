@@ -1,1 +1,1 @@
-export { default as OnAccount } from './OnAccount.svelte'
+export { default as OnAccount } from './OnAccount.svelte';

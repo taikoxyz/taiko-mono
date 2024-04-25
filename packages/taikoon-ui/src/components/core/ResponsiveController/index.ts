@@ -1,1 +1,1 @@
-export { default as ResponsiveController } from './ResponsiveController.svelte'
+export { default as ResponsiveController } from './ResponsiveController.svelte';

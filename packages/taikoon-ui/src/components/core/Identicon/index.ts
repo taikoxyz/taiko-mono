@@ -1,1 +1,1 @@
-export { default as Identicon } from './Identicon.svelte'
+export { default as Identicon } from './Identicon.svelte';

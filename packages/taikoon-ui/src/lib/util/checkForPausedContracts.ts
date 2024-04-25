@@ -1,7 +1,7 @@
 export const isBridgePaused = async () => {
-    return await checkForPausedContracts()
-}
+  return await checkForPausedContracts();
+};
 
 export const checkForPausedContracts = async () => {
-    return true
-}
+  return true;
+};

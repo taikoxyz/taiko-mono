@@ -1,155 +1,155 @@
 export class NotConnectedError extends Error {
-    name = 'NotConnectedError'
+  name = 'NotConnectedError';
 }
 
 export class TokenMintedError extends Error {
-    name = 'TokenMintedError'
+  name = 'TokenMintedError';
 }
 
 export class InsufficientBalanceError extends Error {
-    name = 'InsufficientBalanceError'
+  name = 'InsufficientBalanceError';
 }
 
 export class InsufficientAllowanceError extends Error {
-    name = 'InsufficientAllowanceError'
+  name = 'InsufficientAllowanceError';
 }
 
 export class NotApprovedError extends Error {
-    name = 'NotApprovedError'
+  name = 'NotApprovedError';
 }
 
 export class NoAllowanceRequiredError extends Error {
-    name = 'NoAllowanceRequiredError'
+  name = 'NoAllowanceRequiredError';
 }
 
 export class NoApprovalRequiredError extends Error {
-    name = 'NoApprovalRequiredError'
+  name = 'NoApprovalRequiredError';
 }
 
 export class NoTokenAddressError extends Error {
-    name = 'NoTokenAddressError'
+  name = 'NoTokenAddressError';
 }
 
 export class NoTokenError extends Error {
-    name = 'NoTokenError'
+  name = 'NoTokenError';
 }
 
 export class FailedTransactionError extends Error {
-    name = 'FailedTransactionError'
+  name = 'FailedTransactionError';
 }
 
 export class SendMessageError extends Error {
-    name = 'SendMessageError'
+  name = 'SendMessageError';
 }
 
 export class SendERC20Error extends Error {
-    name = 'SendERC20Error'
+  name = 'SendERC20Error';
 }
 
 export class SendERC721Error extends Error {
-    name = 'SendERC721Error'
+  name = 'SendERC721Error';
 }
 
 export class SendERC1155Error extends Error {
-    name = 'SendERC1155Error'
+  name = 'SendERC1155Error';
 }
 
 export class ApproveError extends Error {
-    name = 'ApproveError'
+  name = 'ApproveError';
 }
 
 export class RevertedWithoutMessageError extends Error {
-    name = 'RevertedWithoutMessageError'
+  name = 'RevertedWithoutMessageError';
 }
 
 export class RevertedWithFailedError extends Error {
-    name = 'RevertedWithFailedError'
+  name = 'RevertedWithFailedError';
 }
 
 export class MintError extends Error {
-    name = 'MintError'
+  name = 'MintError';
 }
 
 export class PendingBlockError extends Error {
-    name = 'PendingBlockError'
+  name = 'PendingBlockError';
 }
 
 export class InvalidProofError extends Error {
-    name = 'InvalidProofError'
+  name = 'InvalidProofError';
 }
 
 export class WrongBridgeConfigError extends Error {
-    name = 'WrongBridgeConfigError'
+  name = 'WrongBridgeConfigError';
 }
 
 export class MessageStatusError extends Error {
-    name = 'MessageStatusError'
+  name = 'MessageStatusError';
 }
 
 export class WrongOwnerError extends Error {
-    name = 'WrongOwnerError'
+  name = 'WrongOwnerError';
 }
 
 export class WrongChainError extends Error {
-    name = 'WrongChainError'
+  name = 'WrongChainError';
 }
 
 export class BridgeTxPollingError extends Error {
-    name = 'BridgeTxPollingError'
+  name = 'BridgeTxPollingError';
 }
 
 export class ProcessMessageError extends Error {
-    name = 'ProcessMessageError'
+  name = 'ProcessMessageError';
 }
 
 export class RetryError extends Error {
-    name = 'RetryError'
+  name = 'RetryError';
 }
 
 export class ReleaseError extends Error {
-    name = 'ReleaseError'
+  name = 'ReleaseError';
 }
 
 export class UnknownTokenTypeError extends Error {
-    name = 'UnknownTokenTypeError'
+  name = 'UnknownTokenTypeError';
 }
 
 export class BridgePausedError extends Error {
-    name = 'BridgePausedError'
+  name = 'BridgePausedError';
 }
 
 export class FilterLogsError extends Error {
-    name = 'FilterLogsError'
+  name = 'FilterLogsError';
 }
 
 export class NoCanonicalInfoFoundError extends Error {
-    name = 'NoCanonicalInfoFoundError'
+  name = 'NoCanonicalInfoFoundError';
 }
 
 export class NoBridgedInfoFoundError extends Error {
-    name = 'NoBridgedInfoFoundError'
+  name = 'NoBridgedInfoFoundError';
 }
 
 export class NoTokenInfoFoundError extends Error {
-    name = 'NoTokenInfoFoundError'
+  name = 'NoTokenInfoFoundError';
 }
 
 export class NoMetadataFoundError extends Error {
-    name = 'NoMetadataFoundError'
+  name = 'NoMetadataFoundError';
 }
 
 export class InvalidParametersProvidedError extends Error {
-    name = 'InvalidParametersProvidedError'
+  name = 'InvalidParametersProvidedError';
 }
 
 export class InternalError extends Error {
-    name = 'InternalError'
+  name = 'InternalError';
 }
 
 export class ConfigError extends Error {
-    name = 'ConfigError'
+  name = 'ConfigError';
 }
 
 export class IpfsError extends Error {
-    name = 'IpfsError'
+  name = 'IpfsError';
 }

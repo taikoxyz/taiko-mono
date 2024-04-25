@@ -1,31 +1,31 @@
-import type { BridgeTransaction } from '$libs/bridge'
+import type { BridgeTransaction } from '$libs/bridge';
 
 type MergeResult = {
-    mergedTransactions: BridgeTransaction[]
-    outdatedLocalTransactions: BridgeTransaction[]
-}
+  mergedTransactions: BridgeTransaction[];
+  outdatedLocalTransactions: BridgeTransaction[];
+};
 
 export const mergeAndCaptureOutdatedTransactions = (
-    localTxs: BridgeTransaction[],
-    relayerTx: BridgeTransaction[]
+  localTxs: BridgeTransaction[],
+  relayerTx: BridgeTransaction[],
 ): MergeResult => {
-    const relayerTxMap: Map<string, BridgeTransaction> = new Map()
-    relayerTx.forEach((tx) => relayerTxMap.set(tx.hash, tx))
+  const relayerTxMap: Map<string, BridgeTransaction> = new Map();
+  relayerTx.forEach((tx) => relayerTxMap.set(tx.hash, tx));
 
-    const outdatedLocalTransactions: BridgeTransaction[] = []
-    const mergedTransactions: BridgeTransaction[] = []
+  const outdatedLocalTransactions: BridgeTransaction[] = [];
+  const mergedTransactions: BridgeTransaction[] = [];
 
-    for (const tx of localTxs) {
-        if (!relayerTxMap.has(tx.hash)) {
-            mergedTransactions.push(tx)
-        } else {
-            outdatedLocalTransactions.push(tx)
-        }
+  for (const tx of localTxs) {
+    if (!relayerTxMap.has(tx.hash)) {
+      mergedTransactions.push(tx);
+    } else {
+      outdatedLocalTransactions.push(tx);
     }
+  }
 
-    for (const tx of relayerTx) {
-        mergedTransactions.push(tx)
-    }
+  for (const tx of relayerTx) {
+    mergedTransactions.push(tx);
+  }
 
-    return { mergedTransactions, outdatedLocalTransactions }
-}
+  return { mergedTransactions, outdatedLocalTransactions };
+};

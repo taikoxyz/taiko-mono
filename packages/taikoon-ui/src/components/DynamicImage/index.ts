@@ -1,1 +1,1 @@
-export { default as DynamicImage } from './DynamicImage.svelte'
+export { default as DynamicImage } from './DynamicImage.svelte';

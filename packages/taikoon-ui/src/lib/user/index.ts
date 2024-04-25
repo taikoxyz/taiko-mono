@@ -1,7 +1,7 @@
-import { totalWhitelistMintCount } from './totalWhitelistMintCount'
+import { totalWhitelistMintCount } from './totalWhitelistMintCount';
 
 const User = {
-    totalWhitelistMintCount,
-}
+  totalWhitelistMintCount,
+};
 
-export default User
+export default User;

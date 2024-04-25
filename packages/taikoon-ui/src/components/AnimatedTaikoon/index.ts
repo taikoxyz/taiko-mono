@@ -1,1 +1,1 @@
-export { default as AnimatedTaikoon } from './AnimatedTaikoon.svelte'
+export { default as AnimatedTaikoon } from './AnimatedTaikoon.svelte';

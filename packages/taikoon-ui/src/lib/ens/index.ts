@@ -1,4 +1,4 @@
-import getAddress from './getAddress'
-import getName from './getName'
+import getAddress from './getAddress';
+import getName from './getName';
 
-export { getAddress, getName }
+export { getAddress, getName };

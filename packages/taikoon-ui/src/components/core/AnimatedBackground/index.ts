@@ -1,1 +1,1 @@
-export { default as AnimatedBackground } from './AnimatedBackground.svelte'
+export { default as AnimatedBackground } from './AnimatedBackground.svelte';

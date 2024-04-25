@@ -1,66 +1,58 @@
 <script lang="ts">
-    import '../app.css'
-    import '../i18n'
+  import '../app.css';
+  import '../i18n';
 
-    import { onDestroy, onMount } from 'svelte'
-    import { setContext } from 'svelte'
+  import { onDestroy, onMount } from 'svelte';
+  import { setContext } from 'svelte';
 
-    import { ResponsiveController } from '$components/core/ResponsiveController'
-    import { MintConfirmationModal, TaikoonDetailModal } from '$components/modals'
-    import { ZeroXAddress } from '$lib/util/ZeroXAddress'
-    import { mint } from '$stores/mint'
-    import { taikoonDetail } from '$stores/taikoonDetail'
+  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { MintConfirmationModal, TaikoonDetailModal } from '$components/modals';
+  import { ZeroXAddress } from '$lib/util/ZeroXAddress';
+  import { mint } from '$stores/mint';
+  import { taikoonDetail } from '$stores/taikoonDetail';
 
-    import { AccountConnectionToast } from '../components/AccountConnectionToast'
-    import { Toast } from '../components/core/Toast'
-    import { Header } from '../components/Header'
-    import { SwitchChainModal } from '../components/SwitchChainModal'
-    import { classNames } from '../lib/util/classNames'
-    import { startWatching, stopWatching } from '../lib/wagmi'
+  import { AccountConnectionToast } from '../components/AccountConnectionToast';
+  import { Toast } from '../components/core/Toast';
+  import { Header } from '../components/Header';
+  import { SwitchChainModal } from '../components/SwitchChainModal';
+  import { classNames } from '../lib/util/classNames';
+  import { startWatching, stopWatching } from '../lib/wagmi';
 
-    const mintState = mint
+  const mintState = mint;
 
-    $: mintState.set({
-        isModalOpen: false,
-        isMinting: false,
-        tokenIds: [],
-        address: ZeroXAddress,
-        totalMintCount: 0,
-    })
+  $: mintState.set({
+    isModalOpen: false,
+    isMinting: false,
+    tokenIds: [],
+    address: ZeroXAddress,
+    totalMintCount: 0,
+  });
 
-    const taikoonDetailState = taikoonDetail
-    $: taikoonDetailState.set({
-        tokenId: -1,
-        isModalOpen: false,
-    })
+  const taikoonDetailState = taikoonDetail;
+  $: taikoonDetailState.set({
+    tokenId: -1,
+    isModalOpen: false,
+  });
 
-    setContext('mint', mintState)
-    setContext('taikoonDetail', taikoonDetailState)
-    const containerClasses = classNames(
-        'z-0',
-        'w-full',
-        'h-full',
-        'flex',
-        'flex-col',
-        'items-center',
-        'justify-evenly'
-    )
+  setContext('mint', mintState);
+  setContext('taikoonDetail', taikoonDetailState);
+  const containerClasses = classNames('z-0', 'w-full', 'h-full', 'flex', 'flex-col', 'items-center', 'justify-evenly');
 
-    let windowSize: 'sm' | 'md' | 'lg' = 'md'
+  let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-    onMount(async () => {
-        await startWatching()
-    })
+  onMount(async () => {
+    await startWatching();
+  });
 
-    onDestroy(() => {
-        stopWatching()
-    })
+  onDestroy(() => {
+    stopWatching();
+  });
 </script>
 
 <div class={containerClasses}>
-    <slot />
+  <slot />
 
-    <Header />
+  <Header />
 </div>
 
 <Toast />
@@ -69,16 +61,10 @@
 
 <SwitchChainModal />
 
-<MintConfirmationModal
-    isMinting={false}
-    tokenIds={[]}
-    txHash={''}
-    minterAddress={ZeroXAddress}
-    totalMintCount={1}
-/>
+<MintConfirmationModal isMinting={false} tokenIds={[]} txHash={''} minterAddress={ZeroXAddress} totalMintCount={1} />
 
 {#if windowSize === 'sm'}
-    <TaikoonDetailModal />
+  <TaikoonDetailModal />
 {/if}
 
 <ResponsiveController bind:windowSize />

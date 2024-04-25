@@ -1,1 +1,1 @@
-export { default as NftRenderer } from './NftRenderer.svelte'
+export { default as NftRenderer } from './NftRenderer.svelte';

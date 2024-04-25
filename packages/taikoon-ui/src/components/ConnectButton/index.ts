@@ -1,1 +1,1 @@
-export { default as ConnectButton } from './ConnectButton.svelte'
+export { default as ConnectButton } from './ConnectButton.svelte';

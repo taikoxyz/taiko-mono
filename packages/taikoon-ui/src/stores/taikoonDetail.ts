@@ -1,8 +1,8 @@
-import { writable } from 'svelte/store'
+import { writable } from 'svelte/store';
 
 export interface ITaikoonDetailStore {
-    tokenId: number
-    isModalOpen: boolean
+  tokenId: number;
+  isModalOpen: boolean;
 }
 
-export const taikoonDetail = writable<ITaikoonDetailStore>()
+export const taikoonDetail = writable<ITaikoonDetailStore>();

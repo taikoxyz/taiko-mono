@@ -1,1 +1,1 @@
-export { default as ThemeButton } from './ThemeButton.svelte'
+export { default as ThemeButton } from './ThemeButton.svelte';

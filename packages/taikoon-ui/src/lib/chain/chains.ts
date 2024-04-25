@@ -1,112 +1,109 @@
-import type { Chain } from 'viem'
+import type { Chain } from 'viem';
 
-import { type ChainConfig, type ChainConfigMap, LayerType } from '../../lib/chain'
+import { type ChainConfig, type ChainConfigMap, LayerType } from '../../lib/chain';
 
 //import { chainConfig } from '$chainConfig';
 
 const chainConfigs: ChainConfigMap = {
-    '1': {
-        name: 'Ethereum',
-        rpcUrls: {
-            default: {
-                http: ['https://mainnet.infura.io/v3/'],
-                webSocket: ['wss://mainnet.infura.io/ws/v3/'],
-            },
-        },
-        nativeCurrency: {
-            name: 'Ether',
-            symbol: 'ETH',
-            decimals: 18,
-        },
-        icon: '/chains/ethereum.svg',
-        type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+  '1': {
+    name: 'Ethereum',
+    rpcUrls: {
+      default: {
+        http: ['https://mainnet.infura.io/v3/'],
+        webSocket: ['wss://mainnet.infura.io/ws/v3/'],
+      },
     },
-    '31337': {
-        name: 'Hardhat',
-        rpcUrls: {
-            default: {
-                http: ['http://localhost:8545'],
-                //webSocket: ['wss://mainnet.infura.io/ws/v3/'],
-            },
-        },
-        nativeCurrency: {
-            name: 'Ether',
-            symbol: 'ETH',
-            decimals: 18,
-        },
-        icon: '/chains/ethereum.svg',
-        type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
     },
-    '17000': {
-        name: 'Holesky',
-        rpcUrls: {
-            default: {
-                http: ['https://rpc.holesky.io'],
-                //webSocket: ['wss://mainnet.infura.io/ws/v3/'],
-            },
-        },
-        nativeCurrency: {
-            name: 'Ether',
-            symbol: 'ETH',
-            decimals: 18,
-        },
-        icon: '/chains/ethereum.svg',
-        type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+    icon: '/chains/ethereum.svg',
+    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+  },
+  '31337': {
+    name: 'Hardhat',
+    rpcUrls: {
+      default: {
+        http: ['http://localhost:8545'],
+        //webSocket: ['wss://mainnet.infura.io/ws/v3/'],
+      },
     },
-}
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    icon: '/chains/ethereum.svg',
+    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+  },
+  '17000': {
+    name: 'Holesky',
+    rpcUrls: {
+      default: {
+        http: ['https://rpc.holesky.io'],
+        //webSocket: ['wss://mainnet.infura.io/ws/v3/'],
+      },
+    },
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    icon: '/chains/ethereum.svg',
+    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+  },
+};
 
 function mapChainConfigToChain(chainId: string, chainConfig: ChainConfig): Chain {
-    return {
-        id: Number(chainId),
-        name: chainConfig.name,
-        rpcUrls: chainConfig.rpcUrls,
-        nativeCurrency: chainConfig.nativeCurrency,
-        blockExplorers: chainConfig.blockExplorers,
-    }
+  return {
+    id: Number(chainId),
+    name: chainConfig.name,
+    rpcUrls: chainConfig.rpcUrls,
+    nativeCurrency: chainConfig.nativeCurrency,
+    blockExplorers: chainConfig.blockExplorers,
+  };
 }
 
 export const chainIdToChain = (chainId: number): Chain => {
-    const chain = chains.find((chain) => chain.id === chainId)
-    if (!chain) {
-        throw new Error(`Chain with id ${chainId} not found`)
-    }
-    return chain
-}
+  const chain = chains.find((chain) => chain.id === chainId);
+  if (!chain) {
+    throw new Error(`Chain with id ${chainId} not found`);
+  }
+  return chain;
+};
 
 export const chains: Chain[] = Object.entries(chainConfigs).map(([chainId, chainConfig]) =>
-    mapChainConfigToChain(chainId, chainConfig as ChainConfig)
-)
+  mapChainConfigToChain(chainId, chainConfig as ChainConfig),
+);
 
 export const getConfiguredChainIds = (): number[] => {
-    return chains.map((chain) => Number(chain.id))
-}
+  return chains.map((chain) => Number(chain.id));
+};
 
 export const isSupportedChain = (chainId: number) => {
-    return chains.some((chain) => chain.id === chainId)
-}
+  return chains.some((chain) => chain.id === chainId);
+};
 
 export const getChainImages = (): Record<number, string> => {
-    return Object.fromEntries(
-        Object.entries(chainConfigs).map(([chainId]) => [
-            Number(chainId),
-            chainConfigs[Number(chainId)].icon,
-        ])
-    )
-}
+  return Object.fromEntries(
+    Object.entries(chainConfigs).map(([chainId]) => [Number(chainId), chainConfigs[Number(chainId)].icon]),
+  );
+};
 
 export const getChainImage = (chainId: number) => {
-    const images = getChainImages()
-    if (!images[chainId]) {
-        throw new Error(`Chain with id ${chainId} not found`)
-    }
+  const images = getChainImages();
+  if (!images[chainId]) {
+    throw new Error(`Chain with id ${chainId} not found`);
+  }
 
-    return images[chainId]
-}
+  return images[chainId];
+};
 
 export const getChainName = (chainId: number) => {
-    const chain = chains.find((chain) => chain.id === chainId)
-    if (!chain) {
-        throw new Error(`Chain with id ${chainId} not found`)
-    }
-    return chain.name
-}
+  const chain = chains.find((chain) => chain.id === chainId);
+  if (!chain) {
+    throw new Error(`Chain with id ${chainId} not found`);
+  }
+  return chain.name;
+};

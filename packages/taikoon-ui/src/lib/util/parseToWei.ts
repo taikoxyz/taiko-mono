@@ -1,5 +1,5 @@
-import { parseUnits } from 'viem'
+import { parseUnits } from 'viem';
 
 export function parseToWei(strEther?: string) {
-    return parseUnits(strEther ?? '0', 18)
+  return parseUnits(strEther ?? '0', 18);
 }

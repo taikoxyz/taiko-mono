@@ -1,1 +1,1 @@
-export { default as LoadingMask } from './LoadingMask.svelte'
+export { default as LoadingMask } from './LoadingMask.svelte';

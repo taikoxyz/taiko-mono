@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { classNames } from '$lib/util/classNames'
+  import { classNames } from '$lib/util/classNames';
 
-    let classes: string
-    export { classes as class }
+  let classes: string;
+  export { classes as class };
 
-    export let href = '#'
+  export let href = '#';
 </script>
 
 <a {href} class={classNames('font-sans', 'underline', 'font-bold', classes)}>
-    <slot />
+  <slot />
 </a>

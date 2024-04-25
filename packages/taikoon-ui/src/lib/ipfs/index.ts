@@ -1,9 +1,9 @@
-import get from './get'
-import getMetadata from './getMetadata'
+import get from './get';
+import getMetadata from './getMetadata';
 
 const IPFS = {
-    get,
-    getMetadata,
-}
+  get,
+  getMetadata,
+};
 
-export default IPFS
+export default IPFS;

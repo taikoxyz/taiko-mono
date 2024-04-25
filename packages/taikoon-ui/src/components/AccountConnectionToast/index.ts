@@ -1,1 +1,1 @@
-export { default as AccountConnectionToast } from './AccountConnectionToast.svelte'
+export { default as AccountConnectionToast } from './AccountConnectionToast.svelte';

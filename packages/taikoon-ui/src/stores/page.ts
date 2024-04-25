@@ -1,3 +1,3 @@
-import { writable } from 'svelte/store'
+import { writable } from 'svelte/store';
 
-export const page = writable<import('@sveltejs/kit').Page>()
+export const page = writable<import('@sveltejs/kit').Page>();

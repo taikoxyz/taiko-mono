@@ -1,5 +1,5 @@
 export const enum ButtonState {
-    DEFAULT,
-    LOADING,
-    DISABLED,
+  DEFAULT,
+  LOADING,
+  DISABLED,
 }
