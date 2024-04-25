@@ -86,7 +86,7 @@ async function initializeGuardians() {
 	const guardiansMap = await loadGuardians();
 	const rawGuardians: Guardian[] = Object.entries(guardiansMap).map(([address, name], index) => ({
 		name: name,
-		address: address,
+		address: address as Address,
 		id: index + 1, // add +1 as guardian contract numbers starts at 1
 		latestHealthCheck: null,
 		alive: GuardianProverStatus.UNKNOWN,
@@ -121,9 +121,9 @@ async function fetchGuardians() {
 		const [status, uptime, balance] = await Promise.all([
 			fetchLatestGuardianProverHealthCheckFromApi(
 				import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
-				guardian.id
+				guardian.address
 			),
-			fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.id),
+			fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.address),
 			publicClient.getBalance({ address: guardian.address as Address })
 		]);
 		guardian.balance = formatEther(balance);
@@ -185,12 +185,12 @@ async function fetchStats(): Promise<void> {
 	const updatedGuardiansPromises = guardians.map(async (guardian) => {
 		const startupDataFetch = fetchStartupDataFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
-			guardian.id
+			guardian.address
 		);
 
 		const nodeInfoFetch = fetchNodeInfoFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
-			guardian.id
+			guardian.address
 		);
 
 		const [startupData, nodeInfo] = await Promise.all([startupDataFetch, nodeInfoFetch]);
