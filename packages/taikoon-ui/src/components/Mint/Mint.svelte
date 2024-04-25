@@ -1,0 +1,217 @@
+<script lang="ts">
+    import { getAccount } from '@wagmi/core'
+    import { getContext } from 'svelte'
+
+    import { Divider } from '$components/core/Divider'
+    import InfoRow from '$components/core/InfoRow/InfoRow.svelte'
+    import NumberInput from '$components/core/NumberInput/NumberInput.svelte'
+    import { ResponsiveController } from '$components/core/ResponsiveController'
+    import { classNames } from '$lib/util/classNames'
+    import { connectedSourceChain } from '$stores/network'
+    import { Button } from '$ui/Button'
+    import { ProgressBar } from '$ui/ProgressBar'
+    import { Spinner } from '$ui/Spinner'
+    import { H1, H4 } from '$ui/Text'
+
+    import Token from '../../lib/token'
+    import { ZeroXAddress } from '../../lib/util/ZeroXAddress'
+    import getConfig from '../../lib/wagmi/getConfig'
+    import type { IAddress } from '../../types'
+    import { NftRenderer } from '../NftRenderer'
+
+    const wrapperClasses = classNames(
+        'h-max',
+        'w-full',
+        'flex',
+        'md:flex-row',
+        'flex-col',
+        'items-center',
+        'justify-center',
+        'md:px-5',
+        'p-2',
+        'gap-8',
+        'md:py-16'
+    )
+
+    const halfPanel = classNames(
+        'h-full',
+        'md:w-max',
+        'flex flex-col',
+        'items-center',
+        'justify-center',
+        'gap-2',
+        'bg-neutral-background',
+        'rounded-3xl',
+        'p-8',
+        'w-full'
+    )
+
+    const mintState = getContext('mint')
+
+    const leftHalfPanel = classNames(halfPanel, 'aspect-square')
+
+    const rightHalfPanel = classNames(halfPanel, 'md:px-12', 'md:max-w-[500px]')
+
+    const counterClasses = classNames(
+        'w-full',
+        'flex',
+        'flex-row',
+        'items-center',
+        'justify-between',
+        'font-sans',
+        'font-bold',
+        'mt-6'
+    )
+
+    let windowSize: 'sm' | 'md' | 'lg' = 'md'
+
+    const buttonClasses = classNames('mt-6')
+
+    $: totalSupply = 0
+    $: mintMax = 0
+    $: progress = Math.floor((totalSupply / 888) * 100)
+
+    $: canFreeMint = false
+    $: canMint = false
+
+    $: freeMintsLeft = 0
+
+    //$: isMinting = false
+    $: isReady = false
+
+    $: freeMintCount = 0
+
+    $: gasCost = 0
+    $: isCalculating = false
+
+    $: freeMintCount, calculateGasCost()
+
+    async function calculateGasCost() {
+        isCalculating = true
+
+        gasCost = await Token.estimateMintGasCost({
+            freeMintCount,
+        })
+        isCalculating = false
+    }
+
+    async function load() {
+        totalSupply = await Token.totalSupply()
+        mintMax = await Token.maxSupply()
+        progress = Math.floor((totalSupply / mintMax) * 100)
+        isReady = true
+
+        canFreeMint = await Token.canFreeMint()
+
+        canMint = canFreeMint
+
+        freeMintsLeft = await Token.calculateFreeMints()
+    }
+
+    connectedSourceChain.subscribe(async () => {
+        await load()
+
+        const { config } = getConfig()
+        const account = getAccount(config)
+        if (!account || !account.address) {
+            mintState.set({ ...$mintState, address: ZeroXAddress })
+            return
+        }
+        mintState.set({ ...$mintState, address: account.address.toLowerCase() as IAddress })
+    })
+
+    async function mint() {
+        mintState.set({
+            ...$mintState,
+            isModalOpen: true,
+
+            isMinting: true,
+        })
+
+        // ensure that the input values are numbers
+        freeMintCount = parseInt(freeMintCount.toString())
+
+        mintState.set({ ...$mintState, totalMintCount: freeMintCount })
+        try {
+            const tokenIds = await Token.mint({
+                freeMintCount,
+                onTransaction: (txHash: string) => {
+                    mintState.set({ ...$mintState, txHash })
+                },
+            })
+            mintState.set({ ...$mintState, tokenIds })
+        } catch (e) {
+            console.warn(e)
+            //showMintConfirmationModal = false
+            mintState.set({ ...$mintState, isModalOpen: false })
+        }
+        mintState.set({ ...$mintState, isMinting: false })
+
+        await load()
+    }
+</script>
+
+<div class={wrapperClasses}>
+    {#if isReady}
+        {#if windowSize !== 'sm'}
+            <div class={leftHalfPanel}>
+                <div class="rounded-3xl overflow-hidden">
+                    <NftRenderer />
+                </div>
+            </div>
+        {/if}
+        <div class={rightHalfPanel}>
+            {#if windowSize === 'sm'}
+                <div class="rounded-3xl my-8 overflow-hidden">
+                    <NftRenderer />
+                </div>
+            {/if}
+            <H1 class="w-full text-left">Taikoons</H1>
+
+            <p class="font-normal font-sans text-content-secondary">
+                Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.
+            </p>
+            <div class="w-full gap-4 flex flex-col">
+                <div class={counterClasses}>
+                    <H4>{totalSupply} / {mintMax}</H4>
+                </div>
+                <ProgressBar {progress} />
+            </div>
+
+            {#if freeMintsLeft > 0}
+                <NumberInput
+                    min={0}
+                    bind:value={freeMintCount}
+                    max={freeMintsLeft}
+                    disabled={freeMintsLeft <= 0 || $mintState.isMinting}
+                    label={`Free mints left: ${freeMintsLeft - freeMintCount}`}
+                />
+            {/if}
+
+            {#if freeMintsLeft > 0}
+                <Divider />
+
+                <div class="w-full gap-4 flex flex-col">
+                    <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
+                    <InfoRow label="Total cost" loading={isCalculating} value={`Ξ ${gasCost}`} />
+                </div>
+                <Button
+                    disabled={freeMintCount === 0 || $mintState.isMinting || !canMint}
+                    on:click={mint}
+                    class={buttonClasses}
+                    wide
+                    block
+                    type="primary">Mint</Button
+                >
+            {:else if $mintState.address !== ZeroXAddress}
+                <Button type="primary" wide block href={`/collection/${$mintState.address}`}
+                    >Your Taikoons</Button
+                >
+            {/if}
+        </div>
+    {:else}
+        <Spinner size="lg" />
+    {/if}
+</div>
+
+<ResponsiveController bind:windowSize />
