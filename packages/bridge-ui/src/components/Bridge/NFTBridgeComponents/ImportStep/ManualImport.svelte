@@ -5,11 +5,12 @@
   import { FlatAlert } from '$components/Alert';
   import IdInput from '$components/Bridge/NFTBridgeComponents/IDInput/IDInput.svelte';
   import { IDInputState } from '$components/Bridge/NFTBridgeComponents/IDInput/state';
+  import TokenAmountInput from '$components/Bridge/NFTBridgeComponents/ImportStep/TokenAmountInput.svelte';
   import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import { enteredAmount, selectedNFTs, selectedToken, tokenBalance } from '$components/Bridge/state';
   import { importDone } from '$components/Bridge/state';
-  import TokenAmountInput from '$components/Bridge/TokenAmountInput.svelte';
+  1;
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
@@ -55,14 +56,6 @@
         return;
       }
 
-      //TODO: not working as expected yet
-
-      // interfaceSupported = await isSupportedNFTInterface(addr, detectedTokenType);
-      // if (!interfaceSupported) {
-      //   addressInputState = AddressInputState.INVALID;
-      // } else {
-      //   addressInputState = AddressInputState.VALID;
-      // }
       addressInputState = AddressInputState.VALID;
     } else {
       detectedTokenType = null;

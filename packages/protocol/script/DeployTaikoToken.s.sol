@@ -20,28 +20,13 @@ contract DeployTaikoToken is DeployCapability {
     }
 
     function run() external broadcast {
-        // Deploy the shared address manager at first.
-        address sharedAddressManager = deployProxy({
-            name: "shared_address_manager",
-            impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, (address(0)))
-        });
-
         // Deploy the TaikoToken contract, use securityCouncil address as the owner.
         deployProxy({
             name: "taiko_token",
             impl: address(new TaikoToken()),
             data: abi.encodeCall(
-                TaikoToken.init,
-                (
-                    securityCouncil,
-                    tokenName,
-                    tokenSymbol,
-                    premintRecipient,
-                    address(sharedAddressManager)
+                TaikoToken.init, (securityCouncil, tokenName, tokenSymbol, premintRecipient)
                 )
-                ),
-            registerTo: sharedAddressManager
         });
     }
 }

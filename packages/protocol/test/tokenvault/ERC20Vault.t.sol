@@ -98,8 +98,7 @@ contract TestERC20Vault is TaikoTest {
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init,
-                    (address(0), "Taiko Token", "TTKOk", address(this), address(addressManager))
+                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
                     )
             })
         );
