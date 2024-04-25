@@ -388,10 +388,6 @@ func (p *Processor) sendProcessMessageCall(
 			"srcTxHash", event.Raw.TxHash.Hex(),
 		)
 
-		if gasUsed > gasLimit {
-			return nil, relayer.ErrUnprofitable
-		}
-
 		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
 	}
 
