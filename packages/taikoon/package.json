@@ -39,7 +39,7 @@
     "@openzeppelin/merkle-tree": "^1.0.6",
     "convert-csv-to-json": "^2.46.0",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
+    "forge-std": "github:foundry-rs/forge-std",
     "ipfs-http-client": "^60.0.1",
     "merkletreejs": "^0.3.11",
     "murky": "github:dmfxyz/murky",

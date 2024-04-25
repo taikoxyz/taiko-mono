@@ -430,8 +430,8 @@ importers:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
-        specifier: github:foundry-rs/forge-std#v1.8.1
-        version: github.com/foundry-rs/forge-std/bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef
+        specifier: github:foundry-rs/forge-std
+        version: github.com/foundry-rs/forge-std/93340e7e6127c817e276bc956b4f4ed13d173449
       ipfs-http-client:
         specifier: ^60.0.1
         version: 60.0.1
@@ -15544,8 +15544,8 @@ packages:
     version: 1.7.5
     dev: false
 
-  github.com/foundry-rs/forge-std/bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef}
+  github.com/foundry-rs/forge-std/93340e7e6127c817e276bc956b4f4ed13d173449:
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/93340e7e6127c817e276bc956b4f4ed13d173449}
     name: forge-std
     version: 1.7.6
     dev: false
