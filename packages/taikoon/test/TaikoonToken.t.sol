@@ -1,24 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { Test, console } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { TaikoonToken } from "../contracts/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { MerkleMintersScript } from "../script/sol/MerkleMinters.s.sol";
 import { Upgrades } from "@openzeppelin/foundry-upgrades/Upgrades.sol";
-import "forge-std/StdJson.sol";
 
 contract TaikoonTokenTest is Test {
-    using stdJson for string;
-
     TaikoonToken public token;
 
     address public owner = vm.addr(0x5);
 
     address[3] public minters = [vm.addr(0x1), vm.addr(0x2), vm.addr(0x3)];
     bytes32[] public leaves = new bytes32[](minters.length);
-
-    MerkleMintersScript merkleMinters = new MerkleMintersScript();
 
     uint256 constant MAX_MINTS = 5;
 
