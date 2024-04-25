@@ -35,7 +35,7 @@ contract TaikoonTokenTest is Test {
         );
 
         token = TaikoonToken(proxy);
-        // use the token to calculate leafs
+        // use the token to calculate leaves
         for (uint256 i = 0; i < minters.length; i++) {
             leaves[i] = token.leaf(minters[i], MAX_MINTS);
         }
