@@ -35,6 +35,10 @@ jobs:
         working-directory: ./packages/taikoon
         run: forge fmt --check
 
+      - name: Solidity compilations
+        working-directory: ./packages/taikoon
+        run: pnpm compile
+
       - name: Unit Tests
         working-directory: ./packages/taikoon
         run: pnpm clean && pnpm compile && pnpm test
