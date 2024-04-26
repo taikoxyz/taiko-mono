@@ -9,6 +9,7 @@
   import { ZeroXAddress } from '$lib/util/ZeroXAddress';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
+  import { pageScroll } from '$stores/pageScroll';
   import { Button } from '$ui/Button';
   import { config } from '$wagmi-config';
 
@@ -20,7 +21,7 @@
 
   $: isMobileMenuOpen = false;
 
-  const headerClasses = classNames(
+  $: headerClasses = classNames(
     'md:px-10',
     'md:py-10',
     'h-16',
@@ -31,8 +32,8 @@
     'relative',
     'z-50',
     'px-4',
-    'md:glassy-background-lg',
-    'md:border-b-[1px] md:border-border-divider-default',
+    $pageScroll ? 'md:glassy-background-lg' : null,
+    $pageScroll ? 'md:border-b-[1px] md:border-border-divider-default' : 'md:border-b-[1px] md:border-transparent',
     $$props.class,
   );
 
@@ -78,6 +79,8 @@
     <a href="/" class={classNames()}>
       <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
     </a>
+
+    {$pageScroll}
 
     {#if windowSize === 'sm'}
       <div class={rightSectionClasses}>

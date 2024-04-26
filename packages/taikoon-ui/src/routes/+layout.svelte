@@ -36,7 +36,16 @@
 
   setContext('mint', mintState);
   setContext('taikoonDetail', taikoonDetailState);
-  const containerClasses = classNames('z-0', 'w-full', 'h-full', 'flex', 'flex-col', 'items-center', 'justify-evenly');
+  const containerClasses = classNames(
+    'z-0',
+    'w-full',
+    'h-full',
+    'flex',
+    'flex-col',
+    'relative',
+    'items-center',
+    'justify-evenly',
+  );
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -61,7 +70,7 @@
 
 <SwitchChainModal />
 
-<MintConfirmationModal isMinting={false} tokenIds={[]} txHash={''} minterAddress={ZeroXAddress} totalMintCount={1} />
+<MintConfirmationModal />
 
 {#if windowSize === 'sm'}
   <TaikoonDetailModal />
