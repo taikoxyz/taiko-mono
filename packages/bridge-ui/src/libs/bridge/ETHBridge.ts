@@ -2,7 +2,6 @@ import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
-import { bridgeService } from '$config';
 import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -16,7 +15,7 @@ const log = getLogger('bridge:ETHBridge');
 
 export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
-    const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee, memo = '' } = args;
+    const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee } = args;
 
     if (!wallet || !wallet.account) throw new Error('No wallet found');
 
@@ -39,29 +38,29 @@ export class ETHBridge extends Bridge {
       value = senderAmount;
     }
 
-    // If there is a processing fee, use the specified message gas limit
-    // as might not be called by the owner
-    const gasLimit = processingFee > 0 ? bridgeService.noOwnerGasLimit : BigInt(0);
-
     const message: Message = {
       to,
       srcOwner: owner,
       from: owner,
-      refundTo: owner,
 
       destOwner: to,
 
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
 
-      gasLimit,
+      gasLimit: 0,
       value,
       fee: processingFee,
 
-      memo,
       data: '0x',
       id: BigInt(0), // will be set in contract
     };
+
+    const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([0n]);
+    log('Min gas limit for message', minGasLimit);
+
+    const gasLimit = minGasLimit + 1;
+    message.gasLimit = gasLimit;
 
     log('Preparing transaction with message', message);
 
@@ -112,14 +111,7 @@ export class ETHBridge extends Bridge {
       });
       log('Simulate contract', request);
 
-      const txHash = await writeContract(config, {
-        address: bridgeContract.address,
-        abi: bridgeAbi,
-        functionName: 'sendMessage',
-        args: [message],
-        chainId,
-        value,
-      });
+      const txHash = await writeContract(config, request);
       log('Transaction hash for sendMessage call', txHash);
 
       return txHash;

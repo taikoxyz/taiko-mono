@@ -182,25 +182,25 @@ const _getStatus = async ({ address, srcChainId, destChainId, type }: CheckCanon
   if (srcCanonicalCheck === zeroAddress && destCanonicalCheck === zeroAddress) {
     // if both are zero we are dealing with a canonical address
     canonicalTokenAddress = srcChainTokenAddress;
-    // But either chain passed could be the canonical chain, so we need to check which one
-    const checkDestChainForCanonicalChain = (await destTokenVaultContract.read.canonicalToBridged([
-      destChainId,
-      srcChainTokenAddress,
-    ])) as Address;
-
-    if (checkDestChainForCanonicalChain === zeroAddress) {
+    // But either chain passed could be the canonical chain, so we need to check which one by checking for valid contract types
+    try {
+      await detectContractType(srcChainTokenAddress, srcChainId);
       canonicalChain = srcChainId;
-    } else {
+      log('canonical chain is src', srcChainId);
+    } catch {
       canonicalChain = destChainId;
+      log('canonical chain is dest', destChainId);
     }
   } else if (destCanonicalCheck !== zeroAddress) {
     // if the destination is not zero, we found a canonical address there
     canonicalTokenAddress = destCanonicalCheck;
     canonicalChain = srcChainId;
+    log('canonical info1', canonicalTokenAddress, canonicalChain);
   } else {
     // if the source is not zero, we found a canonical address there
     canonicalTokenAddress = srcCanonicalCheck;
     canonicalChain = destChainId;
+    log('canonical info2', canonicalTokenAddress, canonicalChain);
   }
   log('canonical info', canonicalTokenAddress, canonicalChain);
   return { canonicalTokenAddress, canonicalChain };

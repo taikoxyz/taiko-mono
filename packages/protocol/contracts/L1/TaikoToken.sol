@@ -10,7 +10,9 @@ import "../common/LibStrings.sol";
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
 /// contract list.
 /// We can simplify the code since we no longer need to maintain upgradability with Hekla.
+// solhint-disable contract-name-camelcase
 abstract contract EssentialContract_ is EssentialContract {
+    // solhint-disable var-name-mixedcase
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
 }
 
@@ -30,18 +32,16 @@ contract TaikoToken is EssentialContract_, ERC20VotesUpgradeable {
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
-    /// @param _addressManager The AddressManager address.
     function init(
         address _owner,
         string calldata _name,
         string calldata _symbol,
-        address _recipient,
-        address _addressManager
+        address _recipient
     )
         public
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner);
         __Context_init_unchained();
         __ERC20_init(_name, _symbol);
         __ERC20Votes_init();

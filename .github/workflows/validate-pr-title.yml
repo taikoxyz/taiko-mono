@@ -39,9 +39,11 @@ jobs:
             guardian-prover-health-check-ui
             protocol
             relayer
+            taikoon
+            supplementary-contracts
           requireScope: true
-          subjectPattern: ^(?![A-Z]).+$ # Require lowercase PR title
+          subjectPattern: ^(?![A-Z])(?!.*\btypo\b).+$ # Require lowercase PR title and prohibit word "typo"
           subjectPatternError: |
             The subject "{subject}" found in the pull request title "{title}"
             didn't match the configured pattern. Please ensure that the subject
-            doesn't start with an uppercase character.
+            doesn't start with an uppercase character and doesn't contains word "typo".

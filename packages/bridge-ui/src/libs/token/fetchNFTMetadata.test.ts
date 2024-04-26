@@ -50,7 +50,7 @@ describe('fetchNFTMetadata()', () => {
       canonical: null,
       bridged: {
         chainId: L2_CHAIN_ID,
-        address: MOCK_ERC721.addresses.L2_CHAIN_ID as Address,
+        address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
       },
     } satisfies TokenInfo;
 
@@ -90,11 +90,11 @@ describe('fetchNFTMetadata()', () => {
       const mockTokenInfo = {
         canonical: {
           chainId: L1_CHAIN_ID,
-          address: MOCK_ERC721.addresses.L1_CHAIN_ID as Address,
+          address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
         },
         bridged: {
           chainId: L2_CHAIN_ID,
-          address: MOCK_ERC721.addresses.L2_CHAIN_ID as Address,
+          address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
         },
       } satisfies TokenInfo;
 
@@ -139,11 +139,11 @@ describe('fetchNFTMetadata()', () => {
       const mockTokenInfo = {
         canonical: {
           chainId: L1_CHAIN_ID,
-          address: MOCK_ERC721.addresses.L1_CHAIN_ID as Address,
+          address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
         },
         bridged: {
           chainId: L2_CHAIN_ID,
-          address: MOCK_ERC721.addresses.L2_CHAIN_ID as Address,
+          address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
         },
       } satisfies TokenInfo;
 
@@ -170,11 +170,11 @@ describe('fetchNFTMetadata()', () => {
       const mockTokenInfo = {
         canonical: {
           chainId: L1_CHAIN_ID,
-          address: MOCK_ERC721.addresses.L1_CHAIN_ID as Address,
+          address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
         },
         bridged: {
           chainId: L2_CHAIN_ID,
-          address: MOCK_ERC721.addresses.L2_CHAIN_ID as Address,
+          address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
         },
       } satisfies TokenInfo;
 
@@ -226,11 +226,11 @@ describe('fetchNFTMetadata()', () => {
           const mockTokenInfo = {
             canonical: {
               chainId: L1_CHAIN_ID,
-              address: MOCK_ERC721.addresses.L1_CHAIN_ID as Address,
+              address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
             },
             bridged: {
               chainId: L2_CHAIN_ID,
-              address: MOCK_ERC721.addresses.L2_CHAIN_ID as Address,
+              address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
             },
           } satisfies TokenInfo;
 
@@ -261,11 +261,11 @@ describe('fetchNFTMetadata()', () => {
           const mockTokenInfo = {
             canonical: {
               chainId: L1_CHAIN_ID,
-              address: MOCK_ERC721.addresses.L1_CHAIN_ID as Address,
+              address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
             },
             bridged: {
               chainId: L2_CHAIN_ID,
-              address: MOCK_ERC721.addresses.L2_CHAIN_ID as Address,
+              address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
             },
           } satisfies TokenInfo;
 

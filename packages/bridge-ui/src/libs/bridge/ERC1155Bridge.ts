@@ -1,8 +1,9 @@
 import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, UserRejectedRequestError } from 'viem';
 
-import { erc1155Abi, erc1155VaultAbi } from '$abi';
-import { bridgeService } from '$config';
+import { bridgeAbi, erc1155Abi, erc1155VaultAbi } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
+import { gasLimitConfig } from '$config';
 import {
   ApproveError,
   NoApprovalRequiredError,
@@ -17,6 +18,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
+import { calculateMessageDataSize } from './calculateMessageDataSize';
 import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC1155Bridge');
@@ -81,7 +83,7 @@ export class ERC1155Bridge extends Bridge {
       const isApprovedForAll = await this.isApprovedForAll({
         tokenAddress: token,
         spenderAddress: tokenVaultAddress,
-        tokenId: tokenId,
+        tokenId: BigInt(tokenId),
         owner: wallet.account.address,
         chainId: wallet.chain.id,
       });
@@ -96,28 +98,17 @@ export class ERC1155Bridge extends Bridge {
       log('Sending ERC1155 with fee', fee);
       log('Sending ERC1155 with args', sendERC1155Args);
 
-      // try {
-      //   const { request } = await simulateContract(config, {
-      //     address: tokenVaultContract.address,
-      //     abi: erc1155VaultAbi,
-      //     functionName: 'sendToken',
-      //     args: [sendERC1155Args],
-      //     value: fee,
-      //   });
-      //   log('Simulate contract', request);
-      // } catch (err) {
-      //   // TODO: Handle error
-      //   console.error(err);
-      // }
-
-      const tx = await writeContract(config, {
+      const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
         abi: erc1155VaultAbi,
         functionName: 'sendToken',
+        //@ts-ignore
         args: [sendERC1155Args],
-        chainId: wallet.chain.id,
         value: fee,
       });
+      log('Simulate contract', request);
+
+      const tx = await writeContract(config, request);
 
       log('ERC1155 sent', tx);
 
@@ -155,27 +146,16 @@ export class ERC1155Bridge extends Bridge {
     try {
       log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
 
-      try {
-        const { request } = await simulateContract(config, {
-          address: tokenAddress,
-          abi: erc1155Abi,
-          functionName: 'setApprovalForAll',
-          args: [spenderAddress, true],
-          chainId: wallet.chain.id,
-        });
-        log('Simulate contract', request);
-      } catch (err) {
-        // TODO: Handle error
-        console.error(err);
-      }
-
-      const txHash = await writeContract(config, {
+      const { request } = await simulateContract(config, {
         address: tokenAddress,
         abi: erc1155Abi,
         functionName: 'setApprovalForAll',
         args: [spenderAddress, true],
         chainId: wallet.chain.id,
       });
+      log('Simulate contract', request);
+
+      const txHash = await writeContract(config, request);
 
       log('Transaction hash for approve call', txHash);
 
@@ -195,12 +175,13 @@ export class ERC1155Bridge extends Bridge {
     const {
       to,
       wallet,
+      srcChainId,
       destChainId,
       token,
+      tokenObject,
       fee,
       tokenVaultAddress,
       isTokenAlreadyDeployed,
-      memo = '',
       tokenIds,
       amounts,
     } = args;
@@ -213,25 +194,36 @@ export class ERC1155Bridge extends Bridge {
       address: tokenVaultAddress,
     });
 
-    const refundTo = wallet.account.address;
+    const { size } = await calculateMessageDataSize({ token: tokenObject, chainId: srcChainId, tokenIds, amounts });
 
-    const gasLimit = !isTokenAlreadyDeployed
-      ? BigInt(bridgeService.noERC1155TokenDeployedGasLimit)
-      : fee > 0
-        ? bridgeService.noOwnerGasLimit
-        : BigInt(0);
+    const client = await getPublicClient(config, { chainId: destChainId });
+    if (!client) throw new Error('Could not get public client');
+
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
+    const destBridgeContract = getContract({
+      client,
+      abi: bridgeAbi,
+      address: destBridgeAddress,
+    });
+
+    const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
+
+    const gasLimit =
+      fee === 0n
+        ? BigInt(0) // user wants to claim
+        : !isTokenAlreadyDeployed
+          ? BigInt(minGasLimit) + gasLimitConfig.erc1155DeployedGasLimit // Token is not deployed
+          : BigInt(minGasLimit) + gasLimitConfig.erc1155NotDeployedGasLimit; // Token is deployed
 
     const sendERC1155Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
       to,
       destOwner: to,
       token,
-      gasLimit,
+      gasLimit: Number(gasLimit),
       fee,
-      refundTo,
-      memo,
-      tokenIds,
-      amounts,
+      tokenIds: tokenIds.map(BigInt),
+      amounts: amounts.map(BigInt),
     };
 
     log('Preparing transaction with args', sendERC1155Args);

@@ -9,7 +9,9 @@
     "packages/guardian-prover-health-check": {},
     "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {},
-    "packages/relayer": {}
+    "packages/relayer": {},
+    "packages/taikoon": {},
+    "packages/supplementary-contracts": {}
   },
   "separate-pull-requests": true
 }
