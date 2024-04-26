@@ -39,4 +39,4 @@ jobs:
 
       - name: Unit Tests
         working-directory: ./packages/taikoon
-        run: pnpm clean && pnpm compile && pnpm test
+        run: pnpm test

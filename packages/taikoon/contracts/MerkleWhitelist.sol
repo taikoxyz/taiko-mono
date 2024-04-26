@@ -23,6 +23,11 @@ contract MerkleWhitelist is ContextUpgradeable {
 
     uint256[48] private __gap;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @notice Contract initializer
     /// @param _root Merkle Tree root
     function initialize(bytes32 _root) external initializer {
