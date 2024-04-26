@@ -72,18 +72,12 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Emitted when tokens are withdrawn.
     /// @param recipient The grant recipient address.
-    /// @param to The address where the granted and unlocked tokens shall be sent to.
     /// @param amount The amount of tokens withdrawn.
     /// @param allAmountWithdrawn The all amount (including the current) already withdrawn.
-    event Withdrawn(
-        address indexed recipient, address to, uint128 amount, uint128 allAmountWithdrawn
-    );
+    event Withdrawn(address indexed recipient, uint128 amount, uint128 allAmountWithdrawn);
 
-    error GRANT_NOT_INITIALIZED();
     error INVALID_GRANTEE();
-    error INVALID_NONCE();
     error INVALID_PARAM();
-    error INVALID_SIGNATURE();
     error WRONG_GRANTEE_RECIPIENT();
 
     /// @notice Initializes the contract.
@@ -127,7 +121,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Triggers a deposits through the vault to this contract.
-    /// This transaction should happen on a regular basis, e.g., quarterly.
+    /// This transaction should happen on a regular basis, e.g.: quarterly.
     /// @param _recipient The grant recipient address.
     /// @param _currentDeposit The current deposit.
     function vestToken(
@@ -142,7 +136,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // This contract shall be appproved() on the sharedVault for the given _currentDeposit
         // amount
-        //This is needed because this is the way we can be sure, we know exactly how much vested
+        // This is needed, because this is the way we can be sure, we know exactly how much vested
         // already. Simple transfer from TaikoTreasury will not update anything hence it does not
         // trigger receive() or fallback().
         IERC20(taikoToken).safeTransferFrom(sharedVault, address(this), _currentDeposit);
@@ -154,41 +148,20 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Withdraws all withdrawable tokens.
     function withdraw() external nonReentrant {
-        _withdraw(msg.sender, msg.sender);
-    }
+        address recipient = msg.sender;
+        if (recipient != grantRecipient) {
+            // This unlocking contract is not for the supplied _recipient, so revert.
+            revert WRONG_GRANTEE_RECIPIENT();
+        }
 
-    /// @notice Withdraws all withdrawable tokens to a designated address.
-    /// @param _to The address where the granted and unlocked tokens shall be sent to.
-    /// @param _nonce The nonce to be used.
-    /// @param _sig Signature provided by the grant recipient.
-    function withdraw(address _to, uint256 _nonce, bytes calldata _sig) external nonReentrant {
-        if (_to == address(0)) revert INVALID_PARAM();
+        (,,, uint128 amountToWithdraw) = getMyGrantSummary(recipient);
 
-        address account = ECDSA.recover(getWithdrawalHash(grantRecipient, _to, _nonce), _sig);
-        if (account == address(0)) revert INVALID_SIGNATURE();
-        if (withdrawalNonces[account] != _nonce) revert INVALID_NONCE();
+        amountWithdrawn += amountToWithdraw;
 
-        withdrawalNonces[account] += 1;
-        _withdraw(account, _to);
-    }
+        // _to address get's the tokens
+        IERC20(taikoToken).safeTransfer(recipient, amountToWithdraw);
 
-    /// @notice Gets the hash to be signed to authorize an withdrawal.
-    /// @param _grantOwner The owner of the grant.
-    /// @param _to The destination address.
-    /// @param _nonce The withdrawal nonce.
-    /// @return The hash to be signed.
-    function getWithdrawalHash(
-        address _grantOwner,
-        address _to,
-        uint256 _nonce
-    )
-        public
-        view
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encode("WITHDRAW_GRANT", _grantOwner, block.chainid, address(this), _to, _nonce)
-        );
+        emit Withdrawn(recipient, amountToWithdraw, amountWithdrawn);
     }
 
     /// @notice Returns the summary of the grant for a given recipient. Does not reverts if this
@@ -224,6 +197,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
 
         amountWithdrawn_ = amountWithdrawn;
+
         amountToWithdraw_ = amountUnlocked_ - amountWithdrawn_;
     }
 
@@ -237,22 +211,6 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function getUnlockPeriod() public view virtual returns (uint32) {
         return (4 * 365 days);
-    }
-
-    function _withdraw(address _recipient, address _to) private {
-        if (_recipient != grantRecipient) {
-            // This unlocking contract is not for the supplied _recipient, so revert.
-            revert WRONG_GRANTEE_RECIPIENT();
-        }
-
-        (,,, uint128 amountToWithdraw) = getMyGrantSummary(_recipient);
-
-        amountWithdrawn = amountToWithdraw;
-
-        // _to address get's the tokens
-        IERC20(taikoToken).safeTransferFrom(sharedVault, _to, amountToWithdraw);
-
-        emit Withdrawn(_recipient, _to, amountToWithdraw, amountWithdrawn);
     }
 
     function _calcAmountUnlocked(
