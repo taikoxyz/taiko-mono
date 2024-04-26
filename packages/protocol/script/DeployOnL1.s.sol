@@ -358,15 +358,21 @@ contract DeployOnL1 is DeployCapability {
         P256Verifier p256Verifier = new P256Verifier();
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
-        AutomataDcapV3Attestation automateDcapV3Attestation =
-            new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
+        address automateDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automateDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (address(sigVerifyLib), address(pemCertChainLib))
+                ),
+            registerTo: rollupAddressManager
+        });
 
         // Log addresses for the user to register sgx instance
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
-        register(
-            rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
-        );
+        console2.log("AutomataDcapVaAttestation", automataProxy);
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {

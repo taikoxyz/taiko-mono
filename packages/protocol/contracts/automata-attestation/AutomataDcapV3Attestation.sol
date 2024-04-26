@@ -1,6 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { V3Struct } from "./lib/QuoteV3Auth/V3Struct.sol";
 import { V3Parser } from "./lib/QuoteV3Auth/V3Parser.sol";
 import { IPEMCertChainLib } from "./lib/interfaces/IPEMCertChainLib.sol";
@@ -19,11 +20,11 @@ import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
-contract AutomataDcapV3Attestation is IAttestation {
+contract AutomataDcapV3Attestation is IAttestation, Initializable {
     using BytesUtils for bytes;
 
-    ISigVerifyLib public immutable sigVerifyLib;
-    IPEMCertChainLib public immutable pemCertLib;
+    ISigVerifyLib public sigVerifyLib;
+    IPEMCertChainLib public pemCertLib;
 
     // https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/e7604e02331b3377f3766ed3653250e03af72d45/QuoteVerification/QVL/Src/AttestationLibrary/src/CertVerification/X509Constants.h#L64
     uint256 internal constant CPUSVN_LENGTH = 16;
@@ -49,9 +50,19 @@ contract AutomataDcapV3Attestation is IAttestation {
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo;
     EnclaveIdStruct.EnclaveId public qeIdentity;
 
-    address public immutable owner;
+    address public owner;
 
-    constructor(address sigVerifyLibAddr, address pemCertLibAddr) {
+    uint256[39] __gap;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // @notice Initializes the contract.
+    /// @param sigVerifyLibAddr Address of the signature verification library.
+    /// @param pemCertLibAddr Address of certificate library.
+    function init(address sigVerifyLibAddr, address pemCertLibAddr) public initializer {
         sigVerifyLib = ISigVerifyLib(sigVerifyLibAddr);
         pemCertLib = PEMCertChainLib(pemCertLibAddr);
         owner = msg.sender;
