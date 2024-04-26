@@ -10,7 +10,6 @@
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import { enteredAmount, selectedNFTs, selectedToken, tokenBalance } from '$components/Bridge/state';
   import { importDone } from '$components/Bridge/state';
-  1;
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
