@@ -27,24 +27,10 @@ const isA6 = args.includes('--a6');
 const isA5 = args.includes('--a5');
 
 // Determine the environment
-let environment = '';
-if (isDev) {
-  environment = 'dev';
-} else if (isProd) {
-  environment = 'prod';
-} else if (isLocal) {
-  environment = 'local';
-}
+let environment = isDev ? 'dev' : isProd ? 'prod' : isLocal ? 'local' : '';
 
 // Determine the version
-let version = '';
-if (isA6) {
-  version = 'a6';
-} else if (isA5) {
-  version = 'a5';
-} else if (isA7) {
-  version = 'a7';
-}
+let version = isA6 ? 'a6' : isA5 ? 'a5' : isA7 ? 'a7' : '';
 
 Logger.info(`Detected ${environment} environment and ${version} version.`);
 
