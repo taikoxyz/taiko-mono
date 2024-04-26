@@ -6,25 +6,25 @@ func (srv *Server) configureRoutes() {
 
 	srv.echo.GET("/healthchecks", srv.GetHealthChecks)
 
-	srv.echo.GET("/healthchecks/:id", srv.GetHealthChecksByGuardianProverAddress)
+	srv.echo.GET("/healthchecks/:address", srv.GetHealthChecksByGuardianProverAddress)
 
-	srv.echo.GET("/liveness/:id", srv.GetMostRecentHealthCheckByGuardianProverAddress)
+	srv.echo.GET("/liveness/:address", srv.GetMostRecentHealthCheckByGuardianProverAddress)
 
-	srv.echo.GET("/uptime/:id", srv.GetUptimeByGuardianProverAddress)
+	srv.echo.GET("/uptime/:address", srv.GetUptimeByGuardianProverAddress)
 
 	srv.echo.GET("/signedBlocks", srv.GetSignedBlocks)
 
-	srv.echo.GET("/signedBlock/:id", srv.GetMostRecentSignedBlockByGuardianProverAddress)
+	srv.echo.GET("/signedBlock/:address", srv.GetMostRecentSignedBlockByGuardianProverAddress)
 
 	srv.echo.POST("/signedBlock", srv.PostSignedBlock)
 
 	srv.echo.POST("/healthCheck", srv.PostHealthCheck)
 
-	srv.echo.GET("/startups/:id", srv.GetStartupsByGuardianProverAddress)
+	srv.echo.GET("/startups/:address", srv.GetStartupsByGuardianProverAddress)
 
-	srv.echo.GET("/mostRecentStartup/:id", srv.GetMostRecentStartupByGuardianProverAddress)
+	srv.echo.GET("/mostRecentStartup/:address", srv.GetMostRecentStartupByGuardianProverAddress)
 
 	srv.echo.POST("/startup", srv.PostStartup)
 
-	srv.echo.GET("/nodeInfo/:id", srv.GetNodeInfoByGuardianProverAddress)
+	srv.echo.GET("/nodeInfo/:address", srv.GetNodeInfoByGuardianProverAddress)
 }
