@@ -25,7 +25,6 @@ contract TaikoonTokenTest is Test {
         bytes32 root = tree.getRoot(leaves);
 
         // deploy token with empty root
-
         address impl = address(new TaikoonToken());
         address proxy = address(
             new ERC1967Proxy(
@@ -40,7 +39,6 @@ contract TaikoonTokenTest is Test {
         }
         // update the root
         root = tree.getRoot(leaves);
-
         token.updateRoot(root);
         vm.stopBroadcast();
     }

@@ -33,6 +33,7 @@ contract DeployScript is Script {
         string memory jsonRoot = "root";
 
         require(owner != address(0), "Owner must be specified");
+
         vm.startBroadcast(deployerPrivateKey);
 
         bytes32 root = merkleMinters.root();
@@ -40,7 +41,6 @@ contract DeployScript is Script {
         string memory baseURI = utils.getIpfsBaseURI();
 
         // deploy token with empty root
-
         address impl = address(new TaikoonToken());
         address proxy = address(
             new ERC1967Proxy(impl, abi.encodeCall(TaikoonToken.initialize, (owner, baseURI, root)))
