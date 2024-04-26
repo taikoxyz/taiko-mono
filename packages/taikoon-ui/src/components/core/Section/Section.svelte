@@ -16,6 +16,7 @@
   export let animated: boolean = false;
 
   $: wrapperClasses = classNames(
+    'snap-center',
     'w-full',
     'overflow-hidden',
     height === 'full' ? 'h-screen' : null,
