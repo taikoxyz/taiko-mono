@@ -27,7 +27,7 @@
       'md:text-[1.75rem]',
       'text-xl',
     )}>
-    <H1>WTF?</H1>
+    <H1>FAQs</H1>
     <div class={classNames('w-full', 'flex flex-col', 'items-center', 'justify-center', 'overflow-hidden', 'gap-4')}>
       {#each options as option}
         <!-- svelte-ignore a11y-click-events-have-key-events -->

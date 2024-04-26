@@ -28,13 +28,15 @@
   {#if currentPage === 'teaser'}
     <CountdownSection>
       <div class="bottom-16 left-0 w-full flex justify-center absolute">
-        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToWtf} class="uppercase">wtf?</Button>
+        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToWtf} class="uppercase"
+          >Learn more</Button>
       </div>
     </CountdownSection>
   {:else}
     <HeadingSection>
       <div class="bottom-16 left-0 w-full flex justify-center absolute">
-        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToWtf} class="uppercase">wtf?</Button>
+        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToWtf} class="uppercase"
+          >Learn more</Button>
       </div>
     </HeadingSection>
   {/if}
