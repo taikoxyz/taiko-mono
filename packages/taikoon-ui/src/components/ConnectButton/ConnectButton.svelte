@@ -3,6 +3,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { formatEther } from 'viem';
 
+  import { Spinner } from '$components/core/Spinner';
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';
   import { refreshUserBalance } from '$lib/util/balance';
@@ -14,7 +15,6 @@
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
-  import { Button } from '$ui/Button';
   import { config } from '$wagmi-config';
 
   import type { IAddress } from '../../types';
@@ -48,6 +48,9 @@
     if (!account.address) return;
     balance = await getBalance(account.address);
   });
+
+  import { Icons } from '$components/core/Icons';
+  const { CircleUserRegular: CircleUserIcon } = Icons;
 </script>
 
 {#if connected}
@@ -59,6 +62,7 @@
       'rounded-full',
       'flex',
       'items-center',
+      'h-[44px]',
       'gap-2',
       'font-bold',
     )}>
@@ -78,7 +82,14 @@
       )}
       >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
       <span
-        class={classNames('flex', 'rounded-full', 'p-2.5', 'bg-neutral-background', 'border border-divider-border')}>
+        class={classNames(
+          'flex',
+          'rounded-full',
+          'px-2.5',
+          'py-2',
+          'bg-neutral-background',
+          'border border-divider-border',
+        )}>
         {#await shortenAddress(accountAddress, 4, 6)}
           ...
         {:then displayAddress}
@@ -88,10 +99,26 @@
     </span>
   </button>
 {:else}
-  <Button type="primary" loading={web3modalOpen} iconLeft={'CircleUserRegular'} on:click={connectWallet}>
+  <button
+    class={classNames(
+      'w-max',
+      'h-[44px]',
+      'bg-primary',
+      'rounded-full',
+      'flex flex-row',
+      'justify-center',
+      'items-center',
+      'px-4',
+      'gap-4',
+      'font-medium',
+    )}
+    on:click={connectWallet}>
     {#if web3modalOpen}
+      <Spinner size="sm" />
       Connecting
-    {:else}Connect Wallet
+    {:else}
+      <CircleUserIcon size="16" />
+      Connect Wallet
     {/if}
-  </Button>
+  </button>
 {/if}

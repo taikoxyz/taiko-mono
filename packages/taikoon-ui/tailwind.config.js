@@ -260,7 +260,7 @@ export default {
 
                 'border-divider-default': 'var(--border-divider-default)',
 
-
+                'nav-button': 'var(--nav-button)',
             },
         },
     },
@@ -363,6 +363,7 @@ export default {
                     // custom colors
 
                     '--background-body': '#0b101b',
+                    '--nav-button': '#2B303B',
                     // ================================ //
 
                     primary: '#C8047D', // pink-500,
@@ -477,6 +478,7 @@ export default {
                     // custom colors
 
                     '--background-body': '#f8f8f8',
+                    '--nav-button': '#ffffff',
                     // ================================ //
 
                     primary: '#C8047D', // pink-500,

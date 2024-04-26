@@ -10,7 +10,6 @@
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
   import { pageScroll } from '$stores/pageScroll';
-  import { Button } from '$ui/Button';
   import { config } from '$wagmi-config';
 
   import { ConnectButton } from '../ConnectButton';
@@ -37,14 +36,13 @@
     $$props.class,
   );
 
-  const buttonClasses = classNames('text-lg', 'w-min', 'lg:w-[200px]');
-
   const taikoonsIconClasses = classNames('h-full');
 
   const rightSectionClasses = classNames(
     'md:right-8',
     'right-4',
     'w-max',
+    'absolute',
     'flex flex-row justify-center items-center',
     'gap-4',
   );
@@ -70,17 +68,30 @@
   });
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  const navButtonClasses = classNames(
+    'w-[140px]',
+    'h-[44px]',
+    'bg-nav-button',
+    'flex flex-row',
+    'justify-center',
+    'tracking-[-2%]',
+    'items-center',
+    'rounded-full',
+    'font-sans',
+    'font-medium',
+    'text-base/[135.5%]',
+    'text-content-primary',
+  );
 </script>
 
 <MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
 
 <div class={wrapperClasses}>
   <div class={headerClasses}>
-    <a href="/" class={classNames()}>
+    <a href="/" class={classNames('absolute')}>
       <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
     </a>
-
-    {$pageScroll}
 
     {#if windowSize === 'sm'}
       <div class={rightSectionClasses}>
@@ -101,13 +112,12 @@
         </button>
       </div>
     {:else}
-      <div class={classNames('w-max', 'gap-4', 'flex', 'flex-row')}>
-        <Button href="/mint" type="neutral" class={buttonClasses}>Mint</Button>
+      <div class={classNames('w-full', 'justify-center', 'items-center', 'gap-4', 'flex', 'flex-row')}>
+        <a href="/mint" class={navButtonClasses}> Mint</a>
 
-        <Button href="/collection" type="neutral" class={buttonClasses}>Collection</Button>
+        <a href="/collection" class={navButtonClasses}> Collection</a>
         {#if address !== ZeroXAddress}
-          <Button href={`/collection/${address.toLowerCase()}`} type="neutral" class={buttonClasses}>
-            Your taikoons</Button>
+          <a href={`/collection/${address.toLowerCase()}`} class={navButtonClasses}> Your taikoons</a>
         {/if}
       </div>
       <div class={rightSectionClasses}>
