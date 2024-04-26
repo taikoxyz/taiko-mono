@@ -15,6 +15,9 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
+    // Please set owner to labs.taiko.eth (0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D) on Mainnnet.
+    address owner = vm.envAddress("OWNER");
+
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
@@ -29,6 +32,7 @@ contract DeployScript is Script {
     function run() public {
         string memory jsonRoot = "root";
 
+        require(owner != address(0), "Owner must be specified");
         vm.startBroadcast(deployerPrivateKey);
 
         bytes32 root = merkleMinters.root();
@@ -39,9 +43,7 @@ contract DeployScript is Script {
 
         address impl = address(new TaikoonToken());
         address proxy = address(
-            new ERC1967Proxy(
-                impl, abi.encodeCall(TaikoonToken.initialize, (address(0), baseURI, root))
-            )
+            new ERC1967Proxy(impl, abi.encodeCall(TaikoonToken.initialize, (owner, baseURI, root)))
         );
 
         TaikoonToken token = TaikoonToken(proxy);
@@ -50,6 +52,7 @@ contract DeployScript is Script {
         console.log("Deployed TaikoonToken to:", address(token));
 
         vm.serializeBytes32(jsonRoot, "MerkleRoot", root);
+        vm.serializeAddress(jsonRoot, "Owner", token.owner());
 
         string memory finalJson = vm.serializeAddress(jsonRoot, "TaikoonToken", address(token));
         vm.writeJson(finalJson, jsonLocation);
