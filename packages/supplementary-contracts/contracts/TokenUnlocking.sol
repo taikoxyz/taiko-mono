@@ -45,8 +45,6 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice The shared vault address, from which tko token deposits will be triggered by the
     /// depositToGrantee() function
     address public sharedVault;
-    /// @notice Mapping of recipient address to the next withdrawal nonce.
-    mapping(address recipient => uint256 withdrawalNonce) public withdrawalNonces;
 
     uint256[45] private __gap;
 
