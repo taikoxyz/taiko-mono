@@ -26,7 +26,9 @@ func (srv *Server) GetMostRecentHealthCheckByGuardianProverAddress(
 		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverAddress(c.Request().Context(), c.Request(), address)
+	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverAddress(
+		c.Request().Context(), c.Request(), address,
+	)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}

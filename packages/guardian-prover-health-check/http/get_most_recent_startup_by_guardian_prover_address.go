@@ -26,7 +26,9 @@ func (srv *Server) GetMostRecentStartupByGuardianProverAddress(
 		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	startup, err := srv.startupRepo.GetMostRecentByGuardianProverAddress(c.Request().Context(), address)
+	startup, err := srv.startupRepo.GetMostRecentByGuardianProverAddress(
+		c.Request().Context(), address,
+	)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}

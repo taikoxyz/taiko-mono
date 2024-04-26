@@ -27,12 +27,14 @@ func (srv *Server) GetNodeInfoByGuardianProverAddress(
 		return c.JSON(http.StatusBadRequest, errors.New("no address provided"))
 	}
 
-	startup, err := srv.startupRepo.GetMostRecentByGuardianProverAddress(c.Request().Context(), address)
+	startup, err := srv.startupRepo.GetMostRecentByGuardianProverAddress(
+		c.Request().Context(), address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverAddress(c.Request().Context(), c.Request(), address)
+	healthCheck, err := srv.healthCheckRepo.GetMostRecentByGuardianProverAddress(
+		c.Request().Context(), c.Request(), address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
