@@ -35,7 +35,6 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
-    "@openzeppelin/foundry-upgrades": "github:OpenZeppelin/openzeppelin-foundry-upgrades",
     "@openzeppelin/merkle-tree": "^1.0.6",
     "convert-csv-to-json": "^2.46.0",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",

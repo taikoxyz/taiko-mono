@@ -2,11 +2,10 @@
 pragma solidity 0.8.24;
 
 import { UtilsScript } from "./Utils.s.sol";
-import { Script, console } from "forge-std/Script.sol";
+import { Script, console } from "forge-std/src/Script.sol";
 import { MerkleMintersScript } from "./MerkleMinters.s.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { Upgrades } from "@openzeppelin/foundry-upgrades/Upgrades.sol";
-
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
 
 contract DeployScript is Script {
@@ -37,8 +36,12 @@ contract DeployScript is Script {
         string memory baseURI = utils.getIpfsBaseURI();
 
         // deploy token with empty root
-        address proxy = Upgrades.deployUUPSProxy(
-            "TaikoonToken.sol", abi.encodeCall(TaikoonToken.initialize, (baseURI, root))
+
+        address impl = address(new TaikoonToken());
+        address proxy = address(
+            new ERC1967Proxy(
+                impl, abi.encodeCall(TaikoonToken.initialize, (address(0), baseURI, root))
+            )
         );
 
         TaikoonToken token = TaikoonToken(proxy);

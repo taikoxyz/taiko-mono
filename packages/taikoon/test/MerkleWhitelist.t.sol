@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { Test, console } from "forge-std/Test.sol";
-import "forge-std/StdJson.sol";
+import { Test, console } from "forge-std/src/Test.sol";
+import "forge-std/src/StdJson.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { MerkleWhitelist } from "../contracts/MerkleWhitelist.sol";
-import { Upgrades } from "@openzeppelin/foundry-upgrades/Upgrades.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { MerkleWhitelistTestWrapper } from "./MerkleWhitelistTestWrapper.sol";
+/// @custom:oz-upgrades-from MerkleWhitelist
+contract MerkleWhitelistForTest is MerkleWhitelist {
+    function updateRoot(bytes32 _root) external {
+        _updateRoot(_root);
+    }
+
+    function consumeMint(bytes32[] calldata _proof, uint256 _freeMints) external {
+        _consumeMint(_proof, _freeMints);
+    }
+}
 
 contract MerkleWhitelistTest is Test {
     Merkle tree;
@@ -18,7 +27,7 @@ contract MerkleWhitelistTest is Test {
 
     address public owner = vm.addr(0x5);
 
-    MerkleWhitelistTestWrapper whitelist;
+    MerkleWhitelistForTest whitelist;
 
     uint256 constant MAX_MINTS = 5;
 
@@ -40,13 +49,12 @@ contract MerkleWhitelistTest is Test {
 
         bytes32 root = tree.getRoot(leaves);
 
-        address transparentProxy = Upgrades.deployTransparentProxy(
-            "MerkleWhitelist.sol", owner, abi.encodeCall(MerkleWhitelist.initialize, (root))
+        address impl = address(new MerkleWhitelistForTest());
+        address proxy = address(
+            new ERC1967Proxy(impl, abi.encodeCall(MerkleWhitelist.initialize, (address(0), root)))
         );
 
-        Upgrades.upgradeProxy(transparentProxy, "MerkleWhitelistTestWrapper.sol", "");
-
-        whitelist = MerkleWhitelistTestWrapper(transparentProxy);
+        whitelist = MerkleWhitelistForTest(proxy);
 
         vm.stopBroadcast();
     }
