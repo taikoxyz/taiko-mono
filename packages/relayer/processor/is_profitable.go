@@ -5,7 +5,12 @@ import (
 
 	"log/slog"
 
+	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+)
+
+var (
+	errImpossible = errors.New("impossible to process")
 )
 
 // isProfitable determines whether a message is profitable or not. It should
@@ -26,13 +31,13 @@ func (p *Processor) isProfitable(
 			"gasLimit", gasLimit,
 		)
 
-		return shouldProcess, nil
+		return shouldProcess, errImpossible
 	}
 
 	// if processing fee is higher than baseFee * gasLimit,
 	// we should process.
-	res := (destChainBaseFee + gasTipCap) * uint64(gasLimit)
-	if fee > res {
+	estimatedOnchainFee := (destChainBaseFee + gasTipCap) * uint64(gasLimit)
+	if fee > estimatedOnchainFee {
 		shouldProcess = true
 	}
 
@@ -41,7 +46,7 @@ func (p *Processor) isProfitable(
 		"destChainBaseFee", destChainBaseFee,
 		"gasLimit", gasLimit,
 		"shouldProcess", shouldProcess,
-		"result", res,
+		"estimatedOnchainFee", estimatedOnchainFee,
 	)
 
 	if !shouldProcess {
