@@ -143,6 +143,7 @@ contract AutomataDcapV3Attestation is IAttestation, Initializable {
         return status == TCBInfoStruct.TCBStatus.OK
             || status == TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED
             || status == TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED
+            || status == TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE
             || status == TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
     }
 
