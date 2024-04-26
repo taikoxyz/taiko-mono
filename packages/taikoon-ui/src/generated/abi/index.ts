@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
  * -
  */
 export const taikoonTokenAbi = [
@@ -540,16 +540,16 @@ export const taikoonTokenAbi = [
 ] as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
  * -
  */
 export const taikoonTokenAddress = {
-  17000: '0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83',
-  31337: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+  17000: '0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0',
+  31337: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
 } as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x816AF2D81a00fB7D4677aD8ffe232B36504A9c83)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
  * -
  */
 export const taikoonTokenConfig = {

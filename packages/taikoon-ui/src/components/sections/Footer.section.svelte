@@ -4,6 +4,7 @@
   import { FooterButtonLinks, FooterTextLinks } from '$content/footer';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
+
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 </script>
 

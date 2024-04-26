@@ -256,6 +256,7 @@ export default {
                 'icon-primary': 'var(--icon-primary)',
                 'icon-secondary': 'var(--icon-secondary)',
 
+                'background-body': 'var(--background-body)',
 
                 'border-divider-default': 'var(--border-divider-default)',
 
@@ -358,6 +359,10 @@ export default {
 
                     '--icon-primary': '#CACBCE', // grey-100
                     '--icon-secondary': '#2B303B', // grey-700
+
+                    // custom colors
+
+                    '--background-body': '#0b101b',
                     // ================================ //
 
                     primary: '#C8047D', // pink-500,
@@ -468,6 +473,10 @@ export default {
 
                     '--icon-primary': '#5D636F', // grey-500
                     '--icon-secondary': '#e3e3e3', // grey-50
+
+                    // custom colors
+
+                    '--background-body': '#f8f8f8',
                     // ================================ //
 
                     primary: '#C8047D', // pink-500,
