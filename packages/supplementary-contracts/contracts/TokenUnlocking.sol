@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -77,6 +78,12 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     error INVALID_GRANTEE();
     error INVALID_PARAM();
     error WRONG_GRANTEE_RECIPIENT();
+    error PERMISSION_DENIED();
+
+    modifier onlyRecipient() {
+        if (msg.sender != grantRecipient) revert PERMISSION_DENIED();
+        _;
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
@@ -160,6 +167,10 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         IERC20(taikoToken).safeTransfer(recipient, amountToWithdraw);
 
         emit Withdrawn(recipient, amountToWithdraw, amountWithdrawn);
+    }
+
+    function deletage(address delegatee) external nonReentrant onlyRecipient {
+        ERC20VotesUpgradeable(taikoToken).delegate(delegatee);
     }
 
     /// @notice Returns the summary of the grant for a given recipient. Does not reverts if this
