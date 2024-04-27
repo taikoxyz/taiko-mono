@@ -205,7 +205,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 			return err
 		}
 
-		// only support one hop rn, add in array configs
+		// only support one hop right now, add in array configs
 		// to support more.
 		hops = append(hops, hop{
 			caller:               hopRpcClient,
