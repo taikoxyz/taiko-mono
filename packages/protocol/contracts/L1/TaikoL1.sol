@@ -43,19 +43,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _pause true to pause the contract by default.
+    /// @param _toPause true to pause the contract by default.
     function init(
         address _owner,
         address _addressManager,
         bytes32 _genesisBlockHash,
-        bool _pause
+        bool _toPause
     )
         external
         initializer
     {
         __Essential_init(_owner, _addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
-        if (_pause) pause();
+        if (_toPause) _pause();
     }
 
     function init2() external onlyOwner reinitializer(2) {
