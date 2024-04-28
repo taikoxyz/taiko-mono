@@ -105,7 +105,6 @@ gas_excess_issued = MAX_EXP_INPUT * ADJUSTMENT_FACTOR // SCALE
 print("spot basefee             [fix point]2 : ", calc_spot_basefee())
 
 
-exit()
 gas_excess_issued = bkup
 # one L2 block per L1 block vs multiple L2 blocks per L1 block
 x1 = []
