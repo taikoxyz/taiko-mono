@@ -1,4 +1,4 @@
-name: guardians-ui-production
+name: Guardians UI Production
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

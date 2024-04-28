@@ -1,4 +1,4 @@
-name: blob-storage-preview
+name: Blobstorage Preview
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

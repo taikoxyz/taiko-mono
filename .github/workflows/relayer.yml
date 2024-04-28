@@ -1,4 +1,4 @@
-name: relayer
+name: Relayer
 
 on:
   push:

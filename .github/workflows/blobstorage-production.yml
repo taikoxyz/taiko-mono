@@ -1,4 +1,4 @@
-name: blobstorage-production
+name: Blobstorage Production
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

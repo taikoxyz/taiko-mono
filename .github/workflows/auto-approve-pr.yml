@@ -1,4 +1,4 @@
-name: auto-approve-pr
+name: Auto Approve PR
 
 on: pull_request_target
 

@@ -1,4 +1,4 @@
-name: bridge-ui-preview
+name: Bridge UI Preview
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

@@ -1,4 +1,4 @@
-name: eventindexer
+name: Eventindexer
 
 on:
   push:

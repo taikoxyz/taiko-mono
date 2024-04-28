@@ -1,4 +1,4 @@
-name: fork-diff-production
+name: Fork Diff Production
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

@@ -1,4 +1,4 @@
-name: guardians-ui-preview
+name: Guardians UI Preview
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
