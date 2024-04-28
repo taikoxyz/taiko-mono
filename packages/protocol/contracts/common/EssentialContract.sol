@@ -70,7 +70,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     /// @notice Pauses the contract.
-    function pause() public virtual whenNotPaused onlyOwner {
+    function pause() public virtual onlyOwner {
         _pause();
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
@@ -78,7 +78,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     /// @notice Unpauses the contract.
-    function unpause() public virtual whenPaused onlyOwner {
+    function unpause() public virtual onlyOwner {
         _unpause();
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
@@ -105,12 +105,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         __paused = _FALSE;
     }
 
-    function _pause() internal {
+    function _pause() internal whenNotPaused {
         __paused = _TRUE;
         emit Paused(msg.sender);
     }
 
-    function _unpause() internal {
+    function _unpause() internal whenPaused {
         __paused = _FALSE;
         lastUnpausedAt = uint64(block.timestamp);
         emit Unpaused(msg.sender);
