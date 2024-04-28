@@ -1,4 +1,4 @@
-name: Bridge UI
+name: bridge-ui
 
 on:
   push:

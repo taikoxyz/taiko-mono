@@ -1,4 +1,4 @@
-name: Slither Analysis
+name: slither
 
 on:
   workflow_dispatch:

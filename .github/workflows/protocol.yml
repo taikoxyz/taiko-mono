@@ -1,4 +1,4 @@
-name: Protocol
+name: protocol
 
 on:
   push:

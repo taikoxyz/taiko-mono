@@ -1,4 +1,4 @@
-name: Validate PR Title
+name: validate-pr-title
 
 on:
   pull_request_target:

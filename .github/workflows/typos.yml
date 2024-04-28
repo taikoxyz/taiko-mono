@@ -1,4 +1,4 @@
-name: Check for typos
+name: typos
 
 on: [pull_request]
 

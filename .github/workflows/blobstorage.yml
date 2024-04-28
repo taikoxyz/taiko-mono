@@ -1,4 +1,4 @@
-name: Blobstorage
+name: blobstorage
 
 on:
   push:
