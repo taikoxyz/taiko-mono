@@ -57,8 +57,7 @@ type Indexer struct {
 	sgxVerifier    *sgxverifier.SgxVerifier
 	swaps          []*swap.Swap
 
-	indexNfts bool
-	layer     string
+	layer string
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -226,7 +225,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
-	i.indexNfts = cfg.IndexNFTs
 	i.layer = cfg.Layer
 
 	return nil

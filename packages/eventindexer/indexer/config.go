@@ -38,7 +38,6 @@ type Config struct {
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
 	SyncMode                SyncMode
-	IndexNFTs               bool
 	Layer                   string
 	OpenDBFunc              func() (DB, error)
 }
@@ -74,7 +73,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
 		RPCUrl:                  c.String(flags.IndexerRPCUrl.Name),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
-		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),
 		Layer:                   c.String(flags.Layer.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{

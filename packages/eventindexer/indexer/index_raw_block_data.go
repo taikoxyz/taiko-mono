@@ -83,15 +83,13 @@ func (i *Indexer) indexRawBlockData(
 	}
 
 	// index NFT transfers
-	if i.indexNfts {
-		wg.Go(func() error {
-			if err := i.indexNFTTransfers(ctx, chainID, logs); err != nil {
-				return errors.Wrap(err, "svc.indexNFTTransfers")
-			}
+	wg.Go(func() error {
+		if err := i.indexNFTTransfers(ctx, chainID, logs); err != nil {
+			return errors.Wrap(err, "svc.indexNFTTransfers")
+		}
 
-			return nil
-		})
-	}
+		return nil
+	})
 
 	if err := wg.Wait(); err != nil {
 		if errors.Is(err, context.Canceled) {

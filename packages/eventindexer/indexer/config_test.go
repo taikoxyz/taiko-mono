@@ -60,7 +60,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(100), c.BlockBatchSize)
 		assert.Equal(t, uint64(30), c.SubscriptionBackoff)
 		assert.Equal(t, SyncMode(syncMode), c.SyncMode)
-		assert.Equal(t, true, c.IndexNFTs)
 		assert.Equal(t, layer, c.Layer)
 		assert.Equal(t, rpcUrl, c.RPCUrl)
 		assert.NotNil(t, c.OpenDBFunc)
@@ -88,7 +87,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.BlockBatchSize.Name, blockBatchSize,
 		"--" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
 		"--" + flags.SyncMode.Name, syncMode,
-		"--" + flags.IndexNFTs.Name,
 		"--" + flags.Layer.Name, layer,
 		"--" + flags.IndexerRPCUrl.Name, rpcUrl,
 	}))

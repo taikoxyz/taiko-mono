@@ -81,13 +81,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SYNC_MODE"},
 	}
-	IndexNFTs = &cli.BoolFlag{
-		Name:     "indexNfts",
-		Usage:    "Whether to index nft transfer events or not",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"INDEX_NFTS"},
-	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -102,5 +95,4 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
-	IndexNFTs,
 })
