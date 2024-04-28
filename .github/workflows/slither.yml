@@ -10,7 +10,7 @@ on:
       - main
 
 jobs:
-  analyze:
+  analyze-slither:
     runs-on: [taiko-runner]
     steps:
       - uses: actions/checkout@v4

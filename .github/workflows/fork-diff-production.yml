@@ -9,7 +9,7 @@ on:
       - "fork-diff-*"
 
 jobs:
-  Deploy-Production:
+  deploy-fork-diff-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

@@ -8,7 +8,7 @@ on:
       - "bridge-ui-*"
 
 jobs:
-  Deploy-Production:
+  deploy-bridge-ui-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

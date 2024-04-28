@@ -12,7 +12,7 @@ on:
       - "packages/fork-diff/**"
 
 jobs:
-  Deploy-Preview:
+  deploy-fork-diff-preview:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

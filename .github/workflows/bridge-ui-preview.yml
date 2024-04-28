@@ -11,7 +11,7 @@ on:
       - "packages/bridge-ui/**"
 
 jobs:
-  Deploy-Preview:
+  deploy-bridge-ui-preview:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

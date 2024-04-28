@@ -8,7 +8,7 @@ on:
       - "blobstorage-*"
 
 jobs:
-  Deploy-Production:
+  deploy-blobstorage-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

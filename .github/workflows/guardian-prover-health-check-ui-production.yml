@@ -8,7 +8,7 @@ on:
       - "guardian-prover-health-check-ui-*"
 
 jobs:
-  Deploy-Production:
+  deploy-guardian-ui-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

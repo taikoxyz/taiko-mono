@@ -11,7 +11,7 @@ on:
       - "packages/guardian-prover-health-check-ui/**"
 
 jobs:
-  Deploy-Preview:
+  deploy-guardian-ui-preview:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
