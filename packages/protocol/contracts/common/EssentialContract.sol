@@ -70,7 +70,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     /// @notice Pauses the contract.
-    function pause() external virtual {
+    function pause() public virtual {
         _pause();
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
@@ -78,7 +78,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     /// @notice Unpauses the contract.
-    function unpause() external virtual {
+    function unpause() public virtual {
         _unpause();
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
