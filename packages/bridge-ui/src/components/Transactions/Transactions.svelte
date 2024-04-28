@@ -155,7 +155,7 @@
   <Card title={$t('transactions.title')} text={$t('transactions.description')}>
     <div class="space-y-[35px]">
       {#if isDesktopOrLarger}
-        <div class="my-[30px] f-between-center max-h-[36px]">
+        <div class="my-[30px] f-between-center max-h-[36px] gap-2">
           <ChainSelector
             type={ChainSelectorType.SMALL}
             direction={ChainSelectorDirection.SOURCE}

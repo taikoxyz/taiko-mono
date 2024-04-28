@@ -53,7 +53,7 @@
       aria-expanded={modalOpen}
       class={buttonClasses}
       on:click={handlePillClick}>
-      <div class="f-items-center space-x-2 w-full">
+      <div class="f-items-center space-x-2 w-full whitespace-nowrap">
         {#if !value}
           <span>{$t('chain_selector.placeholder')}</span>
         {/if}
