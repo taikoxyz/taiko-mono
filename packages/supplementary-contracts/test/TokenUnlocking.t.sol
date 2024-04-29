@@ -6,12 +6,31 @@ import "forge-std/src/console2.sol";
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "../contracts/TokenUnlocking.sol";
 
-contract MyERC20 is ERC20 {
-    constructor(address owner) ERC20("Taiko Token", "TKO") {
+contract MyERC20 is ERC20, ERC20Votes {
+    constructor(address owner) ERC20("Taiko Token", "TKO") ERC20Permit("Taiko Token") {
         _mint(owner, 1_000_000_000 ether);
+    }
+
+    function _mint(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._mint(account, amount);
+    }
+
+    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._burn(account, amount);
+    }
+
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    )
+        internal
+        override(ERC20, ERC20Votes)
+    {
+        super._afterTokenTransfer(from, to, amount);
     }
 }
 
@@ -22,7 +41,7 @@ contract TestTokenUnlocking is Test {
     uint64 private TGE = 1_000_000;
 
     TokenUnlocking private target;
-    ERC20 tko = new MyERC20(Alice);
+    MyERC20 tko = new MyERC20(Alice);
 
     function setUp() public {
         vm.warp(TGE);
@@ -202,6 +221,20 @@ contract TestTokenUnlocking is Test {
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 1000 ether);
         assertEq(tko.balanceOf(address(target)), 0 ether);
+    }
+
+    function test_delegate() public {
+        vm.prank(Alice);
+        target.vest(100 ether);
+        assertEq(target.amountVested(), 100 ether);
+        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(tko.balanceOf(address(target)), 100 ether);
+
+        vm.prank(Bob);
+        target.delegate(Cindy);
+
+        assertEq(tko.delegates(address(target)), Cindy);
     }
 
     function _deployProxy(address impl, bytes memory data) private returns (address proxy) {

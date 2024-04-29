@@ -103,7 +103,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
-    function deletage(address _delegatee) external onlyRecipient nonReentrant {
+    function delegate(address _delegatee) external onlyRecipient nonReentrant {
         ERC20VotesUpgradeable(taikoToken).delegate(_delegatee);
     }
 
