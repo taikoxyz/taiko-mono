@@ -27,7 +27,7 @@
     "@sveltejs/kit": "^1.30.4",
     "@types/debug": "^4.1.12",
     "@types/object-hash": "^3.0.6",
-    "@typescript-eslint/eslint-plugin": "^7.4.0",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
     "@typescript-eslint/parser": "^7.7.0",
     "@vitest/coverage-v8": "^1.4.0",
     "@wagmi/cli": "^2.1.4",
