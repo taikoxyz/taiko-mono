@@ -84,10 +84,13 @@
   <button class={connectButtonClasses} on:click={connectWallet}>
     {#if web3modalOpen}
       <Spinner size="sm" />
-      Connecting
+      {#if windowSize !== 'md'}
+        Connecting
+      {/if}
     {:else}
       <CircleUserIcon size="16" />
-      Connect Wallet
+      {#if windowSize !== 'md'}
+        Connect Wallet{/if}
     {/if}
   </button>
 {/if}
