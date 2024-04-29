@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { Script, console } from "forge-std/Script.sol";
-import "forge-std/StdJson.sol";
+import { Script, console } from "forge-std/src/Script.sol";
+import "forge-std/src/StdJson.sol";
 
 contract UtilsScript is Script {
     using stdJson for string;
