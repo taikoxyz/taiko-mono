@@ -59,7 +59,8 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
             deployProxy({
                 impl: automateDcapV3AttestationImpl,
                 data: abi.encodeCall(
-                    AutomataDcapV3Attestation.init, (address(sigVerifyLib), address(pemCertChainLib))
+                    AutomataDcapV3Attestation.init,
+                    (admin, address(sigVerifyLib), address(pemCertChainLib))
                     )
             })
         );
