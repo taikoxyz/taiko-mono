@@ -128,6 +128,8 @@ type Processor struct {
 	cfg *Config
 
 	txmgr txmgr.TxManager
+
+	maxMessageRetries uint64
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -348,6 +350,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	p.targetTxHash = cfg.TargetTxHash
+
+	p.maxMessageRetries = cfg.MaxMessageRetries
 
 	return nil
 }

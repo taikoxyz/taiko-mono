@@ -29,10 +29,6 @@ var (
 	errUnprocessable = errors.New("message is unprocessable")
 )
 
-var (
-	maxRetries uint64 = 10
-)
-
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
 // get it's on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
@@ -65,7 +61,7 @@ func (p *Processor) processMessage(
 	ctx context.Context,
 	msg queue.Message,
 ) (bool, error) {
-	if msg.TimesRetried >= maxRetries {
+	if msg.TimesRetried >= p.maxMessageRetries {
 		return false, nil
 	}
 
