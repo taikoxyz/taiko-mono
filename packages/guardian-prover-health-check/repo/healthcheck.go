@@ -46,32 +46,32 @@ func (r *HealthCheckRepository) Get(
 	return page, nil
 }
 
-func (r *HealthCheckRepository) GetByGuardianProverID(
+func (r *HealthCheckRepository) GetByGuardianProverAddress(
 	ctx context.Context,
 	req *http.Request,
-	id int,
+	address string,
 ) (paginate.Page, error) {
 	pg := paginate.New(&paginate.Config{
 		DefaultSize: 100,
 	})
 
 	reqCtx := pg.With(r.startQuery().Order("created_at desc").
-		Where("guardian_prover_id = ?", id))
+		Where("recovered_address = ?", address))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
 
 	return page, nil
 }
 
-func (r *HealthCheckRepository) GetMostRecentByGuardianProverID(
+func (r *HealthCheckRepository) GetMostRecentByGuardianProverAddress(
 	ctx context.Context,
 	req *http.Request,
-	id int,
+	address string,
 ) (*guardianproverhealthcheck.HealthCheck, error) {
 	hc := &guardianproverhealthcheck.HealthCheck{}
 
 	if err := r.startQuery().Order("created_at desc").
-		Where("guardian_prover_id = ?", id).Limit(1).
+		Where("recovered_address = ?", address).Limit(1).
 		Scan(hc).Error; err != nil {
 		return nil, err
 	}
@@ -96,15 +96,18 @@ func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCh
 	return nil
 }
 
-func (r *HealthCheckRepository) GetUptimeByGuardianProverID(ctx context.Context, id int) (float64, int, error) {
+func (r *HealthCheckRepository) GetUptimeByGuardianProverAddress(
+	ctx context.Context,
+	address string,
+) (float64, int, error) {
 	var count int64
 
 	var query string = `SELECT COUNT(*) 
 	FROM health_checks 
-	WHERE guardian_prover_id = ? AND
+	WHERE recovered_address = ? AND
 	created_at > NOW() - INTERVAL 1 DAY`
 
-	if err := r.db.GormDB().Raw(query, id).Scan(&count).Error; err != nil {
+	if err := r.db.GormDB().Raw(query, address).Scan(&count).Error; err != nil {
 		return 0, 0, err
 	}
 

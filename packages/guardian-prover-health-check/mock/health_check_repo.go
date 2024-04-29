@@ -17,20 +17,20 @@ func NewHealthCheckRepository() *HealthCheckRepo {
 		healthChecks: make([]*guardianproverhealthcheck.HealthCheck, 0),
 	}
 }
-func (h *HealthCheckRepo) GetByGuardianProverID(
+func (h *HealthCheckRepo) GetByGuardianProverAddress(
 	ctx context.Context,
 	req *http.Request,
-	id int,
+	address string,
 ) (paginate.Page, error) {
 	return paginate.Page{
 		Items: h.healthChecks,
 	}, nil
 }
 
-func (r *HealthCheckRepo) GetMostRecentByGuardianProverID(
+func (r *HealthCheckRepo) GetMostRecentByGuardianProverAddress(
 	ctx context.Context,
 	req *http.Request,
-	id int,
+	address string,
 ) (*guardianproverhealthcheck.HealthCheck, error) {
 	return &guardianproverhealthcheck.HealthCheck{}, nil
 }
@@ -59,9 +59,9 @@ func (h *HealthCheckRepo) Save(opts guardianproverhealthcheck.SaveHealthCheckOpt
 	return nil
 }
 
-func (h *HealthCheckRepo) GetUptimeByGuardianProverID(
+func (h *HealthCheckRepo) GetUptimeByGuardianProverAddress(
 	ctx context.Context,
-	id int,
+	address string,
 ) (float64, int, error) {
 	return 25.5, 10, nil
 }
