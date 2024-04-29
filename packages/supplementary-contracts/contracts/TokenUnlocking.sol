@@ -41,7 +41,6 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
     error PERMISSION_DENIED();
-    error TOO_LATE();
 
     modifier onlyRecipient() {
         if (msg.sender != recipient) revert PERMISSION_DENIED();
@@ -82,7 +81,6 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @param _amount The newly vested amount
     function vest(uint128 _amount) external onlyOwner nonReentrant {
         if (_amount == 0) revert INVALID_PARAM();
-        if (block.timestamp >= tgeTimestamp + FOUR_YEARS) revert TOO_LATE();
 
         amountVested += _amount;
         emit TokenVested(_amount);

@@ -204,13 +204,6 @@ contract TestTokenUnlocking is Test {
         assertEq(tko.balanceOf(address(target)), 0 ether);
     }
 
-    function test_vesting_after_4_years() public {
-        vm.warp(TGE + target.ONE_YEAR() * 4);
-        vm.prank(Alice);
-        vm.expectRevert(TokenUnlocking.TOO_LATE.selector);
-        target.vest(400 ether);
-    }
-
     function _deployProxy(address impl, bytes memory data) private returns (address proxy) {
         proxy = address(new ERC1967Proxy(impl, data));
         console2.log("  proxy      :", proxy);
