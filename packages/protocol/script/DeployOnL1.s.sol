@@ -37,11 +37,7 @@ contract DeployOnL1 is DeployCapability {
     uint256 public constant NUM_MIN_MAJORITY_GUARDIANS = 7;
     uint256 public constant NUM_MIN_MINORITY_GUARDIANS = 2;
 
-    address public constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd; // council.taiko.eth
     address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
-
-    address securityCouncil =
-        block.chainid == 1 ? MAINNET_SECURITY_COUNCIL : vm.envAddress("SECURITY_COUNCIL");
 
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
