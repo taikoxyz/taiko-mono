@@ -30,7 +30,12 @@ export const addressClasses = classNames(
   'border border-divider-border',
 );
 
-export const chainIconClasses = classNames('w-[24px]', 'ml-1');
+export const chainIconClasses = classNames(
+  'w-[24px]',
+  'ml-1',
+  //'md:ml-[0]',
+  'md:mx-2',
+);
 
 export const connectButtonClasses = classNames(
   'w-max',

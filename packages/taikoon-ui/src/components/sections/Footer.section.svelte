@@ -57,13 +57,15 @@
     'items-center',
     'justify-center',
     'bg-background-neutral',
-    'md:p-5',
+    'lg:p-5',
     'p-3',
     'gap-3',
     'rounded-xl',
     'text-content-primary',
     'font-medium',
-    'text-2xl',
+    'lg:text-2xl',
+    'md:text-base',
+
     'font-clash-grotesk',
     'border',
     'transition-all',
@@ -194,7 +196,7 @@
       {#each socialLinks as link}
         {@const Icon = Icons[link.icon]}
         <a href={link.url} target="_blank" class={socialLinkClasses}>
-          <Icon size="28" class="text-content-secondary" />
+          <Icon size={windowSize === 'md' ? '16' : '24'} class="text-content-secondary" />
           {#if windowSize !== 'sm'}
             {link.name}
           {/if}

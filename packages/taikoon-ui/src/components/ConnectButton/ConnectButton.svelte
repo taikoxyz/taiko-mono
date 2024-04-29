@@ -4,6 +4,7 @@
   import { formatEther } from 'viem';
   import { zeroAddress } from 'viem';
 
+  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { Spinner } from '$components/core/Spinner';
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';
@@ -15,6 +16,8 @@
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
   import { config } from '$wagmi-config';
+
+  let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
   import type { IAddress } from '../../types';
   import {
@@ -65,16 +68,17 @@
       alt="chain icon"
       class={chainIconClasses}
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
-    <span class={buttonContentClasses}
-      >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
-      <span class={addressClasses}>
-        {#await shortenAddress(accountAddress, 4, 6)}
-          ...
-        {:then displayAddress}
-          {displayAddress}
-        {/await}
-      </span>
-    </span>
+    {#if windowSize !== 'md'}
+      <span class={buttonContentClasses}
+        >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
+        <span class={addressClasses}>
+          {#await shortenAddress(accountAddress, 4, 6)}
+            ...
+          {:then displayAddress}
+            {displayAddress}
+          {/await}
+        </span>
+      </span>{/if}
   </button>
 {:else}
   <button class={connectButtonClasses} on:click={connectWallet}>
@@ -87,3 +91,5 @@
     {/if}
   </button>
 {/if}
+
+<ResponsiveController bind:windowSize />
