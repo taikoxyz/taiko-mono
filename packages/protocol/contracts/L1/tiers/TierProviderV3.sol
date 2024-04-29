@@ -5,10 +5,10 @@ import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
 import "./ITierProvider.sol";
 
-/// @title TierProviderV2
+/// @title TierProviderV3
 /// @dev Labeled in AddressResolver as "tier_provider"
 /// @custom:security-contact security@taiko.xyz
-contract TierProviderV2 is EssentialContract, ITierProvider {
+contract TierProviderV3 is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract.
@@ -27,6 +27,17 @@ contract TierProviderV2 is EssentialContract, ITierProvider {
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 60, // 1 hours
                 maxBlocksToVerifyPerProof: 8
+            });
+        }
+
+        if (_tierId == LibTiers.TIER_SGX_ZKVM) {
+            return ITierProvider.Tier({
+                verifierName: LibStrings.B_TIER_SGX_ZKVM,
+                validityBond: 500 ether, // TKO
+                contestBond: 3280 ether, // =500TKO * 6.5625
+                cooldownWindow: 1440, //24 hours
+                provingWindow: 240, // 4 hours
+                maxBlocksToVerifyPerProof: 4
             });
         }
 
@@ -57,14 +68,17 @@ contract TierProviderV2 is EssentialContract, ITierProvider {
 
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](3);
+        tiers_ = new uint16[](4);
         tiers_[0] = LibTiers.TIER_SGX;
-        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
+        tiers_[1] = LibTiers.TIER_SGX_ZKVM;
+        tiers_[2] = LibTiers.TIER_GUARDIAN_MINORITY;
+        tiers_[3] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(uint256 _rand) public pure override returns (uint16) {
-        return LibTiers.TIER_SGX;
+        // 0.1% require SGX + ZKVM; all others require SGX
+        if (_rand % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
+        else return LibTiers.TIER_SGX;
     }
 }
