@@ -329,8 +329,7 @@ contract DeployOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: automateDcapV3AttestationImpl,
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (timelock, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
                 ),
             registerTo: rollupAddressManager
         });
