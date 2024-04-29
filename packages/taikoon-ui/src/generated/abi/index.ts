@@ -455,9 +455,7 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -543,7 +541,7 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const
+] as const;
 
 /**
  * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x30fD8613ef9a00E6432954B884C723E2CC8f18bD)
@@ -552,7 +550,7 @@ export const taikoonTokenAbi = [
 export const taikoonTokenAddress = {
   17000: '0x30fD8613ef9a00E6432954B884C723E2CC8f18bD',
   31337: '0x3Aa5ebB10DC797CAC828524e59A333d0A371443c',
-} as const
+} as const;
 
 /**
  * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x30fD8613ef9a00E6432954B884C723E2CC8f18bD)
@@ -561,4 +559,4 @@ export const taikoonTokenAddress = {
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
   abi: taikoonTokenAbi,
-} as const
+} as const;

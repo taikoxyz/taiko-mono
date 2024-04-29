@@ -15,16 +15,22 @@
 
   const wrapperClasses = classNames(
     'w-full h-full',
-      'flex flex-col',
-      'items-start',
-      'justify-center',
-      'gap-10',
-      'md:text-[1.75rem]',
-      'text-xl',
+    'flex flex-col',
+    'items-start',
+    'justify-center',
+    'gap-10',
+    'md:text-[1.75rem]',
+    'text-xl',
   );
 
   const collapseWrapperClasses = classNames(
-    'w-full', 'flex flex-col', 'items-center', 'justify-center', 'overflow-hidden', 'gap-4')
+    'w-full',
+    'flex flex-col',
+    'items-center',
+    'justify-center',
+    'overflow-hidden',
+    'gap-4',
+  );
 
   const collapseItemClasses = classNames(
     'w-full',

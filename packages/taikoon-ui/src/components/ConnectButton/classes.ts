@@ -33,14 +33,14 @@ export const addressClasses = classNames(
 export const chainIconClasses = classNames('w-[24px]', 'ml-1');
 
 export const connectButtonClasses = classNames(
-    'w-max',
-    'h-[44px]',
-    'bg-primary',
-    'rounded-full',
-    'flex flex-row',
-    'justify-center',
-    'items-center',
-    'px-4',
-    'gap-4',
-    'font-medium',
-  )
+  'w-max',
+  'h-[44px]',
+  'bg-primary',
+  'rounded-full',
+  'flex flex-row',
+  'justify-center',
+  'items-center',
+  'px-4',
+  'gap-4',
+  'font-medium',
+);

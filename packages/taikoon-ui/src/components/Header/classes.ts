@@ -1,18 +1,16 @@
 import { classNames } from '$lib/util/classNames';
 export const baseHeaderClasses = classNames(
   'md:px-10',
-    'md:py-10',
-    'h-16',
-    'flex flex-row',
-    'justify-between',
-    'items-center',
-    'gap-4',
-    'relative',
-    'z-50',
-    'px-4',
+  'md:py-10',
+  'h-16',
+  'flex flex-row',
+  'justify-between',
+  'items-center',
+  'gap-4',
+  'relative',
+  'z-50',
+  'px-4',
 );
-
-export const buttonClasses = classNames('text-lg', 'w-min', 'lg:w-[200px]');
 
 export const taikoonsIconClasses = classNames('h-full');
 
@@ -33,7 +31,14 @@ export const mobileMenuButtonClasses = classNames(
   'flex justify-center items-center',
 );
 
-export const menuButtonsWrapperClasses = classNames('w-full', 'justify-center', 'items-center', 'gap-4', 'flex', 'flex-row')
+export const menuButtonsWrapperClasses = classNames(
+  'w-full',
+  'justify-center',
+  'items-center',
+  'gap-4',
+  'flex',
+  'flex-row',
+);
 
 export const wrapperClasses = classNames('w-full', 'z-0', 'fixed', 'top-0');
 

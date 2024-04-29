@@ -17,9 +17,13 @@
   import { config } from '$wagmi-config';
 
   import type { IAddress } from '../../types';
-  import { addressClasses, buttonContentClasses,
+  import {
+    addressClasses,
+    buttonContentClasses,
+    chainIconClasses,
     connectButtonClasses,
-    chainIconClasses, connectedButtonClasses } from './classes';
+    connectedButtonClasses,
+  } from './classes';
   export let connected = false;
 
   let web3modalOpen = false;
@@ -51,7 +55,6 @@
     balance = await getBalance(account.address);
   });
 
-
   import { Icons } from '$components/core/Icons';
   const { CircleUserRegular: CircleUserIcon } = Icons;
 </script>
@@ -74,9 +77,7 @@
     </span>
   </button>
 {:else}
-  <button
-    class={connectButtonClasses}
-    on:click={connectWallet}>
+  <button class={connectButtonClasses} on:click={connectWallet}>
     {#if web3modalOpen}
       <Spinner size="sm" />
       Connecting

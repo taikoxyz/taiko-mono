@@ -15,15 +15,14 @@
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   import {
-    buttonClasses,
     baseHeaderClasses,
     menuButtonsWrapperClasses,
     mobileMenuButtonClasses,
+    navButtonClasses,
     rightSectionClasses,
     taikoonsIconClasses,
     themeButtonSeparatorClasses,
     wrapperClasses,
-    navButtonClasses,
   } from './classes';
   const { Menu: MenuIcon, XSolid: CloseMenuIcon } = Icons;
   $: address = zeroAddress;
@@ -36,7 +35,6 @@
     $pageScroll ? 'md:border-b-[1px] md:border-border-divider-default' : 'md:border-b-[1px] md:border-transparent',
     $$props.class,
   );
-
 
   $: taikoonsOptions = [
     {
@@ -59,8 +57,6 @@
   });
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
-
-
 </script>
 
 <MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
@@ -87,8 +83,7 @@
 
         <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
         {#if address !== zeroAddress}
-          <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}>
-            Your taikoons</a>
+          <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
         {/if}
       </div>
       <div class={rightSectionClasses}>
