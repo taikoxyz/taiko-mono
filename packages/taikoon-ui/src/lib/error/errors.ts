@@ -34,7 +34,6 @@ export class MintError extends Error {
   name = 'MintError';
 }
 
-
 export class WrongOwnerError extends Error {
   name = 'WrongOwnerError';
 }
