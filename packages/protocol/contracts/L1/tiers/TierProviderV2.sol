@@ -59,7 +59,6 @@ contract TierProviderV2 is EssentialContract, ITierProvider {
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](4);
         tiers_[0] = LibTiers.TIER_SGX;
-        tiers_[1] = LibTiers.TIER_SGX_ZKVM;
         tiers_[2] = LibTiers.TIER_GUARDIAN_MINORITY;
         tiers_[3] = LibTiers.TIER_GUARDIAN;
     }
