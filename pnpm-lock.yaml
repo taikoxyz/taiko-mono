@@ -417,9 +417,6 @@ importers:
       '@openzeppelin/contracts-upgradeable':
         specifier: 5.0.2
         version: 5.0.2(@openzeppelin/contracts@5.0.2)
-      '@openzeppelin/foundry-upgrades':
-        specifier: github:OpenZeppelin/openzeppelin-foundry-upgrades
-        version: github.com/OpenZeppelin/openzeppelin-foundry-upgrades/332bd3306242e09520df2685b2edb99ebd7f5d37
       '@openzeppelin/merkle-tree':
         specifier: ^1.0.6
         version: 1.0.6
@@ -6666,9 +6663,6 @@ packages:
     resolution: {integrity: sha512-GBryCiyl+taz5DPq0expxzfMVcrpKjWvEBSAqT1tPUSthnzOWnVF77XlUAYgFZqzPsEu9lQ1dHCdqZx7WWMCXA==}
     peerDependencies:
       '@web3modal/wallet': 4.1.1
-    peerDependenciesMeta:
-      '@web3modal/siwe':
-        optional: true
     dependencies:
       '@web3modal/common': 4.1.1
       '@web3modal/core': 4.1.1(react@18.2.0)
@@ -6709,15 +6703,6 @@ packages:
       '@wagmi/connectors': '>=4.0.0'
       '@wagmi/core': '>=2.0.0'
       viem: '>=2.0.0'
-    peerDependenciesMeta:
-      '@web3modal/siwe':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      vue:
-        optional: true
     dependencies:
       '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
@@ -16089,12 +16074,6 @@ packages:
   github.com/Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
     resolution: {tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
     name: solidity-stringutils
-    version: 0.0.0
-    dev: false
-
-  github.com/OpenZeppelin/openzeppelin-foundry-upgrades/332bd3306242e09520df2685b2edb99ebd7f5d37:
-    resolution: {tarball: https://codeload.github.com/OpenZeppelin/openzeppelin-foundry-upgrades/tar.gz/332bd3306242e09520df2685b2edb99ebd7f5d37}
-    name: openzeppelin-foundry-upgrades
     version: 0.0.0
     dev: false
 

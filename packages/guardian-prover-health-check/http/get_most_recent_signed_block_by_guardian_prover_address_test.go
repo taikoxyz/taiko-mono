@@ -12,22 +12,20 @@ import (
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
-func Test_GetHealthChecksByGuardianProverID(t *testing.T) {
+func Test_GetMostRecentSignedBlockByGuardianProverAddress(t *testing.T) {
 	srv := newTestServer("")
 
-	err := srv.healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
-		GuardianProverID: 1,
-		Alive:            true,
-		ExpectedAddress:  "0x123",
-		RecoveredAddress: "0x123",
-		SignedResponse:   "0x123",
-		LatestL1Block:    5,
-		LatestL2Block:    7,
-	})
+	for i := 0; i < 10; i++ {
+		err := srv.signedBlockRepo.Save(guardianproverhealthcheck.SaveSignedBlockOpts{
+			GuardianProverID: 1,
+			RecoveredAddress: "0x123",
+			BlockID:          uint64(i),
+			BlockHash:        "0x123",
+			Signature:        "0x123",
+		})
 
-	assert.Nil(t, err)
-
-	assert.Equal(t, nil, err)
+		assert.Nil(t, err)
+	}
 
 	tests := []struct {
 		name                  string
@@ -37,15 +35,15 @@ func Test_GetHealthChecksByGuardianProverID(t *testing.T) {
 	}{
 		{
 			"success",
-			"1",
+			"0x123",
 			http.StatusOK,
 			// nolint: lll
-			[]string{`[{"id":0,"guardianProverId":1,"alive":true,"expectedAddress":"0x123","recoveredAddress":"0x123","signedResponse":"0x123"}]`},
+			[]string{`{"guardianProverID":1,"blockID":9,"blockHash":"0x123","signature":"0x123","recoveredAddress":"0x123","createdAt":"0001-01-01T00:00:00Z"}`},
 		},
 		{
 			"success",
 			"9839483294",
-			http.StatusOK,
+			http.StatusInternalServerError,
 			[]string{``},
 		},
 	}
@@ -54,7 +52,7 @@ func Test_GetHealthChecksByGuardianProverID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := testutils.NewUnauthenticatedRequest(
 				echo.GET,
-				fmt.Sprintf("/healthchecks/%v", tt.id),
+				fmt.Sprintf("/signedBlock/%v", tt.id),
 				nil,
 			)
 

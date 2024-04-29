@@ -75,7 +75,7 @@
           "pcesvn": 13
         },
         "tcbDate": "2023-02-15T00:00:00Z",
-        "tcbStatus": "OutOfDate"
+        "tcbStatus": "OutOfDateConfigurationNeeded"
       },
       {
         "tcb": {
@@ -121,7 +121,7 @@
           "pcesvn": 13
         },
         "tcbDate": "2022-08-10T00:00:00Z",
-        "tcbStatus": "OutOfDate"
+        "tcbStatus": "OutOfDateConfigurationNeeded"
       },
       {
         "tcb": {
@@ -167,7 +167,7 @@
           "pcesvn": 11
         },
         "tcbDate": "2021-11-10T00:00:00Z",
-        "tcbStatus": "OutOfDate"
+        "tcbStatus": "OutOfDateConfigurationNeeded"
       },
       {
         "tcb": {
@@ -190,7 +190,7 @@
           "pcesvn": 10
         },
         "tcbDate": "2020-11-11T00:00:00Z",
-        "tcbStatus": "OutOfDate"
+        "tcbStatus": "OutOfDateConfigurationNeeded"
       },
       {
         "tcb": {
@@ -213,7 +213,7 @@
           "pcesvn": 5
         },
         "tcbDate": "2018-01-04T00:00:00Z",
-        "tcbStatus": "OutOfDate"
+        "tcbStatus": "OutOfDateConfigurationNeeded"
       }
     ]
   },
