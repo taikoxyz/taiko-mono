@@ -168,7 +168,6 @@ export class IpfsError extends Error {
 export class ClientError extends Error {
   name = 'ClientError';
 }
-
-export class NoDelaysForBridgeError extends Error {
-  name = 'NoDelaysForBridgeError';
+export class TransactionTimeoutError extends Error {
+  name = 'TransactionTimeoutError';
 }
