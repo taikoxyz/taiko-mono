@@ -54,11 +54,6 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
     uint256[39] __gap;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
     /// @param pemCertLibAddr Address of certificate library.
