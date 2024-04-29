@@ -1,9 +1,7 @@
 <script>
   const currentYear = new Date().getFullYear();
-  let classes = '';
-  export { classes as class };
 </script>
 
-<div class={classes}>
+<div class={$$props.class}>
   © {currentYear} Taiko Labs
 </div>

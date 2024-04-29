@@ -1,8 +1,5 @@
 <script lang="ts">
   import { classNames } from '$lib/util/classNames';
-
-  let classes = '';
-  export { classes as class };
 </script>
 
 <div
@@ -13,7 +10,7 @@
 
     'flex',
     'flex-col',
-    classes,
+    $$props.class,
   )}>
   <slot />
 </div>

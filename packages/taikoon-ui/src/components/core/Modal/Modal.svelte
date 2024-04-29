@@ -6,8 +6,6 @@
 
   export let canClose: boolean = true;
 
-  let classes = '';
-  export { classes as class };
   export let open: boolean = false;
 
   const backdropClasses = classNames(
@@ -23,7 +21,7 @@
     'flex',
     'items-center',
     'justify-center',
-    classes,
+    $$props.class,
   );
 
   const backdropId: string = `modal-${Date.now()}-backdrop`;

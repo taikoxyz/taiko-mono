@@ -11,9 +11,6 @@
 
   $: isDarkTheme = $theme === Theme.DARK;
 
-  let classes: string = '';
-  export { classes as class };
-
   export let size: 'full' | 'sm' | 'md' | 'lg' | 'xl' = 'full';
 
   let tokenURI = '';
@@ -32,7 +29,7 @@
     size === 'xl' ? 'w-96 h-96 rounded-3xl' : null,
     'overflow-hidden',
     'flex flex-col items-center justify-center',
-    classes,
+    $$props.class,
   );
 
   $: imageClasses = classNames(

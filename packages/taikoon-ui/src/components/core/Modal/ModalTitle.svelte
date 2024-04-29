@@ -1,7 +1,6 @@
 <script lang="ts">
   import { classNames } from '$lib/util/classNames';
-  let classes = '';
-  export { classes as class };
+
   const titleRowClasses = classNames(
     'flex',
     'w-full',
@@ -12,7 +11,7 @@
     'mt-16',
     'p-4',
     'relative',
-    classes,
+    $$props.class,
   );
 </script>
 

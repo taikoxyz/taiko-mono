@@ -7,12 +7,9 @@
   export let value = 'value';
   export let href = '#';
   export let loading = false;
-
-  let classes = '';
-  export { classes as class };
 </script>
 
-<div class={classNames('flex', 'flex-row', 'items-center', 'justify-between', 'w-full', classes)}>
+<div class={classNames('flex', 'flex-row', 'items-center', 'justify-between', 'w-full', $$props.class)}>
   <P class="font-bold">{label}</P>
   <Link {href} class="font-bold no-underline">
     {#if loading}

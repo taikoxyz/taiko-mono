@@ -5,8 +5,6 @@
   import type { IDropdownItem } from '../../../types';
   import { Icons } from '../Icons';
   export let options: IDropdownItem[] = [];
-  // let classes: string
-  // export { classes as class }
 
   const panelClasses = classNames('absolute', 'pt-3', 'bg-transparent', 'w-full');
 
@@ -30,7 +28,7 @@
     {@const Icon = Icons[option.icon]}
 
     <a href={option.href} class={itemClasses}>
-      <span class="text-primary"><Icon size={16} /></span>
+      <span class="text-primary"><Icon size="16" /></span>
       {option.label}
     </a>
   {/each}
