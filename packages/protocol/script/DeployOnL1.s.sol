@@ -105,12 +105,6 @@ contract DeployOnL1 is DeployCapability {
             console2.log("- chainId       : ", block.chainid);
         }
 
-        // ---------------------------------------------------------------
-        // Register shared contracts in the new rollup
-        copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
-        copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
-        copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
-
         address proposer = vm.envAddress("PROPOSER");
         if (proposer != address(0)) {
             register(rollupAddressManager, "proposer", proposer);
@@ -256,6 +250,12 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(AddressManager.init, (address(0)))
         });
 
+        // ---------------------------------------------------------------
+        // Register shared contracts in the new rollup
+        copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
+        copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
+        copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+
         deployProxy({
             name: "taiko",
             impl: address(new TaikoL1()),
@@ -299,6 +299,8 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
             registerTo: rollupAddressManager
         });
+
+        GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
 
         address guardianProver = deployProxy({
             name: "guardian_prover",
