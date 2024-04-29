@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import LogoBlack from '$assets/taikoons-big-black.png';
   import LogoWhite from '$assets/taikoons-big-white.png';
   import { ResponsiveController } from '$components/core/ResponsiveController';
@@ -11,13 +13,16 @@
   $: logo = isDarkTheme ? LogoWhite : LogoBlack;
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  const sectionClasses = 'items-center justify-center';
+  const imageClasses = classNames('w-full', 'h-auto', 'mb-20');
 </script>
 
-<Section animated={true} width={windowSize === 'sm' ? 'lg' : 'md'} class="items-center justify-center">
-  <img src={logo} alt="Taikoons Logo" class={classNames('w-full', 'h-auto', 'mb-20')} />
+<Section animated={true} width={windowSize === 'sm' ? 'lg' : 'md'} class={sectionClasses}>
+  <img src={logo} alt="Taikoons Logo" class={imageClasses} />
 
   <Button size="xl" wide type="primary" iconRight="ArrowRightFilled">
-    <a href="/mint">Mint Now</a>
+    <a href="/mint">{$t('buttons.mintNow')}</a>
   </Button>
 
   <slot />

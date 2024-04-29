@@ -1,14 +1,16 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { Mint } from '$components/Mint';
   import { MintAgreementModal } from '$components/modals';
+  import { Page } from '$components/Page';
   import { CollapsibleSection, FooterSection } from '$components/sections';
-  import FaqOptions from '$content/faq';
   import { Section, SectionContainer } from '$ui/Section';
 
-  import { Mint } from '../../components/Mint';
-  import { Page } from '../../components/Page';
-
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  $: faqOptions = $t('content.sections.faq.entries');
 </script>
 
 <svelte:head>
@@ -20,7 +22,7 @@
     <Section width={windowSize === 'sm' ? 'full' : 'md'} height={windowSize === 'sm' ? 'fit' : 'full'}>
       <Mint />
     </Section>
-    <CollapsibleSection options={FaqOptions} />
+    <CollapsibleSection options={faqOptions} />
 
     <FooterSection />
   </SectionContainer>

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { getAccount } from '@wagmi/core';
   import { getContext } from 'svelte';
+  import { t } from 'svelte-i18n';
+  import { zeroAddress } from 'viem';
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
@@ -12,57 +14,22 @@
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
   import { Spinner } from '$ui/Spinner';
-  import { H1, H4 } from '$ui/Text';
 
   import Token from '../../lib/token';
-  import { ZeroXAddress } from '../../lib/util/ZeroXAddress';
   import getConfig from '../../lib/wagmi/getConfig';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
-
-  const wrapperClasses = classNames(
-    'h-max',
-    'w-full',
-    'flex',
-    'md:flex-row',
-    'flex-col',
-    'items-center',
-    'justify-center',
-    'md:px-5',
-    'p-2',
-    'gap-8',
-    'md:py-16',
-  );
-
-  const halfPanel = classNames(
-    'h-full',
-    'md:w-max',
-    'flex flex-col',
-    'items-center',
-    'justify-center',
-    'gap-2',
-    'bg-neutral-background',
-    'rounded-3xl',
-    'p-8',
-    'w-full',
-  );
-
-  const mintState = getContext('mint');
-
-  const leftHalfPanel = classNames(halfPanel, 'aspect-square');
-
-  const rightHalfPanel = classNames(halfPanel, 'md:px-12', 'md:max-w-[500px]');
-
-  const counterClasses = classNames(
-    'w-full',
-    'flex',
-    'flex-row',
-    'items-center',
-    'justify-between',
-    'font-sans',
-    'font-bold',
-    'mt-6',
-  );
+  import {
+    counterClasses,
+    leftHalfPanel,
+    mintContentClasses,
+    mintTitleClasses,
+    nftRendererWrapperClasses,
+    nftRendererWrapperMobileClasses,
+    rightHalfPanel,
+    supplyClasses,
+    wrapperClasses,
+  } from './classes';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -73,9 +40,10 @@
   $: progress = Math.floor((totalSupply / 888) * 100);
 
   $: canMint = false;
-  $: canMint = false;
 
   $: freeMintsLeft = 0;
+
+  const mintState = getContext('mint');
 
   //$: isMinting = false
   $: isReady = false;
@@ -113,7 +81,7 @@
     const { config } = getConfig();
     const account = getAccount(config);
     if (!account || !account.address) {
-      mintState.set({ ...$mintState, address: ZeroXAddress });
+      mintState.set({ ...$mintState, address: zeroAddress });
       return;
     }
     mintState.set({ ...$mintState, address: account.address.toLowerCase() as IAddress });
@@ -154,25 +122,26 @@
   {#if isReady}
     {#if windowSize !== 'sm'}
       <div class={leftHalfPanel}>
-        <div class="rounded-3xl overflow-hidden">
+        <div class={nftRendererWrapperClasses}>
           <NftRenderer />
         </div>
       </div>
     {/if}
     <div class={rightHalfPanel}>
+      <!-- svelte-ignore missing-declaration -->
       {#if windowSize === 'sm'}
-        <div class="rounded-3xl my-8 overflow-hidden">
+        <div class={nftRendererWrapperMobileClasses}>
           <NftRenderer />
         </div>
       {/if}
-      <H1 class="w-full text-left">Taikoons</H1>
+      <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
-      <p class="font-normal font-sans text-content-secondary">
-        Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.
+      <p class={mintContentClasses}>
+        {$t('content.mint.text')}
       </p>
       <div class="w-full gap-4 flex flex-col">
         <div class={counterClasses}>
-          <H4>{totalSupply} / {mintMax}</H4>
+          <div class={supplyClasses}>{totalSupply} / {mintMax}</div>
         </div>
         <ProgressBar {progress} />
       </div>
@@ -182,7 +151,11 @@
         value={canMint ? freeMintsLeft : 0}
         max={freeMintsLeft}
         disabled
-        label={`Mints left: ${canMint ? freeMintsLeft : 0}`} />
+        label={$t('content.mint.mintsLeft', {
+          values: {
+            mintsLeft: canMint ? freeMintsLeft : 0,
+          },
+        })} />
 
       <Divider />
 
@@ -191,7 +164,8 @@
           <InfoRow label="Estimated gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
         </div>
       {/if}
-      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">Mint</Button>
+      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
+        {$t('buttons.mint')}</Button>
     </div>
   {:else}
     <Spinner size="lg" />

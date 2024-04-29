@@ -4,8 +4,7 @@
   import { classNames } from '$lib/util/classNames';
   export let seed: string;
   export let size: 'full' | 'xs' | 'sm' | 'md' | 'lg' = 'full';
-  let classes: string;
-  export { classes as class };
+
   $: imgClasses = classNames(
     size === 'full' ? 'w-full ' : null,
     size === 'xs' ? 'w-16 p-2' : null,
@@ -16,7 +15,7 @@
     'object-center',
     'rounded-full',
     'bg-overlay-background',
-    classes,
+    $$props.class,
   );
 </script>
 

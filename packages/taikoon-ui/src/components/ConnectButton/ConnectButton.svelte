@@ -2,15 +2,14 @@
   import { getAccount } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { formatEther } from 'viem';
+  import { zeroAddress } from 'viem';
 
   import { Spinner } from '$components/core/Spinner';
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';
   import { refreshUserBalance } from '$lib/util/balance';
-  import { classNames } from '$lib/util/classNames';
   import { noop } from '$lib/util/noop';
   import { shortenAddress } from '$lib/util/shortenAddress';
-  import { ZeroXAddress } from '$lib/util/ZeroXAddress';
   import { getBalance } from '$lib/wagmi';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
@@ -18,6 +17,9 @@
   import { config } from '$wagmi-config';
 
   import type { IAddress } from '../../types';
+  import { addressClasses, buttonContentClasses,
+    connectButtonClasses,
+    chainIconClasses, connectedButtonClasses } from './classes';
   export let connected = false;
 
   let web3modalOpen = false;
@@ -33,7 +35,7 @@
   }
 
   $: currentChainId = $connectedSourceChain?.id;
-  $: accountAddress = ($account?.address || ZeroXAddress) as IAddress;
+  $: accountAddress = ($account?.address || zeroAddress) as IAddress;
   $: balance = $ethBalance || 0n;
 
   onMount(async () => {
@@ -49,47 +51,20 @@
     balance = await getBalance(account.address);
   });
 
+
   import { Icons } from '$components/core/Icons';
   const { CircleUserRegular: CircleUserIcon } = Icons;
 </script>
 
 {#if connected}
-  <button
-    on:click={connectWallet}
-    class={classNames(
-      'border border-divider-border',
-      'bg-gradient-to-r from-grey-500-10 to-grey-500-20',
-      'rounded-full',
-      'flex',
-      'items-center',
-      'h-[44px]',
-      'gap-2',
-      'font-bold',
-    )}>
+  <button on:click={connectWallet} class={connectedButtonClasses}>
     <img
       alt="chain icon"
-      class="w-[24px] ml-1"
+      class={chainIconClasses}
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
-    <span
-      class={classNames(
-        'flex items-center',
-        'justify-center',
-        'text-secondary-content',
-        'p-1',
-        'gap-2',
-        'md:text-normal',
-        'text-sm',
-      )}
+    <span class={buttonContentClasses}
       >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
-      <span
-        class={classNames(
-          'flex',
-          'rounded-full',
-          'px-2.5',
-          'py-2',
-          'bg-neutral-background',
-          'border border-divider-border',
-        )}>
+      <span class={addressClasses}>
         {#await shortenAddress(accountAddress, 4, 6)}
           ...
         {:then displayAddress}
@@ -100,18 +75,7 @@
   </button>
 {:else}
   <button
-    class={classNames(
-      'w-max',
-      'h-[44px]',
-      'bg-primary',
-      'rounded-full',
-      'flex flex-row',
-      'justify-center',
-      'items-center',
-      'px-4',
-      'gap-4',
-      'font-medium',
-    )}
+    class={connectButtonClasses}
     on:click={connectWallet}>
     {#if web3modalOpen}
       <Spinner size="sm" />

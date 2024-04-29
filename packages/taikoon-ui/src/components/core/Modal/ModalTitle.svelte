@@ -1,7 +1,6 @@
 <script lang="ts">
   import { classNames } from '$lib/util/classNames';
-  let classes = '';
-  export { classes as class };
+
   const titleRowClasses = classNames(
     'flex',
     'w-full',
@@ -12,12 +11,14 @@
     'mt-16',
     'p-4',
     'relative',
-    classes,
+    $$props.class,
   );
+
+  const textClasses = classNames('font-clash-grotesk', 'text-4xl', 'text-content-primary', 'font-semibold');
 </script>
 
 <div class={titleRowClasses}>
-  <div class="font-clash-grotesk text-4xl text-content-primary font-semibold">
+  <div class={textClasses}>
     <slot />
   </div>
 </div>

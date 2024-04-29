@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { Test } from "forge-std/Test.sol";
+import { Test } from "forge-std/src/Test.sol";
+
 import { TaikoonToken } from "../contracts/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { Upgrades } from "@openzeppelin/foundry-upgrades/Upgrades.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract TaikoonTokenTest is Test {
     TaikoonToken public token;
@@ -24,8 +25,11 @@ contract TaikoonTokenTest is Test {
         bytes32 root = tree.getRoot(leaves);
 
         // deploy token with empty root
-        address proxy = Upgrades.deployUUPSProxy(
-            "TaikoonToken.sol", abi.encodeCall(TaikoonToken.initialize, ("ipfs://", root))
+        address impl = address(new TaikoonToken());
+        address proxy = address(
+            new ERC1967Proxy(
+                impl, abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root))
+            )
         );
 
         token = TaikoonToken(proxy);

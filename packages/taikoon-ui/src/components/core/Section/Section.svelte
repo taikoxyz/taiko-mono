@@ -9,8 +9,6 @@
   export let width: 'sm' | 'md' | 'lg' | 'xl' | 'full' = 'lg';
   export let background: 'general' | 'footer' | 'none' = 'none';
 
-  let classes: string = '';
-  export { classes as class };
   let elementId: string = '';
   export { elementId as id };
   export let animated: boolean = false;
@@ -44,7 +42,7 @@
     width === 'xl' ? 'md:px-8 px-4' : null,
     width === 'full' ? 'px-0' : null,
     'flex flex-col',
-    classes === '' ? 'items-center justify-center' : classes,
+    $$props.class === '' ? 'items-center justify-center' : $$props.class,
   );
 </script>
 

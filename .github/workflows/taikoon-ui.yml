@@ -34,4 +34,5 @@ jobs:
         working-directory: ./packages/taikoon-ui
         run: |
           export PUBLIC_WALLETCONNECT_PROJECT_ID="fake_project_id"
+          export PUBLIC_IPFS_GATEWAY="https://ipfs.io/ipfs/"
           pnpm build

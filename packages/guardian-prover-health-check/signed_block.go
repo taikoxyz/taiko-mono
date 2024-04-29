@@ -30,5 +30,5 @@ type GetSignedBlocksByStartingBlockIDOpts struct {
 type SignedBlockRepository interface {
 	Save(opts SaveSignedBlockOpts) error
 	GetByStartingBlockID(opts GetSignedBlocksByStartingBlockIDOpts) ([]*SignedBlock, error)
-	GetMostRecentByGuardianProverID(id int) (*SignedBlock, error)
+	GetMostRecentByGuardianProverAddress(address string) (*SignedBlock, error)
 }

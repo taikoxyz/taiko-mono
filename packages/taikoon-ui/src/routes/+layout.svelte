@@ -4,10 +4,10 @@
 
   import { onDestroy, onMount } from 'svelte';
   import { setContext } from 'svelte';
+  import { zeroAddress } from 'viem';
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MintConfirmationModal, TaikoonDetailModal } from '$components/modals';
-  import { ZeroXAddress } from '$lib/util/ZeroXAddress';
   import { mint } from '$stores/mint';
   import { taikoonDetail } from '$stores/taikoonDetail';
 
@@ -24,7 +24,7 @@
     isModalOpen: false,
     isMinting: false,
     tokenIds: [],
-    address: ZeroXAddress,
+    address: zeroAddress,
     totalMintCount: 0,
   });
 

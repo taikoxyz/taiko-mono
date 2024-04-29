@@ -3096,16 +3096,6 @@ export const erc20Abi = [
   },
   {
     type: 'function',
-    inputs: [
-      { name: 'account', internalType: 'address', type: 'address' },
-      { name: 'snapshotId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'balanceOfAt',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     inputs: [{ name: '_amount', internalType: 'uint256', type: 'uint256' }],
     name: 'burn',
     outputs: [],
@@ -3400,13 +3390,6 @@ export const erc20Abi = [
   {
     type: 'function',
     inputs: [],
-    name: 'snapshooter',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'srcChainId',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
@@ -3429,13 +3412,6 @@ export const erc20Abi = [
     type: 'function',
     inputs: [],
     name: 'totalSupply',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'snapshotId', internalType: 'uint256', type: 'uint256' }],
-    name: 'totalSupplyAt',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
@@ -3698,14 +3674,6 @@ export const erc20Abi = [
       },
     ],
     name: 'Paused',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'id', internalType: 'uint256', type: 'uint256', indexed: false },
-    ],
-    name: 'Snapshot',
   },
   {
     type: 'event',

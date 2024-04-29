@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import {
     CollapsibleSection,
     CountdownSection,
@@ -6,15 +8,16 @@
     HeadingSection,
     InformationSection,
   } from '$components/sections';
-  import FaqOptions from '$content/faq';
   import { Button } from '$ui/Button';
   import { SectionContainer } from '$ui/Section';
 
   $: currentPage = 'teaser';
 
+  $: faqOptions = $t('content.sections.faq.entries');
+
   let scrollTarget: HTMLElement | undefined = undefined;
 
-  function scrollToWtf() {
+  function scrollToFaq() {
     if (!scrollTarget) return;
     scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -28,22 +31,22 @@
   {#if currentPage === 'teaser'}
     <CountdownSection>
       <div class="bottom-16 left-0 w-full flex justify-center absolute">
-        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToWtf} class="uppercase"
-          >Learn more</Button>
+        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToFaq} class="uppercase"
+          >{$t('buttons.learnMore')}</Button>
       </div>
     </CountdownSection>
   {:else}
     <HeadingSection>
       <div class="bottom-16 left-0 w-full flex justify-center absolute">
-        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToWtf} class="uppercase"
-          >Learn more</Button>
+        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToFaq} class="uppercase"
+          >{$t('buttons.learnMore')}</Button>
       </div>
     </HeadingSection>
   {/if}
   <div bind:this={scrollTarget}>
     <InformationSection />
   </div>
-  <CollapsibleSection options={FaqOptions} />
+  <CollapsibleSection options={faqOptions} />
 
   <FooterSection />
 </SectionContainer>

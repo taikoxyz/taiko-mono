@@ -6,8 +6,6 @@
 
   export let canClose: boolean = true;
 
-  let classes = '';
-  export { classes as class };
   export let open: boolean = false;
 
   const backdropClasses = classNames(
@@ -17,13 +15,11 @@
     'w-full',
     'h-full',
     'glassy-background-md',
-    //'bg-black',
-    //'bg-opacity-50',
     'z-100',
     'flex',
     'items-center',
     'justify-center',
-    classes,
+    $$props.class,
   );
 
   const backdropId: string = `modal-${Date.now()}-backdrop`;
@@ -42,7 +38,6 @@
     'relative',
     'md:rounded-3xl',
     'md:w-full md:h-full',
-    //size === 'min' ? 'md:w-max md:h-max' : null,
     'flex flex-col',
     'justify-start',
     'items-center',
@@ -50,6 +45,8 @@
     'overflow-hidden',
     'w-screen h-screen',
   );
+
+  const closeButtonClasses = classNames('text-icon-primary', 'absolute', 'right-5', 'top-5');
 </script>
 
 {#if open}
@@ -73,13 +70,7 @@
               handleClose();
             }}
             size="sm"
-            class={classNames(
-              'text-icon-primary',
-
-              'absolute',
-              'right-5',
-              'top-5',
-            )}
+            class={closeButtonClasses}
             icon="XSolid"
             shape="circle" />
         {/if}

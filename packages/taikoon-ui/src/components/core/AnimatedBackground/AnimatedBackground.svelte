@@ -13,7 +13,6 @@
     'items-center',
     'justify-center',
     'flex-wrap',
-    //'bg-[url(/bg/general-gradient.svg)]',
   );
   const cellClasses = classNames(
     'w-[40px]',
@@ -38,10 +37,8 @@
   $: cols = Math.ceil(outerHeight / 40);
 
   const animationClasses = [
-    //'animate-cell-pulse-3',
     'animate-cell-pulse-5',
     'animate-cell-pulse-7',
-    //  'animate-cell-pulse-negative-3',
     'animate-cell-pulse-negative-5',
     'animate-cell-pulse-negative-7',
   ];

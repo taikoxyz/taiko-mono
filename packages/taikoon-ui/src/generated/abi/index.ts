@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x30fD8613ef9a00E6432954B884C723E2CC8f18bD)
  * -
  */
 export const taikoonTokenAbi = [
@@ -58,8 +58,8 @@ export const taikoonTokenAbi = [
   {
     type: 'function',
     inputs: [
-      { name: '_rootURI', internalType: 'string', type: 'string' },
-      { name: '_merkleRoot', internalType: 'bytes32', type: 'bytes32' },
+      { name: '_owner', internalType: 'address', type: 'address' },
+      { name: '_root', internalType: 'bytes32', type: 'bytes32' },
     ],
     name: 'initialize',
     outputs: [],
@@ -67,7 +67,11 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: '_root', internalType: 'bytes32', type: 'bytes32' }],
+    inputs: [
+      { name: '_owner', internalType: 'address', type: 'address' },
+      { name: '_rootURI', internalType: 'string', type: 'string' },
+      { name: '_merkleRoot', internalType: 'bytes32', type: 'bytes32' },
+    ],
     name: 'initialize',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -451,7 +455,9 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -537,22 +543,22 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const;
+] as const
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x30fD8613ef9a00E6432954B884C723E2CC8f18bD)
  * -
  */
 export const taikoonTokenAddress = {
-  17000: '0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0',
-  31337: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-} as const;
+  17000: '0x30fD8613ef9a00E6432954B884C723E2CC8f18bD',
+  31337: '0x3Aa5ebB10DC797CAC828524e59A333d0A371443c',
+} as const
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x30fD8613ef9a00E6432954B884C723E2CC8f18bD)
  * -
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
   abi: taikoonTokenAbi,
-} as const;
+} as const

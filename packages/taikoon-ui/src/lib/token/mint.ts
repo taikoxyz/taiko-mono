@@ -1,6 +1,7 @@
 import { waitForTransactionReceipt, writeContract } from '@wagmi/core';
 import { decodeEventLog } from 'viem';
 
+import { FilterLogsError, MintError } from '$lib/error';
 import getProof from '$lib/whitelist/getProof';
 import { config } from '$wagmi-config';
 
@@ -25,7 +26,7 @@ export async function mint({
   const mintCount = await totalWhitelistMintCount();
 
   if (freeMintCount > mintCount) {
-    throw new Error('Not enough free mints left');
+    throw new MintError('Not enough free mints left');
   }
 
   if (await canMint()) {
@@ -63,8 +64,8 @@ export async function mint({
         nounId = parseInt(args.tokenId.toString());
         tokenIds.push(nounId);
       }
-    } catch (e) {
-      //console.warn(e)
+    } catch (e: any) {
+      throw new FilterLogsError(e.message);
     }
   });
   return tokenIds;
