@@ -20,6 +20,7 @@
 <Page>
   <SectionContainer>
     <Section
+      animated
       width={windowSize === 'sm' ? 'full' : 'md'}
       class="items-center justify-center"
       height={windowSize === 'sm' ? 'fit' : 'full'}>

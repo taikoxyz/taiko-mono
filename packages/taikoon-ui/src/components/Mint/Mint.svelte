@@ -6,7 +6,6 @@
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
-  import NumberInput from '$components/core/NumberInput/NumberInput.svelte';
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
@@ -26,8 +25,10 @@
     mintTitleClasses,
     nftRendererWrapperClasses,
     nftRendererWrapperMobileClasses,
+    primaryH4Classes,
     rightHalfPanel,
-    supplyClasses,
+    secondaryH4Classes,
+    tertiaryH4Classes,
     wrapperClasses,
   } from './classes';
 
@@ -41,25 +42,21 @@
 
   $: canMint = false;
 
-  $: freeMintsLeft = 0;
-
   const mintState = getContext('mint');
 
   $: isReady = false;
 
-  $: freeMintCount = 0;
+  $: totalMintCount = 0;
 
   $: gasCost = 0;
   $: isCalculating = false;
 
-  $: freeMintCount, calculateGasCost();
+  $: totalMintCount, calculateGasCost();
 
   async function calculateGasCost() {
     isCalculating = true;
 
-    gasCost = await Token.estimateMintGasCost({
-      freeMintCount,
-    });
+    gasCost = await Token.estimateMintGasCost();
     isCalculating = false;
   }
 
@@ -70,8 +67,10 @@
     isReady = true;
 
     canMint = await Token.canMint();
-
-    freeMintsLeft = await User.totalWhitelistMintCount();
+    if (!canMint) {
+      return;
+    }
+    totalMintCount = await User.totalWhitelistMintCount();
   }
 
   connectedSourceChain.subscribe(async () => {
@@ -83,7 +82,7 @@
       mintState.set({ ...$mintState, address: zeroAddress });
       return;
     }
-    mintState.set({ ...$mintState, address: account.address.toLowerCase() as IAddress });
+    mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
   });
 
   async function mint() {
@@ -95,12 +94,12 @@
     });
 
     // ensure that the input values are numbers
-    freeMintCount = parseInt(freeMintCount.toString());
+    totalMintCount = parseInt(totalMintCount.toString());
 
-    mintState.set({ ...$mintState, totalMintCount: freeMintCount });
+    mintState.set({ ...$mintState, totalMintCount: totalMintCount });
     try {
       const tokenIds = await Token.mint({
-        freeMintCount,
+        freeMintCount: totalMintCount,
         onTransaction: (txHash: string) => {
           mintState.set({ ...$mintState, txHash });
         },
@@ -140,29 +139,27 @@
       </p>
       <div class="w-full gap-4 flex flex-col">
         <div class={counterClasses}>
-          <div class={supplyClasses}>{totalSupply} / {mintMax}</div>
+          <div class={primaryH4Classes}>#{totalSupply}</div>
+          <div class={tertiaryH4Classes}>/ {mintMax}</div>
         </div>
         <ProgressBar {progress} />
       </div>
 
-      <NumberInput
-        min={0}
-        value={canMint ? freeMintsLeft : 0}
-        max={freeMintsLeft}
-        disabled
-        label={$t('content.mint.mintsLeft', {
-          values: {
-            mintsLeft: canMint ? freeMintsLeft : 0,
-          },
-        })} />
+      <div class={counterClasses}>
+        <div class={secondaryH4Classes}>You are eligible to mint:</div>
+        <div class={primaryH4Classes}>{$mintState.totalMintCount}</div>
+      </div>
 
       <Divider />
 
-      {#if gasCost > 0}
-        <div class="w-full gap-4 flex flex-col">
-          <InfoRow label="Estimated gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
-        </div>
-      {/if}
+      <div class="w-full gap-4 flex flex-col">
+        <InfoRow label="Total mints" loading={isCalculating} value={$mintState.totalMintCount} />
+      </div>
+
+      <div class="w-full gap-4 flex flex-col">
+        <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
+      </div>
+
       <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
         {$t('buttons.mint')}</Button>
     </div>

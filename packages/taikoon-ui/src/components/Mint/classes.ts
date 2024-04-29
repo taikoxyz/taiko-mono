@@ -47,4 +47,6 @@ export const nftRendererWrapperMobileClasses = 'rounded-3xl my-8 overflow-hidden
 export const mintTitleClasses = classNames('text-5xl', 'font-semibold', 'w-full text-left');
 export const mintContentClasses = 'font-normal font-sans text-content-secondary';
 
-export const supplyClasses = classNames('text-content-secondary', 'text-h4');
+export const primaryH4Classes = classNames('text-content-primary', 'text-h4');
+export const secondaryH4Classes = classNames('text-content-secondary', 'text-h4');
+export const tertiaryH4Classes = classNames('text-content-tertiary', 'text-h4');

@@ -24,9 +24,7 @@
     'flex flex-col',
     'items-center',
     'justify-center',
-
     background === 'none' ? 'bg-background-body' : null,
-
     background !== 'none' ? 'bg-cover bg-center' : null,
     background === 'general' && isDarkTheme ? 'bg-general' : null,
     background === 'footer' && isDarkTheme ? 'bg-footer' : null,

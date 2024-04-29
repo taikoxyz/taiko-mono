@@ -10,7 +10,7 @@
 
   const wrapperClasses = classNames('flex', 'flex-row', 'items-center', 'justify-between', 'w-full', $$props.class);
 
-  const textClasses = classNames('font-bold');
+  const textClasses = classNames('font-bold', 'text-content-tertiary');
   const linkClasses = classNames('font-bold', 'no-underline');
 </script>
 
