@@ -50,16 +50,19 @@
     'w-full',
     'justify-between',
     'items-center',
-
+    'text-[26px]/[32px]',
     'font-medium',
     'font-clash-grotesk',
     'collapse-title',
+    'tracking-normal',
   );
   const collapseContentClasses = classNames(
-    'text-base',
+    'text-[16px]/[24px]',
     'text-content-secondary',
-    'font-clash-grotesk',
+    'mt-4',
+    'font-sans',
     'collapse-content',
+    'tracking-normal',
   );
 </script>
 
