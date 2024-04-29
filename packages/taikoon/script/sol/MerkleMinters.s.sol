@@ -45,33 +45,31 @@ contract MerkleMintersScript is Script {
         address tokenAddress = abi.decode(addressRaw, (address));
         token = TaikoonToken(tokenAddress);
 
-        hardhatTreeJson = vm.readFile(
-            string.concat(vm.projectRoot(), '/data/whitelist/hardhat.json')
-        );
+        hardhatTreeJson =
+            vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/hardhat.json"));
         //bytes memory treeRaw = hardhatTreeJson.parseRaw('.tree');
         // leaves = abi.decode(treeRaw, (bytes32[]));
 
-        bytes memory rootRaw = hardhatTreeJson.parseRaw('.root');
+        bytes memory rootRaw = hardhatTreeJson.parseRaw(".root");
         localhostRoot = abi.decode(rootRaw, (bytes32));
 
-        holeskyTreeJson = vm.readFile(
-            string.concat(vm.projectRoot(), '/data/whitelist/holesky.json')
-        );
+        holeskyTreeJson =
+            vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/holesky.json"));
 
         // treeRaw = holeskyTreeJson.parseRaw('.tree');
         //   holeskyLeaves = abi.decode(treeRaw, (bytes32[]));
-        rootRaw = holeskyTreeJson.parseRaw('.root');
+        rootRaw = holeskyTreeJson.parseRaw(".root");
         holeskyRoot = abi.decode(rootRaw, (bytes32));
     }
 
     function getMerkleRoot() public view returns (bytes32) {
         uint256 chainId = block.chainid;
-        if (chainId == 31337) {
+        if (chainId == 31_337) {
             return localhostRoot;
-        } else if (chainId == 17000) {
+        } else if (chainId == 17_000) {
             return holeskyRoot;
         } else {
-            revert('Unsupported chainId');
+            revert("Unsupported chainId");
         }
     }
 
@@ -81,16 +79,16 @@ contract MerkleMintersScript is Script {
 
         bytes32 root = getMerkleRoot();
         bytes32[] memory leaves;
-        if (chainId == 31337) {
+        if (chainId == 31_337) {
             // hardhat/localhost
-            bytes memory treeRaw = hardhatTreeJson.parseRaw('.tree');
+            bytes memory treeRaw = hardhatTreeJson.parseRaw(".tree");
             leaves = abi.decode(treeRaw, (bytes32[]));
-        } else if (chainId == 17000) {
+        } else if (chainId == 17_000) {
             // holesky
-            bytes memory treeRaw = holeskyTreeJson.parseRaw('.tree');
+            bytes memory treeRaw = holeskyTreeJson.parseRaw(".tree");
             leaves = abi.decode(treeRaw, (bytes32[]));
         } else {
-            revert('Unsupported chainId');
+            revert("Unsupported chainId");
         }
 
         Merkle tree = new Merkle();
