@@ -10,7 +10,7 @@ importers:
     devDependencies:
       lefthook:
         specifier: ^1.6.7
-        version: 1.6.7
+        version: 1.6.10
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -23,7 +23,7 @@ importers:
     dependencies:
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        version: 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@wagmi/core':
         specifier: ^2.6.9
         version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
@@ -35,7 +35,7 @@ importers:
         version: 2.6.2(react@18.2.0)
       '@web3modal/wagmi':
         specifier: ^4.1.1
-        version: 4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.7.11)
+        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.7.11)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.12)
@@ -293,7 +293,7 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^20.11.20
-        version: 20.11.20
+        version: 20.12.7
       '@typescript-eslint/eslint-plugin':
         specifier: ^7.4.0
         version: 7.4.0(@typescript-eslint/parser@7.7.0)(eslint@8.55.0)(typescript@5.4.3)
@@ -332,7 +332,7 @@ importers:
         version: 4.5.4(typescript@5.4.3)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@20.11.20)(typescript@5.4.3)
+        version: 10.9.2(@types/node@20.12.7)(typescript@5.4.3)
       typescript:
         specifier: ^5.2.2
         version: 5.4.3
@@ -365,7 +365,7 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^20.11.20
-        version: 20.11.20
+        version: 20.12.7
       '@typescript-eslint/eslint-plugin':
         specifier: ^7.4.0
         version: 7.4.0(@typescript-eslint/parser@7.7.0)(eslint@8.56.0)(typescript@5.4.3)
@@ -404,7 +404,7 @@ importers:
         version: 4.5.4(typescript@5.4.3)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@20.11.20)(typescript@5.4.3)
+        version: 10.9.2(@types/node@20.12.7)(typescript@5.4.3)
       typescript:
         specifier: ^5.2.2
         version: 5.4.3
@@ -453,7 +453,7 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^20.11.20
-        version: 20.11.20
+        version: 20.12.7
       '@typescript-eslint/eslint-plugin':
         specifier: ^7.4.0
         version: 7.4.0(@typescript-eslint/parser@7.7.0)(eslint@8.56.0)(typescript@5.4.3)
@@ -492,7 +492,7 @@ importers:
         version: 4.5.4(typescript@5.4.3)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@20.11.20)(typescript@5.4.3)
+        version: 10.9.2(@types/node@20.12.7)(typescript@5.4.3)
       typescript:
         specifier: ^5.2.2
         version: 5.4.3
@@ -5269,12 +5269,6 @@ packages:
       undici-types: 5.26.5
     dev: false
 
-  /@types/node@20.11.20:
-    resolution: {integrity: sha512-7/rR21OS+fq8IyHTgtLkDK949uzsa6n8BkziAKtPVpugIkO6D+/ooXMvzXxDnZrmtXVfjb1bKQafYpb8s89LOg==}
-    dependencies:
-      undici-types: 5.26.5
-    dev: true
-
   /@types/node@20.12.7:
     resolution: {integrity: sha512-wq0cICSkRLVaf3UGLMGItu/PtdY7oaXaI/RVU+xliKVOtRna3PRY57ZDfztpDL0n11vfymMUnXv8QwYCO7L1wg==}
     dependencies:
@@ -5872,7 +5866,7 @@ packages:
       - bufferutil
       - utf-8-validate
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5886,11 +5880,11 @@ packages:
       '@metamask/sdk': 0.14.3(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
-      viem: 2.7.11(typescript@5.4.3)
+      viem: 2.9.27(typescript@5.4.3)(zod@3.22.4)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -5916,7 +5910,7 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5930,11 +5924,11 @@ packages:
       '@metamask/sdk': 0.14.3(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
-      viem: 2.9.27(typescript@5.4.3)(zod@3.22.4)
+      viem: 2.7.11(typescript@5.4.3)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -6604,6 +6598,13 @@ packages:
       dayjs: 1.11.10
     dev: false
 
+  /@web3modal/common@4.1.11:
+    resolution: {integrity: sha512-zcoaixcI3dLC/D0QlhpT8MNCd717O1/3r1AemC5/9Wbk2F+YKXkzJZHmWlXoTvlTw9DH07rJzs9YTPxFyn855w==}
+    dependencies:
+      bignumber.js: 9.1.2
+      dayjs: 1.11.10
+    dev: false
+
   /@web3modal/core@4.1.1(react@18.2.0):
     resolution: {integrity: sha512-+FT73nYHKqF0VlkB9lo6mvfR/WjB4dz24JPwKb2Vq05JVyOcnbt5S06IeTtjI7zgKv3MyKzDzxh6z1ScgbTaRA==}
     dependencies:
@@ -6615,8 +6616,25 @@ packages:
       - react
     dev: false
 
+  /@web3modal/core@4.1.11(react@18.2.0):
+    resolution: {integrity: sha512-e475IIWywEtgH1CCB2Pl1C/wgPu0NzAvtTMOPSGNoHsw1ID2n6j/o4CURQb2HJjOoYQjTKKVkzXa44vFh2p9xw==}
+    dependencies:
+      '@web3modal/common': 4.1.11
+      '@web3modal/wallet': 4.1.11
+      valtio: 1.11.2(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+    dev: false
+
   /@web3modal/polyfills@4.1.1:
     resolution: {integrity: sha512-HQ90relyjjLfTj5XJhhDV9l3Mp10Rvv/MN+GCvzEx/xY7Tz4yhmKZUX3c519pz2BeVYjea+xwwu6OoOwd3GAXQ==}
+    dependencies:
+      buffer: 6.0.3
+    dev: false
+
+  /@web3modal/polyfills@4.1.11:
+    resolution: {integrity: sha512-+aMmjGrLCKLo4gVAdWgFdOX2ZjExciSLw/YlZ01wLO8Yj3bZbCZ7sjBc9xndHOVMK0QyUzBtpCOpYMJzi+59jg==}
     dependencies:
       buffer: 6.0.3
     dev: false
@@ -6635,11 +6653,39 @@ packages:
       - '@web3modal/wallet'
     dev: false
 
+  /@web3modal/scaffold-react@4.1.11(react@18.2.0):
+    resolution: {integrity: sha512-vouJHj77ZNKvR/Uyb3Hfc2UFSA4ZrrHmA0vbioCbgIh+V1rYT5XcAZDEu4AAo1qJ5NBRU1pkClVwAmQuWGY43w==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      '@web3modal/scaffold': 4.1.11(react@18.2.0)
+      react: 18.2.0
+    transitivePeerDependencies:
+      - '@types/react'
+    dev: false
+
   /@web3modal/scaffold-utils@4.1.1(react@18.2.0):
     resolution: {integrity: sha512-v9TlKchCPTOGitduI3hUm7PReWcxt55aifYHuCFklwgFatBlUZb/JrXpiCUhp6RpOfnSIA5gV65eyEucIbKY5A==}
     dependencies:
       '@web3modal/core': 4.1.1(react@18.2.0)
       '@web3modal/polyfills': 4.1.1
+      valtio: 1.11.2(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+    dev: false
+
+  /@web3modal/scaffold-utils@4.1.11(react@18.2.0):
+    resolution: {integrity: sha512-nsS9yK5tp1N/VfecLLPc8H/dGJCzn0jElWjRS92VfGPhOSiEh5PIrPyCl9o6wUZsp4fH1YUsoSY2EFpPsuCWgw==}
+    dependencies:
+      '@web3modal/core': 4.1.11(react@18.2.0)
+      '@web3modal/polyfills': 4.1.11
       valtio: 1.11.2(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
@@ -6659,10 +6705,27 @@ packages:
       - react
     dev: false
 
+  /@web3modal/scaffold-vue@4.1.11(react@18.2.0):
+    resolution: {integrity: sha512-PmIfD2TlKkZZa6V0sqwDtZ7t62BEk5JjCHd380QaZwGTbPEwS99leTWLKBTaxAPShK2p7+aj2Txss63wIXLRFg==}
+    peerDependencies:
+      vue: '>=3'
+    peerDependenciesMeta:
+      vue:
+        optional: true
+    dependencies:
+      '@web3modal/scaffold': 4.1.11(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+    dev: false
+
   /@web3modal/scaffold@4.1.1(@web3modal/wallet@4.1.1)(react@18.2.0):
     resolution: {integrity: sha512-GBryCiyl+taz5DPq0expxzfMVcrpKjWvEBSAqT1tPUSthnzOWnVF77XlUAYgFZqzPsEu9lQ1dHCdqZx7WWMCXA==}
     peerDependencies:
       '@web3modal/wallet': 4.1.1
+    peerDependenciesMeta:
+      '@web3modal/siwe':
+        optional: true
     dependencies:
       '@web3modal/common': 4.1.1
       '@web3modal/core': 4.1.1(react@18.2.0)
@@ -6671,6 +6734,20 @@ packages:
       lit: 3.1.0
     optionalDependencies:
       '@web3modal/siwe': 4.1.1(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+    dev: false
+
+  /@web3modal/scaffold@4.1.11(react@18.2.0):
+    resolution: {integrity: sha512-n8bP3cJNQxV8OD3s8bSj8QDbZvjn8a1Ui81jo2a3rIxOUAlD/cKRM8ivmNxiUdBMae8GP5CLiWtkIptmSLw40Q==}
+    dependencies:
+      '@web3modal/common': 4.1.11
+      '@web3modal/core': 4.1.11(react@18.2.0)
+      '@web3modal/siwe': 4.1.11(react@18.2.0)
+      '@web3modal/ui': 4.1.11
+      '@web3modal/wallet': 4.1.11
+      lit: 3.1.0
     transitivePeerDependencies:
       - '@types/react'
       - react
@@ -6690,6 +6767,18 @@ packages:
     dev: false
     optional: true
 
+  /@web3modal/siwe@4.1.11(react@18.2.0):
+    resolution: {integrity: sha512-gndcNA351mkAR0wUsO4dLS9CbpcFo+AQ2CUXF0Jx83DwaBStCVsX3yllfnYKh/gpVetF3B48mRUt9TTTJJ79dA==}
+    dependencies:
+      '@web3modal/core': 4.1.11(react@18.2.0)
+      '@web3modal/scaffold-utils': 4.1.11(react@18.2.0)
+      lit: 3.1.0
+      valtio: 1.11.2(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+    dev: false
+
   /@web3modal/ui@4.1.1:
     resolution: {integrity: sha512-6ntwIdi3VHR1HLIiyoannOAcckDs3XYrxxIu8cflba6UyuASJ6AH/AY3ULE88fvE55jM/Lra3uuOYj8yE5QjUw==}
     dependencies:
@@ -6697,30 +6786,11 @@ packages:
       qrcode: 1.5.3
     dev: false
 
-  /@web3modal/wagmi@4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.7.11):
-    resolution: {integrity: sha512-XMT+naasTfxmt2ogHO7c2wWL63S9SkfoGEIvd7AaxtqlXZfVKtCqyJJC710WiBUhUCyt9wD6hQNjRB1nWN3TGg==}
-    peerDependencies:
-      '@wagmi/connectors': '>=4.0.0'
-      '@wagmi/core': '>=2.0.0'
-      viem: '>=2.0.0'
+  /@web3modal/ui@4.1.11:
+    resolution: {integrity: sha512-lentHZvUpNjVasvNI8/jrVPIAV1M5zJKZ4Q4AeYwUJdEtlRon1uq10MRylmvlZAjWb98U130uJy245Fz87Th/w==}
     dependencies:
-      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
-      '@web3modal/polyfills': 4.1.1
-      '@web3modal/scaffold': 4.1.1(@web3modal/wallet@4.1.1)(react@18.2.0)
-      '@web3modal/scaffold-react': 4.1.1(@web3modal/wallet@4.1.1)(react-dom@18.2.0)(react@18.2.0)
-      '@web3modal/scaffold-utils': 4.1.1(react@18.2.0)
-      '@web3modal/scaffold-vue': 4.1.1(@web3modal/wallet@4.1.1)(react@18.2.0)(vue@3.4.19)
-      viem: 2.7.11(typescript@5.4.3)
-    optionalDependencies:
-      '@web3modal/siwe': 4.1.1(react@18.2.0)
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      vue: 3.4.19(typescript@5.4.3)
-    transitivePeerDependencies:
-      - '@types/react'
-      - '@web3modal/wallet'
-      - typescript
+      lit: 3.1.0
+      qrcode: 1.5.3
     dev: false
 
   /@web3modal/wagmi@4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.9.27):
@@ -6758,9 +6828,47 @@ packages:
       - typescript
     dev: false
 
+  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.7.11):
+    resolution: {integrity: sha512-VoXV9idD0yV7jx0F2Xk722VXqQNCDKqDc+LR8WsuOU64TiTLJx9UDQpNcoigbC3bYCi/4Cpw41iSGgs7utbgyQ==}
+    peerDependencies:
+      '@wagmi/connectors': '>=4.0.0'
+      '@wagmi/core': '>=2.0.0'
+      react: '>=17'
+      react-dom: '>=17'
+      viem: '>=2.0.0'
+      vue: '>=3'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      vue:
+        optional: true
+    dependencies:
+      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@web3modal/polyfills': 4.1.11
+      '@web3modal/scaffold': 4.1.11(react@18.2.0)
+      '@web3modal/scaffold-react': 4.1.11(react@18.2.0)
+      '@web3modal/scaffold-utils': 4.1.11(react@18.2.0)
+      '@web3modal/scaffold-vue': 4.1.11(react@18.2.0)
+      '@web3modal/siwe': 4.1.11(react@18.2.0)
+      react: 18.2.0
+      viem: 2.7.11(typescript@5.4.3)
+    transitivePeerDependencies:
+      - '@types/react'
+    dev: false
+
   /@web3modal/wallet@4.1.1:
     resolution: {integrity: sha512-KgITukYJXDete4MeH95jditHtQ1gvB+q97td0cjxA+xwzLCgihDfHZEq1kuVg5Fj40ECUV4O6IBc++cNeL9EXQ==}
     dependencies:
+      zod: 3.22.4
+    dev: false
+
+  /@web3modal/wallet@4.1.11:
+    resolution: {integrity: sha512-6eJSpNcrBxufJFEQu9+ZOMUZxPqa8438RvfYKCU9nLXwoBtweo6ecpQw2yhXDlrfG+uJZhFabtPxROabn2M8Kg==}
+    dependencies:
+      '@web3modal/polyfills': 4.1.11
       zod: 3.22.4
     dev: false
 
@@ -11146,83 +11254,83 @@ packages:
       package-json: 8.1.1
     dev: true
 
-  /lefthook-darwin-arm64@1.6.7:
-    resolution: {integrity: sha512-/Li1ssZd8WYpBMq2Aqs7AZGWtKpJQJkWkfrEzT6ke7gjNngBurRkVJcEpoiRJpzhk6J+HZTk3Pimh8XaYI0KHw==}
+  /lefthook-darwin-arm64@1.6.10:
+    resolution: {integrity: sha512-Hh11OkoKG7FEOByS1dcgNV7ETq45VmwBbw0VPTiBznyfOG4k+pi0fIdc1qbmbxvYqNE0r420QR/Q3bimaa4Kxg==}
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-darwin-x64@1.6.7:
-    resolution: {integrity: sha512-ZKRUFea0j/pco3NoypOHlzmSaYx5UYq47qywiqMUDmXz/38sjRlt8apKSNS3rlsPyPw+9g1c+pWwi+mQiHOnDg==}
+  /lefthook-darwin-x64@1.6.10:
+    resolution: {integrity: sha512-FiOB0t5OBcQ8OnG/LSdfUYj736SJdlLjWuOZ4wTlJ7EUrHditieap6VNAxwMmFVyQN0X2ZwKWytwY35y+Hflhw==}
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-freebsd-arm64@1.6.7:
-    resolution: {integrity: sha512-kY1/+SqxGg4xyKCXOZG9tSmBSHr1m7IoGy4G4FlbmLcZeq4n1JUlhPz/05rbIemR7HXOwA5CAGyjooxT4hNfyw==}
+  /lefthook-freebsd-arm64@1.6.10:
+    resolution: {integrity: sha512-IxGgS3RrNwk3Kr83o5SQhGxqppQi7fu2t//nsp6ocgnJeStrTtXZJOrel2VohzrFxpzQdJVXBGgUGLXtY8t8qw==}
     cpu: [arm64]
     os: [freebsd]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-freebsd-x64@1.6.7:
-    resolution: {integrity: sha512-rC9/G6WPKWyxNB68HsUxngOdcTAHTux04LgDgC0j6OOFgpo8cEYHSNTHv4ERz79FxCPBmNe4Cg+mIXHYg8b8RQ==}
+  /lefthook-freebsd-x64@1.6.10:
+    resolution: {integrity: sha512-sFSe+dGLa4iBblWAhAGTP9moarcbFtFAH6aaCeyqSX51O6p9VPdGjqNtcE8aGbGAk4lO6v1ScRjk5ogMSinJwQ==}
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-linux-arm64@1.6.7:
-    resolution: {integrity: sha512-3MAfA/cAgA7716C04XkSoyfMDXkOZDx9k2BkZdOwt35TBjxz6fkinYeeOvszGBSfeOFNQHIYYFgHazEaFVzrjQ==}
+  /lefthook-linux-arm64@1.6.10:
+    resolution: {integrity: sha512-fXnKiNdRIW+FRvc1keVrvWX5EqIhVFfPjcy+PbsKdxiWRXgjtidi6LPmQ8eosH0DC9PxZ0mpdCMf40FHEZLbQA==}
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-linux-x64@1.6.7:
-    resolution: {integrity: sha512-VzgNM0bJyzakrhjFZbTYrwli0L6bY1bk6SKhyFAYToH8/rI6pjlinSgu1VTAamXhxmA7YaRB8/5OJEjhvb0aKg==}
+  /lefthook-linux-x64@1.6.10:
+    resolution: {integrity: sha512-bm6l2GOFnmYreZxmHb47QeOiFAItttOOxvCEX1okIRD7JbUC+lGC9evW5GJv/ltjZBoTDYEtQAUa+BpHTGuY2A==}
     cpu: [x64]
     os: [linux]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-windows-arm64@1.6.7:
-    resolution: {integrity: sha512-naV4612JbrOCRZSWVS0Y1BzREHDLyCWC9eHqDG8XTGC1NJ/vM3ip2j9hHHF/GPSceazs82Tog2rSpJ9q8JZ0IQ==}
+  /lefthook-windows-arm64@1.6.10:
+    resolution: {integrity: sha512-pFxT8KbOMzGxj6cz4glHYwQSNC7XCuy9RDqIO0AxPlpATsCpapkF4ngDxBT1iFv2VhdeweMa7RXUDsMAGQA4Qw==}
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook-windows-x64@1.6.7:
-    resolution: {integrity: sha512-U0jwO5CTya9yo1G+946ULBhH3Nl6j+WOqYz7rWJQIIFNe0mvethmAv+aLKMNrAWgOZ+gX0A7++cqdUOl9LoVwQ==}
+  /lefthook-windows-x64@1.6.10:
+    resolution: {integrity: sha512-fcDnUSTv95AdLvm0NIrn3jBWXuRq8SlbDDjkkB5OHLiSmjz4eOr6wyD7xceDp33zZgZmWFzHebJngxxcIaUuHw==}
     cpu: [x64]
     os: [win32]
     requiresBuild: true
     dev: true
     optional: true
 
-  /lefthook@1.6.7:
-    resolution: {integrity: sha512-glQisTn0oMXfWv58MBE54wOPez8T06dqcEGrfz73RlvOi/kvbu59oockEvMYs4RfvowQirF0ncp+JHWJbDMRgQ==}
+  /lefthook@1.6.10:
+    resolution: {integrity: sha512-HeVjsDCrHLe9htQHbLuQJu2YdLK6Tl5bh36fOpmXqckEXTI0BDR0Y5JYc7G5Inj4YXQsc51a9dUDZMeniSnSag==}
     hasBin: true
     requiresBuild: true
     optionalDependencies:
-      lefthook-darwin-arm64: 1.6.7
-      lefthook-darwin-x64: 1.6.7
-      lefthook-freebsd-arm64: 1.6.7
-      lefthook-freebsd-x64: 1.6.7
-      lefthook-linux-arm64: 1.6.7
-      lefthook-linux-x64: 1.6.7
-      lefthook-windows-arm64: 1.6.7
-      lefthook-windows-x64: 1.6.7
+      lefthook-darwin-arm64: 1.6.10
+      lefthook-darwin-x64: 1.6.10
+      lefthook-freebsd-arm64: 1.6.10
+      lefthook-freebsd-x64: 1.6.10
+      lefthook-linux-arm64: 1.6.10
+      lefthook-linux-x64: 1.6.10
+      lefthook-windows-arm64: 1.6.10
+      lefthook-windows-x64: 1.6.10
     dev: true
 
   /leven@3.1.0:
@@ -14769,7 +14877,7 @@ packages:
       code-block-writer: 12.0.0
     dev: true
 
-  /ts-node@10.9.2(@types/node@20.11.20)(typescript@5.4.3):
+  /ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3):
     resolution: {integrity: sha512-f0FFpIdcHgn8zcPSbf1dRevwt047YMnaiJM3u2w2RewrB+fob/zePZcrOyQoLMMO7aBIddLcQIEK5dYjkLnGrQ==}
     hasBin: true
     peerDependencies:
@@ -14788,7 +14896,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 20.11.20
+      '@types/node': 20.12.7
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3
