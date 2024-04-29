@@ -32,6 +32,10 @@ export default {
                     '50%': { opacity: '0' },
                     '100%': { opacity: '1' },
                 },
+                'arrows-x-animation': {
+                    '0%': { left: '0'},
+                    '100%': { left: '100%'},
+                }
             },
             animation: {
                 'cell-pulse-3': 'cell-pulse-animation 3s ease-in infinite',
@@ -40,6 +44,8 @@ export default {
                 'cell-pulse-negative-3': 'cell-pulse-negative-animation 3s ease-in infinite',
                 'cell-pulse-negative-5': 'cell-pulse-negative-animation 5s ease-in infinite',
                 'cell-pulse-negative-7': 'cell-pulse-negative-animation 7s ease-in infinite',
+                'arrows-x-3': 'arrows-x-animation 300ms linear forwards',
+                'arrows-x-3-reset': 'arrows-x-animation 300ms linear reverse',
             },
             colors: {
                 /***************
