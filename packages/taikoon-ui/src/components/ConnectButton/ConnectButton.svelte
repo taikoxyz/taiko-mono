@@ -2,6 +2,7 @@
   import { getAccount } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { formatEther } from 'viem';
+  import { zeroAddress } from 'viem';
 
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';
@@ -9,7 +10,6 @@
   import { classNames } from '$lib/util/classNames';
   import { noop } from '$lib/util/noop';
   import { shortenAddress } from '$lib/util/shortenAddress';
-  import { ZeroXAddress } from '$lib/util/ZeroXAddress';
   import { getBalance } from '$lib/wagmi';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
@@ -33,7 +33,7 @@
   }
 
   $: currentChainId = $connectedSourceChain?.id;
-  $: accountAddress = ($account?.address || ZeroXAddress) as IAddress;
+  $: accountAddress = ($account?.address || zeroAddress) as IAddress;
   $: balance = $ethBalance || 0n;
 
   onMount(async () => {

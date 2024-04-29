@@ -1,14 +1,14 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
+  import { zeroAddress } from 'viem';
 
   import { ConnectButton } from '$components/ConnectButton';
   import { Button } from '$components/core/Button';
   import { ThemeButton } from '$components/ThemeButton';
   import { classNames } from '$lib/util/classNames';
-  import { ZeroXAddress } from '$lib/util/ZeroXAddress';
 
   export let open = false;
-  export let address = ZeroXAddress;
+  export let address = zeroAddress;
   export let isConnected = false;
   const buttonClasses = classNames();
 </script>
@@ -38,7 +38,7 @@
     <Button on:click={() => (open = false)} href="/mint" type="mobile" class={buttonClasses}>Mint</Button>
     <Button on:click={() => (open = false)} href="/collection" type="mobile" class={buttonClasses}>Collection</Button>
 
-    {#if address !== ZeroXAddress}
+    {#if address !== zeroAddress}
       <Button
         on:click={() => (open = false)}
         href={`/collection/${address.toLowerCase()}`}

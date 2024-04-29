@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getAccount } from '@wagmi/core';
   import { getContext } from 'svelte';
+  import { zeroAddress } from 'viem';
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
@@ -15,7 +16,6 @@
   import { H1, H4 } from '$ui/Text';
 
   import Token from '../../lib/token';
-  import { ZeroXAddress } from '../../lib/util/ZeroXAddress';
   import getConfig from '../../lib/wagmi/getConfig';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
@@ -73,7 +73,6 @@
   $: progress = Math.floor((totalSupply / 888) * 100);
 
   $: canMint = false;
-  $: canMint = false;
 
   $: freeMintsLeft = 0;
 
@@ -113,7 +112,7 @@
     const { config } = getConfig();
     const account = getAccount(config);
     if (!account || !account.address) {
-      mintState.set({ ...$mintState, address: ZeroXAddress });
+      mintState.set({ ...$mintState, address: zeroAddress });
       return;
     }
     mintState.set({ ...$mintState, address: account.address.toLowerCase() as IAddress });

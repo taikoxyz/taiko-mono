@@ -1,12 +1,12 @@
 <script lang="ts">
   import { getAccount } from '@wagmi/core';
+  import { zeroAddress } from 'viem';
 
   import TaikoonsIcon from '$assets/taikoons-icon.png';
   import { Icons } from '$components/core/Icons';
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
-  import { ZeroXAddress } from '$lib/util/ZeroXAddress';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
   import { Button } from '$ui/Button';
@@ -15,7 +15,7 @@
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   const { Menu: MenuIcon, XSolid: CloseMenuIcon } = Icons;
-  $: address = ZeroXAddress;
+  $: address = zeroAddress;
   const wrapperClasses = classNames('w-full', 'z-0', 'fixed', 'top-0');
 
   $: isMobileMenuOpen = false;
@@ -57,7 +57,7 @@
   ];
 
   connectedSourceChain.subscribe(async () => {
-    if (address !== ZeroXAddress) return;
+    if (address !== zeroAddress) return;
     const account = getAccount(config);
     if (!account.address) return;
     address = account.address;
@@ -102,7 +102,7 @@
         <Button href="/mint" type="neutral" class={buttonClasses}>Mint</Button>
 
         <Button href="/collection" type="neutral" class={buttonClasses}>Collection</Button>
-        {#if address !== ZeroXAddress}
+        {#if address !== zeroAddress}
           <Button href={`/collection/${address.toLowerCase()}`} type="neutral" class={buttonClasses}>
             Your taikoons</Button>
         {/if}
