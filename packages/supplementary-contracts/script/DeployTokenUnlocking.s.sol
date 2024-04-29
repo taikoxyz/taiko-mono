@@ -9,10 +9,9 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../contracts/TokenUnlocking.sol";
 
 contract DeployTokenUnlocking is Script {
-    address public CONTRACT_OWNER = vm.envAddress("TAIKO_LABS_MULTISIG");
+    address public OWNER = vm.envAddress("OWNER");
     address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
-    address public SHARED_TOKEN_VAULT = vm.envAddress("SHARED_TOKEN_VAULT");
-    address public GRANTEE = vm.envAddress("GRANTEE");
+    address public RECIPIENT = vm.envAddress("RECIPIENT");
     uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
 
     address tokenUnlocking;
@@ -23,10 +22,7 @@ contract DeployTokenUnlocking is Script {
         vm.startBroadcast();
         tokenUnlocking = deployProxy({
             impl: address(new TokenUnlocking()),
-            data: abi.encodeCall(
-                TokenUnlocking.init,
-                (CONTRACT_OWNER, TAIKO_TOKEN, SHARED_TOKEN_VAULT, GRANTEE, uint64(TGE))
-                )
+            data: abi.encodeCall(TokenUnlocking.init, (OWNER, TAIKO_TOKEN, RECIPIENT, uint64(TGE)))
         });
         vm.stopBroadcast();
     }
