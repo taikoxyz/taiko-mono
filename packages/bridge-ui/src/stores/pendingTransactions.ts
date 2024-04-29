@@ -1,9 +1,9 @@
 import { waitForTransactionReceipt } from '@wagmi/core';
 import { writable } from 'svelte/store';
-import type { Hex, TransactionReceipt } from 'viem';
+import { type Hex, type TransactionReceipt, WaitForTransactionReceiptTimeoutError } from 'viem';
 
 import { pendingTransaction } from '$config';
-import { FailedTransactionError } from '$libs/error';
+import { FailedTransactionError, TransactionTimeoutError } from '$libs/error';
 import { refreshUserBalance } from '$libs/util/balance';
 import { Deferred } from '$libs/util/Deferred';
 import { getLogger } from '$libs/util/logger';
@@ -67,6 +67,9 @@ export const pendingTransactions = {
         })
         .catch((err) => {
           console.error(err);
+          if (err instanceof WaitForTransactionReceiptTimeoutError) {
+            deferred.reject(new TransactionTimeoutError(`transaction with hash "${hash}" timed out`, { cause: err }));
+          }
           deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: err }));
         })
         .finally(() => {
