@@ -10,8 +10,10 @@
   import type { IconType } from '../../types';
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
+  type ISocialLink = 'youtube' | 'twitter' | 'discord' | 'mirror' | 'forum' | 'none';
+
   $: socialLinks = $json('content.sections.footer.socials') as {
-    name: string;
+    name: ISocialLink;
     url: string;
     icon: IconType;
   }[];
@@ -185,6 +187,8 @@
     'text-content-secondary',
     'font-normal',
   );
+
+  $: hoveredIcon = 'none' as ISocialLink;
 </script>
 
 <Section height={windowSize === 'sm' ? 'fit' : 'min'} background="footer" class={sectionClasses} width="xl">
@@ -195,8 +199,24 @@
     <div class={socialLinksWrapperClasses}>
       {#each socialLinks as link}
         {@const Icon = Icons[link.icon]}
-        <a href={link.url} target="_blank" class={socialLinkClasses}>
-          <Icon size={windowSize === 'md' ? '16' : '24'} class="text-content-secondary" />
+        <a
+          href={link.url}
+          on:mouseenter={() => (hoveredIcon = link.name)}
+          on:mouseleave={() => (hoveredIcon = 'none')}
+          target="_blank"
+          class={socialLinkClasses}>
+          <Icon
+            size={windowSize === 'md' ? '16' : '24'}
+            class={classNames(
+              'transition-colors',
+
+              hoveredIcon === link.name && hoveredIcon === 'youtube' ? 'text-red-500' : 'text-content-secondary',
+              hoveredIcon === link.name && hoveredIcon === 'forum' ? 'text-primary' : 'text-content-secondary',
+              hoveredIcon === link.name && hoveredIcon === 'discord' ? 'text-[#7289DA]' : 'text-content-secondary',
+              hoveredIcon === link.name && (hoveredIcon === 'twitter' || hoveredIcon === 'mirror')
+                ? 'text-content-primary'
+                : 'text-content-secondary',
+            )} />
           {#if windowSize !== 'sm'}
             {link.name}
           {/if}
