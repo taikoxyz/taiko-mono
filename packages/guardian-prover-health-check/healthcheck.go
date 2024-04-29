@@ -35,16 +35,16 @@ type HealthCheckRepository interface {
 		ctx context.Context,
 		req *http.Request,
 	) (paginate.Page, error)
-	GetByGuardianProverID(
+	GetByGuardianProverAddress(
 		ctx context.Context,
 		req *http.Request,
-		id int,
+		address string,
 	) (paginate.Page, error)
-	GetMostRecentByGuardianProverID(
+	GetMostRecentByGuardianProverAddress(
 		ctx context.Context,
 		req *http.Request,
-		id int,
+		address string,
 	) (*HealthCheck, error)
 	Save(opts SaveHealthCheckOpts) error
-	GetUptimeByGuardianProverID(ctx context.Context, id int) (float64, int, error)
+	GetUptimeByGuardianProverAddress(ctx context.Context, address string) (float64, int, error)
 }

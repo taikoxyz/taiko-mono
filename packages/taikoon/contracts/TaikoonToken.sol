@@ -2,24 +2,16 @@
 pragma solidity 0.8.24;
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { Ownable2StepUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+
 import { ERC721EnumerableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import { UUPSUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import { MerkleWhitelist } from "./MerkleWhitelist.sol";
 
 /// @title TaikoonToken
 /// @dev The Taikoons ERC-721 token
 /// @custom:security-contact security@taiko.xyz
-contract TaikoonToken is
-    ERC721EnumerableUpgradeable,
-    UUPSUpgradeable,
-    Ownable2StepUpgradeable,
-    MerkleWhitelist
-{
+contract TaikoonToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     /// @notice The current supply
     uint256 private _totalSupply;
     // Base URI required to interact with IPFS
@@ -35,10 +27,16 @@ contract TaikoonToken is
     /// @notice Contract initializer
     /// @param _rootURI Base URI for the token metadata
     /// @param _merkleRoot Merkle tree root for the whitelist
-    function initialize(string memory _rootURI, bytes32 _merkleRoot) external initializer {
+    function initialize(
+        address _owner,
+        string memory _rootURI,
+        bytes32 _merkleRoot
+    )
+        external
+        initializer
+    {
         __ERC721_init("Taikoon", "TKOON");
-        __Ownable_init(_msgSender());
-        __MerkleWhitelist_init(_merkleRoot);
+        __MerkleWhitelist_init(_owner, _merkleRoot);
         _baseURIExtended = _rootURI;
     }
 
@@ -98,9 +96,6 @@ contract TaikoonToken is
     function _baseURI() internal view override returns (string memory) {
         return _baseURIExtended;
     }
-
-    /// @notice Internal method to authorize an upgrade
-    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 
     /// @notice Internal method to batch mint tokens
     /// @param _to The address to mint to

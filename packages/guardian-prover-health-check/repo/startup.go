@@ -27,31 +27,31 @@ func (r *StartupRepository) startQuery() *gorm.DB {
 	return r.db.GormDB().Table("startups")
 }
 
-func (r *StartupRepository) GetByGuardianProverID(
+func (r *StartupRepository) GetByGuardianProverAddress(
 	ctx context.Context,
 	req *http.Request,
-	id int,
+	address string,
 ) (paginate.Page, error) {
 	pg := paginate.New(&paginate.Config{
 		DefaultSize: 100,
 	})
 
 	reqCtx := pg.With(r.startQuery().Order("created_at desc").
-		Where("guardian_prover_id = ?", id))
+		Where("guardian_prover_address = ?", address))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.Startup{})
 
 	return page, nil
 }
 
-func (r *StartupRepository) GetMostRecentByGuardianProverID(
+func (r *StartupRepository) GetMostRecentByGuardianProverAddress(
 	ctx context.Context,
-	id int,
+	address string,
 ) (*guardianproverhealthcheck.Startup, error) {
 	s := &guardianproverhealthcheck.Startup{}
 
 	if err := r.startQuery().Order("created_at desc").
-		Where("guardian_prover_id = ?", id).Limit(1).
+		Where("guardian_prover_address = ?", address).Limit(1).
 		Scan(s).Error; err != nil {
 		return nil, err
 	}

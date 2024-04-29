@@ -102,12 +102,12 @@ func TestIntegration_Startup_GetByGuardianProverID(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		id      int
+		address string
 		wantErr error
 	}{
 		{
 			"success",
-			1,
+			"0x123",
 			nil,
 		},
 	}
@@ -117,7 +117,7 @@ func TestIntegration_Startup_GetByGuardianProverID(t *testing.T) {
 			req, err := http.NewRequest(http.MethodGet, "/signedBlock", nil)
 			assert.Equal(t, nil, err)
 
-			page, err := startupRepo.GetByGuardianProverID(context.Background(), req, tt.id)
+			page, err := startupRepo.GetByGuardianProverAddress(context.Background(), req, tt.address)
 			assert.Equal(t, nil, err)
 
 			assert.Equal(t, page.Total, int64(2))

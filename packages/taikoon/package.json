@@ -16,7 +16,7 @@
     "deploy:ipfs": "rm -rf data/metadata/* && node script/js/resize-images.js && node script/js/add-images-ipfs.js && echo 'IPFS Base URI:' && ipfs add -r ./data/metadata/ && echo 'Update your .env file with the new IPFS URI'"
   },
   "devDependencies": {
-    "@types/node": "^20.11.20",
+    "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "@typescript-eslint/parser": "^7.7.0",
     "eslint": "^8.51.0",
@@ -35,7 +35,6 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
-    "@openzeppelin/foundry-upgrades": "github:OpenZeppelin/openzeppelin-foundry-upgrades",
     "@openzeppelin/merkle-tree": "^1.0.6",
     "convert-csv-to-json": "^2.46.0",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
