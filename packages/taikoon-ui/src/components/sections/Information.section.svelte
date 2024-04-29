@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 </script>
@@ -16,12 +18,11 @@
       'font-sans',
       'leading-relaxed',
     )}>
-    The Collection
+    {$t('content.sections.information.title')}
   </p>
 
   <div class={classNames('md:font-normal', 'font-medium', 'md:text-6xl', 'font-clash-grotesk', 'text-4xl')}>
-    The 888 Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem, designed to foster community growth
-    and establish unique on-chain identities.
+    {$t('content.sections.information.text')}
   </div>
   <slot />
 </Section>

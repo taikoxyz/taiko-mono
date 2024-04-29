@@ -1,7 +1,8 @@
 <script>
+  import { t } from 'svelte-i18n';
   const currentYear = new Date().getFullYear();
 </script>
 
 <div class={$$props.class}>
-  © {currentYear} Taiko Labs
+  {$t('content.sections.footer.copyright', { values: { year: currentYear } })}
 </div>

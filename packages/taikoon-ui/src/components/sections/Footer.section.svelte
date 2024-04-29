@@ -1,10 +1,28 @@
 <script lang="ts">
+  import { json,t } from 'svelte-i18n';
+
   import Copyright from '$components/core/Copyright/Copyright.svelte';
+  import { Icons } from '$components/core/Icons';
   import { ResponsiveController } from '$components/core/ResponsiveController';
-  import { FooterButtonLinks, FooterTextLinks } from '$content/footer';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
+
+  import type { IconType } from '../../types';
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  $: socialLinks = $json('content.sections.footer.socials') as {
+    label: string;
+    href: string;
+    icon: IconType;
+  }[];
+
+  $: textLinks = $json('content.sections.footer.nav') as {
+    title: string;
+    list: {
+      name: string;
+      url: string;
+    }[];
+  }[];
 </script>
 
 <Section
@@ -26,13 +44,15 @@
       'gap-10',
     )}>
     <div class={classNames('w-full', 'flex', 'flex-row', 'items-center', 'justify-center', 'gap-5')}>
-      <div class="text-xs font-bold font-sans text-content-primary">JOIN THE TAIKO COMMUNITY</div>
+      <div class="text-xs font-bold font-sans text-content-primary">
+        {$t('content.sections.footer.joinTaiko')}
+      </div>
     </div>
     <div class={classNames('w-full', 'flex', 'flex-row', 'items-center', 'justify-center', 'gap-5')}>
-      {#each FooterButtonLinks as link}
-        {@const Icon = link.icon}
+      {#each socialLinks as link}
+        {@const Icon = Icons[link.icon]}
         <a
-          href={link.href}
+          href={link.url}
           target="_blank"
           class={classNames(
             'w-1/5',
@@ -53,9 +73,9 @@
             'border-transparent',
             'hover:border-primary',
           )}>
-          <Icon size={28} class="text-content-secondary" />
+          <Icon size="28" class="text-content-secondary" />
           {#if windowSize !== 'sm'}
-            {link.label}
+            {link.name}
           {/if}
         </a>
       {/each}
@@ -93,7 +113,7 @@
             'text-center',
             'w-full',
           )}>
-          Taiko
+          {$t('content.sections.footer.content.title')}
         </div>
         <div
           class={classNames(
@@ -106,7 +126,7 @@
             'w-full',
             'text-center',
           )}>
-          The most developer-friendly and secure Ethereum scaling solution
+          {$t('content.sections.footer.content.text')}
         </div>
 
         {#if windowSize === 'sm'}
@@ -150,7 +170,7 @@
             'px-5',
             'py-3',
           )}>
-          {#each Object.keys(FooterTextLinks) as title}
+          {#each textLinks as textLink}
             <ul
               class={classNames(
                 'w-1/5',
@@ -163,11 +183,11 @@
                 'w-full',
               )}>
               <li class={classNames('font-bold', 'text-content-primary', 'text-base', 'uppercase')}>
-                {title}
+                {textLink.title}
               </li>
-              {#each Object.keys(FooterTextLinks[title]) as link}
+              {#each textLink.list as link}
                 <li class={classNames('hover:text-primary', 'text-content-secondary', 'text-base', 'cursor-pointer')}>
-                  <a href={FooterTextLinks[title][link]}>{link}</a>
+                  <a href={link.url}>{link.name}</a>
                 </li>
               {/each}
             </ul>

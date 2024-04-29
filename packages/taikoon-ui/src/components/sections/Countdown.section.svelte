@@ -1,5 +1,6 @@
 <script lang="ts">
   import Countdown from 'svelte-countdown';
+  import { t } from 'svelte-i18n';
 
   import { AnimatedTaikoon } from '$components/AnimatedTaikoon';
   import { ResponsiveController } from '$components/core/ResponsiveController';
@@ -50,10 +51,10 @@
   {/if}
   <Countdown zone="UTC" from={formatDate(new Date('2024-05-08T00:00:00'))} dateFormat="YYYY-MM-DD H:m:s" let:remaining>
     <div class={timerContainerClass}>
-      <TimerItem count={remaining.days} label={remaining.days === 1 ? 'Day' : 'Days'} />
+      <TimerItem count={remaining.days} label={remaining.days === 1 ? $t('time.day') : $t('time.days')} />
 
       <div class={separatorClasses}></div>
-      <TimerItem count={remaining.hours} label={remaining.hours === 1 ? 'Hour' : 'Hours'} />
+      <TimerItem count={remaining.hours} label={remaining.hours === 1 ? $t('time.hour') : $t('time.hours')} />
 
       {#if windowSize === 'sm'}
         <div class={separatorClasses}></div>
@@ -62,10 +63,10 @@
           <AnimatedTaikoon />
         </div>
       {/if}
-      <TimerItem count={remaining.minutes} label={remaining.minutes === 1 ? 'Minute' : 'Minutes'} />
+      <TimerItem count={remaining.minutes} label={remaining.minutes === 1 ? $t('time.minute') : $t('time.minutes')} />
       <div class={separatorClasses}></div>
 
-      <TimerItem count={remaining.seconds} label={remaining.seconds === 1 ? 'Second' : 'Seconds'} />
+      <TimerItem count={remaining.seconds} label={remaining.seconds === 1 ? $t('time.second') : $t('time.seconds')} />
     </div>
   </Countdown>
 

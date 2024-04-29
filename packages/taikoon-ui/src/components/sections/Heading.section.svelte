@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import LogoBlack from '$assets/taikoons-big-black.png';
   import LogoWhite from '$assets/taikoons-big-white.png';
   import { ResponsiveController } from '$components/core/ResponsiveController';
@@ -17,7 +19,7 @@
   <img src={logo} alt="Taikoons Logo" class={classNames('w-full', 'h-auto', 'mb-20')} />
 
   <Button size="xl" wide type="primary" iconRight="ArrowRightFilled">
-    <a href="/mint">Mint Now</a>
+    <a href="/mint">{$t('buttons.mintNow')}</a>
   </Button>
 
   <slot />

@@ -4,6 +4,142 @@
       "failed_max": "Unable to use max amount"
     }
   },
+  "time": {
+    "day": "Day",
+    "days": "Days",
+    "hour": "Hour",
+    "hours": "Hours",
+    "minute": "Minute",
+    "minutes": "Minutes",
+    "second": "Second",
+    "seconds": "Seconds"
+  },
+  "buttons": {
+    "mintNow": "Mint Now",
+    "learnMore": "Learn More"
+  },
+  "content": {
+    "sections": {
+      "information": {
+        "title": "The Collection",
+        "text": "The 888 Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem, designed to foster community growth and establish unique on-chain identities."
+      },
+      "faq": {
+        "title": "FAQs",
+        "entries": [
+          {
+            "title": "What is the total supply of the NFTs in this collection?",
+            "text": "The total supply of the NFTs in this collection is 888."
+          },
+          {
+            "title": "How can I use my Taikoons?",
+            "text": "You can use your Taikoons to participate in the Taiko Layer 2 ecosystem."
+          },
+          {
+            "title": "What is the minting process?",
+            "text": "The minting process is as follows:"
+          },
+          {
+            "title": "How does the daily auction work?",
+            "text": "The daily auction works as follows:"
+          }
+        ]
+      },
+      "footer": {
+        "copyright": "© {year} Taiko Labs",
+        "joinTaiko": "Join the taiko community",
+        "content": {
+          "title": "Taiko",
+          "text": "The most developer-friendly and secure Ethereum scaling solution."
+        },
+        "subscribe": {
+          "stayUpdated": "Stay updated! \nDive into the latest Taiko developer news",
+          "subscribe": "Subscribe",
+          "email": "Email"
+        },
+        "nav": [
+          {
+            "title": "About",
+            "list": [
+              {
+                "name": "Blog",
+                "url": "/blog"
+              },
+              {
+                "name": "Careers",
+                "url": "/careers"
+              },
+              {
+                "name": "Brand kit",
+                "url": "/brand-assets"
+              }
+            ]
+          },
+          {
+            "title": "Developers",
+            "list": [
+              {
+                "name": "Get started",
+                "url": "https://docs.taiko.xyz/start-here/getting-started"
+              },
+              {
+                "name": "GitHub",
+                "url": "https://github.com/taikoxyz"
+              }
+            ]
+          },
+          {
+            "title": "Solutions",
+            "list": [
+              {
+                "name": "Bridge",
+                "url": "https://bridge.hekla.taiko.xyz/"
+              },
+              {
+                "name": "Swap",
+                "url": "https://swap.hekla.taiko.xyz/"
+              },
+              {
+                "name": "Documentation",
+                "url": "https://docs.taiko.xyz/"
+              },
+              {
+                "name": "Explorer",
+                "url": "https://hekla.taikoscan.network/"
+              }
+            ]
+          }
+        ],
+        "socials": [
+          {
+            "icon": "DiscordLogo",
+            "name": "discord",
+            "url": "https://discord.com/invite/taikoxyz"
+          },
+          {
+            "icon": "TwitterLogo",
+            "name": "twitter",
+            "url": "https://twitter.com/taikoxyz"
+          },
+          {
+            "icon": "MirrorLogo",
+            "name": "mirror",
+            "url": "https://taiko.mirror.xyz/"
+          },
+          {
+            "icon": "TaikoLogo",
+            "name": "forum",
+            "url": "https://community.taiko.xyz/"
+          },
+          {
+            "icon": "YoutubeLogo",
+            "name": "youtube",
+            "url": "https://www.youtube.com/@taikoxyz"
+          }
+        ]
+      }
+    }
+  },
   "bridge": {
     "actions": {
       "approve": {

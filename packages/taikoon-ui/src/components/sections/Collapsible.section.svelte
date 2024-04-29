@@ -1,14 +1,15 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
+  import { t } from 'svelte-i18n';
 
   import { Icons } from '$components/core/Icons';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
   import { H1 } from '$ui/Text';
   export let options: {
-    visible: boolean;
+    visible?: boolean;
     title: string;
-    content: string;
+    text: string;
   }[] = [];
 
   const PlusIcon = Icons.PlusSign;
@@ -27,7 +28,9 @@
       'md:text-[1.75rem]',
       'text-xl',
     )}>
-    <H1>WTF?</H1>
+    <H1>
+      {$t('content.sections.faq.title')}
+    </H1>
     <div class={classNames('w-full', 'flex flex-col', 'items-center', 'justify-center', 'overflow-hidden', 'gap-4')}>
       {#each options as option}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -77,7 +80,7 @@
                 'text-content-secondary',
                 'font-clash-grotesk',
               )}>
-              {option.content}
+              {option.text}
             </div>
           {/if}
         </div>
