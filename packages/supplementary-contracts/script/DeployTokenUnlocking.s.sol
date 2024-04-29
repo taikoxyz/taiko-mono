@@ -31,7 +31,8 @@ contract DeployTokenUnlocking is Script {
             vm.readFile(string.concat(vm.projectRoot(), deploymentJsonPath));
         bytes memory recipientsPacked = vm.parseJson(recipientsJsonStr);
 
-        DeploymentJsonData memory recipientsData = abi.decode(recipientsPacked, (DeploymentJsonData));
+        DeploymentJsonData memory recipientsData =
+            abi.decode(recipientsPacked, (DeploymentJsonData));
 
         for (uint256 i; i < recipientsData.recipients.length; i++) {
             console2.log("Grantee      :", recipientsData.recipients[i]);
@@ -39,8 +40,7 @@ contract DeployTokenUnlocking is Script {
             deployProxy({
                 impl: address(new TokenUnlocking()),
                 data: abi.encodeCall(
-                    TokenUnlocking.init,
-                    (OWNER, TAIKO_TOKEN, recipientsData.recipients[i], uint64(TGE))
+                    TokenUnlocking.init, (OWNER, TAIKO_TOKEN, recipientsData.recipients[i], uint64(TGE))
                     )
             });
 
