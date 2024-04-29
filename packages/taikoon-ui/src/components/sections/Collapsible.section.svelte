@@ -59,7 +59,6 @@
   const collapseContentClasses = classNames(
     'text-[16px]/[24px]',
     'text-content-secondary',
-    'mt-4',
     'font-sans',
     'collapse-content',
     'tracking-normal',
@@ -81,7 +80,7 @@
           <div class={collapseTitleClasses}>
             {option.title}
           </div>
-          <div class={collapseContentClasses}>
+          <div class={classNames(collapseContentClasses, i === activeEntryId ? 'mt-4' : null)}>
             {option.text}
           </div>
         </div>
