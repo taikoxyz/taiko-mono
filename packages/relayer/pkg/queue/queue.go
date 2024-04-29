@@ -15,7 +15,13 @@ var (
 type Queue interface {
 	Start(ctx context.Context, queueName string) error
 	Close(ctx context.Context)
-	Publish(ctx context.Context, queueName string, msg []byte, expiration *string) error
+	Publish(
+		ctx context.Context,
+		queueName string,
+		msg []byte,
+		headers map[string]interface{},
+		expiration *string,
+	) error
 	Notify(ctx context.Context, wg *sync.WaitGroup) error
 	Subscribe(ctx context.Context, msgs chan<- Message, wg *sync.WaitGroup) error
 	Ack(ctx context.Context, msg Message) error
@@ -23,8 +29,9 @@ type Queue interface {
 }
 
 type QueueMessageSentBody struct {
-	Event *bridge.BridgeMessageSent
-	ID    int
+	Event        *bridge.BridgeMessageSent
+	ID           int
+	TimesRetried uint64
 }
 
 type QueueMessageProcessedBody struct {
@@ -35,7 +42,7 @@ type QueueMessageProcessedBody struct {
 type Message struct {
 	Body         []byte
 	Internal     interface{}
-	TimesRetried int64
+	TimesRetried uint64
 }
 
 type NewQueueOpts struct {

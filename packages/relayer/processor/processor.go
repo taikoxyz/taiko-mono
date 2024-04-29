@@ -443,10 +443,15 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					case errors.Is(err, relayer.ErrUnprofitable):
 						slog.Info("publishing to unprofitable queue")
 
+						headers := make(map[string]interface{}, 0)
+
+						headers["retries"] = m.TimesRetried + 1
+
 						if err := p.queue.Publish(
 							ctx,
 							fmt.Sprintf("%v-unprofitable", p.queueName()),
 							m.Body,
+							headers,
 							p.cfg.UnprofitableMessageQueueExpiration,
 						); err != nil {
 							slog.Error("error publishing to unprofitable queue", "error", err)
