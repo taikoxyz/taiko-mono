@@ -140,7 +140,7 @@ library LibProposing {
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
             if (
-                _checkEOAForCalldataDA
+                _checkEOAForCalldataDA && meta_.id != 1
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();

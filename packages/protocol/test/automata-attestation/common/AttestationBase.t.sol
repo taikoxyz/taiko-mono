@@ -28,7 +28,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     // use a network that where the P256Verifier contract exists
     // ref: https://github.com/daimo-eth/p256-verifier
     //string internal rpcUrl = vm.envString("RPC_URL");
-    string internal tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo_00606A000000.json";
+    string internal tcbInfoPath = "/test/automata-attestation/assets/0923/tcb_00606A000000.json";
     string internal idPath = "/test/automata-attestation/assets/0923/identity.json";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
