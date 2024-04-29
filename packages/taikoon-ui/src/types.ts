@@ -1,8 +1,7 @@
-//import * as Icons from 'svelte-awesome-icons'
+import type { Address } from 'viem';
 
+import type { IconType } from '$components/core/Icons';
 export type { IconType } from '$components/core/Icons';
-
-//export type IconType = keyof typeof Icons
 
 export interface IDropdownItem {
   icon: IconType;
@@ -34,7 +33,7 @@ export interface IAuction {
   updateCounter: number;
 }
 
-export type IAddress = `0x${string}`;
+export type IAddress = Address;
 
 export interface ITaikoon {
   id: number;
