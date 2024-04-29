@@ -61,7 +61,7 @@
   "type": "module",
   "dependencies": {
     "@wagmi/connectors": "^4.1.18",
-    "@wagmi/core": "^2.6.9",
+    "@wagmi/core": "^2.7.0",
     "@walletconnect/ethereum-provider": "^2.12.2",
     "@walletconnect/modal": "^2.6.2",
     "@web3modal/wagmi": "^4.1.1",

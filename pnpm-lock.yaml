@@ -23,10 +23,10 @@ importers:
     dependencies:
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        version: 4.1.18(@wagmi/core@2.7.0)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        specifier: ^2.7.0
+        version: 2.7.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider':
         specifier: ^2.12.2
         version: 2.12.2(react@18.2.0)
@@ -35,7 +35,7 @@ importers:
         version: 2.6.2(react@18.2.0)
       '@web3modal/wagmi':
         specifier: ^4.1.1
-        version: 4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.7.11)
+        version: 4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.7.0)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.7.11)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.12)
@@ -179,8 +179,8 @@ importers:
   packages/guardian-prover-health-check-ui:
     dependencies:
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.16)
+        specifier: ^2.7.0
+        version: 2.7.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.16)
       axios:
         specifier: ^1.6.7
         version: 1.6.7(debug@4.3.4)
@@ -5577,7 +5577,7 @@ packages:
       - utf-8-validate
     dev: true
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.7.0)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5591,7 +5591,7 @@ packages:
       '@metamask/sdk': 0.14.3(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.7.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
@@ -5621,8 +5621,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.7.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+    resolution: {integrity: sha512-uhr9Wu59f7HwcV87KVvjDOYHiPUZFslw2a43ocuULdhjwu3MpwOlpNdUZ00TJ0h3oIg19+k9yQHP/KDg0sTIhw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -5647,8 +5647,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.16):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.7.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.16):
+    resolution: {integrity: sha512-uhr9Wu59f7HwcV87KVvjDOYHiPUZFslw2a43ocuULdhjwu3MpwOlpNdUZ00TJ0h3oIg19+k9yQHP/KDg0sTIhw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -6332,15 +6332,15 @@ packages:
       qrcode: 1.5.3
     dev: false
 
-  /@web3modal/wagmi@4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.7.11):
+  /@web3modal/wagmi@4.1.1(@wagmi/connectors@4.1.18)(@wagmi/core@2.7.0)(@web3modal/wallet@4.1.1)(typescript@5.4.3)(viem@2.7.11):
     resolution: {integrity: sha512-XMT+naasTfxmt2ogHO7c2wWL63S9SkfoGEIvd7AaxtqlXZfVKtCqyJJC710WiBUhUCyt9wD6hQNjRB1nWN3TGg==}
     peerDependencies:
       '@wagmi/connectors': '>=4.0.0'
       '@wagmi/core': '>=2.0.0'
       viem: '>=2.0.0'
     dependencies:
-      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/connectors': 4.1.18(@wagmi/core@2.7.0)(react-dom@18.2.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.7.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@web3modal/polyfills': 4.1.1
       '@web3modal/scaffold': 4.1.1(@web3modal/wallet@4.1.1)(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.1(@web3modal/wallet@4.1.1)(react-dom@18.2.0)(react@18.2.0)
