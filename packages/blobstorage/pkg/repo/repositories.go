@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	blobstorage "github.com/taikoxyz/taiko-mono/packages/blobstorage"
@@ -58,6 +59,10 @@ func (r *Repositories) SaveBlobAndBlockMeta(
 				saveBlobHashOpts.BlobData,
 			)
 			if err != nil {
+				if errors.Is(err, gorm.ErrDuplicatedKey) {
+					slog.Warn("Duplicate entry for blob, continuing", "blobHash", saveBlobHashOpts.BlobHash)
+					return nil
+				}
 				slog.Error("Error storing blob in DB", "error", err)
 				return err
 			}
