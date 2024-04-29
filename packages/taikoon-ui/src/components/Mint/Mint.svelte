@@ -45,7 +45,6 @@
 
   const mintState = getContext('mint');
 
-  //$: isMinting = false
   $: isReady = false;
 
   $: freeMintCount = 0;

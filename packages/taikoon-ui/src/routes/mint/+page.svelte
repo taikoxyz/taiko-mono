@@ -19,7 +19,10 @@
 
 <Page>
   <SectionContainer>
-    <Section width={windowSize === 'sm' ? 'full' : 'md'} height={windowSize === 'sm' ? 'fit' : 'full'}>
+    <Section
+      width={windowSize === 'sm' ? 'full' : 'md'}
+      class="items-center justify-center"
+      height={windowSize === 'sm' ? 'fit' : 'full'}>
       <Mint />
     </Section>
     <CollapsibleSection options={faqOptions} />
