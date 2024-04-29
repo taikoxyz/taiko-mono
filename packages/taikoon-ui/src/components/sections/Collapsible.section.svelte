@@ -12,6 +12,8 @@
     text: string;
   }[] = [];
 
+  $: activeEntryId = 0;
+
   const PlusIcon = Icons.PlusSign;
   const XIcon = Icons.XSolid;
 </script>
@@ -31,25 +33,26 @@
     <H1>
       {$t('content.sections.faq.title')}
     </H1>
+
     <div class={classNames('w-full', 'flex flex-col', 'items-center', 'justify-center', 'overflow-hidden', 'gap-4')}>
-      {#each options as option}
+      {#each options as option, i}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div
+          on:click={() => (activeEntryId = activeEntryId === i ? -1 : i)}
           class={classNames(
             'w-full',
-            'flex flex-col',
-            'items-center',
-            'justify-between',
             'rounded-[20px]',
             'bg-neutral-background',
-            'py-8',
-            'px-12',
+            'py-4',
+            'h-min',
+            'px-6',
             'border-opacity-50',
-            'transition',
             'hover:text-primary',
-          )}
-          on:click={() => (option.visible = !option.visible)}>
+            'collapse',
+            'collapse-arrow',
+          )}>
+          <input class="hidden" type="radio" name="faq-radio-group" checked={i === activeEntryId} />
           <div
             class={classNames(
               'flex',
@@ -60,29 +63,13 @@
 
               'font-medium',
               'font-clash-grotesk',
+              'collapse-title',
             )}>
             {option.title}
-
-            {#if option.visible}
-              <XIcon size="14" />
-            {:else}
-              <PlusIcon size="14" />
-            {/if}
           </div>
-          {#if option.visible}
-            <div
-              transition:slide
-              class={classNames(
-                'w-full',
-                'h-full',
-                'pt-8',
-                'text-base',
-                'text-content-secondary',
-                'font-clash-grotesk',
-              )}>
-              {option.text}
-            </div>
-          {/if}
+          <div class={classNames('text-base', 'text-content-secondary', 'font-clash-grotesk', 'collapse-content')}>
+            {option.text}
+          </div>
         </div>
       {/each}
     </div>
