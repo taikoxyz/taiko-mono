@@ -62,6 +62,8 @@ func (p *Processor) processMessage(
 	msg queue.Message,
 ) (bool, error) {
 	if msg.TimesRetried >= p.maxMessageRetries {
+		slog.Warn("max retries reached", "timesRetried", msg.TimesRetried)
+
 		return false, nil
 	}
 
