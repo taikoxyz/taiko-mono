@@ -6,11 +6,26 @@
   import { Button } from '$components/core/Button';
   import { Spinner } from '$components/core/Spinner';
   import { NftRenderer } from '$components/NftRenderer';
-  import { classNames } from '$lib/util/classNames';
   import { Icons } from '$ui/Icons';
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
   import { Link } from '$ui/Text';
   import { successToast } from '$ui/Toast';
+
+  import {
+    bodyWrapperClasses,
+    buttonWrapperClasses,
+    footerWrapperClasses,
+    linkClasses,
+    mintedBodyClasses,
+    nftRendererWrapperClasses,
+    spinnerMdWrapper,
+    spinnerSmWrapper,
+    successBodyClasses,
+    successContentClasses,
+    successMintedLinkClasses,
+    successTitleClasses,
+    textClasses,
+  } from './classes';
 
   const { UpRightArrow } = Icons;
 
@@ -41,7 +56,7 @@
         : ''}
     </ModalTitle>
     <ModalBody>
-      <div class="text-content-secondary">
+      <div class={bodyWrapperClasses}>
         {#if $mintState.txHash}
           {$t('content.mint.modals.minting.pending')}
         {:else}
@@ -50,92 +65,58 @@
       </div>
     </ModalBody>
     <ModalFooter>
-      <div class="w-full flex flex-row items-center gap-4">
+      <div class={footerWrapperClasses}>
         {#if $mintState.txHash}
-          <div class="bg-interactive-tertiary rounded-md w-[30px] h-[30px] flex items-center justify-center">
+          <div class={spinnerSmWrapper}>
             <Spinner size="sm" />
           </div>
           <div>
-            <div class="font-sans font-bold text-sm text-content-primary">Waiting for confirmation</div>
-            <a
-              href={`https://etherscan.io/tx/${$mintState.txHash}`}
-              target="_blank"
-              class="flex flex-row items-center gap-2"
+            <div class={textClasses}>Waiting for confirmation</div>
+            <a href={`https://etherscan.io/tx/${$mintState.txHash}`} target="_blank" class={linkClasses}
               >{$t('buttons.etherscan')}
               <UpRightArrow size="10" />
             </a>
           </div>
         {:else}
-          <div class="w-full flex justify-center items-center">
+          <div class={spinnerMdWrapper}>
             <Spinner size="md" />
           </div>
         {/if}
       </div>
     </ModalFooter>
   {:else}
-    <ModalBody class="justify-start gap-6 py-6 items-center">
+    <ModalBody class={mintedBodyClasses}>
       <div
         bind:this={scrollContainer}
         on:wheel={(e) => {
           scrollContainer.scrollLeft += e.deltaY;
         }}
-        class={classNames(
-          'max-w-[50vw]',
-          'p-5',
-          'rounded-3xl',
-          'my-5',
-          'bg-background-elevated',
-          'flex',
-          'overflow-x-scroll',
-          $mintState.tokenIds.length === 1 ? 'items-center justify-center' : null,
-        )}>
-        <div class={classNames('flex', 'flex-row', 'justify-start', 'items-start', 'gap-5', 'w-max')}>
+        class={successBodyClasses}>
+        <div class={nftRendererWrapperClasses}>
           {#each $mintState.tokenIds as tokenId}
             <NftRenderer size="md" {tokenId} />
           {/each}
         </div>
       </div>
 
-      <div class={classNames('text-content-primary', 'text-4xl', 'font-clash-grotesk', 'font-semibold', 'text-center')}>
+      <div class={successTitleClasses}>
         {$t('content.mint.modals.minted.title')}
       </div>
-      <div
-        class={classNames(
-          'font-sans',
-          'text-center',
-          'text-content-secondary',
-          'font-normal',
-          'text-base',
-          'md:w-min',
-          'md:min-w-[300px]',
-          'w-full',
-        )}>
+      <div class={successContentClasses}>
         {$t('content.mint.modals.minted.text')}
 
-        <Link
-          class={classNames('hover:text-content-link-hover', 'text-content-link-primary', 'font-sans', 'font-normal')}
-          href={`/collection/${$mintState.address}`}>
+        <Link class={successMintedLinkClasses} href={`/collection/${$mintState.address}`}>
           {$t('content.mint.modals.minted.link')}</Link>
       </div>
     </ModalBody>
     <ModalFooter>
-      <div
-        class={classNames(
-          'flex',
-          'md:flex-row',
-          'flex-col',
-          'w-full',
-          'gap-4',
-          'items-center',
-          'justify-between',
-          'min-w-[500px]',
-        )}>
-        <div class="md:w-1/2 w-full px-2" use:copy={`${window.location.origin}/collection/${$mintState.address}`}>
+      <div class={successFooterWrapperClasses}>
+        <div class={buttonWrapperClasses} use:copy={`${window.location.origin}/collection/${$mintState.address}`}>
           <Button on:click={(event) => copyShareUrl(event.currentTarget)} wide block type="primary">
             {$t('buttons.share')}
           </Button>
         </div>
-        <div class="md:w-1/2 w-full px-2">
+        <div class={buttonWrapperClasses}>
           <Button
             on:click={() => ($mintState.isModalOpen = false)}
             href={`/collection/${$mintState.address}`}

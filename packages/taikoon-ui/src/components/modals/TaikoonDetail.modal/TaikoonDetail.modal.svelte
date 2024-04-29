@@ -5,6 +5,7 @@
   import { InfoRow } from '$components/core/InfoRow';
   import { NftRenderer } from '$components/NftRenderer';
   import Token from '$lib/token';
+  import { classNames } from '$lib/util/classNames';
   import { shortenAddress } from '$lib/util/shortenAddress';
   import { Modal, ModalBody, ModalTitle } from '$ui/Modal';
 
@@ -19,13 +20,17 @@
   }
 
   $: $taikoonDetailState.tokenId, updateShortenedAddress();
+
+  const modalClasses = classNames('items-center', 'justify-center');
+
+  const nftWrapperClasses = 'rounded-3xl m-6 overflow-hidden';
 </script>
 
-<Modal open={$taikoonDetailState.isModalOpen} class="items-center justify-center">
+<Modal open={$taikoonDetailState.isModalOpen} class={modalClasses}>
   <ModalTitle class="px-10">Taikoon #{$taikoonDetailState.tokenId}</ModalTitle>
 
   <ModalBody>
-    <div class="rounded-3xl m-6 overflow-hidden">
+    <div class={nftWrapperClasses}>
       <NftRenderer tokenId={$taikoonDetailState.tokenId} />
     </div>
     <InfoRow
