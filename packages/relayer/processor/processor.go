@@ -436,7 +436,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			go func(m queue.Message) {
-				shouldRequeue, err := p.processMessage(ctx, m)
+				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
 
 				if err != nil {
 					switch {
@@ -449,7 +449,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 						headers := make(map[string]interface{}, 0)
 
-						headers["retries"] = m.TimesRetried + 1
+						headers["retries"] = timesRetried + 1
 
 						if err := p.queue.Publish(
 							ctx,
