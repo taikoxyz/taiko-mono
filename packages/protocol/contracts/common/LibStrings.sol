@@ -6,8 +6,6 @@ pragma solidity 0.8.24;
 library LibStrings {
     bytes32 internal constant B_CHAIN_WATCHDOG = bytes32("chain_watchdog");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
-    bytes32 internal constant B_PROPOSER = bytes32("proposer");
-    bytes32 internal constant B_PROPOSER_ONE = bytes32("proposer_one");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
