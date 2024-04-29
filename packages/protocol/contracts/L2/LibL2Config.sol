@@ -18,7 +18,7 @@ library LibL2Config {
         config_.gasTargetPerL1Block = 60_000_000;
         config_.basefeeAdjustmentQuotient = 8;
 
-        // This value is picked to make the min base fee close to but slightly smaller than 0.1gwei
-        config_.gasExcessMinValue = 18_435_000_000;
+        // This value is picked to make the min base fee be 0.01gwei
+        config_.gasExcessMinValue = 17_331_548_325;
     }
 }
