@@ -60,6 +60,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@moralisweb3/common-evm-utils": "^2.26.1",
     "@wagmi/connectors": "^4.1.18",
     "@wagmi/core": "^2.6.9",
     "@walletconnect/ethereum-provider": "^2.12.2",
@@ -70,6 +71,7 @@
     "buffer": "^6.0.3",
     "debug": "^4.3.4",
     "events": "^3.3.0",
+    "moralis": "^2.26.1",
     "object-hash": "^3.0.0",
     "svelte-i18n": "^3.7.4",
     "viem": "^2.7.11"
