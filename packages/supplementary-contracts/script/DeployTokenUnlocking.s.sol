@@ -12,7 +12,7 @@ contract DeployTokenUnlocking is Script {
     using stdJson for string;
 
     struct DeploymentJsonData {
-        address[] grantRecipients;
+        address[] recipients;
     }
 
     address public OWNER = vm.envAddress("OWNER");
@@ -31,16 +31,16 @@ contract DeployTokenUnlocking is Script {
             vm.readFile(string.concat(vm.projectRoot(), deploymentJsonPath));
         bytes memory recipientsPacked = vm.parseJson(recipientsJsonStr);
 
-        DeploymentJsonData memory recipients = abi.decode(recipientsPacked, (DeploymentJsonData));
+        DeploymentJsonData memory recipientsData = abi.decode(recipientsPacked, (DeploymentJsonData));
 
-        for (uint256 i; i < recipients.grantRecipients.length; i++) {
-            console2.log("Grantee      :", recipients.grantRecipients[i]);
+        for (uint256 i; i < recipientsData.recipients.length; i++) {
+            console2.log("Grantee      :", recipientsData.recipients[i]);
 
             deployProxy({
                 impl: address(new TokenUnlocking()),
                 data: abi.encodeCall(
                     TokenUnlocking.init,
-                    (OWNER, TAIKO_TOKEN, recipients.grantRecipients[i], uint64(TGE))
+                    (OWNER, TAIKO_TOKEN, recipientsData.recipients[i], uint64(TGE))
                     )
             });
 

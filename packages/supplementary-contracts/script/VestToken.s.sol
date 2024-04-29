@@ -16,7 +16,7 @@ contract VestToken is Script {
         bytes32 nameBytes; // Conversion from json "string" to bytes32 will take place in foundry,
             // cannot use string here, as json parser cannot interpret string from json, everything
             // is bytes-chunks. It is more of informational to script executor anyways.
-        address grantRecipientEOA;
+        address recipient;
         address unlockingContractProxyAddress;
         uint256 vestAmount;
     }
@@ -47,11 +47,11 @@ contract VestToken is Script {
         for (uint256 i; i < recipients.tokenVests.length; i++) {
             address recipientUnlockingContract =
                 recipients.tokenVests[i].unlockingContractProxyAddress;
-            uint128 vestAmount = uint128(recipients.tokenVests[i].vestAmount);
+            uint128 vestAmount = uint128(recipients.tokenVests[i].vestAmount * 1e18);
 
-            console2.log("Grantee address     :", recipients.tokenVests[i].grantRecipientEOA);
-            console2.log("Grantee unlocking contract address     :", recipientUnlockingContract);
-            console2.log("Vest amount    :", vestAmount);
+            console2.log("Grantee address:", recipients.tokenVests[i].recipient);
+            console2.log("Grantee unlocking contract address:", recipientUnlockingContract);
+            console2.log("Vest amount(inTKO):", vestAmount);
             console2.log("\n");
 
             vm.startBroadcast(OWNER_VAULT_PK);
