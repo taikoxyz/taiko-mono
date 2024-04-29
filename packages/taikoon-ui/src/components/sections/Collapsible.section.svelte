@@ -9,61 +9,76 @@
     text: string;
   }[] = [];
 
-  $: activeEntryId = 0;
+  $: activeEntryId = -1;
 
   const titleClasses = classNames('text-5xl', 'font-semibold');
+
+  const wrapperClasses = classNames(
+    'w-full h-full',
+    'flex flex-col',
+    'items-start',
+    'justify-center',
+    'gap-10',
+    'md:text-[1.75rem]',
+    'text-xl',
+  );
+
+  const collapseWrapperClasses = classNames(
+    'w-full',
+    'flex flex-col',
+    'items-center',
+    'justify-center',
+    'overflow-hidden',
+    'gap-4',
+  );
+
+  const collapseItemClasses = classNames(
+    'w-full',
+    'rounded-[20px]',
+    'bg-neutral-background',
+    'py-4',
+    'h-min',
+    'px-6',
+    'border-opacity-50',
+    'hover:text-primary',
+    'collapse',
+    'collapse-arrow',
+  );
+  const collapseTitleClasses = classNames(
+    'flex',
+    'flex-row',
+    'w-full',
+    'justify-between',
+    'items-center',
+
+    'font-medium',
+    'font-clash-grotesk',
+    'collapse-title',
+  );
+  const collapseContentClasses = classNames(
+    'text-base',
+    'text-content-secondary',
+    'font-clash-grotesk',
+    'collapse-content',
+  );
 </script>
 
 <Section height="fit">
-  <div
-    class={classNames(
-      'w-full h-full',
-      'flex flex-col',
-      //'py-20',
-      'items-start',
-      'justify-center',
-      'gap-10',
-      'md:text-[1.75rem]',
-      'text-xl',
-    )}>
+  <div class={wrapperClasses}>
     <div class={titleClasses}>
       {$t('content.sections.faq.title')}
     </div>
 
-    <div class={classNames('w-full', 'flex flex-col', 'items-center', 'justify-center', 'overflow-hidden', 'gap-4')}>
+    <div class={collapseWrapperClasses}>
       {#each options as option, i}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-          on:click={() => (activeEntryId = activeEntryId === i ? -1 : i)}
-          class={classNames(
-            'w-full',
-            'rounded-[20px]',
-            'bg-neutral-background',
-            'py-4',
-            'h-min',
-            'px-6',
-            'border-opacity-50',
-            'hover:text-primary',
-            'collapse',
-            'collapse-arrow',
-          )}>
+        <div on:click={() => (activeEntryId = activeEntryId === i ? -1 : i)} class={collapseItemClasses}>
           <input class="hidden" type="radio" name="faq-radio-group" checked={i === activeEntryId} />
-          <div
-            class={classNames(
-              'flex',
-              'flex-row',
-              'w-full',
-              'justify-between',
-              'items-center',
-
-              'font-medium',
-              'font-clash-grotesk',
-              'collapse-title',
-            )}>
+          <div class={collapseTitleClasses}>
             {option.title}
           </div>
-          <div class={classNames('text-base', 'text-content-secondary', 'font-clash-grotesk', 'collapse-content')}>
+          <div class={collapseContentClasses}>
             {option.text}
           </div>
         </div>

@@ -4,7 +4,7 @@
   import { Button } from '$ui/Button';
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
 
-  import { buttonClasses, buttonRowClasses, textContainerClasses,wrapperClasses } from './classes';
+  import { buttonClasses, buttonRowClasses, textContainerClasses, wrapperClasses } from './classes';
 
   export let open: boolean = localStorage.getItem('mintAgreement') !== 'true';
 

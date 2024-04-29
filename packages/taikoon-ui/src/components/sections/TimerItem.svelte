@@ -14,11 +14,14 @@
     'justify-center',
     'z-10',
   );
+
+  const countClasses = classNames('font-clash-grotesk', 'font-medium', 'md:text-h0', 'text-5xl');
+  const labelClasses = classNames('text-content-secondary', 'md:text-h4', 'text-sm');
 </script>
 
 <div class={containerClasses}>
-  <div class={classNames('font-clash-grotesk', 'font-medium', 'md:text-h0', 'text-5xl')}>
+  <div class={countClasses}>
     {count}
   </div>
-  <div class={classNames('text-content-secondary', 'md:text-h4', 'text-sm')}>{label}</div>
+  <div class={labelClasses}>{label}</div>
 </div>

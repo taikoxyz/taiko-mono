@@ -13,10 +13,13 @@
   $: logo = isDarkTheme ? LogoWhite : LogoBlack;
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  const sectionClasses = 'items-center justify-center';
+  const imageClasses = classNames('w-full', 'h-auto', 'mb-20');
 </script>
 
-<Section animated={true} width={windowSize === 'sm' ? 'lg' : 'md'} class="items-center justify-center">
-  <img src={logo} alt="Taikoons Logo" class={classNames('w-full', 'h-auto', 'mb-20')} />
+<Section animated={true} width={windowSize === 'sm' ? 'lg' : 'md'} class={sectionClasses}>
+  <img src={logo} alt="Taikoons Logo" class={imageClasses} />
 
   <Button size="xl" wide type="primary" iconRight="ArrowRightFilled">
     <a href="/mint">{$t('buttons.mintNow')}</a>
