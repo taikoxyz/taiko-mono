@@ -1,5 +1,5 @@
 import Token from '../token';
-import { IPFS_GATEWAY } from './config';
+import { PUBLIC_IPFS_GATEWAY } from './config';
 import get from './get';
 export interface ITokenMetadata {
   name: string;
@@ -18,6 +18,6 @@ export default async function getMetadata(tokenId: number): Promise<ITokenMetada
 
   return {
     ...metadata,
-    image: `${IPFS_GATEWAY}${imageHash}`,
+    image: `${PUBLIC_IPFS_GATEWAY}${imageHash}`,
   };
 }
