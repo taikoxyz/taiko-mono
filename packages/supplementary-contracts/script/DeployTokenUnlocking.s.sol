@@ -9,21 +9,44 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../contracts/TokenUnlocking.sol";
 
 contract DeployTokenUnlocking is Script {
-    address public OWNER = vm.envAddress("OWNER");
-    address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
-    address public RECIPIENT = vm.envAddress("RECIPIENT");
-    uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
+    using stdJson for string;
 
-    address tokenUnlocking;
+    struct DeploymentJsonData {
+        address[] grantRecipients;
+    }
+
+    address public OWNER = 0x5486893fE4b289e3395E382fDdF203238cBa857e; //vm.envAddress("OWNER");
+    address public TAIKO_TOKEN = 0x5486893fE4b289e3395E382fDdF203238cBa857e; //vm.envAddress("TAIKO_TOKEN");
+    uint256 public TGE = 1; //vm.envUint("TGE_TIMESTAMP");
+
+    string internal deploymentJsonPath =
+        "/script/unlocking-contract-deployment-data/example-deployment-data.json";
 
     function setUp() public { }
 
     function run() external {
         vm.startBroadcast();
-        tokenUnlocking = deployProxy({
-            impl: address(new TokenUnlocking()),
-            data: abi.encodeCall(TokenUnlocking.init, (OWNER, TAIKO_TOKEN, RECIPIENT, uint64(TGE)))
-        });
+
+        string memory recipientsJsonStr =
+            vm.readFile(string.concat(vm.projectRoot(), deploymentJsonPath));
+        bytes memory recipientsPacked = vm.parseJson(recipientsJsonStr);
+
+        DeploymentJsonData memory recipients = abi.decode(recipientsPacked, (DeploymentJsonData));
+
+        for (uint256 i; i < recipients.grantRecipients.length; i++) {
+            console2.log("Grantee      :", recipients.grantRecipients[i]);
+
+            deployProxy({
+                impl: address(new TokenUnlocking()),
+                data: abi.encodeCall(
+                    TokenUnlocking.init,
+                    (OWNER, TAIKO_TOKEN, recipients.grantRecipients[i], uint64(TGE))
+                    )
+            });
+
+            console2.log("\n");
+        }
+
         vm.stopBroadcast();
     }
 
