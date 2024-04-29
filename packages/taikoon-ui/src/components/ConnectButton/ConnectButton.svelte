@@ -7,7 +7,6 @@
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';
   import { refreshUserBalance } from '$lib/util/balance';
-  import { classNames } from '$lib/util/classNames';
   import { noop } from '$lib/util/noop';
   import { shortenAddress } from '$lib/util/shortenAddress';
   import { getBalance } from '$lib/wagmi';
@@ -18,6 +17,7 @@
   import { config } from '$wagmi-config';
 
   import type { IAddress } from '../../types';
+  import { addressClasses, buttonContentClasses, chainIconClasses, connectedButtonClasses } from './classes';
   export let connected = false;
 
   let web3modalOpen = false;
@@ -51,34 +51,14 @@
 </script>
 
 {#if connected}
-  <button
-    on:click={connectWallet}
-    class={classNames(
-      'border border-divider-border',
-      'bg-gradient-to-r from-grey-500-10 to-grey-500-20',
-      'rounded-full',
-      'flex',
-      'items-center',
-      'gap-2',
-      'font-bold',
-    )}>
+  <button on:click={connectWallet} class={connectedButtonClasses}>
     <img
       alt="chain icon"
-      class="w-[24px] ml-1"
+      class={chainIconClasses}
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
-    <span
-      class={classNames(
-        'flex items-center',
-        'justify-center',
-        'text-secondary-content',
-        'p-1',
-        'gap-2',
-        'md:text-normal',
-        'text-sm',
-      )}
+    <span class={buttonContentClasses}
       >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
-      <span
-        class={classNames('flex', 'rounded-full', 'p-2.5', 'bg-neutral-background', 'border border-divider-border')}>
+      <span class={addressClasses}>
         {#await shortenAddress(accountAddress, 4, 6)}
           ...
         {:then displayAddress}

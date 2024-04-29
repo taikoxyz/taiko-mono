@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { slide } from 'svelte/transition';
   import { t } from 'svelte-i18n';
 
-  import { Icons } from '$components/core/Icons';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
   import { H1 } from '$ui/Text';
@@ -13,9 +11,6 @@
   }[] = [];
 
   $: activeEntryId = 0;
-
-  const PlusIcon = Icons.PlusSign;
-  const XIcon = Icons.XSolid;
 </script>
 
 <Section height="fit">

@@ -32,7 +32,7 @@
     $$props.class,
   );
 
-  $: imageClasses = classNames(
+  const imageClasses = classNames(
     'object-cover',
     'object-center',
 

@@ -8,36 +8,11 @@
   import { Select } from '$ui/Select';
 
   import { NftRenderer } from '../NftRenderer';
+  import { filterFormWrapperClasses, taikoonsWrapperClasses, wrapperClasses } from './classes';
   import { default as TaikoonDetail } from './TaikoonDetail.svelte';
+
   export let tokenIds: number[] = [];
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
-
-  const wrapperClasses = classNames(
-    'h-full',
-    'w-full',
-    'flex',
-    'flex-row',
-    'items-start',
-    'justify-evenly',
-    'pt-36',
-    'px-4',
-    'gap-10',
-    'z-0',
-  );
-
-  const taikoonsWrapperClasses = classNames(
-    'h-full',
-    'z-0',
-    'overflow-x-hidden',
-    'w-7/10',
-    'gap-5',
-    'p-5',
-    'grid',
-    'lg:grid-cols-6',
-    'md:grid-cols-4',
-    'grid-cols-3',
-    'auto-rows-max',
-  );
 
   export let isLoading = false;
   const taikoonDetailState = getContext('taikoonDetail');
@@ -64,19 +39,7 @@
     <TaikoonDetail {isLoading} taikoonId={selectedTaikoonId} />
   {/if}
   <div class="flex flex-col w-full h-full">
-    <div
-      class={classNames(
-        'z-10',
-        'w-full',
-        'flex',
-        'flex-col',
-        'md:flex-row',
-        'md:p-5',
-        'gap-5',
-        'md:items-center',
-        'items-end',
-        'justify-between',
-      )}>
+    <div class={filterFormWrapperClasses}>
       <InputBox class="w-full" size="lg" placeholder={$t('content.collection.search.placeholder')} />
 
       <Select

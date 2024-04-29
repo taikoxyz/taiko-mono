@@ -10,6 +10,15 @@
   import { warningToast } from '../core/Toast';
   //import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '../LoadingMask';
+  import {
+    chainItemClasses,
+    chainItemContentClasses,
+    chainItemContentWrapperClasses,
+    modalDialogClasses,
+    modalWrapperClasses,
+    textClasses,
+    titleClasses,
+  } from './classes';
 
   // TODO: We should combine this with the ChainSelector component.
   // Or at least share the same base component. There is a lot of code duplication
@@ -56,15 +65,14 @@
   }
 </script>
 
-<dialog class="modal modal-bottom md:modal-middle" class:modal-open={$switchChainModal}>
-  <div
-    class="modal-box relative px-6 py-[35px] md:py-[35px] bg-neutral-background text-primary-content box-shadow-small">
+<dialog class={modalDialogClasses} class:modal-open={$switchChainModal}>
+  <div class={modalWrapperClasses}>
     {#if switchingNetwork}
       <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
     {/if}
 
-    <h3 class="title-body-bold mb-[30px]">{$t('switch_modal.title')}</h3>
-    <p class="body-regular mb-[20px]">{$t('switch_modal.description')}</p>
+    <h3 class={titleClasses}>{$t('switch_modal.title')}</h3>
+    <p class={textClasses}>{$t('switch_modal.description')}</p>
     <ul role="menu" class=" w-full">
       {#each chains as chain (chain.id)}
         {@const icon = getChainImage(Number(chain.id)) || 'Unknown Chain'}
@@ -72,12 +80,12 @@
         <li
           role="menuitem"
           tabindex="0"
-          class="p-4 rounded-[10px] hover:bg-primary-background cursor-pointer w-full"
+          class={chainItemClasses}
           on:click={() => selectChain(chain)}
           on:keydown={getChainKeydownHandler(chain)}>
           <!-- TODO: agree on hover:bg color -->
-          <div class="f-row f-items-center justify-between w-full">
-            <div class="f-items-center space-x-4">
+          <div class={chainItemContentClasses}>
+            <div class={chainItemContentWrapperClasses}>
               <i role="img" aria-label={chain.name}>
                 <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
               </i>

@@ -14,39 +14,20 @@
 
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
+  import {
+    buttonClasses,
+    headerClasses,
+    menuButtonsWrapperClasses,
+    mobileMenuButtonClasses,
+    rightSectionClasses,
+    taikoonsIconClasses,
+    themeButtonSeparatorClasses,
+    wrapperClasses,
+  } from './classes';
   const { Menu: MenuIcon, XSolid: CloseMenuIcon } = Icons;
   $: address = zeroAddress;
-  const wrapperClasses = classNames('w-full', 'z-0', 'fixed', 'top-0');
 
   $: isMobileMenuOpen = false;
-
-  const headerClasses = classNames(
-    'md:px-10',
-    'md:py-10',
-    'h-16',
-    'flex flex-row',
-    'justify-between',
-    'items-center',
-    'gap-4',
-    'relative',
-    'z-50',
-    'px-4',
-    'md:glassy-background-lg',
-    'md:border-b-[1px] md:border-border-divider-default',
-    $$props.class,
-  );
-
-  const buttonClasses = classNames('text-lg', 'w-min', 'lg:w-[200px]');
-
-  const taikoonsIconClasses = classNames('h-full');
-
-  const rightSectionClasses = classNames(
-    'md:right-8',
-    'right-4',
-    'w-max',
-    'flex flex-row justify-center items-center',
-    'gap-4',
-  );
 
   $: taikoonsOptions = [
     {
@@ -74,22 +55,14 @@
 <MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
 
 <div class={wrapperClasses}>
-  <div class={headerClasses}>
+  <div class={classNames(headerClasses, $$props.class)}>
     <a href="/" class={classNames()}>
       <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
     </a>
 
     {#if windowSize === 'sm'}
       <div class={rightSectionClasses}>
-        <button
-          on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)}
-          class={classNames(
-            'bg-interactive-tertiary',
-            'rounded-full',
-            'w-[50px]',
-            'h-[50px]',
-            'flex justify-center items-center',
-          )}>
+        <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
           {#if isMobileMenuOpen}
             <CloseMenuIcon size="14" />
           {:else}
@@ -98,7 +71,7 @@
         </button>
       </div>
     {:else}
-      <div class={classNames('w-max', 'gap-4', 'flex', 'flex-row')}>
+      <div class={menuButtonsWrapperClasses}>
         <Button href="/mint" type="neutral" class={buttonClasses}>Mint</Button>
 
         <Button href="/collection" type="neutral" class={buttonClasses}>Collection</Button>
@@ -110,7 +83,7 @@
       <div class={rightSectionClasses}>
         <ConnectButton connected={$account?.isConnected} />
         <div class="hidden md:inline-flex">
-          <div class="v-sep my-auto ml-0 mr-4 h-[24px]" />
+          <div class={themeButtonSeparatorClasses} />
           <ThemeButton />
         </div>
       </div>

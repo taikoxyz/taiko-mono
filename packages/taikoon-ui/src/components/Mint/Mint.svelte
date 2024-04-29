@@ -20,50 +20,16 @@
   import getConfig from '../../lib/wagmi/getConfig';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
-
-  const wrapperClasses = classNames(
-    'h-max',
-    'w-full',
-    'flex',
-    'md:flex-row',
-    'flex-col',
-    'items-center',
-    'justify-center',
-    'md:px-5',
-    'p-2',
-    'gap-8',
-    'md:py-16',
-  );
-
-  const halfPanel = classNames(
-    'h-full',
-    'md:w-max',
-    'flex flex-col',
-    'items-center',
-    'justify-center',
-    'gap-2',
-    'bg-neutral-background',
-    'rounded-3xl',
-    'p-8',
-    'w-full',
-  );
-
-  const mintState = getContext('mint');
-
-  const leftHalfPanel = classNames(halfPanel, 'aspect-square');
-
-  const rightHalfPanel = classNames(halfPanel, 'md:px-12', 'md:max-w-[500px]');
-
-  const counterClasses = classNames(
-    'w-full',
-    'flex',
-    'flex-row',
-    'items-center',
-    'justify-between',
-    'font-sans',
-    'font-bold',
-    'mt-6',
-  );
+  import {
+    counterClasses,
+    leftHalfPanel,
+    mintContentClasses,
+    mintTitleClasses,
+    nftRendererWrapperClasses,
+    nftRendererWrapperMobileClasses,
+    rightHalfPanel,
+    wrapperClasses,
+  } from './classes';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -76,6 +42,8 @@
   $: canMint = false;
 
   $: freeMintsLeft = 0;
+
+  const mintState = getContext('mint');
 
   //$: isMinting = false
   $: isReady = false;
@@ -154,20 +122,21 @@
   {#if isReady}
     {#if windowSize !== 'sm'}
       <div class={leftHalfPanel}>
-        <div class="rounded-3xl overflow-hidden">
+        <div class={nftRendererWrapperClasses}>
           <NftRenderer />
         </div>
       </div>
     {/if}
     <div class={rightHalfPanel}>
+      <!-- svelte-ignore missing-declaration -->
       {#if windowSize === 'sm'}
-        <div class="rounded-3xl my-8 overflow-hidden">
+        <div class={nftRendererWrapperMobileClasses}>
           <NftRenderer />
         </div>
       {/if}
-      <H1 class="w-full text-left">{$t('content.mint.title')}</H1>
+      <H1 class={mintTitleClasses}>{$t('content.mint.title')}</H1>
 
-      <p class="font-normal font-sans text-content-secondary">
+      <p class={mintContentClasses}>
         {$t('content.mint.text')}
       </p>
       <div class="w-full gap-4 flex flex-col">

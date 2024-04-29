@@ -4,40 +4,16 @@
 
   import { Icons } from '$components/core/Icons';
   import { InfoRow } from '$components/core/InfoRow';
-  import { classNames } from '$lib/util/classNames';
   import { shortenAddress } from '$lib/util/shortenAddress';
   import { Chip } from '$ui/Chip';
   import { Spinner } from '$ui/Spinner';
 
   import Token from '../../lib/token';
   import { NftRenderer } from '../NftRenderer';
+  import { chipWrapperClasses, detailClasses, detailContainerClasses, detailTitleClasses } from './classes';
 
   export let isLoading = false;
   export let taikoonId: number = -1;
-
-  const detailClasses = classNames(
-    'bg-neutral-background',
-    'py-5',
-    'px-10',
-    'gap-3',
-    'flex',
-    'flex-col',
-    'items-center',
-    'justify-start',
-    'rounded-t-3xl',
-    'h-full',
-    'w-96',
-  );
-
-  const detailContainerClasses = classNames(
-    'w-full',
-    'flex',
-    'gap-3',
-    'my-2',
-    'flex-col',
-    'items-center',
-    'justify-start',
-  );
 
   $: shortenedAddress = '...';
 
@@ -66,11 +42,11 @@
       </div>
 
       <NftRenderer class="mb-2" size="lg" tokenId={taikoonId} />
-      <div class="my-2 flex flex-row w-full justify-start">
+      <div class={chipWrapperClasses}>
         <Chip>{$t('content.collection.labels.minted')}</Chip>
       </div>
 
-      <p class="my-2 text-left w-full text-5xl font-clash-grotesk font-semibold">
+      <p class={detailTitleClasses}>
         Taikoon #{taikoonId}
       </p>
 
