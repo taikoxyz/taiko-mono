@@ -25,9 +25,9 @@ contract VestToken is Script {
         VestTokenRecipient[] tokenVests;
     }
 
-    uint256 public OWNER_UNLCOKING_CONTRACTS_PK = vm.envUint("OWNER_UNLOCKING_PK"); // Who can call
+    uint256 public CONTRACT_DEPLOYER_PK = vm.envUint("CONTRACT_DEPLOYER_PK"); // Who can call
         // the vest() function
-    uint256 public OWNER_VAULT_PK = vm.envUint("OWNER_VAULT_PK"); // Who can call the approve()
+    uint256 public VAULT_OWNER_PK = vm.envUint("VAULT_OWNER_PK"); // Who can call the approve()
         // function
     address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
 
@@ -54,11 +54,11 @@ contract VestToken is Script {
             console2.log("Vest amount(inTKO):", vestAmount);
             console2.log("\n");
 
-            vm.startBroadcast(OWNER_VAULT_PK);
+            vm.startBroadcast(VAULT_OWNER_PK);
             ERC20(TAIKO_TOKEN).approve(recipientUnlockingContract, vestAmount);
             vm.stopBroadcast();
 
-            vm.startBroadcast(OWNER_UNLCOKING_CONTRACTS_PK);
+            vm.startBroadcast(CONTRACT_DEPLOYER_PK);
             TokenUnlocking(recipientUnlockingContract).vest(vestAmount);
             vm.stopBroadcast();
         }
