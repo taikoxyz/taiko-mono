@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getContext } from 'svelte';
+  import { t } from 'svelte-i18n';
 
   import { InfoRow } from '$components/core/InfoRow';
   import { NftRenderer } from '$components/NftRenderer';
@@ -27,6 +28,10 @@
     <div class="rounded-3xl m-6 overflow-hidden">
       <NftRenderer tokenId={$taikoonDetailState.tokenId} />
     </div>
-    <InfoRow class="px-6" label="Owned by" value={shortenedAddress} href={'/collection/${taikoon.owner}'} />
+    <InfoRow
+      class="px-6"
+      label={$t('content.collection.ownedBy')}
+      value={shortenedAddress}
+      href={'/collection/${taikoon.owner}'} />
   </ModalBody>
 </Modal>

@@ -49,6 +49,19 @@
         }
       }
     },
+    "collection": {
+      "ownedBy": "Owned by",
+      "labels": {
+        "minted": "Minted"
+      },
+      "search": {
+        "placeholder": "Search Taikoons"
+      },
+      "filter": {
+        "latest": "Latest",
+        "oldest": "Oldest"
+      }
+    },
     "sections": {
       "information": {
         "title": "The Collection",

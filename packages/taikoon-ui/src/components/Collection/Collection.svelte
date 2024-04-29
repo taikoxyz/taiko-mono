@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getContext } from 'svelte';
+  import { t } from 'svelte-i18n';
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
@@ -76,29 +77,21 @@
         'items-end',
         'justify-between',
       )}>
-      <InputBox class="w-full" size="lg" placeholder="Search Taikoons" />
+      <InputBox class="w-full" size="lg" placeholder={$t('content.collection.search.placeholder')} />
 
       <Select
         onSelect={(value) => {
           console.warn(value);
         }}
-        label="Latest"
+        label={$t('content.collection.filter.latest')}
         options={[
           {
-            label: 'Latest',
+            label: $t('content.collection.filter.latest'),
             value: 'latest',
           },
           {
-            label: 'Oldest',
+            label: $t('content.collection.filter.oldest'),
             value: 'oldest',
-          },
-          {
-            label: 'Most Expensive',
-            value: 'mostExpensive',
-          },
-          {
-            label: 'Cheapest',
-            value: 'cheapest',
           },
         ]} />
     </div>

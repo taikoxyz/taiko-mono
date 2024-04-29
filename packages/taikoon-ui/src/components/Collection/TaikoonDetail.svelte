@@ -1,5 +1,6 @@
 <script lang="ts">
   import { scale } from 'svelte/transition';
+  import { t } from 'svelte-i18n';
 
   import { Icons } from '$components/core/Icons';
   import { InfoRow } from '$components/core/InfoRow';
@@ -66,7 +67,7 @@
 
       <NftRenderer class="mb-2" size="lg" tokenId={taikoonId} />
       <div class="my-2 flex flex-row w-full justify-start">
-        <Chip>{'Minted'}</Chip>
+        <Chip>{$t('content.collection.labels.minted')}</Chip>
       </div>
 
       <p class="my-2 text-left w-full text-5xl font-clash-grotesk font-semibold">
@@ -74,7 +75,10 @@
       </p>
 
       <div class={detailContainerClasses}>
-        <InfoRow label="Owned by" value={shortenedAddress} href={'/collection/${taikoon.owner}'} />
+        <InfoRow
+          label={$t('content.collection.ownedBy')}
+          value={shortenedAddress}
+          href={'/collection/${taikoon.owner}'} />
       </div>
     {/if}
   </div>
