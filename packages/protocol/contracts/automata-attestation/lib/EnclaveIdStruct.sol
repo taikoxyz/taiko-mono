@@ -5,13 +5,13 @@ pragma solidity 0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library EnclaveIdStruct {
     struct EnclaveId {
-        bytes4 miscselect;
+        bytes4 miscselect; // Slot 1:
         bytes4 miscselectMask;
         uint16 isvprodid;
-        bytes16 attributes;
+        bytes16 attributes; // Slot 2
         bytes16 attributesMask;
-        bytes32 mrsigner;
-        TcbLevel[] tcbLevels;
+        bytes32 mrsigner; // Slot 3
+        TcbLevel[] tcbLevels; // Slot 4
     }
 
     struct TcbLevel {
