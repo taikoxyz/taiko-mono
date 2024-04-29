@@ -43,10 +43,10 @@
       </div>
     </HeadingSection>
   {/if}
+  <InformationSection />
   <div bind:this={scrollTarget}>
-    <InformationSection />
+    <CollapsibleSection options={faqOptions} />
   </div>
-  <CollapsibleSection options={faqOptions} />
 
   <FooterSection />
 </SectionContainer>
