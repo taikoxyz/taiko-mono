@@ -301,7 +301,13 @@ contract DeployOnL1 is DeployCapability {
             name: "taiko",
             impl: address(new TaikoL1()),
             data: abi.encodeCall(
-                TaikoL1.init, (timelock, rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
+                TaikoL1.init,
+                (
+                    timelock,
+                    rollupAddressManager,
+                    vm.envBytes32("L2_GENESIS_HASH"),
+                    vm.envBool("PAUSE_TAIKO_L1")
+                )
                 ),
             registerTo: rollupAddressManager
         });

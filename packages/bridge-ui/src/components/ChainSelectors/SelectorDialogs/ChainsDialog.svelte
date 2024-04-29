@@ -65,7 +65,7 @@
           class=" h-[64px] rounded-[10px]
           {disabled ? 'opacity-50 ' : 'hover:bg-primary-brand cursor-pointer'}"
           aria-disabled={disabled}>
-          <label class="f-row items-center w-full h-full p-[16px]">
+          <label class="f-row items-center w-full h-full p-[16px] text-primary-content hover:text-white">
             <input
               type="radio"
               name="nft-radio"

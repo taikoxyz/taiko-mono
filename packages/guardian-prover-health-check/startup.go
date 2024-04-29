@@ -36,14 +36,14 @@ type NodeInfo struct {
 }
 
 type StartupRepository interface {
-	GetByGuardianProverID(
+	GetByGuardianProverAddress(
 		ctx context.Context,
 		req *http.Request,
-		id int,
+		address string,
 	) (paginate.Page, error)
-	GetMostRecentByGuardianProverID(
+	GetMostRecentByGuardianProverAddress(
 		ctx context.Context,
-		id int,
+		address string,
 	) (*Startup, error)
 	Save(opts SaveStartupOpts) error
 }
