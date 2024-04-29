@@ -15,9 +15,9 @@ contract DeployTokenUnlocking is Script {
         address[] grantRecipients;
     }
 
-    address public OWNER = 0x5486893fE4b289e3395E382fDdF203238cBa857e; //vm.envAddress("OWNER");
-    address public TAIKO_TOKEN = 0x5486893fE4b289e3395E382fDdF203238cBa857e; //vm.envAddress("TAIKO_TOKEN");
-    uint256 public TGE = 1; //vm.envUint("TGE_TIMESTAMP");
+    address public OWNER = vm.envAddress("OWNER");
+    address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
+    uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
 
     string internal deploymentJsonPath =
         "/script/unlocking-contract-deployment-data/example-deployment-data.json";
