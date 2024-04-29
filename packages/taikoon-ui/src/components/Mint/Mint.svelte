@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getAccount } from '@wagmi/core';
   import { getContext } from 'svelte';
+  import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
   import { Divider } from '$components/core/Divider';
@@ -164,10 +165,10 @@
           <NftRenderer />
         </div>
       {/if}
-      <H1 class="w-full text-left">Taikoons</H1>
+      <H1 class="w-full text-left">{$t('content.mint.title')}</H1>
 
       <p class="font-normal font-sans text-content-secondary">
-        Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.
+        {$t('content.mint.text')}
       </p>
       <div class="w-full gap-4 flex flex-col">
         <div class={counterClasses}>
@@ -181,7 +182,11 @@
         value={canMint ? freeMintsLeft : 0}
         max={freeMintsLeft}
         disabled
-        label={`Mints left: ${canMint ? freeMintsLeft : 0}`} />
+        label={$t('content.mint.mintsLeft', {
+          values: {
+            mintsLeft: canMint ? freeMintsLeft : 0,
+          },
+        })} />
 
       <Divider />
 
@@ -190,7 +195,8 @@
           <InfoRow label="Estimated gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
         </div>
       {/if}
-      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">Mint</Button>
+      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
+        {$t('buttons.mint')}</Button>
     </div>
   {:else}
     <Spinner size="lg" />

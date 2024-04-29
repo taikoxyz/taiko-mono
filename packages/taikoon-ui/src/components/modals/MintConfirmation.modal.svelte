@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getContext } from 'svelte';
   import { copy } from 'svelte-copy';
+  import { t } from 'svelte-i18n';
 
   import { Button } from '$components/core/Button';
   import { Spinner } from '$components/core/Spinner';
@@ -20,7 +21,7 @@
     if (!element) return;
     copy(element as HTMLElement, `${window.location.origin}/collection/${$mintState.address}`);
     successToast({
-      title: 'Link copied to clipboard',
+      title: $t('content.mint.toast.clipboardCopy'),
     });
   }
 
@@ -31,15 +32,20 @@
   {#if $mintState.isMinting}
     <ModalTitle>
       {$mintState.isMinting
-        ? `Minting ${$mintState.totalMintCount} NFT${$mintState.totalMintCount === 1 ? '' : 's'}...`
+        ? $t('content.mint.modals.minting.title', {
+            values: {
+              count: $mintState.totalMintCount,
+              plural: $mintState.totalMintCount === 1 ? '' : 's',
+            },
+          })
         : ''}
     </ModalTitle>
     <ModalBody>
       <div class="text-content-secondary">
         {#if $mintState.txHash}
-          This can take up to a couple of minutes. Feel free to close this message.
+          {$t('content.mint.modals.minting.pending')}
         {:else}
-          Please confirm the transaction in your wallet.
+          {$t('content.mint.modals.minting.confirm')}
         {/if}
       </div>
     </ModalBody>
@@ -55,7 +61,7 @@
               href={`https://etherscan.io/tx/${$mintState.txHash}`}
               target="_blank"
               class="flex flex-row items-center gap-2"
-              >View on Etherscan
+              >{$t('buttons.etherscan')}
               <UpRightArrow size="10" />
             </a>
           </div>
@@ -91,7 +97,7 @@
       </div>
 
       <div class={classNames('text-content-primary', 'text-4xl', 'font-clash-grotesk', 'font-semibold', 'text-center')}>
-        You got it!
+        {$t('content.mint.modals.minted.title')}
       </div>
       <div
         class={classNames(
@@ -104,9 +110,12 @@
           'md:min-w-[300px]',
           'w-full',
         )}>
-        Your NFTs were minted! They are now in your Ethereum wallet and displayed on <Link
+        {$t('content.mint.modals.minted.text')}
+
+        <Link
           class={classNames('hover:text-content-link-hover', 'text-content-link-primary', 'font-sans', 'font-normal')}
-          href={`/collection/${$mintState.address}`}>Your Taikoons.</Link>
+          href={`/collection/${$mintState.address}`}>
+          {$t('content.mint.modals.minted.link')}</Link>
       </div>
     </ModalBody>
     <ModalFooter>
@@ -122,7 +131,9 @@
           'min-w-[500px]',
         )}>
         <div class="md:w-1/2 w-full px-2" use:copy={`${window.location.origin}/collection/${$mintState.address}`}>
-          <Button on:click={(event) => copyShareUrl(event.currentTarget)} wide block type="primary">Share</Button>
+          <Button on:click={(event) => copyShareUrl(event.currentTarget)} wide block type="primary">
+            {$t('buttons.share')}
+          </Button>
         </div>
         <div class="md:w-1/2 w-full px-2">
           <Button
@@ -130,7 +141,8 @@
             href={`/collection/${$mintState.address}`}
             wide
             block
-            type="negative">Your Taikoons</Button>
+            type="negative">
+            {$t('buttons.yourTaikoons')}</Button>
         </div>
       </div>
     </ModalFooter>

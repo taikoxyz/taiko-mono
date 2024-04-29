@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { json,t } from 'svelte-i18n';
+  import { json, t } from 'svelte-i18n';
 
   import Copyright from '$components/core/Copyright/Copyright.svelte';
   import { Icons } from '$components/core/Icons';

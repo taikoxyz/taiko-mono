@@ -549,7 +549,7 @@ export const taikoonTokenAbi = [
  */
 export const taikoonTokenAddress = {
   17000: '0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0',
-  31337: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+  31337: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
 } as const;
 
 /**

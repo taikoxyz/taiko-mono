@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import { classNames } from '$lib/util/classNames';
   import { Button } from '$ui/Button';
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
 
   export let open: boolean = localStorage.getItem('mintAgreement') !== 'true';
-
-  import LoremIpsum from '$content/loremIpsum';
 
   const textContainerClasses = classNames(
     'p-8',
@@ -36,17 +36,18 @@
 </script>
 
 <Modal bind:open canClose={false} class="items-center justify-center">
-  <ModalTitle>Before you mint</ModalTitle>
+  <ModalTitle>{$t('content.mint.modals.agreement.title')}</ModalTitle>
   <ModalBody>
     <div class={textContainerClasses}>
-      {LoremIpsum}
+      {$t('content.mint.modals.agreement.text')}
     </div>
   </ModalBody>
 
   <ModalFooter>
     <div class={buttonRowClasses}>
-      <Button type="error" size="lg" wide class="w-full md:w-1/2" href="/">Cancel</Button>
-      <Button type="success" size="lg" wide class="w-full md:w-1/2" on:click={acceptMintTerms}>I agree</Button>
+      <Button type="error" size="lg" wide class="w-full md:w-1/2" href="/">{$t('buttons.cancel')}</Button>
+      <Button type="success" size="lg" wide class="w-full md:w-1/2" on:click={acceptMintTerms}
+        >{$t('buttons.agree')}</Button>
     </div>
   </ModalFooter>
 </Modal>
