@@ -21,6 +21,8 @@
     'hover:text-primary',
     'cursor-pointer',
   );
+
+  const iconWrapperClasses = classNames('text-primary');
 </script>
 
 <div class={panelClasses} transition:slide={{ duration: 300 }}>
@@ -28,7 +30,7 @@
     {@const Icon = Icons[option.icon]}
 
     <a href={option.href} class={itemClasses}>
-      <span class="text-primary"><Icon size="16" /></span>
+      <span class={iconWrapperClasses}><Icon size="16" /></span>
       {option.label}
     </a>
   {/each}

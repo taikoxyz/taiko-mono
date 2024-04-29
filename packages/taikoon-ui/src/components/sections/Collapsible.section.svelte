@@ -3,7 +3,6 @@
 
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
-  import { H1 } from '$ui/Text';
   export let options: {
     visible?: boolean;
     title: string;
@@ -11,6 +10,8 @@
   }[] = [];
 
   $: activeEntryId = 0;
+
+  const titleClasses = classNames('text-5xl', 'font-semibold');
 </script>
 
 <Section height="fit">
@@ -25,9 +26,9 @@
       'md:text-[1.75rem]',
       'text-xl',
     )}>
-    <H1>
+    <div class={titleClasses}>
       {$t('content.sections.faq.title')}
-    </H1>
+    </div>
 
     <div class={classNames('w-full', 'flex flex-col', 'items-center', 'justify-center', 'overflow-hidden', 'gap-4')}>
       {#each options as option, i}

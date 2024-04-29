@@ -14,7 +14,6 @@
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
   import { Spinner } from '$ui/Spinner';
-  import { H1, H4 } from '$ui/Text';
 
   import Token from '../../lib/token';
   import getConfig from '../../lib/wagmi/getConfig';
@@ -28,6 +27,7 @@
     nftRendererWrapperClasses,
     nftRendererWrapperMobileClasses,
     rightHalfPanel,
+    supplyClasses,
     wrapperClasses,
   } from './classes';
 
@@ -134,14 +134,14 @@
           <NftRenderer />
         </div>
       {/if}
-      <H1 class={mintTitleClasses}>{$t('content.mint.title')}</H1>
+      <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
       <p class={mintContentClasses}>
         {$t('content.mint.text')}
       </p>
       <div class="w-full gap-4 flex flex-col">
         <div class={counterClasses}>
-          <H4>{totalSupply} / {mintMax}</H4>
+          <div class={supplyClasses}>{totalSupply} / {mintMax}</div>
         </div>
         <ProgressBar {progress} />
       </div>

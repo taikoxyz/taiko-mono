@@ -13,10 +13,12 @@
     'relative',
     $$props.class,
   );
+
+  const textClasses = classNames('font-clash-grotesk', 'text-4xl', 'text-content-primary', 'font-semibold');
 </script>
 
 <div class={titleRowClasses}>
-  <div class="font-clash-grotesk text-4xl text-content-primary font-semibold">
+  <div class={textClasses}>
     <slot />
   </div>
 </div>

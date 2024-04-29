@@ -44,5 +44,7 @@ export const counterClasses = classNames(
 export const nftRendererWrapperClasses = 'rounded-3xl overflow-hidden';
 export const nftRendererWrapperMobileClasses = 'rounded-3xl my-8 overflow-hidden';
 
-export const mintTitleClasses = 'w-full text-left';
+export const mintTitleClasses = classNames('text-5xl', 'font-semibold', 'w-full text-left');
 export const mintContentClasses = 'font-normal font-sans text-content-secondary';
+
+export const supplyClasses = classNames('text-content-secondary', 'text-h4');

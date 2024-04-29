@@ -1,6 +1,6 @@
 <script lang="ts">
   import { classNames } from '../../../lib/util/classNames';
-  import { H5, P } from '../Text/';
+  import { P } from '../Text/';
   import type { TypeToast } from './types';
   export let type: TypeToast = 'unknown';
   export let title = '';
@@ -24,10 +24,12 @@
     'rounded-xl',
     alertClassMap[type],
   );
+
+  const titleClasses = classNames('text-xl', 'font-bold');
 </script>
 
 <div role="alert" class={alertClasses}>
-  <H5>{title}</H5>
+  <div class={titleClasses}>{title}</div>
   {#if message}
     <P class="mt-2">{message}</P>
   {/if}

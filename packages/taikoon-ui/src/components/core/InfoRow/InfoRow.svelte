@@ -7,11 +7,16 @@
   export let value = 'value';
   export let href = '#';
   export let loading = false;
+
+  const wrapperClasses = classNames('flex', 'flex-row', 'items-center', 'justify-between', 'w-full', $$props.class);
+
+  const textClasses = classNames('font-bold');
+  const linkClasses = classNames('font-bold', 'no-underline');
 </script>
 
-<div class={classNames('flex', 'flex-row', 'items-center', 'justify-between', 'w-full', $$props.class)}>
-  <P class="font-bold">{label}</P>
-  <Link {href} class="font-bold no-underline">
+<div class={wrapperClasses}>
+  <P class={textClasses}>{label}</P>
+  <Link {href} class={linkClasses}>
     {#if loading}
       <Spinner size="xs" />
     {:else}
