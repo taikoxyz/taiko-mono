@@ -5,6 +5,7 @@
 
   import { Button } from '$components/core/Button';
   import { NftRenderer } from '$components/NftRenderer';
+  import NftSlider from '$components/NftSlider/NftSlider.svelte';
   import { Modal, ModalBody, ModalFooter } from '$ui/Modal';
   import { Link } from '$ui/Text';
   import { successToast } from '$ui/Toast';
@@ -38,18 +39,7 @@
 
 <Modal bind:open={isModalOpen}>
   <ModalBody class={mintedBodyClasses}>
-    <div
-      bind:this={scrollContainer}
-      on:wheel={(e) => {
-        scrollContainer.scrollLeft += e.deltaY;
-      }}
-      class={successBodyClasses}>
-      <div class={nftRendererWrapperClasses}>
-        {#each $mintState.tokenIds as tokenId}
-          <NftRenderer size="md" {tokenId} />
-        {/each}
-      </div>
-    </div>
+    <NftSlider tokenIds={$mintState.tokenIds} />
 
     <div class={successTitleClasses}>
       {$t('content.mint.modals.minted.title')}
