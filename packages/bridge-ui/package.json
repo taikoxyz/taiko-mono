@@ -61,7 +61,7 @@
   "type": "module",
   "dependencies": {
     "@moralisweb3/common-evm-utils": "^2.26.1",
-    "@sveltejs/adapter-vercel": "^5.3.0",
+    "@sveltejs/adapter-vercel": "^4.0.5",
     "@wagmi/connectors": "^4.1.18",
     "@wagmi/core": "^2.8.0",
     "@walletconnect/ethereum-provider": "^2.12.2",
