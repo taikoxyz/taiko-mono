@@ -23,10 +23,10 @@ importers:
     dependencies:
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        version: 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        specifier: ^2.8.0
+        version: 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider':
         specifier: ^2.12.2
         version: 2.12.2(react@18.2.0)
@@ -35,7 +35,7 @@ importers:
         version: 2.6.2(react@18.2.0)
       '@web3modal/wagmi':
         specifier: ^4.1.11
-        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.7.11)
+        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.7.11)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.12)
@@ -179,8 +179,8 @@ importers:
   packages/guardian-prover-health-check-ui:
     dependencies:
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.16)
+        specifier: ^2.8.0
+        version: 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.16)
       axios:
         specifier: ^1.6.7
         version: 1.6.7(debug@4.3.4)
@@ -507,10 +507,10 @@ importers:
         version: 2.1.4(typescript@5.4.3)
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+        version: 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+        specifier: ^2.8.0
+        version: 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@web3modal/common':
         specifier: ^4.1.1
         version: 4.1.11
@@ -519,7 +519,7 @@ importers:
         version: 4.1.11
       '@web3modal/wagmi':
         specifier: ^4.1.1
-        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.9.27)
+        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.9.27)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.13)
@@ -5784,7 +5784,7 @@ packages:
       - bufferutil
       - utf-8-validate
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5798,7 +5798,7 @@ packages:
       '@metamask/sdk': 0.14.3(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
@@ -5828,7 +5828,7 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5842,7 +5842,7 @@ packages:
       '@metamask/sdk': 0.14.3(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
@@ -5872,8 +5872,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+    resolution: {integrity: sha512-u0CWfbpdv2T3jE1yZQPwxvLlUVMymMoy73g6UE4XYNilF+EjdYu43EjWNvvB9lJcfSyYk6/VdKNHxJ2G+iBxYw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -5898,8 +5898,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.16):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.16):
+    resolution: {integrity: sha512-u0CWfbpdv2T3jE1yZQPwxvLlUVMymMoy73g6UE4XYNilF+EjdYu43EjWNvvB9lJcfSyYk6/VdKNHxJ2G+iBxYw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -5924,8 +5924,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
+    resolution: {integrity: sha512-u0CWfbpdv2T3jE1yZQPwxvLlUVMymMoy73g6UE4XYNilF+EjdYu43EjWNvvB9lJcfSyYk6/VdKNHxJ2G+iBxYw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -6609,7 +6609,7 @@ packages:
       qrcode: 1.5.3
     dev: false
 
-  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.7.11):
+  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.7.11):
     resolution: {integrity: sha512-VoXV9idD0yV7jx0F2Xk722VXqQNCDKqDc+LR8WsuOU64TiTLJx9UDQpNcoigbC3bYCi/4Cpw41iSGgs7utbgyQ==}
     peerDependencies:
       '@wagmi/connectors': '>=4.0.0'
@@ -6626,8 +6626,8 @@ packages:
       vue:
         optional: true
     dependencies:
-      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/connectors': 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@web3modal/polyfills': 4.1.11
       '@web3modal/scaffold': 4.1.11(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.11(react@18.2.0)
@@ -6640,7 +6640,7 @@ packages:
       - '@types/react'
     dev: false
 
-  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.9.27):
+  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.9.27):
     resolution: {integrity: sha512-VoXV9idD0yV7jx0F2Xk722VXqQNCDKqDc+LR8WsuOU64TiTLJx9UDQpNcoigbC3bYCi/4Cpw41iSGgs7utbgyQ==}
     peerDependencies:
       '@wagmi/connectors': '>=4.0.0'
@@ -6657,8 +6657,8 @@ packages:
       vue:
         optional: true
     dependencies:
-      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/connectors': 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@web3modal/polyfills': 4.1.11
       '@web3modal/scaffold': 4.1.11(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.11(react@18.2.0)
