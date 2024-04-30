@@ -73,7 +73,7 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 		Body: marshalled,
 	}
 
-	shouldRequeue, err := p.processMessage(context.Background(), msg)
+	shouldRequeue, _, err := p.processMessage(context.Background(), msg)
 
 	assert.Nil(t, err)
 
@@ -117,7 +117,7 @@ func Test_ProcessMessage_unprofitable(t *testing.T) {
 		Body: marshalled,
 	}
 
-	shouldRequeue, err := p.processMessage(context.Background(), msg)
+	shouldRequeue, _, err := p.processMessage(context.Background(), msg)
 
 	assert.Equal(
 		t,
