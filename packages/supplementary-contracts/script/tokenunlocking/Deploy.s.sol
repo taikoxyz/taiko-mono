@@ -11,6 +11,7 @@ import "../../contracts/tokenunlocking/TokenUnlocking.sol";
 contract DeployTokenUnlocking is Script {
     using stdJson for string;
 
+    uint256 public PRIVATE_KEY = vm.envUint("PRIVATE_KEY"); // deployer
     address public OWNER = vm.envAddress("OWNER");
     address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
     uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
@@ -29,7 +30,7 @@ contract DeployTokenUnlocking is Script {
         for (uint256 i; i < recipients.length; i++) {
             console2.log("Grantee:", recipients[i]);
 
-            vm.startBroadcast();
+            vm.startBroadcast(PRIVATE_KEY);
             deployProxy({
                 impl: impl,
                 data: abi.encodeCall(

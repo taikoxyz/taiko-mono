@@ -21,6 +21,7 @@ contract VestTokenUnlocking is Script {
         uint256 vestAmount;
     }
 
+    uint256 public PRIVATE_KEY = vm.envUint("PRIVATE_KEY"); // owner
     ERC20 private tko = ERC20(vm.envAddress("TAIKO_TOKEN"));
 
     function run() external {
@@ -43,7 +44,7 @@ contract VestTokenUnlocking is Script {
             uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
             require(tko.balanceOf(msg.sender) >= vestAmount, "insufficient TKO balance");
 
-            vm.startBroadcast();
+            vm.startBroadcast(PRIVATE_KEY);
             tko.approve(proxy, vestAmount);
             TokenUnlocking(proxy).vest(vestAmount);
             vm.stopBroadcast();
