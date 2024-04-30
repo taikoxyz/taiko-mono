@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
-import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 
 contract AddSGXVerifierInstances is DeployCapability {
