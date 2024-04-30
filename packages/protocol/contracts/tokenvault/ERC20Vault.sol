@@ -366,14 +366,14 @@ contract ERC20Vault is BaseVault {
             // Try fill in the boilerplate values, but use try-catch because functions below are
             // ERC20-optional only.
             IERC20Metadata meta = IERC20Metadata(_op.token);
-            try meta.decimals() returns (uint8 v) {
-                ctoken_.decimals = v;
+            try meta.decimals() returns (uint8 _decimals) {
+                ctoken_.decimals = _decimals;
             } catch { }
-            try meta.name() returns (string memory v) {
-                ctoken_.name = v;
+            try meta.name() returns (string memory _name) {
+                ctoken_.name = _name;
             } catch { }
-            try meta.symbol() returns (string memory v) {
-                ctoken_.symbol = v;
+            try meta.symbol() returns (string memory _symbol) {
+                ctoken_.symbol = _symbol;
             } catch { }
 
             // Query the balance then query it again to get the actual amount of
