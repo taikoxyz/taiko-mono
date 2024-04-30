@@ -279,6 +279,7 @@ contract BridgeTest is TaikoTest {
     }
 
     function test_Bridge_authorize_signal_service_via_delegate_owner() public {
+        uint256 chainId = block.chainid;
         assertEq(mockProofSignalService.isAuthorized(Alice), false);
 
         bytes memory authorizeCall = abi.encodeCall(SignalService.authorize, (Alice, true));
@@ -307,6 +308,25 @@ contract BridgeTest is TaikoTest {
         assertEq(status == IBridge.Status.DONE, true);
 
         assertEq(mockProofSignalService.isAuthorized(Alice), true);
+
+        //----
+        vm.chainId(chainId);
+        assertEq(mockProofSignalService.isAuthorized(Carol), false);
+        authorizeCall = abi.encodeCall(SignalService.authorize, (Carol, true));
+
+        message = getDelegateOwnerMessage(
+            address(mockDAO),
+            abi.encodeCall(
+                DelegateOwner.onMessageInvocation,
+                abi.encode(1, address(mockProofSignalService), 0, authorizeCall)
+            )
+        );
+
+        vm.chainId(destChainId);
+        vm.prank(Bob, Bob);
+        destChainBridge.processMessage(message, proof);
+
+        assertEq(mockProofSignalService.isAuthorized(Carol), true);
     }
 
     function test_Bridge_upgrade_delegate_owner() public {
