@@ -355,7 +355,6 @@ contract ERC20Vault is BaseVault {
             balanceChange_ = _op.amount;
         } else {
             // If it's a canonical token
-            IERC20Metadata meta = IERC20Metadata(_op.token);
             ctoken_ = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: _op.token,
@@ -366,6 +365,7 @@ contract ERC20Vault is BaseVault {
 
             // Try fill in the boilerplate values, but use try-catch because functions below are
             // ERC20-optional only.
+            IERC20Metadata meta = IERC20Metadata(_op.token);
             try meta.decimals() returns (uint8 v) {
                 ctoken_.decimals = v;
             } catch { }
