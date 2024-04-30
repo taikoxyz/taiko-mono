@@ -23,10 +23,10 @@ importers:
     dependencies:
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        version: 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+        specifier: ^2.8.0
+        version: 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider':
         specifier: ^2.12.2
         version: 2.12.2(react@18.2.0)
@@ -35,7 +35,7 @@ importers:
         version: 2.6.2(react@18.2.0)
       '@web3modal/wagmi':
         specifier: ^4.1.11
-        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.7.11)
+        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.7.11)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.12)
@@ -116,8 +116,8 @@ importers:
         specifier: ^12.0.0
         version: 12.0.0(eslint@8.56.0)
       eslint-plugin-svelte:
-        specifier: ^2.35.1
-        version: 2.35.1(eslint@8.56.0)(svelte@4.2.12)
+        specifier: ^2.38.0
+        version: 2.38.0(eslint@8.56.0)(svelte@4.2.12)
       ethereum-address:
         specifier: ^0.0.4
         version: 0.0.4
@@ -179,8 +179,8 @@ importers:
   packages/guardian-prover-health-check-ui:
     dependencies:
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.16)
+        specifier: ^2.8.0
+        version: 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.16)
       axios:
         specifier: ^1.6.7
         version: 1.6.7(debug@4.3.4)
@@ -225,8 +225,8 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0(eslint@8.56.0)
       eslint-plugin-svelte:
-        specifier: ^2.35.1
-        version: 2.35.1(eslint@8.56.0)(svelte@4.2.13)
+        specifier: ^2.38.0
+        version: 2.38.0(eslint@8.56.0)(svelte@4.2.13)
       postcss:
         specifier: ^8.4.38
         version: 8.4.38
@@ -507,10 +507,10 @@ importers:
         version: 2.1.4(typescript@5.4.3)
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+        version: 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@wagmi/core':
-        specifier: ^2.6.9
-        version: 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+        specifier: ^2.8.0
+        version: 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@web3modal/common':
         specifier: ^4.1.1
         version: 4.1.11
@@ -519,7 +519,7 @@ importers:
         version: 4.1.11
       '@web3modal/wagmi':
         specifier: ^4.1.1
-        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.9.27)
+        version: 4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.9.27)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.13)
@@ -594,8 +594,8 @@ importers:
         specifier: ^0.8.0
         version: 0.8.0(eslint@8.56.0)(typescript@5.4.3)
       eslint-plugin-svelte:
-        specifier: ^2.35.1
-        version: 2.35.1(eslint@8.56.0)(svelte@4.2.13)
+        specifier: ^2.38.0
+        version: 2.38.0(eslint@8.56.0)(svelte@4.2.13)
       p-map:
         specifier: ^7.0.2
         version: 7.0.2
@@ -5784,7 +5784,7 @@ packages:
       - bufferutil
       - utf-8-validate
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5798,7 +5798,7 @@ packages:
       '@metamask/sdk': 0.14.3(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
@@ -5828,7 +5828,7 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/connectors@4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
+  /@wagmi/connectors@4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
     resolution: {integrity: sha512-K/iLH/Z8jwvgPAYESU/uCQtQBvcIR1Jrqk+t2uCDSxew/tYtkOo2yOjtaPuOb+xJ5OrMGg+0tVHhGChYXry9Ow==}
     peerDependencies:
       '@wagmi/core': 2.6.9
@@ -5842,7 +5842,7 @@ packages:
       '@metamask/sdk': 0.14.3(react-native@0.73.4)(react@18.2.0)
       '@safe-global/safe-apps-provider': 0.18.1(typescript@5.4.3)
       '@safe-global/safe-apps-sdk': 8.1.0(typescript@5.4.3)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@walletconnect/ethereum-provider': 2.11.2(react@18.2.0)
       '@walletconnect/modal': 2.6.2(react@18.2.0)
       typescript: 5.4.3
@@ -5872,8 +5872,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11):
+    resolution: {integrity: sha512-u0CWfbpdv2T3jE1yZQPwxvLlUVMymMoy73g6UE4XYNilF+EjdYu43EjWNvvB9lJcfSyYk6/VdKNHxJ2G+iBxYw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -5898,8 +5898,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.16):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.16):
+    resolution: {integrity: sha512-u0CWfbpdv2T3jE1yZQPwxvLlUVMymMoy73g6UE4XYNilF+EjdYu43EjWNvvB9lJcfSyYk6/VdKNHxJ2G+iBxYw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -5924,8 +5924,8 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
-    resolution: {integrity: sha512-AbNbHK+m60mfMTds0flv5YYJGp+JSz8O8ikzX+T7MdemFrYA9tZr6G+iSEnf+JLtcgiaCgQqUwac/WmmTkDiMA==}
+  /@wagmi/core@2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27):
+    resolution: {integrity: sha512-u0CWfbpdv2T3jE1yZQPwxvLlUVMymMoy73g6UE4XYNilF+EjdYu43EjWNvvB9lJcfSyYk6/VdKNHxJ2G+iBxYw==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
@@ -6609,7 +6609,7 @@ packages:
       qrcode: 1.5.3
     dev: false
 
-  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.7.11):
+  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.7.11):
     resolution: {integrity: sha512-VoXV9idD0yV7jx0F2Xk722VXqQNCDKqDc+LR8WsuOU64TiTLJx9UDQpNcoigbC3bYCi/4Cpw41iSGgs7utbgyQ==}
     peerDependencies:
       '@wagmi/connectors': '>=4.0.0'
@@ -6626,8 +6626,8 @@ packages:
       vue:
         optional: true
     dependencies:
-      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/connectors': 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.7.11)
       '@web3modal/polyfills': 4.1.11
       '@web3modal/scaffold': 4.1.11(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.11(react@18.2.0)
@@ -6640,7 +6640,7 @@ packages:
       - '@types/react'
     dev: false
 
-  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.6.9)(react@18.2.0)(viem@2.9.27):
+  /@web3modal/wagmi@4.1.11(@wagmi/connectors@4.1.18)(@wagmi/core@2.8.0)(react@18.2.0)(viem@2.9.27):
     resolution: {integrity: sha512-VoXV9idD0yV7jx0F2Xk722VXqQNCDKqDc+LR8WsuOU64TiTLJx9UDQpNcoigbC3bYCi/4Cpw41iSGgs7utbgyQ==}
     peerDependencies:
       '@wagmi/connectors': '>=4.0.0'
@@ -6657,8 +6657,8 @@ packages:
       vue:
         optional: true
     dependencies:
-      '@wagmi/connectors': 4.1.18(@wagmi/core@2.6.9)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
-      '@wagmi/core': 2.6.9(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/connectors': 4.1.18(@wagmi/core@2.8.0)(react-native@0.73.4)(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
+      '@wagmi/core': 2.8.0(react@18.2.0)(typescript@5.4.3)(viem@2.9.27)
       '@web3modal/polyfills': 4.1.11
       '@web3modal/scaffold': 4.1.11(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.11(react@18.2.0)
@@ -8559,6 +8559,16 @@ packages:
       eslint: 8.56.0
     dev: true
 
+  /eslint-compat-utils@0.5.0(eslint@8.56.0):
+    resolution: {integrity: sha512-dc6Y8tzEcSYZMHa+CMPLi/hyo1FzNeonbhJL7Ol0ccuKQkwopJcJBA9YL/xmMTLU1eKigXo9vj9nALElWYSowg==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      eslint: '>=6.0.0'
+    dependencies:
+      eslint: 8.56.0
+      semver: 7.6.0
+    dev: true
+
   /eslint-config-prettier@9.1.0(eslint@8.55.0):
     resolution: {integrity: sha512-NSWl5BFQWEPi1j4TjVNItzYV7dZXZ+wP6I6ZhrBGpChQhZRUaElihE9uRRkcbRnNb76UMKDF3r+WTmNcGPKsqw==}
     hasBin: true
@@ -8945,12 +8955,12 @@ packages:
       - typescript
     dev: true
 
-  /eslint-plugin-svelte@2.35.1(eslint@8.56.0)(svelte@4.2.12):
-    resolution: {integrity: sha512-IF8TpLnROSGy98Z3NrsKXWDSCbNY2ReHDcrYTuXZMbfX7VmESISR78TWgO9zdg4Dht1X8coub5jKwHzP0ExRug==}
+  /eslint-plugin-svelte@2.38.0(eslint@8.56.0)(svelte@4.2.12):
+    resolution: {integrity: sha512-IwwxhHzitx3dr0/xo0z4jjDlb2AAHBPKt+juMyKKGTLlKi1rZfA4qixMwnveU20/JTHyipM6keX4Vr7LZFYc9g==}
     engines: {node: ^14.17.0 || >=16.0.0}
     peerDependencies:
-      eslint: ^7.0.0 || ^8.0.0-0
-      svelte: ^3.37.0 || ^4.0.0
+      eslint: ^7.0.0 || ^8.0.0-0 || ^9.0.0-0
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.112
     peerDependenciesMeta:
       svelte:
         optional: true
@@ -8959,27 +8969,27 @@ packages:
       '@jridgewell/sourcemap-codec': 1.4.15
       debug: 4.3.4
       eslint: 8.56.0
-      eslint-compat-utils: 0.1.2(eslint@8.56.0)
+      eslint-compat-utils: 0.5.0(eslint@8.56.0)
       esutils: 2.0.3
-      known-css-properties: 0.29.0
+      known-css-properties: 0.30.0
       postcss: 8.4.38
       postcss-load-config: 3.1.4(postcss@8.4.38)
       postcss-safe-parser: 6.0.0(postcss@8.4.38)
-      postcss-selector-parser: 6.0.15
+      postcss-selector-parser: 6.0.16
       semver: 7.6.0
       svelte: 4.2.12
-      svelte-eslint-parser: 0.33.1(svelte@4.2.12)
+      svelte-eslint-parser: 0.35.0(svelte@4.2.12)
     transitivePeerDependencies:
       - supports-color
       - ts-node
     dev: true
 
-  /eslint-plugin-svelte@2.35.1(eslint@8.56.0)(svelte@4.2.13):
-    resolution: {integrity: sha512-IF8TpLnROSGy98Z3NrsKXWDSCbNY2ReHDcrYTuXZMbfX7VmESISR78TWgO9zdg4Dht1X8coub5jKwHzP0ExRug==}
+  /eslint-plugin-svelte@2.38.0(eslint@8.56.0)(svelte@4.2.13):
+    resolution: {integrity: sha512-IwwxhHzitx3dr0/xo0z4jjDlb2AAHBPKt+juMyKKGTLlKi1rZfA4qixMwnveU20/JTHyipM6keX4Vr7LZFYc9g==}
     engines: {node: ^14.17.0 || >=16.0.0}
     peerDependencies:
-      eslint: ^7.0.0 || ^8.0.0-0
-      svelte: ^3.37.0 || ^4.0.0
+      eslint: ^7.0.0 || ^8.0.0-0 || ^9.0.0-0
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.112
     peerDependenciesMeta:
       svelte:
         optional: true
@@ -8988,16 +8998,16 @@ packages:
       '@jridgewell/sourcemap-codec': 1.4.15
       debug: 4.3.4
       eslint: 8.56.0
-      eslint-compat-utils: 0.1.2(eslint@8.56.0)
+      eslint-compat-utils: 0.5.0(eslint@8.56.0)
       esutils: 2.0.3
-      known-css-properties: 0.29.0
+      known-css-properties: 0.30.0
       postcss: 8.4.38
       postcss-load-config: 3.1.4(postcss@8.4.38)
       postcss-safe-parser: 6.0.0(postcss@8.4.38)
-      postcss-selector-parser: 6.0.15
+      postcss-selector-parser: 6.0.16
       semver: 7.6.0
       svelte: 4.2.13
-      svelte-eslint-parser: 0.33.1(svelte@4.2.13)
+      svelte-eslint-parser: 0.35.0(svelte@4.2.13)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -11029,8 +11039,8 @@ packages:
     engines: {node: '>=6'}
     dev: true
 
-  /known-css-properties@0.29.0:
-    resolution: {integrity: sha512-Ne7wqW7/9Cz54PDt4I3tcV+hAyat8ypyOGzYRJQfdxnnjeWsTxt1cy8pjvvKeI5kfXuyvULyeeAvwvvtAX3ayQ==}
+  /known-css-properties@0.30.0:
+    resolution: {integrity: sha512-VSWXYUnsPu9+WYKkfmJyLKtIvaRJi1kXUqVmBACORXZQxT5oZDsoZ2vQP+bQFDnWtpI/4eq3MLoRMjI2fnLzTQ==}
     dev: true
 
   /latest-version@7.0.0:
@@ -12701,6 +12711,14 @@ packages:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
 
+  /postcss-selector-parser@6.0.16:
+    resolution: {integrity: sha512-A0RVJrX+IUkVZbW3ClroRWurercFhieevHB38sr2+l9eUClMqome3LmEmnhlNy+5Mr2EYN6B2Kaw9wYdd+VHiw==}
+    engines: {node: '>=4'}
+    dependencies:
+      cssesc: 3.0.0
+      util-deprecate: 1.0.2
+    dev: true
+
   /postcss-value-parser@4.2.0:
     resolution: {integrity: sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==}
 
@@ -14161,11 +14179,11 @@ packages:
       dayjs: 1.10.1
     dev: false
 
-  /svelte-eslint-parser@0.33.1(svelte@4.2.12):
-    resolution: {integrity: sha512-vo7xPGTlKBGdLH8T5L64FipvTrqv3OQRx9d2z5X05KKZDlF4rQk8KViZO4flKERY+5BiVdOh7zZ7JGJWo5P0uA==}
+  /svelte-eslint-parser@0.35.0(svelte@4.2.12):
+    resolution: {integrity: sha512-CtbPseajW0gjwEvHiuzYJkPDjAcHz2FaHt540j6RVYrZgnE6xWkzUBodQ4I3nV+G5AS0Svt8K6aIA/CIU9xT2Q==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
-      svelte: ^3.37.0 || ^4.0.0
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.112
     peerDependenciesMeta:
       svelte:
         optional: true
@@ -14178,11 +14196,11 @@ packages:
       svelte: 4.2.12
     dev: true
 
-  /svelte-eslint-parser@0.33.1(svelte@4.2.13):
-    resolution: {integrity: sha512-vo7xPGTlKBGdLH8T5L64FipvTrqv3OQRx9d2z5X05KKZDlF4rQk8KViZO4flKERY+5BiVdOh7zZ7JGJWo5P0uA==}
+  /svelte-eslint-parser@0.35.0(svelte@4.2.13):
+    resolution: {integrity: sha512-CtbPseajW0gjwEvHiuzYJkPDjAcHz2FaHt540j6RVYrZgnE6xWkzUBodQ4I3nV+G5AS0Svt8K6aIA/CIU9xT2Q==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
-      svelte: ^3.37.0 || ^4.0.0
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.112
     peerDependenciesMeta:
       svelte:
         optional: true

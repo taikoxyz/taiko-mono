@@ -67,7 +67,6 @@
     'font-medium',
     'lg:text-2xl',
     'md:text-base',
-
     'font-clash-grotesk',
     'border',
     'transition-all',
