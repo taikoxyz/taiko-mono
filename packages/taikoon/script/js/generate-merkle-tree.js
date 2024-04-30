@@ -34,3 +34,4 @@ async function main(network) {
 main('hardhat')
 main('holesky')
 main('sepolia')
+main('devnet')

@@ -22,10 +22,12 @@ contract MerkleMintersScript is Script {
     bytes32 public holeskyRoot;
     bytes32 public localhostRoot;
     bytes32 public sepoliaRoot;
+    bytes32 public devnetRoot;
 
     string public hardhatTreeJson;
     string public holeskyTreeJson;
     string public sepoliaTreeJson;
+    string public devnetTreeJson;
 
     function setUp() public {
         utils = new UtilsScript();
@@ -61,6 +63,11 @@ contract MerkleMintersScript is Script {
             vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/sepolia.json"));
         rootRaw = sepoliaTreeJson.parseRaw(".root");
         sepoliaRoot = abi.decode(rootRaw, (bytes32));
+
+        // load devnet's tree and root
+        devnetTreeJson = vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/devnet.json"));
+        rootRaw = devnetTreeJson.parseRaw(".root");
+        devnetRoot = abi.decode(rootRaw, (bytes32));
     }
 
     function getMerkleRoot() public view returns (bytes32) {
@@ -71,6 +78,8 @@ contract MerkleMintersScript is Script {
             return holeskyRoot;
         } else if (chainId == 11_155_111) {
             return sepoliaRoot;
+        } else if (chainId == 167_001) {
+            return devnetRoot;
         } else {
             revert("Unsupported chainId");
         }
@@ -93,6 +102,10 @@ contract MerkleMintersScript is Script {
         } else if (chainId == 11_155_111) {
             // sepolia
             bytes memory treeRaw = sepoliaTreeJson.parseRaw(".tree");
+            leaves = abi.decode(treeRaw, (bytes32[]));
+        } else if (chainId == 167_001) {
+            // devnet
+            bytes memory treeRaw = devnetTreeJson.parseRaw(".tree");
             leaves = abi.decode(treeRaw, (bytes32[]));
         } else {
             revert("Unsupported chainId");

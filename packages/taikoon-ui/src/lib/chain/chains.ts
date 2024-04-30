@@ -68,6 +68,21 @@ const chainConfigs: ChainConfigMap = {
     icon: '/chains/ethereum.svg',
     type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
   },
+  '167001': {
+    name: 'Devnet',
+    rpcUrls: {
+      default: {
+        http: ['https://rpc.internal.taiko.xyz'],
+      },
+    },
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    icon: '/chains/ethereum.svg',
+    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+  },
 };
 
 function mapChainConfigToChain(chainId: string, chainConfig: ChainConfig): Chain {

@@ -6,8 +6,11 @@ import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
+import { chainIdToChain } from '$lib/chain/chains';
+
+const devnet = chainIdToChain(167001);
 const baseConfig = {
-  chains: [hardhat, holesky, sepolia],
+  chains: [hardhat, holesky, sepolia, devnet],
   projectId,
   metadata: {},
   batch: {
@@ -19,6 +22,7 @@ const baseConfig = {
     [holesky.id]: http('https://ethereum-holesky.blockpi.network/v1/rpc/public'),
     //[holesky.id]: http('https://l1rpc.hekla.taiko.xyz/'),
     [sepolia.id]: http('https://rpc2.sepolia.org'),
+    [devnet.id]: http('https://rpc.internal.taiko.xyz'),
   },
 } as const;
 
