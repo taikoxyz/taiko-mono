@@ -43,11 +43,13 @@ func (r *SignedBlockRepo) GetByStartingBlockID(
 	return sb, nil
 }
 
-func (r *SignedBlockRepo) GetMostRecentByGuardianProverID(id int) (*guardianproverhealthcheck.SignedBlock, error) {
+func (r *SignedBlockRepo) GetMostRecentByGuardianProverAddress(
+	address string,
+) (*guardianproverhealthcheck.SignedBlock, error) {
 	var b *guardianproverhealthcheck.SignedBlock
 
 	for k, v := range r.signedBlocks {
-		if v.GuardianProverID == uint64(id) {
+		if v.RecoveredAddress == address {
 			if k == 0 {
 				b = v
 			} else if v.BlockID > b.BlockID {

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/IAddressResolver.sol";
-import "../../common/LibSnapshot.sol";
+import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
@@ -140,7 +140,7 @@ library LibProposing {
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
             if (
-                _checkEOAForCalldataDA
+                _checkEOAForCalldataDA && meta_.id != 1
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();
@@ -185,8 +185,6 @@ library LibProposing {
 
         {
             IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-            _takeTaikoTokenSnapshot(_state, address(tko), b);
-
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
@@ -230,19 +228,6 @@ library LibProposing {
             meta: meta_,
             depositsProcessed: deposits_
         });
-    }
-
-    function _takeTaikoTokenSnapshot(
-        TaikoData.State storage _state,
-        address _taikoToken,
-        TaikoData.SlotB memory _slotB
-    )
-        private
-    {
-        uint32 idx = LibSnapshot.autoSnapshot(_taikoToken, block.number, _slotB.lastSnapshotIdx);
-        if (idx != 0) {
-            _state.slotB.lastSnapshotIdx = idx;
-        }
     }
 
     function _isProposerPermitted(

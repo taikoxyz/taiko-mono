@@ -4,8 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"log/slog"
-
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 
@@ -39,8 +37,6 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 	hopProofs := []encoding.HopProof{}
 
 	for _, hop := range hopParams {
-		slog.Info("generating hop proof")
-
 		block, err := hop.Blocker.BlockByNumber(
 			ctx,
 			new(big.Int).SetUint64(hop.BlockNumber),
@@ -90,12 +86,6 @@ func (p *Prover) getProof(
 	blockNumber int64,
 ) (*StorageProof, error) {
 	var ethProof StorageProof
-
-	slog.Info("getting proof",
-		"signalServiceAddress", signalServiceAddress.Hex(),
-		"key", key,
-		"blockNum", blockNumber,
-	)
 
 	err := c.CallContext(ctx,
 		&ethProof,

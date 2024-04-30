@@ -71,7 +71,7 @@ func (i *Indexer) handleMessageSentEvent(
 	}
 
 	// get event status from msgHash on chain
-	eventStatus, err := i.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
+	eventStatus, err := i.eventStatusFromMsgHash(ctx, event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
@@ -113,7 +113,7 @@ func (i *Indexer) handleMessageSentEvent(
 
 	// we add it to the queue, so the processor can pick up and attempt to process
 	// the message onchain.
-	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil); err != nil {
+	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil, nil); err != nil {
 		return errors.Wrap(err, "i.queue.Publish")
 	}
 
@@ -124,7 +124,6 @@ func (i *Indexer) handleMessageSentEvent(
 
 func (i *Indexer) eventStatusFromMsgHash(
 	ctx context.Context,
-	gasLimit *big.Int,
 	signal [32]byte,
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus

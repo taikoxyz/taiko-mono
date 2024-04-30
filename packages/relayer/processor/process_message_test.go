@@ -22,19 +22,17 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		context.Background(),
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				Id:          big.NewInt(1),
+				Id:          1,
 				From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				DestChainId: mock.MockChainID.Uint64(),
 				SrcChainId:  mock.MockChainID.Uint64(),
 				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-				RefundTo:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				Value:       big.NewInt(0),
-				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
-				GasLimit:    big.NewInt(1),
+				Fee:         mock.ProcessMessageTx.Cost().Uint64() + 1,
+				GasLimit:    1,
 				Data:        []byte{},
-				Memo:        "",
 			},
 			Raw: types.Log{
 				Address: relayer.ZeroAddress,
@@ -53,9 +51,9 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	body := &queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				GasLimit:   big.NewInt(1),
+				GasLimit:   1,
 				SrcChainId: mock.MockChainID.Uint64(),
-				Id:         big.NewInt(1),
+				Id:         1,
 			},
 			Raw: types.Log{
 				Address: relayer.ZeroAddress,
@@ -75,7 +73,7 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 		Body: marshalled,
 	}
 
-	shouldRequeue, err := p.processMessage(context.Background(), msg)
+	shouldRequeue, _, err := p.processMessage(context.Background(), msg)
 
 	assert.Nil(t, err)
 
@@ -88,19 +86,17 @@ func Test_ProcessMessage_unprofitable(t *testing.T) {
 	body := queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				Id:          big.NewInt(1),
+				Id:          1,
 				From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				DestChainId: mock.MockChainID.Uint64(),
 				SrcChainId:  mock.MockChainID.Uint64(),
 				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-				RefundTo:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 				Value:       big.NewInt(0),
-				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
-				GasLimit:    big.NewInt(1),
+				GasLimit:    600000,
+				Fee:         1,
 				Data:        []byte{},
-				Memo:        "",
 			},
 			MsgHash: mock.SuccessMsgHash,
 			Raw: types.Log{
@@ -121,7 +117,7 @@ func Test_ProcessMessage_unprofitable(t *testing.T) {
 		Body: marshalled,
 	}
 
-	shouldRequeue, err := p.processMessage(context.Background(), msg)
+	shouldRequeue, _, err := p.processMessage(context.Background(), msg)
 
 	assert.Equal(
 		t,

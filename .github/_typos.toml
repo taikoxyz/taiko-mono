@@ -1,0 +1,7 @@
+[default.extend-words]
+TGE = "TGE"
+TKO = "TKO"
+Ethereum = "Ethereum"
+
+[files]
+extend-exclude = ["packages/protocol/audit"]

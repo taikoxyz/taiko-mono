@@ -3,6 +3,7 @@ package disperser
 import (
 	"crypto/ecdsa"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
-	pkgFlags "github.com/taikoxyz/taiko-mono/packages/relayer/pkg/flags"
+	pkgFlags "github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/flags"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -52,7 +53,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	dispersalAmount, ok := new(big.Int).SetString(c.String(flags.DispersalAmount.Name), 10)
 	if !ok {
-		return nil, fmt.Errorf("Invalid dispersal amount")
+		return nil, errors.New("Invalid dispersal amount")
 	}
 
 	return &Config{

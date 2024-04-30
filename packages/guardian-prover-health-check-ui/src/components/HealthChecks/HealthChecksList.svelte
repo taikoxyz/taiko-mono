@@ -38,7 +38,7 @@
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			nextHealthCheckPage,
 			pageSize,
-			selectedGuardianProver.id
+			selectedGuardianProver?.id
 		);
 		healthChecks = data.items;
 		totalItems = data.total;
@@ -56,7 +56,7 @@
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			selectedPage,
 			pageSize,
-			selectedGuardianProver.id
+			selectedGuardianProver?.id
 		);
 		healthChecks = data.items;
 	};
@@ -65,7 +65,6 @@
 <div class="mt-[12px] mb-[45px]">
 	<HealthCheckFilter {healthChecks} bind:filteredHealthChecks />
 </div>
-
 {#if filteredHealthChecks.length === 0}
 	<div class="flex gap-2">
 		<Spinner />{$t('loading')}

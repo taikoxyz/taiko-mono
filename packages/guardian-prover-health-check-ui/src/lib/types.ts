@@ -37,6 +37,18 @@ export type StartupResponse = {
 	createdAt: string;
 };
 
+export type NodeInfoResponse = {
+	guardianProverID: number;
+	guardianProverAddress: string;
+	l1NodeVersion: string;
+	l2NodeVersion: string;
+	revision: string;
+	guardianVersion: string;
+	createdAt: string;
+	latestL1BlockNumber: number;
+	latestL2BlockNumber: number;
+};
+
 export type PageResponse<T> = {
 	items: T[];
 	page: number;
@@ -58,10 +70,16 @@ export type Guardian = {
 	balance?: string;
 	lastRestart?: string;
 	uptime?: number;
-	nodeInfo?: NodeInfo;
+	versionInfo?: VersionInfo;
+	blockInfo?: BlockInfo;
 };
 
-export type NodeInfo = {
+export type BlockInfo = {
+	latestL1BlockNumber: number;
+	latestL2BlockNumber: number;
+};
+
+export type VersionInfo = {
 	guardianProverAddress: string;
 	guardianProverID: number;
 	guardianVersion: string;

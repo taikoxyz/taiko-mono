@@ -18,7 +18,7 @@
     // Defaults when no value was provided for closeManually
     success: false,
     error: true,
-    warning: false,
+    warning: true,
     info: false,
     unknown: false,
   };

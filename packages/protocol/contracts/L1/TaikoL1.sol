@@ -43,22 +43,26 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
+    /// @param _toPause true to pause the contract by default.
     function init(
         address _owner,
         address _addressManager,
-        bytes32 _genesisBlockHash
+        bytes32 _genesisBlockHash,
+        bool _toPause
     )
         external
         initializer
     {
         __Essential_init(_owner, _addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
+        if (_toPause) _pause();
     }
 
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
+        state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
@@ -202,7 +206,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: 167_009,
+            chainId: LibNetwork.TAIKO,
             // Assume the block time is 3s, the protocol will allow ~90 days of
             // new blocks without any verification.
             blockMaxProposals: 3_000_000,
@@ -227,7 +231,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         view
         virtual
         override
-        onlyFromOwnerOrNamed(LibStrings.B_CHAIN_PAUSER)
+        onlyFromOwnerOrNamed(LibStrings.B_CHAIN_WATCHDOG)
     { }
 
     function _checkEOAForCalldataDA() internal pure virtual returns (bool) {

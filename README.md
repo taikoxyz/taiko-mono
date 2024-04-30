@@ -44,7 +44,9 @@ taiko-mono/
 │   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check service.
 │   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI.
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol smart contracts.
-│   └── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
+│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
+│   ├── <a href="./packages/taikoon">taikoon</a>: Taikoon NFT contracts.
+│   └── <a href="./packages/supplementary-contracts">supplementary-contracts</a>: Supplementary smart contracts that are not part of the Taiko rollup protocol.
 ...
 </pre>
 
@@ -54,9 +56,9 @@ If you find a bug or have a feature request, please [open an issue](https://gith
 
 ## Contributing
 
-Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
+Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [grants.taiko.xyz](https://grants.taiko.xyz).
 
-You can also check out our grants cycle at [grants.taiko.xyz](https://grants.taiko.xyz).
+⚠️ Please refrain from submitting typo/comment-only pull requests with the expectation of receiving TKO airdrops.
 
 ## Getting support
 

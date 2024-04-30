@@ -68,7 +68,7 @@ Note that the anchor transaction emits an `Anchored` event that may help ZKP to 
 ZKP shall also check the signature of the anchor transaction:
 
 - The signer must be _`TaikoL2.GOLDEN_TOUCH_ADDRESS`_.
-- The signature must use `1` as the `k` value if the calculated `r` is not `0`, otherwise, `k` must be `2`. See [LibL2Signer.sol](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L2/LibL2Signer.sol).
+- The signature must use `1` as the `k` value if the calculated `r` is not `0`, otherwise, `k` must be `2`. See [LibL2Signer.sol](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/test/L2/LibL2Signer.sol).
 
 ### Block Metadata
 
@@ -106,7 +106,7 @@ struct BlockMetadata {
 
 ### Global Variables
 
-The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
+The following [**block level variables**](https://docs.soliditylang.org/en/latest/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
 
 - `blockhash(uint blockNumber) returns (bytes32)`: hash of the given block when `blocknumber` is one of the 256 most recent blocks; otherwise returns zero
 - `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [modified EIP-1559](./L2EIP1559.md))

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Hash } from 'viem';
+  import type { Hash, Hex } from 'viem';
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
@@ -19,7 +19,7 @@
   import { BridgingStatus } from '$components/Bridge/types';
   import { Icon, type IconType } from '$components/Icon';
   import { successToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { infoToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { type ApproveArgs, bridges, type BridgeTransaction, MessageStatus, type NFTApproveArgs } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
@@ -27,7 +27,7 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
-  import { BridgePausedError } from '$libs/error';
+  import { BridgePausedError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
@@ -48,6 +48,8 @@
   let approving: boolean;
   let checking: boolean;
 
+  let icon: IconType;
+
   $: statusTitle = '';
   $: statusDescription = '';
 
@@ -56,17 +58,34 @@
 
     const destinationChain = $destNetwork?.id;
     const userAccount = $account?.address;
-    if (!currentChain || !destinationChain || !userAccount) return; //TODO error handling
+    if (!currentChain || !destinationChain || !userAccount || !$selectedToken) return; //TODO error handling
 
     const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
 
-    await pendingTransactions.add(txHash, currentChain);
+    try {
+      await pendingTransactions.add(txHash, currentChain);
 
-    bridgingStatus = BridgingStatus.DONE;
-    statusTitle = $t('bridge.actions.bridge.success.title');
-    statusDescription = $t('bridge.step.confirm.bridge.success.message', {
-      values: { url: `${explorer}/tx/${txHash}` },
-    });
+      successToast({
+        title: $t('bridge.actions.approve.success.title'),
+        message: $t('bridge.actions.approve.success.message', {
+          values: {
+            token: $selectedToken.symbol,
+          },
+        }),
+      });
+      icon = successIcon;
+      bridgingStatus = BridgingStatus.DONE;
+      statusTitle = $t('bridge.actions.bridge.success.title');
+      statusDescription = $t('bridge.step.confirm.bridge.success.message', {
+        values: { url: `${explorer}/tx/${txHash}` },
+      });
+    } catch (error) {
+      if (error instanceof TransactionTimeoutError) {
+        handleTimeout(txHash);
+      } else {
+        handleBridgeError(error as Error);
+      }
+    }
 
     const bridgeTx = {
       hash: txHash,
@@ -83,6 +102,27 @@
     bridging = false;
 
     bridgeTxService.addTxByAddress(userAccount, bridgeTx);
+  };
+
+  const handleTimeout = (txHash: Hex) => {
+    const currentChain = $connectedSourceChain?.id;
+    const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
+
+    warningToast({
+      title: $t('bridge.actions.bridge.timeout.title'),
+      message: $t('bridge.actions.bridge.timeout.message', {
+        values: {
+          url: `${explorer}/tx/${approveTxHash}`,
+        },
+      }),
+    });
+    icon = timeoutIcon;
+    iconFill = 'fill-warning-sentiment';
+    bridgingStatus = BridgingStatus.DONE;
+    statusTitle = $t('bridge.actions.bridge.timeout.title');
+    statusDescription = $t('bridge.step.confirm.bridge.timeout.message', {
+      values: { url: `${explorer}/tx/${txHash}` },
+    });
   };
 
   const handleApproveTxHash = async (txHash: Hash) => {
@@ -170,6 +210,7 @@
         srcChainId: $connectedSourceChain.id,
         destChainId: $destNetwork?.id,
         fee: $processingFee,
+        tokenObject: $selectedToken,
       };
 
       const type: TokenType = $selectedToken.type;
@@ -178,7 +219,7 @@
         if (!tokenIds) throw new Error('tokenIds not found');
         const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, tokenIds);
 
-        const args = { ...bridgeArgs, tokenIds };
+        const args = { ...bridgeArgs, tokenIds, tokenObject: $selectedToken };
 
         bridgeTxHash = await $bridgeService.bridge(args);
       } else {
@@ -196,9 +237,11 @@
       handleBridgeError(err as Error);
     }
   }
+  $: iconFill = '';
   $: approveIcon = `approve-${$theme}` as IconType;
   $: bridgeIcon = `bridge-${$theme}` as IconType;
   $: successIcon = `success-${$theme}` as IconType;
+  $: timeoutIcon = `exclamation-circle` as IconType;
 
   onMount(() => (bridgingStatus = BridgingStatus.PENDING));
 </script>
@@ -207,7 +250,7 @@
   <section id="txStatus">
     <div class="flex flex-col justify-content-center items-center">
       {#if bridgingStatus === BridgingStatus.DONE}
-        <Icon type={successIcon} size={160} />
+        <Icon type={icon} size={160} fillClass={iconFill} />
         <div id="text" class="f-col my-[30px] text-center">
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <h1>{@html statusTitle}</h1>

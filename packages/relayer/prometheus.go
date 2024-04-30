@@ -70,9 +70,9 @@ var (
 		Name: "message_sent_events_max_retries_reached_ops_total",
 		Help: "The total number of MessageSent events that reached max retries",
 	})
-	MessageReceivedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "message_received_events_indexing_errors_ops_total",
-		Help: "The total number of errors indexing MessageReceived events",
+	MessageProcessedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_processed_events_indexing_errors_ops_total",
+		Help: "The total number of errors indexing MessageProcessed events",
 	})
 	MessageStatusChangedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_status_changed_events_indexed_ops_total",
@@ -94,10 +94,6 @@ var (
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",
 	})
-	TransactionsSuspended = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "transactions_suspended_ops_total",
-		Help: "The total number of suspended transactions",
-	})
 	BridgePaused = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "bridge_paused_opts_total",
 		Help: "The total number of times the bridge has been paused",
@@ -117,5 +113,13 @@ var (
 	MessagesNotReceivedOnDestChain = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "messages_not_received_on_dest_chain_opts_total",
 		Help: "The total number of messages that were not received on the destination chain",
+	})
+	ProfitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "profitable_message_after_transacting_ops_total",
+		Help: "The total number of processed events that ended up profitable",
+	})
+	UnprofitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "unprofitable_message_after_transacting_ops_total",
+		Help: "The total number of processed events that ended up unprofitable",
 	})
 )

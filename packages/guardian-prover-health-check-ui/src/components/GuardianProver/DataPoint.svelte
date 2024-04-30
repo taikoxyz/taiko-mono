@@ -15,7 +15,7 @@
 {:else}
 	<div class="f-row justify-between w-full">
 		<div class="font-bold">{headline}</div>
-		<div>{dataPoint}</div>
+		<div class="text-right">{dataPoint}</div>
 	</div>
 {/if}
 

@@ -24,6 +24,10 @@
           "message": "Your funds are being prepared for claiming on Taiko.",
           "title": "Transaction completed"
         },
+        "timeout": {
+          "message": "It took longer than expected to process your transaction, check your wallet for the status.",
+          "title": "Timed out"
+        },
         "tx": {
           "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Transaction sent"
@@ -74,10 +78,6 @@
         "not_received": {
           "message": "The message is not proven and cannot be claimed right now.",
           "title": "Not received"
-        },
-        "too_early": {
-          "message": "You need to wait for the delay to pass before claiming",
-          "title": "Too early"
         }
       },
       "custom_token": {
@@ -158,6 +158,9 @@
         "bridge": {
           "success": {
             "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
+          },
+          "timeout": {
+            "message": "The network experiences heavy load and it took longer than expected for your transaction to process. You can track the status on the <a class=\"link\" href=\\\"{url}\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\"><b>explorer</b></a> and in your wallet."
           }
         },
         "button": {
@@ -167,9 +170,7 @@
         "processing": "Processing...",
         "success": {
           "claim": "Claim transaction sent successfully",
-          "claim_description": "You",
-          "prove": "Proof submitted",
-          "prove_description": "You have submitted your proof. Wait for the delay to pass, then you can claim your funds"
+          "prove": "Proof submitted"
         },
         "title": "Confirm"
       },
@@ -196,7 +197,7 @@
       }
     },
     "welcome_modal": {
-      "body": "Welcome to <span class='font-bold text-primary-brand'>Katla, our final testnet</span>.<br/>Strengthening security may cause some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
+      "body": "Welcome to <span class='font-bold text-primary-brand'>Hekla, our final testnet</span>.<br/>Strengthening security may cause some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
       "confirm": "I understand",
       "link": "Find out more",
       "title": "Important Update"
@@ -460,22 +461,15 @@
         "confirm": {
           "claim_button": "Claim now",
           "claim_description": "You can now claim your assets",
-          "proceed": "Proceed to claim",
-          "prove": "Submit proof",
-          "prove_description": "After successfully submitting your proof, wait for the cooldown delay. Then you can claim your funds."
+          "proceed": "Proceed to claim"
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
           "funds_check": "Sufficient funds to claim",
-          "no_delay": "No delay",
           "ready": "You can continue with the claim process!",
-          "remaining_delay": "Remaining delay before claim",
           "step": "Claim step",
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
-          "title": "Requirements",
-          "two_step_claim": {
-            "description": "For your L2 to L1 transfer, a two-step claim with a <span class=\"font-bold text-primary\" >{delay}</span> waiting period in between is required. For detailed instructions, please consult our documentation."
-          }
+          "title": "Requirements"
         },
         "review": {
           "name": "Review",
@@ -513,6 +507,9 @@
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",
+    "release": {
+      "title": "Release assets"
+    },
     "retry": {
       "steps": {
         "select": {
@@ -543,7 +540,7 @@
         "name": "Failed"
       },
       "pending": {
-        "description": " Your asset is not yet eligible for claiming. The bridging process from Taiko to Sepolia may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes.",
+        "description": "Your asset is not yet eligible for claiming. The bridging process from Taiko to Holesky may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes.",
         "name": "Pending"
       },
       "processing": {

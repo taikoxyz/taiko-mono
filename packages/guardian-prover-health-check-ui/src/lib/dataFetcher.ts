@@ -1,4 +1,10 @@
-import { GuardianProverStatus, type Guardian, type NodeInfo, type SignedBlocks } from './types';
+import {
+	GuardianProverStatus,
+	type BlockInfo,
+	type Guardian,
+	type SignedBlocks,
+	type VersionInfo
+} from './types';
 import { fetchSignedBlocksFromApi } from './api/signedBlocksApiCalls';
 import { getGuardianProverIdsPerBlockNumber } from './blocks/getGuardianProverIdsPerBlockNumber';
 import { sortSignedBlocksDescending } from './blocks/sortSignedBlocks';
@@ -6,6 +12,7 @@ import { publicClient } from './wagmi/publicClient';
 import { formatEther, type Address } from 'viem';
 import {
 	fetchLatestGuardianProverHealthCheckFromApi,
+	fetchNodeInfoFromApi,
 	fetchStartupDataFromApi,
 	fetchUptimeFromApi
 } from './api';
@@ -80,7 +87,7 @@ async function initializeGuardians() {
 	const rawGuardians: Guardian[] = Object.entries(guardiansMap).map(([address, name], index) => ({
 		name: name,
 		address: address,
-		id: index,
+		id: index + 1, // add +1 as guardian contract numbers starts at 1
 		latestHealthCheck: null,
 		alive: GuardianProverStatus.UNKNOWN,
 		balance: null,
@@ -88,6 +95,7 @@ async function initializeGuardians() {
 		uptime: null,
 		nodeInfo: null
 	}));
+
 	guardianProvers.set(rawGuardians);
 }
 
@@ -175,23 +183,40 @@ async function fetchStats(): Promise<void> {
 	const guardians = get(guardianProvers);
 
 	const updatedGuardiansPromises = guardians.map(async (guardian) => {
-		const data = await fetchStartupDataFromApi(
+		const startupDataFetch = fetchStartupDataFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			guardian.id
 		);
-		const info: NodeInfo = {
-			guardianProverAddress: data.guardianProverAddress,
-			guardianProverID: data.guardianProverID,
-			guardianVersion: data.version,
-			l1NodeVersion: data.revision,
-			l2NodeVersion: data.revision,
-			revision: data.revision
+
+		const nodeInfoFetch = fetchNodeInfoFromApi(
+			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+			guardian.id
+		);
+
+		const [startupData, nodeInfo] = await Promise.all([startupDataFetch, nodeInfoFetch]);
+
+		const versions: VersionInfo = {
+			guardianProverAddress: startupData.guardianProverAddress,
+			guardianProverID: startupData.guardianProverID,
+			guardianVersion: nodeInfo.guardianVersion,
+			l1NodeVersion: nodeInfo.l1NodeVersion,
+			l2NodeVersion: nodeInfo.l2NodeVersion,
+			revision: startupData.revision
+		};
+
+		console.log('versions', versions);
+
+		const blockInfo: BlockInfo = {
+			latestL1BlockNumber: nodeInfo.latestL1BlockNumber,
+			latestL2BlockNumber: nodeInfo.latestL2BlockNumber
 		};
 
 		return {
 			...guardian,
-			nodeInfo: info,
-			lastRestart: data.createdAt
+			id: versions.guardianProverID,
+			versionInfo: versions,
+			lastRestart: startupData.createdAt,
+			blockInfo: blockInfo
 		};
 	});
 

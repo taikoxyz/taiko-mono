@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
@@ -18,9 +18,9 @@
     "export:simconf": "mkdir -p simulation/out && forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "devDependencies": {
-    "@types/node": "^20.11.20",
+    "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
-    "@typescript-eslint/parser": "^7.0.2",
+    "@typescript-eslint/parser": "^7.7.0",
     "eslint": "^8.51.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-standard": "^17.1.0",
@@ -29,7 +29,7 @@
     "eslint-plugin-prettier": "^5.1.3",
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
-    "solc": "0.7.3",
+    "solc": "0.8.24",
     "solhint": "^4.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"

@@ -43,9 +43,11 @@
 			"address": "Address",
 			"balance": "Balance",
 			"guardian_prover": "Guardian Prover",
-			"no_blocks_created": "Signed",
+			"latest_l1_block": "Latest L1 Block",
+			"latest_l2_block": "Latest L2 Block",
+			"no_blocks_created": "Signed Blocks",
 			"status": "Status",
-			"view_details": "View details"
+			"view_details": "View Healthchecks"
 		}
 	},
 	"page": {
