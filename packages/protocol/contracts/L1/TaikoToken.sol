@@ -84,4 +84,8 @@ contract TaikoToken is EssentialContract_, ERC20VotesUpgradeable {
         if (_to == address(this)) revert TKO_INVALID_ADDR();
         return super.transferFrom(_from, _to, _amount);
     }
+
+    function clock() public view override returns (uint48) {
+        return SafeCastUpgradeable.toUint48(block.timestamp);
+    }
 }
