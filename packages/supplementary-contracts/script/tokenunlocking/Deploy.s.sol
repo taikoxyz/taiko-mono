@@ -22,7 +22,7 @@ contract DeployTokenUnlocking is Script {
     function run() external {
         address impl = IMPL == address(0) ? address(new TokenUnlocking()) : IMPL;
 
-        string memory path = "/script/tokenvesting/Deploy.data.json";
+        string memory path = "/script/tokenUnlocking/deploy.data.json";
         address[] memory recipients = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (address[])
         );

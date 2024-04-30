@@ -7,7 +7,7 @@ import "forge-std/src/console2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import "../../contracts/tokenunlocking/TokenUnlocking.sol";
+import "../../contracts/tokenUnlocking/TokenUnlocking.sol";
 
 contract VestTokenUnlocking is Script {
     using stdJson for string;
@@ -21,11 +21,12 @@ contract VestTokenUnlocking is Script {
         uint256 vestAmount;
     }
 
-    uint256 public PRIVATE_KEY = vm.envUint("PRIVATE_KEY"); // owner
     ERC20 private tko = ERC20(vm.envAddress("TAIKO_TOKEN"));
 
     function run() external {
-        string memory path = "/script/tokenvesting/Vest.data.json";
+        vm.startBroadcast();
+
+        string memory path = "/script/tokenVesting/Vest.data.json";
         VestingItem[] memory items = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (VestingItem[])
         );
@@ -44,12 +45,12 @@ contract VestTokenUnlocking is Script {
             uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
             require(tko.balanceOf(msg.sender) >= vestAmount, "insufficient TKO balance");
 
-            vm.startBroadcast(PRIVATE_KEY);
             tko.approve(proxy, vestAmount);
             TokenUnlocking(proxy).vest(vestAmount);
-            vm.stopBroadcast();
 
             console2.log("Vested!\n");
         }
+
+        vm.stopBroadcast();
     }
 }
