@@ -108,15 +108,15 @@ async function fetchGuardians() {
 	totalGuardianProvers.set(existingGuardians?.length);
 
 	const guardianFetchPromises = existingGuardians.map(async (newGuardian) => {
-		const guardian = existingGuardians.find((g) => g.id === newGuardian.id) || {
+		const guardian = existingGuardians.find((g) => g.address === newGuardian.address) || {
 			...newGuardian,
-			latestHealthCheck: null,
-			uptime: 0,
-			balance: '0',
 			alive: GuardianProverStatus.UNKNOWN
 		};
+		console.log('fetching guardian info for', guardian.address, guardian.id);
 
 		guardian.name = await getPseudonym(guardian.address);
+
+		console.log("getting balance for", guardian.name, guardian.id, guardian.address);
 
 		const [status, uptime, balance] = await Promise.all([
 			fetchLatestGuardianProverHealthCheckFromApi(
@@ -125,8 +125,11 @@ async function fetchGuardians() {
 			),
 			fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.address),
 			publicClient.getBalance({ address: guardian.address as Address })
+
 		]);
+
 		guardian.balance = formatEther(balance);
+		console.log('balance', guardian.name, guardian.balance);
 
 		guardian.latestHealthCheck = status;
 		guardian.uptime = Math.min(uptime, 100);
@@ -137,6 +140,8 @@ async function fetchGuardians() {
 	const updatedGuardians = await Promise.all(guardianFetchPromises);
 	guardianProvers.set(updatedGuardians);
 	lastGuardianFetchTimestamp.set(Date.now());
+	console.log('updatedGuardians', updatedGuardians);
+
 }
 
 async function fetchSignedBlockStats() {
@@ -183,6 +188,7 @@ async function fetchStats(): Promise<void> {
 	const guardians = get(guardianProvers);
 
 	const updatedGuardiansPromises = guardians.map(async (guardian) => {
+		console.log('fetching stats for', guardian.address)
 		const startupDataFetch = fetchStartupDataFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			guardian.address
@@ -204,7 +210,6 @@ async function fetchStats(): Promise<void> {
 			revision: startupData.revision
 		};
 
-		console.log('versions', versions);
 
 		const blockInfo: BlockInfo = {
 			latestL1BlockNumber: nodeInfo.latestL1BlockNumber,
