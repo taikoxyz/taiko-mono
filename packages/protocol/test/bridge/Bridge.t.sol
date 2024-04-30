@@ -287,7 +287,7 @@ contract BridgeTest is TaikoTest {
             address(mockDAO),
             abi.encodeCall(
                 DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(mockProofSignalService), authorizeCall)
+                abi.encode(0, address(mockProofSignalService), 0, authorizeCall)
             )
         );
 

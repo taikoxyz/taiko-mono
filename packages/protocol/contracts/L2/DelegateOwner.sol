@@ -12,13 +12,13 @@ import "../bridge/IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice The owner chain ID.
-    uint64 public l1ChainId;
+    uint64 public srcChainId;
 
     /// @notice The next transaction ID.
     uint64 public nextTxId;
 
     /// @notice The real owner on L1, supposedly the DAO.
-    address public realOwner;
+    address public srcOwner;
 
     uint256[48] private __gap;
 
@@ -34,19 +34,20 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     error DO_INVALID_PARAM();
     error DO_INVALID_TX_ID();
+    error DO_INVALID_VALUE();
     error DO_PERMISSION_DENIED();
     error DO_TX_REVERTED();
     error DO_UNSUPPORTED();
 
     /// @notice Initializes the contract.
-    /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
+    /// @param _srcOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
     /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _l1ChainId The L1 chain's ID.
+    /// @param _srcChainId The L1 chain's ID.
     function init(
-        address _realOwner,
+        address _srcOwner,
         address _addressManager,
-        uint64 _l1ChainId
+        uint64 _srcChainId
     )
         external
         initializer
@@ -54,12 +55,12 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         // This contract's owner will be itself.
         __Essential_init(address(this), _addressManager);
 
-        if (_realOwner == address(0) || _l1ChainId == 0 || _l1ChainId == block.chainid) {
+        if (_srcOwner == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
             revert DO_INVALID_PARAM();
         }
 
-        realOwner = _realOwner;
-        l1ChainId = _l1ChainId;
+        srcOwner = _srcOwner;
+        srcChainId = _srcChainId;
     }
 
     /// @inheritdoc IMessageInvocable
@@ -70,19 +71,20 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         payable
         onlyFromNamed(LibStrings.B_BRIDGE)
     {
-        (uint64 txId, address target, bytes memory txdata) =
-            abi.decode(_data, (uint64, address, bytes));
+        (uint64 txId, address target, uint256 txValue, bytes memory txdata) =
+            abi.decode(_data, (uint64, address, uint256, bytes));
 
         if (txId != nextTxId) revert DO_INVALID_TX_ID();
+        if (txValue != msg.value) revert DO_INVALID_VALUE();
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
+        if (ctx.srcChainId != srcChainId || ctx.from != srcOwner) {
             revert DO_PERMISSION_DENIED();
         }
         nextTxId++;
         // Sending ether along with the function call. Although this is sending Ether from this
         // contract back to itself, txData's function can now be payable.
-        (bool success,) = target.call{ value: msg.value }(txdata);
+        (bool success,) = target.call{ value: txValue }(txdata);
         if (!success) revert DO_TX_REVERTED();
 
         emit TransactionExecuted(txId, target, bytes4(txdata));
