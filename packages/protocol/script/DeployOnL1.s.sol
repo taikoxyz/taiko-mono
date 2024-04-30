@@ -171,12 +171,18 @@ contract DeployOnL1 is DeployCapability {
             registerTo: sharedAddressManager
         });
 
-        deployProxy({
+        address brdige = deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
-            data: abi.encodeCall(Bridge.init, (owner, sharedAddressManager)),
+            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager)),
             registerTo: sharedAddressManager
         });
+
+        if (vm.envBool("PAUSE_BRIDGE")) {
+            Bridge(payable(brdige)).pause();
+        }
+
+        Bridge(payable(brdige)).transferOwnership(owner);
 
         console2.log("------------------------------------------");
         console2.log(
