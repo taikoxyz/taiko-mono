@@ -1,4 +1,4 @@
-name: Typos
+name: Typo Check
 
 on: [pull_request]
 
