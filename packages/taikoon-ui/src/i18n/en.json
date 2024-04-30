@@ -28,7 +28,7 @@
     "mint": {
       "title": "Taikoons",
       "text": "Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.",
-      "mintsLeft": "Mints left: {mintsLeft}",
+      "eligibleLabel": "You are eligible to mint:",
       "toast": {
         "clipboardCopy": "Link copied to clipboard"
       },

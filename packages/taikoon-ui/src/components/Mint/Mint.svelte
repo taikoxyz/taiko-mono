@@ -20,15 +20,17 @@
   import { NftRenderer } from '../NftRenderer';
   import {
     counterClasses,
+    currentMintedClasses,
+    eligibilityLabelClasses,
+    eligibilityValueClasses,
+    infoRowClasses,
     leftHalfPanel,
+    maxMintedClasses,
     mintContentClasses,
     mintTitleClasses,
     nftRendererWrapperClasses,
     nftRendererWrapperMobileClasses,
-    primaryH4Classes,
     rightHalfPanel,
-    secondaryH4Classes,
-    tertiaryH4Classes,
     wrapperClasses,
   } from './classes';
 
@@ -137,26 +139,23 @@
       <p class={mintContentClasses}>
         {$t('content.mint.text')}
       </p>
-      <div class="w-full gap-4 flex flex-col">
+      <div class={infoRowClasses}>
         <div class={counterClasses}>
-          <div class={primaryH4Classes}>#{totalSupply}</div>
-          <div class={tertiaryH4Classes}>/ {mintMax}</div>
+          <div class={currentMintedClasses}>#{totalSupply}</div>
+          <div class={maxMintedClasses}>/ {mintMax}</div>
         </div>
         <ProgressBar {progress} />
       </div>
 
       <div class={counterClasses}>
-        <div class={secondaryH4Classes}>You are eligible to mint:</div>
-        <div class={primaryH4Classes}>{$mintState.totalMintCount}</div>
+        <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>
+        <div class={eligibilityValueClasses}>{$mintState.totalMintCount}</div>
       </div>
 
       <Divider />
 
-      <div class="w-full gap-4 flex flex-col">
-        <InfoRow label="Total mints" loading={isCalculating} value={$mintState.totalMintCount} />
-      </div>
-
-      <div class="w-full gap-4 flex flex-col">
+      <div class={infoRowClasses}>
+        <InfoRow label="Total mints" value={$mintState.totalMintCount} />
         <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
       </div>
 
