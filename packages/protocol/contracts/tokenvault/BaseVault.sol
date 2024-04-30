@@ -16,6 +16,8 @@ abstract contract BaseVault is
     IMessageInvocable,
     IERC165Upgradeable
 {
+    bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
+
     uint256[50] private __gap;
 
     error VAULT_PERMISSION_DENIED();
@@ -32,7 +34,8 @@ abstract contract BaseVault is
     /// @return true if the contract supports the interface, false otherwise.
     function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
         return _interfaceId == type(IRecallableSender).interfaceId
-            || _interfaceId == type(IMessageInvocable).interfaceId;
+            || _interfaceId == type(IMessageInvocable).interfaceId
+            || _interfaceId == IERC165_INTERFACE_ID;
     }
 
     /// @notice Returns the name of the vault.
