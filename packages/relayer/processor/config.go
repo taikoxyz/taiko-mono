@@ -83,6 +83,8 @@ type Config struct {
 	UnprofitableMessageQueueExpiration *string
 
 	TxmgrConfigs *txmgr.CLIConfig
+
+	MaxMessageRetries uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -166,6 +168,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			processorPrivateKey,
 			c,
 		),
+		MaxMessageRetries: c.Uint64(flags.MaxMessageRetries.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
