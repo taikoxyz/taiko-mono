@@ -8,15 +8,9 @@ import (
 
 	"log/slog"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
-)
-
-var (
-	systemProver = common.HexToAddress("0x0000000000000000000000000000000000000001")
-	oracleProver = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 func (i *Indexer) saveTransitionProvedEvents(
