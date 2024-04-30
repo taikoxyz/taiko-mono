@@ -36,7 +36,7 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        bytes32 root = merkleMinters.root();
+        bytes32 root = merkleMinters.getMerkleRoot();
 
         string memory baseURI = utils.getIpfsBaseURI();
 
