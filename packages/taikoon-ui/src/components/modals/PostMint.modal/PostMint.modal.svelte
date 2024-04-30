@@ -4,7 +4,6 @@
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/core/Button';
-  import { NftRenderer } from '$components/NftRenderer';
   import NftSlider from '$components/NftSlider/NftSlider.svelte';
   import { Modal, ModalBody, ModalFooter } from '$ui/Modal';
   import { Link } from '$ui/Text';
@@ -13,16 +12,11 @@
   import {
     buttonWrapperClasses,
     mintedBodyClasses,
-    nftRendererWrapperClasses,
-    successBodyClasses,
     successContentClasses,
     successFooterWrapperClasses,
     successMintedLinkClasses,
     successTitleClasses,
   } from './classes';
-
-  // used to horizontally scroll the minted nfts with the mouse wheel
-  let scrollContainer: HTMLElement;
 
   function copyShareUrl(element?: EventTarget | null) {
     if (!element) return;
@@ -37,7 +31,7 @@
   $: isModalOpen = $mintState.isModalOpen && !$mintState.isMinting;
 </script>
 
-<Modal bind:open={isModalOpen}>
+<Modal open={isModalOpen}>
   <ModalBody class={mintedBodyClasses}>
     <NftSlider tokenIds={$mintState.tokenIds} />
 

@@ -2,24 +2,6 @@ import { classNames } from '$lib/util/classNames';
 
 export const buttonWrapperClasses = classNames('md:w-1/2', 'w-full', 'px-2');
 export const mintedBodyClasses = classNames('justify-start', 'gap-6', 'py-6', 'items-center');
-export const nftRendererWrapperClasses = classNames(
-  'flex',
-  'flex-row',
-  'justify-start',
-  'items-start',
-  'gap-5',
-  'w-max',
-);
-
-export const successBodyClasses = classNames(
-  'max-w-[50vw]',
-  'p-5',
-  'rounded-3xl',
-  'my-5',
-  'bg-background-elevated',
-  'flex',
-  'overflow-x-scroll',
-);
 
 export const successTitleClasses = classNames(
   'text-content-primary',

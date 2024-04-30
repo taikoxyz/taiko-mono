@@ -24,7 +24,7 @@
   $: isModalOpen = $mintState.isModalOpen && $mintState.isMinting;
 </script>
 
-<Modal bind:open={isModalOpen}>
+<Modal open={isModalOpen}>
   <div class={modalContentWrapperClasses}>
     <ModalTitle class={modalTitleClasses}>
       {$mintState.isMinting
