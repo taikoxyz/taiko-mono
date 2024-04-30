@@ -199,7 +199,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var sgxVerifierContract *sgxverifier.SgxVerifier
 
-	slog.Info("sgxVerifierAddress", "addr", cfg.SgxVerifierAddress.Hex())
 	if cfg.SgxVerifierAddress.Hex() != ZeroAddress.Hex() {
 		sgxVerifierContract, err = sgxverifier.NewSgxVerifier(cfg.SgxVerifierAddress, ethClient)
 		if err != nil {
