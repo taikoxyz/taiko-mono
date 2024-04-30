@@ -91,6 +91,7 @@ contract TaikoToken is EssentialContract_, ERC20VotesUpgradeable {
 
     // solhint-disable-next-line func-name-mixedcase
     function CLOCK_MODE() public view override returns (string memory) {
+        // See https://eips.ethereum.org/EIPS/eip-6372
         return "mode=timestamp";
     }
 }
