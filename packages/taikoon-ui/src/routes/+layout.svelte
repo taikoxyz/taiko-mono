@@ -7,7 +7,7 @@
   import { zeroAddress } from 'viem';
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
-  import { MintConfirmationModal, TaikoonDetailModal } from '$components/modals';
+  import { MintConfirmationModal, PostMintModal, TaikoonDetailModal } from '$components/modals';
   import { mint } from '$stores/mint';
   import { taikoonDetail } from '$stores/taikoonDetail';
 
@@ -71,6 +71,8 @@
 <SwitchChainModal />
 
 <MintConfirmationModal />
+
+<PostMintModal />
 
 {#if windowSize === 'sm'}
   <TaikoonDetailModal />
