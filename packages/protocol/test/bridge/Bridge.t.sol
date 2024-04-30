@@ -257,7 +257,7 @@ contract BridgeTest is TaikoTest {
             address(mockDAO),
             abi.encodeCall(
                 DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(destChainBridge), pauseCall)
+                abi.encode(0, address(destChainBridge), 0, pauseCall)
             )
         );
 
@@ -318,7 +318,7 @@ contract BridgeTest is TaikoTest {
             address(mockDAO),
             abi.encodeCall(
                 DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(delegateOwner), upgradeCall)
+                abi.encode(0, address(delegateOwner), 0, upgradeCall)
             )
         );
 
