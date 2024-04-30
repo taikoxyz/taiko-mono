@@ -3,8 +3,9 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
  * -
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xd2f82Ac36F5Bc25D52c9FB4E3Ec23E27a6f81482)
  */
 export const taikoonTokenAbi = [
   {
@@ -544,17 +545,20 @@ export const taikoonTokenAbi = [
 ] as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
  * -
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xd2f82Ac36F5Bc25D52c9FB4E3Ec23E27a6f81482)
  */
 export const taikoonTokenAddress = {
-  17000: '0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0',
-  31337: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
+  17000: '0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393',
+  31337: '0x3Aa5ebB10DC797CAC828524e59A333d0A371443c',
+  11155111: '0xd2f82Ac36F5Bc25D52c9FB4E3Ec23E27a6f81482',
 } as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
  * -
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xd2f82Ac36F5Bc25D52c9FB4E3Ec23E27a6f81482)
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,

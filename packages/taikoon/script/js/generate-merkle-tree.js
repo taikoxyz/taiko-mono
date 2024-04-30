@@ -28,8 +28,9 @@ async function main(network) {
             }, null, 2)
     )
 
-    console.log('Merkle Root:', tree.root)
+    console.log(`Merkle Root for network ${network}`, tree.root)
 }
 
 main('hardhat')
 main('holesky')
+main('sepolia')

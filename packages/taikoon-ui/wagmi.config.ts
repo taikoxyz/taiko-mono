@@ -5,6 +5,7 @@ import { existsSync, mkdirSync,readFileSync, writeFileSync } from 'fs'
 
 import * as HoleskyDeployment from '../taikoon/deployments/holesky.json'
 import * as LocalhostDeployment from '../taikoon/deployments/localhost.json'
+import * as SepoliaDeployment from '../taikoon/deployments/sepolia.json'
 import TaikoonToken from '../taikoon/out/TaikoonToken.sol/TaikoonToken.json'
 
 
@@ -31,6 +32,7 @@ function generateWhitelistJson() {
 
     generateNetworkWhitelist("hardhat");
     generateNetworkWhitelist("holesky");
+    generateNetworkWhitelist("sepolia");
 }
 
 generateWhitelistJson();
@@ -43,6 +45,7 @@ export default defineConfig({
             address: {
                 31337: LocalhostDeployment.TaikoonToken as Address,
                 17000: HoleskyDeployment.TaikoonToken as Address,
+                11155111: SepoliaDeployment.TaikoonToken as Address,
             },
             abi: TaikoonToken.abi as Abi,
         }
