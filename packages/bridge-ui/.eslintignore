@@ -19,4 +19,4 @@ yarn.lock
 
 src/generated/*
 
-.vercel/*
+.vercel/**
