@@ -18,24 +18,24 @@ func NewStartupRepository() *StartupRepo {
 		startups: make([]*guardianproverhealthcheck.Startup, 0),
 	}
 }
-func (h *StartupRepo) GetByGuardianProverID(
+func (h *StartupRepo) GetByGuardianProverAddress(
 	ctx context.Context,
 	req *http.Request,
-	id int,
+	address string,
 ) (paginate.Page, error) {
 	return paginate.Page{
 		Items: h.startups,
 	}, nil
 }
 
-func (r *StartupRepo) GetMostRecentByGuardianProverID(
+func (r *StartupRepo) GetMostRecentByGuardianProverAddress(
 	ctx context.Context,
-	id int,
+	address string,
 ) (*guardianproverhealthcheck.Startup, error) {
 	var s *guardianproverhealthcheck.Startup
 
 	for k, v := range r.startups {
-		if v.GuardianProverID == uint64(id) {
+		if v.GuardianProverAddress == address {
 			if k == 0 {
 				s = v
 			} else if v.CreatedAt.Compare(s.CreatedAt) == 1 {

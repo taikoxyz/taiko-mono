@@ -12,20 +12,21 @@ import (
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
-func Test_GetMostRecentSignedBlockByGuardianProverID(t *testing.T) {
+func Test_GetStartupsByGuardianProverAddress(t *testing.T) {
 	srv := newTestServer("")
 
-	for i := 0; i < 10; i++ {
-		err := srv.signedBlockRepo.Save(guardianproverhealthcheck.SaveSignedBlockOpts{
-			GuardianProverID: 1,
-			RecoveredAddress: "0x123",
-			BlockID:          uint64(i),
-			BlockHash:        "0x123",
-			Signature:        "0x123",
-		})
+	err := srv.startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
+		GuardianProverID:      1,
+		GuardianProverAddress: "0x123",
+		Revision:              "asdf",
+		GuardianVersion:       "v1.0.0",
+		L1NodeVersion:         "v1.0.0",
+		L2NodeVersion:         "v1.0.0",
+	})
 
-		assert.Nil(t, err)
-	}
+	assert.Nil(t, err)
+
+	assert.Equal(t, nil, err)
 
 	tests := []struct {
 		name                  string
@@ -35,15 +36,15 @@ func Test_GetMostRecentSignedBlockByGuardianProverID(t *testing.T) {
 	}{
 		{
 			"success",
-			"1",
+			"0x123",
 			http.StatusOK,
 			// nolint: lll
-			[]string{`{"guardianProverID":1,"blockID":9,"blockHash":"0x123","signature":"0x123","recoveredAddress":"0x123","createdAt":"0001-01-01T00:00:00Z"}`},
+			[]string{`{"items":\[{"guardianProverID":1,"guardianProverAddress":"0x123","l1NodeVersion":"v1.0.0","l2NodeVersion":"v1.0.0","revision":"asdf","guardianVersion":"v1.0.0","createdAt":"0001-01-01T00:00:00Z"}\],"page":0,"size":0,"max_page":0,"total_pages":0,"total":0,"last":false,"first":false,"visible":0}`},
 		},
 		{
-			"success",
+			"successDoesntExist",
 			"9839483294",
-			http.StatusInternalServerError,
+			http.StatusOK,
 			[]string{``},
 		},
 	}
@@ -52,7 +53,7 @@ func Test_GetMostRecentSignedBlockByGuardianProverID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := testutils.NewUnauthenticatedRequest(
 				echo.GET,
-				fmt.Sprintf("/signedBlock/%v", tt.id),
+				fmt.Sprintf("/startups/%v", tt.id),
 				nil,
 			)
 
