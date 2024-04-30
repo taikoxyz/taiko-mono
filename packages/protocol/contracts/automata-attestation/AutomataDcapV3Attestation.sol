@@ -17,13 +17,12 @@ import { BytesUtils } from "./utils/BytesUtils.sol";
 // External Libraries
 import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
+import { EssentialContract } from "../common/EssentialContract.sol";
+
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
-contract AutomataDcapV3Attestation is IAttestation {
+contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     using BytesUtils for bytes;
-
-    ISigVerifyLib public immutable sigVerifyLib;
-    IPEMCertChainLib public immutable pemCertLib;
 
     // https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/e7604e02331b3377f3766ed3653250e03af72d45/QuoteVerification/QVL/Src/AttestationLibrary/src/CertVerification/X509Constants.h#L64
     uint256 internal constant CPUSVN_LENGTH = 16;
@@ -35,31 +34,40 @@ contract AutomataDcapV3Attestation is IAttestation {
 
     uint8 internal constant INVALID_EXIT_CODE = 255;
 
-    bool private _checkLocalEnclaveReport;
-    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
-    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+    ISigVerifyLib public sigVerifyLib; // slot 1
+    IPEMCertChainLib public pemCertLib; // slot 2
+
+    bool private _checkLocalEnclaveReport; // slot 3
+    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave; // slot 4
+    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner; // slot 5
 
     // Quote Collateral Configuration
 
     // Index definition:
     // 0 = Quote PCKCrl
     // 1 = RootCrl
-    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
+    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked; // slot
+        // 6
     // fmspc => tcbInfo
-    mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo;
-    EnclaveIdStruct.EnclaveId public qeIdentity;
+    mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
+    EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
 
-    address public immutable owner;
+    uint256[39] __gap;
 
-    constructor(address sigVerifyLibAddr, address pemCertLibAddr) {
+    // @notice Initializes the contract.
+    /// @param sigVerifyLibAddr Address of the signature verification library.
+    /// @param pemCertLibAddr Address of certificate library.
+    function init(
+        address owner,
+        address sigVerifyLibAddr,
+        address pemCertLibAddr
+    )
+        external
+        initializer
+    {
+        __Essential_init(owner);
         sigVerifyLib = ISigVerifyLib(sigVerifyLibAddr);
         pemCertLib = PEMCertChainLib(pemCertLibAddr);
-        owner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "onlyOwner");
-        _;
     }
 
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
@@ -132,6 +140,7 @@ contract AutomataDcapV3Attestation is IAttestation {
         return status == TCBInfoStruct.TCBStatus.OK
             || status == TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED
             || status == TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED
+            || status == TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE
             || status == TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
     }
 

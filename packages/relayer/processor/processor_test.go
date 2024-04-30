@@ -46,5 +46,6 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		cfg: &Config{
 			DestBridgeAddress: common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 		},
+		maxMessageRetries: 5,
 	}
 }

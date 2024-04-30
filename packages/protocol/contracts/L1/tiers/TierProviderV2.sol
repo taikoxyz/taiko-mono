@@ -30,17 +30,6 @@ contract TierProviderV2 is EssentialContract, ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_SGX_ZKVM) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_SGX_ZKVM,
-                validityBond: 500 ether, // TKO
-                contestBond: 3280 ether, // =500TKO * 6.5625
-                cooldownWindow: 1440, //24 hours
-                provingWindow: 240, // 4 hours
-                maxBlocksToVerifyPerProof: 4
-            });
-        }
-
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_TIER_GUARDIAN_MINORITY,
@@ -68,17 +57,14 @@ contract TierProviderV2 is EssentialContract, ITierProvider {
 
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](4);
+        tiers_ = new uint16[](3);
         tiers_[0] = LibTiers.TIER_SGX;
-        tiers_[1] = LibTiers.TIER_SGX_ZKVM;
-        tiers_[2] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[3] = LibTiers.TIER_GUARDIAN;
+        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
+        tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(uint256 _rand) public pure override returns (uint16) {
-        // 0.1% require SGX + ZKVM; all others require SGX
-        if (_rand % 1000 == 0) return LibTiers.TIER_SGX_ZKVM;
-        else return LibTiers.TIER_SGX;
+        return LibTiers.TIER_SGX;
     }
 }

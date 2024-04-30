@@ -17,6 +17,8 @@ import { Base64 } from "solady/src/utils/Base64.sol";
 import "../utils/DcapTestUtils.t.sol";
 import "../utils/V3QuoteParseUtils.t.sol";
 
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     using BytesUtils for bytes;
     using stdJson for string;
@@ -28,7 +30,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     // use a network that where the P256Verifier contract exists
     // ref: https://github.com/daimo-eth/p256-verifier
     //string internal rpcUrl = vm.envString("RPC_URL");
-    string internal tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo_00606A000000.json";
+    string internal tcbInfoPath = "/test/automata-attestation/assets/0923/tcb_00606A000000.json";
     string internal idPath = "/test/automata-attestation/assets/0923/identity.json";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
@@ -50,7 +52,18 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         p256Verifier = new P256Verifier();
         sigVerifyLib = new SigVerifyLib(address(p256Verifier));
         pemCertChainLib = new PEMCertChainLib();
-        attestation = new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
+
+        address automateDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        attestation = AutomataDcapV3Attestation(
+            deployProxy({
+                impl: automateDcapV3AttestationImpl,
+                data: abi.encodeCall(
+                    AutomataDcapV3Attestation.init,
+                    (admin, address(sigVerifyLib), address(pemCertChainLib))
+                    )
+            })
+        );
 
         setMrEnclave(address(attestation), mrEnclave);
         setMrSigner(address(attestation), mrSigner);
@@ -126,5 +139,9 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         console.log("[log] register sgx instance address: %s", regInstanceAddr);
         uint256 sgxIdx = SgxVerifier(_sgxVerifier).registerInstance(v3quote);
         console.log("[log] register sgx instance index: %s", sgxIdx);
+    }
+
+    function deployProxy(address impl, bytes memory data) internal returns (address proxy) {
+        proxy = address(new ERC1967Proxy(impl, data));
     }
 }

@@ -11,6 +11,7 @@ ffi = true
 memory_limit = 2_073_741_824
 solc_version = "0.8.24"
 evm_version = "cancun"
+ast=true
 remappings = [
   "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
   "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
@@ -18,6 +19,8 @@ remappings = [
   "forge-std/=node_modules/forge-std/",
   "ds-test/=node_modules/ds-test/src/",
   "p256-verifier/=node_modules/p256-verifier/",
+  "murky/=node_modules/murky/src/",
+  "solidity-stringutils/=node_modules/solidity-stringutils/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
@@ -27,15 +30,17 @@ block_gas_limit = 80_000_000
 
 fs_permissions = [
   { access = "read", path = "./out" },
-  { access = "read-write", path = "./deployments" },
+  { access = "read-write", path = "./deployments/" },
   { access = "read", path = "./test" },
   { access = "read", path = "./genesis" },
+  {access = "read", path="./data/"},
 ]
 
 # 2394: Transient storage warning
 # 3860: Contract initcode size is xxx bytes and exceeds 49152 bytes
 # 5574: Contract code size is xxx bytes and exceeds 24576 byte
 ignored_error_codes = [2394, 3860, 5574]
+libs = ["node_modules", "lib"]
 
 [fuzz]
 runs = 200

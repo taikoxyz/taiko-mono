@@ -204,9 +204,18 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 ctoken_ = CanonicalNFT({
                     chainId: uint64(block.chainid),
                     addr: _op.token,
-                    symbol: t.symbol(),
-                    name: t.name()
+                    symbol: "",
+                    name: ""
                 });
+
+                // Try fill in the boilerplate values, but use try-catch because functions below are
+                // ERC20-optional only.
+                try t.name() returns (string memory _name) {
+                    ctoken_.name = _name;
+                } catch { }
+                try t.symbol() returns (string memory _symbol) {
+                    ctoken_.symbol = _symbol;
+                } catch { }
 
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
                     t.safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
