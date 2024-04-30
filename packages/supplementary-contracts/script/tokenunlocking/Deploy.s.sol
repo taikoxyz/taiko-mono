@@ -6,7 +6,7 @@ import "forge-std/src/console2.sol";
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import "../../contracts/tokenunlocking/TokenUnlocking.sol";
+import "../../contracts/tokenUnlocking/TokenUnlocking.sol";
 
 contract DeployTokenUnlocking is Script {
     using stdJson for string;
@@ -22,7 +22,7 @@ contract DeployTokenUnlocking is Script {
     function run() external {
         address impl = IMPL == address(0) ? address(new TokenUnlocking()) : IMPL;
 
-        string memory path = "/script/tokenUnlocking/deploy.data.json";
+        string memory path = "/script/tokenUnlocking/Deploy.data.json";
         address[] memory recipients = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (address[])
         );
