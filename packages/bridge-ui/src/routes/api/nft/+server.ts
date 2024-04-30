@@ -1,14 +1,15 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import { NFTService } from 'src/thirdparty/domain/services/NFTService';
-import moralisRepository from 'src/thirdparty/infrastructure/api/MoralisNFTRepository.server';
+
+import { NFTService } from '$api/domain/services/NFTService';
+import moralisRepository from '$api/infrastructure/api/MoralisNFTRepository.server';
 
 const nftService = new NFTService(moralisRepository);
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { address, chainId } = await request.json();
+    const { address, chainId, refresh } = await request.json();
 
-    const nfts = await nftService.fetchNFTsByAddress(address, chainId);
+    const nfts = await nftService.fetchNFTsByAddress({ address, chainId, refresh });
 
     return new Response(JSON.stringify({ nfts }), {
       status: 200,

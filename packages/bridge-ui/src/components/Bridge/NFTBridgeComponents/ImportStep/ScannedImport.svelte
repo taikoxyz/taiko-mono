@@ -6,7 +6,7 @@
   import { enteredAmount, selectedNFTs, tokenBalance } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { ActionButton, Button } from '$components/Button';
-  import { IconFlipper } from '$components/Icon';
+  import { Icon, IconFlipper } from '$components/Icon';
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { NFTDisplay } from '$components/NFTs';
   import { NFTView } from '$components/NFTs/types';
@@ -14,7 +14,8 @@
 
   import { selectedImportMethod } from './state';
 
-  export let scanForNFTs: () => Promise<void>;
+  export let refresh: () => Promise<void>;
+  export let nextPage: () => Promise<void>;
 
   export let foundNFTs: NFT[] = [];
 
@@ -22,12 +23,28 @@
 
   let nftView: NFTView = NFTView.LIST;
   let scanning = false;
+  let hasMoreNFTs = true;
 
   let tokenAmountInput: TokenAmountInput;
 
-  function onScanClick() {
+  let previousNFTs: NFT[] = [];
+  const handleNextPage = () => {
+    previousNFTs = foundNFTs;
     scanning = true;
-    scanForNFTs().finally(() => {
+
+    nextPage().finally(() => {
+      scanning = false;
+    });
+
+    if (previousNFTs.length === foundNFTs.length) {
+      hasMoreNFTs = false;
+    }
+  };
+
+  function onRefreshClick() {
+    scanning = true;
+    hasMoreNFTs = true;
+    refresh().finally(() => {
       scanning = false;
     });
   }
@@ -81,7 +98,7 @@
           type="neutral"
           shape="circle"
           class="bg-neutral rounded-full w-[28px] h-[28px] border-none"
-          on:click={onScanClick}>
+          on:click={onRefreshClick}>
           <RotatingIcon loading={scanning} type="refresh" size={13} />
         </Button>
 
@@ -97,6 +114,21 @@
     </div>
     <div>
       <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
+      <div class="flex pt-[18px]">
+        <button
+          class="btn btn-sm rounded-full items-center {hasMoreNFTs
+            ? 'border-primary-brand'
+            : 'border-none'}  dark:text-white hover:bg-primary-interactive-hover btn-secondary bg-transparent light:text-black"
+          disabled={!hasMoreNFTs}
+          on:click={handleNextPage}>
+          {#if hasMoreNFTs}
+            <span class="text-primary-color">{$t('paginator.more')}</span>
+          {:else}
+            <Icon type="check-circle" class="text-primary-brand" />
+            <span class="text-primary-color">{$t('paginator.everything_loaded')}</span>
+          {/if}
+        </button>
+      </div>
     </div>
   </section>
   {#if nftHasAmount}

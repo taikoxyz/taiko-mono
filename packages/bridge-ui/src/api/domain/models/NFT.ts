@@ -10,7 +10,7 @@ export interface NFT {
   owner: Address;
   imported?: boolean;
   mintable?: boolean;
-  balance?: bigint;
+  balance: string | number;
   tokenId: number | string;
   uri?: string;
   metadata?: NFTMetadata;
