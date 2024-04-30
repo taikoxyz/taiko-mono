@@ -355,14 +355,25 @@ contract ERC20Vault is BaseVault {
             balanceChange_ = _op.amount;
         } else {
             // If it's a canonical token
-            IERC20Metadata meta = IERC20Metadata(_op.token);
             ctoken_ = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: _op.token,
-                decimals: meta.decimals(),
-                symbol: meta.symbol(),
-                name: meta.name()
+                decimals: 0,
+                symbol: "",
+                name: ""
             });
+
+            // Try fill in the boilerplate values, but use try-catch because functions below are
+            // ERC20-optional only.
+            try IERC20Metadata(_op.token).decimals() returns (uint8 _decimals) {
+                ctoken_.decimals = _decimals;
+            } catch { }
+            try IERC20Metadata(_op.token).name() returns (string memory _name) {
+                ctoken_.name = _name;
+            } catch { }
+            try IERC20Metadata(_op.token).symbol() returns (string memory _symbol) {
+                ctoken_.symbol = _symbol;
+            } catch { }
 
             // Query the balance then query it again to get the actual amount of
             // token transferred into this address, this is more accurate than
