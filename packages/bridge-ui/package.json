@@ -74,6 +74,7 @@
     "events": "^3.3.0",
     "moralis": "^2.26.1",
     "object-hash": "^3.0.0",
+    "pino-pretty": "^11.0.0",
     "svelte-i18n": "^3.7.4",
     "viem": "^2.7.11"
   }
