@@ -11,8 +11,6 @@ import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
-import "../contracts/L1/gov/TaikoTimelockController.sol";
-import "../contracts/L1/gov/TaikoGovernor.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -36,12 +34,10 @@ import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployOnL1 is DeployCapability {
-    uint256 public constant NUM_GUARDIANS = 5;
+    uint256 public constant NUM_MIN_MAJORITY_GUARDIANS = 7;
+    uint256 public constant NUM_MIN_MINORITY_GUARDIANS = 2;
 
-    address public constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd;
-
-    address securityCouncil =
-        block.chainid == 1 ? MAINNET_SECURITY_COUNCIL : vm.envAddress("SECURITY_COUNCIL");
+    address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
 
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
@@ -54,16 +50,18 @@ contract DeployOnL1 is DeployCapability {
     function run() external broadcast {
         addressNotNull(vm.envAddress("TAIKO_L2_ADDRESS"), "TAIKO_L2_ADDRESS");
         addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
+        addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
+
         require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
+        address contractOwner = vm.envAddress("CONTRACT_OWNER");
 
         // ---------------------------------------------------------------
         // Deploy shared contracts
-        (address sharedAddressManager, address timelock, address governor) = deploySharedContracts();
+        (address sharedAddressManager) = deploySharedContracts(contractOwner);
         console2.log("sharedAddressManager: ", sharedAddressManager);
-        console2.log("timelock: ", timelock);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        address rollupAddressManager = deployRollupContracts(sharedAddressManager, timelock);
+        address rollupAddressManager = deployRollupContracts(sharedAddressManager, contractOwner);
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
@@ -92,24 +90,8 @@ contract DeployOnL1 is DeployCapability {
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
-        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
-
         if (signalService.owner() == msg.sender) {
-            // Setup time lock roles
-            // Only the governor can make proposals after holders voting.
-            _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
-            _timelock.grantRole(_timelock.PROPOSER_ROLE(), msg.sender);
-
-            // Granting address(0) the executor role to allow open execution.
-            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
-            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), msg.sender);
-
-            _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-            _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
-            _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
-
-            signalService.transferOwnership(timelock);
-            acceptOwnership(signalServiceAddr, TimelockControllerUpgradeable(payable(timelock)));
+            signalService.transferOwnership(contractOwner);
         } else {
             console2.log("------------------------------------------");
             console2.log("Warning - you need to transact manually:");
@@ -138,35 +120,21 @@ contract DeployOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Deploy other contracts
-        deployAuxContracts();
-
-        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
-            AddressManager(sharedAddressManager).transferOwnership(timelock);
-            acceptOwnership(sharedAddressManager, TimelockControllerUpgradeable(payable(timelock)));
-            console2.log("** sharedAddressManager ownership transferred to timelock:", timelock);
+        if (block.chainid != 1) {
+            deployAuxContracts();
         }
 
-        AddressManager(rollupAddressManager).transferOwnership(timelock);
-        acceptOwnership(rollupAddressManager, TimelockControllerUpgradeable(payable(timelock)));
-        console2.log("** rollupAddressManager ownership transferred to timelock:", timelock);
+        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
+            AddressManager(sharedAddressManager).transferOwnership(contractOwner);
+            console2.log("** sharedAddressManager ownership transferred to:", contractOwner);
+        }
 
-        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
-        _timelock.revokeRole(_timelock.PROPOSER_ROLE(), msg.sender);
-        _timelock.revokeRole(_timelock.EXECUTOR_ROLE(), msg.sender);
-        _timelock.transferOwnership(securityCouncil);
-        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
+        AddressManager(rollupAddressManager).transferOwnership(contractOwner);
+        console2.log("** rollupAddressManager ownership transferred to:", contractOwner);
     }
 
-    function deploySharedContracts()
-        internal
-        returns (address sharedAddressManager, address timelock, address governor)
-    {
-        // Deploy the timelock
-        timelock = deployProxy({
-            name: "timelock_controller",
-            impl: address(new TaikoTimelockController()),
-            data: abi.encodeCall(TaikoTimelockController.init, (address(0), 7 days))
-        });
+    function deploySharedContracts(address owner) internal returns (address sharedAddressManager) {
+        addressNotNull(owner, "owner");
 
         sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
         if (sharedAddressManager == address(0)) {
@@ -185,7 +153,7 @@ contract DeployOnL1 is DeployCapability {
                 data: abi.encodeCall(
                     TaikoToken.init,
                     (
-                        timelock,
+                        owner,
                         vm.envString("TAIKO_TOKEN_NAME"),
                         vm.envString("TAIKO_TOKEN_SYMBOL"),
                         vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
@@ -195,19 +163,6 @@ contract DeployOnL1 is DeployCapability {
             });
         }
 
-        governor = deployProxy({
-            name: "taiko_governor",
-            impl: address(new TaikoGovernor()),
-            data: abi.encodeCall(
-                TaikoGovernor.init,
-                (
-                    timelock,
-                    IVotesUpgradeable(taikoToken),
-                    TimelockControllerUpgradeable(payable(timelock))
-                )
-                )
-        });
-
         // Deploy Bridging contracts
         deployProxy({
             name: "signal_service",
@@ -216,12 +171,18 @@ contract DeployOnL1 is DeployCapability {
             registerTo: sharedAddressManager
         });
 
-        deployProxy({
+        address brdige = deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
-            data: abi.encodeCall(Bridge.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager)),
             registerTo: sharedAddressManager
         });
+
+        if (vm.envBool("PAUSE_BRIDGE")) {
+            Bridge(payable(brdige)).pause();
+        }
+
+        Bridge(payable(brdige)).transferOwnership(owner);
 
         console2.log("------------------------------------------");
         console2.log(
@@ -236,21 +197,21 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
         deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
         deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (timelock, sharedAddressManager)),
+            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
@@ -277,13 +238,13 @@ contract DeployOnL1 is DeployCapability {
 
     function deployRollupContracts(
         address _sharedAddressManager,
-        address timelock
+        address owner
     )
         internal
         returns (address rollupAddressManager)
     {
         addressNotNull(_sharedAddressManager, "sharedAddressManager");
-        addressNotNull(timelock, "timelock");
+        addressNotNull(owner, "owner");
 
         rollupAddressManager = deployProxy({
             name: "rollup_address_manager",
@@ -303,7 +264,7 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(
                 TaikoL1.init,
                 (
-                    timelock,
+                    owner,
                     rollupAddressManager,
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
@@ -315,20 +276,20 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (timelock, rollupAddressManager))
+            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager))
         });
 
         deployProxy({
             name: "tier_provider",
             impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
-            data: abi.encodeCall(TierProviderV1.init, (timelock)),
+            data: abi.encodeCall(TierProviderV1.init, (owner)),
             registerTo: rollupAddressManager
         });
 
         deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (timelock, rollupAddressManager)),
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
@@ -355,26 +316,34 @@ contract DeployOnL1 is DeployCapability {
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
-        GuardianProver(guardianProverMinority).setGuardians(guardians, 1);
-        GuardianProver(guardianProverMinority).transferOwnership(timelock);
+        GuardianProver(guardianProverMinority).setGuardians(
+            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS)
+        );
+        GuardianProver(guardianProverMinority).transferOwnership(owner);
 
-        GuardianProver(guardianProver).setGuardians(guardians, uint8(vm.envUint("MIN_GUARDIANS")));
-        GuardianProver(guardianProver).transferOwnership(timelock);
+        GuardianProver(guardianProver).setGuardians(guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS));
+        GuardianProver(guardianProver).transferOwnership(owner);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
         P256Verifier p256Verifier = new P256Verifier();
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
-        AutomataDcapV3Attestation automateDcapV3Attestation =
-            new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
+        address automateDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automateDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+                ),
+            registerTo: rollupAddressManager
+        });
 
         // Log addresses for the user to register sgx instance
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
-        register(
-            rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
-        );
+        console2.log("AutomataDcapVaAttestation", automataProxy);
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {
@@ -399,13 +368,5 @@ contract DeployOnL1 is DeployCapability {
 
     function addressNotNull(address addr, string memory err) private pure {
         require(addr != address(0), err);
-    }
-
-    function acceptOwnership(address proxy, TimelockControllerUpgradeable timelock) internal {
-        bytes32 salt = bytes32(block.timestamp);
-        bytes memory payload = abi.encodeCall(Ownable2StepUpgradeable(proxy).acceptOwnership, ());
-
-        timelock.schedule(proxy, 0, payload, bytes32(0), salt, 0);
-        timelock.execute(proxy, 0, payload, bytes32(0), salt);
     }
 }

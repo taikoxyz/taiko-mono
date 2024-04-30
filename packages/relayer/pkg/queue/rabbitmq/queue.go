@@ -242,7 +242,13 @@ func (r *RabbitMQ) Close(ctx context.Context) {
 	slog.Info("closed rabbitmq connection")
 }
 
-func (r *RabbitMQ) Publish(ctx context.Context, queueName string, msg []byte, expiration *string) error {
+func (r *RabbitMQ) Publish(
+	ctx context.Context,
+	queueName string,
+	msg []byte,
+	headers map[string]interface{},
+	expiration *string,
+) error {
 	slog.Info("publishing rabbitmq msg to queue", "queue", r.queue.Name)
 
 	p := amqp.Publishing{
@@ -250,6 +256,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, queueName string, msg []byte, ex
 		Body:         msg,
 		MessageId:    uuid.New().String(),
 		DeliveryMode: 2, // persistent messages, saved to disk to survive server restart
+		Headers:      headers,
 	}
 
 	if expiration != nil {
@@ -274,7 +281,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, queueName string, msg []byte, ex
 				return err
 			}
 
-			return r.Publish(ctx, queueName, msg, expiration)
+			return r.Publish(ctx, queueName, msg, headers, expiration)
 		} else {
 			return err
 		}
@@ -372,7 +379,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			slog.Error("rabbitmq notify return", "id", returnMsg.MessageId, "err", returnMsg.ReplyText)
 			slog.Info("rabbitmq attempting republish of returned msg", "id", returnMsg.MessageId)
 
-			if err := r.Publish(ctx, r.queue.Name, returnMsg.Body, &returnMsg.Expiration); err != nil {
+			if err := r.Publish(ctx, r.queue.Name, returnMsg.Body, returnMsg.Headers, &returnMsg.Expiration); err != nil {
 				slog.Error("error publishing msg", "err", err.Error())
 			}
 		}
@@ -455,45 +462,9 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
-
-				var timesRetried int64 = 0
-
-				var maxRetries int64 = 3
-
-				xDeath, exists := d.Headers["x-death"].([]interface{})
-
-				if exists {
-					// message was rejected before
-					c := xDeath[0].(amqp.Table)["count"].(int64)
-
-					timesRetried = c
-
-					if timesRetried > 0 {
-						relayer.MessageSentEventsRetries.Inc()
-					}
-				}
-
-				if timesRetried > 0 {
-					slog.Info("rabbitmq message times retried",
-						"msgId", d.MessageId,
-						"timesRetried", timesRetried,
-					)
-				}
-
-				if timesRetried >= int64(maxRetries) {
-					slog.Info("msg has reached max retries", "id", d.MessageId)
-
-					relayer.MessageSentEventsMaxRetriesReached.Inc()
-
-					if err := d.Ack(false); err != nil {
-						slog.Error("error acking msg after max retries")
-					}
-				} else {
-					msgChan <- queue.Message{
-						Body:         d.Body,
-						Internal:     d,
-						TimesRetried: timesRetried,
-					}
+				msgChan <- queue.Message{
+					Body:     d.Body,
+					Internal: d,
 				}
 			} else {
 				slog.Info("nil body message, queue is closed")
