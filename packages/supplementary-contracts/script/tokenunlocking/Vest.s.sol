@@ -24,7 +24,7 @@ contract VestTokenUnlocking is Script {
     ERC20 private tko = ERC20(vm.envAddress("TAIKO_TOKEN"));
 
     function run() external {
-        string memory path = "/script/tokenvesting/Vesting.json";
+        string memory path = "/script/tokenvesting/Vest.data.json";
         VestingItem[] memory items = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (VestingItem[])
         );
