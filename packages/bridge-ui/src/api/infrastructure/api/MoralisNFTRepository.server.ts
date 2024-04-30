@@ -1,3 +1,4 @@
+import type { Config } from '@sveltejs/adapter-vercel';
 import Moralis from 'moralis';
 import { type Address, zeroAddress } from 'viem';
 
@@ -9,6 +10,10 @@ import { moralisApiConfig } from '$config';
 import { MORALIS_API_KEY } from '$env/static/private';
 
 import type { FetchNftArgs } from '../types/common';
+
+export const config: Config = {
+  runtime: 'edge',
+};
 
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
