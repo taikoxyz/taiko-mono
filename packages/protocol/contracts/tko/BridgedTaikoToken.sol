@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.24;
+
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "../tokenvault/IBridgedERC20.sol";
+import "./TaikoTokenBase.sol";
+
+contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
+    bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
+
+    error BTT_INVALID_MANAGER();
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+        __Context_init_unchained();
+        __ERC20_init(LibStrings.S_TAIKO_TOKEN, LibStrings.S_TKO);
+        __ERC20Votes_init();
+        __ERC20Permit_init(LibStrings.S_TAIKO_TOKEN);
+    }
+
+    function mint(
+        address _account,
+        uint256 _amount
+    )
+        external
+        override
+        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+    {
+        _mint(_account, _amount);
+    }
+
+    function burn(uint256 _amount) external override onlyFromNamed(LibStrings.B_ERC20_VAULT) {
+        _burn(msg.sender, _amount);
+    }
+
+    function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
+        return super.owner();
+    }
+
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
+    function canonical() public pure returns (address, uint256) {
+        // 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 is the TKO's mainnet address,
+        // 1 is the Ethereum's network id.
+        return (0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 1);
+    }
+
+    /// @notice Checks if the contract supports the given interface.
+    /// @param _interfaceId The interface identifier.
+    /// @return true if the contract supports the interface, false otherwise.
+    function supportsInterface(bytes4 _interfaceId) public pure override returns (bool) {
+        return
+            _interfaceId == type(IBridgedERC20).interfaceId || _interfaceId == IERC165_INTERFACE_ID;
+    }
+
+    function changeMigrationStatus(address, bool) public pure {
+        revert("not supported");
+    }
+}

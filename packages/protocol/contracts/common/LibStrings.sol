@@ -31,4 +31,6 @@ library LibStrings {
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     string internal constant S_SIGNAL = "SIGNAL";
+    string internal constant S_TAIKO_TOKEN = "Taiko Token";
+    string internal constant S_TKO = "TKO";
 }
