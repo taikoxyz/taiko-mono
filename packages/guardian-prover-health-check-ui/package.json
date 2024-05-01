@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"engines": {
-		"node": ">=18.18.0 <19.0.0"
+		"node": "^20.0.0"
 	},
 	"scripts": {
 		"dev": "vite dev",
@@ -30,7 +30,7 @@
 		"daisyui": "^4.10.1",
 		"eslint": "^8.56.0",
 		"eslint-config-prettier": "^9.1.0",
-		"eslint-plugin-svelte": "^2.35.1",
+		"eslint-plugin-svelte": "^2.38.0",
 		"postcss": "^8.4.38",
 		"postcss-import": "^16.1.0",
 		"postcss-nesting": "^12.1.0",
@@ -47,9 +47,9 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@wagmi/core": "^2.6.9",
+		"@wagmi/core": "^2.8.0",
 		"axios": "^1.6.7",
 		"svelte-i18n": "^4.0.0",
-		"viem": "^2.9.16"
+		"viem": "^2.9.29"
 	}
 }

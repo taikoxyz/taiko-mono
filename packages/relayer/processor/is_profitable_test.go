@@ -26,7 +26,7 @@ func Test_isProfitable(t *testing.T) {
 			1,
 			1,
 			false,
-			nil,
+			errImpossible,
 		},
 		{
 			"profitable",

@@ -116,21 +116,21 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		id         int
+		address    string
 		wantCount  int
 		wantUptime float64
 		wantErr    error
 	}{
 		{
 			"success",
-			1,
+			"0x123",
 			2,
 			(float64(2) / 7200) * 100,
 			nil,
 		},
 		{
 			"successNoHealthChecks",
-			2,
+			"0xfake",
 			0,
 			float64(0),
 			nil,
@@ -139,7 +139,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uptime, count, err := healthCheckRepo.GetUptimeByGuardianProverID(context.Background(), tt.id)
+			uptime, count, err := healthCheckRepo.GetUptimeByGuardianProverAddress(context.Background(), tt.address)
 
 			assert.Equal(t, err, tt.wantErr)
 

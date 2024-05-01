@@ -60,17 +60,27 @@ func (p *Processor) eventStatusFromMsgHash(
 func (p *Processor) processMessage(
 	ctx context.Context,
 	msg queue.Message,
-) (bool, error) {
+) (bool, uint64, error) {
 	msgBody := &queue.QueueMessageSentBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
-		return false, errors.Wrap(err, "json.Unmarshal")
+		return false, 0, errors.Wrap(err, "json.Unmarshal")
 	}
 
 	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
 
+	if msgBody.TimesRetried >= p.maxMessageRetries {
+		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)
+
+		return false, msgBody.TimesRetried, nil
+	}
+
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
-		return false, errors.Wrap(err, "p.eventStatusFromMsgHash")
+		return false, msgBody.TimesRetried, errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
 
 	if !canProcessMessage(
@@ -80,40 +90,28 @@ func (p *Processor) processMessage(
 		p.relayerAddr,
 		uint64(msgBody.Event.Message.GasLimit),
 	) {
-		return false, nil
+		return false, msgBody.TimesRetried, nil
 	}
-
-	slog.Info("waiting for confirmations",
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
-
-	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
-		return false, err
-	}
-
-	slog.Info("done waiting for confirmations",
-		"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
-	)
 
 	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
 	if err != nil {
-		return false, err
+		return false, msgBody.TimesRetried, err
 	}
 
 	receipt, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
 	if err != nil {
-		return false, err
+		return false, msgBody.TimesRetried, err
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return false, err
+		return false, msgBody.TimesRetried, err
 	}
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
 		Context: ctx,
 	}, msgBody.Event.MsgHash)
 	if err != nil {
-		return false, errors.Wrap(err, "p.destBridge.GetMessageStatus")
+		return false, msgBody.TimesRetried, errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
 	slog.Info(
@@ -133,11 +131,11 @@ func (p *Processor) processMessage(
 	if msg.Internal != nil {
 		// update message status
 		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-			return false, err
+			return false, msgBody.TimesRetried, err
 		}
 	}
 
-	return false, nil
+	return false, msgBody.TimesRetried, nil
 }
 
 // generateEncodedSignalproof takes a MessageSent event and calls a
@@ -314,11 +312,6 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	slog.Info("message received on dest chain",
-		"received", received,
-		"srcTxHash", event.Raw.TxHash.Hex(),
-	)
-
 	// message will fail when we try to process it
 	if !received {
 		slog.Warn("Message not received on dest chain",
@@ -360,6 +353,10 @@ func (p *Processor) sendProcessMessageCall(
 			gasTipCap.Uint64(),
 		)
 		if err != nil || !profitable {
+			if err == errImpossible {
+				return nil, errImpossible
+			}
+
 			return nil, relayer.ErrUnprofitable
 		}
 		// now simulate the transaction and lets confirm
@@ -518,10 +515,6 @@ func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
 	}
-
-	slog.Info("destChain base fee",
-		"baseFee", baseFee.String(),
-	)
 
 	return baseFee, nil
 }

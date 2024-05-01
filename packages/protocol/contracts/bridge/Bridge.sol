@@ -30,7 +30,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
-    uint32 public constant GAS_RESERVE = 650_000;
+    uint32 public constant GAS_RESERVE = 800_000;
 
     /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
     /// calldata cost.

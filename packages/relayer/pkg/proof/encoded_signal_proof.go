@@ -4,8 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"log/slog"
-
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 
@@ -88,12 +86,6 @@ func (p *Prover) getProof(
 	blockNumber int64,
 ) (*StorageProof, error) {
 	var ethProof StorageProof
-
-	slog.Info("getting proof",
-		"signalServiceAddress", signalServiceAddress.Hex(),
-		"key", key,
-		"blockNum", blockNumber,
-	)
 
 	err := c.CallContext(ctx,
 		&ethProof,
