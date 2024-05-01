@@ -24,7 +24,7 @@
 - impl: `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb`
 - owner: `labs.taiko.eth`
 - logs:
-  - deployed on April 25, 2024 at commit `?????`
+  - deployed on April 25, 2024 at commit `2f6d3c62e`
 
 ### signal_service
 
