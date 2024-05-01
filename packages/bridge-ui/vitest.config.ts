@@ -5,7 +5,7 @@ export default defineProject({
   test: {
     environment: 'jsdom',
     // setupFiles: ['./../../setup.ts'],
-    setupFiles: ['./src/tests/setup.ts'],
+    setupFiles: ['./scripts/setupTestEnvironmentCompatibility.ts', './src/tests/setup.ts'],
     globals: true,
     include: ['./**/*.{test,spec}.{js,ts}'],
   },
