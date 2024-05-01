@@ -14,10 +14,9 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
-        __Context_init_unchained();
-        __ERC20_init(LibStrings.S_TAIKO_TOKEN, LibStrings.S_TKO);
+        __ERC20_init("Taiko Token", "TKO");
         __ERC20Votes_init();
-        __ERC20Permit_init(LibStrings.S_TAIKO_TOKEN);
+        __ERC20Permit_init("Taiko Token");
     }
 
     function mint(

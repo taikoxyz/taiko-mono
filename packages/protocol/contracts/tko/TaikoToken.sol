@@ -14,10 +14,9 @@ contract TaikoToken is TaikoTokenBase {
     /// @param _recipient The address to receive initial token minting.
     function init(address _owner, address _recipient) public initializer {
         __Essential_init(_owner);
-        __Context_init_unchained();
-        __ERC20_init(LibStrings.S_TAIKO_TOKEN, LibStrings.S_TKO);
+        __ERC20_init("Taiko Token", "TKO");
         __ERC20Votes_init();
-        __ERC20Permit_init(LibStrings.S_TAIKO_TOKEN);
+        __ERC20Permit_init("Taiko Token");
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
     }
