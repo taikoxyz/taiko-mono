@@ -1,4 +1,4 @@
-# Taiko Mainnet Contracts
+# Taiko Mainnet Contract Logs
 
 ## Notes
 
