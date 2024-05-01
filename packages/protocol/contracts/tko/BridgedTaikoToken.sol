@@ -5,6 +5,9 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "../tokenvault/IBridgedERC20.sol";
 import "./TaikoTokenBase.sol";
 
+/// @title BridgedTaikoToken
+/// @notice The TaikoToken (TKO) on L2
+/// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
 
@@ -12,6 +15,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address manager address.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
         __ERC20_init("Taiko Token", "TKO");
