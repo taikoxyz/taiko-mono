@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
@@ -13,7 +14,7 @@ import "./LibBridgedToken.sol";
 /// another chain.
 /// Note this contract offers timestamp-based checkpoints and voting functions.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, ERC20VotesUpgradeable, IBridgedERC20, IERC165 {
+contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IERC165 {
     bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
 
     /// @dev Slot 1.
@@ -72,8 +73,6 @@ contract BridgedERC20 is EssentialContract, ERC20VotesUpgradeable, IBridgedERC20
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
         __Essential_init(_owner, _addressManager);
         __ERC20_init(_name, _symbol);
-        __ERC20Votes_init();
-        __ERC20Permit_init(_name);
 
         // Set contract properties
         srcToken = _srcToken;
@@ -164,20 +163,10 @@ contract BridgedERC20 is EssentialContract, ERC20VotesUpgradeable, IBridgedERC20
         return (srcToken, srcChainId);
     }
 
-    function clock() public view override returns (uint48) {
-        return SafeCastUpgradeable.toUint48(block.timestamp);
-    }
-
     /// @notice Returns the owner.
     /// @return The address of the owner.
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return super.owner();
-    }
-
-    // solhint-disable-next-line func-name-mixedcase
-    function CLOCK_MODE() public pure override returns (string memory) {
-        // See https://eips.ethereum.org/EIPS/eip-6372
-        return "mode=timestamp";
     }
 
     /// @notice Checks if the contract supports the given interface.
