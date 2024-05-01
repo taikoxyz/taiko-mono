@@ -30,6 +30,14 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 	return nil, nil
 }
 
+func (r *NFTBalanceRepository) IncreaseAndSubtractBalancesInTx(
+	ctx context.Context,
+	increaseOpts eventindexer.UpdateNFTBalanceOpts,
+	subtractOpts eventindexer.UpdateNFTBalanceOpts,
+) (*eventindexer.NFTBalance, *eventindexer.NFTBalance, error) {
+	return nil, nil, nil
+}
+
 func (r *NFTBalanceRepository) FindByAddress(ctx context.Context,
 	req *http.Request,
 	address string,
