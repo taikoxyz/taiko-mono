@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS blob_hashes (
 );
 
 -- +goose StatementEnd
+
 -- +goose Down
--- +goose StatementBegin
 DROP TABLE IF EXISTS blocks_meta;
+
 DROP TABLE IF EXISTS blob_hashes;
--- +goose StatementEnd
