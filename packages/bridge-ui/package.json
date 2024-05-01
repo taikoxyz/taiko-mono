@@ -20,9 +20,6 @@
     "generate:abi": "cd ../protocol && pnpm forge build --evm-version cancun && cd - && pnpm wagmi generate",
     "export:config": "pnpm ./scripts/exportJsonToEnv.js"
   },
-  "engines": {
-    "node": ">=17.0.0 <18.18.0"
-  },
   "devDependencies": {
     "@playwright/test": "^1.43.1",
     "@sveltejs/adapter-auto": "^2.1.1",
