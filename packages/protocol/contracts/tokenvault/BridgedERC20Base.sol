@@ -27,7 +27,6 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @param amount The amount of tokens migrated.
     event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
 
-    error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();
     error BB_MINT_DISALLOWED();
 
@@ -63,9 +62,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         if (msg.sender == _migratingAddress) {
             // Inbound migration
             emit MigratedTo(_migratingAddress, _account, _amount);
-        } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
+        } else {
             // Bridging from vault
-            revert BB_PERMISSION_DENIED();
+            _authorizedMintBurn(msg.sender);
         }
 
         _mint(_account, _amount);
@@ -80,10 +79,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
             emit MigratedTo(migratingAddress, msg.sender, _amount);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(migratingAddress).mint(msg.sender, _amount);
-        } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
+        } else {
             // When user wants to burn tokens only during 'migrating out' phase is possible. If
             // ERC20Vault burns the tokens, that will go through the burn(amount) function.
-            revert RESOLVER_DENIED();
+            _authorizedMintBurn(msg.sender);
         }
 
         _burn(msg.sender, _amount);
@@ -102,4 +101,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     function _isMigratingOut() private view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;
     }
+
+    function _authorizedMintBurn(address addr)
+        internal
+        virtual
+        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
+    { }
 }
