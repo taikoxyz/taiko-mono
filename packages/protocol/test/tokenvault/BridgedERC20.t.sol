@@ -24,15 +24,6 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         btoken.changeMigrationStatus(Emma, false);
 
-        vm.startPrank(owner);
-        btoken.changeMigrationStatus(Emma, false);
-        btoken.changeMigrationStatus(address(0), false);
-        btoken.changeMigrationStatus(address(0), true);
-        btoken.changeMigrationStatus(Emma, true);
-        vm.expectRevert();
-        btoken.changeMigrationStatus(Emma, true);
-        vm.stopPrank();
-
         vm.startPrank(vault);
         btoken.changeMigrationStatus(Frank, false);
         btoken.changeMigrationStatus(address(0), false);

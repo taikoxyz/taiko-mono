@@ -40,7 +40,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     )
         external
         whenNotPaused
-        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
+        onlyFromNamed(LibStrings.B_ERC20_VAULT)
         nonReentrant
     {
         if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
