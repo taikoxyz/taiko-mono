@@ -62,7 +62,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         address _migratingAddress = migratingAddress;
         if (msg.sender == _migratingAddress) {
             // Inbound migration
-            emit MigratedTo(_migratingAddress, _account, _amount);
+            emit MigratedTo(msg.sender, _account, _amount);
         } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
