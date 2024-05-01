@@ -8,7 +8,7 @@ import "./TaikoTokenBase.sol";
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
 
-    error BTT_INVALID_MANAGER();
+    error BTT_UNSUPPORTED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -25,12 +25,20 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     )
         external
         override
+        whenNotPaused
+        nonReentrant
         onlyFromNamed(LibStrings.B_ERC20_VAULT)
     {
         _mint(_account, _amount);
     }
 
-    function burn(uint256 _amount) external override onlyFromNamed(LibStrings.B_ERC20_VAULT) {
+    function burn(uint256 _amount)
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+    {
         _burn(msg.sender, _amount);
     }
 
@@ -56,6 +64,6 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     }
 
     function changeMigrationStatus(address, bool) public pure {
-        revert("not supported");
+        revert BTT_UNSUPPORTED();
     }
 }

@@ -11,23 +11,16 @@ import "../common/LibStrings.sol";
 /// contract list.
 /// We can simplify the code since we no longer need to maintain upgradability with Hekla.
 // solhint-disable contract-name-camelcase
-abstract contract EssentialContract_ is EssentialContract {
+abstract contract TaikoTokenBase0 is EssentialContract {
     // solhint-disable var-name-mixedcase
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
 }
 
 /// @title TaikoTokenBase
-/// @notice The base contract for the canonical and bridged Taiko token.
+/// @notice The base contract for both the canonical and the bridged Taiko token.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoTokenBase is EssentialContract_, ERC20VotesUpgradeable {
+abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
     uint256[50] private __gap;
-
-    /// @notice Burns tokens from the specified address.
-    /// @param _from The address to burn tokens from.
-    /// @param _amount The amount of tokens to burn.
-    function burn(address _from, uint256 _amount) public onlyOwner {
-        return _burn(_from, _amount);
-    }
 
     function clock() public view override returns (uint48) {
         return SafeCastUpgradeable.toUint48(block.timestamp);
