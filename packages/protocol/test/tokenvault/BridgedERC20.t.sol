@@ -73,7 +73,7 @@ contract TestBridgedERC20 is TaikoTest {
         oldToken.mint(Bob, 10);
 
         vm.prank(owner);
-        // vm.expectRevert();
+        vm.expectRevert();
         oldToken.mint(Bob, 10);
 
         vm.prank(vault);
