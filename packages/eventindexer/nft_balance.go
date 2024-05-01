@@ -30,8 +30,6 @@ type UpdateNFTBalanceOpts struct {
 
 // NFTBalanceRepository is used to interact with nft balances in the store
 type NFTBalanceRepository interface {
-	SubtractBalance(ctx context.Context, opts UpdateNFTBalanceOpts) (*NFTBalance, error)
-	IncreaseBalance(ctx context.Context, opts UpdateNFTBalanceOpts) (*NFTBalance, error)
 	IncreaseAndSubtractBalancesInTx(
 		ctx context.Context,
 		increaseOpts UpdateNFTBalanceOpts,

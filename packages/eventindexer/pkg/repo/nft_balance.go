@@ -24,20 +24,6 @@ func NewNFTBalanceRepository(db eventindexer.DB) (*NFTBalanceRepository, error) 
 	}, nil
 }
 
-func (r *NFTBalanceRepository) IncreaseBalance(
-	ctx context.Context,
-	opts eventindexer.UpdateNFTBalanceOpts,
-) (*eventindexer.NFTBalance, error) {
-	return r.increaseBalanceInDB(ctx, r.db.GormDB(), opts)
-}
-
-func (r *NFTBalanceRepository) SubtractBalance(
-	ctx context.Context,
-	opts eventindexer.UpdateNFTBalanceOpts,
-) (*eventindexer.NFTBalance, error) {
-	return r.subtractBalanceInDB(ctx, r.db.GormDB(), opts)
-}
-
 func (r *NFTBalanceRepository) increaseBalanceInDB(
 	ctx context.Context,
 	db *gorm.DB,
@@ -128,13 +114,16 @@ func (r *NFTBalanceRepository) IncreaseAndSubtractBalancesInTx(
 ) (*eventindexer.NFTBalance, *eventindexer.NFTBalance, error) {
 	var increaseB, subtractB *eventindexer.NFTBalance
 
-	err :=  r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+	err := r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
 		increaseB, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
 		if err != nil {
 			return err
 		}
 
-		subtractB, err = r.subtractBalanceInDB(ctx, tx, subtractOpts)
+		if subtractOpts.Amount != 0 {
+			subtractB, err = r.subtractBalanceInDB(ctx, tx, subtractOpts)
+		}
+
 		return err
 	})
 	if err != nil {

@@ -115,6 +115,8 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		"contractAddress", vLog.Address.Hex(),
 	)
 
+	// increment To address's balance
+	// decrement From address's balance
 	increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 		ChainID:         chainID.Int64(),
 		Address:         to,
@@ -123,27 +125,23 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		ContractType:    "ERC721",
 		Amount:          1, // ERC721 is always 1
 	}
+	descreaseOpts := eventindexer.UpdateNFTBalanceOpts{}
 
-	// increment To address's balance
-	// decrement From address's balance
 	// ignore zero address since that is usually the "mint"
 	if from != ZeroAddress.Hex() {
-		_, _, err := i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, eventindexer.UpdateNFTBalanceOpts{
+		descreaseOpts = eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			Address:         from,
 			TokenID:         tokenID,
 			ContractAddress: vLog.Address.Hex(),
 			ContractType:    "ERC721",
 			Amount:          1, // ERC721 is always 1
-		})
-		if err != nil {
-			return err
 		}
-	} else {
-		_, err := i.nftBalanceRepo.IncreaseBalance(ctx, increaseOpts)
-		if err != nil {
-			return err
-		}
+	}
+
+	_, _, err := i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, descreaseOpts)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -209,20 +207,21 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			ContractType:    "ERC1155",
 			Amount:          transfer.Amount.Int64(),
 		}
+		decreaseOpts := eventindexer.UpdateNFTBalanceOpts{}
 
 		if from != ZeroAddress.Hex() {
 			// decrement From address's balance
-			_, _, err = i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, eventindexer.UpdateNFTBalanceOpts{
+			decreaseOpts = eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         chainID.Int64(),
 				Address:         from,
 				TokenID:         transfer.ID.Int64(),
 				ContractAddress: vLog.Address.Hex(),
 				ContractType:    "ERC1155",
 				Amount:          transfer.Amount.Int64(),
-			})
-		} else {
-			_, err = i.nftBalanceRepo.IncreaseBalance(ctx, increaseOpts)
+			}
 		}
+
+		_, _, err = i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, decreaseOpts)
 		if err != nil {
 			return err
 		}
