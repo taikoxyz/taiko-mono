@@ -12,4 +12,5 @@ extend-exclude = [
   "packages/protocol/contracts/automata-attestation/**",
   "packages/protocol/contracts/thirdparty/**",
   "packages/protocol/contracts/compiled/**",
+  "packages/protocol/audit/**",
 ]
