@@ -102,6 +102,10 @@
 - impl: `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF`
 - owner: `admin.taiko.xyz`
 
+### p256_verifier
+
+- impl: `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0`
+
 ### sig_verify_lib
 
 - impl: `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9`
