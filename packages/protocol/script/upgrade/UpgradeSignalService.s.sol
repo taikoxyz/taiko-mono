@@ -8,10 +8,6 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeSignalService is UpgradeScript {
     function run() external setUp {
-        console2.log("upgrading SignalService");
-        SignalService newSignalService = new SignalService();
-        upgrade(address(newSignalService));
-
-        console2.log("upgraded SignalService to", address(newSignalService));
+        upgrade("SignalService", address(new SignalService()));
     }
 }

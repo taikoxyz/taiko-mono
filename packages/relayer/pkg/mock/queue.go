@@ -22,7 +22,13 @@ func (r *Queue) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 	return nil
 }
 
-func (r *Queue) Publish(ctx context.Context, queueName string, msg []byte, expiration *string) error {
+func (r *Queue) Publish(
+	ctx context.Context,
+	queueName string,
+	msg []byte,
+	headers map[string]interface{},
+	expiration *string,
+) error {
 	return nil
 }
 

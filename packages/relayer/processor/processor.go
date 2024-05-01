@@ -128,6 +128,8 @@ type Processor struct {
 	cfg *Config
 
 	txmgr txmgr.TxManager
+
+	maxMessageRetries uint64
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -349,6 +351,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.targetTxHash = cfg.TargetTxHash
 
+	p.maxMessageRetries = cfg.MaxMessageRetries
+
 	return nil
 }
 
@@ -432,7 +436,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			go func(m queue.Message) {
-				shouldRequeue, err := p.processMessage(ctx, m)
+				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
 
 				if err != nil {
 					switch {
@@ -443,10 +447,15 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					case errors.Is(err, relayer.ErrUnprofitable):
 						slog.Info("publishing to unprofitable queue")
 
+						headers := make(map[string]interface{}, 0)
+
+						headers["retries"] = timesRetried + 1
+
 						if err := p.queue.Publish(
 							ctx,
 							fmt.Sprintf("%v-unprofitable", p.queueName()),
 							m.Body,
+							headers,
 							p.cfg.UnprofitableMessageQueueExpiration,
 						); err != nil {
 							slog.Error("error publishing to unprofitable queue", "error", err)

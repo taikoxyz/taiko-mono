@@ -39,7 +39,6 @@ var (
 type Indexer struct {
 	accountRepo    eventindexer.AccountRepository
 	eventRepo      eventindexer.EventRepository
-	statRepo       eventindexer.StatRepository
 	nftBalanceRepo eventindexer.NFTBalanceRepository
 	txRepo         eventindexer.TransactionRepository
 
@@ -132,11 +131,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
-	statRepository, err := repo.NewStatRepository(db)
-	if err != nil {
-		return err
-	}
-
 	nftBalanceRepository, err := repo.NewNFTBalanceRepository(db)
 	if err != nil {
 		return err
@@ -209,7 +203,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
-	i.statRepo = statRepository
 	i.nftBalanceRepo = nftBalanceRepository
 	i.txRepo = txRepository
 
