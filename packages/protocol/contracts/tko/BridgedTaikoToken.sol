@@ -6,7 +6,7 @@ import "../tokenvault/IBridgedERC20.sol";
 import "./TaikoTokenBase.sol";
 
 /// @title BridgedTaikoToken
-/// @notice The TaikoToken (TKO) on L2
+/// @notice The TaikoToken (TKO.t) on L2
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
