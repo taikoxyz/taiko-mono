@@ -1,5 +1,9 @@
 # Taiko Mainnet Contracts
 
+## Notes
+
+1. Code used on mainnet must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
+
 ## L1 Contracts
 
 ### shared_address_manager
