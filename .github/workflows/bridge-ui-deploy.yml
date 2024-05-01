@@ -6,6 +6,9 @@ on:
       environment:
         type: string
         required: true
+      flags:
+        type: string
+        required: true
       vercel_org_id:
         type: string
         required: true
@@ -34,7 +37,7 @@ jobs:
         run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build ${{ inputs.flags }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt ${{ inputs.flags }} --token=${{ secrets.VERCEL_TOKEN }}
