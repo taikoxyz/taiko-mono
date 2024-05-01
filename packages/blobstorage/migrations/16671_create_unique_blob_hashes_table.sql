@@ -60,8 +60,7 @@ UPDATE blocks_meta bm
 JOIN blob_hashes_temp bh ON bm.blob_hash = bh.blob_hash
 SET bm.blob_hash = bh.blob_hash;
 
--- create blob_hash_index
-ALTER TABLE `blob_hashes_temp` ADD INDEX `blob_hash_index` (`blob_hash`);
+DROP `blob_hash_index` on blob_hashes_temp;
 
 -- make blob_hashes_temp the new blob_hashes
 DROP TABLE IF EXISTS blob_hashes;
