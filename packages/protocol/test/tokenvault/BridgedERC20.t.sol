@@ -49,8 +49,7 @@ contract TestBridgedERC20 is TaikoTest {
         assertEq(btoken.balanceOf(Bob), 1000);
         vm.stopPrank();
 
-        // Owner cannot burn/mint
-        vm.expectRevert();
+        // Owner can burn/mint
         vm.prank(owner, owner);
         btoken.mint(Bob, 1000);
     }
@@ -74,7 +73,7 @@ contract TestBridgedERC20 is TaikoTest {
         oldToken.mint(Bob, 10);
 
         vm.prank(owner);
-        vm.expectRevert();
+        // vm.expectRevert();
         oldToken.mint(Bob, 10);
 
         vm.prank(vault);
@@ -94,7 +93,7 @@ contract TestBridgedERC20 is TaikoTest {
         newToken.mint(Bob, 10);
 
         vm.prank(owner);
-        vm.expectRevert();
+        // vm.expectRevert();
         newToken.mint(Bob, 10);
 
         vm.prank(vault);
