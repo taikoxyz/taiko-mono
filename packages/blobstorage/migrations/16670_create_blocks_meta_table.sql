@@ -16,11 +16,9 @@ FROM blob_hashes;
 
 -- update indexes
 DROP INDEX block_id_index on blob_hashes;
-ALTER TABLE blocks_meta ADD INDEX `block_id_index` (`block_id`);
 
 -- +goose Down
 -- reverse indexes
-DROP INDEX block_id_index on blocks_meta;
 ALTER TABLE blob_hashes ADD INDEX `block_id_index` (`block_id`);
 
 -- drop blocks_meta table
