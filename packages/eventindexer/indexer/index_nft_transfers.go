@@ -125,11 +125,11 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		ContractType:    "ERC721",
 		Amount:          1, // ERC721 is always 1
 	}
-	descreaseOpts := eventindexer.UpdateNFTBalanceOpts{}
+	decreaseOpts := eventindexer.UpdateNFTBalanceOpts{}
 
 	// ignore zero address since that is usually the "mint"
 	if from != ZeroAddress.Hex() {
-		descreaseOpts = eventindexer.UpdateNFTBalanceOpts{
+		decreaseOpts = eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			Address:         from,
 			TokenID:         tokenID,
@@ -139,7 +139,7 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		}
 	}
 
-	_, _, err := i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, descreaseOpts)
+	_, _, err := i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, decreaseOpts)
 	if err != nil {
 		return err
 	}
