@@ -37,17 +37,11 @@ library LibBridgedToken {
         pure
         returns (string memory)
     {
-        if (bytes(_name).length == 0) {
-            return "";
-        } else {
-            return
-                string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
-        }
+        return bytes(_name).length == 0 ? "" : string.concat("Bridged ", _name);
     }
 
     function buildSymbol(string memory _symbol) internal pure returns (string memory) {
-        if (bytes(_symbol).length == 0) return "";
-        else return string.concat(_symbol, ".t");
+        return bytes(_symbol).length == 0 ? "" : string.concat(_symbol, ".t");
     }
 
     function buildURI(
