@@ -18,8 +18,8 @@ export async function deployTaikoL2(
 
     const alloc: any = {};
 
-    // Premint 1 billion ethers to the bridge, current Ethereum's supply is ~120.27M.
-    let bridgeInitialEtherBalance = ethers.utils.parseEther(`${1_000_000_000}`);
+    // Premint 999_999_800 ethers to the bridge, current Ethereum's supply is ~120.27M.
+    let bridgeInitialEtherBalance = ethers.utils.parseEther(`${999_999_800}`);
 
     for (const seedAccount of seedAccounts) {
         const accountAddress = Object.keys(seedAccount)[0];
