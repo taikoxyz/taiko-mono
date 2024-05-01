@@ -36,7 +36,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     /// @notice Event emitted when a user withdraws their tokens.
     /// @param user The address of the user.
     /// @param amount The amount of tokens withdrawn.
-    event Withdrawn(address user, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount);
 
     error WITHDRAWALS_NOT_ONGOING();
 

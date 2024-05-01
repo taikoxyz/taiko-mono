@@ -25,7 +25,9 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @param fromToken The address of the bridged token.
     /// @param account The address of the account.
     /// @param amount The amount of tokens migrated.
-    event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
+    event MigratedTo(
+        address indexed fromToken, address indexed account, uint256 amount, bool migratingInbound
+    );
 
     error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();
@@ -62,7 +64,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         address _migratingAddress = migratingAddress;
         if (msg.sender == _migratingAddress) {
             // Inbound migration
-            emit MigratedTo(msg.sender, _account, _amount);
+            emit MigratedTo(msg.sender, _account, _amount, migratingInbound);
         } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
@@ -77,7 +79,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
         if (_isMigratingOut()) {
             // Outbound migration
-            emit MigratedTo(migratingAddress, msg.sender, _amount);
+            emit MigratedTo(migratingAddress, msg.sender, _amount, migratingInbound);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(migratingAddress).mint(msg.sender, _amount);
         } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {

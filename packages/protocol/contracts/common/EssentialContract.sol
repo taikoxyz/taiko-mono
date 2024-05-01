@@ -22,8 +22,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b;
 
     /// @dev Slot 1.
-    uint8 private __reentry;
-    uint8 private __paused;
+    uint8 public __reentry;
+    uint8 public __paused;
     uint64 public lastUnpausedAt;
 
     uint256[49] private __gap;
@@ -100,7 +100,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         __AddressResolver_init(_addressManager);
     }
 
-    function __Essential_init(address _owner) internal virtual {
+    function __Essential_init(address _owner) internal virtual onlyInitializing {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __paused = _FALSE;
     }
