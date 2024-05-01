@@ -102,7 +102,7 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _recipient The address to receive initial token minting.
-    function init(address _owner, string calldata _symbol, address _recipient) public initializer {
+    function init(address _owner, address _recipient) public initializer {
         __TaikoToken_init(_owner, address(0), "Taiko Token", "TKO");
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
