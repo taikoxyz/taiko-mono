@@ -19,8 +19,6 @@ UPDATE blocks_meta bm
 JOIN blob_hashes_temp bh ON bm.blob_hash = bh.blob_hash
 SET bm.blob_hash = bh.blob_hash;
 
-ALTER TABLE blocks_meta DROP FOREIGN KEY blocks_meta_ibfk_1;
-
 ALTER TABLE `blob_hashes_temp` ADD INDEX `blob_hash_index` (`blob_hash`);
 
 -- make blob_hashes_temp the new blob_hashes
@@ -60,7 +58,8 @@ UPDATE blocks_meta bm
 JOIN blob_hashes_temp bh ON bm.blob_hash = bh.blob_hash
 SET bm.blob_hash = bh.blob_hash;
 
-DROP INDEX `blob_hash_index` on blob_hashes_temp;
+-- create blob_hash_index
+ALTER TABLE `blob_hashes_temp` ADD INDEX `blob_hash_index` (`blob_hash`);
 
 -- make blob_hashes_temp the new blob_hashes
 DROP TABLE IF EXISTS blob_hashes;
