@@ -8,6 +8,10 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeAddressManager is UpgradeScript {
     function run() external setUp {
-        upgrade("AddressManager", address(new AddressManager()));
+        console2.log("upgrading AddressManager");
+        AddressManager newAddressManager = new AddressManager();
+        upgrade(address(newAddressManager));
+
+        console2.log("upgraded AddressManager to", address(newAddressManager));
     }
 }

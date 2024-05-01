@@ -8,6 +8,10 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeERC20Vault is UpgradeScript {
     function run() external setUp {
-        upgrade("ERC20Vault", address(new ERC20Vault()));
+        console2.log("upgrading ERC20Vault");
+        ERC20Vault newERC20Vault = new ERC20Vault();
+        upgrade(address(newERC20Vault));
+
+        console2.log("upgraded ERC20Vault to", address(newERC20Vault));
     }
 }
