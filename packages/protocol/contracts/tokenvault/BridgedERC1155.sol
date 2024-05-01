@@ -100,10 +100,10 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     /// @param _amounts Amount of tokens to burn respectively.
     function burnBatch(
         address _account,
-        uint256[] memory _ids,
-        uint256[] memory _amounts
+        uint256[] calldata _ids,
+        uint256[] calldata _amounts
     )
-        public
+        external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
