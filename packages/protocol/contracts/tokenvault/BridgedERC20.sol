@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "./LibBridgedToken.sol";
 import "./BridgedERC20Base.sol";
 
@@ -19,7 +20,9 @@ abstract contract BridgedERC20Base_ is BridgedERC20Base {
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is BridgedERC20Base_, ERC20VotesUpgradeable {
+contract BridgedERC20 is BridgedERC20Base_, ERC20VotesUpgradeable, IERC165 {
+    bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
+
     /// @dev Slot 1.
     address public srcToken;
 
@@ -101,6 +104,14 @@ contract BridgedERC20 is BridgedERC20Base_, ERC20VotesUpgradeable {
     function CLOCK_MODE() public pure override returns (string memory) {
         // See https://eips.ethereum.org/EIPS/eip-6372
         return "mode=timestamp";
+    }
+
+    /// @notice Checks if the contract supports the given interface.
+    /// @param _interfaceId The interface identifier.
+    /// @return true if the contract supports the interface, false otherwise.
+    function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
+        return
+            _interfaceId == type(IBridgedERC20).interfaceId || _interfaceId == IERC165_INTERFACE_ID;
     }
 
     function _beforeTokenTransfer(address _from, address _to, uint256 _amount) internal override {
