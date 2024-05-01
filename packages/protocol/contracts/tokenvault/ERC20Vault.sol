@@ -18,6 +18,8 @@ contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
+    uint256 public constant MIN_MIGRATION_DELAY = 90 days;
+
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
         uint64 chainId;
@@ -49,7 +51,11 @@ contract ERC20Vault is BaseVault {
     /// @notice Mappings from bridged tokens to their blacklist status.
     mapping(address btoken => bool blacklisted) public btokenBlacklist;
 
-    uint256[47] private __gap;
+    /// @notice Mappings from ctoken to its last migration timestamp.
+    mapping(uint256 chainId => mapping(address ctoken => uint256 timestamp)) public
+        lastMigrationStart;
+
+    uint256[46] private __gap;
 
     /// @notice Emitted when a new bridged token is deployed.
     /// @param srcChainId The chain ID of the canonical token.
@@ -138,6 +144,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
+    error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -172,6 +179,11 @@ contract ERC20Vault is BaseVault {
             revert VAULT_NOT_SAME_OWNER();
         }
 
+        uint256 _lastMigrationStart = lastMigrationStart[_ctoken.chainId][_ctoken.addr];
+        if (block.timestamp <= _lastMigrationStart + MIN_MIGRATION_DELAY) {
+            revert VAULT_LAST_MIGRATION_TOO_CLOSE();
+        }
+
         btokenOld_ = canonicalToBridged[_ctoken.chainId][_ctoken.addr];
 
         if (btokenOld_ != address(0)) {
@@ -194,6 +206,7 @@ contract ERC20Vault is BaseVault {
 
         bridgedToCanonical[_btokenNew] = _ctoken;
         canonicalToBridged[_ctoken.chainId][_ctoken.addr] = _btokenNew;
+        lastMigrationStart[_ctoken.chainId][_ctoken.addr] = block.timestamp;
 
         emit BridgedTokenChanged({
             srcChainId: _ctoken.chainId,
