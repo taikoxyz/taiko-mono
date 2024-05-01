@@ -15,11 +15,12 @@
 
 ### taiko_token
 
+- ens: `token.taiko.eth`
 - proxy: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
 - impl: `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb`
 - owner: `labs.taiko.eth`
 - logs:
-  - deployed on April, 2024 at commit `?????`
+  - deployed on April 25, 2024 at commit `?????`
 
 ### signal_service
 
@@ -236,3 +237,9 @@
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
+
+## Other EOAs/Contracts
+
+- `davidcai.eth`:`0x56706F118e42AE069F20c5636141B844D1324AE1`
+- `admin.taiko.eth`: `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`
+- `labs.taiko.eth`: `0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D`
