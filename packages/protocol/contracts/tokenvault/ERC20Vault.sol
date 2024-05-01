@@ -179,8 +179,10 @@ contract ERC20Vault is BaseVault {
             revert VAULT_NOT_SAME_OWNER();
         }
 
-        uint256 _lastMigrationStart = lastMigrationStart[_ctoken.chainId][_ctoken.addr];
-        if (block.timestamp <= _lastMigrationStart + MIN_MIGRATION_DELAY) {
+        if (
+            block.timestamp
+                <= lastMigrationStart[_ctoken.chainId][_ctoken.addr] + MIN_MIGRATION_DELAY
+        ) {
             revert VAULT_LAST_MIGRATION_TOO_CLOSE();
         }
 
