@@ -32,6 +32,11 @@ type UpdateNFTBalanceOpts struct {
 type NFTBalanceRepository interface {
 	SubtractBalance(ctx context.Context, opts UpdateNFTBalanceOpts) (*NFTBalance, error)
 	IncreaseBalance(ctx context.Context, opts UpdateNFTBalanceOpts) (*NFTBalance, error)
+	IncreaseAndSubtractBalancesInTx(
+		ctx context.Context,
+		increaseOpts UpdateNFTBalanceOpts,
+		subtractOpts UpdateNFTBalanceOpts,
+	) (*NFTBalance, *NFTBalance, error)
 	FindByAddress(ctx context.Context,
 		req *http.Request,
 		address string,

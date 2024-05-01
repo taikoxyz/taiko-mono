@@ -115,24 +115,20 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		"contractAddress", vLog.Address.Hex(),
 	)
 
-	// increment To address's balance
-
-	_, err := i.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+	increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 		ChainID:         chainID.Int64(),
 		Address:         to,
 		TokenID:         tokenID,
 		ContractAddress: vLog.Address.Hex(),
 		ContractType:    "ERC721",
 		Amount:          1, // ERC721 is always 1
-	})
-	if err != nil {
-		return err
 	}
 
+	// increment To address's balance
 	// decrement From address's balance
 	// ignore zero address since that is usually the "mint"
 	if from != ZeroAddress.Hex() {
-		_, err = i.nftBalanceRepo.SubtractBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+		_, _, err := i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			Address:         from,
 			TokenID:         tokenID,
@@ -140,6 +136,11 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 			ContractType:    "ERC721",
 			Amount:          1, // ERC721 is always 1
 		})
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err := i.nftBalanceRepo.IncreaseBalance(ctx, increaseOpts)
 		if err != nil {
 			return err
 		}
@@ -200,21 +201,18 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 	// increment To address's balance
 
 	for _, transfer := range transfers {
-		_, err = i.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+		increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			Address:         to,
 			TokenID:         transfer.ID.Int64(),
 			ContractAddress: vLog.Address.Hex(),
 			ContractType:    "ERC1155",
 			Amount:          transfer.Amount.Int64(),
-		})
-		if err != nil {
-			return err
 		}
 
 		if from != ZeroAddress.Hex() {
 			// decrement From address's balance
-			_, err = i.nftBalanceRepo.SubtractBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+			_, _, err = i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         chainID.Int64(),
 				Address:         from,
 				TokenID:         transfer.ID.Int64(),
@@ -222,9 +220,11 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 				ContractType:    "ERC1155",
 				Amount:          transfer.Amount.Int64(),
 			})
-			if err != nil {
-				return err
-			}
+		} else {
+			_, err = i.nftBalanceRepo.IncreaseBalance(ctx, increaseOpts)
+		}
+		if err != nil {
+			return err
 		}
 	}
 

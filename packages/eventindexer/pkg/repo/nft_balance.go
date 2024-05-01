@@ -28,17 +28,30 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 	ctx context.Context,
 	opts eventindexer.UpdateNFTBalanceOpts,
 ) (*eventindexer.NFTBalance, error) {
+	return r.increaseBalanceInDB(ctx, r.db.GormDB(), opts)
+}
+
+func (r *NFTBalanceRepository) SubtractBalance(
+	ctx context.Context,
+	opts eventindexer.UpdateNFTBalanceOpts,
+) (*eventindexer.NFTBalance, error) {
+	return r.subtractBalanceInDB(ctx, r.db.GormDB(), opts)
+}
+
+func (r *NFTBalanceRepository) increaseBalanceInDB(
+	ctx context.Context,
+	db *gorm.DB,
+	opts eventindexer.UpdateNFTBalanceOpts,
+) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
 		ContractAddress: opts.ContractAddress,
 		TokenID:         opts.TokenID,
 		Address:         opts.Address,
 		ContractType:    opts.ContractType,
 		ChainID:         opts.ChainID,
-		Amount:          0,
 	}
 
-	err := r.db.
-		GormDB().
+	err := db.
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -55,15 +68,16 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 	b.Amount += opts.Amount
 
 	// update the row to reflect new balance
-	if err := r.db.GormDB().Save(b).Error; err != nil {
+	if err := db.Save(b).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}
 
 	return b, nil
 }
 
-func (r *NFTBalanceRepository) SubtractBalance(
+func (r *NFTBalanceRepository) subtractBalanceInDB(
 	ctx context.Context,
+	db *gorm.DB,
 	opts eventindexer.UpdateNFTBalanceOpts,
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
@@ -74,8 +88,7 @@ func (r *NFTBalanceRepository) SubtractBalance(
 		ChainID:         opts.ChainID,
 	}
 
-	err := r.db.
-		GormDB().
+	err := db.
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -95,17 +108,40 @@ func (r *NFTBalanceRepository) SubtractBalance(
 
 	// we can just delete the row, this user has no more of this NFT
 	if b.Amount == 0 {
-		if err := r.db.GormDB().Delete(b).Error; err != nil {
+		if err := db.Delete(b).Error; err != nil {
 			return nil, errors.Wrap(err, "r.db.Delete")
 		}
 	} else {
 		// update the row instead to reflect new balance
-		if err := r.db.GormDB().Save(b).Error; err != nil {
+		if err := db.Save(b).Error; err != nil {
 			return nil, errors.Wrap(err, "r.db.Save")
 		}
 	}
 
 	return b, nil
+}
+
+func (r *NFTBalanceRepository) IncreaseAndSubtractBalancesInTx(
+	ctx context.Context,
+	increaseOpts eventindexer.UpdateNFTBalanceOpts,
+	subtractOpts eventindexer.UpdateNFTBalanceOpts,
+) (*eventindexer.NFTBalance, *eventindexer.NFTBalance, error) {
+	var increaseB, subtractB *eventindexer.NFTBalance
+
+	err :=  r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+		increaseB, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
+		if err != nil {
+			return err
+		}
+
+		subtractB, err = r.subtractBalanceInDB(ctx, tx, subtractOpts)
+		return err
+	})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "r.db.Transaction")
+	}
+
+	return increaseB, subtractB, nil
 }
 
 func (r *NFTBalanceRepository) FindByAddress(ctx context.Context,
