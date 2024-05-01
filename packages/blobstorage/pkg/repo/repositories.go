@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/go-sql-driver/mysql"
 	blobstorage "github.com/taikoxyz/taiko-mono/packages/blobstorage"
 	"gorm.io/gorm"
 )
@@ -59,7 +60,8 @@ func (r *Repositories) SaveBlobAndBlockMeta(
 				saveBlobHashOpts.BlobData,
 			)
 			if err != nil {
-				if errors.Is(err, gorm.ErrDuplicatedKey) {
+				var mysqlErr *mysql.MySQLError
+				if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					slog.Warn("Duplicate entry for blob, continuing", "blobHash", saveBlobHashOpts.BlobHash)
 					return nil
 				}
@@ -79,6 +81,11 @@ func (r *Repositories) SaveBlobAndBlockMeta(
 		saveBlockMetaOpts.EmittedBlockID,
 	)
 	if err != nil {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			slog.Warn("Duplicate entry for block_meta, continuing", "blockId", saveBlockMetaOpts.BlockID)
+			return nil
+		}
 		slog.Error("Error storing blockMeta in DB", "error", err)
 		return err
 	}
