@@ -1,4 +1,4 @@
-import type { Config } from '@sveltejs/adapter-vercel';
+import type { Config } from '@sveltejs/kit';
 import Moralis from 'moralis';
 import { type Address, zeroAddress } from 'viem';
 
