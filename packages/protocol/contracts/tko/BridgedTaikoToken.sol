@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import "../tokenvault/IBridgedERC20.sol";
 import "./TaikoTokenBase.sol";
 
 /// @title BridgedTaikoToken
-/// @notice The TaikoToken (TKO.t) on L2
+/// @notice The TaikoToken on L2
 /// @custom:security-contact security@taiko.xyz
-contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
-    bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
-
+contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
     error BTT_UNSUPPORTED();
 
     /// @notice Initializes the contract.
@@ -49,6 +47,14 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return super.owner();
     }
+    /// @notice Checks if the contract supports the given interface.
+    /// @param _interfaceId The interface identifier.
+    /// @return true if the contract supports the interface, false otherwise.
+
+    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
+        return
+            _interfaceId == type(IBridgedERC20).interfaceId || super.supportsInterface(_interfaceId);
+    }
 
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
@@ -57,14 +63,6 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IERC165 {
         // 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 is the TKO's mainnet address,
         // 1 is the Ethereum's network id.
         return (0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 1);
-    }
-
-    /// @notice Checks if the contract supports the given interface.
-    /// @param _interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public pure override returns (bool) {
-        return
-            _interfaceId == type(IBridgedERC20).interfaceId || _interfaceId == IERC165_INTERFACE_ID;
     }
 
     function changeMigrationStatus(address, bool) public pure {

@@ -196,12 +196,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @return true if supports, else otherwise.
     function supportsInterface(bytes4 interfaceId)
         public
-        pure
+        view
         override(BaseVault, ERC1155ReceiverUpgradeable)
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || BaseVault.supportsInterface(interfaceId);
+            || super.supportsInterface(interfaceId);
     }
 
     /// @inheritdoc BaseVault
