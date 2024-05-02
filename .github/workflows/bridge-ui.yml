@@ -17,7 +17,7 @@ jobs:
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
 
-  deploy_bridge-ui_internal_preview:
+  deploy_bridge-ui_devnet_preview:
     if: ${{ !github.ref_name == 'main' }}
     uses: ./.github/workflows/bridge-ui-deploy.yml
     with:
