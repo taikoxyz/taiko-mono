@@ -14,9 +14,7 @@ import "./LibBridgedToken.sol";
 /// another chain.
 /// Note this contract offers timestamp-based checkpoints and voting functions.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, ERC165Upgradeable {
-    bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
-
+contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC165Upgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
