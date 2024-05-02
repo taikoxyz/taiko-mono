@@ -8,16 +8,16 @@ on:
         - "packages/bridge-ui/**"
 
 jobs:
-  deploy-bridge-ui-preview: 
-    if: ${{ !github.ref_name == 'main' }}  
-    uses: ./.github/workflows/bridge-ui-deploy.yml  
+  deploy_bridge-ui_hekla_preview:
+    if: ${{ !github.ref_name == 'main' }}
+    uses: ./.github/workflows/bridge-ui-deploy.yml
     with:
       environment: 'preview'
       flags: ''
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
 
-  deploy-bridge-ui-preview-internal: 
+  deploy_bridge-ui_internal_preview:
     if: ${{ !github.ref_name == 'main' }}
     uses: ./.github/workflows/bridge-ui-deploy.yml
     with:
@@ -26,7 +26,7 @@ jobs:
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
 
-  deploy-bridge-ui-production: 
+  deploy_bridge-ui_hekla_production:
     if: ${{ github.ref_name == 'main' && startsWith(github.ref, 'refs/tags/bridge-ui-') }}
     uses: ./.github/workflows/bridge-ui-deploy.yml
     with:
