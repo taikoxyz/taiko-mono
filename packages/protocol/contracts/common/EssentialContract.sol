@@ -39,11 +39,17 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
     error ZERO_ADDR_MANAGER();
+    error FUNC_NOT_IMPLEMENTED();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
     modifier onlyFromOwnerOrNamed(bytes32 _name) {
         if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
+    modifier notImplemented() {
+        revert FUNC_NOT_IMPLEMENTED();
         _;
     }
 

@@ -10,8 +10,6 @@ import "./TaikoTokenBase.sol";
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
-    error BTT_UNSUPPORTED();
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address manager address.
@@ -67,7 +65,5 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
         return (0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 1);
     }
 
-    function changeMigrationStatus(address, bool) public pure {
-        revert BTT_UNSUPPORTED();
-    }
+    function changeMigrationStatus(address, bool) public pure notImplemented { }
 }
