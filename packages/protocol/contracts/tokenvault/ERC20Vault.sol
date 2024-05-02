@@ -142,7 +142,6 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_NEW_BTOKEN();
-    error VAULT_INVALID_TO();
     error VAULT_NOT_SAME_OWNER();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
@@ -280,7 +279,7 @@ contract ERC20Vault is BaseVault {
 
         // Don't allow sending to disallowed addresses.
         // Don't send the tokens back to `from` because `from` is on the source chain.
-        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+        checkToAddress(to);
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, amount);

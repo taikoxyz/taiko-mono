@@ -18,7 +18,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     uint256[48] private __gap;
 
-    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_BURN();
 
     /// @notice Initializes the contract.
@@ -107,16 +107,16 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     function _beforeTokenTransfer(
-        address, /*_from*/
+        address _from,
         address _to,
-        uint256, /*_firstTokenId*/
-        uint256 /*_batchSize*/
+        uint256 _firstTokenId,
+        uint256 _batchSize
     )
         internal
-        view
         override
+        whenNotPaused
     {
-        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
-        if (paused()) revert INVALID_PAUSE_STATUS();
+        LibBridgedToken.checkToAddress(_to);
+        super._beforeTokenTransfer(_from, _to, _firstTokenId, _batchSize);
     }
 }

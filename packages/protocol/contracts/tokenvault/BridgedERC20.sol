@@ -48,7 +48,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
     /// @param amount The amount of tokens migrated.
     event MigratedTo(address indexed toToken, address indexed account, uint256 amount);
 
-    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_MINT_DISALLOWED();
 
@@ -174,9 +174,16 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
         return migratingAddress != address(0) && !migratingInbound;
     }
 
-    function _beforeTokenTransfer(address _from, address _to, uint256 _amount) internal override {
-        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
-        if (paused()) revert INVALID_PAUSE_STATUS();
+    function _beforeTokenTransfer(
+        address _from,
+        address _to,
+        uint256 _amount
+    )
+        internal
+        override
+        whenNotPaused
+    {
+        LibBridgedToken.checkToAddress(_to);
         return super._beforeTokenTransfer(_from, _to, _amount);
     }
 

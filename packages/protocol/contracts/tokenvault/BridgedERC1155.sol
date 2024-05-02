@@ -24,8 +24,6 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
 
     uint256[46] private __gap;
 
-    error BTOKEN_CANNOT_RECEIVE();
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
@@ -119,18 +117,18 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     }
 
     function _beforeTokenTransfer(
-        address, /*_operator*/
-        address, /*_from*/
+        address _operator,
+        address _from,
         address _to,
-        uint256[] memory, /*_ids*/
-        uint256[] memory, /*_amounts*/
-        bytes memory /*_data*/
+        uint256[] memory _ids,
+        uint256[] memory _amounts,
+        bytes memory _data
     )
         internal
-        view
         override
+        whenNotPaused
     {
-        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
-        if (paused()) revert INVALID_PAUSE_STATUS();
+        LibBridgedToken.checkToAddress(_to);
+        super._beforeTokenTransfer(_operator, _from, _to, _ids, _amounts, _data);
     }
 }

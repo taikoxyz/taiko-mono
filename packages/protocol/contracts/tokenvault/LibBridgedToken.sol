@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibBridgedToken {
     error BTOKEN_INVALID_PARAMS();
+    error BTOKEN_INVALID_TO_ADDR();
 
     function validateInputs(address _srcToken, uint256 _srcChainId) internal view {
         if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
@@ -27,6 +28,10 @@ library LibBridgedToken {
         if (bytes(_symbol).length == 0 || bytes(_name).length == 0) {
             revert BTOKEN_INVALID_PARAMS();
         }
+    }
+
+    function checkToAddress(address _to) internal view {
+        if (_to == address(0) || _to == address(this)) revert BTOKEN_INVALID_TO_ADDR();
     }
 
     function buildURI(
