@@ -6,7 +6,8 @@ import "../tokenvault/IBridgedERC20.sol";
 import "./TaikoTokenBase.sol";
 
 /// @title BridgedTaikoToken
-/// @notice The TaikoToken on L2
+/// @notice The TaikoToken on L2 to support checkpoints and voting. For testnets, we do not need to
+/// use this contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
     error BTT_UNSUPPORTED();
