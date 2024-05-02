@@ -48,10 +48,10 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return super.owner();
     }
+
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-
     function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
         return
             _interfaceId == type(IBridgedERC20).interfaceId || super.supportsInterface(_interfaceId);
