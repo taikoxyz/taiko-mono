@@ -150,7 +150,6 @@ contract ERC20Vault is BaseVault {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
-        __ERC165_init();
     }
 
     /// @notice Change bridged token.
