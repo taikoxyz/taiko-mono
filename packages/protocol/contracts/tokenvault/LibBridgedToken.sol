@@ -31,7 +31,7 @@ library LibBridgedToken {
     }
 
     function checkToAddress(address _to) internal view {
-        if (_to == address(0) || _to == address(this)) revert BTOKEN_INVALID_TO_ADDR();
+        if (_to == address(this)) revert BTOKEN_INVALID_TO_ADDR();
     }
 
     function buildURI(
