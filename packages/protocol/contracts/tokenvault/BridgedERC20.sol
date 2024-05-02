@@ -36,13 +36,13 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
     /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
     event MigrationStatusChanged(address addr, bool inbound);
 
-    /// @notice Emitted when tokens are migrated from the bridged token.
+    /// @notice Emitted when tokens are migrated from an old bridged token.
     /// @param fromToken The address of the bridged token.
     /// @param account The address of the account.
     /// @param amount The amount of tokens migrated.
     event MigratedFrom(address indexed fromToken, address indexed account, uint256 amount);
 
-    /// @notice Emitted when tokens are migrated to the bridged token.
+    /// @notice Emitted when tokens are migrated to a new bridged token.
     /// @param toToken The address of the bridged token.
     /// @param account The address of the account.
     /// @param amount The amount of tokens migrated.
