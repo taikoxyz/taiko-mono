@@ -110,7 +110,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
     /// @param _amount The amount of tokens to mint.
     function mint(address _account, uint256 _amount) external whenNotPaused nonReentrant {
         // mint is disabled while migrating outbound.
-        if (_isMigratingOut()) revert BTOKEN_MINT_DISALLOWED();
+        if (isMigratingOut()) revert BTOKEN_MINT_DISALLOWED();
 
         address _migratingAddress = migratingAddress;
         if (msg.sender == _migratingAddress) {
@@ -128,7 +128,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
     /// if bridging back to canonical token.
     /// @param _amount The amount of tokens to burn.
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
-        if (_isMigratingOut()) {
+        if (isMigratingOut()) {
             // Outbound migration
             address _migratingAddress = migratingAddress;
             emit MigratedTo(_migratingAddress, msg.sender, _amount);
@@ -170,7 +170,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
             _interfaceId == type(IBridgedERC20).interfaceId || super.supportsInterface(_interfaceId);
     }
 
-    function _isMigratingOut() private view returns (bool) {
+    function isMigratingOut() public view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;
     }
 
