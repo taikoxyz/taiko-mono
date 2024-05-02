@@ -5,7 +5,7 @@ pragma solidity 0.8.24;
 /// @title RLPReader
 /// @notice RLPReader is a library for parsing RLP-encoded byte arrays into Solidity types. Adapted
 ///         from Solidity-RLP (https://github.com/hamdiallam/Solidity-RLP) by Hamdi Allam with
-///         various tweaks to improve readability.
+///         various tweaks to improve readability. (A shout-out to Optimism !)
 library RLPReader {
     /// @notice Custom pointer type to avoid confusion between pointers and uint256s.
     type MemoryPointer is uint256;
