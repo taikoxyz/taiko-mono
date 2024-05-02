@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/interfaces/IERC6372Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 
