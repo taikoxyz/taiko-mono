@@ -11,7 +11,6 @@ import "./LibBridgedToken.sol";
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
-/// Note this contract offers timestamp-based checkpoints and voting functions.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, IERC165Upgradeable {
     /// @dev Slot 1.
