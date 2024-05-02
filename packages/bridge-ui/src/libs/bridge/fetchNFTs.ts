@@ -81,7 +81,6 @@ const fetchL2NFTs = async ({
   refresh: boolean;
 }) => {
   log('fetching L2 NFTs', { userAddress, srcChainId, refresh });
-  // todo pagination
   const indexerPromises: Promise<NFT[]>[] = eventIndexerApiServices.map(async (eventIndexerApiService) => {
     const { items: result } = await eventIndexerApiService.getAllNftsByAddressFromAPI(userAddress, BigInt(srcChainId), {
       page: 0,
