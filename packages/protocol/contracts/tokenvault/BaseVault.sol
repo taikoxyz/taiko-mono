@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
@@ -14,7 +14,7 @@ abstract contract BaseVault is
     EssentialContract,
     IRecallableSender,
     IMessageInvocable,
-    ERC165Upgradeable
+    IERC165Upgradeable
 {
     uint256[50] private __gap;
 
@@ -27,7 +27,7 @@ abstract contract BaseVault is
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return _interfaceId == type(IRecallableSender).interfaceId
             || _interfaceId == type(IMessageInvocable).interfaceId
-            || super.supportsInterface(_interfaceId);
+            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
     /// @notice Returns the name of the vault.
