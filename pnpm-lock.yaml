@@ -21,6 +21,9 @@ importers:
 
   packages/bridge-ui:
     dependencies:
+      '@moralisweb3/common-evm-utils':
+        specifier: ^2.26.1
+        version: 2.26.1(debug@4.3.4)
       '@wagmi/connectors':
         specifier: ^4.3.1
         version: 4.3.1(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.23.9)(@babel/preset-env@7.23.9(@babel/core@7.23.9))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@6.0.3)))(@wagmi/core@2.8.1(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@6.0.3)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@6.0.3)(zod@3.22.4))(zod@3.22.4))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-i18next@13.5.0(i18next@22.5.1)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.23.9)(@babel/preset-env@7.23.9(@babel/core@7.23.9))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@6.0.3))(react@18.2.0))(react-native@0.73.4(@babel/core@7.23.9)(@babel/preset-env@7.23.9(@babel/core@7.23.9))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@6.0.3))(react@18.2.0)(rollup@4.17.2)(typescript@5.4.3)(utf-8-validate@6.0.3)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@6.0.3)(zod@3.22.4))(zod@3.22.4)
@@ -2390,6 +2393,12 @@ packages:
   '@metamask/utils@8.3.0':
     resolution: {integrity: sha512-WFVcMPEkKKRCJ8DDkZUTVbLlpwgRn98F4VM/WzN89HM8PmHMnCyk/oG0AmK/seOxtik7uC7Bbi2YBC5Z5XB2zw==}
     engines: {node: '>=16.0.0'}
+
+  '@moralisweb3/common-core@2.26.1':
+    resolution: {integrity: sha512-HbsSjBZuicoKyJxlWNl0YV6YolGQ0bWT2jbPwMGvLrtbeeRTT3rE2IrIh9nSe7z9pWVvXfU3t+4oXkisY+8dJg==}
+
+  '@moralisweb3/common-evm-utils@2.26.1':
+    resolution: {integrity: sha512-Gr4qJmGhr5ixSeysg4CjZBZexeTzHqPYPE1YuaGAmD4dmW2OMpN2mRwXYnJmKNtML45XfTy4bCfeoTER7xBCWA==}
 
   '@motionone/animation@10.16.3':
     resolution: {integrity: sha512-QUGWpLbMFLhyqKlngjZhjtxM8IqiJQjLK0DF+XOF6od9nhSvlaeEpOY/UMCRVcZn/9Tr2rZO22EkuCIjYdI74g==}
@@ -10561,6 +10570,21 @@ snapshots:
       superstruct: 1.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@moralisweb3/common-core@2.26.1(debug@4.3.4)':
+    dependencies:
+      axios: 1.6.7(debug@4.3.4)
+    transitivePeerDependencies:
+      - debug
+
+  '@moralisweb3/common-evm-utils@2.26.1(debug@4.3.4)':
+    dependencies:
+      '@ethersproject/address': 5.7.0
+      '@ethersproject/bytes': 5.7.0
+      '@ethersproject/transactions': 5.7.0
+      '@moralisweb3/common-core': 2.26.1(debug@4.3.4)
+    transitivePeerDependencies:
+      - debug
 
   '@motionone/animation@10.16.3':
     dependencies:
