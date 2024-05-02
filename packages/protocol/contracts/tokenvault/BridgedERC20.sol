@@ -150,7 +150,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, IER
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
-    function canonical() external view returns (address, uint256) {
+    function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 

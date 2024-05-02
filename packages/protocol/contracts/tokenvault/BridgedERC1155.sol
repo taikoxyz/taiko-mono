@@ -63,31 +63,14 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
 
     /// @dev Mints tokens.
     /// @param _to Address to receive the minted tokens.
-    /// @param _tokenId ID of the token to mint.
-    /// @param _amount Amount of tokens to mint.
-    function mint(
-        address _to,
-        uint256 _tokenId,
-        uint256 _amount
-    )
-        public
-        whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
-        nonReentrant
-    {
-        _mint(_to, _tokenId, _amount, "");
-    }
-
-    /// @dev Mints tokens.
-    /// @param _to Address to receive the minted tokens.
     /// @param _tokenIds ID of the token to mint.
     /// @param _amounts Amount of tokens to mint.
     function mintBatch(
         address _to,
-        uint256[] memory _tokenIds,
-        uint256[] memory _amounts
+        uint256[] calldata _tokenIds,
+        uint256[] calldata _amounts
     )
-        public
+        external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
@@ -112,10 +95,27 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         _burnBatch(_account, _ids, _amounts);
     }
 
+    /// @dev Mints tokens.
+    /// @param _to Address to receive the minted tokens.
+    /// @param _tokenId ID of the token to mint.
+    /// @param _amount Amount of tokens to mint.
+    function mint(
+        address _to,
+        uint256 _tokenId,
+        uint256 _amount
+    )
+        public
+        whenNotPaused
+        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
+        nonReentrant
+    {
+        _mint(_to, _tokenId, _amount, "");
+    }
+
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
-    function canonical() external view returns (address, uint256) {
+    function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
