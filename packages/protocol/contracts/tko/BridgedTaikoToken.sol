@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import "../tokenvault/IBridgedERC20.sol";
 import "./TaikoTokenBase.sol";
 
@@ -9,7 +8,7 @@ import "./TaikoTokenBase.sol";
 /// @notice The TaikoToken on L2 to support checkpoints and voting. For testnets, we do not need to
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
+contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address manager address.
