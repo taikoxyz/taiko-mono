@@ -95,23 +95,6 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         _burnBatch(_account, _ids, _amounts);
     }
 
-    /// @dev Mints tokens.
-    /// @param _to Address to receive the minted tokens.
-    /// @param _tokenId ID of the token to mint.
-    /// @param _amount Amount of tokens to mint.
-    function mint(
-        address _to,
-        uint256 _tokenId,
-        uint256 _amount
-    )
-        public
-        whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
-        nonReentrant
-    {
-        _mint(_to, _tokenId, _amount, "");
-    }
-
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
