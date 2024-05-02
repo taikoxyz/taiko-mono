@@ -118,3 +118,4 @@ __pycache__/
 .vscode/launch.json
 packages/protocol/config.js
 .vercel
+packages/protocol/layout-*.txt
