@@ -139,43 +139,79 @@
 
 ## TaikoToken
 
-| Name                                                  | Type                                                          | Slot | Offset | Bytes | Contract                               |
-| ----------------------------------------------------- | ------------------------------------------------------------- | ---- | ------ | ----- | -------------------------------------- |
-| \_initialized                                         | uint8                                                         | 0    | 0      | 1     | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_initializing                                        | bool                                                          | 0    | 1      | 1     | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[50]                                                   | 1    | 0      | 1600  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_owner                                               | address                                                       | 51   | 0      | 20    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[49]                                                   | 52   | 0      | 1568  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_pendingOwner                                        | address                                                       | 101  | 0      | 20    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[49]                                                   | 102  | 0      | 1568  | contracts/L1/TaikoToken.sol:TaikoToken |
-| addressManager                                        | address                                                       | 151  | 0      | 20    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[49]                                                   | 152  | 0      | 1568  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_reentry                                           | uint8                                                         | 201  | 0      | 1     | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_paused                                            | uint8                                                         | 201  | 1      | 1     | contracts/L1/TaikoToken.sol:TaikoToken |
-| lastUnpausedAt                                        | uint64                                                        | 201  | 2      | 8     | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[49]                                                   | 202  | 0      | 1568  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_slots_previously_used_by_ERC20SnapshotUpgradeable | uint256[50]                                                   | 251  | 0      | 1600  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_balances                                            | mapping(address => uint256)                                   | 301  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_allowances                                          | mapping(address => mapping(address => uint256))               | 302  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_totalSupply                                         | uint256                                                       | 303  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_name                                                | string                                                        | 304  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_symbol                                              | string                                                        | 305  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[45]                                                   | 306  | 0      | 1440  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_hashedName                                          | bytes32                                                       | 351  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_hashedVersion                                       | bytes32                                                       | 352  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_name                                                | string                                                        | 353  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_version                                             | string                                                        | 354  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[48]                                                   | 355  | 0      | 1536  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_nonces                                              | mapping(address => struct CountersUpgradeable.Counter)        | 403  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_PERMIT_TYPEHASH_DEPRECATED_SLOT                     | bytes32                                                       | 404  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[49]                                                   | 405  | 0      | 1568  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_delegates                                           | mapping(address => address)                                   | 454  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_checkpoints                                         | mapping(address => struct ERC20VotesUpgradeable.Checkpoint[]) | 455  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_totalSupplyCheckpoints                              | struct ERC20VotesUpgradeable.Checkpoint[]                     | 456  | 0      | 32    | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[47]                                                   | 457  | 0      | 1504  | contracts/L1/TaikoToken.sol:TaikoToken |
-| \_\_gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | contracts/L1/TaikoToken.sol:TaikoToken |
+| Name                                                  | Type                                                          | Slot | Offset | Bytes | Contract                                |
+| ----------------------------------------------------- | ------------------------------------------------------------- | ---- | ------ | ----- | --------------------------------------- |
+| \_initialized                                         | uint8                                                         | 0    | 0      | 1     | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_initializing                                        | bool                                                          | 0    | 1      | 1     | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[50]                                                   | 1    | 0      | 1600  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_owner                                               | address                                                       | 51   | 0      | 20    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 52   | 0      | 1568  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_pendingOwner                                        | address                                                       | 101  | 0      | 20    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 102  | 0      | 1568  | contracts/tko/TaikoToken.sol:TaikoToken |
+| addressManager                                        | address                                                       | 151  | 0      | 20    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 152  | 0      | 1568  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_reentry                                           | uint8                                                         | 201  | 0      | 1     | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_paused                                            | uint8                                                         | 201  | 1      | 1     | contracts/tko/TaikoToken.sol:TaikoToken |
+| lastUnpausedAt                                        | uint64                                                        | 201  | 2      | 8     | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 202  | 0      | 1568  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_slots_previously_used_by_ERC20SnapshotUpgradeable | uint256[50]                                                   | 251  | 0      | 1600  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_balances                                            | mapping(address => uint256)                                   | 301  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_allowances                                          | mapping(address => mapping(address => uint256))               | 302  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_totalSupply                                         | uint256                                                       | 303  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_name                                                | string                                                        | 304  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_symbol                                              | string                                                        | 305  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[45]                                                   | 306  | 0      | 1440  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_hashedName                                          | bytes32                                                       | 351  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_hashedVersion                                       | bytes32                                                       | 352  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_name                                                | string                                                        | 353  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_version                                             | string                                                        | 354  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[48]                                                   | 355  | 0      | 1536  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_nonces                                              | mapping(address => struct CountersUpgradeable.Counter)        | 403  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_PERMIT_TYPEHASH_DEPRECATED_SLOT                     | bytes32                                                       | 404  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 405  | 0      | 1568  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_delegates                                           | mapping(address => address)                                   | 454  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_checkpoints                                         | mapping(address => struct ERC20VotesUpgradeable.Checkpoint[]) | 455  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_totalSupplyCheckpoints                              | struct ERC20VotesUpgradeable.Checkpoint[]                     | 456  | 0      | 32    | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[47]                                                   | 457  | 0      | 1504  | contracts/tko/TaikoToken.sol:TaikoToken |
+| \_\_gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | contracts/tko/TaikoToken.sol:TaikoToken |
 
 ## BridgedTaikoToken
+
+| Name                                                  | Type                                                          | Slot | Offset | Bytes | Contract                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------- | ---- | ------ | ----- | ----------------------------------------------------- |
+| \_initialized                                         | uint8                                                         | 0    | 0      | 1     | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_initializing                                        | bool                                                          | 0    | 1      | 1     | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[50]                                                   | 1    | 0      | 1600  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_owner                                               | address                                                       | 51   | 0      | 20    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 52   | 0      | 1568  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_pendingOwner                                        | address                                                       | 101  | 0      | 20    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 102  | 0      | 1568  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| addressManager                                        | address                                                       | 151  | 0      | 20    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 152  | 0      | 1568  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_reentry                                           | uint8                                                         | 201  | 0      | 1     | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_paused                                            | uint8                                                         | 201  | 1      | 1     | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| lastUnpausedAt                                        | uint64                                                        | 201  | 2      | 8     | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 202  | 0      | 1568  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_slots_previously_used_by_ERC20SnapshotUpgradeable | uint256[50]                                                   | 251  | 0      | 1600  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_balances                                            | mapping(address => uint256)                                   | 301  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_allowances                                          | mapping(address => mapping(address => uint256))               | 302  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_totalSupply                                         | uint256                                                       | 303  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_name                                                | string                                                        | 304  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_symbol                                              | string                                                        | 305  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[45]                                                   | 306  | 0      | 1440  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_hashedName                                          | bytes32                                                       | 351  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_hashedVersion                                       | bytes32                                                       | 352  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_name                                                | string                                                        | 353  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_version                                             | string                                                        | 354  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[48]                                                   | 355  | 0      | 1536  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_nonces                                              | mapping(address => struct CountersUpgradeable.Counter)        | 403  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_PERMIT_TYPEHASH_DEPRECATED_SLOT                     | bytes32                                                       | 404  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[49]                                                   | 405  | 0      | 1568  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_delegates                                           | mapping(address => address)                                   | 454  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_checkpoints                                         | mapping(address => struct ERC20VotesUpgradeable.Checkpoint[]) | 455  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_totalSupplyCheckpoints                              | struct ERC20VotesUpgradeable.Checkpoint[]                     | 456  | 0      | 32    | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[47]                                                   | 457  | 0      | 1504  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
+| \_\_gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
 
 ## ERC20Vault
 
@@ -198,7 +234,8 @@
 | bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | btokenBlacklist    | mapping(address => bool)                             | 303  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
-| \_\_gap            | uint256[47]                                          | 304  | 0      | 1504  | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
+| lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
+| \_\_gap            | uint256[46]                                          | 305  | 0      | 1472  | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 
 ## ERC721Vault
 
@@ -250,48 +287,33 @@
 
 ## BridgedERC20
 
-| Name                                                  | Type                                                          | Slot | Offset | Bytes | Contract                                           |
-| ----------------------------------------------------- | ------------------------------------------------------------- | ---- | ------ | ----- | -------------------------------------------------- |
-| \_initialized                                         | uint8                                                         | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_initializing                                        | bool                                                          | 0    | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[50]                                                   | 1    | 0      | 1600  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_owner                                               | address                                                       | 51   | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[49]                                                   | 52   | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_pendingOwner                                        | address                                                       | 101  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[49]                                                   | 102  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| addressManager                                        | address                                                       | 151  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[49]                                                   | 152  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_reentry                                           | uint8                                                         | 201  | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_paused                                            | uint8                                                         | 201  | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| lastUnpausedAt                                        | uint64                                                        | 201  | 2      | 8     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[49]                                                   | 202  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| migratingAddress                                      | address                                                       | 251  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| migratingInbound                                      | bool                                                          | 251  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[49]                                                   | 252  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_slots_previously_used_by_ERC20SnapshotUpgradeable | uint256[50]                                                   | 301  | 0      | 1600  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_balances                                            | mapping(address => uint256)                                   | 351  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_allowances                                          | mapping(address => mapping(address => uint256))               | 352  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_totalSupply                                         | uint256                                                       | 353  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_name                                                | string                                                        | 354  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_symbol                                              | string                                                        | 355  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[45]                                                   | 356  | 0      | 1440  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_hashedName                                          | bytes32                                                       | 401  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_hashedVersion                                       | bytes32                                                       | 402  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_name                                                | string                                                        | 403  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_version                                             | string                                                        | 404  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[48]                                                   | 405  | 0      | 1536  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_nonces                                              | mapping(address => struct CountersUpgradeable.Counter)        | 453  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_PERMIT_TYPEHASH_DEPRECATED_SLOT                     | bytes32                                                       | 454  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[49]                                                   | 455  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_delegates                                           | mapping(address => address)                                   | 504  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_checkpoints                                         | mapping(address => struct ERC20VotesUpgradeable.Checkpoint[]) | 505  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_totalSupplyCheckpoints                              | struct ERC20VotesUpgradeable.Checkpoint[]                     | 506  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[47]                                                   | 507  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| srcToken                                              | address                                                       | 554  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_srcDecimals                                       | uint8                                                         | 554  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| srcChainId                                            | uint256                                                       | 555  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_deprecated1                                       | address                                                       | 556  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| \_\_gap                                               | uint256[47]                                                   | 557  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| Name             | Type                                            | Slot | Offset | Bytes | Contract                                           |
+| ---------------- | ----------------------------------------------- | ---- | ------ | ----- | -------------------------------------------------- |
+| \_initialized    | uint8                                           | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_initializing   | bool                                            | 0    | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[50]                                     | 1    | 0      | 1600  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_owner          | address                                         | 51   | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[49]                                     | 52   | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_pendingOwner   | address                                         | 101  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[49]                                     | 102  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| addressManager   | address                                         | 151  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[49]                                     | 152  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_reentry      | uint8                                           | 201  | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_paused       | uint8                                           | 201  | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| lastUnpausedAt   | uint64                                          | 201  | 2      | 8     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[49]                                     | 202  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_balances       | mapping(address => uint256)                     | 251  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_allowances     | mapping(address => mapping(address => uint256)) | 252  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_totalSupply    | uint256                                         | 253  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_name           | string                                          | 254  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_symbol         | string                                          | 255  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[45]                                     | 256  | 0      | 1440  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| srcToken         | address                                         | 301  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_srcDecimals  | uint8                                           | 301  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| srcChainId       | uint256                                         | 302  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| migratingAddress | address                                         | 303  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| migratingInbound | bool                                            | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| \_\_gap          | uint256[47]                                     | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 
 ## BridgedERC721
 
@@ -346,8 +368,8 @@
 | \_\_gap             | uint256[47]                                     | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | srcToken            | address                                         | 351  | 0      | 20    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | srcChainId          | uint256                                         | 352  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
-| \_\_symbol          | string                                          | 353  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
-| \_\_name            | string                                          | 354  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
+| symbol              | string                                          | 353  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
+| name                | string                                          | 354  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | \_\_gap             | uint256[46]                                     | 355  | 0      | 1472  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 
 ## AssignmentHook
