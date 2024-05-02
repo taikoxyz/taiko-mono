@@ -48,8 +48,8 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
     /// @param amount The amount of tokens migrated.
     event MigratedTo(address indexed toToken, address indexed account, uint256 amount);
 
-    error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_PARAMS();
+    error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_MINT_DISALLOWED();
 
     /// @notice Initializes the contract.

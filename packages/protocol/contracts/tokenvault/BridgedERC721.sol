@@ -18,6 +18,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     uint256[48] private __gap;
 
+    error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_BURN();
 
