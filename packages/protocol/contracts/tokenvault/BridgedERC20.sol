@@ -158,7 +158,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, IER
     /// @notice Returns the owner.
     /// @return The address of the owner.
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
-        return super.owner();
+        return OwnableUpgradeable.owner();
     }
 
     /// @notice Checks if the contract supports the given interface.

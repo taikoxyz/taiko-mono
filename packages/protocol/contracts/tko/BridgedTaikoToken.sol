@@ -43,7 +43,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     }
 
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
-        return super.owner();
+        return OwnableUpgradeable.owner();
     }
 
     /// @notice Checks if the contract supports the given interface.
