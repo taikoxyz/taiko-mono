@@ -30,7 +30,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
         override
         whenNotPaused
         nonReentrant
-        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
     {
         _mint(_account, _amount);
     }
@@ -40,7 +40,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, ERC165Upgradeable {
         override
         whenNotPaused
         nonReentrant
-        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
     {
         _burn(msg.sender, _amount);
     }
