@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/common/LibStrings.sol";
-import "../contracts/L1/TaikoToken.sol";
+import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
@@ -151,13 +151,7 @@ contract DeployOnL1 is DeployCapability {
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init,
-                    (
-                        owner,
-                        vm.envString("TAIKO_TOKEN_NAME"),
-                        vm.envString("TAIKO_TOKEN_SYMBOL"),
-                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
-                    )
+                    TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
                     ),
                 registerTo: sharedAddressManager
             });
