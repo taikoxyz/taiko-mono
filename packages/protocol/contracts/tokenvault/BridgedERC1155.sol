@@ -17,10 +17,10 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     uint256 public srcChainId;
 
     /// @dev Symbol of the bridged token.
-    string private __symbol;
+    string public symbol;
 
     /// @dev Name of the bridged token.
-    string private __name;
+    string public name;
 
     uint256[46] private __gap;
 
@@ -56,8 +56,8 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
 
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        __symbol = _symbol;
-        __name = _name;
+        symbol = _symbol;
+        name = _name;
     }
 
     /// @dev Mints tokens.
@@ -109,18 +109,6 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         nonReentrant
     {
         _burn(_account, _tokenId, _amount);
-    }
-
-    /// @notice Gets the name of the bridged token.
-    /// @return The name.
-    function name() public view returns (string memory) {
-        return LibBridgedToken.buildName(__name);
-    }
-
-    /// @notice Gets the symbol of the bridged token.
-    /// @return The symbol.
-    function symbol() public view returns (string memory) {
-        return LibBridgedToken.buildSymbol(__symbol);
     }
 
     /// @notice Gets the canonical token's address and chain ID.

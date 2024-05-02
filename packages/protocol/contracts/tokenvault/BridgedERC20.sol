@@ -20,7 +20,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
     /// @dev Slot 1.
     address public srcToken;
 
-    uint8 private __srcDecimals;
+    uint8 public __srcDecimals;
 
     /// @dev Slot 2.
     uint256 public srcChainId;
@@ -143,18 +143,6 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
         }
 
         _burn(msg.sender, _amount);
-    }
-
-    /// @notice Gets the name of the token.
-    /// @return The name.
-    function name() public view override returns (string memory) {
-        return LibBridgedToken.buildName(super.name());
-    }
-
-    /// @notice Gets the symbol of the bridged token.
-    /// @return The symbol.
-    function symbol() public view override returns (string memory) {
-        return LibBridgedToken.buildSymbol(super.symbol());
     }
 
     /// @notice Gets the number of decimal places of the token.
