@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
@@ -14,7 +14,7 @@ import "./LibBridgedToken.sol";
 /// another chain.
 /// Note this contract offers timestamp-based checkpoints and voting functions.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IERC165 {
+contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, ERC165Upgradeable {
     bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
 
     /// @dev Slot 1.
@@ -79,6 +79,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
         __Essential_init(_owner, _addressManager);
         __ERC20_init(_name, _symbol);
+        __ERC165_init();
 
         // Set contract properties
         srcToken = _srcToken;
@@ -167,9 +168,9 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public pure override returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
         return
-            _interfaceId == type(IBridgedERC20).interfaceId || _interfaceId == IERC165_INTERFACE_ID;
+            _interfaceId == type(IBridgedERC20).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     function _isMigratingOut() private view returns (bool) {

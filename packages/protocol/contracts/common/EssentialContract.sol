@@ -101,7 +101,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     function __Essential_init(address _owner) internal virtual {
-        __Context_init_unchained();
+        __Context_init();
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __paused = _FALSE;
     }

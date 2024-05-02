@@ -35,7 +35,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
-        __ERC1155Receiver_init_unchained();
+        __ERC1155Receiver_init();
+        __ERC165_init();
     }
     /// @notice Transfers ERC1155 tokens to this vault and sends a message to
     /// the destination chain so the user can receive the same (bridged) tokens

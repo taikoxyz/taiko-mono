@@ -22,6 +22,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
+        __ERC165_init();
     }
 
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
