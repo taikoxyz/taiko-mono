@@ -8,6 +8,7 @@ on:
         - "packages/bridge-ui/**"
 
 jobs:
+  # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   deploy_bridge-ui_hekla_preview:
     if: ${{ !github.ref_name == 'main' }}
     uses: ./.github/workflows/bridge-ui-deploy.yml
