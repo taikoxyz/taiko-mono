@@ -48,7 +48,7 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 	nftBalanceRepo, err := NewNFTBalanceRepository(db)
 	assert.Equal(t, nil, err)
 
-	bal1, _, err := nftBalanceRepo.IncreaseAndSubtractBalancesInTx(context.Background(),
+	bal1, _, err := nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -60,7 +60,7 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.NotNil(t, bal1)
 
-	bal2, _, err := nftBalanceRepo.IncreaseAndSubtractBalancesInTx(context.Background(),
+	bal2, _, err := nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -122,7 +122,7 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := nftBalanceRepo.IncreaseAndSubtractBalancesInTx(context.Background(), tt.increaseOpts, tt.decreaseOpts)
+			_, _, err := nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(), tt.increaseOpts, tt.decreaseOpts)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}

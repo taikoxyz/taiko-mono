@@ -16,11 +16,11 @@ func NewNFTBalanceRepository() *NFTBalanceRepository {
 	return &NFTBalanceRepository{}
 }
 
-func (r *NFTBalanceRepository) IncreaseAndSubtractBalancesInTx(
+func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	ctx context.Context,
 	increaseOpts eventindexer.UpdateNFTBalanceOpts,
-	subtractOpts eventindexer.UpdateNFTBalanceOpts,
-) (*eventindexer.NFTBalance, *eventindexer.NFTBalance, error) {
+	decreaseOpts eventindexer.UpdateNFTBalanceOpts,
+) (increasedBalance *eventindexer.NFTBalance, decreasedBalance *eventindexer.NFTBalance, err error) {
 	return nil, nil, nil
 }
 

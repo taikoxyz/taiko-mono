@@ -61,7 +61,7 @@ func (r *NFTBalanceRepository) increaseBalanceInDB(
 	return b, nil
 }
 
-func (r *NFTBalanceRepository) subtractBalanceInDB(
+func (r *NFTBalanceRepository) decreaseBalanceInDB(
 	ctx context.Context,
 	db *gorm.DB,
 	opts eventindexer.UpdateNFTBalanceOpts,
@@ -85,7 +85,7 @@ func (r *NFTBalanceRepository) subtractBalanceInDB(
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		} else {
-			// cant subtract a balance if user never had this balance, indexing issue
+			// cant decrease a balance if user never had this balance, indexing issue
 			return nil, nil
 		}
 	}
@@ -107,21 +107,19 @@ func (r *NFTBalanceRepository) subtractBalanceInDB(
 	return b, nil
 }
 
-func (r *NFTBalanceRepository) IncreaseAndSubtractBalancesInTx(
+func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	ctx context.Context,
 	increaseOpts eventindexer.UpdateNFTBalanceOpts,
-	subtractOpts eventindexer.UpdateNFTBalanceOpts,
-) (*eventindexer.NFTBalance, *eventindexer.NFTBalance, error) {
-	var increaseB, subtractB *eventindexer.NFTBalance
-
-	err := r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
-		increaseB, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
+	decreaseOpts eventindexer.UpdateNFTBalanceOpts,
+) (increasedBalance *eventindexer.NFTBalance, decreasedBalance *eventindexer.NFTBalance, err error) {
+	err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+		increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
 		if err != nil {
 			return err
 		}
 
-		if subtractOpts.Amount != 0 {
-			subtractB, err = r.subtractBalanceInDB(ctx, tx, subtractOpts)
+		if decreaseOpts.Amount != 0 {
+			decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
 		}
 
 		return err
@@ -130,7 +128,7 @@ func (r *NFTBalanceRepository) IncreaseAndSubtractBalancesInTx(
 		return nil, nil, errors.Wrap(err, "r.db.Transaction")
 	}
 
-	return increaseB, subtractB, nil
+	return increasedBalance, decreasedBalance, nil
 }
 
 func (r *NFTBalanceRepository) FindByAddress(ctx context.Context,

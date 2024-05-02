@@ -139,7 +139,7 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		}
 	}
 
-	_, _, err := i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, decreaseOpts)
+	_, _, err := i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
 	if err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			}
 		}
 
-		_, _, err = i.nftBalanceRepo.IncreaseAndSubtractBalancesInTx(ctx, increaseOpts, decreaseOpts)
+		_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
 		if err != nil {
 			return err
 		}
