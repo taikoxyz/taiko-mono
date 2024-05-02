@@ -21,7 +21,6 @@ import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L2/DelegateOwner.sol";
 
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
-import "../contracts/team/airdrop/ERC20Airdrop2.sol";
 
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/L2/TaikoL2EIP1559Configurable.sol";

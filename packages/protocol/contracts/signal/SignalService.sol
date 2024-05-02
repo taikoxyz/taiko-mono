@@ -41,7 +41,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
 
-    modifier validSender(address _app) {
+    modifier nonZeroApp(address _app) {
         if (_app == address(0)) revert SS_INVALID_SENDER();
         _;
     }
@@ -204,7 +204,7 @@ contract SignalService is EssentialContract, ISignalService {
         internal
         view
         virtual
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         nonZeroValue(_value)
         returns (bytes32)
@@ -245,7 +245,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _value
     )
         private
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         nonZeroValue(_value)
         returns (bytes32 slot_)
@@ -287,7 +287,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         returns (bytes32 value_)
     {
@@ -306,7 +306,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         returns (CacheAction[] memory actions)
     {

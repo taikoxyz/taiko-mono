@@ -67,8 +67,8 @@ interface ISignalService {
 
     /// @notice Emitted when an address is authorized or deauthorized.
     /// @param addr The address to be authorized or deauthorized.
-    /// @param authrized True if authorized, false otherwise.
-    event Authorized(address indexed addr, bool authrized);
+    /// @param authorized True if authorized, false otherwise.
+    event Authorized(address indexed addr, bool authorized);
 
     /// @notice Send a signal (message) by setting the storage slot to a value of 1.
     /// @param _signal The signal (message) to send.
