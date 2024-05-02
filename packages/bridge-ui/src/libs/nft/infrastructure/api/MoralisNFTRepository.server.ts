@@ -12,17 +12,21 @@ import type { FetchNftArgs } from '../types/common';
 
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
+  private static isInitialized = false;
 
   private cursor: string;
   private lastFetchedAddress: Address;
   private hasFetchedAll: boolean;
-
   private nfts: NFT[] = [];
 
   private constructor() {
-    Moralis.start({
-      apiKey: MORALIS_API_KEY,
-    }).catch(console.error);
+    if (!MoralisNFTRepository.isInitialized) {
+      Moralis.start({ apiKey: MORALIS_API_KEY })
+        .then(() => {
+          MoralisNFTRepository.isInitialized = true;
+        })
+        .catch(console.error);
+    }
 
     this.cursor = '';
     this.lastFetchedAddress = zeroAddress;
@@ -38,7 +42,6 @@ class MoralisNFTRepository implements INFTRepository {
 
   async findByAddress({ address, chainId, refresh = false }: FetchNftArgs): Promise<NFT[]> {
     this.lastFetchedAddress = address;
-
     if (refresh) {
       this.reset();
     }
