@@ -32,7 +32,7 @@ contracts=(
 git checkout $commit
 
 # Empty the output file initially
-output_file="layout-${commit:0:6}.txt"
+output_file="layout-${commit:0:7}.txt"
 > $output_file
 
 # Loop over each contract
