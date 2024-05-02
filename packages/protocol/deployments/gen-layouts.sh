@@ -18,6 +18,7 @@ contracts=(
     "DelegateOwner"
     "GuardianProver"
     "TaikoToken"
+    "BridgedTaikoToken"
     "ERC20Vault"
     "ERC721Vault"
     "ERC1155Vault"
@@ -31,7 +32,7 @@ contracts=(
 git checkout $commit
 
 # Empty the output file initially
-output_file="layout-$commit.txt"
+output_file="layout-${commit:0:6}.txt"
 > $output_file
 
 # Loop over each contract
@@ -39,7 +40,10 @@ for contract in "${contracts[@]}"; do
     # Run forge inspect and append to the file
     # Ensure correct concatenation of the command without commas
     echo "forge inspect ${contract} storagelayout --pretty >> $output_file"
+
+    echo "## ${contract}" >> $output_file
     forge inspect ${contract} storagelayout --pretty >> $output_file
 done
 
+git switch -
 
