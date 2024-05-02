@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
@@ -13,7 +13,7 @@ import "./LibBridgedToken.sol";
 /// another chain.
 /// Note this contract offers timestamp-based checkpoints and voting functions.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC165Upgradeable {
+contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, IERC165Upgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
@@ -76,7 +76,6 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
         LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol, _name);
         __Essential_init(_owner, _addressManager);
         __ERC20_init(_name, _symbol);
-        __ERC165_init();
 
         // Set contract properties
         srcToken = _srcToken;
@@ -165,9 +164,9 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, ERC
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
-        return
-            _interfaceId == type(IBridgedERC20).interfaceId || super.supportsInterface(_interfaceId);
+    function supportsInterface(bytes4 _interfaceId) public pure override returns (bool) {
+        return _interfaceId == type(IBridgedERC20).interfaceId
+            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
     function isMigratingOut() public view returns (bool) {
