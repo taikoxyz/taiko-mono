@@ -41,5 +41,3 @@ for contract in "${contracts[@]}"; do
     forge inspect ${contract} storagelayout --pretty >> $output_file
     echo "" >> $output_file
 done
-
-
