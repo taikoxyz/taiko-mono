@@ -29,14 +29,7 @@ library LibBridgedToken {
         }
     }
 
-    function buildName(
-        string memory _name,
-        uint256 _srcChainId
-    )
-        internal
-        pure
-        returns (string memory)
-    {
+    function buildName(string memory _name) internal pure returns (string memory) {
         return bytes(_name).length == 0 ? "" : string.concat("Bridged ", _name);
     }
 

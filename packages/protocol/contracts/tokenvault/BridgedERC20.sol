@@ -39,11 +39,17 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
     /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
     event MigrationStatusChanged(address addr, bool inbound);
 
-    /// @notice Emitted when tokens are migrated to or from the bridged token.
+    /// @notice Emitted when tokens are migrated from the bridged token.
     /// @param fromToken The address of the bridged token.
     /// @param account The address of the account.
     /// @param amount The amount of tokens migrated.
-    event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
+    event MigratedFrom(address indexed fromToken, address indexed account, uint256 amount);
+
+    /// @notice Emitted when tokens are migrated to the bridged token.
+    /// @param toToken The address of the bridged token.
+    /// @param account The address of the account.
+    /// @param amount The amount of tokens migrated.
+    event MigratedTo(address indexed toToken, address indexed account, uint256 amount);
 
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_PARAMS();
@@ -111,7 +117,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
         address _migratingAddress = migratingAddress;
         if (msg.sender == _migratingAddress) {
             // Inbound migration
-            emit MigratedTo(_migratingAddress, _account, _amount);
+            emit MigratedFrom(_migratingAddress, _account, _amount);
         } else {
             // Bridging from vault
             _authorizedMintBurn(msg.sender);
@@ -126,9 +132,10 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
         if (_isMigratingOut()) {
             // Outbound migration
-            emit MigratedTo(migratingAddress, msg.sender, _amount);
+            address _migratingAddress = migratingAddress;
+            emit MigratedTo(_migratingAddress, msg.sender, _amount);
             // Ask the new bridged token to mint token for the user.
-            IBridgedERC20(migratingAddress).mint(msg.sender, _amount);
+            IBridgedERC20(_migratingAddress).mint(msg.sender, _amount);
         } else {
             // When user wants to burn tokens only during 'migrating out' phase is possible. If
             // ERC20Vault burns the tokens, that will go through the burn(amount) function.
@@ -141,7 +148,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20, IER
     /// @notice Gets the name of the token.
     /// @return The name.
     function name() public view override returns (string memory) {
-        return LibBridgedToken.buildName(super.name(), srcChainId);
+        return LibBridgedToken.buildName(super.name());
     }
 
     /// @notice Gets the symbol of the bridged token.

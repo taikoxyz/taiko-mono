@@ -114,7 +114,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     /// @notice Gets the name of the bridged token.
     /// @return The name.
     function name() public view returns (string memory) {
-        return LibBridgedToken.buildName(__name, srcChainId);
+        return LibBridgedToken.buildName(__name);
     }
 
     /// @notice Gets the symbol of the bridged token.
