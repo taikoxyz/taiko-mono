@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
