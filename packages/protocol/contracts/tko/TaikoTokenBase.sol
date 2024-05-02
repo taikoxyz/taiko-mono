@@ -10,7 +10,6 @@ import "../common/LibStrings.sol";
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
 /// contract list.
 /// We can simplify the code since we no longer need to maintain upgradability with Hekla.
-// solhint-disable contract-name-camelcase
 abstract contract TaikoTokenBase0 is EssentialContract {
     // solhint-disable var-name-mixedcase
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
