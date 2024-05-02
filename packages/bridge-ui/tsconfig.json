@@ -23,7 +23,7 @@
       "$chainConfig": ["./src/generated/chainConfig.ts"],
       "$relayerConfig": ["./src/generated/relayerConfig.ts"],
       "$customToken": ["./src/generated/customTokenConfig.ts"],
-      "$api/*": ["./src/api/*"],
+      "$nftAPI/*": ["./src/libs/nft/*"],
       "$mocks": ["./src/tests/mocks/index.ts"]
     },
 

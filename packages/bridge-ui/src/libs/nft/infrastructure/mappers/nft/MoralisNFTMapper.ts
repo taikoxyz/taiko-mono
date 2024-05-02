@@ -1,8 +1,8 @@
 import type { Address } from 'viem';
 
-import type { NFT } from '$api/domain/models/NFT';
-import type { NFTApiData } from '$api/infrastructure/types/moralis';
 import type { TokenType } from '$libs/token';
+import type { NFT } from '$nftAPI/domain/models/NFT';
+import type { NFTApiData } from '$nftAPI/infrastructure/types/moralis';
 
 export function mapToNFTFromMoralis(apiData: NFTApiData, chainId: number): NFT {
   return {

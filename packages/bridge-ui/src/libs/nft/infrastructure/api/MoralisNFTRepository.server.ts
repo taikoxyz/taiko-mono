@@ -1,12 +1,12 @@
 import Moralis from 'moralis';
 import { type Address, zeroAddress } from 'viem';
 
-import type { INFTRepository } from '$api/domain/interfaces/INFTRepository';
-import type { NFT } from '$api/domain/models/NFT';
-import { mapToNFTFromMoralis } from '$api/infrastructure/mappers/nft/MoralisNFTMapper';
-import type { NFTApiData } from '$api/infrastructure/types/moralis';
 import { moralisApiConfig } from '$config';
 import { MORALIS_API_KEY } from '$env/static/private';
+import type { INFTRepository } from '$nftAPI/domain/interfaces/INFTRepository';
+import type { NFT } from '$nftAPI/domain/models/NFT';
+import { mapToNFTFromMoralis } from '$nftAPI/infrastructure/mappers/nft/MoralisNFTMapper';
+import type { NFTApiData } from '$nftAPI/infrastructure/types/moralis';
 
 import type { FetchNftArgs } from '../types/common';
 

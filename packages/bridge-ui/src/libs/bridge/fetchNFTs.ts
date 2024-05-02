@@ -1,12 +1,12 @@
 import type { Address } from 'viem';
 
-import type { FetchNftArgs } from '$api/infrastructure/types/common';
 import { isL2Chain } from '$libs/chain';
 import { eventIndexerApiServices } from '$libs/eventIndexer/initEventIndexer';
 import { type NFT, TokenType } from '$libs/token';
 import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
 import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
 import { getLogger } from '$libs/util/logger';
+import type { FetchNftArgs } from '$nftAPI/infrastructure/types/common';
 
 const log = getLogger('bridge:fetchNFTs');
 

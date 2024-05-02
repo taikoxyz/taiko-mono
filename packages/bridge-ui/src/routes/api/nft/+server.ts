@@ -1,7 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 
-import { NFTService } from '$api/domain/services/NFTService';
-import moralisRepository from '$api/infrastructure/api/MoralisNFTRepository.server';
+import { NFTService } from '$nftAPI/domain/services/NFTService';
+import moralisRepository from '$nftAPI/infrastructure/api/MoralisNFTRepository.server';
 
 const nftService = new NFTService(moralisRepository);
 
