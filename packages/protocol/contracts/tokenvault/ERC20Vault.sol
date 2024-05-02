@@ -165,10 +165,7 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (address btokenOld_)
     {
-        if (
-            _btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)
-                || !_btokenNew.supportsInterface(type(IBridgedERC20).interfaceId)
-        ) {
+        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
             revert VAULT_INVALID_NEW_BTOKEN();
         }
 

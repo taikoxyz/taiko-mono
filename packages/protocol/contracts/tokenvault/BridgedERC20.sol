@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
@@ -12,7 +11,7 @@ import "./LibBridgedToken.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, IERC165Upgradeable {
+contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
@@ -158,14 +157,6 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable, IER
     /// @return The address of the owner.
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return OwnableUpgradeable.owner();
-    }
-
-    /// @notice Checks if the contract supports the given interface.
-    /// @param _interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public pure override returns (bool) {
-        return _interfaceId == type(IBridgedERC20).interfaceId
-            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
     function isMigratingOut() public view returns (bool) {

@@ -46,14 +46,6 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         return OwnableUpgradeable.owner();
     }
 
-    /// @notice Checks if the contract supports the given interface.
-    /// @param _interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
-        return
-            _interfaceId == type(IBridgedERC20).interfaceId || super.supportsInterface(_interfaceId);
-    }
-
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.

@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 
@@ -18,7 +17,7 @@ abstract contract TaikoTokenBase0 is EssentialContract {
 /// @title TaikoTokenBase
 /// @notice The base contract for both the canonical and the bridged Taiko token.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable, IERC165Upgradeable {
+abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
     uint256[50] private __gap;
 
     function clock() public view override returns (uint48) {
@@ -29,13 +28,5 @@ abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable, IERC
     function CLOCK_MODE() public pure override returns (string memory) {
         // See https://eips.ethereum.org/EIPS/eip-6372
         return "mode=timestamp";
-    }
-
-    /// @notice Checks if the contract supports the given interface.
-    /// @param _interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IERC6372Upgradeable).interfaceId
-            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 }
