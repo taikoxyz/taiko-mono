@@ -94,21 +94,21 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         _mintBatch(_to, _tokenIds, _amounts, "");
     }
 
-    /// @dev Burns tokens.
+    /// @dev Batch burns tokens.
     /// @param _account Address from which tokens are burned.
-    /// @param _tokenId ID of the token to burn.
-    /// @param _amount Amount of tokens to burn.
-    function burn(
+    /// @param _ids Array of IDs of the tokens to burn.
+    /// @param _amounts Amount of tokens to burn respectively.
+    function burnBatch(
         address _account,
-        uint256 _tokenId,
-        uint256 _amount
+        uint256[] calldata _ids,
+        uint256[] calldata _amounts
     )
-        public
+        external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
-        _burn(_account, _tokenId, _amount);
+        _burnBatch(_account, _ids, _amounts);
     }
 
     /// @notice Gets the name of the bridged token.

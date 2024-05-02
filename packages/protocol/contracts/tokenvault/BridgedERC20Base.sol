@@ -21,11 +21,17 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @param inbound If false then signals migrating 'from', true if migrating 'into'.
     event MigrationStatusChanged(address addr, bool inbound);
 
-    /// @notice Emitted when tokens are migrated to or from the bridged token.
-    /// @param fromToken The address of the bridged token.
+    /// @notice Emitted when tokens are migrated to the new bridged token.
+    /// @param migratedTo The address of the bridged token.
     /// @param account The address of the account.
     /// @param amount The amount of tokens migrated.
-    event MigratedTo(address indexed fromToken, address indexed account, uint256 amount);
+    event MigratedTo(address indexed migratedTo, address indexed account, uint256 amount);
+
+    /// @notice Emitted when tokens are migrated from the old bridged token.
+    /// @param migratedFrom The address of the bridged token.
+    /// @param account The address of the account.
+    /// @param amount The amount of tokens migrated.
+    event MigratedFrom(address indexed migratedFrom, address indexed account, uint256 amount);
 
     error BB_PERMISSION_DENIED();
     error BB_INVALID_PARAMS();
@@ -62,7 +68,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         address _migratingAddress = migratingAddress;
         if (msg.sender == _migratingAddress) {
             // Inbound migration
-            emit MigratedTo(_migratingAddress, _account, _amount);
+            emit MigratedFrom(_migratingAddress, _account, _amount);
         } else if (msg.sender != resolve(LibStrings.B_ERC20_VAULT, true)) {
             // Bridging from vault
             revert BB_PERMISSION_DENIED();
