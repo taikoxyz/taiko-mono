@@ -38,11 +38,12 @@ contract DeployTaikoToken is DeployCapability {
 
         address currBridgedtoken = vault.canonicalToBridged(1, l1TaikoToken);
         console2.log("current btoken for tko:", currBridgedtoken);
-
+        (address canonicalAddress, uint256 chainId) =
+            BridgedTaikoToken(deployedTkoProxy).canonical();
         vault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
-                chainId: 1,
-                addr: l1TaikoToken,
+                chainId: uint64(chainId),
+                addr: canonicalAddress,
                 decimals: 18,
                 symbol: "TKO",
                 name: "Taiko Token"
