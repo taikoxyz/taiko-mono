@@ -326,11 +326,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
-        if (_message.srcChainId != block.chainid) return false;
-        return ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).isSignalSent({
-            _app: address(this),
-            _signal: hashMessage(_message)
-        });
+        return false;
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
