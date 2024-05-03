@@ -444,7 +444,7 @@ contract ERC20Vault is BaseVault {
     }
 
     function _consumeTokenQuota(address _ctoken, uint256 _amount) private {
-        address quotaManager = resolve(LibStrings.B_RATE_LIMITER, true);
+        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager != address(0)) {
             IQuotaManager(quotaManager).consumeQuota(_ctoken, _amount);
         }

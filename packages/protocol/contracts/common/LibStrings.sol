@@ -17,7 +17,7 @@ library LibStrings {
     bytes32 internal constant B_PROPOSER = bytes32("proposer");
     bytes32 internal constant B_PROPOSER_ONE = bytes32("proposer_one");
     bytes32 internal constant B_PROVER_ASSIGNMENT = bytes32("PROVER_ASSIGNMENT");
-    bytes32 internal constant B_RATE_LIMITER = bytes32("rate_limiter");
+    bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
     bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
