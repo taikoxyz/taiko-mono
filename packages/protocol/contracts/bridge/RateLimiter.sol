@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../common/EssentialContract.sol";
 import "./IRateLimiter.sol";
 
-/// @title IRateLimiter
+/// @title RateLimiter
 /// @custom:security-contact security@taiko.xyz
 contract RateLimiter is EssentialContract, IRateLimiter {
     uint256[50] private __gap;
