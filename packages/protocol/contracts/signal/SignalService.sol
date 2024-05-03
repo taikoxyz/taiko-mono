@@ -190,7 +190,7 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(LibStrings.S_SIGNAL, _chainId, _app, _signal));
+        return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
     function _verifyHopProof(
