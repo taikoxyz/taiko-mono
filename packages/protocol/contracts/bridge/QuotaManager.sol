@@ -8,6 +8,7 @@ import "../libs/LibMath.sol";
 import "./IQuotaManager.sol";
 
 /// @title QuotaManager
+/// @dev An implementation of IQuotaManager for Ether and ERC20 tokens.
 /// @custom:security-contact security@taiko.xyz
 contract QuotaManager is EssentialContract, IQuotaManager {
     using LibMath for uint256;
@@ -24,7 +25,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     event DailyQuotaUpdated(address indexed token, uint256 oldDailyLimit, uint256 newDaiyLimit);
 
-    error RL_OUT_OF_QUOTA();
+    error QM_OUT_OF_QUOTA();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -54,7 +55,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     {
         uint256 available = availableQuota(_token);
         if (available == type(uint256).max) return;
-        if (available < _amount) revert RL_OUT_OF_QUOTA();
+        if (available < _amount) revert QM_OUT_OF_QUOTA();
 
         unchecked {
             available -= _amount;
