@@ -53,7 +53,7 @@ contract RateLimiter is EssentialContract, IRateLimiter {
 
         uint256 periodStart = (block.timestamp / PERIOD) * PERIOD;
         uint256 consumed =
-            _tokenLimit.lastUpdateAt < periodStart ? _amount : _tokenLimit.consumed + _amount;
+            _tokenLimit.lastUpdateAt < periodStart ? _amount : _amount + _tokenLimit.consumed;
 
         if (consumed > _tokenLimit.limit) revert RL_LIMIT_EXCEEDED();
 
