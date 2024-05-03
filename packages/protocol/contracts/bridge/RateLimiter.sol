@@ -15,9 +15,9 @@ contract RateLimiter is EssentialContract, IRateLimiter {
         __Essential_init(_owner);
     }
 
-    function consumeAmount(address _token, uint256 _amount) external { }
+    function consumeAmount(address, uint256) external virtual { }
 
-    function getAvailableAmount(address _token) public pure returns (uint256) {
-        return 0;
+    function availableAmount(address _token) public pure virtual returns (uint256) {
+        return type(uint256).max;
     }
 }
