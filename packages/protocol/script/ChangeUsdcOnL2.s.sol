@@ -13,20 +13,23 @@ contract SetupUSDCBridging is DeployCapability {
     address public constant USDC_ON_ETHEREUM = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public erc20VaultOnL2 = vm.envAddress("ERC20_VAULT_ON_L2");
+    address public l2Erc20Vault = vm.envAddress("ERC20_VAULT_ON_L2");
 
     // These are FiatTokenProxy addresses of the USDC coin.
     address public usdcOnL1 = vm.envAddress("USDC_ADDRESS_ON_L1");
+
+    // Pre-requisite here is to deploy the USDC on L2, script is here:
+    // https://github.com/taikoxyz/USDC/blob/main/script/DeployUSDC.s.sol
     address public usdcOnL2 = vm.envAddress("USDC_ADDRESS_ON_L2");
 
     function run() external {
-        require(erc20VaultOnL2 != address(0) && usdcOnL2 != address(0), "invalid params");
+        require(l2Erc20Vault != address(0) && usdcOnL2 != address(0), "invalid params");
 
         if (usdcOnL1 == address(0)) {
             usdcOnL1 = USDC_ON_ETHEREUM;
         }
 
-        ERC20Vault vault = ERC20Vault(erc20VaultOnL2);
+        ERC20Vault vault = ERC20Vault(l2Erc20Vault);
 
         address currBridgedtoken = vault.canonicalToBridged(1, usdcOnL1);
         console2.log("current btoken for usdc:", currBridgedtoken);
