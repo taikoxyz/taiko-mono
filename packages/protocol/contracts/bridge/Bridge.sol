@@ -7,7 +7,7 @@ import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
-import "./IRateLimiter.sol";
+import "./IQuotaManager.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
@@ -602,7 +602,7 @@ contract Bridge is EssentialContract, IBridge {
     function _checkEtherRateLimit(uint256 _amount) private {
         address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
         if (rateLimiter != address(0)) {
-            IRateLimiter(rateLimiter).consumeAmount(address(0), _amount);
+            IQuotaManager(rateLimiter).consumeQuota(address(0), _amount);
         }
     }
 }
