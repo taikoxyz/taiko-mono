@@ -27,7 +27,10 @@ contract DeployL1QuotaManager is DeployCapability {
             })
         );
 
-        // L2-to-L1 ether per day
+        // L2-to-L1 Ether per day: 50000 Ether
         qm.updateDailyQuota(address(0), 50_000 ether);
+
+        // L2-to-L1 TKO per day: 10 million (1% total supply)
+        qm.updateDailyQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 10_000_000 ether);
     }
 }
