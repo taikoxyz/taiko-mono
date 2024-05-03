@@ -17,14 +17,15 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     uint256 public srcChainId;
 
     /// @dev Symbol of the bridged token.
-    string private __symbol;
+    string public symbol;
 
     /// @dev Name of the bridged token.
-    string private __name;
+    string public name;
 
     uint256[46] private __gap;
 
-    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
+    error BTOKEN_INVALID_TO_ADDR();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -56,25 +57,8 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
 
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        __symbol = _symbol;
-        __name = _name;
-    }
-
-    /// @dev Mints tokens.
-    /// @param _to Address to receive the minted tokens.
-    /// @param _tokenId ID of the token to mint.
-    /// @param _amount Amount of tokens to mint.
-    function mint(
-        address _to,
-        uint256 _tokenId,
-        uint256 _amount
-    )
-        public
-        whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
-        nonReentrant
-    {
-        _mint(_to, _tokenId, _amount, "");
+        symbol = _symbol;
+        name = _name;
     }
 
     /// @dev Mints tokens.
@@ -83,10 +67,10 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     /// @param _amounts Amount of tokens to mint.
     function mintBatch(
         address _to,
-        uint256[] memory _tokenIds,
-        uint256[] memory _amounts
+        uint256[] calldata _tokenIds,
+        uint256[] calldata _amounts
     )
-        public
+        external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
@@ -111,38 +95,26 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         _burnBatch(_account, _ids, _amounts);
     }
 
-    /// @notice Gets the name of the bridged token.
-    /// @return The name.
-    function name() public view returns (string memory) {
-        return LibBridgedToken.buildName(__name, srcChainId);
-    }
-
-    /// @notice Gets the symbol of the bridged token.
-    /// @return The symbol.
-    function symbol() public view returns (string memory) {
-        return LibBridgedToken.buildSymbol(__symbol);
-    }
-
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
-    function canonical() external view returns (address, uint256) {
+    function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(
-        address, /*_operator*/
-        address, /*_from*/
+        address _operator,
+        address _from,
         address _to,
-        uint256[] memory, /*_ids*/
-        uint256[] memory, /*_amounts*/
-        bytes memory /*_data*/
+        uint256[] memory _ids,
+        uint256[] memory _amounts,
+        bytes memory _data
     )
         internal
-        view
         override
+        whenNotPaused
     {
-        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
-        if (paused()) revert INVALID_PAUSE_STATUS();
+        LibBridgedToken.checkToAddress(_to);
+        super._beforeTokenTransfer(_operator, _from, _to, _ids, _amounts, _data);
     }
 }
