@@ -109,7 +109,7 @@ struct BlockMetadata {
 The following [**block level variables**](https://docs.soliditylang.org/en/latest/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
 
 - `blockhash(uint blockNumber) returns (bytes32)`: hash of the given block when `blocknumber` is one of the 256 most recent blocks; otherwise returns zero
-- `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [modified EIP-1559](./L2EIP1559.md))
+- `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [modified EIP-1559](packages/protocol/docs/eip1559_on_l2.md))
 - `block.chainid` (`uint`): current chain id
 - `block.coinbase` (`address payable`): current block miner's address
 - `block.prevrandao` (`uint`): alias for `block.prevrandao` ([EIP-4399](https://eips.ethereum.org/EIPS/eip-4399))
