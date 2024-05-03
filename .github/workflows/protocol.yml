@@ -12,6 +12,9 @@ on:
 jobs:
   build:
     runs-on: [taiko-runner]
+    permissions:
+      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
+      contents: write
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -35,24 +38,28 @@ jobs:
         working-directory: ./packages/protocol
         run: forge fmt --check
 
-      - name: Unit Tests
+      - name: Unit tests
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
 
-      - name: Generate Genesis
+      - name: Generate contract layout table
+        working-directory: ./packages/protocol
+        run: pnpm layout
+
+      - name: Commit contract layout table
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add contract layout table"
+
+      - name: Generate genesis
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
-      # TODO: CompilerError: Stack too deep
-      # - name: Test Coverage
-      #   working-directory: ./packages/protocol
-      #   run: pnpm test:coverage
-
-      - name: Run snapshot (foundry)
+      - name: Run snapshot (Foundry)
         working-directory: ./packages/protocol
         run: pnpm snapshot
 
-      - name: Deploy L1 Contracts
+      - name: Deploy L1 contracts
         working-directory: ./packages/protocol
         run: |
           anvil --hardfork cancun &
@@ -60,9 +67,3 @@ jobs:
             sleep 1
           done
           pnpm test:deploy
-
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     directory: ./packages/protocol/coverage
-      #     flags: protocol
