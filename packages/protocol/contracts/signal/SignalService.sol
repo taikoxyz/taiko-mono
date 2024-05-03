@@ -40,7 +40,6 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_VALUE();
     error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
-    error SS_UNSUPPORTED();
 
     modifier nonZeroApp(address _app) {
         if (_app == address(0)) revert SS_INVALID_SENDER();
@@ -220,9 +219,7 @@ contract SignalService is EssentialContract, ISignalService {
         );
     }
 
-    function _authorizePause(address, bool) internal pure override {
-        revert SS_UNSUPPORTED();
-    }
+    function _authorizePause(address, bool) internal pure override notImplemented { }
 
     function _syncChainData(
         uint64 _chainId,

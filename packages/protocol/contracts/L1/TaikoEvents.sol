@@ -48,13 +48,17 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block transition is proved or re-proved.
     /// @param blockId The ID of the proven block.
     /// @param tran The verified transition.
+    /// @param prevProver The previous prover address.
+    /// @param prevContester The previous contester address.
     /// @param prover The prover address.
     /// @param validityBond The validity bond amount.
     /// @param tier The tier ID of the proof.
     event TransitionProved(
         uint256 indexed blockId,
         TaikoData.Transition tran,
-        address prover,
+        address indexed prevProver,
+        address prevContester,
+        address indexed prover,
         uint96 validityBond,
         uint16 tier
     );
@@ -76,9 +80,4 @@ abstract contract TaikoEvents {
     /// @dev Emitted when proving has been paused
     /// @param paused True if paused, false if unpaused.
     event ProvingPaused(bool paused);
-
-    /// @dev Emitted when an Ethereum deposit is made.
-    /// @param deposit The Ethereum deposit information including recipient,
-    /// amount, and ID.
-    event EthDeposited(TaikoData.EthDeposit deposit);
 }
