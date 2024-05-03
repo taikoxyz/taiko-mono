@@ -34,16 +34,20 @@ library LibProving {
     }
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
-    /// @notice Emitted when a transition is proved.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param prover The prover's address.
+    /// @dev Emitted when a block transition is proved or re-proved.
+    /// @param blockId The ID of the proven block.
+    /// @param tran The verified transition.
+    /// @param prevProver The previous prover address.
+    /// @param prevContester The previous contester address.
+    /// @param prover The prover address.
     /// @param validityBond The validity bond amount.
-    /// @param tier The tier of the proof.
+    /// @param tier The tier ID of the proof.
     event TransitionProved(
         uint256 indexed blockId,
         TaikoData.Transition tran,
-        address prover,
+        address indexed prevProver,
+        address prevContester,
+        address indexed prover,
         uint96 validityBond,
         uint16 tier
     );
@@ -223,18 +227,20 @@ library LibProving {
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
 
         if (_proof.tier > ts.tier) {
-            // Handles the case when an incoming tier is higher than the current transition's tier.
-            // Reverts when the incoming proof tries to prove the same transition
-            // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _tran, _proof, local, tko);
-
             emit TransitionProved({
                 blockId: local.blockId,
                 tran: _tran,
+                prevProver: ts.prover,
+                prevContester: ts.contester,
                 prover: msg.sender,
                 validityBond: local.tier.validityBond,
                 tier: _proof.tier
             });
+
+            // Handles the case when an incoming tier is higher than the current transition's tier.
+            // Reverts when the incoming proof tries to prove the same transition
+            // (L1_ALREADY_PROVED).
+            _overrideWithHigherProof(blk, ts, _tran, _proof, local, tko);
         } else {
             // New transition and old transition on the same tier - and if this transaction tries to
             // prove the same, it reverts
@@ -245,17 +251,19 @@ library LibProving {
                 assert(local.tier.validityBond == 0);
                 assert(ts.validityBond == 0 && ts.contester == address(0));
 
-                ts.prover = msg.sender;
-                ts.blockHash = _tran.blockHash;
-                ts.stateRoot = _tran.stateRoot;
-
                 emit TransitionProved({
                     blockId: local.blockId,
                     tran: _tran,
+                    prevProver: ts.prover,
+                    prevContester: ts.contester,
                     prover: msg.sender,
                     validityBond: 0,
                     tier: _proof.tier
                 });
+
+                ts.prover = msg.sender;
+                ts.blockHash = _tran.blockHash;
+                ts.stateRoot = _tran.stateRoot;
             } else {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
