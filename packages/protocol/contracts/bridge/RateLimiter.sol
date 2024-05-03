@@ -17,7 +17,7 @@ contract RateLimiter is EssentialContract, IRateLimiter {
         // The token limit.
         uint104 limit;
         // The amount of token in current period.
-        uint104 usedAmount;
+        uint104 consumed;
     }
 
     mapping(address token => TokenLimit tokenLimit) public tokenLimit;
@@ -52,13 +52,13 @@ contract RateLimiter is EssentialContract, IRateLimiter {
         if (_tokenLimit.limit == 0) return;
 
         uint256 periodStart = (block.timestamp / PERIOD) * PERIOD;
-        uint256 usedAmount =
-            _tokenLimit.lastUpdateAt < periodStart ? _amount : _tokenLimit.usedAmount + _amount;
+        uint256 consumed =
+            _tokenLimit.lastUpdateAt < periodStart ? _amount : _tokenLimit.consumed + _amount;
 
-        if (usedAmount > _tokenLimit.limit) revert RL_LIMIT_EXCEEDED();
+        if (consumed > _tokenLimit.limit) revert RL_LIMIT_EXCEEDED();
 
         _tokenLimit.lastUpdateAt = uint48(block.timestamp);
-        _tokenLimit.usedAmount = SafeCast.toUint104(usedAmount);
+        _tokenLimit.consumed = SafeCast.toUint104(consumed);
 
         tokenLimit[_token] = _tokenLimit;
     }
