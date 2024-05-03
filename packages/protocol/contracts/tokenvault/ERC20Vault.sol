@@ -333,7 +333,7 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20(token_).mint(_to, _amount);
         }
 
-        _consumeTokenQuota(_ctoken.addr, _amount);
+        _consumeTokenQuota(token_, _amount);
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
@@ -389,7 +389,7 @@ contract ERC20Vault is BaseVault {
             balanceChange_ = t.balanceOf(address(this)) - _balance;
         }
 
-        _consumeTokenQuota(ctoken_.addr, balanceChange_);
+        _consumeTokenQuota(_op.token, balanceChange_);
 
         msgData_ = abi.encodeCall(
             this.onMessageInvocation, abi.encode(ctoken_, msg.sender, _op.to, balanceChange_)
@@ -443,10 +443,10 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    function _consumeTokenQuota(address _ctoken, uint256 _amount) private {
+    function _consumeTokenQuota(address _token, uint256 _amount) private {
         address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager != address(0)) {
-            IQuotaManager(quotaManager).consumeQuota(_ctoken, _amount);
+            IQuotaManager(quotaManager).consumeQuota(_token, _amount);
         }
     }
 }
