@@ -26,6 +26,17 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         _;
     }
 
+    /// @dev Modifier that ensures the caller is the resolved address of a given
+    /// name.
+    /// @param _name1 The first name to check against.
+    /// @param _name2 The second name to check against.
+    modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
+        if (msg.sender != resolve(_name1, true) && msg.sender != resolve(_name2, true)) {
+            revert RESOLVER_DENIED();
+        }
+        _;
+    }
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
