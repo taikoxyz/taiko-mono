@@ -48,17 +48,13 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block transition is proved or re-proved.
     /// @param blockId The ID of the proven block.
     /// @param tran The verified transition.
-    /// @param prevProver The previous prover address.
-    /// @param prevContester The previous contester address.
     /// @param prover The prover address.
     /// @param validityBond The validity bond amount.
     /// @param tier The tier ID of the proof.
     event TransitionProved(
         uint256 indexed blockId,
         TaikoData.Transition tran,
-        address indexed prevProver,
-        address prevContester,
-        address indexed prover,
+        address prover,
         uint96 validityBond,
         uint16 tier
     );
