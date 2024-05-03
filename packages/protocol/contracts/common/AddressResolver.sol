@@ -26,7 +26,7 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         _;
     }
 
-    /// @dev Modifier that ensures the caller is the resolved address of a given
+    /// @dev Modifier that ensures the caller is a resolved address to either _name1 or _name2
     /// name.
     /// @param _name1 The first name to check against.
     /// @param _name2 The second name to check against.
