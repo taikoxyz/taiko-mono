@@ -177,15 +177,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         proposeBlock(Alice, Bob, 1_000_000, 1024);
     }
 
-    function test_burn() external {
-        uint256 balanceBeforeBurn = tko.balanceOf(address(this));
-        vm.prank(tko.owner(), tko.owner());
-        tko.burn(address(this), 1 ether);
-        uint256 balanceAfterBurn = tko.balanceOf(address(this));
-
-        assertEq(balanceBeforeBurn - 1 ether, balanceAfterBurn);
-    }
-
     function test_getTierIds() external {
         uint16[] memory tiers = cp.getTierIds();
         assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);

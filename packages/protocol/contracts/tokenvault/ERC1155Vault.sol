@@ -35,7 +35,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
-        __ERC1155Receiver_init_unchained();
+        __ERC1155Receiver_init();
     }
     /// @notice Transfers ERC1155 tokens to this vault and sends a message to
     /// the destination chain so the user can receive the same (bridged) tokens
@@ -110,7 +110,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         // Don't allow sending to disallowed addresses.
         // Don't send the tokens back to `from` because `from` is on the source chain.
-        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+        checkToAddress(to);
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, tokenIds, amounts);
@@ -192,16 +192,17 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /// @dev See {BaseVault-supportsInterface}.
-    /// @param interfaceId The interface identifier.
+    /// @param _interfaceId The interface identifier.
     /// @return true if supports, else otherwise.
-    function supportsInterface(bytes4 interfaceId)
+    function supportsInterface(bytes4 _interfaceId)
         public
-        pure
+        view
         override(BaseVault, ERC1155ReceiverUpgradeable)
         returns (bool)
     {
-        return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || BaseVault.supportsInterface(interfaceId);
+        // Here we cannot user `super.supportsInterface(_interfaceId)`
+        return BaseVault.supportsInterface(_interfaceId)
+            || ERC1155ReceiverUpgradeable.supportsInterface(_interfaceId);
     }
 
     /// @inheritdoc BaseVault
@@ -249,9 +250,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    BridgedERC1155(_op.token).burn(msg.sender, _op.tokenIds[i], _op.amounts[i]);
-                }
+                BridgedERC1155(_op.token).burnBatch(msg.sender, _op.tokenIds, _op.amounts);
             } else {
                 // is a ctoken token, meaning, it lives on this chain
                 ctoken_ = CanonicalNFT({
@@ -267,15 +266,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 try t.symbol() returns (string memory _symbol) {
                     ctoken_.symbol = _symbol;
                 } catch { }
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    IERC1155(_op.token).safeTransferFrom({
-                        from: msg.sender,
-                        to: address(this),
-                        id: _op.tokenIds[i],
-                        amount: _op.amounts[i],
-                        data: ""
-                    });
-                }
+
+                IERC1155(_op.token).safeBatchTransferFrom({
+                    from: msg.sender,
+                    to: address(this),
+                    ids: _op.tokenIds,
+                    amounts: _op.amounts,
+                    data: ""
+                });
             }
         }
         msgData_ = abi.encodeCall(

@@ -115,14 +115,12 @@ abstract contract TaikoL1TestBase is TaikoTest {
             deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: abi.encodeCall(
-                    TaikoToken.init, (address(0), "Taiko Token", "TTKOk", address(this))
-                    ),
+                data: abi.encodeCall(TaikoToken.init, (address(0), address(this))),
                 registerTo: address(addressManager)
             })
         );
 
-        L1.init(address(0), address(addressManager), GENESIS_BLOCK_HASH);
+        L1.init(address(0), address(addressManager), GENESIS_BLOCK_HASH, false);
 
         gp.enableTaikoTokenAllowance(true);
         printVariables("init  ");

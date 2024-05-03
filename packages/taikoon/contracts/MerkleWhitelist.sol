@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import { UUPSUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { ContextUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
@@ -8,7 +12,7 @@ import { ContextUpgradeable } from
 /// @title MerkleWhitelist
 /// @dev Merkle Tree Whitelist
 /// @custom:security-contact security@taiko.xyz
-contract MerkleWhitelist is ContextUpgradeable {
+contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgradeable {
     event RootUpdated(bytes32 _root);
     event MintConsumed(address _minter, uint256 _mintAmount);
 
@@ -30,9 +34,8 @@ contract MerkleWhitelist is ContextUpgradeable {
 
     /// @notice Contract initializer
     /// @param _root Merkle Tree root
-    function initialize(bytes32 _root) external initializer {
-        __Context_init();
-        root = _root;
+    function initialize(address _owner, bytes32 _root) external initializer {
+        __MerkleWhitelist_init(_owner, _root);
     }
 
     /// @notice Check if a wallet can free mint
@@ -54,7 +57,8 @@ contract MerkleWhitelist is ContextUpgradeable {
 
     /// @notice Internal initializer
     /// @param _root Merkle Tree root
-    function __MerkleWhitelist_init(bytes32 _root) internal initializer {
+    function __MerkleWhitelist_init(address _owner, bytes32 _root) internal initializer {
+        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __Context_init();
         root = _root;
     }
@@ -76,4 +80,7 @@ contract MerkleWhitelist is ContextUpgradeable {
         minted[_leaf] = true;
         emit MintConsumed(_msgSender(), _maxMints);
     }
+
+    /// @notice Internal method to authorize an upgrade
+    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 }

@@ -20,7 +20,7 @@
 
 	const openDetails = (guardianProver: Guardian) => {
 		$selectedGuardianProver = guardianProver;
-		goto(guardianProver.id.toString());
+		goto(guardianProver.address);
 	};
 
 	onMount(async () => {
@@ -39,7 +39,7 @@
 
 	<GuardianProverTableHeader />
 	<div class="space-y-[8px]">
-		{#each dataToDisplay as guardianProver (guardianProver.id)}
+		{#each dataToDisplay as guardianProver (guardianProver.address)}
 			<GuardianProverTableRow
 				{guardianProver}
 				on:click={() => openDetails(guardianProver)}
