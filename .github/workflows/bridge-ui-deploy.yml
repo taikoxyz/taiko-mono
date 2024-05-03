@@ -9,15 +9,12 @@ on:
       flags:
         type: string
         required: true
-      vercel_org_id:
-        type: string
-        required: true
       vercel_project_id:
         type: string
         required: true
 
 env:
-    VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+    VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
     VERCEL_PROJECT_ID: ${{ inputs.vercel_project_id }}
 
 jobs:

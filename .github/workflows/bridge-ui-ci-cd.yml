@@ -1,0 +1,49 @@
+name: Bridge UI CI/CD
+
+on:
+  push:
+    branches-ignore:
+      - release-please-*
+    paths:
+      - "packages/bridge-ui/**"
+
+jobs:
+  # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
+  deploy_bridge-ui_hekla_preview:
+    if: ${{ github.ref_name != 'main' }}
+    runs-on: [taiko-runner]
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
+    steps:
+      - name: Deploy
+        uses: ./.github/workflows/bridge-ui-deploy.yml
+        with:
+          environment: 'preview'
+          flags: ''
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+
+  deploy_bridge-ui_devnet_preview:
+    if: ${{ github.ref_name != 'main' }}
+    runs-on: [taiko-runner]
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
+    steps:
+      - name: Deploy
+        uses: ./.github/workflows/bridge-ui-deploy.yml
+        with:
+          environment: 'preview'
+          flags: ''
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+
+  deploy_bridge-ui_hekla_production:
+    if: ${{ github.ref_name == 'main' && startsWith(github.ref, 'refs/tags/bridge-ui-') }}
+    runs-on: [taiko-runner]
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
+    steps:
+      - name: Deploy
+        uses: ./.github/workflows/bridge-ui-deploy.yml
+        with:
+          environment: 'production'
+          flags: '--prod'
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
