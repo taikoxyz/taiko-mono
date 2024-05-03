@@ -7,6 +7,7 @@ import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
+import "./IRateLimiter.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
@@ -138,8 +139,8 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.destChainId == block.chainid) revert B_INVALID_CHAINID();
 
         // Ensure the sent value matches the expected amount.
-        uint256 expectedAmount = _message.value + _message.fee;
-        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
+        if (msg.value != _message.value + _message.fee) revert B_INVALID_VALUE();
+        _checkEtherRateLimit(msg.value);
 
         message_ = _message;
 
@@ -179,6 +180,7 @@ contract Bridge is EssentialContract, IBridge {
         if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         _updateMessageStatus(msgHash, Status.RECALLED);
+        _checkEtherRateLimit(_message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -219,6 +221,7 @@ contract Bridge is EssentialContract, IBridge {
 
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
+        _checkEtherRateLimit(_message.value + _message.fee);
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
@@ -282,6 +285,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
+        _checkEtherRateLimit(_message.value);
 
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
@@ -593,5 +597,12 @@ contract Bridge is EssentialContract, IBridge {
 
     function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
+    }
+
+    function _checkEtherRateLimit(uint256 _amount) private {
+        address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
+        if (rateLimiter != address(0)) {
+            IRateLimiter(rateLimiter).consumeAmount(address(0), _amount);
+        }
     }
 }

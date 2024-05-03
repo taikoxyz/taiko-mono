@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../bridge/IRateLimiter.sol";
 import "../libs/LibAddress.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
@@ -219,6 +220,11 @@ contract ERC20Vault is BaseVault {
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
+        address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
+        if (rateLimiter != address(0)) {
+            IRateLimiter(rateLimiter).consumeAmount(_op.token, _op.amount);
+        }
+
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(_op);
 
@@ -331,6 +337,8 @@ contract ERC20Vault is BaseVault {
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
+
+        _checkRateLimit(_ctoken.addr, _amount);
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
@@ -386,6 +394,8 @@ contract ERC20Vault is BaseVault {
             balanceChange_ = t.balanceOf(address(this)) - _balance;
         }
 
+        _checkRateLimit(ctoken_.addr, balanceChange_);
+
         msgData_ = abi.encodeCall(
             this.onMessageInvocation, abi.encode(ctoken_, msg.sender, _op.to, balanceChange_)
         );
@@ -436,5 +446,12 @@ contract ERC20Vault is BaseVault {
             ctokenName: ctoken.name,
             ctokenDecimal: ctoken.decimals
         });
+    }
+
+    function _checkRateLimit(address _ctoken, uint256 _amount) private {
+        address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
+        if (rateLimiter != address(0)) {
+            IRateLimiter(rateLimiter).consumeAmount(_ctoken, _amount);
+        }
     }
 }
