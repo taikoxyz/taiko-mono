@@ -10,7 +10,7 @@ import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 
-import "../contracts/L1/TaikoToken.sol";
+import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
