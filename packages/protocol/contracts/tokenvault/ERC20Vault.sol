@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../bridge/IRateLimiter.sol";
+import "../bridge/IQuotaManager.sol";
 import "../libs/LibAddress.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
@@ -333,7 +333,7 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20(token_).mint(_to, _amount);
         }
 
-        _checkRateLimit(_ctoken.addr, _amount);
+        _consumeTokenQuota(_ctoken.addr, _amount);
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
@@ -389,7 +389,7 @@ contract ERC20Vault is BaseVault {
             balanceChange_ = t.balanceOf(address(this)) - _balance;
         }
 
-        _checkRateLimit(ctoken_.addr, balanceChange_);
+        _consumeTokenQuota(ctoken_.addr, balanceChange_);
 
         msgData_ = abi.encodeCall(
             this.onMessageInvocation, abi.encode(ctoken_, msg.sender, _op.to, balanceChange_)
@@ -443,10 +443,10 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    function _checkRateLimit(address _ctoken, uint256 _amount) private {
+    function _consumeTokenQuota(address _ctoken, uint256 _amount) private {
         address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
         if (rateLimiter != address(0)) {
-            IRateLimiter(rateLimiter).consumeAmount(_ctoken, _amount);
+            IQuotaManager(rateLimiter).consumeQuota(_ctoken, _amount);
         }
     }
 }

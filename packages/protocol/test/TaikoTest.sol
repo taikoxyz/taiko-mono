@@ -17,6 +17,7 @@ import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
+import "../contracts/bridge/QuotaManager.sol";
 
 import "../contracts/L2/DelegateOwner.sol";
 
