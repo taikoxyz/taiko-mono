@@ -240,6 +240,7 @@
     "ok": "Okay",
     "recipient": "Recipient",
     "review": "Review",
+    "search_token": "Search token",
     "see_results": "See results",
     "sender": "Sender",
     "status": "Status",
@@ -410,6 +411,7 @@
     "add_custom": "Add Custom",
     "custom_token": {
       "button": "Add token",
+      "default_message": "Only ERC20 token accepted",
       "description": "You can add your own token by entering the contract address below. Make sure you are on the chain where the token is deployed.",
       "title": "Add your own token"
     },

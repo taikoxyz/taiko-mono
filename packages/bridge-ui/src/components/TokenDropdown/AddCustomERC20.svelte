@@ -186,7 +186,7 @@
         on:addressvalidation={onAddressValidation}
         bind:state
         onDialog />
-      <div class="w-full flex items-center justify-between mt-4">
+      <div class="w-full flex items-center justify-between mt-[8px]">
         {#if customTokenWithDetails}
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
           <span>{$t('common.balance')}: {formattedBalance}</span>
@@ -195,15 +195,11 @@
         {:else if loadingTokenDetails}
           <Spinner />
         {:else}
-          <div class="min-h-[25px]" />
+          <FlatAlert type="info" message={$t('token_dropdown.custom_token.default_message')} />
         {/if}
       </div>
     </div>
-
-    <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>
-      {$t('token_dropdown.custom_token.button')}
-    </ActionButton>
-
+    <div class="h-sep" />
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
         <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
@@ -217,10 +213,13 @@
               <Icon type="trash" fillClass="fill-primary-icon" size={24} />
             </button>
           </div>
-          <div class="h-sep" />
         {/each}
       </div>
     {/if}
+    <div class="h-sep" />
+    <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>
+      {$t('token_dropdown.custom_token.button')}
+    </ActionButton>
   </div>
   <!-- We catch key events above -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
