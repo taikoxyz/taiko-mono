@@ -139,7 +139,8 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.destChainId == block.chainid) revert B_INVALID_CHAINID();
 
         // Ensure the sent value matches the expected amount.
-        if (msg.value != _message.value + _message.fee) revert B_INVALID_VALUE();
+        uint256 expectedAmount = _message.value + _message.fee;
+        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
         message_ = _message;
 
