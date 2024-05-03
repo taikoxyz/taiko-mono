@@ -389,8 +389,6 @@ contract ERC20Vault is BaseVault {
             balanceChange_ = t.balanceOf(address(this)) - _balance;
         }
 
-        _consumeTokenQuota(_op.token, balanceChange_);
-
         msgData_ = abi.encodeCall(
             this.onMessageInvocation, abi.encode(ctoken_, msg.sender, _op.to, balanceChange_)
         );

@@ -140,7 +140,6 @@ contract Bridge is EssentialContract, IBridge {
 
         // Ensure the sent value matches the expected amount.
         if (msg.value != _message.value + _message.fee) revert B_INVALID_VALUE();
-        _consumeEtherQuota(msg.value);
 
         message_ = _message;
 
