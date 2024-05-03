@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibMath.sol";
@@ -12,7 +11,6 @@ import "./IQuotaManager.sol";
 /// @custom:security-contact security@taiko.xyz
 contract QuotaManager is EssentialContract, IQuotaManager {
     using LibMath for uint256;
-    using SafeCast for uint256;
 
     struct Quota {
         uint48 updatedAt;
@@ -60,7 +58,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
         unchecked {
             available -= _amount;
         }
-        tokenQuota[_token].available = available.toUint104();
+        tokenQuota[_token].available = uint104(available);
         tokenQuota[_token].updatedAt = uint48(block.timestamp);
     }
 
