@@ -220,11 +220,6 @@ contract ERC20Vault is BaseVault {
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
-        address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
-        if (rateLimiter != address(0)) {
-            IRateLimiter(rateLimiter).consumeAmount(_op.token, _op.amount);
-        }
-
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(_op);
 
