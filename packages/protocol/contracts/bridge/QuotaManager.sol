@@ -47,7 +47,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
         if (_dailyQuota == tokenQuota[_token].dailyQuota) revert QM_SAME_QUOTA();
 
         emit DailyQuotaUpdated(_token, tokenQuota[_token].dailyQuota, _dailyQuota);
-        tokenQuota[_token] = Quota(0, _dailyQuota, 0);
+        tokenQuota[_token].dailyQuota = _dailyQuota;
     }
 
     /// @inheritdoc IQuotaManager
