@@ -600,9 +600,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function _consumeEtherQuota(uint256 _amount) private {
-        address rateLimiter = resolve(LibStrings.B_RATE_LIMITER, true);
-        if (rateLimiter != address(0)) {
-            IQuotaManager(rateLimiter).consumeQuota(address(0), _amount);
+        address quotaManager = resolve(LibStrings.B_RATE_LIMITER, true);
+        if (quotaManager != address(0)) {
+            IQuotaManager(quotaManager).consumeQuota(address(0), _amount);
         }
     }
 }
