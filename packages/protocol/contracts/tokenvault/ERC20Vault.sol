@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
@@ -316,7 +317,7 @@ contract ERC20Vault is BaseVault {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return "erc20_vault";
+        return LibStrings.B_ERC20_VAULT;
     }
 
     function _transferTokens(
