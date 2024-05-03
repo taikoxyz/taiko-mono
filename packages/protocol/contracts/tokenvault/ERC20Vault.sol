@@ -142,7 +142,6 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_NEW_BTOKEN();
-    error VAULT_NOT_SAME_OWNER();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
     /// @notice Initializes the contract.
@@ -171,14 +170,8 @@ contract ERC20Vault is BaseVault {
 
         if (btokenBlacklist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
 
-        if (IBridgedERC20(_btokenNew).owner() != owner()) {
-            revert VAULT_NOT_SAME_OWNER();
-        }
-
-        if (
-            block.timestamp
-                <= lastMigrationStart[_ctoken.chainId][_ctoken.addr] + MIN_MIGRATION_DELAY
-        ) {
+        uint256 _lastMigrationStart = lastMigrationStart[_ctoken.chainId][_ctoken.addr];
+        if (block.timestamp < _lastMigrationStart + MIN_MIGRATION_DELAY) {
             revert VAULT_LAST_MIGRATION_TOO_CLOSE();
         }
 
@@ -188,11 +181,9 @@ contract ERC20Vault is BaseVault {
             CanonicalERC20 memory ctoken = bridgedToCanonical[btokenOld_];
 
             // The ctoken must match the saved one.
-            if (
-                ctoken.decimals != _ctoken.decimals
-                    || keccak256(bytes(ctoken.symbol)) != keccak256(bytes(_ctoken.symbol))
-                    || keccak256(bytes(ctoken.name)) != keccak256(bytes(_ctoken.name))
-            ) revert VAULT_CTOKEN_MISMATCH();
+            if (keccak256(abi.encode(_ctoken)) != keccak256(abi.encode(ctoken))) {
+                revert VAULT_CTOKEN_MISMATCH();
+            }
 
             delete bridgedToCanonical[btokenOld_];
             btokenBlacklist[btokenOld_] = true;
