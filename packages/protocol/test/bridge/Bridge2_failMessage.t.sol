@@ -3,10 +3,6 @@ pragma solidity 0.8.24;
 
 import "./Bridge2.t.sol";
 
-contract TestToContract {
-    function anotherFunc() external { }
-}
-
 contract BridgeTest2_failMessage is BridgeTest2 {
     function test_bridge2_failMessage_not_by_destOwner() public transactedBy(Carol) {
         IBridge.Message memory message;
@@ -23,7 +19,7 @@ contract BridgeTest2_failMessage is BridgeTest2 {
     }
 
     function test_bridge2_failMessage_by_destOwner__message_failed() public transactedBy(Alice) {
-        TestToContract target = new TestToContract();
+        TestToContract target = new TestToContract(bridge);
 
         IBridge.Message memory message;
 
@@ -35,7 +31,7 @@ contract BridgeTest2_failMessage is BridgeTest2 {
         message.value = 2 ether;
         message.destOwner = Alice;
         message.to = address(target);
-        message.data = abi.encodeCall(TestToContract.anotherFunc, ());
+        message.data = abi.encodeCall(TestToContract.anotherFunc, ("hi"));
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
         bridge.failMessage(message);

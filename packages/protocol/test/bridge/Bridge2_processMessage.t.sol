@@ -3,30 +3,6 @@ pragma solidity 0.8.24;
 
 import "./Bridge2.t.sol";
 
-contract TestToContract is IMessageInvocable {
-    uint256 public receivedEther;
-    IBridge private bridge;
-    IBridge.Context public ctx;
-
-    constructor(IBridge _bridge) {
-        bridge = _bridge;
-    }
-
-    function onMessageInvocation(bytes calldata _data) external payable {
-        ctx = bridge.context();
-        receivedEther += msg.value;
-    }
-
-    function anotherFunc(bytes calldata _data) external payable {
-        receivedEther += msg.value;
-    }
-
-    fallback() external payable {
-        ctx = bridge.context();
-        receivedEther += msg.value;
-    }
-}
-
 contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage_basic() public {
         vm.deal(Alice, 100 ether);

@@ -64,3 +64,27 @@ contract BridgeTest2 is TaikoTest {
         vm.stopPrank();
     }
 }
+
+contract TestToContract is IMessageInvocable {
+    uint256 public receivedEther;
+    IBridge private bridge;
+    IBridge.Context public ctx;
+
+    constructor(IBridge _bridge) {
+        bridge = _bridge;
+    }
+
+    function onMessageInvocation(bytes calldata _data) external payable {
+        ctx = bridge.context();
+        receivedEther += msg.value;
+    }
+
+    function anotherFunc(bytes calldata _data) external payable {
+        receivedEther += msg.value;
+    }
+
+    fallback() external payable {
+        ctx = bridge.context();
+        receivedEther += msg.value;
+    }
+}
