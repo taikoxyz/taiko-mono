@@ -168,17 +168,133 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         vm.stopPrank();
     }
 
-    function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit() public { }
+    function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit() public {
+        vm.deal(Alice, 100 ether);
+        vm.startPrank(Alice);
 
-    function test_bridge2_processMessage__eoa_address__0_fee__nonezero_gaslimit() public { }
+        IBridge.Message memory message;
 
-    function test_bridge2_processMessage__eoa_to_address__0_fee__0_gaslimit() public { }
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 0;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+
+        uint256 aliceBalance = Alice.balance;
+
+        bridge.processMessage(message, fakeProof);
+
+        assertEq(Alice.balance, aliceBalance + 2 ether + 5_000_000);
+
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+        vm.stopPrank();
+    }
+
+    function test_bridge2_processMessage__eoa_address__0_fee__nonezero_gaslimit()
+        public
+        transactedBy(Carol)
+    {
+        IBridge.Message memory message;
+
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 1_000_000;
+        message.fee = 0;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = David;
+
+        uint256 aliceBalance = Alice.balance;
+        uint256 davidBalance = David.balance;
+
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(Alice.balance, aliceBalance);
+        assertEq(David.balance, davidBalance + 2 ether);
+    }
+
+    function test_bridge2_processMessage__eoa_to_address__0_fee__0_gaslimit()
+        public
+        transactedBy(Alice)
+    {
+        IBridge.Message memory message;
+
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 0;
+        message.fee = 0;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = David;
+
+        uint256 davidBalance = David.balance;
+
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(David.balance, davidBalance + 2 ether);
+    }
 
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__nonezero_gaslimit()
         public
-    { }
+        transactedBy(Carol)
+    {
+        IBridge.Message memory message;
 
-    function test_bridge2_processMessage__eoa_to_address__nonezero_fee__0_gaslimit() public { }
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 1_000_000;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = David;
+
+        uint256 aliceBalance = Alice.balance;
+        uint256 davidBalance = David.balance;
+
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(David.balance, davidBalance + 2 ether);
+        assertTrue(Alice.balance > aliceBalance);
+        assertTrue(Alice.balance < aliceBalance + 5_000_000);
+    }
+
+    function test_bridge2_processMessage__eoa_to_address__nonezero_fee__0_gaslimit()
+        public
+        transactedBy(Alice)
+    {
+        IBridge.Message memory message;
+
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 0;
+        message.fee = 1_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = David;
+
+        uint256 aliceBalance = Alice.balance;
+        uint256 davidBalance = David.balance;
+
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(David.balance, davidBalance + 2 ether);
+        // assertEq(Alice.balance, aliceBalance +  1000000);
+    }
 
     function test_bridge2_processMessage__onMessageInvocation_address__0_fee__nonezero_gaslimit()
         public
