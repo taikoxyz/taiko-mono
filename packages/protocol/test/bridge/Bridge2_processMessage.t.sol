@@ -3,6 +3,30 @@ pragma solidity 0.8.24;
 
 import "./Bridge2.t.sol";
 
+contract TestToContract is IMessageInvocable {
+    uint256 public receivedEther;
+    IBridge private bridge;
+    IBridge.Context public ctx;
+
+    constructor(IBridge _bridge) {
+        bridge = _bridge;
+    }
+
+    function onMessageInvocation(bytes calldata _data) external payable {
+        ctx = bridge.context();
+        receivedEther += msg.value;
+    }
+
+    function anotherFunc(bytes calldata _data) external payable {
+        receivedEther += msg.value;
+    }
+
+    fallback() external payable {
+        ctx = bridge.context();
+        receivedEther += msg.value;
+    }
+}
+
 contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage_basic() public {
         vm.deal(Alice, 100 ether);
@@ -296,73 +320,54 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         // assertEq(Alice.balance, aliceBalance +  1000000);
     }
 
-    function test_bridge2_processMessage__onMessageInvocation_address__0_fee__nonezero_gaslimit()
-        public
-    { }
+    function test_bridge2_processMessage__special_invocation() public transactedBy(Carol) {
+        TestToContract target = new TestToContract(bridge);
 
-    function test_bridge2_processMessage__onMessageInvocation_to_address__0_fee__0_gaslimit()
-        public
-    { }
+        IBridge.Message memory message;
 
-    function test_bridge2_processMessage__onMessageInvocation_to_address__nonezero_fee__nonezero_gaslimit(
-    )
-        public
-    { }
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
-    function test_bridge2_processMessage__onMessageInvocation_to_address__nonezero_fee__0_gaslimit()
-        public
-    { }
+        message.gasLimit = 1_000_000;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = address(target);
+        message.data = abi.encodeCall(TestToContract.anotherFunc, (""));
 
-    // function test_bridge2_processMessage_special_to_address_nonezero_fee()
-    //     public
-    //     transactedBy(Carol)
-    //public  { }
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
-    // function test_bridge2_processMessage_normal_to_address_no_fee_zero_gaslimit() public {
-    //     vm.deal(Alice, 100 ether);
-    //     vm.startPrank(Alice);
+        message.data = "1";
+        bridge.processMessage(message, fakeProof);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(target.receivedEther(), 2 ether);
 
-    //     IBridge.Message memory message;
+        (bytes32 msgHash, address from, uint64 srcChainId) = target.ctx();
+        assertEq(msgHash, hash);
+        assertEq(from, message.from);
+        assertEq(srcChainId, message.srcChainId);
 
-    //     message.destChainId = uint64(block.chainid);
-    //     message.srcChainId = remoteChainId;
-    //     message.gasLimit = 0;
-    //     message.value = 2 ether;
-    //     message.fee = 0;
-    //     message.destOwner = Bob;
-    //     message.to = David;
+        message.to = Bob;
+        message.data = "something else";
 
-    //     vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-    //     bridge.processMessage(message, fakeProof);
-    //     vm.stopPrank();
+        bridge.processMessage(message, fakeProof);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(Bob.balance, 2 ether);
 
-    //     vm.deal(Bob, 10 ether);
-    //     uint256 davidBalance = David.balance;
+        message.to = address(target);
+        message.data = abi.encodeCall(TestToContract.onMessageInvocation, (""));
+        bridge.processMessage(message, fakeProof);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(target.receivedEther(), 4 ether);
 
-    //     vm.prank(Bob);
-    //     bridge.processMessage(message, fakeProof);
-    //     assertEq(David.balance, davidBalance);
-
-    //     bytes32 hash = bridge.hashMessage(message);
-    //     assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
-    // }
-
-    // function test_bridge2_processMessage_normal_to_address_no_fee_nonzero_gaslimi()
-    //     public
-    //     transactedBy(Carol)
-    // {
-    //     IBridge.Message memory message;
-
-    //     message.destChainId = uint64(block.chainid);
-    //     message.srcChainId = remoteChainId;
-    //     message.gasLimit = 1_000_000;
-    //     message.value = 2 ether;
-    //     message.fee = 0;
-    //     message.destOwner = Alice;
-    //     message.to = David;
-
-    //     uint256 davidBalance = David.balance;
-    //     bridge.processMessage(message, fakeProof);
-    //     assertEq(David.balance, davidBalance + 2 ether);
-    // }
+        (msgHash, from, srcChainId) = target.ctx();
+        assertEq(msgHash, hash);
+        assertEq(from, message.from);
+        assertEq(srcChainId, message.srcChainId);
+    }
 }
