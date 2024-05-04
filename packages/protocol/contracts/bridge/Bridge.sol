@@ -265,7 +265,6 @@ contract Bridge is EssentialContract, IBridge {
                         (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
 
                     refundAmount -= fee;
-
                     msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
                 }
             }
