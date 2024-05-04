@@ -361,7 +361,9 @@
   },
   "paginator": {
     "of": "of",
-    "page": "Page"
+    "page": "Page",
+    "more": "Fetch more...",
+    "everything_loaded": "Everything loaded"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communication channels for more information. ",
