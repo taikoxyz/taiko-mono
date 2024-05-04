@@ -305,15 +305,18 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         message.srcChainId = remoteChainId;
 
         message.gasLimit = 1_000_000;
-        message.fee = 5_000_000;
+        message.fee = 0;
         message.value = 2 ether;
         message.destOwner = Alice;
         message.to = address(target);
         message.data = abi.encodeCall(TestToContract.anotherFunc, (""));
 
+        uint256 aliceBalance = Alice.balance;
         bridge.processMessage(message, fakeProof);
         bytes32 hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(Alice.balance, aliceBalance + 2 ether);
+        assertEq(target.receivedEther(), 0 ether);
 
         message.data = "1";
         bridge.processMessage(message, fakeProof);
