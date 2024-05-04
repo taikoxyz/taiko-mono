@@ -27,7 +27,6 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
-    error QM_SAME_QUOTA();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -51,7 +50,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     /// @param _token The token address with Ether represented by address(0).
     /// @param _quota The new daily quota.
     function updateQuota(address _token, uint104 _quota) external onlyOwner whenNotPaused {
-        if (_quota == tokenQuota[_token].quota) revert QM_SAME_QUOTA();
+        if (_quota == tokenQuota[_token].quota) revert QM_INVALID_PARAM();
 
         emit QuotaUpdated(_token, tokenQuota[_token].quota, _quota);
         tokenQuota[_token].quota = _quota;
