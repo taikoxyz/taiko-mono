@@ -606,7 +606,6 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.to == address(0)) return true;
         if (_message.to == address(this)) return true;
-
         if (_message.to == _signalService) return true;
 
         return _message.data.length >= 4
