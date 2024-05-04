@@ -557,5 +557,6 @@
 | lastUnpausedAt | uint64                                        | 201  | 2      | 8     | contracts/bridge/QuotaManager.sol:QuotaManager |
 | __gap          | uint256[49]                                   | 202  | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
 | tokenQuota     | mapping(address => struct QuotaManager.Quota) | 251  | 0      | 32    | contracts/bridge/QuotaManager.sol:QuotaManager |
-| __gap          | uint256[49]                                   | 252  | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| quotaPeriod    | uint24                                        | 252  | 0      | 3     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
 
