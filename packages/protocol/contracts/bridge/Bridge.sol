@@ -9,6 +9,8 @@ import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
 
+import "forge-std/src/console2.sol";
+
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev Labeled in AddressResolver as "bridge". Additionally, the code hash for the same address on
@@ -237,9 +239,11 @@ contract Bridge is EssentialContract, IBridge {
             refundAmount = _message.value;
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
-            Status status = _invokeMessageCall(
-                _message, msgHash, _invocationGasLimit(_message, true)
-            ) ? Status.DONE : Status.RETRIABLE;
+            uint256 gasLimit = msg.sender == _message.destOwner
+                ? gasleft() // ignore _message.gasLimit
+                : _invocationGasLimit(_message, true);
+            Status status =
+                _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
             _updateMessageStatus(msgHash, status);
         }
 
@@ -257,6 +261,8 @@ contract Bridge is EssentialContract, IBridge {
                         (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
 
                     refundAmount -= fee;
+
+                    console2.log("actual fee:", fee);
                     msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
                 }
             }
@@ -451,6 +457,8 @@ contract Bridge is EssentialContract, IBridge {
         private
         returns (bool success_)
     {
+        console2.log("_gasLimit:", _gasLimit);
+
         assert(_message.from != address(this));
 
         if (_gasLimit == 0) return false;
