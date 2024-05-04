@@ -41,7 +41,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
 
         (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 40_000_000 }(message);
         assertEq(m.id, 1);
-        assertEq(m.srcOwner, Alice);
+        assertEq(m.srcOwner, Alice); // Not Carol
         assertEq(m.srcChainId, block.chainid);
         assertEq(mhash, bridge.hashMessage(m));
 

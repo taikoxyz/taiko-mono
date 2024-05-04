@@ -4,9 +4,12 @@ pragma solidity 0.8.24;
 import "../TaikoTest.sol";
 
 contract BridgeTest2 is TaikoTest {
+    bytes public constant fakeProof = "";
+
     address public owner;
     uint64 public remoteChainId;
     address public remoteBridge;
+
     AddressManager public addressManager;
     SignalService public signalService;
     Bridge public bridge;
@@ -54,6 +57,8 @@ contract BridgeTest2 is TaikoTest {
                 })
             )
         );
+
+        vm.deal(address(bridge), 10_000 ether);
 
         addressManager.setAddress(remoteChainId, "bridge", remoteBridge);
         vm.stopPrank();
