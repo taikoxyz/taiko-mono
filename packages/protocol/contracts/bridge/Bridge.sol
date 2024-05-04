@@ -90,9 +90,9 @@ contract Bridge is EssentialContract, IBridge {
     error B_SIGNAL_NOT_RECEIVED();
 
     modifier validChainIds(uint64 _localChainId, uint64 _remoteChainId) {
-        if (
-            _localChainId != block.chainid || _remoteChainId == 0 || _remoteChainId == block.chainid
-        ) revert B_INVALID_CHAINID();
+        if (_remoteChainId == 0) revert B_INVALID_CHAINID();
+        if (_remoteChainId == block.chainid) revert B_INVALID_CHAINID();
+        if (_localChainId != block.chainid) revert B_INVALID_CHAINID();
         _;
     }
 
@@ -123,9 +123,8 @@ contract Bridge is EssentialContract, IBridge {
         returns (bytes32 msgHash_, Message memory message_)
     {
         // Ensure the message owner is not null.
-        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
-            revert B_INVALID_USER();
-        }
+        if (_message.srcOwner == address(0)) revert B_INVALID_USER();
+        if (_message.destOwner == address(0)) revert B_INVALID_USER();
 
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
