@@ -58,7 +58,6 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
     }
 
     function test_bridge2_sendMessage_invocationGasLimit() public transactedBy(Carol) {
-        // init an all-zero message
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
