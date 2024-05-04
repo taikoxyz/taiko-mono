@@ -82,5 +82,8 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         bridge.sendMessage(message);
 
         bridge.sendMessage{ value: message.fee }(message);
+
+        message.fee = 0;
+        bridge.sendMessage(message);
     }
 }
