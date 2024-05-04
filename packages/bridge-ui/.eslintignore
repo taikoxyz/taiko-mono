@@ -18,3 +18,5 @@ package-lock.json
 yarn.lock
 
 src/generated/*
+
+.vercel/**
