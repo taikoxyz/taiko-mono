@@ -94,6 +94,11 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
+    modifier differentChain(uint64 _chainId) {
+        if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
+        _;
+    }
+
     /// @notice Function to receive Ether.
     receive() external payable { }
 
@@ -161,6 +166,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         whenNotPaused
         sameChain(_message.srcChainId)
+        differentChain(_message.destChainId)
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
@@ -208,6 +214,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         whenNotPaused
         sameChain(_message.destChainId)
+        differentChain(_message.srcChainId)
         nonReentrant
     {
         uint256 gasStart = gasleft();
@@ -279,6 +286,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         whenNotPaused
         sameChain(_message.destChainId)
+        differentChain(_message.srcChainId)
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
@@ -313,6 +321,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         whenNotPaused
         sameChain(_message.destChainId)
+        differentChain(_message.srcChainId)
         nonReentrant
     {
         if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();

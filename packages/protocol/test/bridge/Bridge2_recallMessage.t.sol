@@ -28,7 +28,7 @@ contract TestRecallableSender is IRecallableSender, IERC165 {
 }
 
 contract BridgeTest2_recallMessage is BridgeTest2 {
-    function test_bridge2_recallMessage_1() public transactedBy(Carol) {
+    function test_bridge2_recallMessage_basic() public transactedBy(Carol) {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
