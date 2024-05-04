@@ -52,6 +52,9 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         assertEq(address(bridge).balance, bridgeBalance + 1 ether);
 
         bridge.recallMessage(m, fakeProof);
+        bytes32 hash = bridge.hashMessage(m);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RECALLED);
+
         assertEq(Alice.balance, aliceBalance + 1 ether);
         assertEq(Carol.balance, carolBalance - 1 ether);
         assertEq(address(bridge).balance, bridgeBalance);
@@ -101,6 +104,8 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
 
         vm.prank(address(callableSender));
         bridge.recallMessage(m, fakeProof);
+        bytes32 hash = bridge.hashMessage(m);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RECALLED);
 
         (bytes32 msgHash, address from, uint64 srcChainId) = callableSender.ctx();
         assertEq(msgHash, mhash);
