@@ -233,6 +233,9 @@ contract Bridge is EssentialContract, IBridge {
         if (
             _message.to == address(0) || _message.to == address(this)
                 || _message.to == signalService
+                || _message.data.length >= 4
+                    && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
+                    && _message.to.isContract()
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
@@ -242,6 +245,7 @@ contract Bridge is EssentialContract, IBridge {
             uint256 gasLimit = msg.sender == _message.destOwner
                 ? gasleft() // ignore _message.gasLimit
                 : _invocationGasLimit(_message, true);
+
             Status status =
                 _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
             _updateMessageStatus(msgHash, status);
@@ -462,12 +466,6 @@ contract Bridge is EssentialContract, IBridge {
         assert(_message.from != address(this));
 
         if (_gasLimit == 0) return false;
-
-        if (
-            _message.data.length >= 4 // msg can be empty
-                && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
-                && _message.to.isContract()
-        ) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
         success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
