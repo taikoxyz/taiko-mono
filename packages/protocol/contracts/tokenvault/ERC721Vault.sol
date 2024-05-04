@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC721.sol";
 
@@ -158,7 +159,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return "erc721_vault";
+        return LibStrings.B_ERC721_VAULT;
     }
 
     function _transferTokens(

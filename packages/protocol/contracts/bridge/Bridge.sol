@@ -387,7 +387,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool enabled_, address destBridge_)
     {
-        destBridge_ = resolve(_chainId, "bridge", true);
+        destBridge_ = resolve(_chainId, LibStrings.B_BRIDGE, true);
         enabled_ = destBridge_ != address(0);
     }
 
@@ -538,7 +538,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool success_, uint32 numCacheOps_)
     {
         try ISignalService(_signalService).proveSignalReceived(
-            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
+            _chainId, resolve(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
         ) returns (uint256 numCacheOps) {
             numCacheOps_ = uint32(numCacheOps);
             success_ = true;
@@ -565,7 +565,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         try ISignalService(_signalService).verifySignalReceived(
-            _chainId, resolve(_chainId, "bridge", false), _signal, _proof
+            _chainId, resolve(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
         ) {
             return true;
         } catch {
