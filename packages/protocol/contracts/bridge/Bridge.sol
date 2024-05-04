@@ -89,13 +89,10 @@ contract Bridge is EssentialContract, IBridge {
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
-    modifier sameChain(uint64 _chainId) {
-        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
-        _;
-    }
-
-    modifier differentChain(uint64 _chainId) {
-        if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
+    modifier validChainIds(uint64 _localChainId, uint64 _remoteChainId) {
+        if (
+            _localChainId != block.chainid || _remoteChainId == 0 || _remoteChainId == block.chainid
+        ) revert B_INVALID_CHAINID();
         _;
     }
 
@@ -164,9 +161,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
+        validChainIds(_message.srcChainId, _message.destChainId)
         whenNotPaused
-        sameChain(_message.srcChainId)
-        differentChain(_message.destChainId)
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
@@ -178,10 +174,9 @@ contract Bridge is EssentialContract, IBridge {
             revert B_MESSAGE_NOT_SENT();
         }
 
-        (bool received,) = _proveSignalReceived(
+        _proveSignalReceived(
             signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
         );
-        if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         _updateMessageStatus(msgHash, Status.RECALLED);
         _consumeEtherQuota(_message.value);
@@ -212,9 +207,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
+        validChainIds(_message.destChainId, _message.srcChainId)
         whenNotPaused
-        sameChain(_message.destChainId)
-        differentChain(_message.srcChainId)
         nonReentrant
     {
         uint256 gasStart = gasleft();
@@ -231,11 +225,8 @@ contract Bridge is EssentialContract, IBridge {
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
         ProcessingStats memory stats;
-        bool received;
-
-        (received, stats.numCacheOps) =
+        stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
-        if (!received) revert B_SIGNAL_NOT_RECEIVED();
 
         uint256 refundAmount;
         if (
@@ -284,9 +275,8 @@ contract Bridge is EssentialContract, IBridge {
         bool _isLastAttempt
     )
         external
+        validChainIds(_message.destChainId, _message.srcChainId)
         whenNotPaused
-        sameChain(_message.destChainId)
-        differentChain(_message.srcChainId)
         nonReentrant
     {
         bytes32 msgHash = hashMessage(_message);
@@ -319,9 +309,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function failMessage(Message calldata _message)
         external
+        validChainIds(_message.destChainId, _message.srcChainId)
         whenNotPaused
-        sameChain(_message.destChainId)
-        differentChain(_message.srcChainId)
         nonReentrant
     {
         if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
@@ -539,7 +528,6 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    /// @return success_ true if the message was received.
     /// @return numCacheOps_ Num of cached items
     function _proveSignalReceived(
         address _signalService,
@@ -548,15 +536,14 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         private
-        returns (bool success_, uint32 numCacheOps_)
+        returns (uint32 numCacheOps_)
     {
         try ISignalService(_signalService).proveSignalReceived(
             _chainId, resolve(_chainId, "bridge", false), _signal, _proof
         ) returns (uint256 numCacheOps) {
             numCacheOps_ = uint32(numCacheOps);
-            success_ = true;
         } catch {
-            success_ = false;
+            revert B_SIGNAL_NOT_RECEIVED();
         }
     }
 
