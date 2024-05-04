@@ -53,7 +53,7 @@
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.6",
     "@wagmi/cli": "^2.1.4",
-    "@wagmi/connectors": "^4.1.18",
+    "@wagmi/connectors": "^4.3.3",
     "@wagmi/core": "^2.8.0",
     "@web3modal/common": "^4.1.1",
     "@web3modal/ui": "^4.1.1",
