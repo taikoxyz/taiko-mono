@@ -14,40 +14,47 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     struct Quota {
         uint48 updatedAt;
-        uint104 dailyQuota;
+        uint104 quota;
         uint104 available;
     }
 
     mapping(address token => Quota tokenLimit) public tokenQuota;
-    uint256[49] private __gap;
+    uint24 public quotaPeriod;
 
-    event DailyQuotaUpdated(address indexed token, uint256 oldDailyLimit, uint256 newDaiyLimit);
+    uint256[48] private __gap;
 
+    event QuotaUpdated(address indexed token, uint256 oldQuota, uint256 newQuota);
+
+    error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
     error QM_SAME_QUOTA();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
+    /// @param _quotaPeriod The time required to restore all quota.
+    function init(
+        address _owner,
+        address _addressManager,
+        uint24 _quotaPeriod
+    )
+        external
+        initializer
+    {
+        if (_quotaPeriod == 0) revert QM_INVALID_PARAM();
+
         __Essential_init(_owner, _addressManager);
+        quotaPeriod = _quotaPeriod;
     }
 
     /// @notice Updates the daily quota for a given address.
     /// @param _token The token address with Ether represented by address(0).
-    /// @param _dailyQuota The new daily quota.
-    function updateDailyQuota(
-        address _token,
-        uint104 _dailyQuota
-    )
-        external
-        onlyOwner
-        whenNotPaused
-    {
-        if (_dailyQuota == tokenQuota[_token].dailyQuota) revert QM_SAME_QUOTA();
+    /// @param _quota The new daily quota.
+    function updateQuota(address _token, uint104 _quota) external onlyOwner whenNotPaused {
+        if (_quota == tokenQuota[_token].quota) revert QM_SAME_QUOTA();
 
-        emit DailyQuotaUpdated(_token, tokenQuota[_token].dailyQuota, _dailyQuota);
-        tokenQuota[_token].dailyQuota = _dailyQuota;
+        emit QuotaUpdated(_token, tokenQuota[_token].quota, _quota);
+        tokenQuota[_token].quota = _quota;
     }
 
     /// @inheritdoc IQuotaManager
@@ -72,12 +79,13 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     /// @notice Returns the available quota for a given token.
     /// @param _token The token address with Ether represented by address(0).
+    /// @return The available quota.
     function availableQuota(address _token) public view returns (uint256) {
         Quota memory q = tokenQuota[_token];
-        if (q.dailyQuota == 0) return type(uint256).max;
-        if (q.updatedAt == 0) return q.dailyQuota;
+        if (q.quota == 0) return type(uint256).max;
+        if (q.updatedAt == 0) return q.quota;
 
-        uint256 issuance = q.dailyQuota * (block.timestamp - q.updatedAt) / 24 hours;
-        return (issuance + q.available).min(q.dailyQuota);
+        uint256 issuance = q.quota * (block.timestamp - q.updatedAt) / quotaPeriod;
+        return (issuance + q.available).min(q.quota);
     }
 }

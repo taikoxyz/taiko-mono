@@ -28,7 +28,7 @@ contract QuotaManagerTest is TaikoTest {
                 deployProxy({
                     name: "quota_manager",
                     impl: address(new QuotaManager()),
-                    data: abi.encodeCall(QuotaManager.init, (address(0), address(am)))
+                    data: abi.encodeCall(QuotaManager.init, (address(0), address(am), 24 hours))
                 })
             )
         );
@@ -41,10 +41,10 @@ contract QuotaManagerTest is TaikoTest {
         assertEq(qm.availableQuota(Ether), type(uint256).max);
 
         vm.expectRevert();
-        qm.updateDailyQuota(Ether, 10 ether);
+        qm.updateQuota(Ether, 10 ether);
 
         vm.prank(Alice);
-        qm.updateDailyQuota(Ether, 10 ether);
+        qm.updateQuota(Ether, 10 ether);
         assertEq(qm.availableQuota(address(0)), 10 ether);
 
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);

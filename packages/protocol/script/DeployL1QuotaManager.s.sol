@@ -18,19 +18,19 @@ contract DeployL1QuotaManager is DeployCapability {
     }
 
     function run() external broadcast {
-        // Deploy the TaikoToken contract, use securityCouncil address as the owner.
+        // Deploy the QuotaManager contract with a 15 minute quota period
         QuotaManager qm = QuotaManager(
             deployProxy({
                 name: "quota_manager",
                 impl: address(new QuotaManager()),
-                data: abi.encodeCall(QuotaManager.init, (owner, addressManager))
+                data: abi.encodeCall(QuotaManager.init, (owner, addressManager, 15 minutes))
             })
         );
 
-        // L2-to-L1 Ether per day: 25_000 Ether
-        qm.updateDailyQuota(address(0), 25_000 ether);
+        // L2-to-L1 Ether per 15 minutes: 500 Ether
+        qm.updateQuota(address(0), 250 ether);
 
-        // L2-to-L1 TKO per day: 10 million (1% total supply)
-        qm.updateDailyQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 10_000_000 ether);
+        // L2-to-L1 TKO per 15 minutes: 100_000 (0.01% total supply)
+        qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 100_000 ether);
     }
 }
