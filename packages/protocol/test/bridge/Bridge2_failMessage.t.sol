@@ -67,9 +67,6 @@ contract BridgeTest2_failMessage is BridgeTest2 {
         message.destOwner = Alice;
         message.to = David;
 
-        uint256 aliceBalance = Alice.balance;
-        uint256 davidBalance = David.balance;
-
         bridge.processMessage(message, fakeProof);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);

@@ -74,12 +74,12 @@ contract TestToContract is IMessageInvocable {
         bridge = _bridge;
     }
 
-    function onMessageInvocation(bytes calldata _data) external payable {
+    function onMessageInvocation(bytes calldata) external payable {
         ctx = bridge.context();
         receivedEther += msg.value;
     }
 
-    function anotherFunc(bytes calldata _data) external payable {
+    function anotherFunc(bytes calldata) external payable {
         receivedEther += msg.value;
     }
 
@@ -87,4 +87,6 @@ contract TestToContract is IMessageInvocable {
         ctx = bridge.context();
         receivedEther += msg.value;
     }
+
+    receive() external payable { }
 }

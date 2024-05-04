@@ -16,13 +16,7 @@ contract TestRecallableSender is IRecallableSender, IERC165 {
             || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
-    function onMessageRecalled(
-        IBridge.Message calldata _message,
-        bytes32 _msgHash
-    )
-        external
-        payable
-    {
+    function onMessageRecalled(IBridge.Message calldata, bytes32) external payable {
         ctx = bridge.context();
     }
 }
