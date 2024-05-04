@@ -86,4 +86,23 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         message.fee = 0;
         bridge.sendMessage(message);
     }
+
+    function test_bridge2_sendMessage_missing_local_signal_service() public {
+        vm.deal(Alice, 100 ether);
+
+        IBridge.Message memory message;
+        message.srcOwner = Alice;
+        message.destOwner = Bob;
+        message.destChainId = remoteChainId;
+
+        vm.prank(Alice);
+        bridge.sendMessage(message);
+
+        vm.prank(owner);
+        addressManager.setAddress(uint64(block.chainid), "signal_service", address(0));
+
+        vm.prank(Alice);
+        vm.expectRevert();
+        bridge.sendMessage(message);
+    }
 }
