@@ -22,7 +22,7 @@ contract BridgeTest2_failMessage is BridgeTest2 {
         bridge.failMessage(message);
     }
 
-    function test_bridge2_failMessage_by_destOwner() public transactedBy(Alice) {
+    function test_bridge2_failMessage_by_destOwner__message_failed() public transactedBy(Alice) {
         TestToContract target = new TestToContract();
 
         IBridge.Message memory message;
@@ -45,8 +45,36 @@ contract BridgeTest2_failMessage is BridgeTest2 {
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
         bridge.failMessage(message);
-
         hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.FAILED);
+
+        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        bridge.failMessage(message);
+    }
+
+    function test_bridge2_failMessage_by_destOwner__message_processed()
+        public
+        transactedBy(Alice)
+    {
+        IBridge.Message memory message;
+
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 0;
+        message.fee = 1_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = David;
+
+        uint256 aliceBalance = Alice.balance;
+        uint256 davidBalance = David.balance;
+
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        bridge.failMessage(message);
     }
 }
