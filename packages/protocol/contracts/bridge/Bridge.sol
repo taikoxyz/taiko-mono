@@ -229,15 +229,7 @@ contract Bridge is EssentialContract, IBridge {
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         uint256 refundAmount;
-        if (
-            _message.to == address(0) || _message.to == address(this)
-                || _message.to == signalService
-                || (
-                    _message.data.length >= 4
-                        && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
-                        && _message.to.isContract()
-                )
-        ) {
+        if (_unableToInvokeMessageCall(_message, signalService)) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             refundAmount = _message.value;
@@ -602,5 +594,23 @@ contract Bridge is EssentialContract, IBridge {
         if (quotaManager != address(0)) {
             IQuotaManager(quotaManager).consumeQuota(address(0), _amount);
         }
+    }
+
+    function _unableToInvokeMessageCall(
+        Message calldata _message,
+        address _signalService
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (_message.to == address(0)) return true;
+        if (_message.to == address(this)) return true;
+
+        if (_message.to == _signalService) return true;
+
+        return _message.data.length >= 4
+            && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
+            && _message.to.isContract();
     }
 }
