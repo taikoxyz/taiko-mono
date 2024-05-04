@@ -136,11 +136,9 @@ contract Bridge is EssentialContract, IBridge {
 
         // Verify destination chain and to address.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
-        if (_message.destChainId == block.chainid) revert B_INVALID_CHAINID();
 
         // Ensure the sent value matches the expected amount.
-        uint256 expectedAmount = _message.value + _message.fee;
-        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
+        if (_message.value + _message.fee != msg.value) revert B_INVALID_VALUE();
 
         message_ = _message;
 
@@ -391,8 +389,10 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool enabled_, address destBridge_)
     {
-        destBridge_ = resolve(_chainId, "bridge", true);
-        enabled_ = destBridge_ != address(0);
+        if (_chainId != 0 && _chainId != block.chainid) {
+            destBridge_ = resolve(_chainId, "bridge", true);
+            enabled_ = destBridge_ != address(0);
+        }
     }
 
     /// @notice Gets the current context.
