@@ -59,6 +59,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
+            processor: address(0),
             data: data
         });
 

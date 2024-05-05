@@ -40,8 +40,10 @@ interface IBridge {
         address destOwner;
         // The destination address on the destination chain.
         address to;
-        // value to invoke on the destination chain.
+        // Value to invoke on the destination chain.
         uint256 value;
+        // The address that can process this message.
+        address processor;
         // callData to invoke on the destination chain.
         bytes data;
     }

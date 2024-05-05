@@ -74,6 +74,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
+            processor: address(0),
             data: data
         });
 

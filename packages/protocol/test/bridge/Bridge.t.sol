@@ -153,6 +153,7 @@ contract BridgeTest is TaikoTest {
             value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
@@ -191,6 +192,7 @@ contract BridgeTest is TaikoTest {
             value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
@@ -228,6 +230,7 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol))
         });
         // Mocking proof - but obviously it needs to be created in prod
@@ -590,6 +593,7 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: ""
         });
 
@@ -618,6 +622,7 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: ""
         });
 
@@ -692,6 +697,7 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: ""
         });
 
@@ -724,6 +730,7 @@ contract BridgeTest is TaikoTest {
             from: owner, // placeholder, will be overwritten
             srcChainId: uint64(block.chainid), // will be overwritten
             gasLimit: gasLimit,
+            processor: address(0),
             data: ""
         });
     }
@@ -748,6 +755,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             fee: 0,
             gasLimit: 1_000_000,
+            processor: address(0),
             data: encodedCall
         });
     }
