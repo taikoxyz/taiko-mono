@@ -89,10 +89,18 @@ contract Bridge is EssentialContract, IBridge {
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
-    modifier validChainIds(uint64 _localChainId, uint64 _remoteChainId) {
-        if (_remoteChainId == 0) revert B_INVALID_CHAINID();
-        if (_remoteChainId == block.chainid) revert B_INVALID_CHAINID();
-        if (_localChainId != block.chainid) revert B_INVALID_CHAINID();
+    modifier sameChain(uint64 _chainId) {
+        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
+        _;
+    }
+
+    modifier differentChain(uint64 _chainId) {
+        if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
+        _;
+    }
+
+    modifier nonZeroAddr(address _addr) {
+        if (_addr == address(0)) revert B_INVALID_USER();
         _;
     }
 
@@ -118,15 +126,12 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         override
+        nonZeroAddr(_message.srcOwner)
+        nonZeroAddr(_message.destOwner)
         whenNotPaused
         nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
-        // Ensure the message owner is not null.
-        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
-            revert B_INVALID_USER();
-        }
-
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
         } else if (_invocationGasLimit(_message, false) == 0) {
@@ -161,7 +166,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        validChainIds(_message.srcChainId, _message.destChainId)
+        sameChain(_message.srcChainId)
+        differentChain(_message.destChainId)
         whenNotPaused
         nonReentrant
     {
@@ -207,7 +213,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        validChainIds(_message.destChainId, _message.srcChainId)
+        sameChain(_message.destChainId)
+        differentChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
@@ -275,7 +282,8 @@ contract Bridge is EssentialContract, IBridge {
         bool _isLastAttempt
     )
         external
-        validChainIds(_message.destChainId, _message.srcChainId)
+        sameChain(_message.destChainId)
+        differentChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
@@ -309,7 +317,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function failMessage(Message calldata _message)
         external
-        validChainIds(_message.destChainId, _message.srcChainId)
+        sameChain(_message.destChainId)
+        differentChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
