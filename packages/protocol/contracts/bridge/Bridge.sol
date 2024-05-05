@@ -128,6 +128,7 @@ contract Bridge is EssentialContract, IBridge {
         override
         nonZeroAddr(_message.srcOwner)
         nonZeroAddr(_message.destOwner)
+        diffChain(_message.destChainId)
         whenNotPaused
         nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
@@ -396,10 +397,8 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool enabled_, address destBridge_)
     {
-        if (_chainId != 0 && _chainId != block.chainid) {
-            destBridge_ = resolve(_chainId, LibStrings.B_BRIDGE, true);
-            enabled_ = destBridge_ != address(0);
-        }
+        destBridge_ = resolve(_chainId, LibStrings.B_BRIDGE, true);
+        enabled_ = destBridge_ != address(0);
     }
 
     /// @notice Gets the current context.
