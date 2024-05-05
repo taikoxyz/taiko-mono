@@ -37,7 +37,7 @@
   export let onlyMintable: boolean = false;
   export let disabled = false;
   export let combined = false;
-  export let isWidthFull: boolean = false
+  export let isWidthFull: boolean = false;
 
   let id = `menu-${uid()}`;
   $: menuOpen = false;

@@ -32,7 +32,7 @@
 
   $: menuClasses = classNames(
     'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10  box-shadow-small',
-    isWidthFull ? "w-full" : undefined,
+    isWidthFull ? 'w-full' : undefined,
     menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
   );
 
