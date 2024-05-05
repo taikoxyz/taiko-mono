@@ -212,9 +212,11 @@ contract Bridge is EssentialContract, IBridge {
     {
         uint256 gasStart = gasleft();
 
-        // If the gas limit is set to zero, only the owner can process the message.
-        if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
-            revert B_PERMISSION_DENIED();
+        if (msg.sender != _message.destOwner) {
+            if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
+
+            address processor = resolve(LibStrings.B_BRIDGE_PROCESSOR, true);
+            if (processor != address(0) && msg.sender != processor) revert B_PERMISSION_DENIED();
         }
 
         bytes32 msgHash = hashMessage(_message);

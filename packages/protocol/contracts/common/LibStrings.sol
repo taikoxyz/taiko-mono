@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 /// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
+    bytes32 internal constant B_BRIDGE_PROCESSOR = bytes32("bridge_processor");
     bytes32 internal constant B_CHAIN_WATCHDOG = bytes32("chain_watchdog");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant B_PROPOSER = bytes32("proposer");
