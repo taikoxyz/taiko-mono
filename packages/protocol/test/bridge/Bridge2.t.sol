@@ -27,6 +27,7 @@ contract BridgeTest2 is TaikoTest {
         _;
         uint256 totalBalance2 = getBalanceForAccounts();
         assertEq(totalBalance2, totalBalance);
+        assertEq(address(signalService).balance, 0);
     }
 
     modifier dealEther(address addr) {
@@ -34,13 +35,12 @@ contract BridgeTest2 is TaikoTest {
         _;
     }
 
-    function setUp() public {
+    function setUp() public dealEther(owner) {
         owner = vm.addr(0x1000);
         remoteChainId = uint64(block.chainid + 1);
         remoteBridge = vm.addr(0x2000);
 
         vm.startPrank(owner);
-        vm.deal(owner, 100 ether);
 
         addressManager = AddressManager(
             deployProxy({
@@ -77,6 +77,7 @@ contract BridgeTest2 is TaikoTest {
     }
 
     function getBalanceForAccounts() public view returns (uint256) {
-        return Alice.balance + Bob.balance + Carol.balance + David.balance + address(bridge).balance;
+        return Alice.balance + Bob.balance + Carol.balance + David.balance + address(bridge).balance
+            + owner.balance;
     }
 }
