@@ -4,7 +4,11 @@ pragma solidity 0.8.24;
 import "./Bridge2.t.sol";
 
 contract BridgeTest2_sendMessage is BridgeTest2 {
-    function test_bridge2_sendMessage_invalid_message() public transactedBy(Carol) {
+    function test_bridge2_sendMessage_invalid_message()
+        public
+        transactedBy(Carol)
+        assertSameTotalBalance
+    {
         // init an all-zero message
         IBridge.Message memory message;
 
@@ -57,7 +61,11 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         assertTrue(mhash2 != mhash);
     }
 
-    function test_bridge2_sendMessage_invocationGasLimit() public transactedBy(Carol) {
+    function test_bridge2_sendMessage_invocationGasLimit()
+        public
+        transactedBy(Carol)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
@@ -87,9 +95,11 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         bridge.sendMessage(message);
     }
 
-    function test_bridge2_sendMessage_missing_local_signal_service() public {
-        vm.deal(Alice, 100 ether);
-
+    function test_bridge2_sendMessage_missing_local_signal_service()
+        public
+        dealEther(Alice)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;

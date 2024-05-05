@@ -4,8 +4,7 @@ pragma solidity 0.8.24;
 import "./Bridge2.t.sol";
 
 contract BridgeTest2_processMessage is BridgeTest2 {
-    function test_bridge2_processMessage_basic() public {
-        vm.deal(Alice, 100 ether);
+    function test_bridge2_processMessage_basic() public dealEther(Alice) assertSameTotalBalance {
         vm.startPrank(Alice);
 
         IBridge.Message memory message;
@@ -53,6 +52,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage__special_to_address__0_fee__nonezero_gaslimit()
         public
         transactedBy(Carol)
+        assertSameTotalBalance
     {
         IBridge.Message memory message;
 
@@ -84,8 +84,12 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
     }
 
-    function test_bridge2_processMessage__special_to_address__0_fee__0_gaslimit() public {
-        vm.deal(Alice, 100 ether);
+    function test_bridge2_processMessage__special_to_address__0_fee__0_gaslimit()
+        public
+        dealEther(Alice)
+        dealEther(Bob)
+        assertSameTotalBalance
+    {
         vm.startPrank(Alice);
 
         IBridge.Message memory message;
@@ -120,7 +124,6 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         vm.stopPrank();
 
         message.value = 3 ether;
-        vm.deal(Bob, 100 ether);
 
         vm.prank(Bob);
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
@@ -132,10 +135,9 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__special_to_address__nonezero_fee__nonezero_gaslimit()
         public
+        transactedBy(Alice)
+        assertSameTotalBalance
     {
-        vm.deal(Alice, 100 ether);
-        vm.startPrank(Alice);
-
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
@@ -164,14 +166,13 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         bridge.processMessage(message, fakeProof);
         assertTrue(Bob.balance > bobBalance + 2 ether);
         assertTrue(Alice.balance < aliceBalance + 5_000_000);
-
-        vm.stopPrank();
     }
 
-    function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit() public {
-        vm.deal(Alice, 100 ether);
-        vm.startPrank(Alice);
-
+    function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit()
+        public
+        transactedBy(Alice)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
@@ -190,12 +191,12 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
-        vm.stopPrank();
     }
 
     function test_bridge2_processMessage__eoa_address__0_fee__nonezero_gaslimit()
         public
         transactedBy(Carol)
+        assertSameTotalBalance
     {
         IBridge.Message memory message;
 
@@ -222,6 +223,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage__eoa_to_address__0_fee__0_gaslimit()
         public
         transactedBy(Alice)
+        assertSameTotalBalance
     {
         IBridge.Message memory message;
 
@@ -246,6 +248,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__nonezero_gaslimit()
         public
         transactedBy(Carol)
+        assertSameTotalBalance
     {
         IBridge.Message memory message;
 
@@ -273,6 +276,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__0_gaslimit()
         public
         transactedBy(Alice)
+        assertSameTotalBalance
     {
         IBridge.Message memory message;
 
@@ -292,12 +296,12 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(David.balance, davidBalance + 2 ether);
-        // assertEq(Alice.balance, aliceBalance +  1000000);
     }
 
     function test_bridge2_processMessage__special_invocation() public transactedBy(Carol) {
         TestToContract target = new TestToContract(bridge);
 
+        uint256 totalBalance = getBalanceForAccounts() + address(target).balance;
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
@@ -347,5 +351,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertEq(msgHash, hash);
         assertEq(from, message.from);
         assertEq(srcChainId, message.srcChainId);
+
+        uint256 totalBalance2 = getBalanceForAccounts() + address(target).balance;
+        assertEq(totalBalance2, totalBalance);
     }
 }

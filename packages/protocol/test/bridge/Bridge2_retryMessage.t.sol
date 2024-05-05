@@ -4,10 +4,12 @@ pragma solidity 0.8.24;
 import "./Bridge2.t.sol";
 
 contract BridgeTest2_retryMessage is BridgeTest2 {
-    function test_bridge2_retryMessage() public {
-        vm.deal(Alice, 100 ether);
-        vm.deal(Carol, 100 ether);
-
+    function test_bridge2_retryMessage()
+        public
+        dealEther(Alice)
+        dealEther(Carol)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);

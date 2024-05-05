@@ -22,6 +22,18 @@ contract BridgeTest2 is TaikoTest {
         vm.stopPrank();
     }
 
+    modifier assertSameTotalBalance() {
+        uint256 totalBalance = getBalanceForAccounts();
+        _;
+        uint256 totalBalance2 = getBalanceForAccounts();
+        assertEq(totalBalance2, totalBalance);
+    }
+
+    modifier dealEther(address addr) {
+        vm.deal(addr, 100 ether);
+        _;
+    }
+
     function setUp() public {
         owner = vm.addr(0x1000);
         remoteChainId = uint64(block.chainid + 1);
@@ -62,6 +74,10 @@ contract BridgeTest2 is TaikoTest {
 
         addressManager.setAddress(remoteChainId, "bridge", remoteBridge);
         vm.stopPrank();
+    }
+
+    function getBalanceForAccounts() public view returns (uint256) {
+        return Alice.balance + Bob.balance + Carol.balance + David.balance + address(bridge).balance;
     }
 }
 

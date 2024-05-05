@@ -22,7 +22,7 @@ contract TestRecallableSender is IRecallableSender, IERC165 {
 }
 
 contract BridgeTest2_recallMessage is BridgeTest2 {
-    function test_bridge2_recallMessage_basic() public transactedBy(Carol) {
+    function test_bridge2_recallMessage_basic() public transactedBy(Carol) assertSameTotalBalance {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
@@ -58,9 +58,11 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         bridge.recallMessage(m, fakeProof);
     }
 
-    function test_bridge2_recallMessage_missing_local_signal_service() public {
-        vm.deal(Carol, 100 ether);
-
+    function test_bridge2_recallMessage_missing_local_signal_service()
+        public
+        dealEther(Carol)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
@@ -79,12 +81,11 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         bridge.recallMessage(m, fakeProof);
     }
 
-    function test_bridge2_recallMessage_callable_sender() public {
+    function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {
         TestRecallableSender callableSender = new TestRecallableSender(bridge);
-
         vm.deal(address(callableSender), 100 ether);
 
-        vm.deal(Carol, 100 ether);
+        uint256 totalBalance = getBalanceForAccounts() + address(callableSender).balance;
 
         IBridge.Message memory message;
         message.srcOwner = Alice;
@@ -105,5 +106,8 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         assertEq(msgHash, mhash);
         assertEq(from, address(bridge));
         assertEq(srcChainId, block.chainid);
+
+        uint256 totalBalance2 = getBalanceForAccounts() + address(callableSender).balance;
+        assertEq(totalBalance2, totalBalance);
     }
 }

@@ -4,7 +4,11 @@ pragma solidity 0.8.24;
 import "./Bridge2.t.sol";
 
 contract BridgeTest2_failMessage is BridgeTest2 {
-    function test_bridge2_failMessage_not_by_destOwner() public transactedBy(Carol) {
+    function test_bridge2_failMessage_not_by_destOwner()
+        public
+        transactedBy(Carol)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
         message.destChainId = uint64(block.chainid);
         message.srcChainId = remoteChainId;
@@ -18,10 +22,12 @@ contract BridgeTest2_failMessage is BridgeTest2 {
         bridge.failMessage(message);
     }
 
-    function test_bridge2_failMessage_by_destOwner__message_retriable() public {
-        vm.deal(Alice, 100 ether);
-        vm.deal(Carol, 100 ether);
-
+    function test_bridge2_failMessage_by_destOwner__message_retriable()
+        public
+        dealEther(Alice)
+        dealEther(Carol)
+        assertSameTotalBalance
+    {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
@@ -55,6 +61,7 @@ contract BridgeTest2_failMessage is BridgeTest2 {
     function test_bridge2_failMessage_by_destOwner__message_processed()
         public
         transactedBy(Alice)
+        assertSameTotalBalance
     {
         IBridge.Message memory message;
 
