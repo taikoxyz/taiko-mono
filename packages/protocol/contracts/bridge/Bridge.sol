@@ -94,7 +94,7 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
-    modifier differentChain(uint64 _chainId) {
+    modifier diffChain(uint64 _chainId) {
         if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
         _;
     }
@@ -167,7 +167,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         sameChain(_message.srcChainId)
-        differentChain(_message.destChainId)
+        diffChain(_message.destChainId)
         whenNotPaused
         nonReentrant
     {
@@ -214,7 +214,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         sameChain(_message.destChainId)
-        differentChain(_message.srcChainId)
+        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
@@ -283,7 +283,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         sameChain(_message.destChainId)
-        differentChain(_message.srcChainId)
+        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
@@ -318,7 +318,7 @@ contract Bridge is EssentialContract, IBridge {
     function failMessage(Message calldata _message)
         external
         sameChain(_message.destChainId)
-        differentChain(_message.srcChainId)
+        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
     {
