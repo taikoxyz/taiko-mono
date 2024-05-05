@@ -405,26 +405,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @inheritdoc IBridge
     function hashMessage(Message memory _message) public pure returns (bytes32) {
-        if (_message.processor != address(0)) {
-            return keccak256(abi.encode("TAIKO_MESSAGE", _message));
-        }
-
-        return keccak256(
-            abi.encode(
-                "TAIKO_MESSAGE",
-                _message.id,
-                _message.fee,
-                _message.gasLimit,
-                _message.from,
-                _message.srcChainId,
-                _message.srcOwner,
-                _message.destChainId,
-                _message.destOwner,
-                _message.to,
-                _message.value,
-                _message.data
-            )
-        );
+        return keccak256(abi.encode("TAIKO_MESSAGE", _message));
     }
 
     /// @notice Returns a signal representing a failed/recalled message.
