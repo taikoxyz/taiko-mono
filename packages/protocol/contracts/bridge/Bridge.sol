@@ -409,7 +409,6 @@ contract Bridge is EssentialContract, IBridge {
             return keccak256(abi.encode("TAIKO_MESSAGE", _message));
         }
 
-        // For backward compatibility with `_message.processor` excluded
         return keccak256(
             abi.encode(
                 "TAIKO_MESSAGE",
