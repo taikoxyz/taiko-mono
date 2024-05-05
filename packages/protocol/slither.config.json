@@ -5,5 +5,5 @@
   "exclude_low": true,
   "exclude_optimization": true,
   "fail_on": "none",
-  "filter_paths": "(contracts/automata-attestation|contracts/thirdparty|node_modules)"
+  "filter_paths": "(simulation|genesis|test|script|contracts/automata-attestation|contracts/thirdparty|node_modules)"
 }
