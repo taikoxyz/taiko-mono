@@ -11,7 +11,7 @@ run `cp .default.env .env`, and add your own private key as `RELAYER_ECDSA_KEY` 
 
 Run `go run cmd/main.go --help` to see a list of possible configuration flags, or `go run cmd/main.go` to run with defaults, which will process messages from L1 to L2, and from L2 to L1, and start indexing blocks from 0.
 
-# Block data
+# Block data 1
 
 1. parse data
 2. store
