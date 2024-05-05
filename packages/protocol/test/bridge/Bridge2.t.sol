@@ -80,29 +80,3 @@ contract BridgeTest2 is TaikoTest {
         return Alice.balance + Bob.balance + Carol.balance + David.balance + address(bridge).balance;
     }
 }
-
-contract TestToContract is IMessageInvocable {
-    uint256 public receivedEther;
-    IBridge private bridge;
-    IBridge.Context public ctx;
-
-    constructor(IBridge _bridge) {
-        bridge = _bridge;
-    }
-
-    function onMessageInvocation(bytes calldata) external payable {
-        ctx = bridge.context();
-        receivedEther += msg.value;
-    }
-
-    function anotherFunc(bytes calldata) external payable {
-        receivedEther += msg.value;
-    }
-
-    fallback() external payable {
-        ctx = bridge.context();
-        receivedEther += msg.value;
-    }
-
-    receive() external payable { }
-}

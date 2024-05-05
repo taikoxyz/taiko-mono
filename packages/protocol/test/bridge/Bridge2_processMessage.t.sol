@@ -3,6 +3,32 @@ pragma solidity 0.8.24;
 
 import "./Bridge2.t.sol";
 
+contract Target is IMessageInvocable {
+    uint256 public receivedEther;
+    IBridge private bridge;
+    IBridge.Context public ctx;
+
+    constructor(IBridge _bridge) {
+        bridge = _bridge;
+    }
+
+    function onMessageInvocation(bytes calldata) external payable {
+        ctx = bridge.context();
+        receivedEther += msg.value;
+    }
+
+    function anotherFunc(bytes calldata) external payable {
+        receivedEther += msg.value;
+    }
+
+    fallback() external payable {
+        ctx = bridge.context();
+        receivedEther += msg.value;
+    }
+
+    receive() external payable { }
+}
+
 contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage_basic() public dealEther(Alice) assertSameTotalBalance {
         vm.startPrank(Alice);
@@ -299,7 +325,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     }
 
     function test_bridge2_processMessage__special_invocation() public transactedBy(Carol) {
-        TestToContract target = new TestToContract(bridge);
+        Target target = new Target(bridge);
 
         uint256 totalBalance = getBalanceForAccounts() + address(target).balance;
         IBridge.Message memory message;
@@ -312,7 +338,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         message.value = 2 ether;
         message.destOwner = Alice;
         message.to = address(target);
-        message.data = abi.encodeCall(TestToContract.anotherFunc, (""));
+        message.data = abi.encodeCall(Target.anotherFunc, (""));
 
         uint256 aliceBalance = Alice.balance;
         bridge.processMessage(message, fakeProof);
@@ -341,7 +367,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertEq(Bob.balance, 2 ether);
 
         message.to = address(target);
-        message.data = abi.encodeCall(TestToContract.onMessageInvocation, (""));
+        message.data = abi.encodeCall(Target.onMessageInvocation, (""));
         bridge.processMessage(message, fakeProof);
         hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
