@@ -104,7 +104,7 @@ func (p *Processor) processMessage(
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return false, msgBody.TimesRetried, err
+		return false, msgBody.TimesRetried, errTxReverted
 	}
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
