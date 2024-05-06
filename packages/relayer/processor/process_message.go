@@ -95,14 +95,17 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
-	eventType, canonicalToken, amount, err := relayer.DecodeMessageData(msgBody.Event.Message.Data, msgBody.Event.Message.Value)
+	eventType, canonicalToken, amount, err := relayer.DecodeMessageData(
+		msgBody.Event.Message.Data,
+		msgBody.Event.Message.Value,
+	)
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
 
 	// dont check quota for NFTs
 	if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
-		// default to ETH (zero addrss) and msg value, overwrite if ERC20
+		// default to ETH (zero address) and msg value, overwrite if ERC20
 		var tokenAddress common.Address = zeroAddress
 
 		var value *big.Int = msgBody.Event.Message.Value
