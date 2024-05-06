@@ -237,12 +237,16 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	destQuotaManager, err := quotamanager.NewQuotaManager(
-		cfg.DestQuotaManagerAddress,
-		destEthClient,
-	)
-	if err != nil {
-		return err
+	var destQuotaManager *quotamanager.QuotaManager
+
+	if cfg.DestQuotaManagerAddress.Hex() != relayer.ZeroAddress.Hex() {
+		destQuotaManager, err = quotamanager.NewQuotaManager(
+			cfg.DestQuotaManagerAddress,
+			destEthClient,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	var destERC721Vault *erc721vault.ERC721Vault

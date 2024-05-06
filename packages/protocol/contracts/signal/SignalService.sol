@@ -324,6 +324,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 signal = _signal;
         bytes32 value = _signal;
         address signalService = resolve(chainId, LibStrings.B_SIGNAL_SERVICE, false);
+        if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
 
         HopProof memory hop;
         bytes32 signalRoot;
@@ -349,6 +350,7 @@ contract SignalService is EssentialContract, ISignalService {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
                 signalService = resolve(hop.chainId, LibStrings.B_SIGNAL_SERVICE, false);
+                if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
             }
 
             isFullProof = hop.accountProof.length != 0;

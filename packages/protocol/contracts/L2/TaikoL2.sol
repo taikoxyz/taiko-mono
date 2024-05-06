@@ -40,11 +40,8 @@ contract TaikoL2 is EssentialContract {
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
 
-    /// @notice The parent block's timestamp.
-    uint64 public parentTimestamp;
-
-    /// @notice The current block's timestamp.
-    uint64 private __currentBlockTimestamp;
+    uint64 private __deprecated1; // was parentTimestamp
+    uint64 private __deprecated2; // was __currentBlockTimestamp
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
@@ -100,7 +97,6 @@ contract TaikoL2 is EssentialContract {
         l1ChainId = _l1ChainId;
         gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
-        __currentBlockTimestamp = uint64(block.timestamp);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -163,9 +159,6 @@ contract TaikoL2 is EssentialContract {
         bytes32 _parentHash = blockhash(parentId);
         l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
-
-        parentTimestamp = __currentBlockTimestamp;
-        __currentBlockTimestamp = uint64(block.timestamp);
         gasExcess = _gasExcess;
 
         emit Anchored(_parentHash, _gasExcess);
@@ -211,7 +204,6 @@ contract TaikoL2 is EssentialContract {
         (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
             config.gasTargetPerL1Block,
             config.basefeeAdjustmentQuotient,
-            config.gasExcessMinValue,
             gasExcess,
             gasIssuance,
             _parentGasUsed
