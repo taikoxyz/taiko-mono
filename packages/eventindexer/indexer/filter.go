@@ -198,17 +198,14 @@ func (i *Indexer) filter(
 	ctx context.Context,
 	filter FilterFunc,
 ) error {
-	header, err := i.ethClient.HeaderByNumber(ctx, nil)
+	endBlockID, err := i.ethClient.BlockNumber(ctx)
 	if err != nil {
-		return errors.Wrap(err, "i.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "i.ethClient.BlockNumber")
 	}
-
-	// the end block is the latest header.
-	endBlockID := header.Number.Uint64()
 
 	slog.Info("getting batch of events",
 		"startBlock", i.latestIndexedBlockNumber,
-		"endBlock", header.Number.Int64(),
+		"endBlock", endBlockID,
 		"batchSize", i.blockBatchSize,
 	)
 
