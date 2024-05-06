@@ -201,11 +201,12 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
+        local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        local.livenessBond = blk.livenessBond;
-        if (local.isTopTier) {
-            if (local.livenessBond != 0) {
+        if (_proof.tier > ts.tier) {
+            local.livenessBond = blk.livenessBond;
+            if (local.isTopTier && local.livenessBond != 0) {
                 if (
                     local.inProvingWindow
                         || (
@@ -218,11 +219,7 @@ library LibProving {
                 blk.livenessBond = 0;
                 local.livenessBond = 0;
             }
-        }
 
-        local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
-
-        if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
