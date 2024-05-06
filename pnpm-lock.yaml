@@ -283,19 +283,19 @@ importers:
         version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: git/github.com+dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
-        version: git/github.com+foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
+        version: github.com/foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.3.11
         version: 0.3.11
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: git/github.com+taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: github.com/taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: git/github.com+Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -355,19 +355,19 @@ importers:
         version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: git/github.com+dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
-        version: git/github.com+foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
+        version: github.com/foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.3.11
         version: 0.3.11
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: git/github.com+taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: github.com/taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: git/github.com+Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -431,10 +431,10 @@ importers:
         version: 2.46.0
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: git/github.com+dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std
-        version: git/github.com+foundry-rs/forge-std/5475f852e3f530d7e25dfb4596aa1f9baa8ffdfc
+        version: github.com/foundry-rs/forge-std/5475f852e3f530d7e25dfb4596aa1f9baa8ffdfc
       ipfs-http-client:
         specifier: ^60.0.1
         version: 60.0.1
@@ -443,19 +443,19 @@ importers:
         version: 0.3.11
       murky:
         specifier: github:dmfxyz/murky
-        version: git/github.com+dmfxyz/murky/5feccd1253d7da820f7cccccdedf64471025455d
+        version: github.com/dmfxyz/murky/5feccd1253d7da820f7cccccdedf64471025455d
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: git/github.com+taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: github.com/taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da
       sharp:
         specifier: ^0.33.3
         version: 0.33.3
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: git/github.com+Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d
       solidity-stringutils:
         specifier: github:Arachnid/solidity-stringutils
-        version: git/github.com+Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
+        version: github.com/Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -15214,44 +15214,44 @@ packages:
       use-sync-external-store: 1.2.0(react@18.3.1)
     dev: false
 
-  git/github.com+Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
-    resolution: {commit: 4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461, repo: git@github.com:Arachnid/solidity-stringutils.git, type: git}
+  github.com/Arachnid/solidity-stringutils/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
+    resolution: {tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
     name: solidity-stringutils
     version: 0.0.0
     dev: false
 
-  git/github.com+Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d:
-    resolution: {commit: de0f336d2033d04e0f77c923d639c7fbffd48b6d, repo: git@github.com:Vectorized/solady.git, type: git}
+  github.com/Vectorized/solady/de0f336d2033d04e0f77c923d639c7fbffd48b6d:
+    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d}
     name: solady
     version: 0.0.167
     dev: false
 
-  git/github.com+dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0:
-    resolution: {commit: e282159d5170298eb2455a6c05280ab5a73a4ef0, repo: git@github.com:dapphub/ds-test.git, type: git}
+  github.com/dapphub/ds-test/e282159d5170298eb2455a6c05280ab5a73a4ef0:
+    resolution: {tarball: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0}
     name: ds-test
     version: 1.0.0
     dev: false
 
-  git/github.com+dmfxyz/murky/5feccd1253d7da820f7cccccdedf64471025455d:
-    resolution: {commit: 5feccd1253d7da820f7cccccdedf64471025455d, repo: git@github.com:dmfxyz/murky.git, type: git}
+  github.com/dmfxyz/murky/5feccd1253d7da820f7cccccdedf64471025455d:
+    resolution: {tarball: https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d}
     name: murky
     version: 0.0.0
     dev: false
 
-  git/github.com+foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
-    resolution: {commit: 36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3, repo: git@github.com:foundry-rs/forge-std.git, type: git}
+  github.com/foundry-rs/forge-std/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3}
     name: forge-std
     version: 1.7.5
     dev: false
 
-  git/github.com+foundry-rs/forge-std/5475f852e3f530d7e25dfb4596aa1f9baa8ffdfc:
-    resolution: {commit: 5475f852e3f530d7e25dfb4596aa1f9baa8ffdfc, repo: git@github.com:foundry-rs/forge-std.git, type: git}
+  github.com/foundry-rs/forge-std/5475f852e3f530d7e25dfb4596aa1f9baa8ffdfc:
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/5475f852e3f530d7e25dfb4596aa1f9baa8ffdfc}
     name: forge-std
     version: 1.7.6
     dev: false
 
-  git/github.com+taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da:
-    resolution: {commit: 6ef45b117642786b08a37b4c37c6a6ce151166da, repo: git@github.com:taikoxyz/p256-verifier.git, type: git}
+  github.com/taikoxyz/p256-verifier/6ef45b117642786b08a37b4c37c6a6ce151166da:
+    resolution: {tarball: https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da}
     name: p256-verifier#v0.1.0
     version: 0.0.0
     dev: false
