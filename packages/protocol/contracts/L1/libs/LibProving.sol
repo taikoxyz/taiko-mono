@@ -26,7 +26,6 @@ library LibProving {
         uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
-        uint32 tid;
         bool lastUnpausedAt;
         bool isTopTier;
         bool isFirstAndInProvingWindow;
