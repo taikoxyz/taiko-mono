@@ -31,6 +31,7 @@ library LibProving {
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
+        bool xxx;
     }
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
@@ -162,10 +163,10 @@ library LibProving {
         // Checks if only the assigned prover is permissioned to prove the block.
         // The guardian prover is granted exclusive permission to prove only the first
         // transition.
-        if (
-            local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
-                && ts.tier == 0 && local.inProvingWindow
-        ) {
+
+        local.xxx = local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
+            && ts.tier == 0 && local.inProvingWindow;
+        if (local.xxx) {
             if (msg.sender != local.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
         }
         // We must verify the proof, and any failure in proof verification will
@@ -425,7 +426,7 @@ library LibProving {
             reward = _rewardAfterFriction(_ts.validityBond);
 
             if (_local.livenessBond != 0) {
-                if (_local.assignedProver == msg.sender && _local.inProvingWindow) {
+                if (_local.xxx) {
                     unchecked {
                         reward += _local.livenessBond;
                     }
