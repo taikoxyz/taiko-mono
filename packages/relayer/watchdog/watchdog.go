@@ -321,12 +321,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	if pauseReceipt != nil {
 		slog.Info("Mined pause tx",
-			"txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()),
+			"txHash", pauseReceipt.TxHash.Hex(),
 			"bridgeAddress", w.cfg.SrcBridgeAddress.Hex(),
 		)
 
 		if pauseReceipt.Status != types.ReceiptStatusSuccessful {
-
 			slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.SrcBridgeAddress)
 
 			relayer.BridgePausedErrors.Inc()
@@ -349,12 +348,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	if pauseReceipt != nil {
 		slog.Info("Mined pause tx",
-			"txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()),
+			"txHash", pauseReceipt.TxHash.Hex(),
 			"bridgeAddress", w.cfg.DestBridgeAddress.Hex(),
 		)
 
 		if pauseReceipt.Status != types.ReceiptStatusSuccessful {
-
 			slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.DestBridgeAddress)
 
 			relayer.BridgePausedErrors.Inc()
@@ -368,7 +366,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
-func (w *Watchdog) pauseBridge(ctx context.Context, bridge relayer.Bridge, bridgeAddress common.Address) (*types.Receipt, error) {
+func (w *Watchdog) pauseBridge(
+	ctx context.Context,
+	bridge relayer.Bridge,
+	bridgeAddress common.Address,
+) (*types.Receipt, error) {
 	paused, err := bridge.Paused(&bind.CallOpts{
 		Context: ctx,
 	})
