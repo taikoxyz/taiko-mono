@@ -98,6 +98,10 @@ var (
 		Name: "bridge_paused_opts_total",
 		Help: "The total number of times the bridge has been paused",
 	})
+	BridgePausedErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bridge_paused_errors_opts_total",
+		Help: "The total number of times the bridge has encountered an error while attempting to have been paused",
+	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "events_processed_retriable_status_ops_total",
 		Help: "The total number of processed events that ended up in Retriable status",

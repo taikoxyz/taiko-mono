@@ -335,6 +335,10 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	)
 
 	if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+		slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.SrcBridgeAddress)
+
+		relayer.BridgePausedErrors.Inc()
+
 		return err
 	}
 
@@ -351,6 +355,10 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	)
 
 	if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+		slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.DestBridgeAddress)
+
+		relayer.BridgePausedErrors.Inc()
+
 		return err
 	}
 
