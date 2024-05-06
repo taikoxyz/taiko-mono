@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IQuotaManager.sol";
-import "../libs/LibAddress.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
@@ -368,23 +368,10 @@ contract ERC20Vault is BaseVault {
             ctoken_ = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: _op.token,
-                decimals: 0,
-                symbol: "",
-                name: ""
+                decimals: _safeDecimals(_op.token),
+                symbol: safeSymbol(_op.token),
+                name: safeName(_op.token)
             });
-
-            // Try fill in the boilerplate values, but use try-catch because functions below are
-            // ERC20-optional only.
-            IERC20Metadata meta = IERC20Metadata(_op.token);
-            try meta.decimals() returns (uint8 _decimals) {
-                ctoken_.decimals = _decimals;
-            } catch { }
-            try meta.name() returns (string memory _name) {
-                ctoken_.name = _name;
-            } catch { }
-            try meta.symbol() returns (string memory _symbol) {
-                ctoken_.symbol = _symbol;
-            } catch { }
 
             // Query the balance then query it again to get the actual amount of
             // token transferred into this address, this is more accurate than
@@ -453,5 +440,11 @@ contract ERC20Vault is BaseVault {
         if (quotaManager != address(0)) {
             IQuotaManager(quotaManager).consumeQuota(_token, _amount);
         }
+    }
+
+    function _safeDecimals(address _token) private view returns (uint8) {
+        (bool success, bytes memory data) =
+            address(_token).staticcall(abi.encodeCall(IERC20Metadata.decimals, ()));
+        return success && data.length == 32 ? abi.decode(data, (uint8)) : 18;
     }
 }
