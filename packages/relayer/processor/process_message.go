@@ -102,6 +102,7 @@ func (p *Processor) processMessage(
 
 	// dont check quota for NFTs
 	if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
+		// default to ETH (zero addrss) and msg value, overwrite if ERC20
 		var tokenAddress common.Address = zeroAddress
 		var value *big.Int = msgBody.Event.Message.Value
 
