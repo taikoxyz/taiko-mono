@@ -92,6 +92,19 @@
   },
   {
     "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "init",
     "inputs": [
       {
@@ -542,7 +555,7 @@
     "name": "supportsInterface",
     "inputs": [
       {
-        "name": "interfaceId",
+        "name": "_interfaceId",
         "type": "bytes4",
         "internalType": "bytes4"
       }
@@ -554,7 +567,7 @@
         "internalType": "bool"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -926,6 +939,11 @@
   },
   {
     "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
     "inputs": []
   },
@@ -977,12 +995,12 @@
   },
   {
     "type": "error",
-    "name": "VAULT_INVALID_TO",
+    "name": "VAULT_INVALID_TOKEN",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "VAULT_INVALID_TOKEN",
+    "name": "VAULT_INVALID_TO_ADDR",
     "inputs": []
   },
   {

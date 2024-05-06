@@ -40,6 +40,13 @@ var (
 		Required: true,
 		EnvVars:  []string{"DEST_ERC721_VAULT_ADDRESS"},
 	}
+	DestQuotaManagerAddress = &cli.StringFlag{
+		Name:     "destQuotaManagerAddress",
+		Usage:    "QuotaManager address for the destination chain",
+		Category: processorCategory,
+		Required: true,
+		EnvVars:  []string{"DEST_QUOTA_MANAGER_ADDRESS"},
+	}
 )
 
 // optional
@@ -159,4 +166,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	CacheOption,
 	UnprofitableMessageQueueExpiration,
 	MaxMessageRetries,
+	DestQuotaManagerAddress,
 })

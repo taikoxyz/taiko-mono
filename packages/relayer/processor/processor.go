@@ -30,6 +30,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
@@ -95,6 +96,7 @@ type Processor struct {
 	destERC20Vault   relayer.TokenVault
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
+	destQuotaManager relayer.QuotaManager
 
 	prover *proof.Prover
 
@@ -235,6 +237,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
+	destQuotaManager, err := quotamanager.NewQuotaManager(
+		cfg.DestQuotaManagerAddress,
+		destEthClient,
+	)
+	if err != nil {
+		return err
+	}
+
 	var destERC721Vault *erc721vault.ERC721Vault
 	if cfg.DestERC721VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
 		destERC721Vault, err = erc721vault.NewERC721Vault(cfg.DestERC721VaultAddress, destEthClient)
@@ -318,6 +328,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.destEthClient = destEthClient
 
 	p.srcSignalService = srcSignalService
+
+	p.destQuotaManager = destQuotaManager
 
 	p.destBridge = destBridge
 	p.destERC1155Vault = destERC1155Vault

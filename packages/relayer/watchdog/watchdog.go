@@ -16,6 +16,7 @@ import (
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -288,7 +289,12 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
 
-	// check if the source chain sent this message
+	// check if the source chain sent this message.
+	// source chain will be `destBridge`, because this indexer
+	// responds to `MessageProcessed` events. to the source chain
+	// of the `MessageProcessed` event, is the destination chain
+	// of the actual message itself. So the `destBridge` is the bridge
+	// which should have sent the message originally.
 	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Message)
 	if err != nil {
 		return errors.Wrap(err, "w.destBridge.IsMessageSent")
@@ -303,12 +309,31 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
+	slog.Info("dest bridge did not send this message")
+
+	paused, err := w.srcBridge.Paused(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return errors.Wrap(err, "w.destBridge.Paused")
+	}
+
+	if paused {
+		slog.Info("dest bridge already paused")
+
+		return nil
+	}
+
 	pauseReceipt, err := w.pauseBridge(ctx)
 	if err != nil {
 		return err
 	}
 
 	slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
+
+	if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+		return err
+	}
 
 	relayer.BridgePaused.Inc()
 
