@@ -381,4 +381,26 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 totalBalance2 = getBalanceForAccounts() + address(target).balance;
         assertEq(totalBalance2, totalBalance);
     }
+
+    function test_bridge2_processMessage_processor()
+        public
+        transactedBy(Alice)
+        assertSameTotalBalance
+    {
+        IBridge.Message memory message;
+
+        message.destChainId = uint64(block.chainid);
+
+        message.srcChainId = uint64(block.chainid);
+
+        message.srcChainId = remoteChainId + 1;
+
+        message.srcChainId = remoteChainId;
+
+        message.gasLimit = 1_000_000;
+        message.processor = Bob;
+
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        bridge.processMessage(message, fakeProof);
+    }
 }
