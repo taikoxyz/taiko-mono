@@ -166,6 +166,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
+                processor:address(0),
                 data: ""
             }),
             ""
@@ -190,6 +191,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 value: 0,
                 fee: 0,
                 gasLimit: 0,
+                processor:address(0),
                 data: ""
             }),
             ""
