@@ -6,6 +6,17 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibBytes.sol";
+
+/// @title INameSymbol
+/// @notice Interface for contracts that provide name() and symbol()
+/// functions. These functions may not be part of the official interface but are
+/// used by some contracts.
+/// @custom:security-contact security@taiko.xyz
+interface INameSymbol {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+}
 
 /// @title BaseVault
 /// @notice This abstract contract provides a base implementation for vaults.
@@ -16,6 +27,8 @@ abstract contract BaseVault is
     IMessageInvocable,
     IERC165Upgradeable
 {
+    using LibBytes for bytes;
+
     uint256[50] private __gap;
 
     error VAULT_INVALID_TO_ADDR();
@@ -57,5 +70,17 @@ abstract contract BaseVault is
 
     function checkToAddress(address _to) internal view {
         if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
+    }
+
+    function safeSymbol(address _token) internal view returns (string memory symbol_) {
+        (bool success, bytes memory data) =
+            address(_token).staticcall(abi.encodeCall(INameSymbol.symbol, ()));
+        return success ? data.toString() : "";
+    }
+
+    function safeName(address _token) internal view returns (string memory) {
+        (bool success, bytes memory data) =
+            address(_token).staticcall(abi.encodeCall(INameSymbol.name, ()));
+        return success ? data.toString() : "";
     }
 }
