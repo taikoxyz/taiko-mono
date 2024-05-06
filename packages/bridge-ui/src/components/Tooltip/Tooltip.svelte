@@ -23,8 +23,7 @@
     }, ms);
   }
 
-  function openTooltip(event: Event) {
-    event.stopPropagation();
+  function openTooltip() {
     tooltipOpen = true;
   }
 
@@ -45,8 +44,8 @@
     aria-haspopup="dialog"
     aria-controls={tooltipId}
     aria-expanded={tooltipOpen}
-    on:click={openTooltip}
-    on:focus={openTooltip}
+    on:click|preventDefault={openTooltip}
+    on:focus|preventDefault={openTooltip}
     on:mouseenter={openTooltip}
     bind:this={triggerElem}>
     <Icon type="question-circle" />
