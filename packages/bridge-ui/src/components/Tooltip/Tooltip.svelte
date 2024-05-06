@@ -44,8 +44,8 @@
     aria-haspopup="dialog"
     aria-controls={tooltipId}
     aria-expanded={tooltipOpen}
-    on:click|preventDefault={openTooltip}
-    on:focus|preventDefault={openTooltip}
+    on:click|stopPropagation={openTooltip}
+    on:focus|stopPropagation={openTooltip}
     on:mouseenter={openTooltip}
     bind:this={triggerElem}>
     <Icon type="question-circle" />
