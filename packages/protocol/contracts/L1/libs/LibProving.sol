@@ -29,7 +29,7 @@ library LibProving {
         uint32 tid;
         bool lastUnpausedAt;
         bool isTopTier;
-        bool inProvingWindow;
+        bool isFirstAndInProvingWindow;
         bool sameTransition;
     }
 
@@ -143,7 +143,8 @@ library LibProving {
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         TaikoData.TransitionState storage ts;
-        (local.tid, ts) = _fetchOrCreateTransition(_state, blk, _tran, local);
+        uint256 tid;
+        (tid, ts) = _fetchOrCreateTransition(_state, blk, _tran, local);
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
@@ -156,17 +157,17 @@ library LibProving {
         local.tier =
             ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false)).getTier(_proof.tier);
 
-        local.inProvingWindow =
-            !LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, local.tier.provingWindow);
+        local.isFirstAndInProvingWindow = tid == 1
+            && !LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, local.tier.provingWindow);
 
         // Checks if only the assigned prover is permissioned to prove the block.
-        // The guardian prover is granted exclusive permission to prove only the first
+        // The assigned prover is granted exclusive permission to prove only the first
         // transition.
         if (
-            local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
-                && ts.tier == 0 && local.inProvingWindow
+            local.isFirstAndInProvingWindow && local.tier.contestBond != 0
+                && ts.contester == address(0) && ts.tier == 0 && msg.sender != local.assignedProver
         ) {
-            if (msg.sender != local.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
+            revert L1_NOT_ASSIGNED_PROVER();
         }
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -207,7 +208,7 @@ library LibProving {
         if (local.isTopTier) {
             if (local.livenessBond != 0) {
                 if (
-                    local.inProvingWindow
+                    local.isFirstAndInProvingWindow
                         || (
                             _proof.data.length == 32
                                 && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
@@ -425,7 +426,7 @@ library LibProving {
             reward = _rewardAfterFriction(_ts.validityBond);
 
             if (_local.livenessBond != 0) {
-                if (_local.assignedProver == msg.sender && _local.inProvingWindow) {
+                if (_local.isFirstAndInProvingWindow && _local.assignedProver == msg.sender) {
                     unchecked {
                         reward += _local.livenessBond;
                     }
