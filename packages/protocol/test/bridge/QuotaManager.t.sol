@@ -38,35 +38,37 @@ contract QuotaManagerTest is TaikoTest {
 
     function test_quota_manager_consume_configged() public {
         address Ether = address(0);
-        assertEq(qm.availableQuota(Ether), type(uint256).max);
+        assertEq(qm.availableQuota(Ether, 0), type(uint256).max);
 
         vm.expectRevert();
         qm.updateQuota(Ether, 10 ether);
 
         vm.prank(Alice);
         qm.updateQuota(Ether, 10 ether);
-        assertEq(qm.availableQuota(address(0)), 10 ether);
+        assertEq(qm.availableQuota(address(0), 0), 10 ether);
 
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
         qm.consumeQuota(Ether, 5 ether);
 
         vm.prank(bridge);
         qm.consumeQuota(Ether, 6 ether);
-        assertEq(qm.availableQuota(Ether), 4 ether);
+        assertEq(qm.availableQuota(Ether, 0), 4 ether);
+
+        assertEq(qm.availableQuota(Ether, 3 hours), 4 ether + 10 ether * 3 / 24);
 
         vm.warp(block.timestamp + 3 hours);
-        assertEq(qm.availableQuota(Ether), 4 ether + 10 ether * 3 / 24);
+        assertEq(qm.availableQuota(Ether, 0), 4 ether + 10 ether * 3 / 24);
 
         vm.warp(block.timestamp + 24 hours);
-        assertEq(qm.availableQuota(Ether), 10 ether);
+        assertEq(qm.availableQuota(Ether, 0), 10 ether);
     }
 
     function test_quota_manager_consume_unconfigged() public {
         address token = address(999);
-        assertEq(qm.availableQuota(token), type(uint256).max);
+        assertEq(qm.availableQuota(token, 0), type(uint256).max);
 
         vm.prank(bridge);
         qm.consumeQuota(token, 6 ether);
-        assertEq(qm.availableQuota(token), type(uint256).max);
+        assertEq(qm.availableQuota(token, 0), type(uint256).max);
     }
 }
