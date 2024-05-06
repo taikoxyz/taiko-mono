@@ -35,7 +35,7 @@ func (q *Bytes) UnmarshalText(input []byte) error {
 
 type Slice [][]byte
 
-// MarshalText implements encoding.TextMarshaler
+// MarshalJSON implements encoding.TextMarshaler
 func (s Slice) MarshalJSON() ([]byte, error) {
 	bs := make([]hexutil.Bytes, len(s))
 	for i, b := range s {
@@ -45,7 +45,7 @@ func (s Slice) MarshalJSON() ([]byte, error) {
 	return json.Marshal(bs)
 }
 
-// UnmarshalText implements encoding.TextUnmarshaler.
+// UnmarshalJSON implements encoding.TextUnmarshaler.
 func (s *Slice) UnmarshalJSON(data []byte) error {
 	var bs []hexutil.Bytes
 	if err := json.Unmarshal(data, &bs); err != nil {
