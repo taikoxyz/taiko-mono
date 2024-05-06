@@ -152,7 +152,7 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we choose to introduce a salt to this random
         // number as the L2 mixHash.
-        meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks));
+        meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
         meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
