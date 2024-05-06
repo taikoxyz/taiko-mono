@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -16,7 +16,6 @@
   import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
 
-  import AddCustomErc20 from './AddCustomERC20.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
   import { TabTypes, TokenTabs } from './types';
 
@@ -25,12 +24,13 @@
   export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let menuOpen = false;
-  export let modalOpen = false;
   export let onlyMintable: boolean = false;
   export let selectToken: (token: Token) => void = noop;
   export let closeMenu: () => void = noop;
 
   export let activeTab: TabTypes = TabTypes.TOKEN;
+
+  const dispatch = createEventDispatcher();
 
   const searchToken = (event: Event) => {
     enteredTokenName = (event.target as HTMLInputElement).value;
@@ -42,7 +42,7 @@
 
   const showAddERC20 = () => {
     menuOpen = false;
-    modalOpen = true;
+    dispatch('openCustomTokenModal');
   };
 
   const handleStorageChange = (newTokens: Token[]) => {
@@ -56,9 +56,7 @@
   };
 
   const removeToken = async (token: Token) => {
-    const address = $account.address;
-    tokenService.removeToken(token, address as Address);
-    customTokens = tokenService.getTokens(address as Address);
+    dispatch('tokenRemoved', { token });
   };
 
   const getTokenKeydownHandler = (token: Token) => {
@@ -180,10 +178,6 @@
                 </div>
               </li>
             {/each}
-            {#if filteredCustomTokens.length === 0}
-              <li class="rounded-[10px]">No custom tokens added</li>
-            {/if}
-            <div class="h-sep" />
             <li class="f-between-center max-h-[42px]">
               <button
                 on:click={showAddERC20}
@@ -201,7 +195,5 @@
   </div>
   <button class="overlay-backdrop" data-modal-uuid={id} />
 </dialog>
-
-<AddCustomErc20 bind:modalOpen on:tokenRemoved />
 
 <OnAccount change={onAccountChange} />

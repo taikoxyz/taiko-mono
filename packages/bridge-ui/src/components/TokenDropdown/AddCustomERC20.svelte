@@ -31,10 +31,10 @@
 
   export let modalOpen = false;
   export let loadingTokenDetails = false;
+  export let customTokens: Token[] = [];
 
   let addressInputComponent: AddressInput;
   let tokenAddress: Address | string = '';
-  let customTokens: Token[] = [];
   let customToken: Token | null = null;
   let customTokenWithDetails: Token | null = null;
   let disabled = true;
@@ -88,10 +88,6 @@
   };
 
   const remove = async (token: Token) => {
-    log('remove token', token);
-    const address = $account.address;
-    tokenService.removeToken(token, address as Address);
-    customTokens = tokenService.getTokens(address as Address);
     dispatch('tokenRemoved', { token });
   };
 
@@ -155,8 +151,6 @@
       ? formatUnits(customTokenWithDetails.balance, customTokenWithDetails.decimals)
       : 0;
 
-  $: customTokens = tokenService.getTokens($account?.address as Address);
-
   $: disabled = state !== AddressInputState.VALID || tokenAddress === '' || tokenAddress.length !== 42;
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
@@ -215,6 +209,8 @@
           </div>
         {/each}
       </div>
+    {:else}
+      <span>{$t('token_dropdown.no_imported_token')}</span>
     {/if}
     <div class="h-sep" />
     <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>

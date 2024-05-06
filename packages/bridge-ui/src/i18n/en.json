@@ -416,7 +416,8 @@
       "title": "Add your own token"
     },
     "imported_tokens": "Your imported tokens:",
-    "label": "Select token"
+    "label": "Select token",
+    "no_imported_token": "No imported tokens yet"
   },
   "transactions": {
     "actions": {

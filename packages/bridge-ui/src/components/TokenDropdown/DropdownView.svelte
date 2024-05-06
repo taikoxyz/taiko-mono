@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -33,6 +33,8 @@
 
   export let activeTab: TabTypes = TabTypes.TOKEN;
 
+  const dispatch = createEventDispatcher();
+
   const handleCloseMenu = () => {
     enteredTokenName = '';
     closeMenu();
@@ -48,7 +50,7 @@
     };
   };
 
-  const showAddERC20 = () => (addArc20ModalOpen = true);
+  const showAddERC20 = () => dispatch('openCustomTokenModal');
 
   const handleStorageChange = (newTokens: Token[]) => {
     customTokens = newTokens;
@@ -69,9 +71,7 @@
   };
 
   const removeToken = async (token: Token) => {
-    const address = $account.address;
-    tokenService.removeToken(token, address as Address);
-    customTokens = tokenService.getTokens(address as Address);
+    dispatch('tokenRemoved', { token });
   };
 
   $: filteredCustomTokens = [] as Token[];
@@ -177,6 +177,7 @@
             </div>
           </li>
         {/each}
+
         <div class="h-sep my-[8px]" />
         <li>
           <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center rounded-lg h-[64px]">
