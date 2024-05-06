@@ -69,7 +69,7 @@ contract TestTaikoL2 is TaikoTest {
 
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_in_same_block() external {
-        vm.fee(19_321_599_304_402_836);
+        vm.fee(1);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         _anchor(BLOCK_GAS_LIMIT);
