@@ -309,7 +309,9 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	slog.Info("dest bridge did not send this message")
+	slog.Warn("dest bridge did not send this message")
+
+	relayer.BridgeMessageNotSent.Inc()
 
 	paused, err := w.srcBridge.Paused(&bind.CallOpts{
 		Context: ctx,
