@@ -204,20 +204,18 @@ library LibProving {
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         local.livenessBond = blk.livenessBond;
-        if (local.isTopTier) {
-            if (local.livenessBond != 0) {
-                if (
-                    local.isFirstAndInProvingWindow
-                        || (
-                            _proof.data.length == 32
-                                && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
-                        )
-                ) {
-                    tko.safeTransfer(local.assignedProver, local.livenessBond);
-                }
-                blk.livenessBond = 0;
-                local.livenessBond = 0;
+        if (local.isTopTier && local.livenessBond != 0) {
+            if (
+                local.isFirstAndInProvingWindow
+                    || (
+                        _proof.data.length == 32
+                            && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
+                    )
+            ) {
+                tko.safeTransfer(local.assignedProver, local.livenessBond);
             }
+            blk.livenessBond = 0;
+            local.livenessBond = 0;
         }
 
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
