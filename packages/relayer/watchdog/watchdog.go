@@ -324,12 +324,31 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	pauseReceipt, err := w.pauseBridge(ctx)
+	pauseReceipt, err := w.pauseBridge(ctx, w.cfg.SrcBridgeAddress)
 	if err != nil {
 		return err
 	}
 
-	slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
+	slog.Info("Mined pause tx",
+		"txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()),
+		"bridgeAddress", w.cfg.SrcBridgeAddress.Hex(),
+	)
+
+	if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+		return err
+	}
+
+	relayer.BridgePaused.Inc()
+
+	pauseReceipt, err = w.pauseBridge(ctx, w.cfg.DestBridgeAddress)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("Mined pause tx",
+		"txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()),
+		"bridgeAddress", w.cfg.DestBridgeAddress.Hex(),
+	)
 
 	if pauseReceipt.Status != types.ReceiptStatusSuccessful {
 		return err
@@ -340,7 +359,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
-func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
+func (w *Watchdog) pauseBridge(ctx context.Context, bridgeAddress common.Address) (*types.Receipt, error) {
 	data, err := encoding.BridgeABI.Pack("pause")
 	if err != nil {
 		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
@@ -350,7 +369,7 @@ func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
 	candidate := txmgr.TxCandidate{
 		TxData: data,
 		Blobs:  nil,
-		To:     &w.cfg.SrcBridgeAddress,
+		To:     &bridgeAddress,
 	}
 
 	receipt, err := w.txmgr.Send(ctx, candidate)
