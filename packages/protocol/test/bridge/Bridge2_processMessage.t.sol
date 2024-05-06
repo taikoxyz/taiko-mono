@@ -384,23 +384,34 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage_processor()
         public
-        transactedBy(Alice)
+        dealEther(Alice)
+        dealEther(Bob)
         assertSameTotalBalance
     {
+        vm.startPrank(Alice);
+
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-
-        message.srcChainId = uint64(block.chainid);
-
-        message.srcChainId = remoteChainId + 1;
-
         message.srcChainId = remoteChainId;
-
         message.gasLimit = 1_000_000;
         message.processor = Bob;
+        message.destOwner = Carol;
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        bridge.processMessage(message, fakeProof);
+
+        vm.stopPrank();
+
+        vm.prank(Bob);
+        bridge.processMessage(message, fakeProof);
+
+        message.gasLimit = 0;
+        vm.prank(Bob);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        bridge.processMessage(message, fakeProof);
+
+        vm.prank(Carol);
         bridge.processMessage(message, fakeProof);
     }
 }
