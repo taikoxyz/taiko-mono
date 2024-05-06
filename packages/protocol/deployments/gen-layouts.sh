@@ -25,6 +25,7 @@ contracts=(
     "AutomataDcapV3Attestation"
     "SgxVerifier"
     "RiscZeroVerifier"
+    "QuotaManager"
 )
 
 # Empty the output file initially
