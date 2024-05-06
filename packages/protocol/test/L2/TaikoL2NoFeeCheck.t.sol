@@ -55,9 +55,7 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
             )
         );
 
-        L2.setConfigAndExcess(
-            LibL2Config.Config(gasTarget, quotient, uint64(gasTarget) * 300), gasExcess
-        );
+        L2.setConfigAndExcess(LibL2Config.Config(gasTarget, quotient), gasExcess);
 
         ss.authorize(address(L2), true);
 
