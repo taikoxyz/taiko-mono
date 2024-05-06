@@ -186,7 +186,7 @@
         on:addressvalidation={onAddressValidation}
         bind:state
         onDialog />
-      <div class="w-full flex items-center justify-between mt-[8px]">
+      <div class="w-full flex items-center justify-between">
         {#if customTokenWithDetails}
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
           <span>{$t('common.balance')}: {formattedBalance}</span>
@@ -194,7 +194,7 @@
           <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} />
         {:else if loadingTokenDetails}
           <Spinner />
-        {:else}
+        {:else if state === AddressInputState.DEFAULT}
           <FlatAlert type="info" message={$t('token_dropdown.custom_token.default_message')} />
         {/if}
       </div>
