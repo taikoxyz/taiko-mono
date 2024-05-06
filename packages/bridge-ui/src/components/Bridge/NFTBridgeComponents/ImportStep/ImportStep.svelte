@@ -16,18 +16,26 @@
   import { selectedImportMethod } from './state';
 
   let foundNFTs: NFT[] = [];
+
+  //  States
+  let scanning = false;
   let canProceed = false;
 
   export let validating = false;
 
-  const scanForNFTs = async () => {
+  const nextPage = async () => {
+    await scanForNFTs(false);
+  };
+
+  const scanForNFTs = async (refresh: boolean) => {
     scanning = true;
     $selectedNFTs = [];
     const accountAddress = $account?.address;
     const srcChainId = $srcChain?.id;
     const destChainId = $destChain?.id;
     if (!accountAddress || !srcChainId || !destChainId) return;
-    const nftsFromAPIs = await fetchNFTs(accountAddress, srcChainId);
+    const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
+
     foundNFTs = nftsFromAPIs.nfts;
 
     scanning = false;
@@ -46,9 +54,6 @@
   const onAccountChange = () => {
     reset();
   };
-
-  //  States
-  let scanning = false;
 
   $: canImport = ($account?.isConnected && $srcChain?.id && $destChain && !scanning) || false;
 
@@ -74,9 +79,9 @@
 {#if $selectedImportMethod === ImportMethod.MANUAL}
   <ManualImport bind:validating />
 {:else if $selectedImportMethod === ImportMethod.SCAN}
-  <ScannedImport {scanForNFTs} bind:foundNFTs bind:canProceed />
+  <ScannedImport refresh={() => scanForNFTs(true)} {nextPage} bind:foundNFTs bind:canProceed />
 {:else}
-  <ImportActions bind:scanning {canImport} {scanForNFTs} />
+  <ImportActions bind:scanning {canImport} scanForNFTs={() => scanForNFTs(false)} />
 {/if}
 
 <OnAccount change={onAccountChange} />
