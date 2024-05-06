@@ -29,6 +29,7 @@
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { TabTypes } from './types';
 
   const log = getLogger('TokenDropdown');
 
@@ -40,6 +41,8 @@
 
   let id = `menu-${uid()}`;
   $: menuOpen = false;
+
+  let activeTab: TabTypes = TabTypes.TOKEN;
 
   const customTokens = tokenService.getTokens($account?.address as Address);
   // This will control which view to render depending on the screensize.
@@ -236,9 +239,19 @@
       {value}
       {selectToken}
       {closeMenu}
+      {activeTab}
       on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} bind:menuOpen {onlyMintable} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
+    <DialogView
+      {id}
+      bind:menuOpen
+      {onlyMintable}
+      {tokens}
+      {customTokens}
+      {value}
+      {selectToken}
+      {closeMenu}
+      {activeTab} />
   {/if}
 </div>
 

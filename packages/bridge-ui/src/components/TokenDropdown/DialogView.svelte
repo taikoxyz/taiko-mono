@@ -4,17 +4,21 @@
   import type { Address } from 'viem';
 
   import { CloseButton } from '$components/Button';
+  import { DialogTabs } from '$components/DialogTabs';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
+  import { InputBox } from '$components/InputBox';
   import { OnAccount } from '$components/OnAccount';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { noop } from '$libs/util/noop';
+  import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
 
   import AddCustomErc20 from './AddCustomERC20.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { TabTypes, TokenTabs } from './types';
 
   export let id: string;
   export let tokens: Token[] = [];
@@ -25,6 +29,16 @@
   export let onlyMintable: boolean = false;
   export let selectToken: (token: Token) => void = noop;
   export let closeMenu: () => void = noop;
+
+  export let activeTab: TabTypes = TabTypes.TOKEN;
+
+  const searchToken = (event: Event) => {
+    enteredTokenName = (event.target as HTMLInputElement).value;
+  };
+
+  const handleTabChange = (event: CustomEvent) => {
+    activeTab = event.detail.tabId;
+  };
 
   const showAddERC20 = () => {
     menuOpen = false;
@@ -41,6 +55,12 @@
     }
   };
 
+  const removeToken = async (token: Token) => {
+    const address = $account.address;
+    tokenService.removeToken(token, address as Address);
+    customTokens = tokenService.getTokens(address as Address);
+  };
+
   const getTokenKeydownHandler = (token: Token) => {
     return (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
@@ -51,6 +71,22 @@
       }
     };
   };
+
+  $: filteredCustomTokens = [] as Token[];
+  $: filteredTokens = [] as Token[];
+  $: enteredTokenName = '';
+
+  $: if (enteredTokenName !== '') {
+    filteredTokens = tokens.filter((token) => {
+      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+    });
+    filteredCustomTokens = customTokens.filter((token) => {
+      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+    });
+  } else {
+    filteredTokens = tokens;
+    filteredCustomTokens = customTokens;
+  }
 
   onMount(() => tokenService.subscribeToChanges(handleStorageChange));
 
@@ -69,64 +105,96 @@
     <div class="w-full">
       <h3 class="title-body-bold mb-7">{$t('token_dropdown.label')}</h3>
 
+      <DialogTabs tabs={TokenTabs} bind:activeTab on:change={handleTabChange} />
+
+      <InputBox
+        {id}
+        type="text"
+        placeholder={$t('common.search_token')}
+        bind:value={enteredTokenName}
+        on:input={searchToken}
+        class="p-[12px] my-[20px]" />
       <ul role="listbox" class="menu p-0">
-        {#each tokens as token (token.symbol)}
-          {@const selected = token === value}
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
-          <li
-            role="option"
-            tabindex="0"
-            aria-selected={selected}
-            class="rounded-[10px]"
-            class:bg-tertiary-interactive-accent={selected}
-            on:click={() => selectToken(token)}>
-            <div class="p-4">
-              {#if symbolToIconMap[token.symbol] && !token.imported}
-                <i role="img" aria-label={token.name}>
-                  <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
-                </i>
-              {:else}
-                <i role="img" aria-label={token.symbol}>
-                  <svelte:component this={Erc20} size={28} />
-                </i>
-              {/if}
-              <span class="body-bold">{token.symbol}</span>
-            </div>
-          </li>
-        {/each}
-        {#if !onlyMintable}
-          {#each customTokens as token, index (index)}
+        {#if activeTab === TabTypes.TOKEN}
+          {#each filteredTokens as token (token.symbol)}
+            {@const selected = token === value}
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
             <li
               role="option"
               tabindex="0"
-              aria-selected={token === value}
-              on:click={() => selectToken(token)}
-              on:keydown={getTokenKeydownHandler(token)}>
+              aria-selected={selected}
+              class="rounded-[10px]"
+              class:bg-tertiary-interactive-accent={selected}
+              on:click={() => selectToken(token)}>
               <div class="p-4">
-                <i role="img" aria-label={token.name}>
-                  <Erc20 />
-                </i>
+                {#if symbolToIconMap[token.symbol] && !token.imported}
+                  <i role="img" aria-label={token.name}>
+                    <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
+                  </i>
+                {:else}
+                  <i role="img" aria-label={token.symbol}>
+                    <svelte:component this={Erc20} size={28} />
+                  </i>
+                {/if}
                 <span class="body-bold">{token.symbol}</span>
               </div>
             </li>
           {/each}
-
-          <div class="h-sep" />
-          <li>
-            <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center p-4 rounded-sm">
-              <Icon type="plus-circle" fillClass="fill-primary-icon" />
-              <span
-                class="
-            body-bold
-            bg-transparent
-            flex-1
-            w-[100px]
-            px-0
-            pl-2">
-                {$t('token_dropdown.add_custom')}
-              </span>
-            </button>
-          </li>
+        {:else if activeTab === TabTypes.CUSTOM}
+          {#if !onlyMintable}
+            {#each filteredCustomTokens as ct, index (index)}
+              {@const selected = ct.name === value?.name && ct.symbol === value?.symbol}
+              <li
+                role="option"
+                tabindex="0"
+                aria-selected={selected}
+                class="rounded-[10px]"
+                class:bg-tertiary-interactive-accent={selected}
+                on:click={() => selectToken(ct)}
+                on:keydown={getTokenKeydownHandler(ct)}>
+                <div class="p-4 flex">
+                  <i
+                    role="option"
+                    tabindex="0"
+                    aria-selected={ct === value}
+                    on:click={() => selectToken(ct)}
+                    on:keydown={getTokenKeydownHandler(ct)}
+                    aria-label={ct.name}>
+                    <Erc20 />
+                  </i>
+                  <span
+                    role="option"
+                    aria-selected={ct === value}
+                    tabindex="-1"
+                    on:click={() => selectToken(ct)}
+                    on:keydown={getTokenKeydownHandler(ct)}
+                    class="grow body-bold">{truncateString(ct.symbol, 10)}</span>
+                  <div
+                    role="button"
+                    tabindex="-1"
+                    on:click={() => removeToken(ct)}
+                    on:keydown={getTokenKeydownHandler(ct)}
+                    class="cursor-pointer">
+                    <Icon type="trash" size={25} fillClass="fill-primary-icon" />
+                  </div>
+                </div>
+              </li>
+            {/each}
+            {#if filteredCustomTokens.length === 0}
+              <li class="rounded-[10px]">No custom tokens added</li>
+            {/if}
+            <div class="h-sep" />
+            <li class="f-between-center max-h-[42px]">
+              <button
+                on:click={showAddERC20}
+                class="flex w-full hover:bg-dark-5 justify-center items-center rounded-sm">
+                <Icon type="plus-circle" fillClass="fill-primary-icon" />
+                <span class=" body-bold bg-transparent flex-1 w-[100px] px-0 pl-2">
+                  {$t('token_dropdown.add_custom')}
+                </span>
+              </button>
+            </li>
+          {/if}
         {/if}
       </ul>
     </div>
@@ -136,5 +204,4 @@
 
 <AddCustomErc20 bind:modalOpen on:tokenRemoved />
 
-<!-- <OnNetwork change={onNetworkChange} /> -->
 <OnAccount change={onAccountChange} />

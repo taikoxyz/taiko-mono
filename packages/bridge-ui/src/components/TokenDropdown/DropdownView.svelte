@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
+  import { DialogTabs } from '$components/DialogTabs';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import InputBox from '$components/InputBox/InputBox.svelte';
@@ -17,6 +18,7 @@
 
   import AddCustomErc20 from './AddCustomERC20.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { TabTypes, TokenTabs } from './types';
 
   export let id: string;
   export let menuOpen = false;
@@ -29,14 +31,13 @@
   export let selectToken: (token: Token) => void = noop;
   export let onlyMintable: boolean = false;
 
+  export let activeTab: TabTypes = TabTypes.TOKEN;
+
   const handleCloseMenu = () => {
     enteredTokenName = '';
     closeMenu();
   };
-  enum TokenTabs {
-    TOKEN,
-    CUSTOM,
-  }
+
   let addArc20ModalOpen = false;
 
   const getTokenKeydownHandler = (token: Token) => {
@@ -59,10 +60,9 @@
     }
   };
 
-  let activeTab = TokenTabs.TOKEN;
-  function setActiveTab(tab: TokenTabs) {
-    activeTab = tab;
-  }
+  const handleTabChange = (event: CustomEvent) => {
+    activeTab = event.detail.tabId;
+  };
 
   const searchToken = (event: Event) => {
     enteredTokenName = (event.target as HTMLInputElement).value;
@@ -102,7 +102,6 @@
   onDestroy(() => {
     tokenService.unsubscribeFromChanges(handleStorageChange);
   });
-  $: 'tab-active !border-primary-brand !border-b-4';
 </script>
 
 <!-- Desktop (or larger) view -->
@@ -110,58 +109,44 @@
   {id}
   class={menuClasses}
   use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: handleCloseMenu, uuid: id }}>
-  <div role="tablist" class="relative tabs tabs-bordered f-row align-left">
-    <button
-      role="tab"
-      aria-selected={activeTab === TokenTabs.TOKEN}
-      class:tab-active={activeTab === TokenTabs.TOKEN}
-      class={classNames("tab !border-color-red'", activeTab === TokenTabs.TOKEN ? 'tab-active ' : '')}
-      on:click={() => setActiveTab(TokenTabs.TOKEN)}>
-      <span class="text-secondary-content">Tokens</span>
-    </button>
-    <button
-      role="tab"
-      aria-selected={activeTab === TokenTabs.CUSTOM}
-      class:tab-active={activeTab === TokenTabs.CUSTOM}
-      class={classNames(" tab box-content'", activeTab === TokenTabs.CUSTOM ? ' tab-active' : '')}
-      on:click={() => setActiveTab(TokenTabs.CUSTOM)}>
-      <span class="text-secondary-content"> Custom</span>
-    </button>
-    <div class="absolut w-full border-b-[1px] box-border border-tertiary-content mb-[2px]" />
-  </div>
-  <div>
-    <InputBox
-      {id}
-      type="text"
-      placeholder={$t('common.search_token')}
-      bind:value={enteredTokenName}
-      on:input={searchToken}
-      class="p-[12px] my-[20px]" />
-    <ul role="listbox" {id}>
-      {#if activeTab === TokenTabs.TOKEN}
-        {#each filteredTokens as t (t.symbol)}
-          <li
-            role="option"
-            tabindex="0"
-            aria-selected={t === value}
-            on:click={() => selectToken(t)}
-            on:keydown={getTokenKeydownHandler(t)}>
-            <div class="p-4">
-              <!-- Only match icons to configurd tokens -->
-              {#if symbolToIconMap[t.symbol] && !t.imported}
-                <i role="img" aria-label={t.name}>
-                  <svelte:component this={symbolToIconMap[t.symbol]} size={28} />
-                </i>
-              {:else}
-                <i role="img" aria-label={t.symbol}>
-                  <svelte:component this={Erc20} size={28} />
-                </i>
-              {/if}
-              <span class="body-bold">{t.symbol}</span>
-            </div>
-          </li>
-        {/each}
-      {:else if !onlyMintable}
+  <DialogTabs tabs={TokenTabs} bind:activeTab on:change={handleTabChange} />
+
+  <InputBox
+    {id}
+    type="text"
+    placeholder={$t('common.search_token')}
+    bind:value={enteredTokenName}
+    on:input={searchToken}
+    class="p-[12px] my-[20px]" />
+  <ul role="listbox" {id} class="gap-2">
+    {#if activeTab === TabTypes.TOKEN}
+      {#each filteredTokens as t (t.symbol)}
+        {@const selected = t === value}
+        <li
+          role="option"
+          tabindex="0"
+          aria-selected={selected}
+          class="rounded-[10px] my-[8px]"
+          class:bg-tertiary-interactive-accent={selected}
+          on:click={() => selectToken(t)}
+          on:keydown={getTokenKeydownHandler(t)}>
+          <div class="p-4">
+            <!-- Only match icons to configurd tokens -->
+            {#if symbolToIconMap[t.symbol] && !t.imported}
+              <i role="img" aria-label={t.name}>
+                <svelte:component this={symbolToIconMap[t.symbol]} size={28} />
+              </i>
+            {:else}
+              <i role="img" aria-label={t.symbol}>
+                <svelte:component this={Erc20} size={28} />
+              </i>
+            {/if}
+            <span class="body-bold">{t.symbol}</span>
+          </div>
+        </li>
+      {/each}
+    {:else if activeTab === TabTypes.CUSTOM}
+      {#if !onlyMintable}
         {#each filteredCustomTokens as ct, index (index)}
           <li>
             <div class="p-4 flex">
@@ -207,27 +192,9 @@
           </button>
         </li>
       {/if}
-    </ul>
-  </div>
+    {/if}
+  </ul>
 </div>
 <AddCustomErc20 bind:modalOpen={addArc20ModalOpen} on:tokenRemoved />
 
 <OnAccount change={onAccountChange} />
-
-<style>
-  .tab {
-    box-sizing: border-box !important;
-    padding-bottom: 6px;
-  }
-  .tab:not(.tab-active) {
-    border-color: var(--tertiary-content) !important;
-    border-bottom: 1px solid;
-    margin-bottom: 2px;
-    padding-top: 2px;
-  }
-  .tab-active {
-    border-bottom: 4px solid;
-    border-color: var(--primary-brand) !important;
-    padding-bottom: 4px;
-  }
-</style>
