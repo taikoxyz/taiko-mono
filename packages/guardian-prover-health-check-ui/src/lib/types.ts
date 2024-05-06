@@ -1,3 +1,5 @@
+import type { Address } from "viem";
+
 export type SignedBlock = {
 	blockHash: string;
 	signature: string;
@@ -63,7 +65,7 @@ export type PageResponse<T> = {
 
 export type Guardian = {
 	name: string;
-	address: string;
+	address: Address;
 	id: number;
 	latestHealthCheck: HealthCheck;
 	alive: GuardianProverStatus;

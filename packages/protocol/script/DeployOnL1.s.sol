@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/common/LibStrings.sol";
-import "../contracts/L1/TaikoToken.sol";
+import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
@@ -151,13 +151,7 @@ contract DeployOnL1 is DeployCapability {
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init,
-                    (
-                        owner,
-                        vm.envString("TAIKO_TOKEN_NAME"),
-                        vm.envString("TAIKO_TOKEN_SYMBOL"),
-                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
-                    )
+                    TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
                     ),
                 registerTo: sharedAddressManager
             });
@@ -171,12 +165,18 @@ contract DeployOnL1 is DeployCapability {
             registerTo: sharedAddressManager
         });
 
-        deployProxy({
+        address brdige = deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
-            data: abi.encodeCall(Bridge.init, (owner, sharedAddressManager)),
+            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager)),
             registerTo: sharedAddressManager
         });
+
+        if (vm.envBool("PAUSE_BRIDGE")) {
+            Bridge(payable(brdige)).pause();
+        }
+
+        Bridge(payable(brdige)).transferOwnership(owner);
 
         console2.log("------------------------------------------");
         console2.log(
@@ -329,8 +329,7 @@ contract DeployOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: automateDcapV3AttestationImpl,
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (timelock, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
                 ),
             registerTo: rollupAddressManager
         });

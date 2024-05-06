@@ -8,10 +8,6 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeTaikoL1 is UpgradeScript {
     function run() external setUp {
-        console2.log("upgrading TaikoL1");
-        TaikoL1 newTaikoL1 = new TaikoL1();
-        upgrade(address(newTaikoL1));
-
-        console2.log("upgraded TaikoL1 to", address(newTaikoL1));
+        upgrade("TaikoL1", address(new TaikoL1()));
     }
 }

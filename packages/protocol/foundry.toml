@@ -35,7 +35,8 @@ fs_permissions = [
 # 2394: Transient storage warning
 # 3860: Contract initcode size is xxx bytes and exceeds 49152 bytes
 # 5574: Contract code size is xxx bytes and exceeds 24576 byte
-ignored_error_codes = [2394, 3860, 5574]
+# 5740: Unreachable code
+ignored_error_codes = [2394, 3860, 5574, 5740]
 
 [fuzz]
 runs = 200

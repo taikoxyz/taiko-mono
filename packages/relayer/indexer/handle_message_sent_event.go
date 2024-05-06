@@ -113,7 +113,7 @@ func (i *Indexer) handleMessageSentEvent(
 
 	// we add it to the queue, so the processor can pick up and attempt to process
 	// the message onchain.
-	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil); err != nil {
+	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil, nil); err != nil {
 		return errors.Wrap(err, "i.queue.Publish")
 	}
 

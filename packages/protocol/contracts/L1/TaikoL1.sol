@@ -36,7 +36,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     /// @dev Allows for receiving Ether from Hooks
     receive() external payable {
-        if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
+        if (!inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
     /// @notice Initializes the contract.

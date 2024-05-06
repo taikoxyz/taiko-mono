@@ -40,9 +40,8 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_VALUE();
     error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
-    error SS_UNSUPPORTED();
 
-    modifier validSender(address _app) {
+    modifier nonZeroApp(address _app) {
         if (_app == address(0)) revert SS_INVALID_SENDER();
         _;
     }
@@ -205,7 +204,7 @@ contract SignalService is EssentialContract, ISignalService {
         internal
         view
         virtual
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         nonZeroValue(_value)
         returns (bytes32)
@@ -220,9 +219,7 @@ contract SignalService is EssentialContract, ISignalService {
         );
     }
 
-    function _authorizePause(address, bool) internal pure override {
-        revert SS_UNSUPPORTED();
-    }
+    function _authorizePause(address, bool) internal pure override notImplemented { }
 
     function _syncChainData(
         uint64 _chainId,
@@ -248,7 +245,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _value
     )
         private
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         nonZeroValue(_value)
         returns (bytes32 slot_)
@@ -290,7 +287,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         returns (bytes32 value_)
     {
@@ -309,7 +306,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        validSender(_app)
+        nonZeroApp(_app)
         nonZeroValue(_signal)
         returns (CacheAction[] memory actions)
     {
@@ -326,7 +323,7 @@ contract SignalService is EssentialContract, ISignalService {
         address app = _app;
         bytes32 signal = _signal;
         bytes32 value = _signal;
-        address signalService = resolve(chainId, "signal_service", false);
+        address signalService = resolve(chainId, LibStrings.B_SIGNAL_SERVICE, false);
 
         HopProof memory hop;
         bytes32 signalRoot;
@@ -351,7 +348,7 @@ contract SignalService is EssentialContract, ISignalService {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
-                signalService = resolve(hop.chainId, "signal_service", false);
+                signalService = resolve(hop.chainId, LibStrings.B_SIGNAL_SERVICE, false);
             }
 
             isFullProof = hop.accountProof.length != 0;
