@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IQuotaManager.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
-import "../libs/LibBytes.sol";
 import "./BridgedERC20.sol";
 import "./BaseVault.sol";
 
@@ -19,7 +18,7 @@ import "./BaseVault.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
-    using LibBytes for bytes;
+
     using SafeERC20 for IERC20;
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
@@ -370,8 +369,8 @@ contract ERC20Vault is BaseVault {
                 chainId: uint64(block.chainid),
                 addr: _op.token,
                 decimals: _safeDecimals(_op.token),
-                symbol: _safeSymbol(_op.token),
-                name: _safeName(_op.token)
+                symbol: safeSymbol(_op.token),
+                name: safeName(_op.token)
             });
 
             // Query the balance then query it again to get the actual amount of
@@ -441,18 +440,6 @@ contract ERC20Vault is BaseVault {
         if (quotaManager != address(0)) {
             IQuotaManager(quotaManager).consumeQuota(_token, _amount);
         }
-    }
-
-    function _safeSymbol(address _token) private view returns (string memory symbol_) {
-        (bool success, bytes memory data) =
-            address(_token).staticcall(abi.encodeCall(IERC20Metadata.symbol, ()));
-        return success ? data.toString() : "";
-    }
-
-    function _safeName(address _token) private view returns (string memory) {
-        (bool success, bytes memory data) =
-            address(_token).staticcall(abi.encodeCall(IERC20Metadata.name, ()));
-        return success ? data.toString() : "";
     }
 
     function _safeDecimals(address _token) private view returns (uint8) {
