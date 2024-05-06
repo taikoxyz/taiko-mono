@@ -56,11 +56,7 @@ library Lib1559Math {
         if (_adjustmentFactor == 0) {
             revert EIP1559_INVALID_PARAMS();
         }
-
-        // Note that `/ _adjustmentFactor` can be removed which will make basefee increment faster.
-        // Alternatively, a larger initial value can be used for `_gasExcess`.
-        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
-            / _adjustmentFactor;
+        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
