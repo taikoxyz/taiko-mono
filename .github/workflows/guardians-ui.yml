@@ -23,7 +23,7 @@ jobs:
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_PROVER_HEALTH_CHECK_UI }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
     steps:
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
@@ -37,7 +37,7 @@ jobs:
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_PROVER_HEALTH_CHECK_UI_INTERNAL }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
     steps:
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
@@ -51,7 +51,7 @@ jobs:
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_PROVER_HEALTH_CHECK_UI }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
     steps:
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml

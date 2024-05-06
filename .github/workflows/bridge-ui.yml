@@ -23,7 +23,7 @@ jobs:
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
     steps:
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
@@ -51,7 +51,7 @@ jobs:
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
     steps:
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
