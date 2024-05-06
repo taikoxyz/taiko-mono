@@ -1,0 +1,48 @@
+name: Taikoon UI CI/CD
+
+on:
+  push:
+    branches-ignore:
+      - release-please-*
+    paths:
+      - "packages/taikoon-ui/**"
+  pull_request:
+    paths:
+      - "packages/taikoon-ui/**"
+
+jobs:
+  build-and-test:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Build and Checks
+        uses: ./.github/workflows/taikoon-ui-ci.yml
+
+  # Deployment name follow the pattern: deploy_<appname(taikoon-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
+  deploy_taikoon-ui_hekla_preview:
+    if: ${{ github.ref_name != 'main' }}
+    runs-on: [taiko-runner]
+    needs: build-and-test
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI }}
+    steps:
+      - name: Deploy
+        uses: ./.github/workflows/vercel-deploy.yml
+        with:
+          environment: 'preview'
+          flags: ''
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+
+
+  deploy_taikoon-ui_hekla_production:
+    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/taikoon-ui-') }}
+    runs-on: [taiko-runner]
+    needs: build-and-test
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI }}
+    steps:
+      - name: Deploy
+        uses: ./.github/workflows/vercel-deploy.yml
+        with:
+          environment: 'production'
+          flags: '--prod'
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
