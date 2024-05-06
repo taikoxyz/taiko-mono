@@ -201,11 +201,11 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
+        local.livenessBond = blk.livenessBond;
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         if (_proof.tier > ts.tier) {
-            local.livenessBond = blk.livenessBond;
             if (local.isTopTier && local.livenessBond != 0) {
                 if (
                     local.inProvingWindow
