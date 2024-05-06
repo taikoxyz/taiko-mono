@@ -100,24 +100,27 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	var tokenAddress common.Address = zeroAddress
-	var value *big.Int = msgBody.Event.Message.Value
+	// dont check quota for NFTs
+	if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
+		var tokenAddress common.Address = zeroAddress
+		var value *big.Int = msgBody.Event.Message.Value
 
-	if eventType == relayer.EventTypeSendERC20 {
-		tokenAddress = canonicalToken.Address()
-		value = amount
-	}
+		if eventType == relayer.EventTypeSendERC20 {
+			tokenAddress = canonicalToken.Address()
+			value = amount
+		}
 
-	hasQuota, waitUntil, err := p.hasQuotaAvailable(ctx, tokenAddress, value)
-	if err != nil {
-		return false, msgBody.TimesRetried, err
-	}
+		hasQuota, waitUntil, err := p.hasQuotaAvailable(ctx, tokenAddress, value)
+		if err != nil {
+			return false, msgBody.TimesRetried, err
+		}
 
-	if !hasQuota {
-		// wait until quota available
-		slog.Info("quota not available for token", "waitUntil", waitUntil)
+		if !hasQuota {
+			// wait until quota available
+			slog.Info("quota not available for token", "waitUntil", waitUntil)
 
-		time.Sleep(time.Duration(waitUntil) * time.Second)
+			time.Sleep(time.Duration(waitUntil) * time.Second)
+		}
 	}
 
 	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
