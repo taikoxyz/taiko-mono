@@ -210,13 +210,11 @@ contract TestERC20Vault is TaikoTest {
                 )
             })
         );
-
         vm.stopPrank();
     }
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
-
         vm.expectRevert("ERC20: insufficient allowance");
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
