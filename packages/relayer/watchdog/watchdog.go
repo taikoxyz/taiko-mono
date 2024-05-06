@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -340,11 +339,6 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	if err != nil {
 		return err
 	}
-
-	slog.Info("Mined pause tx",
-		"txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()),
-		"bridgeAddress", w.cfg.DestBridgeAddress.Hex(),
-	)
 
 	if pauseReceipt != nil {
 		slog.Info("Mined pause tx",
