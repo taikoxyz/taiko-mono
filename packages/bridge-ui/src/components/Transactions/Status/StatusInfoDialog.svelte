@@ -71,8 +71,8 @@
       {$t('transactions.status.failed.description')}
     </div>
 
+  </div>
     <!-- We catch key events aboe -->
     <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
-  </div>
+  <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
 </dialog>
