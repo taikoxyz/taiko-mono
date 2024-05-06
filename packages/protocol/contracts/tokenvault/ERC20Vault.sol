@@ -18,7 +18,6 @@ import "./BaseVault.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
-
     using SafeERC20 for IERC20;
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
