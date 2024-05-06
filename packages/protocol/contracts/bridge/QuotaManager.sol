@@ -65,7 +65,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
         whenNotPaused
         onlyFromNamedEither(LibStrings.B_BRIDGE, LibStrings.B_ERC20_VAULT)
     {
-        uint256 available = availableQuota(_token);
+        uint256 available = availableQuota(_token, 0);
         if (available == type(uint256).max) return;
         if (available < _amount) revert QM_OUT_OF_QUOTA();
 
@@ -78,13 +78,14 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     /// @notice Returns the available quota for a given token.
     /// @param _token The token address with Ether represented by address(0).
+    /// @param _leap Amount of seconds in the future.
     /// @return The available quota.
-    function availableQuota(address _token) public view returns (uint256) {
+    function availableQuota(address _token, uint256 _leap) public view returns (uint256) {
         Quota memory q = tokenQuota[_token];
         if (q.quota == 0) return type(uint256).max;
         if (q.updatedAt == 0) return q.quota;
 
-        uint256 issuance = q.quota * (block.timestamp - q.updatedAt) / quotaPeriod;
+        uint256 issuance = q.quota * (block.timestamp + _leap - q.updatedAt) / quotaPeriod;
         return (issuance + q.available).min(q.quota);
     }
 }
