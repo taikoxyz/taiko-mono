@@ -30,16 +30,15 @@ library LibBytes {
             // Since the strings on bytes32 are encoded left-right, check the first zero in the data
             uint256 nonZeroBytes;
             while (nonZeroBytes < 32 && _data[nonZeroBytes] != 0) {
-                nonZeroBytes++;
+                ++nonZeroBytes;
             }
 
             // If the first one is 0, we do not handle the encoding
-            if (nonZeroBytes == 0) {
-                return "";
-            }
+            if (nonZeroBytes == 0) return "";
+
             // Create a byte array with nonZeroBytes length
             bytes memory bytesArray = new bytes(nonZeroBytes);
-            for (uint256 i = 0; i < nonZeroBytes; i++) {
+            for (uint256 i; i < nonZeroBytes; ++i) {
                 bytesArray[i] = _data[i];
             }
             return string(bytesArray);
