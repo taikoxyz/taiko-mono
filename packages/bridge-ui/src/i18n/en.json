@@ -24,6 +24,10 @@
           "message": "Your funds are being prepared for claiming on Taiko.",
           "title": "Transaction completed"
         },
+        "timeout": {
+          "message": "It took longer than expected to process your transaction, check your wallet for the status.",
+          "title": "Timed out"
+        },
         "tx": {
           "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
           "title": "Transaction sent"
@@ -154,6 +158,9 @@
         "bridge": {
           "success": {
             "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
+          },
+          "timeout": {
+            "message": "The network experiences heavy load and it took longer than expected for your transaction to process. You can track the status on the <a class=\"link\" href=\\\"{url}\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\"><b>explorer</b></a> and in your wallet."
           }
         },
         "button": {
@@ -354,7 +361,9 @@
   },
   "paginator": {
     "of": "of",
-    "page": "Page"
+    "page": "Page",
+    "more": "Fetch more...",
+    "everything_loaded": "Everything loaded"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communication channels for more information. ",

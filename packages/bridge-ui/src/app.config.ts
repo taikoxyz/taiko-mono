@@ -15,7 +15,7 @@ export const processingFeeComponent = {
 };
 
 export const pendingTransaction = {
-  waitTimeout: 300_000,
+  waitTimeout: 30_000,
 };
 
 export const storageService = {
@@ -48,4 +48,11 @@ export const apiService = {
 export const ipfsConfig = {
   gatewayTimeout: 200,
   overallTimeout: 5000,
+};
+
+export const moralisApiConfig = {
+  limit: 10,
+  format: 'decimal',
+  excludeSpam: true,
+  mediaItems: false,
 };

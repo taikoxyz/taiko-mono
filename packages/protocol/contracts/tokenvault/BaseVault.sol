@@ -18,21 +18,16 @@ abstract contract BaseVault is
 {
     uint256[50] private __gap;
 
+    error VAULT_INVALID_TO_ADDR();
     error VAULT_PERMISSION_DENIED();
-
-    modifier onlyFromBridge() {
-        if (msg.sender != resolve(LibStrings.B_BRIDGE, false)) {
-            revert VAULT_PERMISSION_DENIED();
-        }
-        _;
-    }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return _interfaceId == type(IRecallableSender).interfaceId
-            || _interfaceId == type(IMessageInvocable).interfaceId;
+            || _interfaceId == type(IMessageInvocable).interfaceId
+            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
     /// @notice Returns the name of the vault.
@@ -42,7 +37,7 @@ abstract contract BaseVault is
     function checkProcessMessageContext()
         internal
         view
-        onlyFromBridge
+        onlyFromNamed(LibStrings.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
@@ -53,10 +48,14 @@ abstract contract BaseVault is
     function checkRecallMessageContext()
         internal
         view
-        onlyFromBridge
+        onlyFromNamed(LibStrings.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
         if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
+    }
+
+    function checkToAddress(address _to) internal view {
+        if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
     }
 }

@@ -41,3 +41,7 @@ data/images
 data/metadata
 lcov.info
 lib
+data/whitelist/hardhat.csv
+data/whitelist/holesky.csv
+data/whitelist/mainnet.csv
+data/whitelist/*.json

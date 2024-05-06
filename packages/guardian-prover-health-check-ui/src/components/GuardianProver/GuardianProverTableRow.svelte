@@ -72,7 +72,12 @@
 	{$loading ? 'collapse-close' : ''}
 	bg-base-200"
 >
-	<input type="checkbox" id={`guardian-${guardianProver.id}`} class="peer" bind:checked={flipped} />
+	<input
+		type="checkbox"
+		id={`guardian-${guardianProver.address}`}
+		class="peer"
+		bind:checked={flipped}
+	/>
 	<div class="collapse-title text-xl font-medium f-row">
 		<div class="f-row min-w-[150px] items-center gap-4">
 			{#if $loading}
