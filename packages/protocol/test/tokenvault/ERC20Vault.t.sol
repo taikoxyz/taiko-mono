@@ -430,6 +430,16 @@ contract TestERC20Vault is TaikoTest {
         });
     }
 
+    function noNameErc20(uint64 chainId) internal view returns (ERC20Vault.CanonicalERC20 memory) {
+        return ERC20Vault.CanonicalERC20({
+            chainId: chainId,
+            addr: address(weirdNamedToken),
+            decimals: weirdNamedToken.decimals(),
+            symbol: weirdNamedToken.symbol(),
+            name: weirdNamedToken.name()
+        });
+    }
+
     function test_20Vault_upgrade_bridged_tokens_20() public {
         vm.startPrank(Alice);
 
@@ -629,5 +639,43 @@ contract TestERC20Vault is TaikoTest {
         assertEq(decodedName, "");
 
         vm.stopPrank();
+    }
+
+    function test_20Vault_deploy_erc20_with_no_name() public {
+        vm.startPrank(Alice);
+
+        vm.chainId(destChainId);
+
+        uint64 amount = 1;
+
+        destChainIdBridge.setERC20Vault(address(destChainIdERC20Vault));
+
+        address bridgedAddressBefore =
+            destChainIdERC20Vault.canonicalToBridged(srcChainId, address(erc20));
+        assertEq(bridgedAddressBefore == address(0), true);
+
+        // todo: dantaik
+        // So this token (weirdNamedToken) has no name (""), as name() and symbol() is optional. And
+        // there is an issue with that.
+        // The following 2 scenarios would create a revert on the "destination" chain:
+        // A: when there is no name (also applies to symbol), we will use that exact same empty
+        // string decoded "" (LibBytes()).
+        // B: if the name() (also applies to symbol) low level call would fail, but we also use
+        // default "" (Base vault line 78).
+        //
+        // In these 2 scenarios, the LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol,
+        // _name) -> Would fail.
+        // Either do not invalidate on empty string OR use other than "" as an error default retVal
+        // (in LibBytes) or default value.
+        destChainIdBridge.sendReceiveERC20ToERC20Vault(
+            noNameErc20(srcChainId),
+            Alice,
+            Bob,
+            amount,
+            bytes32(0),
+            address(erc20Vault),
+            srcChainId,
+            0
+        );
     }
 }
