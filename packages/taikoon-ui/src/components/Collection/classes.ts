@@ -34,6 +34,7 @@ export const taikoonsWrapperClasses = classNames(
   'gap-5',
   'p-5',
   'grid',
+  'xl:grid-cols-8',
   'lg:grid-cols-6',
   'md:grid-cols-4',
   'grid-cols-3',
