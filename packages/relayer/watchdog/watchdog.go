@@ -311,6 +311,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	slog.Warn("dest bridge did not send this message", "msgId", msgBody.Message.Id)
 
+	// we should alert based on this metric
 	relayer.BridgeMessageNotSent.Inc()
 
 	paused, err := w.srcBridge.Paused(&bind.CallOpts{
