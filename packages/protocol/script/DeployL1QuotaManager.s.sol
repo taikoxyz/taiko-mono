@@ -18,7 +18,7 @@ contract DeployL1QuotaManager is DeployCapability {
     }
 
     function run() external broadcast {
-        // Deploy the QuotaManager contract with a 15 minute quota period
+        // Deploy the QuotaManager contract on Ethereum
         QuotaManager qm = QuotaManager(
             deployProxy({
                 name: "quota_manager",
@@ -27,10 +27,20 @@ contract DeployL1QuotaManager is DeployCapability {
             })
         );
 
-        // L2-to-L1 Ether per 15 minutes
-        qm.updateQuota(address(0), 50 ether);
+        // Config L2-to-L1 quota
+        uint104 multipler = 1; // we just change this one later
 
-        // L2-to-L1 TKO per 15 minutes: 100_000 (0.01% total supply)
-        qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 100_000 ether);
+        uint104 valuePerToken = 200_000 * multipler; // USD
+        uint104 priceETH = 3100; // USD
+        uint104 priceTKO = 5; // USD
+
+        // ETH
+        qm.updateQuota(address(0), valuePerToken * 1 ether / priceETH);
+        // TKO
+        qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, valuePerToken * 1e18 / priceTKO);
+        // USDT
+        qm.updateQuota(0xdAC17F958D2ee523a2206206994597C13D831ec7, valuePerToken * 1e6);
+        // USDC
+        qm.updateQuota(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, valuePerToken * 1e6);
     }
 }
