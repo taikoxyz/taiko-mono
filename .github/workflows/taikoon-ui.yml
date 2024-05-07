@@ -14,6 +14,9 @@ jobs:
   build-and-test:
     runs-on: [taiko-runner]
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Build and Checks
         uses: ./.github/workflows/taikoon-ui-ci.yml
 
