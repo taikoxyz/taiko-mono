@@ -5,7 +5,7 @@ pragma solidity 0.8.24;
 /// @title RLPWriter
 /// @author RLPWriter is a library for encoding Solidity types to RLP bytes. Adapted from Bakaoh's
 ///         RLPEncode library (https://github.com/bakaoh/solidity-rlp-encode) with minor
-///         modifications to improve legibility.
+///         modifications to improve legibility. (A shout-out to Optimism !)
 library RLPWriter {
     /// @notice RLP encodes a byte string.
     /// @param _in The byte string to encode.

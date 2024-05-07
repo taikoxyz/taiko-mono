@@ -109,30 +109,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(contractOwner, taikoL2Proxy.owner());
         assertEq(l1ChainId, taikoL2Proxy.l1ChainId());
 
-        vm.startPrank(taikoL2Proxy.GOLDEN_TOUCH_ADDRESS());
-        for (uint32 i = 0; i < 300; ++i) {
-            vm.roll(block.number + 1);
-            vm.warp(block.number + 12);
-            (uint256 basefee,) = taikoL2Proxy.getBasefee(uint64(i + 1), i + 1);
-            vm.fee(basefee);
-
-            uint256 gasLeftBefore = gasleft();
-
-            taikoL2Proxy.anchor(
-                keccak256(abi.encodePacked(block.timestamp, i)),
-                keccak256(abi.encodePacked(block.timestamp, i)),
-                i + 1,
-                i + 1
-            );
-
-            if (i == 299) {
-                console2.log(
-                    "TaikoL2.anchor gas cost after 256 L2 blocks:", gasLeftBefore - gasleft()
-                );
-            }
-        }
-        vm.stopPrank();
-
         vm.startPrank(taikoL2Proxy.owner());
 
         taikoL2Proxy.upgradeTo(address(new TaikoL2()));

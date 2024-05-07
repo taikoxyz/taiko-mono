@@ -2,12 +2,10 @@
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
-import "../contracts/L1/gov/TaikoTimelockController.sol";
 
 contract SetRemoteBridgeSuites is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     uint256 public securityCouncilPrivateKey = vm.envUint("SECURITY_COUNCIL_PRIVATE_KEY");
-    address public timelockAddress = vm.envAddress("TIMELOCK_ADDRESS");
     address public addressManagerAddress = vm.envAddress("ADDRESS_MANAGER_ADDRESS");
     uint256[] public remoteChainIDs = vm.envUint("REMOTE_CHAIN_IDS", ",");
     address[] public remoteSignalServices = vm.envAddress("REMOTE_SIGNAL_SERVICES", ",");
@@ -41,52 +39,13 @@ contract SetRemoteBridgeSuites is DeployCapability {
 
         for (uint256 i; i < remoteChainIDs.length; ++i) {
             uint64 chainid = uint64(remoteChainIDs[i]);
-
-            if (securityCouncilPrivateKey == 0) {
-                register(addressManagerAddress, "signal_service", remoteSignalServices[i], chainid);
-                register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
-                register(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
-                register(addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid);
-                register(addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid);
-                continue;
-            }
-
-            registerByTimelock(
-                addressManagerAddress, "signal_service", remoteSignalServices[i], chainid
-            );
-            registerByTimelock(addressManagerAddress, "bridge", remoteBridges[i], chainid);
-            registerByTimelock(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
-            registerByTimelock(
-                addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid
-            );
-            registerByTimelock(
-                addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid
-            );
+            register(addressManagerAddress, "signal_service", remoteSignalServices[i], chainid);
+            register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
+            register(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
+            register(addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid);
+            register(addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid);
         }
 
         vm.stopBroadcast();
-    }
-
-    function registerByTimelock(
-        address registerTo,
-        string memory name,
-        address addr,
-        uint64 chainId
-    )
-        internal
-    {
-        bytes32 salt = bytes32(block.timestamp);
-
-        bytes memory payload =
-            abi.encodeCall(AddressManager.setAddress, (chainId, bytes32(bytes(name)), addr));
-
-        TaikoTimelockController timelock = TaikoTimelockController(payable(timelockAddress));
-
-        timelock.schedule(registerTo, 0, payload, bytes32(0), salt, 0);
-
-        timelock.execute(registerTo, 0, payload, bytes32(0), salt);
-
-        console2.log("> ", name, "@", registerTo);
-        console2.log("\t addr : ", addr);
     }
 }

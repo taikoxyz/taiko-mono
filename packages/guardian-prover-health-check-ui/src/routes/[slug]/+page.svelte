@@ -14,12 +14,12 @@
 
 	$: if (get(guardianProvers)) {
 		selected = $guardianProvers.find(
-			(guardianProver) => Number(guardianProver.id) === parseInt(data.slug)
+			(guardianProver) => Number(guardianProver.address) === parseInt(data.slug)
 		);
 	} else {
 		refreshData().then(() => {
 			get(guardianProvers).map((prover) => {
-				if (Number(prover.id) === parseInt(data.slug)) {
+				if (prover.address === data.slug) {
 					selected = prover;
 					selectedGuardianProver.set(selected);
 				}

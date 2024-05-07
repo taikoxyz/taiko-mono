@@ -1,35 +1,86 @@
 import type { Address } from 'viem';
 
+import { isL2Chain } from '$libs/chain';
 import { eventIndexerApiServices } from '$libs/eventIndexer/initEventIndexer';
 import { type NFT, TokenType } from '$libs/token';
-import { checkOwnershipOfNFTs } from '$libs/token/checkOwnership';
 import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
 import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
 import { getLogger } from '$libs/util/logger';
+import type { FetchNftArgs } from '$nftAPI/infrastructure/types/common';
 
 const log = getLogger('bridge:fetchNFTs');
 
-function deduplicateNFTs(nftArrays: NFT[][]): NFT[] {
-  const nftMap: Map<string, NFT> = new Map();
-  nftArrays.flat().forEach((nft) => {
-    Object.entries(nft.addresses).forEach(([chainID, address]) => {
-      const uniqueKey = `${address}-${chainID}-${nft.tokenId}`;
+export const fetchNFTs = async ({
+  address: userAddress,
+  chainId: srcChainId,
+  refresh,
+}: FetchNftArgs): Promise<{ nfts: NFT[]; error: Error | null }> => {
+  let nfts: NFT[] = [];
+  try {
+    if (isL2Chain(srcChainId)) {
+      // Todo: replace with a third party service once available
+      // right now we have to use our own indexer for L2
+      nfts = await fetchL2NFTs({ userAddress, srcChainId, refresh });
+    } else {
+      nfts = await fetchL1NFTs({ userAddress, srcChainId, refresh });
+    }
 
-      if (!nftMap.has(uniqueKey)) {
-        nftMap.set(uniqueKey, nft);
-      }
-    });
+    const promises = Promise.all(
+      nfts.map(async (nft: NFT) => {
+        const nftWithImage = await fetchNFTImageUrl(nft);
+        return nftWithImage;
+      }),
+    );
+
+    const nftsWithImage = await promises;
+    nfts = nftsWithImage;
+    return { nfts, error: null };
+  } catch (error) {
+    console.error('Fetch error:', error);
+    return { nfts: [], error: new Error('') };
+  }
+};
+
+const fetchL1NFTs = async ({
+  userAddress,
+  srcChainId,
+  refresh,
+}: {
+  userAddress: Address;
+  srcChainId: number;
+  refresh: boolean;
+}) => {
+  log('fetching L1 NFTs', { userAddress, srcChainId, refresh });
+  const moralisResponse = await fetch('/api/nft', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ address: userAddress, chainId: srcChainId, refresh }),
   });
-  return Array.from(nftMap.values());
-}
 
-export async function fetchNFTs(
-  userAddress: Address,
-  srcChainId: number,
-): Promise<{ nfts: NFT[]; error: Error | null }> {
-  let error: Error | null = null;
+  if (moralisResponse.ok) {
+    const responseData = await moralisResponse.json();
+    log('cursor', responseData);
+    const { nfts } = responseData;
 
-  // Fetch from all indexers
+    return nfts;
+  } else {
+    console.error('HTTP error:', moralisResponse.statusText);
+    return { nfts: [], error: new Error(moralisResponse.statusText) };
+  }
+};
+
+const fetchL2NFTs = async ({
+  userAddress,
+  srcChainId,
+  refresh,
+}: {
+  userAddress: Address;
+  srcChainId: number;
+  refresh: boolean;
+}) => {
+  log('fetching L2 NFTs', { userAddress, srcChainId, refresh });
   const indexerPromises: Promise<NFT[]>[] = eventIndexerApiServices.map(async (eventIndexerApiService) => {
     const { items: result } = await eventIndexerApiService.getAllNftsByAddressFromAPI(userAddress, BigInt(srcChainId), {
       page: 0,
@@ -60,36 +111,22 @@ export async function fetchNFTs(
     nftArrays = await Promise.all(indexerPromises);
   } catch (e) {
     log('error fetching nfts from indexer services', e);
-    error = e as Error;
+    throw e;
   }
+  return deduplicateNFTs(nftArrays);
+};
 
-  // Deduplicate based on address and chainID
-  const deduplicatedNfts = deduplicateNFTs(nftArrays);
+// Deduplicate based on address and chainID
+function deduplicateNFTs(nftArrays: NFT[][]): NFT[] {
+  const nftMap: Map<string, NFT> = new Map();
+  nftArrays.flat().forEach((nft) => {
+    Object.entries(nft.addresses).forEach(([chainID, address]) => {
+      const uniqueKey = `${address}-${chainID}-${nft.tokenId}`;
 
-  // Fetch image for each NFT
-  const promises = Promise.all(
-    deduplicatedNfts.map(async (nft) => {
-      const nftWithImage = await fetchNFTImageUrl(nft);
-      return nftWithImage;
-    }),
-  );
-  const nftsWithImage = await promises;
-
-  // Double check the ownership
-  const ownsAllNfts = await checkOwnershipOfNFTs(nftsWithImage, userAddress, srcChainId);
-  log(`user ${userAddress} owns all NFTs:`, ownsAllNfts);
-  // filter out the NFTs that the user doesn't own
-  const filteredNfts = nftsWithImage.filter((nft) => {
-    const isOwned = ownsAllNfts.successfulOwnershipChecks.find((result) => result.tokenId === nft.tokenId);
-    return isOwned;
+      if (!nftMap.has(uniqueKey)) {
+        nftMap.set(uniqueKey, nft);
+      }
+    });
   });
-
-  if (filteredNfts.length !== nftsWithImage.length) {
-    //TODO: handle this case differently? maybe show a warning to the user?
-    log(`found ${nftsWithImage.length - filteredNfts.length} tokens that the user doesn't own`);
-  }
-
-  log(`found ${filteredNfts.length} unique NFTs from all indexers`, filteredNfts);
-
-  return { nfts: filteredNfts, error };
+  return Array.from(nftMap.values());
 }

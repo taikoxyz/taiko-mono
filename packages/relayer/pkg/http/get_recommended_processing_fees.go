@@ -76,7 +76,7 @@ const (
 	Layer2 layer = iota
 )
 
-// getBlockInfoResponse
+// GetRecommendedProcessingFees
 //
 //	 returns block info for the chains
 //

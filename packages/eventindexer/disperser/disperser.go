@@ -71,6 +71,8 @@ func (d *Disperser) Start() error {
 		return err
 	}
 
+	slog.Info("addresses", "addresses", addresses)
+
 	for _, address := range addresses {
 		slog.Info("dispersing to", "address", address)
 
