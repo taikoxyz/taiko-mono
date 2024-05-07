@@ -69,8 +69,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         payable
         onlyFromNamed(LibStrings.B_BRIDGE)
     {
-        (uint64 txId, address target, bytes memory txdata) =
-            abi.decode(_data, (uint64, address, bytes));
+        (uint64 txId, address target, bool isDelegateCall, bytes memory txdata) =
+            abi.decode(_data, (uint64, address, bool, bytes));
 
         if (txId != nextTxId) revert DO_INVALID_TX_ID();
 
@@ -79,9 +79,19 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             revert DO_PERMISSION_DENIED();
         }
         nextTxId++;
-        // Sending ether along with the function call. Although this is sending Ether from this
-        // contract back to itself, txData's function can now be payable.
-        (bool success,) = target.call{ value: msg.value }(txdata);
+
+        bool success;
+        if (isDelegateCall) {
+            // One example is to delegatecall a multicall3 contract to perform batch contract
+            // upgrades in one single transaction.
+            (success,) = target.delegatecall(txdata);
+        } else {
+            // Sending ether along with the function call. Although this is sending Ether from this
+            // contract back to itself, txData's function can now be payable.
+
+            (success,) = target.call{ value: msg.value }(txdata);
+        }
+
         if (!success) revert DO_TX_REVERTED();
 
         emit TransactionExecuted(txId, target, bytes4(txdata));

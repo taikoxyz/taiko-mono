@@ -14,6 +14,7 @@ evm_version = "cancun"
 remappings = [
   "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
   "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "multicall/=node_modules/multicall/",
   "solady/=node_modules/solady/",
   "forge-std/=node_modules/forge-std/",
   "ds-test/=node_modules/ds-test/src/",
