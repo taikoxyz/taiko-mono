@@ -27,8 +27,8 @@ contract DeployL1QuotaManager is DeployCapability {
             })
         );
 
-        // L2-to-L1 Ether per 15 minutes: 100 Ether
-        qm.updateQuota(address(0), 100 ether);
+        // L2-to-L1 Ether per 15 minutes
+        qm.updateQuota(address(0), 50 ether);
 
         // L2-to-L1 TKO per 15 minutes: 100_000 (0.01% total supply)
         qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 100_000 ether);
