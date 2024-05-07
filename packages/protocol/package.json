@@ -42,7 +42,6 @@
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
     "merkletreejs": "^0.3.11",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "solady": "github:Vectorized/solady#v0.0.167",
-    "multicall": "github:mds1/multicall"
+    "solady": "github:Vectorized/solady#v0.0.167"
   }
 }
