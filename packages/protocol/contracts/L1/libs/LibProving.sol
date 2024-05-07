@@ -23,7 +23,6 @@ library LibProving {
         ITierProvider.Tier tier;
         bytes32 metaHash;
         address assignedProver;
-        uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
         uint32 tid;
@@ -409,7 +408,7 @@ library LibProving {
             uint256 livenessBond = _blk.livenessBond;
             if (livenessBond != 0) {
                 if (
-                    _local.assignedProver == msg.sender && _local.inProvingWindow
+                    _local.inProvingWindow && _local.assignedProver == msg.sender
                         || _local.isTopTier && _returnLivenessBond(_proof.data)
                 ) {
                     unchecked {
