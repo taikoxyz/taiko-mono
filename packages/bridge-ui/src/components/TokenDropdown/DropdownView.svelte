@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deepEqual } from '@wagmi/core';
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
@@ -121,7 +122,7 @@
   <ul role="listbox" {id} class="gap-2">
     {#if activeTab === TabTypes.TOKEN}
       {#each filteredTokens as t (t.symbol)}
-        {@const selected = t === value}
+        {@const selected = deepEqual(t, value)}
         <li
           role="option"
           tabindex="0"

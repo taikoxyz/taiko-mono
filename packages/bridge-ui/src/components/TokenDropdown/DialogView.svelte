@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deepEqual } from '@wagmi/core';
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
@@ -115,7 +116,7 @@
       <ul role="listbox" class="menu p-0">
         {#if activeTab === TabTypes.TOKEN}
           {#each filteredTokens as token (token.symbol)}
-            {@const selected = token === value}
+            {@const selected = deepEqual(token, value)}
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <li
               role="option"
@@ -141,7 +142,7 @@
         {:else if activeTab === TabTypes.CUSTOM}
           {#if !onlyMintable}
             {#each filteredCustomTokens as ct, index (index)}
-              {@const selected = ct.name === value?.name && ct.symbol === value?.symbol}
+              {@const selected = deepEqual(ct, value)}
               <li
                 role="option"
                 tabindex="0"

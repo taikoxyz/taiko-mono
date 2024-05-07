@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deepEqual } from '@wagmi/core';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
@@ -130,11 +131,11 @@
 
   const handleTokenRemoved = (event: { detail: { token: Token } }) => {
     const token = event.detail.token;
-    value = ETHToken;
+
     // if the selected token is the one that was removed by the user, remove it
-    // if (token === value || $selectedToken === token) {
-    //   value = ETHToken;
-    // }
+    if (deepEqual(token, value)) {
+      value = ETHToken;
+    }
     const address = $account.address;
     tokenService.removeToken(token, address as Address);
     customTokens = tokenService.getTokens(address as Address);
