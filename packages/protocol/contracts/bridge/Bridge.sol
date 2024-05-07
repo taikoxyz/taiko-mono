@@ -142,7 +142,7 @@ contract Bridge is EssentialContract, IBridge {
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(_message.destChainId);
 
-        // Verify destination chain and to address.
+        // Verify destination chain.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
 
         // Ensure the sent value matches the expected amount.

@@ -653,19 +653,7 @@ contract TestERC20Vault is TaikoTest {
             destChainIdERC20Vault.canonicalToBridged(srcChainId, address(erc20));
         assertEq(bridgedAddressBefore == address(0), true);
 
-        // todo: dantaik
-        // So this token (weirdNamedToken) has no name (""), as name() and symbol() is optional. And
-        // there is an issue with that.
-        // The following 2 scenarios would create a revert on the "destination" chain:
-        // A: when there is no name (also applies to symbol), we will use that exact same empty
-        // string decoded "" (LibBytes()).
-        // B: if the name() (also applies to symbol) low level call would fail, but we also use
-        // default "" (Base vault line 78).
-        //
-        // In these 2 scenarios, the LibBridgedToken.validateInputs(_srcToken, _srcChainId, _symbol,
-        // _name) -> Would fail.
-        // Either do not invalidate on empty string OR use other than "" as an error default retVal
-        // (in LibBytes) or default value.
+        // Token with empty name succeeds
         destChainIdBridge.sendReceiveERC20ToERC20Vault(
             noNameErc20(srcChainId),
             Alice,
