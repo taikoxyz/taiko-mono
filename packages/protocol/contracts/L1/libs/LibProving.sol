@@ -206,16 +206,11 @@ library LibProving {
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         if (_proof.tier > ts.tier) {
-            if (local.isTopTier && local.livenessBond != 0) {
-                if (
-                    local.inProvingWindow
-                        || (
-                            _proof.data.length == 32
-                                && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
-                        )
-                ) {
+            if (local.livenessBond != 0) {
+                if (local.inProvingWindow || local.isTopTier && _returnLivenessBond(_proof.data)) {
                     tko.safeTransfer(local.assignedProver, local.livenessBond);
                 }
+                // Always set liveness bond to zero
                 blk.livenessBond = 0;
                 local.livenessBond = 0;
             }
@@ -455,5 +450,10 @@ library LibProving {
     /// @dev Returns the reward after applying 12.5% friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
         return _amount == 0 ? 0 : (_amount * 7) >> 3;
+    }
+
+    // @dev Returns if the liveness bond shall be returned
+    function _returnLivenessBond(bytes memory _proofData) private pure returns (bool) {
+        return _proofData.length == 32 && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
 }
