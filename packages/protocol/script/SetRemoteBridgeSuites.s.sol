@@ -48,17 +48,4 @@ contract SetRemoteBridgeSuites is DeployCapability {
 
         vm.stopBroadcast();
     }
-
-    function register(
-        address registerTo,
-        string memory name,
-        address addr,
-        uint64 chainId
-    )
-        internal
-    {
-        AddressManager(registerTo).setAddress(chainId, bytes32(bytes(name)), addr);
-        console2.log("> ", name, "@", registerTo);
-        console2.log("\t addr : ", addr);
-    }
 }
