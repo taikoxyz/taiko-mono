@@ -30,21 +30,19 @@ contract DeployL1QuotaManager is DeployCapability {
         // Config L2-to-L1 quota
         uint104 multipler = 1; // we just change this one later
 
-        uint104 valuePerToken = 200_000 * multipler; // USD
+        uint104 value = 200_000 * multipler; // USD
         uint104 priceETH = 3100; // USD
         uint104 priceTKO = 5; // USD
 
         // ETH
-        qm.updateQuota(address(0), valuePerToken * 1 ether / priceETH);
+        qm.updateQuota(address(0), value * 1 ether / priceETH);
         // WETH
-        qm.updateQuota(
-            0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, valuePerToken * 1 ether / priceETH
-        );
+        qm.updateQuota(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, value * 1 ether / priceETH);
         // TKO
-        qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, valuePerToken * 1e18 / priceTKO);
+        qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, value * 1e18 / priceTKO);
         // USDT
-        qm.updateQuota(0xdAC17F958D2ee523a2206206994597C13D831ec7, valuePerToken * 1e6);
+        qm.updateQuota(0xdAC17F958D2ee523a2206206994597C13D831ec7, value * 1e6);
         // USDC
-        qm.updateQuota(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, valuePerToken * 1e6);
+        qm.updateQuota(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, value * 1e6);
     }
 }
