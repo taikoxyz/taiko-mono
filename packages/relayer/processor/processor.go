@@ -247,6 +247,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		if err != nil {
 			return err
 		}
+
+		p.destQuotaManager = destQuotaManager
 	}
 
 	var destERC721Vault *erc721vault.ERC721Vault
@@ -332,8 +334,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.destEthClient = destEthClient
 
 	p.srcSignalService = srcSignalService
-
-	p.destQuotaManager = destQuotaManager
 
 	p.destBridge = destBridge
 	p.destERC1155Vault = destERC1155Vault
