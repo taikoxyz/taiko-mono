@@ -62,10 +62,10 @@
         <li
           role="menuitem"
           tabindex="0"
-          class=" h-[64px] rounded-[10px]
-          {disabled ? 'opacity-50 ' : 'hover:bg-primary-brand cursor-pointer'}"
+          class="h-[64px] rounded-[10px] text-primary-content
+          {disabled ? 'opacity-50' : 'hover:bg-primary-brand hover:text-white'}"
           aria-disabled={disabled}>
-          <label class="f-row items-center w-full h-full p-[16px] text-primary-content hover:text-white">
+          <label class="f-row items-center w-full h-full p-[16px] {disabled ? 'cursor-not-allowed' : 'cursor-pointer'}">
             <input
               type="radio"
               name="nft-radio"
