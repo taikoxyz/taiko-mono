@@ -26,7 +26,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param txId The transaction ID.
     /// @param target The target address.
     /// @param selector The function selector.
-    event TransactionExecuted(uint64 indexed txId, address indexed target, bytes4 indexed selector);
+    /// @param returnData The bytes returned.
+    event TransactionExecuted(
+        uint64 indexed txId, address indexed target, bytes4 indexed selector, bytes returnData
+    );
 
     /// @notice Emitted when this contract accepted the ownership of a target contract.
     /// @param target The target address.
@@ -69,32 +72,21 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         payable
         onlyFromNamed(LibStrings.B_BRIDGE)
     {
-        (uint64 txId, address target, bool isDelegateCall, bytes memory txdata) =
-            abi.decode(_data, (uint64, address, bool, bytes));
+        (uint64 txId, address target, bool isDelegateCall, bool requireSuccess, bytes memory txdata)
+        = abi.decode(_data, (uint64, address, bool, bool, bytes));
 
-        if (txId != nextTxId) revert DO_INVALID_TX_ID();
+        if (txId != nextTxId++) revert DO_INVALID_TX_ID();
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
             revert DO_PERMISSION_DENIED();
         }
-        nextTxId++;
 
-        bool success;
-        if (isDelegateCall) {
-            // One example is to delegatecall a multicall3 contract to perform batch contract
-            // upgrades in one single transaction.
-            (success,) = target.delegatecall(txdata);
-        } else {
-            // Sending ether along with the function call. Although this is sending Ether from this
-            // contract back to itself, txData's function can now be payable.
+        (bool success, bytes memory returnData) =
+            isDelegateCall ? target.delegatecall(txdata) : target.call{ value: msg.value }(txdata);
 
-            (success,) = target.call{ value: msg.value }(txdata);
-        }
-
-        if (!success) revert DO_TX_REVERTED();
-
-        emit TransactionExecuted(txId, target, bytes4(txdata));
+        if (requireSuccess && !success) revert DO_TX_REVERTED();
+        emit TransactionExecuted(txId, target, bytes4(txdata), returnData);
     }
 
     function acceptOwnership(address target) external {
