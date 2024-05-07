@@ -108,7 +108,7 @@
 
   //  const iconClasses = classNames('mx-1', size === 'lg' ? 'font-bold' : null)
 
-  const classes=""
+  const classes="btn"
 </script>
 
 {#if href}
