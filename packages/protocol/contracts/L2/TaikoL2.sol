@@ -204,7 +204,6 @@ contract TaikoL2 is EssentialContract {
         (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
             config.gasTargetPerL1Block,
             config.basefeeAdjustmentQuotient,
-            config.gasExcessMinValue,
             gasExcess,
             gasIssuance,
             _parentGasUsed
