@@ -25,10 +25,17 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice Emitted when a transaction is executed.
     /// @param txId The transaction ID.
     /// @param target The target address.
+    /// @param isDelegateCall True if the call is a `delegatecall`.
+    /// @param requireSuccess True if the call must succeed.
     /// @param selector The function selector.
     /// @param returnData The bytes returned.
-    event TransactionExecuted(
-        uint64 indexed txId, address indexed target, bytes4 indexed selector, bytes returnData
+    event MessageInvoked(
+        uint64 indexed txId,
+        address indexed target,
+        bool isDelegateCall,
+        bool requireSuccess,
+        bytes4 indexed selector,
+        bytes returnData
     );
 
     /// @notice Emitted when this contract accepted the ownership of a target contract.
@@ -86,7 +93,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             isDelegateCall ? target.delegatecall(txdata) : target.call{ value: msg.value }(txdata);
 
         if (requireSuccess && !success) revert DO_TX_REVERTED();
-        emit TransactionExecuted(txId, target, bytes4(txdata), returnData);
+        emit MessageInvoked(
+            txId, target, isDelegateCall, requireSuccess, bytes4(txdata), returnData
+        );
     }
 
     function acceptOwnership(address target) external {
