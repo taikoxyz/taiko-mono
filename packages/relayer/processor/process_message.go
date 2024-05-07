@@ -98,12 +98,8 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	receipt, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+	_, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
 	if err != nil {
-		return false, msgBody.TimesRetried, err
-	}
-
-	if receipt.Status != types.ReceiptStatusSuccessful {
 		return false, msgBody.TimesRetried, err
 	}
 
@@ -412,6 +408,9 @@ func (p *Processor) sendProcessMessageCall(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		relayer.MessageSentEventsProcessedReverted.Inc()
+		slog.Warn("Transaction reverted", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"status", receipt.Status)
 
 		return nil, errTxReverted
 	}
