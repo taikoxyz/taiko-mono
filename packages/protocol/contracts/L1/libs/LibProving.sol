@@ -446,6 +446,7 @@ library LibProving {
         return _amount == 0 ? 0 : (_amount * 7) >> 3;
     }
 
+    /// @dev Returns if the liveness bond shall be returned.
     function _returnLivenessBond(
         Local memory _local,
         bytes memory _proofData
