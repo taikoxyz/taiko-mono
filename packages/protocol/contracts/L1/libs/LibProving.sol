@@ -23,7 +23,6 @@ library LibProving {
         ITierProvider.Tier tier;
         bytes32 metaHash;
         address assignedProver;
-        uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
         uint32 tid;
@@ -202,20 +201,10 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        local.livenessBond = blk.livenessBond;
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         if (_proof.tier > ts.tier) {
-            if (local.livenessBond != 0) {
-                if (local.inProvingWindow || local.isTopTier && _returnLivenessBond(_proof.data)) {
-                    tko.safeTransfer(local.assignedProver, local.livenessBond);
-                }
-                // Always set liveness bond to zero
-                blk.livenessBond = 0;
-                local.livenessBond = 0;
-            }
-
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
@@ -396,6 +385,8 @@ library LibProving {
         uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
+            // assert(_blk.livenessBond == 0);
+
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
                 reward = _rewardAfterFriction(_ts.contestBond);
@@ -417,14 +408,17 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
-                if (_local.assignedProver == msg.sender && _local.inProvingWindow) {
-                    unchecked {
-                        reward += _local.livenessBond;
+            uint256 livenessBond = _blk.livenessBond;
+            if (livenessBond != 0) {
+                _blk.livenessBond = 0;
+
+                if (_returnLivenessBond(_local, _proof.data)) {
+                    if (_blk.assignedProver == msg.sender) {
+                        reward += livenessBond;
+                    } else {
+                        _tko.safeTransfer(_blk.assignedProver, livenessBond);
                     }
                 }
-                _blk.livenessBond = 0;
-                _local.livenessBond = 0;
             }
         }
 
@@ -453,8 +447,17 @@ library LibProving {
         return _amount == 0 ? 0 : (_amount * 7) >> 3;
     }
 
-    // @dev Returns if the liveness bond shall be returned
-    function _returnLivenessBond(bytes memory _proofData) private pure returns (bool) {
-        return _proofData.length == 32 && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
+    /// @dev Returns if the liveness bond shall be returned.
+    function _returnLivenessBond(
+        Local memory _local,
+        bytes memory _proofData
+    )
+        private
+        pure
+        returns (bool)
+    {
+        return _local.inProvingWindow
+            || _local.isTopTier && _proofData.length == 32
+                && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
 }
