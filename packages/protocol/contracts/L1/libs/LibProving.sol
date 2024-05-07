@@ -384,6 +384,8 @@ library LibProving {
         uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
+            assert(_blk.livenessBond == 0);
+
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
                 reward = _rewardAfterFriction(_ts.contestBond);
@@ -407,15 +409,19 @@ library LibProving {
 
             uint256 livenessBond = _blk.livenessBond;
             if (livenessBond != 0) {
+                _blk.livenessBond = 0;
+
                 if (
-                    _local.inProvingWindow && _local.assignedProver == msg.sender
-                        || _local.isTopTier && _returnLivenessBond(_proof.data)
+                    _local.inProvingWindow
+                        || _local.isTopTier && _proof.data.length == 32
+                            && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
                 ) {
-                    unchecked {
+                    if (_blk.assignedProver == msg.sender) {
                         reward += livenessBond;
+                    } else {
+                        _tko.safeTransfer(_blk.assignedProver, livenessBond);
                     }
                 }
-                _blk.livenessBond = 0;
             }
         }
 
@@ -442,10 +448,5 @@ library LibProving {
     /// @dev Returns the reward after applying 12.5% friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
         return _amount == 0 ? 0 : (_amount * 7) >> 3;
-    }
-
-    // @dev Returns if the liveness bond shall be returned
-    function _returnLivenessBond(bytes memory _proofData) private pure returns (bool) {
-        return _proofData.length == 32 && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
 }
