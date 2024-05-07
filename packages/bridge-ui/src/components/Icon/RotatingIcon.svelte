@@ -5,7 +5,7 @@
   export let size: number = 20;
 </script>
 
-<div class={loading ? 'rotating' : ''}>
+<div class={loading ? 'rotating' : null}>
   <Icon {type} {size} />
 </div>
 

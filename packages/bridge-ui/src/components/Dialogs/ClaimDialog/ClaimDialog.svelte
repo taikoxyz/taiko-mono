@@ -179,7 +179,7 @@
   }
 </script>
 
-<dialog id={dialogId} class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}" class:modal-open={dialogOpen}>
+<dialog id={dialogId} class="modal {isDesktopOrLarger && 'modal-bottom'}" class:modal-open={dialogOpen}>
   <div class="modal-box relative w-full bg-neutral-background absolute md:min-h-[600px]">
     <div class="w-full f-between-center">
       <CloseButton onClick={closeDialog} />

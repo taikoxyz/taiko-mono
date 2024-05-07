@@ -92,7 +92,7 @@
           <div class="f-col text-left">
             <div class="text-sm">{token?.name ? truncateString(token?.name, 15) : 'No Token Name'}</div>
             <div class="text-sm text-secondary-content">
-              {token?.metadata?.name ? truncateString(token?.metadata?.name, 15) : ''}
+              {token?.metadata?.name ? truncateString(token?.metadata?.name, 15) : null}
             </div>
             <div class="text-sm text-secondary-content">{token?.tokenId}</div>
           </div>
@@ -136,7 +136,7 @@
               </i>
               {truncateString(getChainName(Number(item.destChainId)), 8)}
             </div>
-            <span class="text-secondary-content">{token?.name ? truncateString(token?.name, 15) : ''}</span>
+            <span class="text-secondary-content">{token?.name ? truncateString(token?.name, 15) : null}</span>
           </div>
         {/if}
       </div>

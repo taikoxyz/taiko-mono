@@ -243,7 +243,7 @@
         {#if renderTransactions}
           <div
             class="flex flex-col items-center"
-            style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
+            style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : null}>
             {#each transactionsToShow as item (item.hash)}
               <Transaction {item} />
               <div class="h-sep !my-0 {isDesktopOrLarger ? 'display-inline' : 'hidden'}" />

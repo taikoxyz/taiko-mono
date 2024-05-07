@@ -70,7 +70,7 @@
     // since we're showing some important information.
     loading ? 'btn-disabled !text-primary-content' : null,
 
-    $$restProps.disabled ? borderClasses : '',
+    $$restProps.disabled ? borderClasses : null,
 
     $$props.class,
   );
