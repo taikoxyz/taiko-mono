@@ -22,7 +22,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     uint256[48] private __gap;
 
-    /// @notice Emitted when a transaction is executed.
+    /// @notice Emitted when a message is invoked.
     /// @param txId The transaction ID.
     /// @param target The target address.
     /// @param isDelegateCall True if the call is a `delegatecall`.
