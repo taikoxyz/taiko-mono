@@ -22,7 +22,6 @@ contract AddressManager is EssentialContract, IAddressManager {
     );
 
     error AM_ADDRESS_ALREADY_SET();
-    error AM_PAUSE_UNSUPPORTED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -54,7 +53,5 @@ contract AddressManager is EssentialContract, IAddressManager {
         return __addresses[_chainId][_name];
     }
 
-    function _authorizePause(address, bool) internal pure override {
-        revert AM_PAUSE_UNSUPPORTED();
-    }
+    function _authorizePause(address, bool) internal pure override notImplemented { }
 }

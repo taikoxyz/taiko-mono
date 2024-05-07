@@ -36,7 +36,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
     error DO_TX_REVERTED();
-    error DO_UNSUPPORTED();
 
     /// @notice Initializes the contract.
     /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
@@ -93,7 +92,5 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         emit OwnershipAccepted(target);
     }
 
-    function _authorizePause(address, bool) internal pure override {
-        revert DO_UNSUPPORTED();
-    }
+    function _authorizePause(address, bool) internal pure override notImplemented { }
 }

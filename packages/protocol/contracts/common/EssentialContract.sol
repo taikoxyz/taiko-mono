@@ -39,11 +39,17 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
     error ZERO_ADDR_MANAGER();
+    error FUNC_NOT_IMPLEMENTED();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
     modifier onlyFromOwnerOrNamed(bytes32 _name) {
         if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
+    modifier notImplemented() {
+        revert FUNC_NOT_IMPLEMENTED();
         _;
     }
 
@@ -91,16 +97,21 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         return __paused == _TRUE;
     }
 
+    function inNonReentrant() public view returns (bool) {
+        return _loadReentryLock() == _TRUE;
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function __Essential_init(address _owner, address _addressManager) internal onlyInitializing {
+    function __Essential_init(address _owner, address _addressManager) internal {
         if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
         __Essential_init(_owner);
         __AddressResolver_init(_addressManager);
     }
 
-    function __Essential_init(address _owner) internal virtual {
+    function __Essential_init(address _owner) internal virtual onlyInitializing {
+        __Context_init();
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __paused = _FALSE;
     }
@@ -140,9 +151,5 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         } else {
             reentry_ = __reentry;
         }
-    }
-
-    function _inNonReentrant() internal view returns (bool) {
-        return _loadReentryLock() == _TRUE;
     }
 }

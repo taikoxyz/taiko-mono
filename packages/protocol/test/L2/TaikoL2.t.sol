@@ -55,9 +55,7 @@ contract TestTaikoL2 is TaikoTest {
             )
         );
 
-        L2.setConfigAndExcess(
-            LibL2Config.Config(gasTarget, quotient, uint64(gasTarget) * 300), gasExcess
-        );
+        L2.setConfigAndExcess(LibL2Config.Config(gasTarget, quotient), gasExcess);
 
         ss.authorize(address(L2), true);
 
@@ -71,7 +69,7 @@ contract TestTaikoL2 is TaikoTest {
 
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_in_same_block() external {
-        vm.fee(40_253_331);
+        vm.fee(1);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         _anchor(BLOCK_GAS_LIMIT);
