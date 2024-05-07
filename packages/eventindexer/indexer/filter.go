@@ -36,7 +36,7 @@ func filterFunc(
 
 			err = i.saveTransitionProvedEvents(ctx, chainID, transitionProvedEvents)
 			if err != nil {
-				return errors.Wrap(err, "i.saveBlockProvenEvents")
+				return errors.Wrap(err, "i.saveTransitionProvedEvents")
 			}
 
 			return nil
