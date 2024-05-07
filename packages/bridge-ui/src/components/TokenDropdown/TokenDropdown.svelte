@@ -52,8 +52,7 @@
     menuOpen = false;
   };
 
-  const openMenu = (event: Event) => {
-    event.stopPropagation();
+  const openMenu = () => {
     menuOpen = true;
   };
 
@@ -201,7 +200,7 @@
     aria-expanded={menuOpen}
     class="f-between-center w-full h-full px-[20px] py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none
     {combined ? '!rounded-l-[0px] !rounded-r-[10px]' : '!rounded-[10px]'}"
-    on:click={openMenu}>
+    on:click|stopPropagation={openMenu}>
     <div class="space-x-2">
       {#if !value || disabled}
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
