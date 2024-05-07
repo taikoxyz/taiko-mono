@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
  * -
  */
 export const taikoonTokenAbi = [
@@ -455,7 +455,9 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -541,22 +543,22 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const;
+] as const
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
  * -
  */
 export const taikoonTokenAddress = {
-  17000: '0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0',
-  31337: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
-} as const;
+  17000: '0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393',
+  31337: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+} as const
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
  * -
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
   abi: taikoonTokenAbi,
-} as const;
+} as const
