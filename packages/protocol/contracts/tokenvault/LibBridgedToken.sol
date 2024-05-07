@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibBridgedToken {
     error BTOKEN_INVALID_PARAMS();
+    error BTOKEN_INVALID_TO_ADDR();
 
     function validateInputs(address _srcToken, uint256 _srcChainId) internal view {
         if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
@@ -14,40 +15,8 @@ library LibBridgedToken {
         }
     }
 
-    function validateInputs(
-        address _srcToken,
-        uint256 _srcChainId,
-        string memory _symbol,
-        string memory _name
-    )
-        internal
-        view
-    {
-        validateInputs(_srcToken, _srcChainId);
-        if (bytes(_symbol).length == 0 || bytes(_name).length == 0) {
-            revert BTOKEN_INVALID_PARAMS();
-        }
-    }
-
-    function buildName(
-        string memory _name,
-        uint256 _srcChainId
-    )
-        internal
-        pure
-        returns (string memory)
-    {
-        if (bytes(_name).length == 0) {
-            return "";
-        } else {
-            return
-                string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
-        }
-    }
-
-    function buildSymbol(string memory _symbol) internal pure returns (string memory) {
-        if (bytes(_symbol).length == 0) return "";
-        else return string.concat(_symbol, ".t");
+    function checkToAddress(address _to) internal view {
+        if (_to == address(this)) revert BTOKEN_INVALID_TO_ADDR();
     }
 
     function buildURI(

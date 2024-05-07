@@ -49,15 +49,13 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
                     impl: address(new SkipBasefeeCheckL2()),
                     data: abi.encodeCall(
                         TaikoL2.init, (address(0), addressManager, l1ChainId, gasExcess)
-                        ),
+                    ),
                     registerTo: addressManager
                 })
             )
         );
 
-        L2.setConfigAndExcess(
-            LibL2Config.Config(gasTarget, quotient, uint64(gasTarget) * 300), gasExcess
-        );
+        L2.setConfigAndExcess(LibL2Config.Config(gasTarget, quotient), gasExcess);
 
         ss.authorize(address(L2), true);
 

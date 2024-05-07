@@ -70,9 +70,8 @@
       <h4 class={classes.headline}>{$t('transactions.status.failed.name')}</h4>
       {$t('transactions.status.failed.description')}
     </div>
-
-    <!-- We catch key events aboe -->
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
   </div>
+  <!-- We catch key events aboe -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
 </dialog>

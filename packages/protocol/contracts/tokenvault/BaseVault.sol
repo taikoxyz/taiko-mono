@@ -6,6 +6,17 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibBytes.sol";
+
+/// @title INameSymbol
+/// @notice Interface for contracts that provide name() and symbol()
+/// functions. These functions may not be part of the official interface but are
+/// used by some contracts.
+/// @custom:security-contact security@taiko.xyz
+interface INameSymbol {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+}
 
 /// @title BaseVault
 /// @notice This abstract contract provides a base implementation for vaults.
@@ -16,26 +27,20 @@ abstract contract BaseVault is
     IMessageInvocable,
     IERC165Upgradeable
 {
-    bytes4 internal constant IERC165_INTERFACE_ID = bytes4(keccak256("supportsInterface(bytes4)"));
+    using LibBytes for bytes;
 
     uint256[50] private __gap;
 
+    error VAULT_INVALID_TO_ADDR();
     error VAULT_PERMISSION_DENIED();
-
-    modifier onlyFromBridge() {
-        if (msg.sender != resolve(LibStrings.B_BRIDGE, false)) {
-            revert VAULT_PERMISSION_DENIED();
-        }
-        _;
-    }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return _interfaceId == type(IRecallableSender).interfaceId
             || _interfaceId == type(IMessageInvocable).interfaceId
-            || _interfaceId == IERC165_INTERFACE_ID;
+            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
     /// @notice Returns the name of the vault.
@@ -45,7 +50,7 @@ abstract contract BaseVault is
     function checkProcessMessageContext()
         internal
         view
-        onlyFromBridge
+        onlyFromNamed(LibStrings.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
@@ -56,10 +61,26 @@ abstract contract BaseVault is
     function checkRecallMessageContext()
         internal
         view
-        onlyFromBridge
+        onlyFromNamed(LibStrings.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
         if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
+    }
+
+    function checkToAddress(address _to) internal view {
+        if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
+    }
+
+    function safeSymbol(address _token) internal view returns (string memory symbol_) {
+        (bool success, bytes memory data) =
+            address(_token).staticcall(abi.encodeCall(INameSymbol.symbol, ()));
+        return success ? data.toString() : "";
+    }
+
+    function safeName(address _token) internal view returns (string memory) {
+        (bool success, bytes memory data) =
+            address(_token).staticcall(abi.encodeCall(INameSymbol.name, ()));
+        return success ? data.toString() : "";
     }
 }

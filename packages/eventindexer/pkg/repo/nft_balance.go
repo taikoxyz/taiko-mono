@@ -24,8 +24,9 @@ func NewNFTBalanceRepository(db eventindexer.DB) (*NFTBalanceRepository, error) 
 	}, nil
 }
 
-func (r *NFTBalanceRepository) IncreaseBalance(
+func (r *NFTBalanceRepository) increaseBalanceInDB(
 	ctx context.Context,
+	db *gorm.DB,
 	opts eventindexer.UpdateNFTBalanceOpts,
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
@@ -34,11 +35,9 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 		Address:         opts.Address,
 		ContractType:    opts.ContractType,
 		ChainID:         opts.ChainID,
-		Amount:          0,
 	}
 
-	err := r.db.
-		GormDB().
+	err := db.
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -55,15 +54,16 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 	b.Amount += opts.Amount
 
 	// update the row to reflect new balance
-	if err := r.db.GormDB().Save(b).Error; err != nil {
+	if err := db.Save(b).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}
 
 	return b, nil
 }
 
-func (r *NFTBalanceRepository) SubtractBalance(
+func (r *NFTBalanceRepository) decreaseBalanceInDB(
 	ctx context.Context,
+	db *gorm.DB,
 	opts eventindexer.UpdateNFTBalanceOpts,
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
@@ -74,8 +74,7 @@ func (r *NFTBalanceRepository) SubtractBalance(
 		ChainID:         opts.ChainID,
 	}
 
-	err := r.db.
-		GormDB().
+	err := db.
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -86,7 +85,7 @@ func (r *NFTBalanceRepository) SubtractBalance(
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		} else {
-			// cant subtract a balance if user never had this balance, indexing issue
+			// cant decrease a balance if user never had this balance, indexing issue
 			return nil, nil
 		}
 	}
@@ -95,17 +94,41 @@ func (r *NFTBalanceRepository) SubtractBalance(
 
 	// we can just delete the row, this user has no more of this NFT
 	if b.Amount == 0 {
-		if err := r.db.GormDB().Delete(b).Error; err != nil {
+		if err := db.Delete(b).Error; err != nil {
 			return nil, errors.Wrap(err, "r.db.Delete")
 		}
 	} else {
 		// update the row instead to reflect new balance
-		if err := r.db.GormDB().Save(b).Error; err != nil {
+		if err := db.Save(b).Error; err != nil {
 			return nil, errors.Wrap(err, "r.db.Save")
 		}
 	}
 
 	return b, nil
+}
+
+func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
+	ctx context.Context,
+	increaseOpts eventindexer.UpdateNFTBalanceOpts,
+	decreaseOpts eventindexer.UpdateNFTBalanceOpts,
+) (increasedBalance *eventindexer.NFTBalance, decreasedBalance *eventindexer.NFTBalance, err error) {
+	err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+		increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
+		if err != nil {
+			return err
+		}
+
+		if decreaseOpts.Amount != 0 {
+			decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
+		}
+
+		return err
+	})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "r.db.Transaction")
+	}
+
+	return increasedBalance, decreasedBalance, nil
 }
 
 func (r *NFTBalanceRepository) FindByAddress(ctx context.Context,
