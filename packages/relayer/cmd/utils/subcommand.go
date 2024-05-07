@@ -22,7 +22,7 @@ type SubcommandApplication interface {
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		ctx, ctxClose := context.WithCancel(context.Background())
-		defer func() { ctxClose() }()
+		defer ctxClose()
 
 		if err := app.InitFromCli(ctx, c); err != nil {
 			return err
@@ -50,12 +50,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 		}()
 
 		quitCh := make(chan os.Signal, 1)
-		signal.Notify(quitCh, []os.Signal{
-			os.Interrupt,
-			os.Kill,
-			syscall.SIGTERM,
-			syscall.SIGQUIT,
-		}...)
+		signal.Notify(quitCh, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGQUIT)
 		<-quitCh
 
 		return nil

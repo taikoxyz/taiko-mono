@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -180,8 +179,7 @@ func (b *Bridge) estimateGas(
 
 	tx, err := b.srcBridge.SendMessage(auth, message)
 	if err != nil {
-		fmt.Println(err)
-		return 0, errors.Wrap(err, "rcBridge.SendMessage")
+		return 0, errors.Wrap(err, "srcBridge.SendMessage")
 	}
 
 	gasPaddingAmt := uint64(80000)
@@ -240,8 +238,8 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 
 	tx, err := b.srcBridge.SendMessage(auth, message)
 	if err != nil {
-		fmt.Println("b.srcBridge.SendMessage", err)
-		return errors.Wrap(err, "rcBridge.SendMessage")
+		slog.Info("send bridge message failed", "b.srcBridge.SendMessage:", err)
+		return errors.Wrap(err, "srcBridge.SendMessage")
 	}
 
 	slog.Info("Sent tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
