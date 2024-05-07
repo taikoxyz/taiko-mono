@@ -75,7 +75,6 @@ library LibProving {
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_UNEXPECTED_LIVENESS_BOND();
 
     /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.

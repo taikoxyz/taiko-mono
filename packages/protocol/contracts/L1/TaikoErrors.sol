@@ -33,7 +33,6 @@ abstract contract TaikoErrors {
     error L1_TRANSITION_ID_ZERO();
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNAUTHORIZED();
-    error L1_UNEXPECTED_LIVENESS_BOND();
     error L1_UNEXPECTED_PARENT();
     error L1_UNEXPECTED_TRANSITION_ID();
 }
