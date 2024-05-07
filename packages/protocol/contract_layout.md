@@ -18,29 +18,29 @@
 | __gap          | uint256[50]            | 301  | 0      | 1600  | contracts/L1/TaikoL1.sol:TaikoL1 |
 
 ## TaikoL2
-| Name                    | Type                        | Slot | Offset | Bytes | Contract                         |
-|-------------------------|-----------------------------|------|--------|-------|----------------------------------|
-| _initialized            | uint8                       | 0    | 0      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| _initializing           | bool                        | 0    | 1      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __gap                   | uint256[50]                 | 1    | 0      | 1600  | contracts/L2/TaikoL2.sol:TaikoL2 |
-| _owner                  | address                     | 51   | 0      | 20    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __gap                   | uint256[49]                 | 52   | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
-| _pendingOwner           | address                     | 101  | 0      | 20    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __gap                   | uint256[49]                 | 102  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
-| addressManager          | address                     | 151  | 0      | 20    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __gap                   | uint256[49]                 | 152  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __reentry               | uint8                       | 201  | 0      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __paused                | uint8                       | 201  | 1      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| lastUnpausedAt          | uint64                      | 201  | 2      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __gap                   | uint256[49]                 | 202  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
-| l2Hashes                | mapping(uint256 => bytes32) | 251  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| publicInputHash         | bytes32                     | 252  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| gasExcess               | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| lastSyncedBlock         | uint64                      | 253  | 8      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| parentTimestamp         | uint64                      | 253  | 16     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __currentBlockTimestamp | uint64                      | 253  | 24     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| l1ChainId               | uint64                      | 254  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __gap                   | uint256[46]                 | 255  | 0      | 1472  | contracts/L2/TaikoL2.sol:TaikoL2 |
+| Name            | Type                        | Slot | Offset | Bytes | Contract                         |
+|-----------------|-----------------------------|------|--------|-------|----------------------------------|
+| _initialized    | uint8                       | 0    | 0      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| _initializing   | bool                        | 0    | 1      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __gap           | uint256[50]                 | 1    | 0      | 1600  | contracts/L2/TaikoL2.sol:TaikoL2 |
+| _owner          | address                     | 51   | 0      | 20    | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __gap           | uint256[49]                 | 52   | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
+| _pendingOwner   | address                     | 101  | 0      | 20    | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __gap           | uint256[49]                 | 102  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
+| addressManager  | address                     | 151  | 0      | 20    | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __gap           | uint256[49]                 | 152  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __reentry       | uint8                       | 201  | 0      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __paused        | uint8                       | 201  | 1      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| lastUnpausedAt  | uint64                      | 201  | 2      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __gap           | uint256[49]                 | 202  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
+| l2Hashes        | mapping(uint256 => bytes32) | 251  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
+| publicInputHash | bytes32                     | 252  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
+| gasExcess       | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| lastSyncedBlock | uint64                      | 253  | 8      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __deprecated1   | uint64                      | 253  | 16     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __deprecated2   | uint64                      | 253  | 24     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| l1ChainId       | uint64                      | 254  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __gap           | uint256[46]                 | 255  | 0      | 1472  | contracts/L2/TaikoL2.sol:TaikoL2 |
 
 ## SignalService
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                         |
@@ -539,4 +539,24 @@
 | receiptVerifier | contract IRiscZeroReceiptVerifier | 251  | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
 | isImageTrusted  | mapping(bytes32 => bool)          | 252  | 0      | 32    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
 | __gap           | uint256[48]                       | 253  | 0      | 1536  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+
+## QuotaManager
+| Name           | Type                                          | Slot | Offset | Bytes | Contract                                       |
+|----------------|-----------------------------------------------|------|--------|-------|------------------------------------------------|
+| _initialized   | uint8                                         | 0    | 0      | 1     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| _initializing  | bool                                          | 0    | 1      | 1     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[50]                                   | 1    | 0      | 1600  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| _owner         | address                                       | 51   | 0      | 20    | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[49]                                   | 52   | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| _pendingOwner  | address                                       | 101  | 0      | 20    | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[49]                                   | 102  | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| addressManager | address                                       | 151  | 0      | 20    | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[49]                                   | 152  | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __reentry      | uint8                                         | 201  | 0      | 1     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __paused       | uint8                                         | 201  | 1      | 1     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| lastUnpausedAt | uint64                                        | 201  | 2      | 8     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[49]                                   | 202  | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| tokenQuota     | mapping(address => struct QuotaManager.Quota) | 251  | 0      | 32    | contracts/bridge/QuotaManager.sol:QuotaManager |
+| quotaPeriod    | uint24                                        | 252  | 0      | 3     | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
 

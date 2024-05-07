@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC721.sol";
 
@@ -158,7 +159,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return "erc721_vault";
+        return LibStrings.B_ERC721_VAULT;
     }
 
     function _transferTokens(
@@ -199,26 +200,17 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                     BridgedERC721(_op.token).burn(msg.sender, _op.tokenIds[i]);
                 }
             } else {
-                ERC721Upgradeable t = ERC721Upgradeable(_op.token);
-
                 ctoken_ = CanonicalNFT({
                     chainId: uint64(block.chainid),
                     addr: _op.token,
-                    symbol: "",
-                    name: ""
+                    symbol: safeSymbol(_op.token),
+                    name: safeName(_op.token)
                 });
 
-                // Try fill in the boilerplate values, but use try-catch because functions below are
-                // ERC20-optional only.
-                try t.name() returns (string memory _name) {
-                    ctoken_.name = _name;
-                } catch { }
-                try t.symbol() returns (string memory _symbol) {
-                    ctoken_.symbol = _symbol;
-                } catch { }
-
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    t.safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
+                    ERC721Upgradeable(_op.token).safeTransferFrom(
+                        msg.sender, address(this), _op.tokenIds[i]
+                    );
                 }
             }
         }

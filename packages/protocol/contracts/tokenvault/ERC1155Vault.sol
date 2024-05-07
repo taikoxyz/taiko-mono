@@ -4,21 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
-
-/// @title IERC1155NameAndSymbol
-/// @notice Interface for ERC1155 contracts that provide name() and symbol()
-/// functions. These functions may not be part of the official interface but are
-/// used by some contracts.
-/// @custom:security-contact security@taiko.xyz
-interface IERC1155NameAndSymbol {
-    /// @notice Returns the name of the token.
-    function name() external view returns (string memory);
-
-    /// @notice Returns the symbol of the token.
-    function symbol() external view returns (string memory);
-}
 
 /// @title ERC1155Vault
 /// @dev Labeled in AddressResolver as "erc1155_vault"
@@ -207,7 +195,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return "erc1155_vault";
+        return LibStrings.B_ERC1155_VAULT;
     }
 
     /// @dev Transfers ERC1155 tokens to the `to` address.
@@ -256,16 +244,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 ctoken_ = CanonicalNFT({
                     chainId: uint64(block.chainid),
                     addr: _op.token,
-                    symbol: "",
-                    name: ""
+                    symbol: safeSymbol(_op.token),
+                    name: safeName(_op.token)
                 });
-                IERC1155NameAndSymbol t = IERC1155NameAndSymbol(_op.token);
-                try t.name() returns (string memory _name) {
-                    ctoken_.name = _name;
-                } catch { }
-                try t.symbol() returns (string memory _symbol) {
-                    ctoken_.symbol = _symbol;
-                } catch { }
 
                 IERC1155(_op.token).safeBatchTransferFrom({
                     from: msg.sender,
