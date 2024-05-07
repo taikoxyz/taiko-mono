@@ -360,10 +360,10 @@
     "transactions": "Transactions"
   },
   "paginator": {
-    "of": "of",
-    "page": "Page",
+    "everything_loaded": "Everything loaded",
     "more": "Fetch more...",
-    "everything_loaded": "Everything loaded"
+    "of": "of",
+    "page": "Page"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communication channels for more information. ",
@@ -468,6 +468,7 @@
         "pre_check": {
           "chain_check": "Connected to the correct chain",
           "funds_check": "Sufficient funds to claim",
+          "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",

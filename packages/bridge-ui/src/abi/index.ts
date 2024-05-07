@@ -4320,6 +4320,355 @@ export const freeMintErc20Abi = [
 ] as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// QuotaManager
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const quotaManagerAbi = [
+  {
+    type: 'function',
+    inputs: [],
+    name: 'acceptOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'addressManager',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_leap', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'availableQuota',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'consumeQuota',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'inNonReentrant',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_owner', internalType: 'address', type: 'address' },
+      { name: '_addressManager', internalType: 'address', type: 'address' },
+      { name: '_quotaPeriod', internalType: 'uint24', type: 'uint24' },
+    ],
+    name: 'init',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'lastUnpausedAt',
+    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'pause',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'paused',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'pendingOwner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'quotaPeriod',
+    outputs: [{ name: '', internalType: 'uint24', type: 'uint24' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_chainId', internalType: 'uint64', type: 'uint64' },
+      { name: '_name', internalType: 'bytes32', type: 'bytes32' },
+      { name: '_allowZeroAddress', internalType: 'bool', type: 'bool' },
+    ],
+    name: 'resolve',
+    outputs: [{ name: '', internalType: 'address payable', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_name', internalType: 'bytes32', type: 'bytes32' },
+      { name: '_allowZeroAddress', internalType: 'bool', type: 'bool' },
+    ],
+    name: 'resolve',
+    outputs: [{ name: '', internalType: 'address payable', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
+    name: 'tokenQuota',
+    outputs: [
+      { name: 'updatedAt', internalType: 'uint48', type: 'uint48' },
+      { name: 'quota', internalType: 'uint104', type: 'uint104' },
+      { name: 'available', internalType: 'uint104', type: 'uint104' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'unpause',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_quota', internalType: 'uint104', type: 'uint104' },
+    ],
+    name: 'updateQuota',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+    ],
+    name: 'upgradeTo',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousAdmin',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'newAdmin',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'beacon',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'BeaconUpgraded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'version', internalType: 'uint8', type: 'uint8', indexed: false },
+    ],
+    name: 'Initialized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferStarted',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'account',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'Paused',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'oldQuota',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newQuota',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'QuotaUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'account',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'Unpaused',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'Upgraded',
+  },
+  { type: 'error', inputs: [], name: 'FUNC_NOT_IMPLEMENTED' },
+  { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
+  { type: 'error', inputs: [], name: 'QM_INVALID_PARAM' },
+  { type: 'error', inputs: [], name: 'QM_OUT_OF_QUOTA' },
+  { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
+  { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
+  { type: 'error', inputs: [], name: 'RESOLVER_INVALID_MANAGER' },
+  { type: 'error', inputs: [], name: 'RESOLVER_UNEXPECTED_CHAINID' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'chainId', internalType: 'uint64', type: 'uint64' },
+      { name: 'name', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'RESOLVER_ZERO_ADDR',
+  },
+  { type: 'error', inputs: [], name: 'ZERO_ADDR_MANAGER' },
+] as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // SignalService
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
