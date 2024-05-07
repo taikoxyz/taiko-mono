@@ -457,7 +457,7 @@ library LibProving {
         pure
         returns (bool)
     {
-        return _local.inProvingWindow
+        return _local.inProvingWindow && _local.tid == 1
             || _local.isTopTier && _proofData.length == 32
                 && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
