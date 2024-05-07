@@ -28,9 +28,7 @@ contract DeployL1QuotaManager is DeployCapability {
         );
 
         // Config L2-to-L1 quota
-        uint104 multiplier = 1; // we just change this one later
-
-        uint104 value = 200_000 * multiplier; // USD
+        uint104 value = 200_000; // USD
         uint104 priceETH = 3100; // USD
         uint104 priceTKO = 5; // USD
 
