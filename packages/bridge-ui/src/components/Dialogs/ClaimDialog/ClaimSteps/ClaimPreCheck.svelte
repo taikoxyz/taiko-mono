@@ -7,6 +7,7 @@
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Spinner from '$components/Spinner/Spinner.svelte';
+  import { Tooltip } from '$components/Tooltip';
   import { claimConfig } from '$config';
   import { type BridgeTransaction, ContractType } from '$libs/bridge';
   import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
@@ -56,8 +57,9 @@
     tokenAddress?: Address;
     amount: bigint;
   }) => {
-    if (!isL2Chain(Number(tx.destChainId))) {
-      // Quota only applies to L2 chains
+    if (isL2Chain(Number(tx.destChainId))) {
+      // Quota only applies for transactions from L2-L1.
+      // So if the destination chain is not an L2 chain, we can skip this check.
       hasEnoughEth = true;
       return;
     }
@@ -87,8 +89,8 @@
     const checks = Promise.allSettled([
       checkEnoughBalance($account.address, Number(tx.destChainId)),
       checkBridgeQuota({
-        srcChainId: Number(tx.srcChainId),
-        destChainId: Number(tx.destChainId),
+        srcChainId: Number(tx.destChainId), // The destination chain is the source chain for the quota manager
+        destChainId: Number(tx.srcChainId),
         tokenAddress: tx.canonicalTokenAddress,
         amount: tx.amount,
       }),
@@ -141,7 +143,15 @@
   <div class="min-h-[150px] grid content-between">
     <div>
       <div class="f-between-center">
-        <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.chain_check')}</span>
+        <div class="f-row gap-1">
+          <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.chain_check')}</span>
+          <Tooltip>
+            <h2>What is "Connected to the correct chain"?</h2>
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Saepe error soluta ut accusantium in doloremque commodi
+            et earum nisi quisquam quo placeat rerum exercitationem minus optio, voluptate architecto officiis consequatur!
+          </Tooltip>
+        </div>
+
         {#if checkingPrerequisites}
           <Spinner />
         {:else if correctChain}
@@ -151,7 +161,14 @@
         {/if}
       </div>
       <div class="f-between-center">
-        <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.funds_check')}</span>
+        <div class="f-row gap-1">
+          <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.funds_check')}</span>
+          <Tooltip>
+            <h2>What is "Sufficient funds"?</h2>
+            You need to have enough funds on the destination chain to pay for the transaction fees in order to claim. If
+            you paid the processing fee, wait for the relayer to claim it for you.
+          </Tooltip>
+        </div>
         {#if checkingPrerequisites}
           <Spinner />
         {:else if hasEnoughEth}
@@ -162,7 +179,15 @@
       </div>
       {#if isL2Chain(Number(tx.destChainId))}
         <div class="f-between-center">
-          <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.quota_check')}</span>
+          <div class="f-row gap-1">
+            <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.quota_check')}</span>
+            <Tooltip>
+              <h2>What is "Sufficient daily quota"?</h2>
+              Lorem ipsum dolor sit amet consectetur, adipisicing elit. Explicabo, sint. Quo quidem hic accusantium eaque
+              esse cupiditate rerum velit pariatur ab eligendi repellat, iusto aliquam id, dolorum animi ducimus earum.
+            </Tooltip>
+          </div>
+
           {#if checkingPrerequisites}
             <Spinner />
           {:else if hasEnoughQuota}
