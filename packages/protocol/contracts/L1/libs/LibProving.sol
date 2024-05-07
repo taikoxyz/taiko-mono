@@ -384,7 +384,7 @@ library LibProving {
         uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
-            assert(_blk.livenessBond == 0);
+            // assert(_blk.livenessBond == 0);
 
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
