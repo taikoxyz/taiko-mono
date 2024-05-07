@@ -36,13 +36,9 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
 
-      - name: Check formatting
+      - name: Format solidity && update contract layout table
         working-directory: ./packages/protocol
-        run: forge fmt
-
-      - name: Generate contract layout table
-        working-directory: ./packages/protocol
-        run: pnpm layout
+        run: pnpm layout && forge fmt
 
       - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
