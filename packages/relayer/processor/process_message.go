@@ -137,15 +137,9 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	receipt, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+	_, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
 	if err != nil {
 		return false, msgBody.TimesRetried, err
-	}
-
-	// we can expect some messages to fail, so we should return `true` for shouldRequeue
-	// here.
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return true, msgBody.TimesRetried, err
 	}
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
@@ -453,6 +447,9 @@ func (p *Processor) sendProcessMessageCall(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		relayer.MessageSentEventsProcessedReverted.Inc()
+		slog.Warn("Transaction reverted", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"status", receipt.Status)
 
 		return nil, errTxReverted
 	}

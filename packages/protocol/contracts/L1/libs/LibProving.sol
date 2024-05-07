@@ -23,7 +23,6 @@ library LibProving {
         ITierProvider.Tier tier;
         bytes32 metaHash;
         address assignedProver;
-        uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
         uint32 tid;
@@ -201,26 +200,8 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-
-        local.livenessBond = blk.livenessBond;
-        if (local.isTopTier) {
-            if (local.livenessBond != 0) {
-                if (
-                    local.inProvingWindow
-                        || (
-                            _proof.data.length == 32
-                                && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
-                        )
-                ) {
-                    tko.safeTransfer(local.assignedProver, local.livenessBond);
-                }
-                blk.livenessBond = 0;
-                local.livenessBond = 0;
-            }
-        }
-
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
+        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -403,6 +384,8 @@ library LibProving {
         uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
+            // assert(_blk.livenessBond == 0);
+
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
                 reward = _rewardAfterFriction(_ts.contestBond);
@@ -424,14 +407,19 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
-                if (_local.assignedProver == msg.sender && _local.inProvingWindow) {
-                    unchecked {
-                        reward += _local.livenessBond;
+            uint256 livenessBond = _blk.livenessBond;
+            if (livenessBond != 0) {
+                // After the first proof, the block's liveness bond will always be reset to 0.
+                // This means liveness bond will be handled only once for any given block.
+                _blk.livenessBond = 0;
+
+                if (_returnLivenessBond(_local, _proof.data)) {
+                    if (_blk.assignedProver == msg.sender) {
+                        reward += livenessBond;
+                    } else {
+                        _tko.safeTransfer(_blk.assignedProver, livenessBond);
                     }
                 }
-                _blk.livenessBond = 0;
-                _local.livenessBond = 0;
             }
         }
 
@@ -458,5 +446,19 @@ library LibProving {
     /// @dev Returns the reward after applying 12.5% friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
         return _amount == 0 ? 0 : (_amount * 7) >> 3;
+    }
+
+    /// @dev Returns if the liveness bond shall be returned.
+    function _returnLivenessBond(
+        Local memory _local,
+        bytes memory _proofData
+    )
+        private
+        pure
+        returns (bool)
+    {
+        return _local.inProvingWindow && _local.tid == 1
+            || _local.isTopTier && _proofData.length == 32
+                && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
 }
