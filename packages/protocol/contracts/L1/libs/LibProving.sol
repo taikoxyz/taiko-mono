@@ -411,11 +411,7 @@ library LibProving {
             if (livenessBond != 0) {
                 _blk.livenessBond = 0;
 
-                if (
-                    _local.inProvingWindow
-                        || _local.isTopTier && _proof.data.length == 32
-                            && bytes32(_proof.data) == LibStrings.H_RETURN_LIVENESS_BOND
-                ) {
+                if (_returnLivenessBond(_local, _proof.data)) {
                     if (_blk.assignedProver == msg.sender) {
                         reward += livenessBond;
                     } else {
@@ -448,5 +444,18 @@ library LibProving {
     /// @dev Returns the reward after applying 12.5% friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
         return _amount == 0 ? 0 : (_amount * 7) >> 3;
+    }
+
+    function _returnLivenessBond(
+        Local memory _local,
+        bytes memory _proofData
+    )
+        private
+        pure
+        returns (bool)
+    {
+        return _local.inProvingWindow
+            || _local.isTopTier && _proofData.length == 32
+                && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
 }
