@@ -36,6 +36,10 @@ contract DeployL1QuotaManager is DeployCapability {
 
         // ETH
         qm.updateQuota(address(0), valuePerToken * 1 ether / priceETH);
+        // WETH
+        qm.updateQuota(
+            0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, valuePerToken * 1 ether / priceETH
+        );
         // TKO
         qm.updateQuota(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, valuePerToken * 1e18 / priceTKO);
         // USDT
