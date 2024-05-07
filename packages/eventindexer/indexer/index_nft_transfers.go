@@ -177,7 +177,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 		}
 
 		transfers = append(transfers, t)
-	} else if vLog.Topics[0].Hex() != transferBatchSignatureHash.Hex() {
+	} else if vLog.Topics[0].Hex() == transferBatchSignatureHash.Hex() {
 		var t []transfer
 
 		err = erc1155ABI.UnpackIntoInterface(&t, "TransferBatch", []byte(vLog.Data))
