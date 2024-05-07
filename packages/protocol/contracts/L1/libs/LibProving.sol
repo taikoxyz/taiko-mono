@@ -201,20 +201,10 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        local.livenessBond = blk.livenessBond;
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         if (_proof.tier > ts.tier) {
-            if (local.livenessBond != 0) {
-                if (local.inProvingWindow || local.isTopTier && _returnLivenessBond(_proof.data)) {
-                    tko.safeTransfer(local.assignedProver, local.livenessBond);
-                }
-                // Always set liveness bond to zero
-                blk.livenessBond = 0;
-                local.livenessBond = 0;
-            }
-
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
@@ -416,14 +406,17 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
-                if (_local.assignedProver == msg.sender && _local.inProvingWindow) {
+            uint256 livenessBond = _blk.livenessBond;
+            if (livenessBond != 0) {
+                if (
+                    _local.assignedProver == msg.sender && _local.inProvingWindow
+                        || _local.isTopTier && _returnLivenessBond(_proof.data)
+                ) {
                     unchecked {
-                        reward += _local.livenessBond;
+                        reward += livenessBond;
                     }
                 }
                 _blk.livenessBond = 0;
-                _local.livenessBond = 0;
             }
         }
 
