@@ -15,21 +15,6 @@ library LibBridgedToken {
         }
     }
 
-    function validateInputs(
-        address _srcToken,
-        uint256 _srcChainId,
-        string memory _symbol,
-        string memory _name
-    )
-        internal
-        view
-    {
-        validateInputs(_srcToken, _srcChainId);
-        if (bytes(_symbol).length == 0 || bytes(_name).length == 0) {
-            revert BTOKEN_INVALID_PARAMS();
-        }
-    }
-
     function checkToAddress(address _to) internal view {
         if (_to == address(this)) revert BTOKEN_INVALID_TO_ADDR();
     }

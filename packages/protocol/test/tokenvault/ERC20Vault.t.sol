@@ -522,9 +522,8 @@ contract TestERC20Vault is TaikoTest {
     }
 
     function test_20Vault_change_bridged_token() public {
-        // Other canonical - bridge token part cannot assigned
+        // A mock canonical "token"
         address canonicalRandomToken = vm.addr(102);
-        address bridgedForCanonical = vm.addr(103);
 
         vm.warp(block.timestamp + 91 days);
 
