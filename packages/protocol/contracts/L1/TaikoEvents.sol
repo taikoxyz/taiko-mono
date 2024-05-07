@@ -76,9 +76,4 @@ abstract contract TaikoEvents {
     /// @dev Emitted when proving has been paused
     /// @param paused True if paused, false if unpaused.
     event ProvingPaused(bool paused);
-
-    /// @dev Emitted when an Ethereum deposit is made.
-    /// @param deposit The Ethereum deposit information including recipient,
-    /// amount, and ID.
-    event EthDeposited(TaikoData.EthDeposit deposit);
 }

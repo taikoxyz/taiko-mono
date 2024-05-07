@@ -1,6 +1,8 @@
+ARG PACKAGE=eventindexer
+
 FROM golang:1.21.0 as builder
 
-ARG PACKAGE=eventindexer
+ARG PACKAGE
 
 RUN apt install git curl
 
@@ -12,16 +14,17 @@ COPY . .
 
 RUN go mod download
 
-WORKDIR /taiko-mono/packages/$PACKAGE
+WORKDIR /taiko-mono/packages/${PACKAGE}
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /taiko-mono/packages/$PACKAGE/bin/${PACKAGE} /taiko-mono/packages/$PACKAGE/cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /taiko-mono/packages/${PACKAGE}/bin/${PACKAGE} /taiko-mono/packages/${PACKAGE}/cmd/main.go
 
 FROM alpine:latest
 
 ARG PACKAGE
+ENV PACKAGE=${PACKAGE}
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /taiko-mono/packages/$PACKAGE/bin/$PACKAGE /usr/local/bin/
+COPY --from=builder /taiko-mono/packages/${PACKAGE}/bin/${PACKAGE} /usr/local/bin/
 
-ENTRYPOINT ["$PACKAGE"]
+ENTRYPOINT /usr/local/bin/${PACKAGE}

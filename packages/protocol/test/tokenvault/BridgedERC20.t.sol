@@ -24,15 +24,6 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         btoken.changeMigrationStatus(Emma, false);
 
-        vm.startPrank(owner);
-        btoken.changeMigrationStatus(Emma, false);
-        btoken.changeMigrationStatus(address(0), false);
-        btoken.changeMigrationStatus(address(0), true);
-        btoken.changeMigrationStatus(Emma, true);
-        vm.expectRevert();
-        btoken.changeMigrationStatus(Emma, true);
-        vm.stopPrank();
-
         vm.startPrank(vault);
         btoken.changeMigrationStatus(Frank, false);
         btoken.changeMigrationStatus(address(0), false);
@@ -58,8 +49,7 @@ contract TestBridgedERC20 is TaikoTest {
         assertEq(btoken.balanceOf(Bob), 1000);
         vm.stopPrank();
 
-        // Owner cannot burn/mint
-        vm.expectRevert();
+        // Owner can burn/mint
         vm.prank(owner, owner);
         btoken.mint(Bob, 1000);
     }
@@ -103,18 +93,17 @@ contract TestBridgedERC20 is TaikoTest {
         newToken.mint(Bob, 10);
 
         vm.prank(owner);
-        vm.expectRevert();
         newToken.mint(Bob, 10);
 
         vm.prank(vault);
         newToken.mint(Bob, 15);
-        assertEq(newToken.balanceOf(Bob), 225);
+        assertEq(newToken.balanceOf(Bob), 235);
 
         // Vault can only burn if it owns the tokens
         vm.prank(vault);
         vm.expectRevert();
         newToken.burn(25);
-        assertEq(newToken.balanceOf(Bob), 225);
+        assertEq(newToken.balanceOf(Bob), 235);
 
         // Imitate current bridge-back operation, as Bob gave approval (for bridging back) and then
         // ERC20Vault does the "transfer and burn"
@@ -128,7 +117,7 @@ contract TestBridgedERC20 is TaikoTest {
         vm.prank(vault);
         newToken.burn(25);
 
-        assertEq(newToken.balanceOf(Bob), 200);
+        assertEq(newToken.balanceOf(Bob), 210);
     }
 
     function deployBridgedToken(string memory name) internal returns (BridgedERC20) {
@@ -142,7 +131,7 @@ contract TestBridgedERC20 is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (owner, address(manager), srcToken, srcChainId, srcDecimals, name, name)
-                    ),
+                ),
                 registerTo: manager
             })
         );

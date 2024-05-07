@@ -62,11 +62,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 		return err
 	}
 
-	statRepository, err := repo.NewStatRepository(db)
-	if err != nil {
-		return err
-	}
-
 	nftBalanceRepository, err := repo.NewNFTBalanceRepository(db)
 	if err != nil {
 		return err
@@ -79,7 +74,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 
 	srv, err := http.NewServer(http.NewServerOpts{
 		EventRepo:      eventRepository,
-		StatRepo:       statRepository,
 		NFTBalanceRepo: nftBalanceRepository,
 		ChartRepo:      chartRepository,
 		Echo:           echo.New(),

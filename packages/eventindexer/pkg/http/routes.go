@@ -8,7 +8,6 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/uniqueProposers", srv.GetUniqueProposers)
 	srv.echo.GET("/eventByAddress", srv.GetCountByAddressAndEventName)
 	srv.echo.GET("/events", srv.GetByAddressAndEventName)
-	srv.echo.GET("/stats", srv.GetStats)
 	srv.echo.GET("/assignedBlocks", srv.GetAssignedBlocksByProverAddress)
 	srv.echo.GET("/nftsByAddress", srv.GetNFTBalancesByAddressAndChainID)
 

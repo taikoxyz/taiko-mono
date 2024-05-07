@@ -74,6 +74,10 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, msgBody.TimesRetried, errors.Wrap(err, "p.eventStatusFromMsgHash")
@@ -89,21 +93,13 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
-	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
-		return false, msgBody.TimesRetried, err
-	}
-
 	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
 
-	receipt, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+	_, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
 	if err != nil {
-		return false, msgBody.TimesRetried, err
-	}
-
-	if receipt.Status != types.ReceiptStatusSuccessful {
 		return false, msgBody.TimesRetried, err
 	}
 
@@ -412,6 +408,9 @@ func (p *Processor) sendProcessMessageCall(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		relayer.MessageSentEventsProcessedReverted.Inc()
+		slog.Warn("Transaction reverted", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"status", receipt.Status)
 
 		return nil, errTxReverted
 	}
