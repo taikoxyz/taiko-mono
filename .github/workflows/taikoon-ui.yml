@@ -1,8 +1,9 @@
-name: Taikoon UI
+name: Taikoon UI CI/CD
 
 on:
   push:
-    branches: [main]
+    branches-ignore:
+      - release-please-*
     paths:
       - "packages/taikoon-ui/**"
   pull_request:
@@ -10,29 +11,44 @@ on:
       - "packages/taikoon-ui/**"
 
 jobs:
-  build:
+  build-and-test:
     runs-on: [taiko-runner]
     steps:
-      - name: Cancel previous runs
-        uses: styfle/cancel-workflow-action@0.12.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Build and Checks
+        uses: ./.github/workflows/taikoon-ui-ci.yml
+
+  # Deployment name follow the pattern: deploy_<appname(taikoon-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
+  deploy_taikoon-ui_mainnet_preview:
+    if: ${{ github.ref_name != 'main' }}
+    runs-on: [taiko-runner]
+    needs: build-and-test
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Deploy
+        uses: ./.github/workflows/vercel-deploy.yml
         with:
-          submodules: recursive
+          environment: 'preview'
+          flags: ''
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
 
-      - name: Install pnpm dependencies
-        uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Check formatting
-        working-directory: ./packages/taikoon-ui
-        run: pnpm lint
-
-      - name: Frontend build
-        working-directory: ./packages/taikoon-ui
-        run: |
-          export PUBLIC_WALLETCONNECT_PROJECT_ID="fake_project_id"
-          export PUBLIC_IPFS_GATEWAY="https://ipfs.io/ipfs/"
-          pnpm build
+  deploy_taikoon-ui_mainnet_production:
+    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/taikoon-ui-') }}
+    runs-on: [taiko-runner]
+    needs: build-and-test
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Deploy
+        uses: ./.github/workflows/vercel-deploy.yml
+        with:
+          environment: 'production'
+          flags: '--prod'
+          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}

@@ -1,14 +1,14 @@
-name: Bridge UI CI/CD
+name: Guardians UI CI/CD
 
 on:
   push:
     branches-ignore:
       - release-please-*
     paths:
-      - "packages/bridge-ui/**"
+      - "packages/guardian-prover-health-check-ui/**"
   pull_request:
     paths:
-      - "packages/bridge-ui/**"
+      - "packages/guardian-prover-health-check-ui/**"
 
 jobs:
   build-and-test:
@@ -17,15 +17,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build and Checks
-        uses: ./.github/workflows/bridge-ui-ci.yml
+        uses: ./.github/workflows/guardian-prover-health-check-ui-ci.yml
 
-  # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
-  deploy_bridge-ui_hekla_preview:
+  # Deployment name follow the pattern: deploy_<appname(guardian-prover-health-check-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
+  deploy_guardian-prover-health-check-ui_hekla_preview:
     if: ${{ github.ref_name != 'main' }}
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,12 +36,12 @@ jobs:
           flags: ''
           vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
 
-  deploy_bridge-ui_devnet_preview:
+  deploy_guardian-prover-health-check-ui_devnet_preview:
     if: ${{ github.ref_name != 'main' }}
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -52,12 +52,12 @@ jobs:
           flags: ''
           vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
 
-  deploy_bridge-ui_hekla_production:
-    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/bridge-ui-') }}
+  deploy_guardian-prover-health-check-ui_hekla_production:
+    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/guardian-prover-health-check-ui-') }}
     runs-on: [taiko-runner]
     needs: build-and-test
     env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
