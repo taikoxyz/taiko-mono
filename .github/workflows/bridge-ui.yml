@@ -12,12 +12,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: [taiko-runner]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Build and Checks
-        uses: ./.github/workflows/bridge-ui-ci.yml
+    uses: ./.github/workflows/taikoon-ui-ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   deploy_bridge-ui_hekla_preview:
