@@ -91,11 +91,6 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
-        for (uint256 i; i < _ids.length; i++) {
-            if (balanceOf(msg.sender, _ids[i]) < _amounts[i]) {
-                revert BTOKEN_INVALID_BURN();
-            }
-        }
         _burnBatch(msg.sender, _ids, _amounts);
     }
 
