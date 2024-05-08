@@ -216,12 +216,19 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        sameChain(_message.destChainId)
-        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
+        returns (IBridge.Status)
     {
         uint256 gasStart = gasleft();
+
+        // same as `sameChain(_message.destChainId)` but without stack-too-deep
+        if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
+
+        // same as `diffChain(_message.srcChainId)` but without stack-too-deep
+        if (_message.srcChainId == 0 || _message.srcChainId == block.chainid) {
+            revert B_INVALID_CHAINID();
+        }
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
@@ -281,6 +288,7 @@ contract Bridge is EssentialContract, IBridge {
 
         _updateMessageStatus(msgHash, stats.status);
         emit MessageProcessed(msgHash, _message, stats);
+        return stats.status;
     }
 
     /// @inheritdoc IBridge

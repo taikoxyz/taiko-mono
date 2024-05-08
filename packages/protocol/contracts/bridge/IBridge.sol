@@ -90,7 +90,13 @@ interface IBridge {
     /// needed.
     /// @param _message The message to be processed.
     /// @param _proof The merkle inclusion proof.
-    function processMessage(Message calldata _message, bytes calldata _proof) external;
+    /// @return The messsage's status after processing.
+    function processMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
+        external
+        returns (Status);
 
     /// @notice Retries to invoke the messageCall after releasing associated
     /// Ether and tokens.
