@@ -24,7 +24,6 @@ contract Bridge is EssentialContract, IBridge {
         uint32 gasUsedInFeeCalc;
         uint32 proofSize;
         uint32 numCacheOps;
-        Status status;
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
@@ -216,12 +215,19 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata _proof
     )
         external
-        sameChain(_message.destChainId)
-        diffChain(_message.srcChainId)
         whenNotPaused
         nonReentrant
+        returns (Status status_, StatusReason reason_)
     {
         uint256 gasStart = gasleft();
+
+        // same as `sameChain(_message.destChainId)` but without stack-too-deep
+        if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
+
+        // same as `diffChain(_message.srcChainId)` but without stack-too-deep
+        if (_message.srcChainId == 0 || _message.srcChainId == block.chainid) {
+            revert B_INVALID_CHAINID();
+        }
 
         // If the gas limit is set to zero, only the owner can process the message.
         if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
@@ -240,21 +246,28 @@ contract Bridge is EssentialContract, IBridge {
 
         if (!_consumeEtherQuota(_message.value + _message.fee)) {
             if (msg.sender != _message.destOwner) revert B_OUT_OF_ETH_QUOTA();
-            stats.status = Status.RETRIABLE;
+            status_ = Status.RETRIABLE;
+            reason_ = StatusReason.OUT_OF_ETH_QUOTA;
         } else {
             uint256 refundAmount;
             if (_unableToInvokeMessageCall(_message, signalService)) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
                 refundAmount = _message.value;
-                stats.status = Status.DONE;
+                status_ = Status.DONE;
+                reason_ = StatusReason.INVOCATION_PROHIBITED;
             } else {
                 uint256 gasLimit = msg.sender == _message.destOwner
                     ? gasleft() // ignore _message.gasLimit
                     : _invocationGasLimit(_message, true);
 
-                stats.status =
-                    _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
+                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
+                    status_ = Status.DONE;
+                    reason_ = StatusReason.INVOCATION_OK;
+                } else {
+                    status_ = Status.RETRIABLE;
+                    reason_ = StatusReason.INVOCATION_FAILED;
+                }
             }
 
             if (_message.fee != 0) {
@@ -279,7 +292,7 @@ contract Bridge is EssentialContract, IBridge {
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
 
-        _updateMessageStatus(msgHash, stats.status);
+        _updateMessageStatus(msgHash, status_);
         emit MessageProcessed(msgHash, _message, stats);
     }
 

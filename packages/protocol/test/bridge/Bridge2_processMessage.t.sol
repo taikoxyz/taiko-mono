@@ -411,7 +411,6 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         message.destOwner = Alice;
         message.to = David;
 
-        uint256 aliceBalance = Alice.balance;
         uint256 davidBalance = David.balance;
 
         vm.prank(Bob);
