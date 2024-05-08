@@ -15,7 +15,7 @@ interface IBridge {
     }
 
     enum StatusReason {
-        INVOCATION_OK,
+        NONE,
         INVOCATION_PROHIBITED,
         INVOCATION_FAILED,
         OUT_OF_ETH_QUOTA
