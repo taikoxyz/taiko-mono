@@ -177,7 +177,7 @@ contract TestERC20Vault is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(addressManager), randAddress(), 100, 18, "USDC", "USDC coin")
-                    )
+                )
             })
         );
 
@@ -188,7 +188,7 @@ contract TestERC20Vault is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(addressManager), randAddress(), 100, 18, "USDT", "USDT coin")
-                    )
+                )
             })
         );
 
@@ -207,7 +207,7 @@ contract TestERC20Vault is TaikoTest {
                         "stETH",
                         "Lido Staked ETH"
                     )
-                    )
+                )
             })
         );
         vm.stopPrank();
