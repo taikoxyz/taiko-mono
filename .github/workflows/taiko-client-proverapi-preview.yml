@@ -1,0 +1,57 @@
+name: Prover Server API Preview
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  # VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_PROVER_SERVER }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore:
+      - main
+      - release-please-*
+    paths:
+      - "packages/taiko-client/**"
+
+jobs:
+  autogen-swagger-docs:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.0
+
+      - name: install swag cli
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: swag init
+        working-directory: packages/taiko-client
+        run: ./scripts/gen_swagger_json.sh
+
+  deploy-proverserver-api-preview:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Install Vercel CLI
+        run: pnpm add --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.0
+
+      - name: Deploy Project Artifacts to Vercel
+        working-directory: packages/taiko-client
+        run: vercel --token=${{ secrets.VERCEL_TOKEN }}
