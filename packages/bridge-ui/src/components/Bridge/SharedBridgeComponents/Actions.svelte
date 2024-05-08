@@ -71,35 +71,36 @@
 
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;
 
-  const isERC20ApprovalDisabled = () => {
-    return canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount;
-  };
+  $: {
+    const isERC20ApprovalDisabled = () => {
+      return canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount;
+    };
 
-  const isERC721ApprovalDisabled = () => {
-    return $allApproved || approving;
-  };
+    const isERC721ApprovalDisabled = () => {
+      return $allApproved || approving;
+    };
 
-  const isERC1155ApprovalDisabled = () => {
-    return $allApproved || approving;
-  };
+    const isERC1155ApprovalDisabled = () => {
+      return $allApproved || approving;
+    };
 
-  const checkDisableApprove = () => {
-    if (checking) return true;
-    if (!$selectedTokenIsBridged) {
-      switch (true) {
-        case isERC20:
-          return isERC20ApprovalDisabled();
-        case isERC721:
-          return isERC721ApprovalDisabled();
-        case isERC1155:
-          return isERC1155ApprovalDisabled();
+    const isDisableApprove = () => {
+      if (checking) return true;
+      if (!$selectedTokenIsBridged) {
+        switch (true) {
+          case isERC20:
+            return isERC20ApprovalDisabled();
+          case isERC721:
+            return isERC721ApprovalDisabled();
+          case isERC1155:
+            return isERC1155ApprovalDisabled();
+        }
       }
-    }
-    return approving;
-  };
+      return approving;
+    };
 
-  // Conditions to disable/enable buttons
-  $: disableApprove = checkDisableApprove();
+    disableApprove = isDisableApprove();
+  }
 
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
@@ -120,20 +121,61 @@
     $allApproved &&
     !paused;
 
-  const isDisableBridge = () => {
-    switch (true) {
-      case isERC20:
-        return !(commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount);
-      case isERC721:
-        return !commonConditions;
-      case isERC1155:
-        return !(commonConditions && $enteredAmount && $enteredAmount > 0);
-      case isETH:
-        return !(commonConditions && $enteredAmount && $enteredAmount > 0);
-      default:
-        return !commonConditions;
-    }
-  };
+  // Conditions to disable/enable buttons
+  $: disableApprove = true;
+  $: disableBridge = true;
+
+  // Conditions to disable/enable Approve button
+  $: {
+    const isERC20ApprovalDisabled = () => {
+      return canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount;
+    };
+
+    const isERC721ApprovalDisabled = () => {
+      return $allApproved || approving;
+    };
+
+    const isERC1155ApprovalDisabled = () => {
+      return $allApproved || approving;
+    };
+
+    const isDisableApprove = () => {
+      if (checking) return true;
+      if (!$selectedTokenIsBridged) {
+        switch (true) {
+          case isERC20:
+            return isERC20ApprovalDisabled();
+          case isERC721:
+            return isERC721ApprovalDisabled();
+          case isERC1155:
+            return isERC1155ApprovalDisabled();
+        }
+      }
+      return approving;
+    };
+
+    disableApprove = isDisableApprove();
+  }
+
+  // Conditions to disable/enable Bridge button
+  $: {
+    const isDisableBridge = () => {
+      switch (true) {
+        case isERC20:
+          return !(commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount);
+        case isERC721:
+          return !commonConditions;
+        case isERC1155:
+          return !(commonConditions && $enteredAmount && $enteredAmount > 0);
+        case isETH:
+          return !(commonConditions && $enteredAmount && $enteredAmount > 0);
+        default:
+          return !commonConditions;
+      }
+    };
+
+    disableBridge = isDisableBridge();
+  }
 </script>
 
 <div class="f-col w-full gap-4">
@@ -157,7 +199,7 @@
       {/if}
     </ActionButton>
   {/if}
-  <ActionButton priority="primary" disabled={isDisableBridge()} loading={bridging} on:click={onBridgeClick}>
+  <ActionButton priority="primary" disabled={disableBridge} loading={bridging} on:click={onBridgeClick}>
     {#if bridging}
       <span class="body-bold">{$t('bridge.button.bridging')}</span>
     {:else}
