@@ -29,14 +29,12 @@ export async function recommendProcessingFee({
   let estimatedMsgGaslimit;
 
   const baseFee = await getBaseFee(BigInt(destChainId));
-  log(`Base fee: ${baseFee}`);
 
   const destPublicClient = getPublicClient(config, { chainId: destChainId });
 
   if (!destPublicClient) throw new Error('Could not get public client');
 
   const maxPriorityFee = await destPublicClient.estimateMaxPriorityFeePerGas();
-  log(`Max priority fee: ${maxPriorityFee}`);
 
   if (!baseFee) throw new Error('Unable to get base fee');
 
@@ -57,15 +55,9 @@ export async function recommendProcessingFee({
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
 
         estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20DeployedGasLimit;
-        log(
-          `calculation ${gasLimitConfig.GAS_RESERVE} + ${gasLimitConfig.erc20DeployedGasLimit} = ${estimatedMsgGaslimit}`,
-        );
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
         estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20NotDeployedGasLimit;
-        log(
-          `calculation ${gasLimitConfig.GAS_RESERVE} + ${gasLimitConfig.erc20NotDeployedGasLimit} = ${estimatedMsgGaslimit}`,
-        );
       }
     } else if (token.type === TokenType.ERC721) {
       if (isTokenAlreadyDeployed) {
@@ -87,14 +79,10 @@ export async function recommendProcessingFee({
   } else {
     log(`Fee for ETH bridging`);
     estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE);
-    log(`calculation ${gasLimitConfig.GAS_RESERVE}  = ${estimatedMsgGaslimit}`);
   }
   if (!estimatedMsgGaslimit) throw new Error('Unable to calculate fee');
 
   const fee = estimatedMsgGaslimit * (BigInt(PUBLIC_FEE_MULTIPLIER) * (baseFee + maxPriorityFee));
-  log(`Formula: ${estimatedMsgGaslimit} * ${PUBLIC_FEE_MULTIPLIER} * (${baseFee} + ${maxPriorityFee})) = ${fee}`);
-
-  log(`Recommended fee: ${fee.toString()}`);
   return roundWeiTo6DecimalPlaces(fee);
 }
 
