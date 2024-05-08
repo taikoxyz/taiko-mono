@@ -109,7 +109,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             ? target.delegatecall(txdata)
             : target.call{ value: msg.value }(txdata);
 
-        if (!success) LibBytes.revertWithExtracedError(result);
+        if (!success) LibBytes.revertWithExtractedError(result);
         emit MessageInvoked(txId, target, isDelegateCall, bytes4(txdata));
     }
 }

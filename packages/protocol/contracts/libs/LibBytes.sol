@@ -37,7 +37,7 @@ library LibBytes {
     /// @dev Helper function to extract a useful revert message from a failed call.
     /// If the returned data is malformed or not correctly abi encoded then this call can fail
     /// itself.
-    function revertWithExtracedError(bytes memory _returnData) internal pure {
+    function revertWithExtractedError(bytes memory _returnData) internal pure {
         // If the _res length is less than 68, then
         // the transaction failed with custom error or silently (without a revert message)
         if (_returnData.length < 68) revert INNER_ERROR(_returnData);
