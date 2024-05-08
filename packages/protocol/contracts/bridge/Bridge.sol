@@ -24,7 +24,6 @@ contract Bridge is EssentialContract, IBridge {
         uint32 gasUsedInFeeCalc;
         uint32 proofSize;
         uint32 numCacheOps;
-        Status status;
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
@@ -218,7 +217,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         whenNotPaused
         nonReentrant
-        returns (IBridge.Status)
+        returns (Status status_, StatusReason reason_)
     {
         uint256 gasStart = gasleft();
 
@@ -247,21 +246,28 @@ contract Bridge is EssentialContract, IBridge {
 
         if (!_consumeEtherQuota(_message.value + _message.fee)) {
             if (msg.sender != _message.destOwner) revert B_OUT_OF_QUOTA();
-            stats.status = Status.RETRIABLE;
+            status_ = Status.RETRIABLE;
+            reason_ = StatusReason.OUT_OF_QUOTA;
         } else {
             uint256 refundAmount;
             if (_unableToInvokeMessageCall(_message, signalService)) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE
                 refundAmount = _message.value;
-                stats.status = Status.DONE;
+                status_ = Status.DONE;
+                reason_ = StatusReason.UNABLE_TO_INVOKE;
             } else {
                 uint256 gasLimit = msg.sender == _message.destOwner
                     ? gasleft() // ignore _message.gasLimit
                     : _invocationGasLimit(_message, true);
 
-                stats.status =
-                    _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
+                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
+                    status_ = Status.DONE;
+                    reason_ = StatusReason.INVOCATION_OK;
+                } else {
+                    status_ = Status.RETRIABLE;
+                    reason_ = StatusReason.INVOCATION_FAILURE;
+                }
             }
 
             if (_message.fee != 0) {
@@ -286,9 +292,8 @@ contract Bridge is EssentialContract, IBridge {
             _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
 
-        _updateMessageStatus(msgHash, stats.status);
+        _updateMessageStatus(msgHash, status_);
         emit MessageProcessed(msgHash, _message, stats);
-        return stats.status;
     }
 
     /// @inheritdoc IBridge
