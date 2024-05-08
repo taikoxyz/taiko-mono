@@ -1,0 +1,91 @@
+# This file configures github.com/golangci/golangci-lint.
+
+run:
+  timeout: 20m
+  tests: true
+  skip-dirs-use-default: true
+  skip-files:
+    - bindings/gen_taiko_l1.go
+    - bindings/gen_taiko_l2.go
+
+issues:
+  # List of regexps of issue texts to exclude.
+  #
+  # But independently of this option we use default exclude patterns,
+  # it can be disabled by `exclude-use-default: false`.
+  # To list all excluded by default patterns execute `golangci-lint run --help`
+  #
+  # Default: https://golangci-lint.run/usage/false-positives/#default-exclusions
+  exclude:
+    - abcdef
+
+linters:
+  disable-all: true
+  enable:
+    - bidichk
+    - bodyclose
+    - durationcheck
+    - exportloopref
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - goconst
+    - goimports
+    - gosimple
+    - govet
+    - gosec
+    - gofmt
+    - ineffassign
+    - importas
+    - lll
+    - makezero
+    - misspell
+    - misspell
+    - megacheck
+    - revive
+    - staticcheck
+    - sqlclosecheck
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unused
+    - whitespace
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goconst:
+    min-len: 3
+    min-occurrences: 6
+  goimports:
+    local-prefixes: github.com/taikoxyz/taiko-client
+
+severity:
+  # Set the default severity for issues.
+  #
+  # If severity rules are defined and the issues do not match or no severity is provided to the rule
+  # this will be the default severity applied.
+  # Severities should match the supported severity names of the selected out format.
+  # - Code climate: https://docs.codeclimate.com/docs/issues#issue-severity
+  # - Checkstyle: https://checkstyle.sourceforge.io/property_types.html#SeverityLevel
+  # - GitHub: https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
+  # - TeamCity: https://www.jetbrains.com/help/teamcity/service-messages.html#Inspection+Instance
+  #
+  # Default: ""
+  default-severity: error
+  # If set to true `severity-rules` regular expressions become case-sensitive.
+  # Default: false
+  case-sensitive: true
+  # When a list of severity rules are provided, severity information will be added to lint issues.
+  # Severity rules have the same filtering capability as exclude rules
+  # except you are allowed to specify one matcher per severity rule.
+  # Only affects out formats that support setting severity information.
+  #
+  # Default: []
+  rules:
+    - linters:
+        - dupl
+      severity: info
