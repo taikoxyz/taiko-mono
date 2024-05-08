@@ -16,9 +16,9 @@ interface IBridge {
 
     enum StatusReason {
         INVOCATION_OK,
-        UNABLE_TO_INVOKE,
-        INVOCATION_FAILURE,
-        OUT_OF_QUOTA
+        INVOCATION_PROHIBITED,
+        INVOCATION_FAILED,
+        OUT_OF_ETH_QUOTA
     }
 
     struct Message {

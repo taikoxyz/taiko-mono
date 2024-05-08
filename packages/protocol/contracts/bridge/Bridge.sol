@@ -85,7 +85,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
-    error B_OUT_OF_QUOTA();
+    error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
@@ -187,7 +187,7 @@ contract Bridge is EssentialContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_QUOTA();
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -245,9 +245,9 @@ contract Bridge is EssentialContract, IBridge {
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         if (!_consumeEtherQuota(_message.value + _message.fee)) {
-            if (msg.sender != _message.destOwner) revert B_OUT_OF_QUOTA();
+            if (msg.sender != _message.destOwner) revert B_OUT_OF_ETH_QUOTA();
             status_ = Status.RETRIABLE;
-            reason_ = StatusReason.OUT_OF_QUOTA;
+            reason_ = StatusReason.OUT_OF_ETH_QUOTA;
         } else {
             uint256 refundAmount;
             if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -255,7 +255,7 @@ contract Bridge is EssentialContract, IBridge {
                 // mark message as DONE
                 refundAmount = _message.value;
                 status_ = Status.DONE;
-                reason_ = StatusReason.UNABLE_TO_INVOKE;
+                reason_ = StatusReason.INVOCATION_PROHIBITED;
             } else {
                 uint256 gasLimit = msg.sender == _message.destOwner
                     ? gasleft() // ignore _message.gasLimit
@@ -266,7 +266,7 @@ contract Bridge is EssentialContract, IBridge {
                     reason_ = StatusReason.INVOCATION_OK;
                 } else {
                     status_ = Status.RETRIABLE;
-                    reason_ = StatusReason.INVOCATION_FAILURE;
+                    reason_ = StatusReason.INVOCATION_FAILED;
                 }
             }
 
@@ -310,7 +310,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_QUOTA();
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
