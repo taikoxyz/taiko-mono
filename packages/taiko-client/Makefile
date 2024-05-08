@@ -18,17 +18,17 @@ lint:
 	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
 	&& golangci-lint run
 
-test:
-	PACKAGE=${PACKAGE} \
+test: lint
+	@PACKAGE=${PACKAGE} \
 	RUN_TESTS=true \
 		./integration_test/entrypoint.sh
 
 dev_net:
-	COMPILE_PROTOCOL=${COMPILE_PROTOCOL} \
+	@COMPILE_PROTOCOL=${COMPILE_PROTOCOL} \
 		./integration_test/entrypoint.sh
 
 gen_bindings:
-	TAIKO_GETH_DIR=${TAIKO_GETH_DIR} \
+	@TAIKO_GETH_DIR=${TAIKO_GETH_DIR} \
 		./scripts/gen_bindings.sh
 
 .PHONY: build \

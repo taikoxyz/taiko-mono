@@ -6,78 +6,59 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
-	maxBlocksGasLimit = uint64(50)
-	maxTxlistBytes    = uint64(10000)
-	chainID           = genesis.Config.ChainID
-	testKey, _        = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddr          = crypto.PubkeyToAddress(testKey.PublicKey)
-	genesis           = &core.Genesis{
-		Config:    params.AllEthashProtocolChanges,
-		Alloc:     types.GenesisAlloc{testAddr: {Balance: big.NewInt(2e15)}},
-		ExtraData: []byte("test genesis"),
-		Timestamp: 9000,
-		BaseFee:   big.NewInt(params.InitialBaseFee),
-	}
+	chainID    = new(big.Int).SetUint64(167001)
+	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
-func TestDecomporess(t *testing.T) {
-	d := NewTxListDecompressor(
-		maxBlocksGasLimit,
-		maxTxlistBytes,
+type TxListDecompressorTestSuite struct {
+	testutils.ClientTestSuite
+	d *TxListDecompressor
+}
+
+func (s *TxListDecompressorTestSuite) SetupTest() {
+	s.ClientTestSuite.SetupTest()
+	s.d = NewTxListDecompressor(
+		params.MaxGasLimit,
+		rpc.BlockMaxTxListBytes,
 		chainID,
 	)
+}
+
+func (s *TxListDecompressorTestSuite) TestZeroBytes() {
+	s.Empty(s.d.TryDecompress(chainID, []byte{}, false))
+}
+
+func (s *TxListDecompressorTestSuite) TestCalldataSize() {
+	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes+1), false))
+	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes-1), false))
+}
+
+func (s *TxListDecompressorTestSuite) TestValidTxList() {
 	compressed, err := utils.Compress(rlpEncodedTransactionBytes(1, true))
-	require.NoError(t, err)
+	s.Nil(err)
+	decompressed, err := utils.Decompress(compressed)
+	s.Nil(err)
 
-	tests := []struct {
-		name         string
-		blockID      *big.Int
-		txListBytes  []byte
-		decompressed []byte
-	}{
-		{
-			"txListBytes binary too large",
-			chainID,
-			randBytes(maxTxlistBytes + 1),
-			[]byte{},
-		},
-		{
-			"txListBytes not decodable to rlp",
-			chainID,
-			randBytes(0x1),
-			[]byte{},
-		},
-		{
-			"success empty tx list",
-			chainID,
-			rlpEncodedTransactionBytes(0, true),
-			[]byte{},
-		},
-		{
-			"success non-empty tx list",
-			chainID,
-			compressed,
-			rlpEncodedTransactionBytes(1, true),
-		},
-	}
+	s.Equal(s.d.TryDecompress(chainID, compressed, true), decompressed)
+	s.Equal(s.d.TryDecompress(chainID, compressed, false), decompressed)
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.decompressed, d.TryDecompress(tt.blockID, tt.txListBytes, false))
-		})
-	}
+func TestDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(TxListDecompressorTestSuite))
 }
 
 func rlpEncodedTransactionBytes(l int, signed bool) []byte {
@@ -85,22 +66,13 @@ func rlpEncodedTransactionBytes(l int, signed bool) []byte {
 	for i := 0; i < l; i++ {
 		var tx *types.Transaction
 		if signed {
-			txData := &types.LegacyTx{
-				Nonce:    1,
-				To:       &testAddr,
-				GasPrice: common.Big256,
-				Value:    common.Big1,
-				Gas:      10,
-			}
+			txData := &types.LegacyTx{Nonce: 1, To: &testAddr, GasPrice: common.Big256, Value: common.Big1, Gas: 10}
 
-			tx = types.MustSignNewTx(testKey, types.LatestSigner(genesis.Config), txData)
+			tx = types.MustSignNewTx(testKey, types.LatestSigner(&params.ChainConfig{ChainID: chainID}), txData)
 		} else {
 			tx = types.NewTransaction(1, testAddr, common.Big1, 10, new(big.Int).SetUint64(10*params.GWei), nil)
 		}
-		txs = append(
-			txs,
-			tx,
-		)
+		txs = append(txs, tx)
 	}
 	b, _ := rlp.EncodeToBytes(txs)
 	return b
