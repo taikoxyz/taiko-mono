@@ -38,7 +38,8 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
-      "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!"
+      "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
+      "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
       "approve": "Approve",
@@ -360,10 +361,10 @@
     "transactions": "Transactions"
   },
   "paginator": {
-    "of": "of",
-    "page": "Page",
+    "everything_loaded": "Everything loaded",
     "more": "Fetch more...",
-    "everything_loaded": "Everything loaded"
+    "of": "of",
+    "page": "Page"
   },
   "paused_modal": {
     "description": "The bridge is currently not available. Follow our official communication channels for more information. ",
