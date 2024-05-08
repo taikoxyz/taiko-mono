@@ -23,9 +23,9 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/phayes/freeport"
 
-	"github.com/taikoxyz/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-client/prover/server"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 )
 
 func (s *ClientTestSuite) ProposeInvalidTxListBytes(proposer Proposer) {

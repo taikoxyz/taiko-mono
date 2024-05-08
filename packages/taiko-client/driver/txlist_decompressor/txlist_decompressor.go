@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/taikoxyz/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
 // TxListDecompressor is responsible for validating and decompressing

@@ -11,9 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli/v2"
 
-	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
 var (

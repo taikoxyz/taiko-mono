@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
 var (

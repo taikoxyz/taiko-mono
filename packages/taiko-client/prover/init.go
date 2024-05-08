@@ -12,12 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-client/internal/utils"
-	handler "github.com/taikoxyz/taiko-client/prover/event_handler"
-	proofProducer "github.com/taikoxyz/taiko-client/prover/proof_producer"
-	proofSubmitter "github.com/taikoxyz/taiko-client/prover/proof_submitter"
-	"github.com/taikoxyz/taiko-client/prover/proof_submitter/transaction"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 // setApprovalAmount will set the allowance on the TaikoToken contract for the

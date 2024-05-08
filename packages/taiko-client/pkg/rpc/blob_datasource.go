@@ -10,8 +10,8 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
 
-	"github.com/taikoxyz/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-client/pkg"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
 
 type BlobDataSource struct {

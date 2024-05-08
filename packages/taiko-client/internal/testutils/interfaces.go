@@ -3,7 +3,7 @@ package testutils
 import (
 	"context"
 
-	"github.com/taikoxyz/taiko-client/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/utils"
 )
 
 type BlobSyncer interface {

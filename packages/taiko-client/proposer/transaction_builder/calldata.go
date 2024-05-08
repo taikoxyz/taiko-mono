@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/taikoxyz/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
-	selector "github.com/taikoxyz/taiko-client/proposer/prover_selector"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
 )
 
 // CalldataTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList

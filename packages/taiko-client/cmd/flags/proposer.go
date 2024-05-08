@@ -3,7 +3,7 @@ package flags
 import (
 	"github.com/urfave/cli/v2"
 
-	"github.com/taikoxyz/taiko-client/internal/version"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 )
 
 // Required flags used by proposer.

@@ -18,8 +18,8 @@ import (
 	"github.com/phayes/freeport"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-client/pkg/rpc"
-	proofProducer "github.com/taikoxyz/taiko-client/prover/proof_producer"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 type ProverServerTestSuite struct {

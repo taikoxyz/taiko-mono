@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 
-	"github.com/taikoxyz/taiko-client/bindings"
-	eventIterator "github.com/taikoxyz/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
 // BlockProposedHandler is the interface for handling `TaikoL1.BlockProposed` events.
