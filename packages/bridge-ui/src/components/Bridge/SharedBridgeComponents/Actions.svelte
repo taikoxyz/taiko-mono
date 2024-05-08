@@ -71,37 +71,6 @@
 
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;
 
-  $: {
-    const isERC20ApprovalDisabled = () => {
-      return canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount;
-    };
-
-    const isERC721ApprovalDisabled = () => {
-      return $allApproved || approving;
-    };
-
-    const isERC1155ApprovalDisabled = () => {
-      return $allApproved || approving;
-    };
-
-    const isDisableApprove = () => {
-      if (checking) return true;
-      if (!$selectedTokenIsBridged) {
-        switch (true) {
-          case isERC20:
-            return isERC20ApprovalDisabled();
-          case isERC721:
-            return isERC721ApprovalDisabled();
-          case isERC1155:
-            return isERC1155ApprovalDisabled();
-        }
-      }
-      return approving;
-    };
-
-    disableApprove = isDisableApprove();
-  }
-
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
   $: isERC1155 = $selectedToken?.type === TokenType.ERC1155;
