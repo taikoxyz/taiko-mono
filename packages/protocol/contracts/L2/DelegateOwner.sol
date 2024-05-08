@@ -86,6 +86,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @notice Dryruns a message invocation but always revert.
     /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
+    /// Note that this function shall not be used in transaction and is designed for offchain
+    /// simulation only.
     function dryrunMessageInvocation(bytes calldata _data) external payable {
         _invokeCall(_data, false);
         revert DO_DRYRUN_SUCCEEDED();
