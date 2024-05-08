@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibBytes.sol";
 import "../bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -104,11 +105,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
         if (_verifyTxId && txId != nextTxId++) revert DO_INVALID_TX_ID();
 
-        (bool success,) = isDelegateCall //
+        (bool success, bytes memory result) = isDelegateCall //
             ? target.delegatecall(txdata)
             : target.call{ value: msg.value }(txdata);
 
-        if (!success) revert DO_TARGET_CALL_REVERTED();
+        if (!success) LibBytes.revertWithExtracedError(result);
         emit MessageInvoked(txId, target, isDelegateCall, bytes4(txdata));
     }
 }

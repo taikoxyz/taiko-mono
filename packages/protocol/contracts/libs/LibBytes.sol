@@ -2,6 +2,8 @@
 pragma solidity 0.8.24;
 
 library LibBytes {
+    error INNER_ERROR(bytes innerError);
+
     // Taken from:
     // https://github.com/0xPolygonHermez/zkevm-contracts/blob/main/contracts/PolygonZkEVMBridge.sol#L835-L860
     /// @notice Function to convert returned data to string
@@ -28,5 +30,22 @@ library LibBytes {
         } else {
             return "";
         }
+    }
+
+    // Taken from:
+    // https://github.com/boringcrypto/BoringSolidity/blob/78f4817d9c0d95fe9c45cd42e307ccd22cf5f4fc/contracts/BoringBatchable.sol#L19
+    /// @dev Helper function to extract a useful revert message from a failed call.
+    /// If the returned data is malformed or not correctly abi encoded then this call can fail
+    /// itself.
+    function revertWithExtracedError(bytes memory _returnData) internal pure {
+        // If the _res length is less than 68, then
+        // the transaction failed with custom error or silently (without a revert message)
+        if (_returnData.length < 68) revert INNER_ERROR(_returnData);
+
+        assembly {
+            // Slice the sighash.
+            _returnData := add(_returnData, 0x04)
+        }
+        revert(abi.decode(_returnData, (string))); // All that remains is the revert string
     }
 }
