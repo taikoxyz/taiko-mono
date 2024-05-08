@@ -23,6 +23,13 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     uint256[48] private __gap;
 
+    struct Call {
+        uint64 txId;
+        address target;
+        bool isDelegateCall;
+        bytes txdata;
+    }
+
     /// @notice Emitted when a message is invoked.
     /// @param txId The transaction ID.
     /// @param target The target address.
@@ -32,7 +39,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
     );
 
-    error DO_DRY_RUN_SUCCEEDED();
+    error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
@@ -81,35 +88,25 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _invokeCall(_data, true);
     }
 
-    /// @notice Dry runs a message invocation but always revert.
+    /// @notice Dryruns a message invocation but always revert.
     /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
-    function dryRunMessageInvocation(bytes calldata _data) external payable {
+    function dryrunMessageInvocation(bytes calldata _data) external payable {
         _invokeCall(_data, false);
-        revert DO_DRY_RUN_SUCCEEDED();
+        revert DO_DRYRUN_SUCCEEDED();
     }
 
-    /// @notice Decodes a message.data into (txId, target, isDelegateCall, txdata).
-    function decodeMessageData(bytes calldata _data)
-        public
-        pure
-        returns (uint64, address, bool, bytes memory)
-    {
-        return abi.decode(_data, (uint64, address, bool, bytes));
+    function _invokeCall(bytes calldata _callData, bool _verifyTxId) internal {
+        Call memory call = abi.decode(_callData, (Call));
+
+        if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
+
+        (bool success, bytes memory result) = call.isDelegateCall //
+            ? call.target.delegatecall(call.txdata)
+            : call.target.call{ value: msg.value }(call.txdata);
+
+        if (!success) LibBytes.revertWithExtractedError(result);
+        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
     }
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
-
-    function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
-        (uint64 txId, address target, bool isDelegateCall, bytes memory txdata) =
-            decodeMessageData(_data);
-
-        if (_verifyTxId && txId != nextTxId++) revert DO_INVALID_TX_ID();
-
-        (bool success, bytes memory result) = isDelegateCall //
-            ? target.delegatecall(txdata)
-            : target.call{ value: msg.value }(txdata);
-
-        if (!success) LibBytes.revertWithExtractedError(result);
-        emit MessageInvoked(txId, target, isDelegateCall, bytes4(txdata));
-    }
 }

@@ -75,7 +75,79 @@ contract TestDelegateOwner is TaikoTest {
         vm.stopPrank();
     }
 
-    function test_delegate_owner_delegate_multi_call() public {
+    function test_delegate_owner_single_non_delegatecall() public {
+        Target target1 = Target(
+            deployProxy({
+                name: "target1",
+                impl: address(new Target()),
+                data: abi.encodeCall(Target.init, (address(delegateOwner)))
+            })
+        );
+
+        bytes memory data = abi.encode(
+            DelegateOwner.Call(
+                uint64(0),
+                address(target1),
+                false, // CALL
+                abi.encodeCall(EssentialContract.pause, ())
+            )
+        );
+
+        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
+        delegateOwner.dryrunMessageInvocation(data);
+
+        IBridge.Message memory message;
+        message.from = remoteOwner;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+        message.destOwner = Bob;
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.to = address(delegateOwner);
+
+        vm.prank(Bob);
+        bridge.processMessage(message, "");
+
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(delegateOwner.nextTxId(), 1);
+        assertTrue(target1.paused());
+    }
+
+    function test_delegate_owner_single_non_delegatecall_self() public {
+        address delegateOwnerImpl2 = address(new DelegateOwner());
+
+        bytes memory data = abi.encode(
+            DelegateOwner.Call(
+                uint64(0),
+                address(delegateOwner),
+                false, // CALL
+                abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl2))
+            )
+        );
+
+        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
+        delegateOwner.dryrunMessageInvocation(data);
+
+        IBridge.Message memory message;
+        message.from = remoteOwner;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+        message.destOwner = Bob;
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.to = address(delegateOwner);
+
+        vm.prank(Bob);
+        bridge.processMessage(message, "");
+
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(delegateOwner.nextTxId(), 1);
+        assertEq(delegateOwner.impl(), delegateOwnerImpl2);
+    }
+
+    function test_delegate_owner_delegate_multicall() public {
         address impl1 = address(new Target());
         address impl2 = address(new Target());
 
@@ -109,21 +181,24 @@ contract TestDelegateOwner is TaikoTest {
         calls[2].allowFailure = false;
         calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl2));
 
-        bytes memory multicallData = abi.encodeCall(TestMulticall3.aggregate3, (calls));
-
         bytes memory data = abi.encode(
-            0, address(multicall), true, abi.encodeCall(TestMulticall3.aggregate3, (calls))
+            DelegateOwner.Call(
+                uint64(0),
+                address(multicall),
+                true, // DELEGATECALL
+                abi.encodeCall(TestMulticall3.aggregate3, (calls))
+            )
         );
 
-        // vm.expectRevert(DelegateOwner.DO_DRY_RUN_SUCCEEDED.selector);
-        // delegateOwner.dryRunMessageInvocation(data);
+        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
+        delegateOwner.dryrunMessageInvocation(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
         message.destChainId = uint64(block.chainid);
         message.srcChainId = remoteChainId;
         message.destOwner = Bob;
-        message.data = data;
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);
 
         vm.prank(Bob);
@@ -132,8 +207,9 @@ contract TestDelegateOwner is TaikoTest {
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        // assertTrue(target1.paused());
-        // assertEq(target2.impl(),impl2);
-        // assertEq(delegateOwner.impl(),delegateOwnerImpl2);
+        assertEq(delegateOwner.nextTxId(), 1);
+        assertTrue(target1.paused());
+        assertEq(target2.impl(), impl2);
+        assertEq(delegateOwner.impl(), delegateOwnerImpl2);
     }
 }
