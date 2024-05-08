@@ -95,6 +95,7 @@ jobs:
           platforms: linux/amd64
           push: true
           context: .
+          file: ./packages/eventindexer/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
