@@ -80,13 +80,14 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _invokeCall(_data, true);
     }
 
-    /// @notice Dry run a message invocation but always revert.
+    /// @notice Dry runs a message invocation but always revert.
     /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
     function dryRunMessageInvocation(bytes calldata _data) external payable {
         _invokeCall(_data, false);
         revert DO_DRY_RUN_SUCCEEDED();
     }
 
+    /// @notice Decodes a message.data into (txId, target, isDelegateCall, txdata).
     function decodeMessageData(bytes calldata _data)
         public
         pure
