@@ -639,28 +639,4 @@ contract BridgeTest is TaikoTest {
             data: ""
         });
     }
-
-    function getDelegateOwnerMessage(
-        address from,
-        bytes memory encodedCall
-    )
-        internal
-        view
-        returns (IBridge.Message memory message)
-    {
-        message = IBridge.Message({
-            id: 0,
-            from: from,
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
-            srcOwner: Alice, //Does not matter who is the src/dest owner actually - except if we
-                // want to send ether
-            destOwner: Alice,
-            to: address(delegateOwner),
-            value: 0,
-            fee: 0,
-            gasLimit: 1_000_000,
-            data: encodedCall
-        });
-    }
 }

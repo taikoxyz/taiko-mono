@@ -1,36 +1,139 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "../common/TestMulticall3.sol";
 import "../TaikoTest.sol";
 
+contract Target is EssentialContract {
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+}
+
 contract TestDelegateOwner is TaikoTest {
-    function test_delegate_owner() public {
-        // // Needs a compatible impl. contract
-        // address newDelegateOwnerImp = address(new DelegateOwner());
-        // bytes memory upgradeCall = abi.encodeCall(UUPSUpgradeable.upgradeTo,
-        // (newDelegateOwnerImp));
+    address public owner;
+    address public remoteOwner;
+    Bridge public bridge;
+    SignalService public signalService;
+    AddressManager public addressManager;
+    DelegateOwner public delegateOwner;
+    TestMulticall3 public multicall;
 
-        // IBridge.Message memory message = getDelegateOwnerMessage(
-        //     address(mockDAO),
-        //     abi.encodeCall(
-        //         DelegateOwner.onMessageInvocation,
-        //         abi.encode(0, address(delegateOwner), false, upgradeCall)
-        //     )
-        // );
+    uint64 remoteChainId = uint64(block.chainid + 1);
+    address remoteBridge = vm.addr(0x2000);
 
-        // // Mocking proof - but obviously it needs to be created in prod
-        // // corresponding to the message
-        // bytes memory proof = hex"00";
+    function setUp() public {
+        owner = vm.addr(0x1000);
+        vm.deal(owner, 100 ether);
 
-        // bytes32 msgHash = destChainBridge.hashMessage(message);
+        remoteOwner = vm.addr(0x2000);
 
-        // vm.chainId(destChainId);
+        vm.startPrank(owner);
 
-        // vm.prank(Bob, Bob);
-        // destChainBridge.processMessage(message, proof);
+        multicall = new TestMulticall3();
 
-        // //Status is DONE,means a proper call
-        // IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        // assertEq(status == IBridge.Status.DONE, true);
+        addressManager = AddressManager(
+            deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: abi.encodeCall(AddressManager.init, (address(0)))
+            })
+        );
+
+        delegateOwner = DelegateOwner(
+            deployProxy({
+                name: "delegate_owner",
+                impl: address(new DelegateOwner()),
+                data: abi.encodeCall(
+                    DelegateOwner.init, (remoteOwner, address(addressManager), remoteChainId)
+                    ),
+                registerTo: address(addressManager)
+            })
+        );
+
+        signalService = SkipProofCheckSignal(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SkipProofCheckSignal()),
+                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
+                registerTo: address(addressManager)
+            })
+        );
+
+        bridge = Bridge(
+            payable(
+                deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
+                    registerTo: address(addressManager)
+                })
+            )
+        );
+
+        addressManager.setAddress(remoteChainId, "bridge", remoteBridge);
+        vm.stopPrank();
+    }
+
+    function test_delegate_owner_delegate_multi_call() public {
+        address impl1 = address(new Target());
+        address impl2 = address(new Target());
+
+        address delegateOwnerImpl2 = address(new DelegateOwner());
+
+        Target target1 = Target(
+            deployProxy({
+                name: "target1",
+                impl: impl1,
+                data: abi.encodeCall(Target.init, (address(delegateOwner)))
+            })
+        );
+        Target target2 = Target(
+            deployProxy({
+                name: "target2",
+                impl: impl1,
+                data: abi.encodeCall(Target.init, (address(delegateOwner)))
+            })
+        );
+
+        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](3);
+        calls[0].target = address(target1);
+        calls[0].allowFailure = false;
+        calls[0].callData = abi.encodeCall(EssentialContract.pause, ());
+
+        calls[1].target = address(target2);
+        calls[1].allowFailure = false;
+        calls[1].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (impl2));
+
+        calls[2].target = address(delegateOwner);
+        calls[2].allowFailure = false;
+        calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl2));
+
+        bytes memory multicallData = abi.encodeCall(TestMulticall3.aggregate3, (calls));
+
+        bytes memory data = abi.encode(
+            0, address(multicall), true, abi.encodeCall(TestMulticall3.aggregate3, (calls))
+        );
+
+        // vm.expectRevert(DelegateOwner.DO_DRY_RUN_SUCCEEDED.selector);
+        // delegateOwner.dryRunMessageInvocation(data);
+
+        IBridge.Message memory message;
+        message.from = remoteOwner;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+        message.destOwner = Bob;
+        message.data = data;
+        message.to = address(delegateOwner);
+
+        vm.prank(Bob);
+        bridge.processMessage(message, "");
+
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        // assertTrue(target1.paused());
+        // assertEq(target2.impl(),impl2);
+        // assertEq(delegateOwner.impl(),delegateOwnerImpl2);
     }
 }
