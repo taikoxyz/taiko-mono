@@ -16,7 +16,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Build and Checks
         uses: ./.github/workflows/taikoon-ui-ci.yml
 
@@ -28,6 +27,8 @@ jobs:
     env:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
         with:
@@ -43,6 +44,8 @@ jobs:
     env:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
         with:

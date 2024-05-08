@@ -16,7 +16,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Build and Checks
         uses: ./.github/workflows/bridge-ui-ci.yml
 
@@ -28,6 +27,8 @@ jobs:
     env:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
         with:
@@ -42,6 +43,8 @@ jobs:
     env:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
         with:
@@ -56,6 +59,8 @@ jobs:
     env:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Deploy
         uses: ./.github/workflows/vercel-deploy.yml
         with:
