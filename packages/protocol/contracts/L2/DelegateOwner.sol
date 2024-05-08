@@ -26,26 +26,16 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param txId The transaction ID.
     /// @param target The target address.
     /// @param isDelegateCall True if the call is a `delegatecall`.
-    /// @param requireSuccess True if the call must succeed.
     /// @param selector The function selector.
-    /// @param returnData The bytes returned.
     event MessageInvoked(
-        uint64 indexed txId,
-        address indexed target,
-        bool isDelegateCall,
-        bool requireSuccess,
-        bytes4 indexed selector,
-        bytes returnData
+        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
     );
 
-    /// @notice Emitted when this contract accepted the ownership of a target contract.
-    /// @param target The target address.
-    event OwnershipAccepted(address indexed target);
-
+    error DO_DRY_RUN_SUCCEEDED();
     error DO_INVALID_PARAM();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
-    error DO_TX_REVERTED();
+    error DO_TARGET_CALL_REVERTED();
 
     /// @notice Initializes the contract.
     /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
@@ -71,6 +61,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         l1ChainId = _l1ChainId;
     }
 
+    function acceptOwnership(address target) external {
+        Ownable2StepUpgradeable(target).acceptOwnership();
+    }
+
     /// @inheritdoc IMessageInvocable
     /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
     /// represents calls to address(this).
@@ -79,29 +73,41 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         payable
         onlyFromNamed(LibStrings.B_BRIDGE)
     {
-        (uint64 txId, address target, bool isDelegateCall, bool requireSuccess, bytes memory txdata)
-        = abi.decode(_data, (uint64, address, bool, bool, bytes));
-
-        if (txId != nextTxId++) revert DO_INVALID_TX_ID();
-
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
             revert DO_PERMISSION_DENIED();
         }
-
-        (bool success, bytes memory returnData) =
-            isDelegateCall ? target.delegatecall(txdata) : target.call{ value: msg.value }(txdata);
-
-        if (requireSuccess && !success) revert DO_TX_REVERTED();
-        emit MessageInvoked(
-            txId, target, isDelegateCall, requireSuccess, bytes4(txdata), returnData
-        );
+        _invokeCall(_data, true);
     }
 
-    function acceptOwnership(address target) external {
-        Ownable2StepUpgradeable(target).acceptOwnership();
-        emit OwnershipAccepted(target);
+    /// @notice Dry run a message invocation but always revert.
+    /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
+    function dryRunMessageInvocation(bytes calldata _data) external payable {
+        _invokeCall(_data, false);
+        revert DO_DRY_RUN_SUCCEEDED();
+    }
+
+    function decodeMessageData(bytes calldata _data)
+        public
+        pure
+        returns (uint64, address, bool, bytes memory)
+    {
+        return abi.decode(_data, (uint64, address, bool, bytes));
     }
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
+
+    function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
+        (uint64 txId, address target, bool isDelegateCall, bytes memory txdata) =
+            decodeMessageData(_data);
+
+        if (_verifyTxId && txId != nextTxId++) revert DO_INVALID_TX_ID();
+
+        (bool success,) = isDelegateCall //
+            ? target.delegatecall(txdata)
+            : target.call{ value: msg.value }(txdata);
+
+        if (!success) revert DO_TARGET_CALL_REVERTED();
+        emit MessageInvoked(txId, target, isDelegateCall, bytes4(txdata));
+    }
 }
