@@ -5,8 +5,6 @@ This package contains the Guardian prover health check UI built with svelte and 
 - [Guardian prover health check UI](#guardian-prover-health-check-ui)
   - [Development setup](#development-setup)
     - [Set up environment variables](#set-up-environment-variables)
-    - [Set up configurations](#set-up-configurations)
-      - [Optional flags](#optional-flags)
     - [Start a development server:](#start-a-development-server)
   - [Building](#building)
 
