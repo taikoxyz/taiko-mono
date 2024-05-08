@@ -2,14 +2,20 @@
 # False positives
 extend-ignore-identifiers-re = [
   "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+  "TGE",
+  "tge",
 ]
 
 [files]
 extend-exclude = [
   "*.png",
   "*.svg",
+  "go.mod",
   "CHANGELOG.md",
+  "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md",
   "packages/protocol/contracts/automata-attestation/**",
   "packages/protocol/contracts/thirdparty/**",
   "packages/protocol/contracts/compiled/**",
+  # TODO: fix typos and remove these
+  "packages/taiko-client/**",
 ]

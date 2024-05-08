@@ -11,6 +11,7 @@
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/taikoon": {},
+    "packages/taiko-client": {},
     "packages/supplementary-contracts": {}
   },
   "separate-pull-requests": true
