@@ -134,8 +134,6 @@
         return !commonConditions;
     }
   };
-
-  $: disableBridge = isDisableBridge();
 </script>
 
 <div class="f-col w-full gap-4">
@@ -159,7 +157,7 @@
       {/if}
     </ActionButton>
   {/if}
-  <ActionButton priority="primary" disabled={disableBridge} loading={bridging} on:click={onBridgeClick}>
+  <ActionButton priority="primary" disabled={isDisableBridge()} loading={bridging} on:click={onBridgeClick}>
     {#if bridging}
       <span class="body-bold">{$t('bridge.button.bridging')}</span>
     {:else}
