@@ -72,7 +72,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
-        // Check if the caller is the owner of the token. Somehow this is not done inside the _burn() function below.
+        // Check if the caller is the owner of the token. Somehow this is not done inside the
+        // _burn() function below.
         if (ownerOf(_tokenId) != msg.sender) {
             revert BTOKEN_INVALID_BURN();
         }
