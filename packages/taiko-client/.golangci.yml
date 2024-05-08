@@ -61,7 +61,7 @@ linters-settings:
     min-len: 3
     min-occurrences: 6
   goimports:
-    local-prefixes: github.com/taikoxyz/taiko-client
+    local-prefixes: github.com/taikoxyz/taiko-mono/packages/taiko-client
 
 severity:
   # Set the default severity for issues.

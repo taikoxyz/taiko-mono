@@ -40,6 +40,7 @@ jobs:
             protocol
             relayer
             taikoon
+            taiko-client
             supplementary-contracts
           requireScope: true
           subjectPattern: ^(?![A-Z])(?!.*\btypo\b).+$ # Require lowercase PR title and prohibit word "typo"

@@ -1,7 +1,7 @@
 # taiko-client
 
-[![CI](https://github.com/taikoxyz/taiko-client/actions/workflows/test.yml/badge.svg)](https://github.com/taikoxyz/taiko-client/actions/workflows/test.yml)
-[![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-client?logo=codecov&token=OH6BJMVP6O)](https://codecov.io/gh/taikoxyz/taiko-client)
+[![CI](https://github.com/taikoxyz/taiko-mono/packages/taiko-client/actions/workflows/taiko-client-test.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/packages/taiko-client/actions/workflows/taiko-client-test.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono/packages/taiko-client?logo=codecov&token=OH6BJMVP6O)](https://codecov.io/gh/taikoxyz/taiko-mono/packages/taiko-client)
 
 Taiko protocol's client software implementation in Go. Learn more about Taiko nodes with [the docs](https://docs.taiko.xyz/core-concepts/taiko-nodes/).
 
@@ -13,7 +13,7 @@ Taiko protocol's client software implementation in Go. Learn more about Taiko no
 | `cmd/`              | Main executable for this project                                                                                                         |
 | `docs/`             | Documentation                                                                                                                            |
 | `driver/`           | Driver sub-command                                                                                                                       |
-| `integration_test/` | Scripts to do the integration testing of all client software                                                                            |
+| `integration_test/` | Scripts to do the integration testing of all client software                                                                             |
 | `metrics/`          | Metrics related                                                                                                                          |
 | `pkg/`              | Library code which used by all sub-commands                                                                                              |
 | `proposer/`         | Proposer sub-command                                                                                                                     |
@@ -55,5 +55,5 @@ Then, run the integration tests:
 3. Replace `<PATH_TO_TAIKO_MONO_REPO>` and execute:
 
 ```sh
-TAIKO_MONO_DIR=<PATH_TO_TAIKO_MONO_REPO> make test
+make test
 ```
