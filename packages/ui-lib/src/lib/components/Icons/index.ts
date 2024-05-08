@@ -16,22 +16,22 @@ import { default as XSolid } from './XSolid.svelte';
 import { default as YoutubeLogo } from './YoutubeLogo.svelte';
 
 export const Icons = {
-  CircleUserRegular,
-  AngleDownSolid,
-  Menu,
-  ArrowDown,
-  ArrowRightFilled,
-  DiscordLogo,
-  MinusSign,
-  MirrorLogo,
-  Moon,
-  PlusSign,
-  Sun,
-  TaikoLogo,
-  TwitterLogo,
-  UpRightArrow,
-  XSolid,
-  YoutubeLogo,
+	CircleUserRegular,
+	AngleDownSolid,
+	Menu,
+	ArrowDown,
+	ArrowRightFilled,
+	DiscordLogo,
+	MinusSign,
+	MirrorLogo,
+	Moon,
+	PlusSign,
+	Sun,
+	TaikoLogo,
+	TwitterLogo,
+	UpRightArrow,
+	XSolid,
+	YoutubeLogo
 };
 
 export type IconType = keyof typeof Icons;

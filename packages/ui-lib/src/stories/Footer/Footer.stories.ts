@@ -1,13 +1,13 @@
-import '../../app.css'
+import '../../app.css';
 import type { Meta, StoryObj } from '@storybook/svelte';
-import {Footer} from '../../lib/components/Footer';
+import { Footer } from '../../lib/components/Footer';
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories
 const meta = {
-  title: 'Example/Footer',
-  component: Footer,
-  //tags: ['autodocs'],
-  /*
+	title: 'Footer',
+	component: Footer
+	//tags: ['autodocs'],
+	/*
   argTypes: {
     backgroundColor: { control: 'color' },
     size: {
@@ -22,8 +22,7 @@ type Story = StoryObj<typeof meta>;
 
 // More on writing stories with args: https://storybook.js.org/docs/writing-stories/args
 export const Primary: Story = {
-  args: {
-    label: 'Footer',
-
-  },
+	args: {
+		label: 'Footer'
+	}
 };
