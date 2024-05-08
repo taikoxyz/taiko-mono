@@ -415,7 +415,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 davidBalance = David.balance;
 
         vm.prank(Bob);
-        vm.expectRevert(Bridge.B_OUT_OF_QUOTA.selector);
+        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
         bridge.processMessage(message, fakeProof);
 
         vm.prank(Alice);
