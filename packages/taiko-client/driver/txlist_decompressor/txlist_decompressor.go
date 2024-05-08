@@ -48,13 +48,6 @@ func (v *TxListDecompressor) TryDecompress(
 		return []byte{}
 	}
 
-	// If calldata is used, the compressed bytes of the transaction list must be
-	// less than or equal to maxBytesPerTxList.
-	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
-		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
-		return []byte{}
-	}
-
 	var (
 		txs types.Transactions
 		err error
@@ -63,6 +56,13 @@ func (v *TxListDecompressor) TryDecompress(
 	// Decompress the transaction list bytes.
 	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
 		log.Info("Failed to decompress tx list bytes", "blockID", blockID, "error", err)
+		return []byte{}
+	}
+
+	// If calldata is used, the compressed bytes of the transaction list must be
+	// less than or equal to maxBytesPerTxList.
+	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
+		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
 		return []byte{}
 	}
 

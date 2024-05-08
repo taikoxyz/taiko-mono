@@ -2,7 +2,7 @@ name: "Push docker image to GAR"
 
 on:
   push:
-    branches: [main]
+    branches: [main, hekla-taiko-client]
     tags:
       - "taiko-client-v*"
     paths:
@@ -35,11 +35,12 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            us-docker.pkg.dev/evmchain/images/taiko-client
+            us-docker.pkg.dev/evmchain/hekla/taiko-client
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=ref,event=tag
+            type=raw,value=hekla
             type=sha
 
       - name: Cache Go build
