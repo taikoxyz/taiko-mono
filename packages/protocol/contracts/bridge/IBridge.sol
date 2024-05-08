@@ -97,7 +97,7 @@ interface IBridge {
     /// needed.
     /// @param _message The message to be processed.
     /// @param _proof The merkle inclusion proof.
-    /// @return The messsage's status after processing and the reason for the change.
+    /// @return The message's status after processing and the reason for the change.
     function processMessage(
         Message calldata _message,
         bytes calldata _proof
