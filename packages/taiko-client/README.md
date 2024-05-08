@@ -1,7 +1,9 @@
 # taiko-client
 
-[![CI](https://github.com/taikoxyz/taiko-mono/packages/taiko-client/actions/workflows/taiko-client-test.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/packages/taiko-client/actions/workflows/taiko-client-test.yml)
-[![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono/packages/taiko-client?logo=codecov&token=OH6BJMVP6O)](https://codecov.io/gh/taikoxyz/taiko-mono/packages/taiko-client)
+[![CI](https://github.com/taikoxyz/taiko-mono/actions/workflows/taiko-client-test.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/taiko-client-test.yml)
+
+<!-- TODO(d1onys1us): fix codecov integration -->
+<!-- [![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono/packages/taiko-client?logo=codecov&token=OH6BJMVP6O)](https://codecov.io/gh/taikoxyz/taiko-mono/packages/taiko-client) -->
 
 Taiko protocol's client software implementation in Go. Learn more about Taiko nodes with [the docs](https://docs.taiko.xyz/core-concepts/taiko-nodes/).
 

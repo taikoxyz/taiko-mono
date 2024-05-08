@@ -10,7 +10,7 @@ on:
       - "packages/relayer/**"
 
 jobs:
-  lint:
+  lint-relayer:
     name: lint
     runs-on: [taiko-runner]
     steps:
@@ -28,7 +28,7 @@ jobs:
           working-directory: ./packages/relayer
           args: --config=.golangci.yml --timeout=4m
 
-  test:
+  test-relayer:
     runs-on: [taiko-runner]
     needs: lint
     steps:
@@ -52,7 +52,7 @@ jobs:
           files: ./packages/relayer/coverage.txt
           flags: relayer
 
-  push-docker-image:
+  push-relayer-docker-image:
     # only push docker image on PR merge to main
     if: ${{ github.event }} == 'push'
     name: Build and push docker image
