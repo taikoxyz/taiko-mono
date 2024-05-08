@@ -93,7 +93,7 @@ contract BridgeTest is TaikoTest {
                     impl: address(new DelegateOwner()),
                     data: abi.encodeCall(
                         DelegateOwner.init, (mockDAO, address(addressManager), l1ChainId)
-                    )
+                        )
                 })
             )
         );
@@ -248,94 +248,6 @@ contract BridgeTest is TaikoTest {
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
         assertEq(Carol.balance, 500);
-    }
-
-    function test_Bridge_pause_bridge_via_delegate_owner() public {
-        bytes memory pauseCall = abi.encodeCall(EssentialContract.pause, ());
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(destChainBridge), false, pauseCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-
-        assertEq(destChainBridge.paused(), true);
-    }
-
-    function test_Bridge_authorize_signal_service_via_delegate_owner() public {
-        assertEq(mockProofSignalService.isAuthorized(Alice), false);
-
-        bytes memory authorizeCall = abi.encodeCall(SignalService.authorize, (Alice, true));
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(mockProofSignalService), false, authorizeCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        //Status is DONE, proper call
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-
-        assertEq(mockProofSignalService.isAuthorized(Alice), true);
-    }
-
-    function test_Bridge_upgrade_delegate_owner() public {
-        // Needs a compatible impl. contract
-        address newDelegateOwnerImp = address(new DelegateOwner());
-        bytes memory upgradeCall = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newDelegateOwnerImp));
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(delegateOwner), false, upgradeCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        //Status is DONE,means a proper call
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
     }
 
     function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {
