@@ -26,6 +26,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
 
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_TO_ADDR();
+    error BTOKEN_INVALID_BURN();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -79,11 +80,9 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     }
 
     /// @dev Batch burns tokens.
-    /// @param _account Address from which tokens are burned.
     /// @param _ids Array of IDs of the tokens to burn.
     /// @param _amounts Amount of tokens to burn respectively.
     function burnBatch(
-        address _account,
         uint256[] calldata _ids,
         uint256[] calldata _amounts
     )
@@ -92,7 +91,12 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
-        _burnBatch(_account, _ids, _amounts);
+        for (uint256 i; i < _ids.length; i++) {
+            if (balanceOf(msg.sender, _ids[i]) < _amounts[i]) {
+                revert BTOKEN_INVALID_BURN();
+            }
+        }
+        _burnBatch(msg.sender, _ids, _amounts);
     }
 
     /// @notice Gets the canonical token's address and chain ID.
