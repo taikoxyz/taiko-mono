@@ -1,3 +1,5 @@
+name: Blobstorage Production
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BLOBSTORAGE }}
@@ -8,7 +10,7 @@ on:
       - "blobstorage-*"
 
 jobs:
-  Deploy-Production:
+  deploy-blobstorage-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

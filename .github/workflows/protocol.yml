@@ -10,7 +10,7 @@ on:
       - "packages/protocol/**"
 
 jobs:
-  build:
+  build-protocol:
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
