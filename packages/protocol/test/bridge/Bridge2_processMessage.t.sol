@@ -391,6 +391,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage__no_ether_quota()
         public
         dealEther(Bob)
+        dealEther(Alice)
         assertSameTotalBalance
     {
         vm.startPrank(owner);
@@ -413,13 +414,15 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 aliceBalance = Alice.balance;
         uint256 davidBalance = David.balance;
 
-        vm.startPrank(Bob);
+        vm.prank(Bob);
+        vm.expectRevert(Bridge.B_OUT_OF_QUOTA.selector);
+        bridge.processMessage(message, fakeProof);
+
+        vm.prank(Alice);
         bridge.processMessage(message, fakeProof);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
-        vm.stopPrank();
 
-        assertEq(aliceBalance, Alice.balance);
         assertEq(davidBalance, David.balance);
     }
 }
