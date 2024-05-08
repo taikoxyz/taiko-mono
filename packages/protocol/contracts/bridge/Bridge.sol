@@ -24,6 +24,7 @@ contract Bridge is EssentialContract, IBridge {
         uint32 gasUsedInFeeCalc;
         uint32 proofSize;
         uint32 numCacheOps;
+        Status status;
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
@@ -86,6 +87,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
     error B_PERMISSION_DENIED();
+    error B_QUOTA_ERROR();
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
@@ -186,7 +188,7 @@ contract Bridge is EssentialContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        _consumeEtherQuota(_message.value);
+        if (!_consumeEtherQuota(_message.value)) revert B_QUOTA_ERROR();
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -228,52 +230,55 @@ contract Bridge is EssentialContract, IBridge {
 
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
-        _consumeEtherQuota(_message.value + _message.fee);
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
         ProcessingStats memory stats;
+        stats.proofSize = uint32(_proof.length);
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
-        uint256 refundAmount;
-        if (_unableToInvokeMessageCall(_message, signalService)) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
-            refundAmount = _message.value;
-            _updateMessageStatus(msgHash, Status.DONE);
+        if (!_consumeEtherQuota(_message.value + _message.fee)) {
+            stats.status = Status.RETRIABLE;
         } else {
-            uint256 gasLimit = msg.sender == _message.destOwner
-                ? gasleft() // ignore _message.gasLimit
-                : _invocationGasLimit(_message, true);
+            uint256 refundAmount;
+            if (_unableToInvokeMessageCall(_message, signalService)) {
+                // Handle special addresses that don't require actual invocation but
+                // mark message as DONE
+                refundAmount = _message.value;
+                stats.status = Status.DONE;
+            } else {
+                uint256 gasLimit = msg.sender == _message.destOwner
+                    ? gasleft() // ignore _message.gasLimit
+                    : _invocationGasLimit(_message, true);
 
-            Status status =
-                _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
-            _updateMessageStatus(msgHash, status);
-        }
+                stats.status =
+                    _invokeMessageCall(_message, msgHash, gasLimit) ? Status.DONE : Status.RETRIABLE;
+            }
 
-        if (_message.fee != 0) {
-            refundAmount += _message.fee;
+            if (_message.fee != 0) {
+                refundAmount += _message.fee;
 
-            if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
-                unchecked {
-                    uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
-                    uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
-                    uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
-                    uint256 baseFee = gasCharged * block.basefee;
-                    uint256 fee =
-                        (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
+                if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
+                    unchecked {
+                        uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
+                        stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
+                        uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
+                        uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
+                        uint256 baseFee = gasCharged * block.basefee;
+                        uint256 fee =
+                            (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
 
-                    refundAmount -= fee;
-                    msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+                        refundAmount -= fee;
+                        msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+                    }
                 }
             }
+
+            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
 
-        _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
-
-        stats.proofSize = uint32(_proof.length);
+        _updateMessageStatus(msgHash, stats.status);
         emit MessageProcessed(msgHash, _message, stats);
     }
 
@@ -290,7 +295,8 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
-        _consumeEtherQuota(_message.value);
+
+        if (!_consumeEtherQuota(_message.value)) revert B_QUOTA_ERROR();
 
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
@@ -597,10 +603,14 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
 
-    function _consumeEtherQuota(uint256 _amount) private {
+    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
         address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
-        if (quotaManager != address(0)) {
-            IQuotaManager(quotaManager).consumeQuota(address(0), _amount);
+        if (quotaManager == address(0)) return true;
+
+        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
+            return true;
+        } catch {
+            return false;
         }
     }
 
