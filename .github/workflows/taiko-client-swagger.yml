@@ -38,7 +38,7 @@ jobs:
         working-directory: packages/taiko-client
         run: ./scripts/gen_swagger_json.sh
 
-  # TODO(d1onys1us/RogerLamTd): Fix this
+  # TODO(d1onys1us/RogerLamTd): Fix this (should probably deploy to vercel)
   # deploy:
   #   if: ${{ always() }}
   #   needs: build
