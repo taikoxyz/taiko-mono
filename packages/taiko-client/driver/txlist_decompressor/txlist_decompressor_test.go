@@ -57,6 +57,19 @@ func (s *TxListDecompressorTestSuite) TestValidTxList() {
 	s.Equal(s.d.TryDecompress(chainID, compressed, false), decompressed)
 }
 
+func (s *TxListDecompressorTestSuite) TestInvalidTxList() {
+	compressed, err := utils.Compress(randBytes(1024))
+	s.Nil(err)
+
+	s.Zero(len(s.d.TryDecompress(chainID, compressed, true)))
+	s.Zero(len(s.d.TryDecompress(chainID, compressed, false)))
+}
+
+func (s *TxListDecompressorTestSuite) TestInvalidZlibBytes() {
+	s.Zero(len(s.d.TryDecompress(chainID, randBytes(1024), true)))
+	s.Zero(len(s.d.TryDecompress(chainID, randBytes(1024), false)))
+}
+
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(TxListDecompressorTestSuite))
 }
