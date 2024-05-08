@@ -4,6 +4,7 @@
 
   import { AnimatedTaikoon } from '$components/AnimatedTaikoon';
   import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { PUBLIC_LAUNCH_DATE } from '$env/static/public';
   import { classNames } from '$lib/util/classNames';
   import formatDate from '$lib/util/formatDate';
   import { Section } from '$ui/Section';
@@ -49,7 +50,7 @@
       <AnimatedTaikoon />
     </div>
   {/if}
-  <Countdown zone="UTC" from={formatDate(new Date('2024-05-08T00:00:00'))} dateFormat="YYYY-MM-DD H:m:s" let:remaining>
+  <Countdown zone="UTC" from={formatDate(new Date(PUBLIC_LAUNCH_DATE))} dateFormat="YYYY-MM-DD H:m:s" let:remaining>
     <div class={timerContainerClass}>
       <TimerItem count={remaining.days} label={remaining.days === 1 ? $t('time.day') : $t('time.days')} />
 

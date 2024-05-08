@@ -2,18 +2,15 @@
   import { t } from 'svelte-i18n';
 
   import {
-    CollapsibleSection,
     CountdownSection,
+    FaqSection,
     FooterSection,
     HeadingSection,
     InformationSection,
   } from '$components/sections';
+  import isCountdownActive from '$lib/util/isCountdownActive';
   import { Button } from '$ui/Button';
   import { SectionContainer } from '$ui/Section';
-
-  $: currentPage = 'teaser';
-
-  $: faqOptions = $t('content.sections.faq.entries');
 
   let scrollTarget: HTMLElement | undefined = undefined;
 
@@ -28,7 +25,7 @@
 </svelte:head>
 
 <SectionContainer>
-  {#if currentPage === 'teaser'}
+  {#if isCountdownActive()}
     <CountdownSection>
       <div class="bottom-16 left-0 w-full flex justify-center absolute">
         <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToFaq} class="uppercase"
@@ -45,17 +42,8 @@
   {/if}
   <InformationSection />
   <div bind:this={scrollTarget}>
-    <CollapsibleSection options={faqOptions} />
+    <FaqSection />
   </div>
 
   <FooterSection />
 </SectionContainer>
-
-<Button
-  type="primary"
-  on:click={() => {
-    currentPage = currentPage === 'teaser' ? 'landing' : 'teaser';
-  }}
-  class="fixed uppercase top-32 left-16 z-100">
-  {currentPage}
-</Button>

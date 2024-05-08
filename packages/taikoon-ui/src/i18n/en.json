@@ -72,19 +72,23 @@
         "entries": [
           {
             "title": "What is the total supply of the NFTs in this collection?",
-            "text": "The total supply of the NFTs in this collection is 888."
+            "text": "There are 888 Taikoons — not more, not less! Always double check if the official collection when minting/trading."
           },
           {
             "title": "How can I use my Taikoons?",
-            "text": "You can use your Taikoons to participate in the Taiko Layer 2 ecosystem."
+            "text": "Taikoons are primarily a PFP collection, meaning its purpose is to give you a sense of identity in the Taiko community. However, since the Taikoons you hold are your property, you can do with them whatever you want! Trade, print, or just hold them — they're yours!<br/><br/>Also, keep in mind that there are no financial incentives attached to Taikoons."
           },
           {
             "title": "What is the minting process?",
-            "text": "The minting process is as follows:"
+            "text": "One time genesis mint of all 888 nfts targeted May 2024"
           },
           {
-            "title": "How does the daily auction work?",
-            "text": "The daily auction works as follows:"
+            "title": "What is the official Taikoons contract?",
+            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus tincidunt lorem eros, in bibendum lectus mollis laoreet. Praesent luctus odio rhoncus nisi pulvinar pharetra. Aliquam volutpat bibendum nisl, vitae elementum mauris egestas eget. Etiam ex felis, porttitor nec elementum vitae, mattis at felis. In cursus, augue vel pulvinar aliquet, orci sapien aliquam ipsum, non sollicitudin purus nulla ac risus."
+          },
+          {
+            "title": "What are the traits?",
+            "text": "(tbc) Nouns are generated randomly based Ethereum block hashes. There are no 'if' statements or other rules governing Noun trait scarcity, which makes all Nouns equally rare. As of this writing, Nouns are made up of:<br/>-backgrounds (2)<br/>-bodies (30)<br/>-accessories (140)<br/>-heads (242)<br/>-glasses (23)"
           }
         ]
       },
@@ -96,7 +100,7 @@
           "text": "The most developer-friendly and secure Ethereum scaling solution."
         },
         "subscribe": {
-          "stayUpdated": "Stay updated! \nDive into the latest Taiko developer news",
+          "stayUpdated": "Stay updated! <br/>Dive into the latest Taiko developer news",
           "subscribe": "Subscribe",
           "email": "Email"
         },

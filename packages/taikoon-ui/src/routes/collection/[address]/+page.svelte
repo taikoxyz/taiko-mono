@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import { goto } from '$app/navigation';
   import { Collection } from '$components/Collection';
   import { Page } from '$components/Page';
   import Token from '$lib/token';
+  import isCountdownActive from '$lib/util/isCountdownActive';
   import { Section } from '$ui/Section';
 
   export let data: any;
@@ -17,6 +19,10 @@
     tokenIds = await Token.tokenOfOwner(address.toLowerCase());
     isLoading = false;
   });
+
+  if (isCountdownActive()) {
+    goto('/');
+  }
 </script>
 
 <svelte:head>

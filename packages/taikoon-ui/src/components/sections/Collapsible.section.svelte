@@ -63,6 +63,7 @@
     'collapse-content',
     'tracking-normal',
   );
+  /* eslint-disable */
 </script>
 
 <Section height="fit">
@@ -81,7 +82,7 @@
             {option.title}
           </div>
           <div class={classNames(collapseContentClasses, i === activeEntryId ? 'mt-4' : null)}>
-            {option.text}
+            {@html option.text}
           </div>
         </div>
       {/each}

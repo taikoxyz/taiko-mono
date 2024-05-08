@@ -1,16 +1,18 @@
 <script lang="ts">
-  import { t } from 'svelte-i18n';
-
+  import { goto } from '$app/navigation';
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { Mint } from '$components/Mint';
   import { MintAgreementModal } from '$components/modals';
   import { Page } from '$components/Page';
-  import { CollapsibleSection, FooterSection } from '$components/sections';
+  import { FaqSection, FooterSection } from '$components/sections';
+  import isCountdownActive from '$lib/util/isCountdownActive';
   import { Section, SectionContainer } from '$ui/Section';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  $: faqOptions = $t('content.sections.faq.entries');
+  if (isCountdownActive()) {
+    goto('/');
+  }
 </script>
 
 <svelte:head>
@@ -26,7 +28,7 @@
       height={windowSize === 'sm' ? 'fit' : 'full'}>
       <Mint />
     </Section>
-    <CollapsibleSection options={faqOptions} />
+    <FaqSection />
 
     <FooterSection />
   </SectionContainer>
