@@ -14,12 +14,11 @@
   export let animated: boolean = false;
 
   $: wrapperClasses = classNames(
-    'snap-center',
     'w-full',
     'overflow-hidden',
     height === 'full' ? 'h-screen' : null,
     height === 'min' ? 'h-[50vh] pt-32' : null,
-    height === 'fit' ? 'h-auto' : null,
+    height === 'fit' ? 'h-auto pt-32' : null,
     'relative',
     'flex flex-col',
     'items-center',
@@ -28,6 +27,7 @@
     background !== 'none' ? 'bg-cover bg-center' : null,
     background === 'general' && isDarkTheme ? 'bg-general' : null,
     background === 'footer' && isDarkTheme ? 'bg-footer' : null,
+    'carousel-item',
   );
 
   $: sectionClasses = classNames(
