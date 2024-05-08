@@ -8,6 +8,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -19,8 +20,8 @@ import (
 
 var (
 	// Each TaikoL2.anchor transaction should use this value as it's gas limit.
-	AnchorGasLimit     uint64 = 250_000
-	GoldenTouchAddress        = common.HexToAddress("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
+	AnchorGasLimit     = taiko.AnchorGasLimit
+	GoldenTouchAddress = taiko.GoldenTouchAccount
 )
 
 // AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoL2.anchor) in
