@@ -32,6 +32,11 @@ source .env
 
 ### Set up configurations
 
+```ENV
+VITE_GUARDIAN_PROVER_API_URL=
+VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS=
+VITE_RPC_URL=
+```
 
 ### Start a development server:
 
