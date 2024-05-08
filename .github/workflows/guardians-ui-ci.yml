@@ -1,4 +1,4 @@
-name: Taikoon UI Checks
+name: Guardians UI Checks and Build
 
 on:
   workflow_call
