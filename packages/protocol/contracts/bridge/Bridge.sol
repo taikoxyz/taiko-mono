@@ -86,8 +86,8 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
+    error B_OUT_OF_QUOTA();
     error B_PERMISSION_DENIED();
-    error B_QUOTA_ERROR();
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
@@ -188,7 +188,7 @@ contract Bridge is EssentialContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        if (!_consumeEtherQuota(_message.value)) revert B_QUOTA_ERROR();
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_QUOTA();
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -239,6 +239,7 @@ contract Bridge is EssentialContract, IBridge {
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         if (!_consumeEtherQuota(_message.value + _message.fee)) {
+            if (msg.sender != _message.destOwner) revert B_OUT_OF_QUOTA();
             stats.status = Status.RETRIABLE;
         } else {
             uint256 refundAmount;
@@ -296,7 +297,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        if (!_consumeEtherQuota(_message.value)) revert B_QUOTA_ERROR();
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_QUOTA();
 
         uint256 invocationGasLimit;
         if (msg.sender != _message.destOwner) {
