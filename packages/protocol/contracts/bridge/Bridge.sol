@@ -263,6 +263,7 @@ contract Bridge is EssentialContract, IBridge {
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     status_ = Status.DONE;
+                    reason_ = StatusReason.INVOCATION_OK;
                 } else {
                     status_ = Status.RETRIABLE;
                     reason_ = StatusReason.INVOCATION_FAILED;
