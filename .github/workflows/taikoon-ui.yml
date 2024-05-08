@@ -14,7 +14,7 @@ jobs:
   build-and-test:
     uses: ./.github/workflows/taikoon-ui-ci.yml
 
-  # Deployment name follow the pattern: deploy_<appname(taikoon-ui)>_<network(devnet|mainnet|mainnet)>_<environment(preview|production)>
+  # Deployment name follow the pattern: deploy_<appname(taikoon-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   deploy_taikoon-ui_mainnet_preview:
     if: ${{ github.ref_name != 'main' }}
     needs: build-and-test
