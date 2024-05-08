@@ -37,31 +37,32 @@ type SGXProofProducer struct {
 	DummyProofProducer
 }
 
-// SGXRequestProofBody represents the JSON body for requesting the proof.
-type SGXRequestProofBody struct {
-	JsonRPC string                      `json:"jsonrpc"` //nolint:revive,stylecheck
-	ID      *big.Int                    `json:"id"`
-	Method  string                      `json:"method"`
-	Params  []*SGXRequestProofBodyParam `json:"params"`
+// RaikoRequestProofBody represents the JSON body for requesting the proof.
+type RaikoRequestProofBody struct {
+	L2RPC       string                     `json:"rpc"`
+	L1RPC       string                     `json:"l1_rpc"`
+	L1BeaconRPC string                     `json:"beacon_rpc"`
+	Block       *big.Int                   `json:"block_number"`
+	Prover      string                     `json:"prover"`
+	Graffiti    string                     `json:"graffiti"`
+	Type        string                     `json:"proof_type"`
+	SGX         *SGXRequestProofBodyParam  `json:"sgx"`
+	RISC0       RISC0RequestProofBodyParam `json:"risc0"`
 }
 
-// SGXRequestProofBodyParam represents the JSON body of RequestProofBody's `param` field.
+// SGXRequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sgx` field.
 type SGXRequestProofBodyParam struct {
-	Type        string      `json:"proof_type"`
-	Block       *big.Int    `json:"block_number"`
-	L2RPC       string      `json:"rpc"`
-	L1RPC       string      `json:"l1_rpc"`
-	L1BeaconRPC string      `json:"beacon_rpc"`
-	Prover      string      `json:"prover"`
-	Graffiti    string      `json:"graffiti"`
-	ProofParam  *ProofParam `json:"sgx"`
-}
-
-// ProofParam represents the JSON body of SGXRequestProofBodyParam's `sgx` field.
-type ProofParam struct {
 	Setup     bool `json:"setup"`
 	Bootstrap bool `json:"bootstrap"`
 	Prove     bool `json:"prove"`
+}
+
+// RISC0RequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `risc0` field.
+type RISC0RequestProofBodyParam struct {
+	Bonsai       bool     `json:"bonsai"`
+	Snark        bool     `json:"snark"`
+	Profile      bool     `json:"profile"`
+	ExecutionPo2 *big.Int `json:"execution_po2"`
 }
 
 // SGXRequestProofBodyResponse represents the JSON body of the response of the proof requests.
@@ -162,24 +163,19 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.
 func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoHostOutput, error) {
-	reqBody := SGXRequestProofBody{
-		JsonRPC: "2.0",
-		ID:      common.Big1,
-		Method:  "proof",
-		Params: []*SGXRequestProofBodyParam{{
-			Type:        s.ProofType,
-			Block:       opts.BlockID,
-			L2RPC:       s.L2Endpoint,
-			L1RPC:       s.L1Endpoint,
-			L1BeaconRPC: s.L1BeaconEndpoint,
-			Prover:      opts.ProverAddress.Hex()[2:],
-			Graffiti:    opts.Graffiti,
-			ProofParam: &ProofParam{
-				Setup:     false,
-				Bootstrap: false,
-				Prove:     true,
-			},
-		}},
+	reqBody := RaikoRequestProofBody{
+		Type:        s.ProofType,
+		Block:       opts.BlockID,
+		L2RPC:       s.L2Endpoint,
+		L1RPC:       s.L1Endpoint,
+		L1BeaconRPC: s.L1BeaconEndpoint,
+		Prover:      opts.ProverAddress.Hex()[2:],
+		Graffiti:    opts.Graffiti,
+		SGX: &SGXRequestProofBodyParam{
+			Setup:     false,
+			Bootstrap: false,
+			Prove:     true,
+		},
 	}
 
 	jsonValue, err := json.Marshal(reqBody)
@@ -187,7 +183,7 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoHostOu
 		return nil, err
 	}
 
-	res, err := http.Post(s.RaikoHostEndpoint, "application/json", bytes.NewBuffer(jsonValue))
+	res, err := http.Post(s.RaikoHostEndpoint+"/proof", "application/json", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}
