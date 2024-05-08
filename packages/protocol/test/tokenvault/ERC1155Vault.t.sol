@@ -978,7 +978,7 @@ contract ERC1155VaultTest is TaikoTest {
         uint256[] memory randomIdAndLength = new uint256[](1);
         randomIdAndLength[0] = 20;
         vm.prank(address(destChainErc1155Vault), address(destChainErc1155Vault));
-        vm.expectRevert(BridgedERC1155.BTOKEN_INVALID_BURN.selector);
+        vm.expectRevert("ERC1155: burn amount exceeds balance");
         BridgedERC1155(deployedContract).burnBatch(randomIdAndLength, randomIdAndLength);
 
         // After setApprovalForAll() ERC1155Vault can transfer and burn

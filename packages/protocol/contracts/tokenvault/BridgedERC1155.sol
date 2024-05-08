@@ -26,7 +26,6 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
 
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_TO_ADDR();
-    error BTOKEN_INVALID_BURN();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
