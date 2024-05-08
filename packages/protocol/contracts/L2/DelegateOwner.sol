@@ -69,10 +69,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         l1ChainId = _l1ChainId;
     }
 
-    function acceptOwnership(address target) external {
-        Ownable2StepUpgradeable(target).acceptOwnership();
-    }
-
     /// @inheritdoc IMessageInvocable
     /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
     /// represents calls to address(this).
@@ -93,6 +89,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     function dryrunMessageInvocation(bytes calldata _data) external payable {
         _invokeCall(_data, false);
         revert DO_DRYRUN_SUCCEEDED();
+    }
+
+    function acceptOwnership(address target) external {
+        Ownable2StepUpgradeable(target).acceptOwnership();
     }
 
     function _invokeCall(bytes calldata _callData, bool _verifyTxId) internal {
