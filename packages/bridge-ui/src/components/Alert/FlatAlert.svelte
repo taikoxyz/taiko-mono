@@ -30,7 +30,7 @@
     info: {
       textClass: 'text-secondary-content',
       iconType: 'info-circle',
-      iconFillClass: 'fill-info-content',
+      iconFillClass: 'fill-secondary-content',
     },
   };
 
