@@ -15,50 +15,32 @@ jobs:
     uses: ./.github/workflows/guardians-ui-ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(guardian-prover-health-check-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
-  deploy_guardian-prover-health-check-ui_hekla_preview:
+  deploy_guardians-ui_hekla_preview:
     if: ${{ github.ref_name != 'main' }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
           environment: 'preview'
           flags: ''
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
 
-  deploy_guardian-prover-health-check-ui_devnet_preview:
+  deploy_guardians-ui_devnet_preview:
     if: ${{ github.ref_name != 'main' }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
           environment: 'preview'
           flags: ''
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
 
-  deploy_guardian-prover-health-check-ui_hekla_production:
-    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/guardian-prover-health-check-ui-') }}
-    runs-on: [taiko-runner]
+  deploy_guardians-ui_hekla_production:
+    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/guardians-ui-') }}
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
-          environment: 'production'
-          flags: '--prod'
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
+      environment: 'production'
+      flags: '--prod'
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}

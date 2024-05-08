@@ -12,53 +12,35 @@ on:
 
 jobs:
   build-and-test:
-    uses: ./.github/workflows/taikoon-ui-ci.yml
+    uses: ./.github/workflows/bridge-ui-ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   deploy_bridge-ui_hekla_preview:
     if: ${{ github.ref_name != 'main' }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
           environment: 'preview'
           flags: ''
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
 
   deploy_bridge-ui_devnet_preview:
     if: ${{ github.ref_name != 'main' }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
           environment: 'preview'
           flags: ''
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
 
   deploy_bridge-ui_hekla_production:
     if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/bridge-ui-') }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
-          environment: 'production'
-          flags: '--prod'
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
+      environment: 'production'
+      flags: '--prod'
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
