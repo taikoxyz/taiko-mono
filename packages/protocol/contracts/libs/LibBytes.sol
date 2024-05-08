@@ -33,7 +33,7 @@ library LibBytes {
     }
 
     // Taken from:
-    // https://github.com/boringcrypto/BoringSolidity/blob/78f4817d9c0d95fe9c45cd42e307ccd22cf5f4fc/contracts/BoringBatchable.sol#L19
+    // https://github.com/boringcrypto/BoringSolidity/blob/master/contracts/BoringBatchable.sol
     /// @dev Helper function to extract a useful revert message from a failed call.
     /// If the returned data is malformed or not correctly abi encoded then this call can fail
     /// itself.
