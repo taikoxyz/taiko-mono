@@ -127,7 +127,11 @@ func (p *Processor) processMessage(
 				// wait until quota available
 				slog.Info("quota not available for token", "waitUntil", waitUntil)
 
-				time.Sleep(time.Duration(waitUntil) * time.Second)
+				select {
+				case <-ctx.Done():
+					return false, msgBody.TimesRetried, ctx.Err()
+				case <-time.After(time.Duration(int64(waitUntil)) * time.Second):
+				}
 			}
 		}
 	}
