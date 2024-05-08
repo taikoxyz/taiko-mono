@@ -99,8 +99,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
 
-    function _invokeCall(bytes calldata _callData, bool _verifyTxId) internal {
-        Call memory call = abi.decode(_callData, (Call));
+    function _invokeCall(bytes calldata _data, bool _verifyTxId) internal {
+        Call memory call = abi.decode(_data, (Call));
 
         if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
 
