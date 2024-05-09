@@ -197,7 +197,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "lastSnapshotIdx",
+            "name": "__reservedB3",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -365,6 +365,19 @@
   },
   {
     "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "init",
     "inputs": [
       {
@@ -381,6 +394,11 @@
         "name": "_genesisBlockHash",
         "type": "bytes32",
         "internalType": "bytes32"
+      },
+      {
+        "name": "_toPause",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -745,7 +763,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "lastSnapshotIdx",
+            "name": "__reservedB3",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -827,7 +845,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "lastSnapshotIdx",
+            "name": "__reservedB3",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1265,36 +1283,6 @@
   },
   {
     "type": "event",
-    "name": "EthDeposited",
-    "inputs": [
-      {
-        "name": "deposit",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct TaikoData.EthDeposit",
-        "components": [
-          {
-            "name": "recipient",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "amount",
-            "type": "uint96",
-            "internalType": "uint96"
-          },
-          {
-            "name": "id",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -1419,7 +1407,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "lastSnapshotIdx",
+            "name": "__reservedB3",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1469,7 +1457,7 @@
             "internalType": "uint16"
           },
           {
-            "name": "lastSnapshotIdx",
+            "name": "__reservedB3",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1479,56 +1467,6 @@
             "internalType": "uint64"
           }
         ]
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "TaikoTokenSnapshot",
-    "inputs": [
-      {
-        "name": "tkoAddress",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "snapshotIdx",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "snapshotId",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "TaikoTokenSnapshot",
-    "inputs": [
-      {
-        "name": "tkoAddress",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "snapshotIdx",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "snapshotId",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1798,6 +1736,11 @@
   {
     "type": "error",
     "name": "ETH_TRANSFER_FAILED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
     "inputs": []
   },
   {
