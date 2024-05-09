@@ -141,7 +141,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
     }
 
     /// @dev Transfers tokens then burn.
-    /// @param _from The account to burn token from.
+    /// @param _from The acount to burn token from.
     /// @param _amount Amount of tokens to burn respectively.
     function transferToBurn(
         address _from,
