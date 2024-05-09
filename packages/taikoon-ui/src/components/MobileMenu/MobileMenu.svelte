@@ -56,7 +56,7 @@
     <div class={buttonsWrapperClasses}>
       <ThemeButton size="lg" />
 
-      <div class="font-sans text-base text-content-tertiary">© 2024 Taiko Labs</div>
+      <div class="font-sans text-base text-content-tertiary pr-6">© 2024 Taiko Labs</div>
     </div>
   </div>
 {/if}
