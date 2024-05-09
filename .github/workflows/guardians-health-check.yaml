@@ -1,4 +1,4 @@
-name: guardian-prover-health-check
+name: Guardians Health Check
 
 on:
   push:
