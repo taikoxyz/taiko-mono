@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -454,7 +455,7 @@ func (s *Syncer) createExecutionPayloads(
 		BlockMetadata: &engine.BlockMetadata{
 			HighestBlockID: headBlockID,
 			Beneficiary:    event.Meta.Coinbase,
-			GasLimit:       uint64(event.Meta.GasLimit) + anchorTxConstructor.AnchorGasLimit,
+			GasLimit:       uint64(event.Meta.GasLimit) + consensus.AnchorGasLimit,
 			Timestamp:      event.Meta.Timestamp,
 			TxList:         txListBytes,
 			MixHash:        event.Meta.Difficulty,
