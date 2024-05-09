@@ -197,7 +197,10 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    BridgedERC721(_op.token).burn(msg.sender, _op.tokenIds[i]);
+                    BridgedERC721(_op.token).safeTransferFrom(
+                        msg.sender, address(this), _op.tokenIds[i]
+                    );
+                    BridgedERC721(_op.token).burn(_op.tokenIds[i]);
                 }
             } else {
                 ctoken_ = CanonicalNFT({
