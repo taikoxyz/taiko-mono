@@ -26,6 +26,7 @@
     tokenIds: [],
     address: zeroAddress,
     totalMintCount: 0,
+    txHash: '',
   });
 
   const taikoonDetailState = taikoonDetail;

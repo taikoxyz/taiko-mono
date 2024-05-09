@@ -7,9 +7,15 @@
   export let role = ctx.role || 'img';
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
-  export let ariaLabel = 'minus sign';
-  export let title = {};
-  export let desc = {};
+  export let ariaLabel = 'angle right';
+  export let title = {
+    id: `angle-right-title-${Math.random().toString(36).substring(7)}`,
+    title: ariaLabel,
+  };
+  export let desc = {
+    id: `angle-right-desc-${Math.random().toString(36).substring(7)}`,
+    desc: 'An angle right icon',
+  };
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

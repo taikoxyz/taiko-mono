@@ -9,6 +9,7 @@
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
+  import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
@@ -44,7 +45,7 @@
 
   $: canMint = false;
 
-  const mintState = getContext('mint');
+  const mintState = getContext<IMint>('mint');
 
   $: isReady = false;
 
@@ -155,7 +156,7 @@
       <Divider />
 
       <div class={infoRowClasses}>
-        <InfoRow label="Total mints" value={$mintState.totalMintCount} />
+        <InfoRow label="Total mints" value={$mintState.totalMintCount.toString()} />
         <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
       </div>
 

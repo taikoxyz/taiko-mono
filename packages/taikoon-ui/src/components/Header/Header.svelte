@@ -13,6 +13,7 @@
   import { pageScroll } from '$stores/pageScroll';
   import { config } from '$wagmi-config';
 
+  import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   import {
@@ -26,7 +27,7 @@
     wrapperClasses,
   } from './classes';
   const { Menu: MenuIcon, XSolid: CloseMenuIcon } = Icons;
-  $: address = zeroAddress;
+  $: address = zeroAddress as IAddress;
 
   $: isMobileMenuOpen = false;
 

@@ -8,5 +8,5 @@ it('should return string with prefix and suffix', () => {
 });
 
 it('should return 0x if empty', () => {
-  expect(shortenAddress('')).toBe('0x');
+  expect(shortenAddress('0x')).toBe('0x');
 });

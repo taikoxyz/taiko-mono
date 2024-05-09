@@ -8,8 +8,14 @@
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
   export let ariaLabel = 'arrow right filled';
-  export let title = {};
-  export let desc = {};
+  export let title = {
+    id: `arrow-right-filled-title-${Math.random().toString(36).substring(7)}`,
+    title: ariaLabel,
+  };
+  export let desc = {
+    id: `arrow-right-filled-desc-${Math.random().toString(36).substring(7)}`,
+    desc: 'An arrow right filled icon',
+  };
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

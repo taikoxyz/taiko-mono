@@ -5,6 +5,7 @@
 
   import { Button } from '$components/core/Button';
   import NftSlider from '$components/NftSlider/NftSlider.svelte';
+  import type { IMint } from '$stores/mint';
   import { Modal, ModalBody, ModalFooter } from '$ui/Modal';
   import { Link } from '$ui/Text';
   import { successToast } from '$ui/Toast';
@@ -26,7 +27,7 @@
     });
   }
 
-  const mintState = getContext('mint');
+  const mintState = getContext<IMint>('mint');
 
   $: isModalOpen = $mintState.isModalOpen && !$mintState.isMinting;
 </script>

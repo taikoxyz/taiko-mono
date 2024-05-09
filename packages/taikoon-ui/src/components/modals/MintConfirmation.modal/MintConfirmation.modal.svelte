@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { Spinner } from '$components/core/Spinner';
+  import type { IMint } from '$stores/mint';
   import { Icons } from '$ui/Icons';
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
 
@@ -19,7 +20,7 @@
 
   const { UpRightArrow } = Icons;
 
-  const mintState = getContext('mint');
+  const mintState = getContext<IMint>('mint');
 
   $: isModalOpen = $mintState.isModalOpen && $mintState.isMinting;
 </script>

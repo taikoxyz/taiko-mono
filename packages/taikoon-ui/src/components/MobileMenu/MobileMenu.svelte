@@ -7,8 +7,10 @@
   import { ThemeButton } from '$components/ThemeButton';
   import { classNames } from '$lib/util/classNames';
 
+  import type { IAddress } from '../../types';
+
   export let open = false;
-  export let address = zeroAddress;
+  export let address = zeroAddress as IAddress;
   export let isConnected = false;
 
   const wrapperClasses = classNames(

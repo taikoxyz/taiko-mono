@@ -3,6 +3,7 @@
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
+  import type { ITaikoonDetail } from '$stores/taikoonDetail';
 
   import { NftRenderer } from '../NftRenderer';
   import { filterFormWrapperClasses, taikoonsWrapperClasses, titleClasses, wrapperClasses } from './classes';
@@ -14,7 +15,7 @@
   export let title: string = 'The Collection';
 
   export let isLoading = false;
-  const taikoonDetailState = getContext('taikoonDetail');
+  const taikoonDetailState = getContext<ITaikoonDetail>('taikoonDetail');
 
   $: selectedTaikoonId = -1;
 

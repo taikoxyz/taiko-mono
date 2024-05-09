@@ -7,9 +7,15 @@
   export let role = ctx.role || 'img';
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
-  export let ariaLabel = 'minus sign';
-  export let title = {};
-  export let desc = {};
+  export let ariaLabel = 'youtube logo';
+  export let title = {
+    id: `youtube-logo-title-${Math.random().toString(36).substring(7)}`,
+    title: ariaLabel,
+  };
+  export let desc = {
+    id: `youtube-logo-desc-${Math.random().toString(36).substring(7)}`,
+    desc: 'A youtube logo icon',
+  };
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {
