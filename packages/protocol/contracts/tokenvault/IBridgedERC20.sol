@@ -19,6 +19,11 @@ interface IBridgedERC20 {
     /// @param _amount The amount of tokens to burn.
     function burn(uint256 _amount) external;
 
+    /// @dev Transfers tokens then burn.
+    /// @param _from The acount to burn token from.
+    /// @param _amount Amount of tokens to burn respectively.
+    function transferToBurn(address _from, uint256 _amount) external;
+
     /// @notice Starts or stops migration to/from a specified contract.
     /// @param _addr The address migrating 'to' or 'from'.
     /// @param _inbound If false then signals migrating 'from', true if migrating 'into'.

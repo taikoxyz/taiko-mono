@@ -42,6 +42,19 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         _burn(msg.sender, _amount);
     }
 
+    function transferToBurn(
+        address _from,
+        uint256 _amount
+    )
+        external
+        whenNotPaused
+        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+        nonReentrant
+    {
+        transferFrom(_from, msg.sender, _amount);
+        _burn(msg.sender, _amount);
+    }
+
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return OwnableUpgradeable.owner();
     }
