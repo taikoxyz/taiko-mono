@@ -1,4 +1,4 @@
-name: Supplementary-Contracts
+name: Supplementary Contracts
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - "packages/supplementary-contracts/**"
 
 jobs:
-  build:
+  build-supplementary-contracts:
     runs-on: [taiko-runner]
     steps:
       - name: Cancel previous runs

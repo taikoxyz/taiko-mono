@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -16,6 +15,7 @@ import (
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -288,7 +288,12 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
 
-	// check if the source chain sent this message
+	// check if the source chain sent this message.
+	// source chain will be `destBridge`, because this indexer
+	// responds to `MessageProcessed` events. to the source chain
+	// of the `MessageProcessed` event, is the destination chain
+	// of the actual message itself. So the `destBridge` is the bridge
+	// which should have sent the message originally.
 	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Message)
 	if err != nil {
 		return errors.Wrap(err, "w.destBridge.IsMessageSent")
@@ -303,19 +308,76 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	pauseReceipt, err := w.pauseBridge(ctx)
+	slog.Warn("dest bridge did not send this message", "msgId", msgBody.Message.Id)
+
+	// we should alert based on this metric
+	relayer.BridgeMessageNotSent.Inc()
+
+	pauseReceipt, err := w.pauseBridge(ctx, w.srcBridge, w.cfg.SrcBridgeAddress)
 	if err != nil {
 		return err
 	}
 
-	slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
+	if pauseReceipt != nil {
+		slog.Info("Mined pause tx",
+			"txHash", pauseReceipt.TxHash.Hex(),
+			"bridgeAddress", w.cfg.SrcBridgeAddress.Hex(),
+		)
+
+		if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+			slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.SrcBridgeAddress)
+
+			relayer.BridgePausedErrors.Inc()
+
+			return err
+		}
+	}
+
+	relayer.BridgePaused.Inc()
+
+	pauseReceipt, err = w.pauseBridge(ctx, w.destBridge, w.cfg.DestBridgeAddress)
+	if err != nil {
+		return err
+	}
+
+	if pauseReceipt != nil {
+		slog.Info("Mined pause tx",
+			"txHash", pauseReceipt.TxHash.Hex(),
+			"bridgeAddress", w.cfg.DestBridgeAddress.Hex(),
+		)
+
+		if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+			slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.DestBridgeAddress)
+
+			relayer.BridgePausedErrors.Inc()
+
+			return err
+		}
+	}
 
 	relayer.BridgePaused.Inc()
 
 	return nil
 }
 
-func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
+func (w *Watchdog) pauseBridge(
+	ctx context.Context,
+	bridge relayer.Bridge,
+	bridgeAddress common.Address,
+) (*types.Receipt, error) {
+	paused, err := bridge.Paused(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if paused {
+		slog.Info("bridge already paused")
+
+		return nil, nil
+	}
+
 	data, err := encoding.BridgeABI.Pack("pause")
 	if err != nil {
 		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
@@ -325,7 +387,7 @@ func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
 	candidate := txmgr.TxCandidate{
 		TxData: data,
 		Blobs:  nil,
-		To:     &w.cfg.SrcBridgeAddress,
+		To:     &bridgeAddress,
 	}
 
 	receipt, err := w.txmgr.Send(ctx, candidate)

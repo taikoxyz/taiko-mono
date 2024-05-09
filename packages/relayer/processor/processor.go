@@ -30,6 +30,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
@@ -95,6 +96,7 @@ type Processor struct {
 	destERC20Vault   relayer.TokenVault
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
+	destQuotaManager relayer.QuotaManager
 
 	prover *proof.Prover
 
@@ -233,6 +235,20 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	)
 	if err != nil {
 		return err
+	}
+
+	var destQuotaManager *quotamanager.QuotaManager
+
+	if cfg.DestQuotaManagerAddress.Hex() != relayer.ZeroAddress.Hex() {
+		destQuotaManager, err = quotamanager.NewQuotaManager(
+			cfg.DestQuotaManagerAddress,
+			destEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		p.destQuotaManager = destQuotaManager
 	}
 
 	var destERC721Vault *erc721vault.ERC721Vault

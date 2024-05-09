@@ -1,0 +1,49 @@
+name: Taikoon UI Build and Checks
+
+on: workflow_call
+
+jobs:
+  build:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Copy .env.example to .env
+        working-directory: ./packages/guardian-prover-health-check-ui
+        run: cp .env.example .env
+
+      - name: Export config to .env
+        working-directory: ./packages/guardian-prover-health-check-ui
+        run: pnpm export:config
+
+      - name: Frontend build
+        working-directory: ./packages/taikoon-ui
+        run: |
+          export PUBLIC_WALLETCONNECT_PROJECT_ID="fake_project_id"
+          export PUBLIC_IPFS_GATEWAY="https://ipfs.io/ipfs/"
+          pnpm build
+
+      - name: Svelte check
+        working-directory: ./packages/taikoon-ui
+        run: pnpm svelte:check
+
+      - name: Check formatting
+        working-directory: ./packages/taikoon-ui
+        run: pnpm lint
+
+      - name: Unit tests
+        env:
+          SKIP_ENV_VALIDATION: "true"
+        working-directory: ./packages/taikoon-ui
+        run: pnpm test:unit
