@@ -177,9 +177,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             }
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
-            for (uint256 i; i < _tokenIds.length; ++i) {
-                BridgedERC721(token_).mint(_to, _tokenIds[i]);
-            }
+            BridgedERC721(token_).batchMint(_to, _tokenIds);
         }
     }
 
@@ -196,9 +194,10 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    BridgedERC721(_op.token).burn(msg.sender, _op.tokenIds[i]);
-                }
+                BridgedERC721(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds
+                );
+                BridgedERC721(_op.token).batchBurn(_op.tokenIds);
             } else {
                 ctoken_ = CanonicalNFT({
                     chainId: uint64(block.chainid),
@@ -208,9 +207,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 });
 
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    ERC721Upgradeable(_op.token).safeTransferFrom(
-                        msg.sender, address(this), _op.tokenIds[i]
-                    );
+                    IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
                 }
             }
         }

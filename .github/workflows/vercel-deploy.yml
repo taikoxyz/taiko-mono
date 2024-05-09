@@ -1,4 +1,4 @@
-name: Build and Deploy Guardians UI to Vercel
+name: Vercel Build and Deploy
 
 on:
   workflow_call:
@@ -9,16 +9,20 @@ on:
       flags:
         type: string
         required: true
-      vercel_org_id:
-        type: string
-        required: true
+    secrets:
       vercel_project_id:
-        type: string
+        description: 'Vercel Project ID'
+        required: true
+      vercel_org_id:
+        description: 'Vercel ORG ID'
+        required: true
+      vercel_token:
+        description: 'Vercel TOKEN'
         required: true
 
 env:
-  VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
-  VERCEL_PROJECT_ID: ${{ inputs.vercel_project_id }}
+    VERCEL_ORG_ID: ${{ secrets.vercel_org_id }}
+    VERCEL_PROJECT_ID: ${{ secrets.vercel_project_id }}
 
 jobs:
   build-deploy:
@@ -34,10 +38,10 @@ jobs:
         run: pnpm add --global vercel@latest
 
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ secrets.vercel_token }}
 
       - name: Build Project Artifacts
-        run: vercel build ${{ inputs.flags }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build ${{ inputs.flags }} --token=${{ secrets.vercel_token }}
 
       - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt ${{ inputs.flags }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt ${{ inputs.flags }} --token=${{ secrets.vercel_token }}
