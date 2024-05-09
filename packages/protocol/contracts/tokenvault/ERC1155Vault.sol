@@ -282,7 +282,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @return btoken_ Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
-            IBridgedERC1155Init.init,
+            IBridgedERC1155Initializable.init,
             (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 

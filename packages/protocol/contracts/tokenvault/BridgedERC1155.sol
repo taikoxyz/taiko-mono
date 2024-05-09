@@ -13,7 +13,7 @@ import "./LibBridgedToken.sol";
 contract BridgedERC1155 is
     EssentialContract,
     IBridgedERC1155,
-    IBridgedERC1155Init,
+    IBridgedERC1155Initializable,
     ERC1155Upgradeable
 {
     /// @notice Address of the source token contract.
@@ -33,7 +33,7 @@ contract BridgedERC1155 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_TO_ADDR();
 
-    /// @inheritdoc IBridgedERC1155Init
+    /// @inheritdoc IBridgedERC1155Initializable
     function init(
         address _owner,
         address _addressManager,

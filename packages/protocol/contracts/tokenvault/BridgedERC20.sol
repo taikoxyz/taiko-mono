@@ -11,7 +11,12 @@ import "./LibBridgedToken.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, IBridgedERC20, IBridgedERC20Init, ERC20Upgradeable {
+contract BridgedERC20 is
+    EssentialContract,
+    IBridgedERC20,
+    IBridgedERC20Initializable,
+    ERC20Upgradeable
+{
     /// @dev Slot 1.
     address public srcToken;
 
@@ -50,7 +55,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, IBridgedERC20Init, ER
     error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_MINT_DISALLOWED();
 
-    /// @inheritdoc IBridgedERC20Init
+    /// @inheritdoc IBridgedERC20Initializable
     function init(
         address _owner,
         address _addressManager,

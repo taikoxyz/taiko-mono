@@ -408,7 +408,7 @@ contract ERC20Vault is BaseVault {
     /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
         bytes memory data = abi.encodeCall(
-            IBridgedERC20Init.init,
+            IBridgedERC20Initializable.init,
             (
                 owner(),
                 addressManager,

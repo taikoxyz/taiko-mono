@@ -13,7 +13,7 @@ import "./LibBridgedToken.sol";
 contract BridgedERC721 is
     EssentialContract,
     IBridgedERC721,
-    IBridgedERC721Init,
+    IBridgedERC721Initializable,
     ERC721Upgradeable
 {
     /// @notice Address of the source token contract.
@@ -28,7 +28,7 @@ contract BridgedERC721 is
     error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_BURN();
 
-    /// @inheritdoc IBridgedERC721Init
+    /// @inheritdoc IBridgedERC721Initializable
     function init(
         address _owner,
         address _addressManager,

@@ -27,9 +27,9 @@ interface IBridgedERC1155 {
     function canonical() external view returns (address, uint256);
 }
 
-/// @title IBridgedERC1155Init
+/// @title IBridgedERC1155Initializable
 /// @custom:security-contact security@taiko.xyz
-interface IBridgedERC1155Init {
+interface IBridgedERC1155Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
