@@ -49,3 +49,10 @@ export const ipfsConfig = {
   gatewayTimeout: 200,
   overallTimeout: 5000,
 };
+
+export const moralisApiConfig = {
+  limit: 10,
+  format: 'decimal',
+  excludeSpam: true,
+  mediaItems: false,
+};

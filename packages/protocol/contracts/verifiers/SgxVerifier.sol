@@ -64,7 +64,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// instance, this value is zero address.
     /// @param validSince The time since the instance is valid.
     event InstanceAdded(
-        uint256 indexed id, address indexed instance, address replaced, uint256 validSince
+        uint256 indexed id, address indexed instance, address indexed replaced, uint256 validSince
     );
 
     /// @notice Emitted when an SGX instance is deleted from the registry.

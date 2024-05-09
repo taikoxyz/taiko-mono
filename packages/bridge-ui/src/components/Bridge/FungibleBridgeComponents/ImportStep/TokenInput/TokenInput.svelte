@@ -231,7 +231,7 @@
     </div>
 
     <!-- Token Dropdown -->
-    <TokenDropdown combined class="min-w-[151px] z-20 " {tokens} bind:value={$selectedToken} bind:disabled />
+    <TokenDropdown combined class="min-w-[151px] z-20" {tokens} bind:value={$selectedToken} bind:disabled />
   </div>
 
   <div class="flex mt-[8px] min-h-[24px]">
@@ -242,9 +242,9 @@
           >{$t('recipient.label')} <ProcessingFee textOnly class="text-tertiary-content" bind:hasEnoughEth /></span>
       </div>
     {:else if showInsufficientBalanceAlert}
-      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
+      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative" />
     {:else if showInvalidTokenAlert}
-      <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} class="relative " />
+      <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} class="relative" />
     {:else}
       <LoadingText mask="" class="w-1/2" />
     {/if}

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/common/LibStrings.sol";
-import "../contracts/L1/TaikoToken.sol";
+import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
@@ -34,8 +34,8 @@ import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployOnL1 is DeployCapability {
-    uint256 public constant NUM_MIN_MAJORITY_GUARDIANS = 7;
-    uint256 public constant NUM_MIN_MINORITY_GUARDIANS = 2;
+    uint256 public NUM_MIN_MAJORITY_GUARDIANS = vm.envUint("NUM_MIN_MAJORITY_GUARDIANS");
+    uint256 public NUM_MIN_MINORITY_GUARDIANS = vm.envUint("NUM_MIN_MINORITY_GUARDIANS");
 
     address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
 
@@ -151,14 +151,8 @@ contract DeployOnL1 is DeployCapability {
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init,
-                    (
-                        owner,
-                        vm.envString("TAIKO_TOKEN_NAME"),
-                        vm.envString("TAIKO_TOKEN_SYMBOL"),
-                        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
-                    )
-                    ),
+                    TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
+                ),
                 registerTo: sharedAddressManager
             });
         }
@@ -269,7 +263,7 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-                ),
+            ),
             registerTo: rollupAddressManager
         });
 
@@ -336,7 +330,7 @@ contract DeployOnL1 is DeployCapability {
             impl: automateDcapV3AttestationImpl,
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
-                ),
+            ),
             registerTo: rollupAddressManager
         });
 

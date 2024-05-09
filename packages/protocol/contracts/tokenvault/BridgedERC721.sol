@@ -18,7 +18,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     uint256[48] private __gap;
 
-    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
+    error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_BURN();
 
     /// @notice Initializes the contract.
@@ -50,48 +51,41 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     /// @dev Mints tokens.
     /// @param _account Address to receive the minted token.
-    /// @param _tokenId ID of the token to mint.
-    function mint(
+    /// @param _tokenIds IDs of the tokens to mint.
+    function batchMint(
         address _account,
-        uint256 _tokenId
+        uint256[] memory _tokenIds
     )
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
-        _safeMint(_account, _tokenId);
+        for (uint256 i; i < _tokenIds.length; ++i) {
+            _safeMint(_account, _tokenIds[i]);
+        }
     }
 
     /// @dev Burns tokens.
-    /// @param _account Address from which the token is burned.
-    /// @param _tokenId ID of the token to burn.
-    function burn(
-        address _account,
-        uint256 _tokenId
-    )
+    /// @param _tokenIds IDs of the tokens to burn.
+    function batchBurn(uint256[] memory _tokenIds)
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
-        // Check if the caller is the owner of the token.
-        if (ownerOf(_tokenId) != _account) {
-            revert BTOKEN_INVALID_BURN();
+        for (uint256 i; i < _tokenIds.length; ++i) {
+            // Check if the caller is the owner of the token. Somehow this is not done inside the
+            // _burn() function below.
+            if (ownerOf(_tokenIds[i]) != msg.sender) revert BTOKEN_INVALID_BURN();
+            _burn(_tokenIds[i]);
         }
-        _burn(_tokenId);
     }
 
-    /// @notice Gets the name of the token.
-    /// @return The name.
-    function name() public view override returns (string memory) {
-        return LibBridgedToken.buildName(super.name(), srcChainId);
-    }
-
-    /// @notice Gets the symbol of the bridged token.
-    /// @return The symbol.
-    function symbol() public view override returns (string memory) {
-        return LibBridgedToken.buildSymbol(super.symbol());
+    function safeBatchTransferFrom(address _from, address _to, uint256[] memory _tokenIds) public {
+        for (uint256 i; i < _tokenIds.length; ++i) {
+            safeTransferFrom(_from, _to, _tokenIds[i], "");
+        }
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
@@ -114,21 +108,21 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
-    function canonical() external view returns (address, uint256) {
+    function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(
-        address, /*_from*/
+        address _from,
         address _to,
-        uint256, /*_firstTokenId*/
-        uint256 /*_batchSize*/
+        uint256 _firstTokenId,
+        uint256 _batchSize
     )
         internal
-        view
         override
+        whenNotPaused
     {
-        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
-        if (paused()) revert INVALID_PAUSE_STATUS();
+        LibBridgedToken.checkToAddress(_to);
+        super._beforeTokenTransfer(_from, _to, _firstTokenId, _batchSize);
     }
 }

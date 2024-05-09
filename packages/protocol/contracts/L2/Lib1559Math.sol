@@ -17,7 +17,6 @@ library Lib1559Math {
     function calc1559BaseFee(
         uint32 _gasTargetPerL1Block,
         uint8 _adjustmentQuotient,
-        uint64 _gasExcessMinValue,
         uint64 _gasExcess,
         uint64 _gasIssuance,
         uint32 _parentGasUsed
@@ -30,7 +29,7 @@ library Lib1559Math {
         // value as this has already happened
         uint256 excess = uint256(_gasExcess) + _parentGasUsed;
         excess = excess > _gasIssuance ? excess - _gasIssuance : 1;
-        gasExcess_ = uint64(excess.min(type(uint64).max).max(_gasExcessMinValue));
+        gasExcess_ = uint64(excess.min(type(uint64).max));
 
         // The base fee per gas used by this block is the spot price at the
         // bonding curve, regardless the actual amount of gas used by this
@@ -56,11 +55,7 @@ library Lib1559Math {
         if (_adjustmentFactor == 0) {
             revert EIP1559_INVALID_PARAMS();
         }
-
-        // Note that `/ _adjustmentFactor` can be removed which will make basefee increment faster.
-        // Alternatively, a larger initial value can be used for `_gasExcess`.
-        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
-            / _adjustmentFactor;
+        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)

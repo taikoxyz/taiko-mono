@@ -29,7 +29,6 @@ import (
 type Server struct {
 	echo           *echo.Echo
 	eventRepo      eventindexer.EventRepository
-	statRepo       eventindexer.StatRepository
 	nftBalanceRepo eventindexer.NFTBalanceRepository
 	chartRepo      eventindexer.ChartRepository
 	cache          *cache.Cache
@@ -38,7 +37,6 @@ type Server struct {
 type NewServerOpts struct {
 	Echo           *echo.Echo
 	EventRepo      eventindexer.EventRepository
-	StatRepo       eventindexer.StatRepository
 	NFTBalanceRepo eventindexer.NFTBalanceRepository
 	ChartRepo      eventindexer.ChartRepository
 	EthClient      *ethclient.Client
@@ -52,10 +50,6 @@ func (opts NewServerOpts) Validate() error {
 
 	if opts.EventRepo == nil {
 		return eventindexer.ErrNoEventRepository
-	}
-
-	if opts.StatRepo == nil {
-		return eventindexer.ErrNoStatRepository
 	}
 
 	if opts.CorsOrigins == nil {
@@ -79,7 +73,6 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	srv := &Server{
 		echo:           opts.Echo,
 		eventRepo:      opts.EventRepo,
-		statRepo:       opts.StatRepo,
 		nftBalanceRepo: opts.NFTBalanceRepo,
 		chartRepo:      opts.ChartRepo,
 		cache:          cache,

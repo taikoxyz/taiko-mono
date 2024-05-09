@@ -24,3 +24,7 @@ export const testNFT: Token[] = customToken.filter(
 );
 
 export const tokens = [ETHToken, ...testERC20Tokens];
+
+export const getTokensByType = (type: TokenType): Token[] => tokens.filter((token) => token.type === type);
+
+export const isWrapped = (token: Token): boolean => tokens.find((token) => token.wrapped === true) === token;

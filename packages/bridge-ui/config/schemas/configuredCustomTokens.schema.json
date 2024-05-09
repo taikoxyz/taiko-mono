@@ -30,6 +30,9 @@
       },
       "mintable": {
         "type": "boolean"
+      },
+      "wrapped": {
+        "type": "boolean"
       }
     },
     "required": ["name", "addresses", "symbol", "decimals", "type", "logoURI"]
