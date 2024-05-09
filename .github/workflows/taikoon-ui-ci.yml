@@ -19,10 +19,6 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Copy .env.example to .env
-        working-directory: ./packages/guardian-prover-health-check-ui
-        run: cp .env.example .env
-
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
         run: |
@@ -31,7 +27,7 @@ jobs:
 
       - name: Svelte check
         working-directory: ./packages/taikoon-ui
-        run: pnpm svelte:check
+        run: pnpm check
 
       - name: Check formatting
         working-directory: ./packages/taikoon-ui
