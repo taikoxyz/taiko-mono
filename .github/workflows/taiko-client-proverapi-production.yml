@@ -1,4 +1,4 @@
-name: Prover Server API Preview
+name: Prover Server API Production
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -7,14 +7,11 @@ env:
 on:
   workflow_dispatch:
   push:
-    branches-ignore:
-      - main
-      - release-please-*
-    paths:
-      - "packages/taiko-client/**"
+    tags:
+      - "taiko-client-*"
 
 jobs:
-  deploy-proverserver-api-preview:
+  deploy-proverserver-api-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
