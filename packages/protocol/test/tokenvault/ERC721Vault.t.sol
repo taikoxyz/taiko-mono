@@ -907,7 +907,10 @@ contract ERC721VaultTest is TaikoTest {
         // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
         vm.prank(address(destChainErc721Vault), address(destChainErc721Vault));
         vm.expectRevert(BridgedERC721.BTOKEN_INVALID_BURN.selector);
-        BridgedERC721(deployedContract).burn(1);
+
+        tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        BridgedERC721(deployedContract).batchBurn(tokenIds);
 
         // After approve() ERC721Vault can transfer and burn
         vm.prank(Alice, Alice);
