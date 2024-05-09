@@ -51,41 +51,33 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     /// @dev Mints tokens.
     /// @param _account Address to receive the minted token.
-    /// @param _tokenIds IDs of the tokens to mint.
-    function batchMint(
+    /// @param _tokenId ID of the token to mint.
+    function mint(
         address _account,
-        uint256[] memory _tokenIds
+        uint256 _tokenId
     )
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
-        for (uint256 i; i < _tokenIds.length; ++i) {
-            _safeMint(_account, _tokenIds[i]);
-        }
+        _safeMint(_account, _tokenId);
     }
 
     /// @dev Burns tokens.
-    /// @param _tokenIds IDs of the tokens to burn.
-    function batchBurn(uint256[] memory _tokenIds)
+    /// @param _tokenId ID of the token to burn.
+    function burn(uint256 _tokenId)
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
-        for (uint256 i; i < _tokenIds.length; ++i) {
-            // Check if the caller is the owner of the token. Somehow this is not done inside the
-            // _burn() function below.
-            if (ownerOf(_tokenIds[i]) != msg.sender) revert BTOKEN_INVALID_BURN();
-            _burn(_tokenIds[i]);
+        // Check if the caller is the owner of the token. Somehow this is not done inside the
+        // _burn() function below.
+        if (ownerOf(_tokenId) != msg.sender) {
+            revert BTOKEN_INVALID_BURN();
         }
-    }
-
-    function safeBatchTransferFrom(address _from, address _to, uint256[] memory _tokenIds) public {
-        for (uint256 i; i < _tokenIds.length; ++i) {
-            safeTransferFrom(_from, _to, _tokenIds[i], "");
-        }
+        _burn(_tokenId);
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
