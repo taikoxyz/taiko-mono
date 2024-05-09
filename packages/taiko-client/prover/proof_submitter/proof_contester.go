@@ -73,7 +73,7 @@ func (c *ProofContester) SubmitContest(
 	// If the transition has already been contested, return early.
 	if transition.Contester != (common.Address{}) {
 		log.Info(
-			"Transaction has already been contested",
+			"Transition has already been contested",
 			"blockID", blockID,
 			"parentHash", parentHash,
 			"contester", transition.Contester,
