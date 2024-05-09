@@ -1,4 +1,4 @@
-name: Taikoon UI Checks
+name: Taikoon UI Build and Checks
 
 on:
   workflow_call
