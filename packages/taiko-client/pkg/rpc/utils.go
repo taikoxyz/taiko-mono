@@ -3,13 +3,11 @@ package rpc
 import (
 	"context"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -207,111 +205,6 @@ func GetBlockProofStatus(
 		ParentHeader:           parent,
 		CurrentTransitionState: &transition,
 	}, nil
-}
-
-type AccountPoolContent map[string]map[string]map[string]*types.Transaction
-type AccountPoolContentFrom map[string]map[string]*types.Transaction
-
-// Content GetPendingTxs fetches the pending transactions from tx pool.
-func Content(ctx context.Context, client *EthClient) (AccountPoolContent, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	var result AccountPoolContent
-	return result, client.CallContext(ctxWithTimeout, &result, "txpool_content")
-}
-
-// ContentFrom fetches a given account's transactions list from a node's transactions pool.
-func ContentFrom(
-	ctx context.Context,
-	rawRPC *EthClient,
-	address common.Address,
-) (AccountPoolContentFrom, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	var result AccountPoolContentFrom
-	return result, rawRPC.CallContext(
-		ctxWithTimeout,
-		&result,
-		"txpool_contentFrom",
-		address,
-	)
-}
-
-// IncreaseGasTipCap tries to increase the given transaction's gasTipCap.
-func IncreaseGasTipCap(
-	ctx context.Context,
-	cli *Client,
-	opts *bind.TransactOpts,
-	address common.Address,
-	txReplacementTipMultiplier *big.Int,
-	maxGasTipCap *big.Int,
-) (*bind.TransactOpts, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	log.Info("Try replacing a transaction with same nonce", "sender", address, "nonce", opts.Nonce)
-
-	originalTx, err := GetPendingTxByNonce(ctxWithTimeout, cli.L1, address, opts.Nonce.Uint64())
-	if err != nil || originalTx == nil {
-		log.Warn(
-			"Original transaction not found",
-			"sender", address,
-			"nonce", opts.Nonce,
-			"error", err,
-		)
-
-		opts.GasTipCap = new(big.Int).Mul(opts.GasTipCap, txReplacementTipMultiplier)
-	} else {
-		log.Info(
-			"Original transaction to replace",
-			"sender", address,
-			"nonce", opts.Nonce,
-			"gasTipCap", originalTx.GasTipCap(),
-			"gasFeeCap", originalTx.GasFeeCap(),
-		)
-
-		opts.GasTipCap = new(big.Int).Mul(originalTx.GasTipCap(), txReplacementTipMultiplier)
-	}
-
-	if maxGasTipCap != nil && opts.GasTipCap.Cmp(maxGasTipCap) > 0 {
-		log.Info(
-			"New gasTipCap exceeds limit, keep waiting",
-			"multiplier", txReplacementTipMultiplier,
-			"newGasTipCap", opts.GasTipCap,
-			"maxTipCap", maxGasTipCap,
-		)
-		return nil, txpool.ErrReplaceUnderpriced
-	}
-
-	return opts, nil
-}
-
-// GetPendingTxByNonce tries to retrieve a pending transaction with a given nonce in a node's mempool.
-func GetPendingTxByNonce(
-	ctx context.Context,
-	cli *EthClient,
-	address common.Address,
-	nonce uint64,
-) (*types.Transaction, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	content, err := ContentFrom(ctxWithTimeout, cli, address)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, txMap := range content {
-		for txNonce, tx := range txMap {
-			if txNonce == strconv.Itoa(int(nonce)) {
-				return tx, nil
-			}
-		}
-	}
-
-	return nil, nil
 }
 
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
