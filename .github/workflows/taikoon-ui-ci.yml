@@ -27,7 +27,9 @@ jobs:
 
       - name: Svelte check
         working-directory: ./packages/taikoon-ui
-        run: pnpm check
+        run: |
+          export $(cat .env.example | xargs)
+          pnpm check
 
       - name: Check formatting
         working-directory: ./packages/taikoon-ui
