@@ -140,6 +140,22 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
         _burn(msg.sender, _amount);
     }
 
+    /// @dev Transfers tokens then burn.
+    /// @param _from The acount to burn token from.
+    /// @param _amount Amount of tokens to burn respectively.
+    function transferToBurn(
+        address _from,
+        uint256 _amount
+    )
+        external
+        whenNotPaused
+        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+        nonReentrant
+    {
+        transferFrom(_from, msg.sender, _amount);
+        _burn(msg.sender, _amount);
+    }
+
     /// @notice Gets the number of decimal places of the token.
     /// @return The number of decimal places of the token.
     function decimals() public view override returns (uint8) {

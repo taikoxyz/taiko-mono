@@ -359,8 +359,7 @@ contract ERC20Vault is BaseVault {
         if (_ctoken.addr != address(0)) {
             ctoken_ = _ctoken;
             // Following the "transfer and burn" pattern, as used by USDC
-            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), _op.amount);
-            IBridgedERC20(_op.token).burn(_op.amount);
+            IBridgedERC20(_op.token).transferToBurn(msg.sender, _op.amount);
             balanceChange_ = _op.amount;
         } else {
             // If it's a canonical token
