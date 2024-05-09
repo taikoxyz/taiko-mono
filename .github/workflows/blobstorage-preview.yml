@@ -13,7 +13,7 @@ on:
       - "packages/blobstorage/**"
 
 jobs:
-  deploy-bolbstorage-preview:
+  deploy-blobstorage-preview:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
