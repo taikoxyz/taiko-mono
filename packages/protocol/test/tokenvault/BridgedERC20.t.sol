@@ -99,6 +99,12 @@ contract TestBridgedERC20 is TaikoTest {
         newToken.mint(Bob, 15);
         assertEq(newToken.balanceOf(Bob), 235);
 
+        // Vault can only burn if it owns the tokens
+        vm.prank(vault);
+        vm.expectRevert();
+        newToken.burn(25);
+        assertEq(newToken.balanceOf(Bob), 235);
+
         // Imitate current bridge-back operation, as Bob gave approval (for bridging back) and then
         // ERC20Vault does the "transfer and burn"
         vm.prank(Bob);
@@ -107,6 +113,11 @@ contract TestBridgedERC20 is TaikoTest {
         // Following the "transfer and burn" pattern
         vm.prank(vault);
         newToken.transferFrom(Bob, vault, 25);
+
+        vm.prank(vault);
+        newToken.burn(25);
+
+        assertEq(newToken.balanceOf(Bob), 210);
     }
 
     function deployBridgedToken(string memory name) internal returns (BridgedERC20) {

@@ -49,7 +49,6 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_MINT_DISALLOWED();
-    error BTOKEN_BURN_DISALLOWED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -116,25 +115,29 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
             emit MigratedFrom(_migratingAddress, _account, _amount);
         } else {
             // Bridging from vault
-            _authorizedMint(msg.sender);
+            _authorizedMintBurn(msg.sender);
         }
 
         _mint(_account, _amount);
     }
 
-    /// @notice Burns tokens in case of 'migrating out' from msg.sender.
+    /// @notice Burns tokens in case of 'migrating out' from msg.sender (EOA) or from the ERC20Vault
+    /// if bridging back to canonical token.
     /// @param _amount The amount of tokens to burn.
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
-        if (!isMigratingOut()) revert BTOKEN_BURN_DISALLOWED();
-
-        // Outbound migration
-        address _migratingAddress = migratingAddress;
+        if (isMigratingOut()) {
+            // Outbound migration
+            address _migratingAddress = migratingAddress;
+            emit MigratedTo(_migratingAddress, msg.sender, _amount);
+            // Ask the new bridged token to mint token for the user.
+            IBridgedERC20(_migratingAddress).mint(msg.sender, _amount);
+        } else {
+            // When user wants to burn tokens only during 'migrating out' phase is possible. If
+            // ERC20Vault burns the tokens, that will go through the burn(amount) function.
+            _authorizedMintBurn(msg.sender);
+        }
 
         _burn(msg.sender, _amount);
-
-        emit MigratedTo(_migratingAddress, msg.sender, _amount);
-        // Ask the new bridged token to mint token for the user.
-        IBridgedERC20(_migratingAddress).mint(msg.sender, _amount);
     }
 
     /// @dev Transfers tokens then burn.
@@ -189,5 +192,8 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
         return super._beforeTokenTransfer(_from, _to, _amount);
     }
 
-    function _authorizedMint(address addr) private onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT) { }
+    function _authorizedMintBurn(address addr)
+        private
+        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
+    { }
 }
