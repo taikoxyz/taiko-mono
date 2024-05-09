@@ -48,7 +48,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
                 data: abi.encodeCall(
                     RiscZeroVerifier.init,
                     (address(0), address(addressManager), address(riscZeroRemoteVerifier))
-                    )
+                )
             })
         );
 
