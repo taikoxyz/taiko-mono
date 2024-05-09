@@ -358,7 +358,9 @@ func (s *ProverTestSuite) TestProveExpiredUnassignedBlock() {
 }
 
 func (s *ProverTestSuite) TestSelectSubmitter() {
-	submitter := s.p.selectSubmitter(encoding.TierGuardianMajorityID - 1)
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.True(s.p.IsGuardianProver())
+	submitter := s.p.selectSubmitter(encoding.TierGuardianMinorityID + 1)
 	s.NotNil(submitter)
 	s.Equal(encoding.TierGuardianMajorityID, submitter.Tier())
 }
@@ -369,6 +371,9 @@ func (s *ProverTestSuite) TestSelectSubmitterNotFound() {
 }
 
 func (s *ProverTestSuite) TestGetSubmitterByTier() {
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.True(s.p.IsGuardianProver())
+
 	submitter := s.p.getSubmitterByTier(encoding.TierGuardianMajorityID)
 	s.NotNil(submitter)
 	s.Equal(encoding.TierGuardianMajorityID, submitter.Tier())
