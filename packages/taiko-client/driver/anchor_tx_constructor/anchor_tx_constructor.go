@@ -8,7 +8,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/taiko"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -16,12 +16,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-)
-
-var (
-	// Each TaikoL2.anchor transaction should use this value as it's gas limit.
-	AnchorGasLimit     = taiko.AnchorGasLimit
-	GoldenTouchAddress = taiko.GoldenTouchAccount
 )
 
 // AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoL2.anchor) in
@@ -88,22 +82,22 @@ func (c *AnchorTxConstructor) transactOpts(
 	)
 
 	// Get the nonce of golden touch account at the specified parentHeight.
-	nonce, err := c.rpc.L2AccountNonce(ctx, GoldenTouchAddress, parentHeight)
+	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHeight)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Info(
 		"Golden touch account nonce",
-		"address", GoldenTouchAddress,
+		"address", consensus.GoldenTouchAccount,
 		"nonce", nonce,
 		"parent", parentHeight,
 	)
 
 	return &bind.TransactOpts{
-		From: GoldenTouchAddress,
+		From: consensus.GoldenTouchAccount,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
-			if address != GoldenTouchAddress {
+			if address != consensus.GoldenTouchAccount {
 				return nil, bind.ErrNotAuthorized
 			}
 			signature, err := c.signTxPayload(signer.Hash(tx).Bytes())
@@ -116,7 +110,7 @@ func (c *AnchorTxConstructor) transactOpts(
 		Context:   ctx,
 		GasFeeCap: baseFee,
 		GasTipCap: common.Big0,
-		GasLimit:  AnchorGasLimit,
+		GasLimit:  consensus.AnchorGasLimit,
 		NoSend:    true,
 	}, nil
 }
