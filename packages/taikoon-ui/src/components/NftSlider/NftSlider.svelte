@@ -2,7 +2,13 @@
   import { IconButton } from '$components/core/IconButton';
   import { NftRenderer } from '$components/NftRenderer';
 
-  import { leftIconButtonClasses, rightIconButtonClasses, wrapperClasses } from './classes';
+  import {
+    carouselItemClasses,
+    carouselWrapperClasses,
+    leftIconButtonClasses,
+    rightIconButtonClasses,
+    wrapperClasses,
+  } from './classes';
 
   export let tokenIds: number[] = [];
 
@@ -25,12 +31,20 @@
     }
     activeTokenId = tokenIds[index + 1];
   }
+
+  $: activeTokenId, (window.location.hash = `#minted-${tokenIds.indexOf(activeTokenId)}`);
 </script>
 
 <div class={wrapperClasses}>
   <IconButton on:click={handleLeftClick} class={leftIconButtonClasses} icon="AngleLeft" type="neutral" size="lg" />
 
-  <NftRenderer class="z-0" size="md" tokenId={activeTokenId} />
+  <div class={carouselWrapperClasses}>
+    {#each tokenIds as tokenId, i}
+      <div id={`minted-${i}`} class={carouselItemClasses}>
+        <NftRenderer size="md" {tokenId} />
+      </div>
+    {/each}
+  </div>
 
   <IconButton on:click={handleRightClick} class={rightIconButtonClasses} size="lg" icon="AngleRight" type="neutral" />
 </div>
