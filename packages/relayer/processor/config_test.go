@@ -13,6 +13,7 @@ import (
 
 var (
 	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	destQuotaManagerAddr    = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD357"
 	headerSyncInterval      = "30"
 	confirmations           = "10"
 	confirmationTimeout     = "30"
@@ -114,6 +115,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.QueuePrefetchCount.Name, "100",
 		"--" + flags.ProfitableOnly.Name,
 		"--" + flags.EnableTaikoL2.Name,
+		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
 	}))
 }
 
@@ -138,5 +140,6 @@ func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
 		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
 		"--" + flags.ProcessorPrivateKey.Name, "invalid-priv-key",
+		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
 	}), "invalid processorPrivateKey")
 }
