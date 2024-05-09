@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IQuotaManager.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
-import "./BridgedERC20.sol";
+import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
