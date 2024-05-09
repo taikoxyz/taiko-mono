@@ -196,11 +196,11 @@
       {$t('content.sections.footer.joinTaiko')}
     </div>
     <div class={socialLinksWrapperClasses}>
-      {#each socialLinks as link}
-        {@const Icon = Icons[link.icon]}
+      {#each socialLinks as { name, icon, url }}
+        {@const Icon = Icons[icon]}
         <a
-          href={link.url}
-          on:mouseenter={() => (hoveredIcon = link.name)}
+          href={url}
+          on:mouseenter={() => (hoveredIcon = name)}
           on:mouseleave={() => (hoveredIcon = 'none')}
           target="_blank"
           class={socialLinkClasses}>
@@ -208,16 +208,15 @@
             size={windowSize === 'md' ? '16' : '24'}
             class={classNames(
               'transition-colors',
-
-              hoveredIcon === link.name && hoveredIcon === 'youtube' ? 'text-red-500' : 'text-content-secondary',
-              hoveredIcon === link.name && hoveredIcon === 'forum' ? 'text-primary' : 'text-content-secondary',
-              hoveredIcon === link.name && hoveredIcon === 'discord' ? 'text-[#7289DA]' : 'text-content-secondary',
-              hoveredIcon === link.name && (hoveredIcon === 'twitter' || hoveredIcon === 'mirror')
-                ? 'text-content-primary'
-                : 'text-content-secondary',
+              //'text-primary'
+              hoveredIcon === name && hoveredIcon === 'youtube' ? 'text-red-500' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'forum' ? 'text-primary' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'discord' ? 'text-[#7289da]' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'twitter' ? 'text-icon-primary' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'mirror' ? 'text-icon-primary' : 'text-content-tertiary',
             )} />
           {#if windowSize !== 'sm'}
-            {link.name}
+            {name}
           {/if}
         </a>
       {/each}
