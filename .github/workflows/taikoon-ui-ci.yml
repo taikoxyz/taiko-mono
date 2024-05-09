@@ -26,7 +26,7 @@ jobs:
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
         run: |
-          export .env.example
+          export $(cat .env.example | xargs)
           pnpm build
 
       - name: Svelte check
