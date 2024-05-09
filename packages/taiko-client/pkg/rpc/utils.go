@@ -117,21 +117,9 @@ func GetBlockProofStatus(
 	defer cancel()
 
 	// Get the local L2 parent header.
-	var (
-		parent *types.Header
-		err    error
-	)
-	if id.Cmp(common.Big1) == 0 {
-		header, err := cli.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
-		if err != nil {
-			return nil, err
-		}
-
-		parent = header
-	} else {
-		if parent, err = cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Sub(id, common.Big1)); err != nil {
-			return nil, err
-		}
+	parent, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Sub(id, common.Big1))
+	if err != nil {
+		return nil, err
 	}
 
 	// Get the transition state from TaikoL1 contract.
