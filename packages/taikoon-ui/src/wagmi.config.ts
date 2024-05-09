@@ -18,10 +18,7 @@ const baseConfig = {
   },
   transports: {
     [hardhat.id]: http('http://localhost:8545'),
-    //[holesky.id]: http('https://1rpc.io/holesky'),
     [holesky.id]: http('https://ethereum-holesky.blockpi.network/v1/rpc/public'),
-    //[holesky.id]: http('https://l1rpc.hekla.taiko.xyz/'),
-    [sepolia.id]: http('https://rpc2.sepolia.org'),
     [devnet.id]: http('https://rpc.internal.taiko.xyz'),
   },
 } as const;
