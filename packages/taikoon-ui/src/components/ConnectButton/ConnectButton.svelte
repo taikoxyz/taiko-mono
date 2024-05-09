@@ -72,7 +72,7 @@
       <span class={buttonContentClasses}
         >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
         <span class={addressClasses}>
-          {#await shortenAddress(accountAddress, 4, 6)}
+          {#await shortenAddress(accountAddress)}
             ...
           {:then displayAddress}
             {displayAddress}

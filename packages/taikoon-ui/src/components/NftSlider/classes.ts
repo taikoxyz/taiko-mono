@@ -9,3 +9,5 @@ export const leftIconButtonClasses = classNames(iconButtonClasses, 'left-[29px]'
 export const rightIconButtonClasses = classNames(iconButtonClasses, 'left-[-29px]');
 
 export const carouselWrapperClasses = classNames('carousel', 'w-64', 'h-64');
+
+export const carouselItemClasses = classNames('carousel-item', 'relative');

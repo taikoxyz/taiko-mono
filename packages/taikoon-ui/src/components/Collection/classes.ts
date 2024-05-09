@@ -75,3 +75,10 @@ export const detailTitleClasses = classNames(
 );
 
 export const chipWrapperClasses = classNames('my-2', 'flex', 'flex-row', 'w-full', 'justify-start');
+
+export const titleClasses = classNames(
+  'font-clash-grotesk',
+  'text-[57px]/[64px]',
+  'text-content-primary',
+  'font-semibold',
+);
