@@ -21,12 +21,10 @@ contract MerkleMintersScript is Script {
 
     bytes32 public holeskyRoot;
     bytes32 public localhostRoot;
-    bytes32 public sepoliaRoot;
     bytes32 public devnetRoot;
 
     string public hardhatTreeJson;
     string public holeskyTreeJson;
-    string public sepoliaTreeJson;
     string public devnetTreeJson;
 
     function setUp() public {
@@ -58,12 +56,6 @@ contract MerkleMintersScript is Script {
         rootRaw = holeskyTreeJson.parseRaw(".root");
         holeskyRoot = abi.decode(rootRaw, (bytes32));
 
-        // load sepolia's tree and root
-        sepoliaTreeJson =
-            vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/sepolia.json"));
-        rootRaw = sepoliaTreeJson.parseRaw(".root");
-        sepoliaRoot = abi.decode(rootRaw, (bytes32));
-
         // load devnet's tree and root
         devnetTreeJson = vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/devnet.json"));
         rootRaw = devnetTreeJson.parseRaw(".root");
@@ -76,8 +68,6 @@ contract MerkleMintersScript is Script {
             return localhostRoot;
         } else if (chainId == 17_000) {
             return holeskyRoot;
-        } else if (chainId == 11_155_111) {
-            return sepoliaRoot;
         } else if (chainId == 167_001) {
             return devnetRoot;
         } else {
@@ -98,10 +88,6 @@ contract MerkleMintersScript is Script {
         } else if (chainId == 17_000) {
             // holesky
             bytes memory treeRaw = holeskyTreeJson.parseRaw(".tree");
-            leaves = abi.decode(treeRaw, (bytes32[]));
-        } else if (chainId == 11_155_111) {
-            // sepolia
-            bytes memory treeRaw = sepoliaTreeJson.parseRaw(".tree");
             leaves = abi.decode(treeRaw, (bytes32[]));
         } else if (chainId == 167_001) {
             // devnet
