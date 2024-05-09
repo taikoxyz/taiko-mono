@@ -23,10 +23,12 @@
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/eslint": "^8.56.0",
+    "@types/jest": "^29.5.12",
     "@types/node": "^20.12.7",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "convert-csv-to-json": "^2.44.0",
+    "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-simple-import-sort": "^12.0.0",
@@ -65,7 +67,6 @@
     "debug": "^4.3.4",
     "minidenticons": "^4.2.1",
     "postcss": "^8.4.38",
-    "svelte-countdown": "^1.1.2",
     "tailwindcss": "^3.4.3",
     "viem": "^2.9.29"
   }

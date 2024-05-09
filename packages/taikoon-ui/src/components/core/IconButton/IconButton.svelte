@@ -52,13 +52,15 @@
     type ? typeMap[type] : null,
     'btn-circle',
     'border-none',
-    'w-12',
-    'h-12',
+    //  'w-12',
+    //  'h-12',
     'flex items-center justify-center',
     'p-0',
     type === 'neutral' ? 'bg-interactive-tertiary' : null,
     type === 'primary' ? 'text-[#F3F3F3]' : null,
 
+    size === 'md' ? 'w-12 h-12' : null,
+    size === 'lg' ? 'w-14 h-14' : null,
     $$props.class,
   );
 </script>

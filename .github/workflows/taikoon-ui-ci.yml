@@ -1,7 +1,6 @@
 name: Taikoon UI Build and Checks
 
-on:
-  workflow_call
+on: workflow_call
 
 jobs:
   build:
@@ -20,24 +19,17 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Copy .env.example to .env
-        working-directory: ./packages/guardian-prover-health-check-ui
-        run: cp .env.example .env
-
-      - name: Export config to .env
-        working-directory: ./packages/guardian-prover-health-check-ui
-        run: pnpm export:config
-
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
         run: |
-          export PUBLIC_WALLETCONNECT_PROJECT_ID="fake_project_id"
-          export PUBLIC_IPFS_GATEWAY="https://ipfs.io/ipfs/"
+          export $(cat .env.example | xargs)
           pnpm build
 
       - name: Svelte check
         working-directory: ./packages/taikoon-ui
-        run: pnpm svelte:check
+        run: |
+          export $(cat .env.example | xargs)
+          pnpm check
 
       - name: Check formatting
         working-directory: ./packages/taikoon-ui
