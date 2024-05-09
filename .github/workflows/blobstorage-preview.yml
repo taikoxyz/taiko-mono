@@ -1,3 +1,5 @@
+name: Blobstorage Preview
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BLOBSTORAGE }}
@@ -11,7 +13,7 @@ on:
       - "packages/blobstorage/**"
 
 jobs:
-  Deploy-Preview:
+  deploy-bolbstorage-preview:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
