@@ -27,4 +27,32 @@ interface IBridgedERC20 {
     /// @notice Returns the owner.
     /// @return The address of the owner.
     function owner() external view returns (address);
+
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address.
+    /// @return The canonical token's chain ID.
+    function canonical() external view returns (address, uint256);
+}
+
+/// @title IBridgedERC20Init
+/// @custom:security-contact security@taiko.xyz
+interface IBridgedERC20Init {
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _srcToken The source token address.
+    /// @param _srcChainId The source chain ID.
+    /// @param _decimals The number of decimal places of the source token.
+    /// @param _symbol The symbol of the token.
+    /// @param _name The name of the token.
+    function init(
+        address _owner,
+        address _addressManager,
+        address _srcToken,
+        uint256 _srcChainId,
+        uint8 _decimals,
+        string calldata _symbol,
+        string calldata _name
+    )
+        external;
 }

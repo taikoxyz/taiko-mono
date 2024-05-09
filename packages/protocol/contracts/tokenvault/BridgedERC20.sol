@@ -11,7 +11,7 @@ import "./LibBridgedToken.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
+contract BridgedERC20 is EssentialContract, IBridgedERC20, IBridgedERC20Init, ERC20Upgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
@@ -50,14 +50,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
     error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_MINT_DISALLOWED();
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _srcToken The source token address.
-    /// @param _srcChainId The source chain ID.
-    /// @param _decimals The number of decimal places of the source token.
-    /// @param _symbol The symbol of the token.
-    /// @param _name The name of the token.
+    /// @inheritdoc IBridgedERC20Init
     function init(
         address _owner,
         address _addressManager,
@@ -81,9 +74,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
         __srcDecimals = _decimals;
     }
 
-    /// @notice Start or stop migration to/from a specified contract.
-    /// @param _migratingAddress The address migrating 'to' or 'from'.
-    /// @param _migratingInbound If false then signals migrating 'from', true if migrating 'into'.
+    /// @inheritdoc IBridgedERC20
     function changeMigrationStatus(
         address _migratingAddress,
         bool _migratingInbound
@@ -102,9 +93,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
         emit MigrationStatusChanged(_migratingAddress, _migratingInbound);
     }
 
-    /// @notice Mints tokens to the specified account.
-    /// @param _account The address of the account to receive the tokens.
-    /// @param _amount The amount of tokens to mint.
+    /// @inheritdoc IBridgedERC20
     function mint(address _account, uint256 _amount) external whenNotPaused nonReentrant {
         // mint is disabled while migrating outbound.
         if (isMigratingOut()) revert BTOKEN_MINT_DISALLOWED();
@@ -121,9 +110,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
         _mint(_account, _amount);
     }
 
-    /// @notice Burns tokens in case of 'migrating out' from msg.sender (EOA) or from the ERC20Vault
-    /// if bridging back to canonical token.
-    /// @param _amount The amount of tokens to burn.
+    /// @inheritdoc IBridgedERC20
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
         if (isMigratingOut()) {
             // Outbound migration
@@ -140,16 +127,8 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
         _burn(msg.sender, _amount);
     }
 
-    /// @notice Gets the number of decimal places of the token.
-    /// @return The number of decimal places of the token.
-    function decimals() public view override returns (uint8) {
-        return __srcDecimals;
-    }
-
-    /// @notice Gets the canonical token's address and chain ID.
-    /// @return The canonical token's address.
-    /// @return The canonical token's chain ID.
-    function canonical() public view returns (address, uint256) {
+    /// @inheritdoc IBridgedERC20
+    function canonical() external view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
@@ -157,6 +136,12 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20, ERC20Upgradeable {
     /// @return The address of the owner.
     function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
         return OwnableUpgradeable.owner();
+    }
+
+    /// @notice Gets the number of decimal places of the token.
+    /// @return The number of decimal places of the token.
+    function decimals() public view override returns (uint8) {
+        return __srcDecimals;
     }
 
     function isMigratingOut() public view returns (bool) {

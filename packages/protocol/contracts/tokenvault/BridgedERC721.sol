@@ -4,12 +4,18 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "./IBridgedERC721.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
+contract BridgedERC721 is
+    EssentialContract,
+    IBridgedERC721,
+    IBridgedERC721Init,
+    ERC721Upgradeable
+{
     /// @notice Address of the source token contract.
     address public srcToken;
 
@@ -22,13 +28,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_INVALID_BURN();
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _srcToken Address of the source token.
-    /// @param _srcChainId Source chain ID.
-    /// @param _symbol Symbol of the bridged token.
-    /// @param _name Name of the bridged token.
+    /// @inheritdoc IBridgedERC721Init
     function init(
         address _owner,
         address _addressManager,
@@ -49,9 +49,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         srcChainId = _srcChainId;
     }
 
-    /// @dev Mints tokens.
-    /// @param _account Address to receive the minted token.
-    /// @param _tokenId ID of the token to mint.
+    /// @inheritdoc IBridgedERC721
     function mint(
         address _account,
         uint256 _tokenId
@@ -64,8 +62,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         _safeMint(_account, _tokenId);
     }
 
-    /// @dev Burns tokens.
-    /// @param _tokenId ID of the token to burn.
+    /// @inheritdoc IBridgedERC721
     function burn(uint256 _tokenId)
         external
         whenNotPaused
@@ -80,10 +77,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         _burn(_tokenId);
     }
 
-    /// @notice Gets the source token and source chain ID being bridged.
-    /// @return The source token's address.
-    /// @return The source token's chain ID.
-    function source() public view returns (address, uint256) {
+    /// @inheritdoc IBridgedERC721
+    function canonical() external view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
@@ -95,13 +90,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         // The abi.encodePacked() call below takes multiple dynamic arguments. This is known and
         // considered acceptable in terms of risk.
         return LibBridgedToken.buildURI(srcToken, srcChainId, Strings.toString(_tokenId));
-    }
-
-    /// @notice Gets the canonical token's address and chain ID.
-    /// @return The canonical token's address.
-    /// @return The canonical token's chain ID.
-    function canonical() public view returns (address, uint256) {
-        return (srcToken, srcChainId);
     }
 
     function _beforeTokenTransfer(
