@@ -21,7 +21,7 @@ contract TierProviderV1 is EssentialContract, ITierProvider {
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_OPTIMISTIC,
+                verifierName: "",
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
