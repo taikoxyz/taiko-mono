@@ -76,16 +76,16 @@ contract BridgedERC1155 is
     }
 
     /// @inheritdoc IBridgedERC1155
-    function burnBatch(
-        uint256[] calldata _ids,
-        uint256[] calldata _amounts
+    function burn(
+        uint256 _id,
+        uint256 _amount
     )
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
-        _burnBatch(msg.sender, _ids, _amounts);
+        _burn(msg.sender, _id, _amount);
     }
 
     /// @inheritdoc IBridgedERC1155

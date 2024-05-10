@@ -30,6 +30,10 @@ contract AddressManager is EssentialContract, IAddressManager {
         addressManager = address(this);
     }
 
+    function init2() external onlyOwner reinitializer(2) {
+        addressManager = address(this);
+    }
+
     /// @notice Sets the address for a specific chainId-name pair.
     /// @param _chainId The chainId to which the address will be mapped.
     /// @param _name The name to which the address will be mapped.
