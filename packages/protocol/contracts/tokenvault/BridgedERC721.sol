@@ -87,6 +87,15 @@ contract BridgedERC721 is EssentialContract, IBridgedERC721Initializable, ERC721
         return LibBridgedToken.buildURI(srcToken, srcChainId, Strings.toString(_tokenId));
     }
 
+    /// @dev See {BaseVault-supportsInterface}.
+    /// @param _interfaceId The interface identifier.
+    /// @return true if supports, else otherwise.
+    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
+        return _interfaceId == type(IBridgedERC721).interfaceId
+            || _interfaceId == type(IBridgedERC721Initializable).interfaceId
+            || super.supportsInterface(_interfaceId);
+    }
+
     function _beforeTokenTransfer(
         address _from,
         address _to,

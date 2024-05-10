@@ -191,8 +191,13 @@ contract ERC20Vault is BaseVault {
             btokenBlacklist[btokenOld_] = true;
 
             // Start the migration
-            IBridgedERC20(btokenOld_).changeMigrationStatus(_btokenNew, false);
-            IBridgedERC20(_btokenNew).changeMigrationStatus(btokenOld_, true);
+            if (
+                btokenOld_.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
+                    && _btokenNew.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
+            ) {
+                IBridgedERC20Migratable(btokenOld_).changeMigrationStatus(_btokenNew, false);
+                IBridgedERC20Migratable(_btokenNew).changeMigrationStatus(btokenOld_, true);
+            }
         }
 
         bridgedToCanonical[_btokenNew] = _ctoken;

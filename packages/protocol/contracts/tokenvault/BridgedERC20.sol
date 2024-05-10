@@ -74,7 +74,7 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20Initializable, ERC20Upg
         __srcDecimals = _decimals;
     }
 
-    /// @inheritdoc IBridgedERC20
+    /// @inheritdoc IBridgedERC20Migratable
     function changeMigrationStatus(
         address _migratingAddress,
         bool _migratingInbound
@@ -140,6 +140,17 @@ contract BridgedERC20 is EssentialContract, IBridgedERC20Initializable, ERC20Upg
 
     function isMigratingOut() public view returns (bool) {
         return migratingAddress != address(0) && !migratingInbound;
+    }
+
+    /// @dev See {BaseVault-supportsInterface}.
+    /// @param _interfaceId The interface identifier.
+    /// @return true if supports, else otherwise.
+    function supportsInterface(bytes4 _interfaceId) public pure returns (bool) {
+        return _interfaceId == type(IBridgedERC20).interfaceId
+            || _interfaceId == type(IBridgedERC20Migratable).interfaceId
+            || _interfaceId == type(IBridgedERC20Initializable).interfaceId
+            || _interfaceId == type(IERC20Upgradeable).interfaceId
+            || _interfaceId == type(IERC20MetadataUpgradeable).interfaceId;
     }
 
     function _beforeTokenTransfer(
