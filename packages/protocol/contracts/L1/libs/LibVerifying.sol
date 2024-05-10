@@ -83,6 +83,26 @@ library LibVerifying {
         });
     }
 
+    function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
+        if (_genesisBlockHash == 0 || _state.slotB.numBlocks != 1) return;
+
+        // Init the first state transition
+        TaikoData.TransitionState storage ts = _state.transitions[0][1];
+
+        if (ts.blockHash == _genesisBlockHash) return;
+
+        ts.blockHash = _genesisBlockHash;
+        ts.timestamp = uint64(block.timestamp);
+
+        emit BlockVerified({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            stateRoot: 0,
+            tier: 0
+        });
+    }
+
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
