@@ -94,6 +94,9 @@ library LibVerifying {
         ts.blockHash = _genesisBlockHash;
         ts.timestamp = uint64(block.timestamp);
 
+        _state.slotA.genesisHeight = uint64(block.number);
+        _state.slotA.genesisTimestamp = uint64(block.timestamp);
+
         emit BlockVerified({
             blockId: 0,
             prover: address(0),
