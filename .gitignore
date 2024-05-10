@@ -49,6 +49,7 @@ typings/
 
 # Optional npm cache directory
 .npm
+pnpm-lock.yaml
 
 # Optional eslint cache
 .eslintcache
@@ -118,3 +119,6 @@ __pycache__/
 .vscode/launch.json
 packages/protocol/config.js
 .vercel
+
+# Idea
+.idea/

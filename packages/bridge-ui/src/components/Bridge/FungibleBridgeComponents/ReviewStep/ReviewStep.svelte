@@ -9,6 +9,7 @@
   import { destNetwork as destChain, enteredAmount, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
+  import { isWrapped, type Token } from '$libs/token';
   import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
@@ -20,6 +21,10 @@
   $: renderedDisplay = ($selectedToken && formatUnits($enteredAmount, $selectedToken.decimals)) || 0;
 
   $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
+
+  $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
+
+  $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
 
   const dispatch = createEventDispatcher();
 
@@ -62,6 +67,11 @@
 
 {#if displayL1Warning}
   <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+{/if}
+
+{#if wrapped}
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  <Alert type="warning">{@html wrappedAssetWarning}</Alert>
 {/if}
 
 <div class="h-sep" />

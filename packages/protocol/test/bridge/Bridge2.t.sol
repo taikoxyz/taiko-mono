@@ -35,8 +35,10 @@ contract BridgeTest2 is TaikoTest {
         _;
     }
 
-    function setUp() public dealEther(owner) {
+    function setUp() public {
         owner = vm.addr(0x1000);
+        vm.deal(owner, 100 ether);
+
         remoteChainId = uint64(block.chainid + 1);
         remoteBridge = vm.addr(0x2000);
 
