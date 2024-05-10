@@ -5,10 +5,10 @@ import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
 import "./ITierProvider.sol";
 
-/// @title DevnetTierProvider
+/// @title HeklaTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
 /// @custom:security-contact security@taiko.xyz
-contract DevnetTierProvider is EssentialContract, ITierProvider {
+contract HeklaTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract.
@@ -25,8 +25,19 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
-                provingWindow: 120, // 2 hours
-                maxBlocksToVerifyPerProof: 16
+                provingWindow: 30, // 0.5 hours
+                maxBlocksToVerifyPerProof: 12
+            });
+        }
+
+        if (_tierId == LibTiers.TIER_SGX) {
+            return ITierProvider.Tier({
+                verifierName: LibStrings.B_TIER_SGX,
+                validityBond: 250 ether, // TKO
+                contestBond: 1640 ether, // =250TKO * 6.5625
+                cooldownWindow: 1440, //24 hours
+                provingWindow: 60, // 1 hours
+                maxBlocksToVerifyPerProof: 8
             });
         }
 
@@ -46,13 +57,17 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
 
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](2);
+        tiers_ = new uint16[](3);
         tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_GUARDIAN;
+        tiers_[1] = LibTiers.TIER_SGX;
+        tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(uint256) public pure override returns (uint16) {
+    function getMinTier(uint256 _rand) public pure override returns (uint16) {
+        // 50% will be selected to require SGX proofs.
+        if (_rand % 2 == 0) return LibTiers.TIER_SGX;
+        // Other blocks are optimistic, without validity proofs.
         return LibTiers.TIER_OPTIMISTIC;
     }
 }
