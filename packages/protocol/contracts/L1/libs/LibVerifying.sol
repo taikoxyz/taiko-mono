@@ -55,13 +55,11 @@ library LibVerifying {
         internal
     {
         if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
-        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
 
         _setupGenesisBlock(_state, _genesisBlockHash);
     }
 
     function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         if (_state.slotB.numBlocks != 1) revert L1_TOO_LATE();
 
         _setupGenesisBlock(_state, _genesisBlockHash);
@@ -201,6 +199,7 @@ library LibVerifying {
     )
         private
     {
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
         _state.slotA.genesisTimestamp = uint64(block.timestamp);
