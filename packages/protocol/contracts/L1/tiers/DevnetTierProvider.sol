@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
 import "./ITierProvider.sol";
 
 /// @title DevnetTierProvider
@@ -31,7 +32,7 @@ contract DevnetTierProvider is EssentialContract, ITierProvider {
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
-                verifierName: "tier_guardian",
+                verifierName: LibStrings.B_TIER_GUARDIAN,
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 60, //1 hours
