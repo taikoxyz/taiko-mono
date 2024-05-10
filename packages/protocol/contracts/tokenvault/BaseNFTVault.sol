@@ -32,15 +32,6 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts;
     }
 
-    /// @notice ERC1155 interface ID.
-    bytes4 internal constant ERC1155_INTERFACE_ID = 0xd9b67a26;
-
-    /// @notice ERC721 interface ID.
-    bytes4 internal constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
-    /// @notice Maximum number of tokens that can be transferred per transaction.
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
-
     /// @notice Mapping to store bridged NFTs and their canonical counterparts.
     mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
 
@@ -123,15 +114,10 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_INVALID_AMOUNT();
     error VAULT_INTERFACE_NOT_SUPPORTED();
     error VAULT_TOKEN_ARRAY_MISMATCH();
-    error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
     modifier withValidOperation(BridgeTransferOp memory _op) {
         if (_op.tokenIds.length != _op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
-        }
-
-        if (_op.tokenIds.length > MAX_TOKEN_PER_TXN) {
-            revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
         }
 
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
