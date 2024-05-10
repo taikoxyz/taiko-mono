@@ -41,6 +41,7 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
     error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_ID_ZERO();
+    error L1_TOO_LATE();
 
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
@@ -60,10 +61,10 @@ library LibVerifying {
     }
 
     function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        // Do not revert as this function is called inside a reinitializer function.
-        if (_genesisBlockHash != 0 && _state.slotB.numBlocks == 1) {
-            _setupGenesisBlock(_state, _genesisBlockHash);
-        }
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
+        if (_state.slotB.numBlocks != 1) revert L1_TOO_LATE();
+
+        _setupGenesisBlock(_state, _genesisBlockHash);
     }
 
     /// @dev Verifies up to N blocks.

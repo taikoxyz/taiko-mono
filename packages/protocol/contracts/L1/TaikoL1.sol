@@ -66,7 +66,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         state.__reserve1 = 0;
     }
 
-    function init3(bytes32 _genesisBlockHash) external onlyOwner reinitializer(3) {
+    function resetGenesisHash(bytes32 _genesisBlockHash) external onlyOwner {
         LibVerifying.resetGenesisHash(state, _genesisBlockHash);
     }
 
