@@ -16,10 +16,10 @@ interface IBridgedERC1155 {
     )
         external;
 
-    /// @dev Batch burns tokens.
-    /// @param _ids Array of IDs of the tokens to burn.
-    /// @param _amounts Amount of tokens to burn respectively.
-    function burnBatch(uint256[] calldata _ids, uint256[] calldata _amounts) external;
+    /// @dev Burns tokens.
+    /// @param _id ID of the token to burn.
+    /// @param _amount Amount of token to burn respectively.
+    function burn(uint256 _id, uint256 _amount) external;
 
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
