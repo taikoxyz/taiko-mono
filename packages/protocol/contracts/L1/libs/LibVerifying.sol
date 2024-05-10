@@ -61,8 +61,9 @@ library LibVerifying {
 
     function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         // Do not revert as this function is called inside a reinitializer function.
-        if (_genesisBlockHash == 0 || _state.slotB.numBlocks != 1) return;
-        _setupGenesisBlock(_state, _genesisBlockHash);
+        if (_genesisBlockHash != 0 && _state.slotB.numBlocks == 1) {
+            _setupGenesisBlock(_state, _genesisBlockHash);
+        }
     }
 
     /// @dev Verifies up to N blocks.
