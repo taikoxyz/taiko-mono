@@ -79,11 +79,9 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     }
 
     /// @dev Batch burns tokens.
-    /// @param _account Address from which tokens are burned.
     /// @param _ids Array of IDs of the tokens to burn.
     /// @param _amounts Amount of tokens to burn respectively.
     function burnBatch(
-        address _account,
         uint256[] calldata _ids,
         uint256[] calldata _amounts
     )
@@ -92,7 +90,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
-        _burnBatch(_account, _ids, _amounts);
+        _burnBatch(msg.sender, _ids, _amounts);
     }
 
     /// @notice Gets the canonical token's address and chain ID.

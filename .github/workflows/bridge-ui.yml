@@ -24,6 +24,8 @@ jobs:
           flags: ''
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_bridge-ui_devnet_preview:
     if: ${{ github.ref_name != 'main' }}
@@ -34,6 +36,8 @@ jobs:
           flags: ''
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_bridge-ui_hekla_production:
     if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/bridge-ui-') }}
@@ -44,3 +48,5 @@ jobs:
       flags: '--prod'
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}

@@ -24,6 +24,8 @@ jobs:
           flags: ''
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_taikoon-ui_mainnet_production:
     if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/taikoon-ui-') }}
@@ -34,3 +36,5 @@ jobs:
       flags: '--prod'
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}

@@ -295,14 +295,24 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 			return nil
 		}
 
-		// The proof submitted to protocol is invalid.
-		h.proofContestCh <- &proofProducer.ContestRequestBody{
-			BlockID:    e.BlockId,
-			ProposedIn: new(big.Int).SetUint64(e.Raw.BlockNumber),
-			ParentHash: proofStatus.ParentHeader.Hash(),
-			Meta:       &e.Meta,
-			Tier:       e.Meta.MinTier,
+		// If the current proof has not been contested, we should contest it at first.
+		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress {
+			h.proofContestCh <- &proofProducer.ContestRequestBody{
+				BlockID:    e.BlockId,
+				ProposedIn: new(big.Int).SetUint64(e.Raw.BlockNumber),
+				ParentHash: proofStatus.ParentHeader.Hash(),
+				Meta:       &e.Meta,
+				Tier:       e.Meta.MinTier,
+			}
+		} else {
+			// The invalid proof submitted to protocol is contested by another prover,
+			// we need to submit a proof with a higher tier.
+			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
+				Tier:  proofStatus.CurrentTransitionState.Tier + 1,
+				Event: e,
+			}
 		}
+
 		return nil
 	}
 
