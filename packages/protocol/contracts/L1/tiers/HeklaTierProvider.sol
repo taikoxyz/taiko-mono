@@ -5,10 +5,10 @@ import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
 import "./ITierProvider.sol";
 
-/// @title TierProviderHekla
+/// @title HeklaTierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
 /// @custom:security-contact security@taiko.xyz
-contract TierProviderHekla is EssentialContract, ITierProvider {
+contract HeklaTierProvider is EssentialContract, ITierProvider {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract.
