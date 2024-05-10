@@ -472,7 +472,21 @@
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
-          "title": "Requirements"
+          "title": "Requirements",
+          "tooltip": {
+            "chain": {
+              "description": "You need to be connected to the chain you want to bridge your funds to.",
+              "title": "What is \"Connected to the correct chain\"?"
+            },
+            "funds": {
+              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain. If you've kept the default processing fee, the relayer will likely claim for you soon.",
+              "title": "What is \"Sufficient funds to claim\"?"
+            },
+            "quota": {
+              "description": "Currently there is a daily limit of how much ETH can be bridged to L1. If the quota is reached, please try again the next day.",
+              "title": "What is \"Sufficient daily quota\"?"
+            }
+          }
         },
         "review": {
           "name": "Review",

@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { getBalance, readContract, switchChain } from '@wagmi/core';
+  import { getBalance, switchChain } from '@wagmi/core';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Address, parseEther, zeroAddress } from 'viem';
+  import { type Address, parseEther } from 'viem';
 
-  import { quotaManagerAbi } from '$abi';
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { Tooltip } from '$components/Tooltip';
   import { claimConfig } from '$config';
-  import { type BridgeTransaction, ContractType } from '$libs/bridge';
-  import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
+  import { type BridgeTransaction } from '$libs/bridge';
+  import { checkBridgeQuota } from '$libs/bridge/checkBridgeQuota';
   import { getChainName, isL2Chain } from '$libs/chain';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -18,8 +18,9 @@
 
   export let tx: BridgeTransaction;
   export let canContinue = false;
-  export let checkingPrerequisites: boolean;
   export let hideContinueButton = false;
+
+  let checkingPrerequisites: boolean;
 
   const switchChains = async () => {
     $switchingNetwork = true;
@@ -39,78 +40,35 @@
 
     const balance = await getBalance(config, { address, chainId });
 
-    if (balance.value <= parseEther(String(claimConfig.minimumEthToClaim))) {
-      hasEnoughEth = false;
-    } else {
-      hasEnoughEth = true;
+    if (balance.value >= parseEther(String(claimConfig.minimumEthToClaim))) {
+      return true;
     }
-  };
-
-  const checkBridgeQuota = async ({
-    srcChainId,
-    destChainId,
-    tokenAddress = zeroAddress,
-    amount,
-  }: {
-    srcChainId: number;
-    destChainId: number;
-    tokenAddress?: Address;
-    amount: bigint;
-  }) => {
-    if (isL2Chain(Number(tx.destChainId))) {
-      // Quota only applies for transactions from L2-L1.
-      // So if the destination chain is not an L2 chain, we can skip this check.
-      hasEnoughEth = true;
-      return;
-    }
-    const quotaManagerAddress = getContractAddressByType({
-      srcChainId,
-      destChainId,
-      contractType: ContractType.QUOTAMANAGER,
-    });
-
-    const quota = await readContract(config, {
-      address: quotaManagerAddress,
-      abi: quotaManagerAbi,
-      chainId: Number(tx.destChainId),
-      functionName: 'availableQuota',
-      args: [tokenAddress, 0n],
-    });
-    if (amount > quota) {
-      hasEnoughQuota = false;
-    } else {
-      hasEnoughQuota = true;
-    }
+    return false;
   };
 
   const checkConditions = async () => {
     checkingPrerequisites = true;
 
-    const checks = Promise.allSettled([
+    const results = await Promise.allSettled([
       checkEnoughBalance($account.address, Number(tx.destChainId)),
       checkBridgeQuota({
-        srcChainId: Number(tx.destChainId), // The destination chain is the source chain for the quota manager
-        destChainId: Number(tx.srcChainId),
-        tokenAddress: tx.canonicalTokenAddress,
+        transaction: tx,
         amount: tx.amount,
       }),
     ]);
 
-    try {
-      const results = await checks;
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          // eslint-disable-next-line no-console
-          console.log(`Promise ${index} resolved with value:`, result.value);
-        } else {
-          // eslint-disable-next-line no-console
-          console.log(`Promise ${index} rejected with reason:`, result.reason);
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        if (index === 0) {
+          hasEnoughEth = result.value;
+        } else if (index === 1) {
+          hasEnoughQuota = result.value;
         }
-      });
-    } catch (error) {
-      console.error('Unexpected error:', error);
-    }
-
+      } else {
+        // You can log or handle errors here if a promise was rejected.
+        console.error(`Error in promise at index ${index}:`, result.reason);
+      }
+    });
     checkingPrerequisites = false;
   };
 
@@ -130,10 +88,14 @@
     canContinue = false;
   }
 
-  $: $account && tx.destChainId, checkConditions();
+  $: $account && checkConditions();
 
   $: hasEnoughEth = false;
   $: hasEnoughQuota = false;
+
+  onMount(() => {
+    checkConditions();
+  });
 </script>
 
 <div class="space-y-[25px] mt-[20px]">
@@ -146,9 +108,9 @@
         <div class="f-row gap-1">
           <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.chain_check')}</span>
           <Tooltip>
-            <h2>What is "Connected to the correct chain"?</h2>
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Saepe error soluta ut accusantium in doloremque commodi
-            et earum nisi quisquam quo placeat rerum exercitationem minus optio, voluptate architecto officiis consequatur!
+            <h2>{$t('transactions.claim.steps.pre_check.tooltip.chain.title')}</h2>
+
+            <span>{$t('transactions.claim.steps.pre_check.tooltip.chain.description')}</span>
           </Tooltip>
         </div>
 
@@ -164,9 +126,8 @@
         <div class="f-row gap-1">
           <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.funds_check')}</span>
           <Tooltip>
-            <h2>What is "Sufficient funds"?</h2>
-            You need to have enough funds on the destination chain to pay for the transaction fees in order to claim. If
-            you paid the processing fee, wait for the relayer to claim it for you.
+            <h2>{$t('transactions.claim.steps.pre_check.tooltip.funds.title')}</h2>
+            <span>{$t('transactions.claim.steps.pre_check.tooltip.funds.description')} </span>
           </Tooltip>
         </div>
         {#if checkingPrerequisites}
@@ -177,17 +138,15 @@
           <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
         {/if}
       </div>
-      {#if isL2Chain(Number(tx.destChainId))}
+      {#if isL2Chain(Number(tx.srcChainId))}
         <div class="f-between-center">
           <div class="f-row gap-1">
             <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.quota_check')}</span>
             <Tooltip>
-              <h2>What is "Sufficient daily quota"?</h2>
-              Lorem ipsum dolor sit amet consectetur, adipisicing elit. Explicabo, sint. Quo quidem hic accusantium eaque
-              esse cupiditate rerum velit pariatur ab eligendi repellat, iusto aliquam id, dolorum animi ducimus earum.
+              <h2>{$t('transactions.claim.steps.pre_check.tooltip.quota.title')}</h2>
+              <span>{$t('transactions.claim.steps.pre_check.tooltip.quota.description')} </span>
             </Tooltip>
           </div>
-
           {#if checkingPrerequisites}
             <Spinner />
           {:else if hasEnoughQuota}
