@@ -27,6 +27,9 @@ contract AddressManager is EssentialContract, IAddressManager {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
+    }
+
+    function init2() external onlyOwner reinitializer(2) {
         addressManager = address(this);
     }
 
