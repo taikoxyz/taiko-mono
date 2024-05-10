@@ -39,6 +39,7 @@ type Config struct {
 	DestERC20VaultAddress   common.Address
 	DestERC1155VaultAddress common.Address
 	DestTaikoAddress        common.Address
+	DestQuotaManagerAddress common.Address
 
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
@@ -129,6 +130,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		unprofitableMessageQueueExpiration = &u
 	}
 
+	var destQuotaManagerAddress common.Address
+	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
+		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
+	}
+
 	return &Config{
 		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
@@ -138,6 +144,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DestERC721VaultAddress:             common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
 		DestERC20VaultAddress:              common.HexToAddress(c.String(flags.DestERC20VaultAddress.Name)),
 		DestERC1155VaultAddress:            common.HexToAddress(c.String(flags.DestERC1155VaultAddress.Name)),
+		DestQuotaManagerAddress:            destQuotaManagerAddress,
 		DatabaseUsername:                   c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                   c.String(flags.DatabasePassword.Name),
 		DatabaseName:                       c.String(flags.DatabaseName.Name),

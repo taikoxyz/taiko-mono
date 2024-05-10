@@ -65,19 +65,16 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @dev Burns tokens.
-    /// @param _account Address from which the token is burned.
     /// @param _tokenId ID of the token to burn.
-    function burn(
-        address _account,
-        uint256 _tokenId
-    )
+    function burn(uint256 _tokenId)
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
         nonReentrant
     {
-        // Check if the caller is the owner of the token.
-        if (ownerOf(_tokenId) != _account) {
+        // Check if the caller is the owner of the token. Somehow this is not done inside the
+        // _burn() function below.
+        if (ownerOf(_tokenId) != msg.sender) {
             revert BTOKEN_INVALID_BURN();
         }
         _burn(_tokenId);

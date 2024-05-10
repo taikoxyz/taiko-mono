@@ -91,6 +91,10 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _authorizePause(msg.sender, false);
     }
 
+    function impl() public view returns (address) {
+        return _getImplementation();
+    }
+
     /// @notice Returns true if the contract is paused, and false otherwise.
     /// @return true if paused, false otherwise.
     function paused() public view returns (bool) {
