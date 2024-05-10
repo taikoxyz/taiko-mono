@@ -209,3 +209,7 @@
 - impl: `0xb190786090Fc4308c4C40808f3bEB55c4463c152`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+
+## Other EOAs/Contracts
+
+- Holesky `TimelockController`:`0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
