@@ -24,10 +24,6 @@ interface IBridgedERC20 {
     /// @param _inbound If false then signals migrating 'from', true if migrating 'into'.
     function changeMigrationStatus(address _addr, bool _inbound) external;
 
-    /// @notice Returns the owner.
-    /// @return The address of the owner.
-    function owner() external view returns (address);
-
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.
@@ -36,7 +32,7 @@ interface IBridgedERC20 {
 
 /// @title IBridgedERC20Initializable
 /// @custom:security-contact security@taiko.xyz
-interface IBridgedERC20Initializable {
+interface IBridgedERC20Initializable is IBridgedERC20 {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.

@@ -11,12 +11,7 @@ import "./LibBridgedToken.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is
-    EssentialContract,
-    IBridgedERC20,
-    IBridgedERC20Initializable,
-    ERC20Upgradeable
-{
+contract BridgedERC20 is EssentialContract, IBridgedERC20Initializable, ERC20Upgradeable {
     /// @dev Slot 1.
     address public srcToken;
 
@@ -135,12 +130,6 @@ contract BridgedERC20 is
     /// @inheritdoc IBridgedERC20
     function canonical() external view returns (address, uint256) {
         return (srcToken, srcChainId);
-    }
-
-    /// @notice Returns the owner.
-    /// @return The address of the owner.
-    function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
-        return OwnableUpgradeable.owner();
     }
 
     /// @notice Gets the number of decimal places of the token.

@@ -10,12 +10,7 @@ import "./LibBridgedToken.sol";
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC1155 is
-    EssentialContract,
-    IBridgedERC1155,
-    IBridgedERC1155Initializable,
-    ERC1155Upgradeable
-{
+contract BridgedERC1155 is EssentialContract, IBridgedERC1155Initializable, ERC1155Upgradeable {
     /// @notice Address of the source token contract.
     address public srcToken;
 
