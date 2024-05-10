@@ -11,7 +11,13 @@ import "./LibBridgedToken.sol";
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20 is EssentialContract, IBridgedERC20Initializable, ERC20Upgradeable {
+contract BridgedERC20 is
+    EssentialContract,
+    IBridgedERC20,
+    IBridgedERC20Initializable,
+    IBridgedERC20Migratable,
+    ERC20Upgradeable
+{
     /// @dev Slot 1.
     address public srcToken;
 

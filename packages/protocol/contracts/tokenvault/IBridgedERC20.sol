@@ -36,7 +36,7 @@ interface IBridgedERC20Migratable {
 
 /// @title IBridgedERC20Initializable
 /// @custom:security-contact security@taiko.xyz
-interface IBridgedERC20Initializable is IBridgedERC20, IBridgedERC20Migratable {
+interface IBridgedERC20Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.

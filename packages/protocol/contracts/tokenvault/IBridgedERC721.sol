@@ -22,7 +22,7 @@ interface IBridgedERC721 {
 
 /// @title IBridgedERC721Initializable
 /// @custom:security-contact security@taiko.xyz
-interface IBridgedERC721Initializable is IBridgedERC721 {
+interface IBridgedERC721Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
