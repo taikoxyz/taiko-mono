@@ -238,10 +238,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                IERC1155(_op.token).safeBatchTransferFrom(
-                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
-                );
-                IBridgedERC1155(_op.token).burnBatch(_op.tokenIds, _op.amounts);
+                for (uint256 i; i < _op.tokenIds.length; ++i) {
+                    IERC1155(_op.token).safeTransferFrom(
+                        msg.sender, address(this), _op.tokenIds[i], _op.amounts[i], ""
+                    );
+                    IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
+                }
             } else {
                 // is a ctoken token, meaning, it lives on this chain
                 ctoken_ = CanonicalNFT({
