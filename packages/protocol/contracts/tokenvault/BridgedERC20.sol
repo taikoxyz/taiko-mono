@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
@@ -16,6 +17,7 @@ contract BridgedERC20 is
     IBridgedERC20,
     IBridgedERC20Initializable,
     IBridgedERC20Migratable,
+    IERC165Upgradeable,
     ERC20Upgradeable
 {
     /// @dev Slot 1.
@@ -148,15 +150,13 @@ contract BridgedERC20 is
         return migratingAddress != address(0) && !migratingInbound;
     }
 
-    /// @dev See {BaseVault-supportsInterface}.
-    /// @param _interfaceId The interface identifier.
-    /// @return true if supports, else otherwise.
     function supportsInterface(bytes4 _interfaceId) public pure returns (bool) {
         return _interfaceId == type(IBridgedERC20).interfaceId
-            || _interfaceId == type(IBridgedERC20Migratable).interfaceId
             || _interfaceId == type(IBridgedERC20Initializable).interfaceId
+            || _interfaceId == type(IBridgedERC20Migratable).interfaceId
             || _interfaceId == type(IERC20Upgradeable).interfaceId
-            || _interfaceId == type(IERC20MetadataUpgradeable).interfaceId;
+            || _interfaceId == type(IERC20MetadataUpgradeable).interfaceId
+            || _interfaceId == type(IERC165Upgradeable).interfaceId;
     }
 
     function _beforeTokenTransfer(

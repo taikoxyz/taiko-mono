@@ -93,9 +93,6 @@ contract BridgedERC1155 is
         return (srcToken, srcChainId);
     }
 
-    /// @dev See {BaseVault-supportsInterface}.
-    /// @param _interfaceId The interface identifier.
-    /// @return true if supports, else otherwise.
     function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
         return _interfaceId == type(IBridgedERC1155).interfaceId
             || _interfaceId == type(IBridgedERC1155Initializable).interfaceId
