@@ -13,10 +13,6 @@
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xF1cA1F1A068468E1dcF90dA6add185467de80943`
 - owner: `admin.taiko.eth`
-- logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
-  - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
@@ -27,6 +23,12 @@
   - bridged_erc1155: `0x3c90963cfba436400b0f9c46aa9224cb379c2c40`
   - bridged_erc721: `0xc3310905e2bc9cfb198695b75ef3e5b69c6a1bf7`
   - bridged_erc20: `0x79bc0aada00fcf6e7ab514bfeb093b5fae3653e3`
+- logs:
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+- todos:
+  - call init2()
 
 #### taiko_token
 
@@ -111,10 +113,26 @@
 
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
 - impl: `0xF1cA1F1A068468E1dcF90dA6add185467de80943`
+- names:
+  - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
+  - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
+  - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
+  - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
+  - tier_provider: `0x33879cDF01121dc7bCe011b461e64d791aE931F2`
+  - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
+  - guardian_prover_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` ??2
+  - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` ??1
+  - guardian_prover: `0xE3D777143Ea25A6E031d1e921F396750885f43aC` ??1
+  - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC` ??1
+  - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
+  - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
+  -
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+- todos:
+  - call init2()
 
 #### taikoL1
 
