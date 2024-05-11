@@ -19,10 +19,11 @@
 
 - ens: `token.taiko.eth`
 - proxy: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
-- impl: `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb`
-- owner: `labs.taiko.eth`
+- impl: `eth:0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c`
+- owner: `admin.taiko.eth`
 - logs:
   - deployed on April 25, 2024 @commit`2f6d3c62e`
+  - upgraded impl from `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb` to `eth:0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c`, and changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx`???????`
 
 ### signal_service
 
