@@ -174,6 +174,8 @@
 - proxy: `0x1670000000000000000000000000000000000001`
 - impl: `0x0167000000000000000000000000000000000001`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -182,6 +184,8 @@
 - proxy: `0x1670000000000000000000000000000000000002`
 - impl: `0x0167000000000000000000000000000000000002`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -190,6 +194,8 @@
 - proxy: `0x1670000000000000000000000000000000000003`
 - impl: `0x0167000000000000000000000000000000000003`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -198,6 +204,8 @@
 - proxy: `0x1670000000000000000000000000000000000004`
 - impl: `0x0167000000000000000000000000000000000004`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -206,6 +214,8 @@
 - proxy: `0x1670000000000000000000000000000000000005`
 - impl: `0x0167000000000000000000000000000000000005`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -214,6 +224,8 @@
 - proxy: `0x1670000000000000000000000000000000000006`
 - impl: `0x0167000000000000000000000000000000000006`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -222,6 +234,8 @@
 - proxy: `0x1670000000000000000000000000000000010001`
 - impl: `0x0167000000000000000000000000000000010001`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -230,6 +244,10 @@
 - proxy: `0x1670000000000000000000000000000000010002`
 - impl: `0x0167000000000000000000000000000000010002`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- todo:
+  - change owner to DelegateOwner
+- todo:
+  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
