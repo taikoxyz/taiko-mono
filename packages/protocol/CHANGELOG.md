@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.5.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.4.0...protocol-v1.5.0) (2024-05-10)
+
+
+### Features
+
+* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
+* **protocol:** add `BridgedTaikoToken` that inherits `ERC20VotesUpgradeable` ([97a328e](https://github.com/taikoxyz/taiko-mono/commit/97a328e2d947044e5a9bf2273d116ffdb7ad5978))
+* **protocol:** add `PAUSE_BRIDGE` env to `DeployOnL1` script ([#16927](https://github.com/taikoxyz/taiko-mono/issues/16927)) ([1045a55](https://github.com/taikoxyz/taiko-mono/commit/1045a55d3499f5295ffb8f041533639ba409ae4d))
+* **protocol:** add `PAUSE_TAIKO_L1` config to `DeployOnL1` script ([#16904](https://github.com/taikoxyz/taiko-mono/issues/16904)) ([d8c189f](https://github.com/taikoxyz/taiko-mono/commit/d8c189f79367c1182b5eb6dd6101cdbd8dc460b2))
+* **protocol:** add bridge rate limiter for ETH and ERC20s ([#16970](https://github.com/taikoxyz/taiko-mono/issues/16970)) ([d048a28](https://github.com/taikoxyz/taiko-mono/commit/d048a284123706480260cf0435449a779c70209a))
+* **protocol:** allow contract owner to mint/burn bridged ERC20 tokens (besides ERC20Vault) ([97a328e](https://github.com/taikoxyz/taiko-mono/commit/97a328e2d947044e5a9bf2273d116ffdb7ad5978))
+* **protocol:** allow DelegateOwner to delegatecall for batching ([#17022](https://github.com/taikoxyz/taiko-mono/issues/17022)) ([7e1374e](https://github.com/taikoxyz/taiko-mono/commit/7e1374ee8d4d7b0bc498331949d315e418dca16f))
+* **protocol:** allow first block proposer to skip EOA check signature ([#16899](https://github.com/taikoxyz/taiko-mono/issues/16899)) ([f1c6b41](https://github.com/taikoxyz/taiko-mono/commit/f1c6b4178f9a430e4265bae081520f7f7fab93f7))
+* **protocol:** allow resetting genesis hash on L1 before 1st block is proposed ([#17078](https://github.com/taikoxyz/taiko-mono/issues/17078)) ([2b4816e](https://github.com/taikoxyz/taiko-mono/commit/2b4816e972da313235559489b6588480af9e45a4))
+* **protocol:** bump `GAS_RESERVE` to `800_000` ([#16840](https://github.com/taikoxyz/taiko-mono/issues/16840)) ([63035fd](https://github.com/taikoxyz/taiko-mono/commit/63035fd79befda07af3d90c8b60c75a82201ee5d))
+* **protocol:** change min base fee to 0.01 gwei ([#16914](https://github.com/taikoxyz/taiko-mono/issues/16914)) ([8028614](https://github.com/taikoxyz/taiko-mono/commit/8028614fa45983dee9df1d38ededb0620f8d4270))
+* **protocol:** change to transfer-and-burn pattern with NFT vaults ([#17049](https://github.com/taikoxyz/taiko-mono/issues/17049)) ([22ac9ae](https://github.com/taikoxyz/taiko-mono/commit/22ac9ae74138ba35fbb02d54e2d914e1e8391085))
+* **protocol:** disallow bridged token contract owner to trigger migration directly (must go through ERC20Vault) ([97a328e](https://github.com/taikoxyz/taiko-mono/commit/97a328e2d947044e5a9bf2273d116ffdb7ad5978))
+* **protocol:** disallow migration within 90 days post the previous migration ([97a328e](https://github.com/taikoxyz/taiko-mono/commit/97a328e2d947044e5a9bf2273d116ffdb7ad5978))
+* **protocol:** execute `enableTaikoTokenAllowance` in `DeployOnL1` script ([#16907](https://github.com/taikoxyz/taiko-mono/issues/16907)) ([83cdbe8](https://github.com/taikoxyz/taiko-mono/commit/83cdbe88fa63630c26d612929a6a122e13814296))
+* **protocol:** fix vault name and symbol validation bug with more unit tests ([#17013](https://github.com/taikoxyz/taiko-mono/issues/17013)) ([8532b77](https://github.com/taikoxyz/taiko-mono/commit/8532b7750513b87732340030139513d2b2ee203b))
+* **protocol:** implement timestamp based checkpoints for TKO & BridgedERC20 ([#16932](https://github.com/taikoxyz/taiko-mono/issues/16932)) ([56dddf2](https://github.com/taikoxyz/taiko-mono/commit/56dddf2b64778f7b119628b3a5fb50dc4825fd8a))
+* **protocol:** improve `TransitionProved` event to include previous prover and contester ([#16967](https://github.com/taikoxyz/taiko-mono/issues/16967)) ([4b4a502](https://github.com/taikoxyz/taiko-mono/commit/4b4a50245184fa5cad24445ab040ddd4ebb4f83b))
+* **protocol:** make bridge processMessage return message's status and reason ([277dade](https://github.com/taikoxyz/taiko-mono/commit/277dade2b625bc8eedb3aea58046a24bbc0050a0))
+* **protocol:** put automata dcap v3 ra behind proxy ([#16867](https://github.com/taikoxyz/taiko-mono/issues/16867)) ([1282113](https://github.com/taikoxyz/taiko-mono/commit/1282113bb31dfdcf04fdafbeefec18e206d8ae03))
+* **protocol:** remove more timelock related code ([#17018](https://github.com/taikoxyz/taiko-mono/issues/17018)) ([88a13b6](https://github.com/taikoxyz/taiko-mono/commit/88a13b65478d96b7538d43561ebd0641514d9511))
+* **protocol:** rename `TierProviderV2` to `TierProviderV3` and add a new `TierProviderV2` ([#16908](https://github.com/taikoxyz/taiko-mono/issues/16908)) ([0d5b685](https://github.com/taikoxyz/taiko-mono/commit/0d5b685d3bc9a4ddcbfe788a30b577ebdb7064e1))
+* **protocol:** revert [#16967](https://github.com/taikoxyz/taiko-mono/issues/16967) ([#16973](https://github.com/taikoxyz/taiko-mono/issues/16973)) ([a937943](https://github.com/taikoxyz/taiko-mono/commit/a93794323cffe54de922c931bc37339021d835a4))
+* **protocol:** safeguard possible failing calls ([#16931](https://github.com/taikoxyz/taiko-mono/issues/16931)) ([0f6b6b5](https://github.com/taikoxyz/taiko-mono/commit/0f6b6b5e27b74ef6e724fa352d2fd5d6f5ea0458))
+* **protocol:** update L1 / L2 deployment scripts ([#16913](https://github.com/taikoxyz/taiko-mono/issues/16913)) ([6f1194f](https://github.com/taikoxyz/taiko-mono/commit/6f1194fb139e79ca073239854baca09d6e4ecbdf))
+* **protoocl:** make BridgedERC20 no longer inherit `ERC20VotesUpgradeable` ([97a328e](https://github.com/taikoxyz/taiko-mono/commit/97a328e2d947044e5a9bf2273d116ffdb7ad5978))
+
+
+### Bug Fixes
+
+* **protocol:** allow AddressManager to reference self ([#17070](https://github.com/taikoxyz/taiko-mono/issues/17070)) ([9fbfb84](https://github.com/taikoxyz/taiko-mono/commit/9fbfb8411505ca62136259551cd401d34ee22f81))
+* **protocol:** allow TaikoL1 to be paused when initialized  ([#16893](https://github.com/taikoxyz/taiko-mono/issues/16893)) ([22d5d42](https://github.com/taikoxyz/taiko-mono/commit/22d5d42dad0b7f87a285406ba6b1ac9b688aed9e))
+* **protocol:** fix a deployment issue in TaikoL1 ([#16897](https://github.com/taikoxyz/taiko-mono/issues/16897)) ([c8384f2](https://github.com/taikoxyz/taiko-mono/commit/c8384f29872f39479cc9af7a486e3483cfd8b26d))
+* **protocol:** fix a workflow issue ([#16921](https://github.com/taikoxyz/taiko-mono/issues/16921)) ([a27fdbf](https://github.com/taikoxyz/taiko-mono/commit/a27fdbf60ef51f758c8bd64d37418266e8b22091))
+* **protocol:** fix address manager init ([#17075](https://github.com/taikoxyz/taiko-mono/issues/17075)) ([b7bd29c](https://github.com/taikoxyz/taiko-mono/commit/b7bd29ce2041c30f7567b11566c424777fd0cc35))
+* **protocol:** fix bridge quota processing in processMessage ([277dade](https://github.com/taikoxyz/taiko-mono/commit/277dade2b625bc8eedb3aea58046a24bbc0050a0))
+* **protocol:** fix metadata retrieval in vaults ([#17003](https://github.com/taikoxyz/taiko-mono/issues/17003)) ([658775a](https://github.com/taikoxyz/taiko-mono/commit/658775a09dcbaefc2d1410cad34d88d73367bc49))
+* **protocol:** fix vault test failures due to change of Bridge GAS_RESERVE ([#16844](https://github.com/taikoxyz/taiko-mono/issues/16844)) ([bc8708e](https://github.com/taikoxyz/taiko-mono/commit/bc8708e0646a07bcc971d8eeb717a6c05ce53873))
+* **protocol:** remove L1/gov/ in favor of Aragon's  ([#16933](https://github.com/taikoxyz/taiko-mono/issues/16933)) ([1573735](https://github.com/taikoxyz/taiko-mono/commit/1573735ef4450d52cdfb00747a095127d3d734c3))
+* **protocol:** revert "add batch transfer and burn for BridgedERC721 ([#17058](https://github.com/taikoxyz/taiko-mono/issues/17058)) ([#17066](https://github.com/taikoxyz/taiko-mono/issues/17066)) ([84e3000](https://github.com/taikoxyz/taiko-mono/commit/84e30000cabb24d3603262e91e98bc2abda2390a))
+* **protocol:** revert adding batchBurn to IBridgedERC1155 ([#17077](https://github.com/taikoxyz/taiko-mono/issues/17077)) ([4903bec](https://github.com/taikoxyz/taiko-mono/commit/4903bec361a225f3fdbdb287f962a37ee72ae517))
+
 ## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.3.0...protocol-v1.4.0) (2024-04-25)
 
 
