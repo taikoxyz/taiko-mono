@@ -246,8 +246,6 @@
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - todo:
   - change owner to DelegateOwner
-- todo:
-  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
