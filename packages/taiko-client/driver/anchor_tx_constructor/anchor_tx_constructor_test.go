@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
@@ -32,7 +33,7 @@ func (s *AnchorTxConstructorTestSuite) SetupTest() {
 }
 
 func (s *AnchorTxConstructorTestSuite) TestGasLimit() {
-	s.Greater(AnchorGasLimit, uint64(0))
+	s.Greater(consensus.AnchorGasLimit, uint64(0))
 }
 
 func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorTx() {

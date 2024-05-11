@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibBytes.sol";
 import "../bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -22,20 +23,27 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     uint256[48] private __gap;
 
-    /// @notice Emitted when a transaction is executed.
+    struct Call {
+        uint64 txId;
+        address target;
+        bool isDelegateCall;
+        bytes txdata;
+    }
+
+    /// @notice Emitted when a message is invoked.
     /// @param txId The transaction ID.
     /// @param target The target address.
+    /// @param isDelegateCall True if the call is a `delegatecall`.
     /// @param selector The function selector.
-    event TransactionExecuted(uint64 indexed txId, address indexed target, bytes4 indexed selector);
+    event MessageInvoked(
+        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
+    );
 
-    /// @notice Emitted when this contract accepted the ownership of a target contract.
-    /// @param target The target address.
-    event OwnershipAccepted(address indexed target);
-
+    error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
-    error DO_TX_REVERTED();
+    error DO_TARGET_CALL_REVERTED();
 
     /// @notice Initializes the contract.
     /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
@@ -69,28 +77,40 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         payable
         onlyFromNamed(LibStrings.B_BRIDGE)
     {
-        (uint64 txId, address target, bytes memory txdata) =
-            abi.decode(_data, (uint64, address, bytes));
-
-        if (txId != nextTxId) revert DO_INVALID_TX_ID();
-
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
             revert DO_PERMISSION_DENIED();
         }
-        nextTxId++;
-        // Sending ether along with the function call. Although this is sending Ether from this
-        // contract back to itself, txData's function can now be payable.
-        (bool success,) = target.call{ value: msg.value }(txdata);
-        if (!success) revert DO_TX_REVERTED();
+        _invokeCall(_data, true);
+    }
 
-        emit TransactionExecuted(txId, target, bytes4(txdata));
+    /// @notice Dryruns a message invocation but always revert.
+    /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
+    /// Note that this function shall not be used in transaction and is designed for offchain
+    /// simulation only.
+    function dryrunMessageInvocation(bytes calldata _data) external payable {
+        _invokeCall(_data, false);
+        revert DO_DRYRUN_SUCCEEDED();
     }
 
     function acceptOwnership(address target) external {
         Ownable2StepUpgradeable(target).acceptOwnership();
-        emit OwnershipAccepted(target);
     }
 
+    function transferOwnership(address) public pure override notImplemented { }
+
     function _authorizePause(address, bool) internal pure override notImplemented { }
+
+    function _invokeCall(bytes calldata _data, bool _verifyTxId) internal {
+        Call memory call = abi.decode(_data, (Call));
+
+        if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
+
+        (bool success, bytes memory result) = call.isDelegateCall //
+            ? call.target.delegatecall(call.txdata)
+            : call.target.call{ value: msg.value }(call.txdata);
+
+        if (!success) LibBytes.revertWithExtractedError(result);
+        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
+    }
 }

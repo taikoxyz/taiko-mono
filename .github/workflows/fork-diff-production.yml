@@ -1,3 +1,5 @@
+name: Fork Diff Production
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FORK_DIFF }}
@@ -9,7 +11,7 @@ on:
       - "fork-diff-*"
 
 jobs:
-  Deploy-Production:
+  deploy-fork-diff-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
