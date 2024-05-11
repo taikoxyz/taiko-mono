@@ -14,7 +14,7 @@
 - pendingOwner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership
+  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### taiko_token
 
@@ -33,7 +33,7 @@
 - pendingOwner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership
+  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### bridge
 
@@ -43,7 +43,7 @@
 - pendingOwner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership
+  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### erc20_vault
 
@@ -94,7 +94,7 @@
 - pendingOwner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership
+  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### taikoL1
 
@@ -135,7 +135,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership
+  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### guardian_prover
 
