@@ -10,8 +10,7 @@
 
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15`
-- owner: `0x56706F118e42AE069F20c5636141B844D1324AE1`
-- pendingOwner: `admin.taiko.eth`
+- owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -29,8 +28,7 @@
 
 - proxy: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
 - impl: `0xE1d91bAE44B70bD66e8b688B8421fD62dcC33c72`
-- owner: `0x56706F118e42AE069F20c5636141B844D1324AE1`
-- pendingOwner: `admin.taiko.eth`
+- owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -39,8 +37,7 @@
 
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
 - impl: `0x91d593d34f2E1904cDCe3D5290a74563F87bCF6f`
-- owner: `0x56706F118e42AE069F20c5636141B844D1324AE1`
-- pendingOwner: `admin.taiko.eth`
+- owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -91,7 +88,6 @@
 
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
 - impl: `0xd912aB787624c9eb96a37e658e9596e114360440`
-- pendingOwner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
