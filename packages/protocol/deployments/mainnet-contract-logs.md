@@ -14,21 +14,19 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
-  - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`???????`
+  - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`txid`
 
 ### taiko_token
 
 - ens: `token.taiko.eth`
 - proxy: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
 - impl: `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c`
-- owner: `labs.taiko.eth`
-- pendingOwner: `admin.taiko.eth`
-- todo:
-  `admin.taiko.eth` accepts ownership
+- owner: `admin.taiko.eth`
 - logs:
   - deployed on April 25, 2024 @commit`2f6d3c62e`
   - upgraded impl from `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb` to `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` @commit `b90b932` and,
-  - Changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx`???????`
+  - Changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx `0x7d82794932540ed9edd259e58f6ef8ae21a49beada7f0224638f888f7149c01c`
+  - Accept owner @tx`txid`
 
 ### signal_service
 
@@ -38,7 +36,7 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
-  - upgraded from `0xE1d91bAE44B70bD66e8b688B8421fD62dcC33c72` to `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d` @commit `b90b932` @tx`???????`
+  - upgraded from `0xE1d91bAE44B70bD66e8b688B8421fD62dcC33c72` to `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d` @commit `b90b932` @tx`txid`
 
 ### bridge
 
@@ -48,7 +46,7 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
-  - upgraded from `0x91d593d34f2E1904cDCe3D5290a74563F87bCF6f` to `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D` @commit `b90b932` @tx`???????`
+  - upgraded from `0x91d593d34f2E1904cDCe3D5290a74563F87bCF6f` to `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D` @commit `b90b932` @tx`txid`
 
 ### erc20_vault
 
@@ -57,7 +55,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - upgraded from `0x15D9F7e12aEa18DAEF5c651fBf97567CAd4a4BEc` to `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` @commit `b90b932` @tx`???????`
+  - upgraded from `0x15D9F7e12aEa18DAEF5c651fBf97567CAd4a4BEc` to `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` @commit `b90b932` @tx`txid`
 
 ### erc721_vault
 
@@ -66,7 +64,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit `b90b932` @tx`???????`
+  - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit `b90b932` @tx`txid`
 
 ### erc1155_vault
 
@@ -75,7 +73,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit `b90b932` @tx`???????`
+  - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit `b90b932` @tx`txid`
 
 ### bridged_erc20
 
@@ -102,7 +100,7 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
-  - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`???????`
+  - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`txid`
 
 ### taikoL1
 
@@ -111,7 +109,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501` to `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` @commit `b90b932` @tx`???????`
+  - Upgraded from `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501` to `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` @commit `b90b932` @tx`txid`
 
 ### assignment_hook
 
@@ -120,7 +118,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit `b90b932` @tx`???????`
+  - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit `b90b932` @tx`txid`
 
 ### tier_provider
 
@@ -137,7 +135,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x3f54067EF5d8B414Bdb1945cdF482BD158Aad175` to `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9` @commit `b90b932` @tx`???????`
+  - Upgraded from `0x3f54067EF5d8B414Bdb1945cdF482BD158Aad175` to `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9` @commit `b90b932` @tx`txid`
 
 ### guardian_prover_minority
 
@@ -147,7 +145,7 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
-  - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit `b90b932` @tx`???????`
+  - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit `b90b932` @tx`txid`
 
 ### guardian_prover
 
@@ -156,7 +154,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit `b90b932` @tx`???????`
+  - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit `b90b932` @tx`txid`
 
 ### p256_verifier
 
@@ -183,7 +181,7 @@
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`???????`
+  - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`txid`
 
 ## L2 Contracts
 
