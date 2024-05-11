@@ -120,10 +120,10 @@
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - tier_provider: `0x33879cDF01121dc7bCe011b461e64d791aE931F2`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-  - guardian_prover_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` ??2
-  - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` ??1
-  - guardian_prover: `0xE3D777143Ea25A6E031d1e921F396750885f43aC` ??1
-  - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC` ??1
+  - guardian_prover_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
+  - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
+  - guardian_prover: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
+  - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   -
@@ -182,7 +182,7 @@
 #### guardian_prover
 
 - proxy: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
-- impl: `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF`
+- impl: `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -209,7 +209,7 @@
 #### automata_dcap_attestation
 
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-- impl: `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc`
+- impl: `0xde1b1FBe7D721af4A56651272ef91A59B7303323`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
