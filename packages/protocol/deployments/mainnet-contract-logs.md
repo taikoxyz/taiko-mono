@@ -12,8 +12,8 @@
 - impl: `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### taiko_token
 
@@ -22,7 +22,7 @@
 - impl: `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb`
 - owner: `labs.taiko.eth`
 - logs:
-  - deployed on April 25, 2024 at commit `2f6d3c62e`
+  - deployed on April 25, 2024 @commit`2f6d3c62e`
 
 ### signal_service
 
@@ -30,8 +30,8 @@
 - impl: `0xE1d91bAE44B70bD66e8b688B8421fD62dcC33c72`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### bridge
 
@@ -39,8 +39,8 @@
 - impl: `0x91d593d34f2E1904cDCe3D5290a74563F87bCF6f`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### erc20_vault
 
@@ -48,7 +48,7 @@
 - impl: `0x15D9F7e12aEa18DAEF5c651fBf97567CAd4a4BEc`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### erc721_vault
 
@@ -56,7 +56,7 @@
 - impl: `0xEC04849E7722Fd69797a155796Db75aC8F94f692`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### erc1155_vault
 
@@ -64,33 +64,33 @@
 - impl: `0x7748dA086A2e6EDd8Db97eD236840910013c6396`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### bridged_erc20
 
 - impl: `0xcc5d488073FA918cBbd73B9A523F3858C4de7372`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### bridged_erc721
 
 - impl: `0xc4096E9ff1526Bd1840B65e9f45695135aC12De7`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### bridged_erc1155
 
 - impl: `0x39E4C1214e733639d059979079A151911e42791d`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### rollup_address_manager
 
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
 - impl: `0xd912aB787624c9eb96a37e658e9596e114360440`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### taikoL1
 
@@ -98,7 +98,7 @@
 - impl: `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### assignmentHook
 
@@ -106,7 +106,7 @@
 - impl: `0x4f664222C3fF6207558A745648B568D095dDA170`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### tierProvider
 
@@ -114,7 +114,7 @@
 - impl: `0xf8254fd073063C35811577877f840548e77fD52E`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### tier_sgx
 
@@ -122,7 +122,7 @@
 - impl: `0x3f54067EF5d8B414Bdb1945cdF482BD158Aad175`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### guardian_prover_minority
 
@@ -130,8 +130,8 @@
 - impl: `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
-  - admin.taiko.eth accepted the ownership: `0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
 
 ### guardian_prover
 
@@ -139,25 +139,25 @@
 - impl: `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### p256_verifier
 
 - impl: `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### sig_verify_lib
 
 - impl: `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### pem_cert_chain_lib
 
 - impl: `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### automata_dcap_attestation
 
@@ -165,7 +165,7 @@
 - impl: `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc`
 - owner: `admin.taiko.eth`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ## L2 Contracts
 
@@ -175,7 +175,7 @@
 - impl: `0x0167000000000000000000000000000000000001`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### erc20_vault
 
@@ -183,7 +183,7 @@
 - impl: `0x0167000000000000000000000000000000000002`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### erc721_vault
 
@@ -191,7 +191,7 @@
 - impl: `0x0167000000000000000000000000000000000003`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### erc1155_vault
 
@@ -199,7 +199,7 @@
 - impl: `0x0167000000000000000000000000000000000004`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### signal_service
 
@@ -207,7 +207,7 @@
 - impl: `0x0167000000000000000000000000000000000005`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### shared_address_manager
 
@@ -215,7 +215,7 @@
 - impl: `0x0167000000000000000000000000000000000006`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### taikoL2
 
@@ -223,7 +223,7 @@
 - impl: `0x0167000000000000000000000000000000010001`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ### rollup_address_manager
 
@@ -231,7 +231,7 @@
 - impl: `0x0167000000000000000000000000000000010002`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
-  - deployed on May 1, 2024 at commit `56dddf2b6`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
 
 ## Other EOAs/Contracts
 
