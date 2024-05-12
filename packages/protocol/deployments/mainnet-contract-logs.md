@@ -16,10 +16,15 @@
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
+  - signal_service@167000: `0x1670000000000000000000000000000000000005`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
+  - bridge@167000: `0x1670000000000000000000000000000000000001`
   - erc20_vault: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
+  - erc20_vault@167000: `0x1670000000000000000000000000000000000002`
   - erc721_vault: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
+  - erc721_vault@167000: `0x1670000000000000000000000000000000000003`
   - erc1155_vault: `0xaf145913EA4a56BE22E120ED9C24589659881702`
+  - erc1155_vault@167000: `0x1670000000000000000000000000000000000004`
   - bridged_erc1155: `0x3c90963cfba436400b0f9c46aa9224cb379c2c40`
   - bridged_erc721: `0xc3310905e2bc9cfb198695b75ef3e5b69c6a1bf7`
   - bridged_erc20: `0x79bc0aada00fcf6e7ab514bfeb093b5fae3653e3`
@@ -131,8 +136,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-- todos:
-  - call init2()
+  - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 
 #### taikoL1
 
@@ -142,6 +146,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501` to `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - `Init2()` called and reset block hash to `0411D9F84A525864E0A7E8BB51667D49C6BF73820AF9E4BC76EA66ADB6BE8903` @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 
 #### assignment_hook
 
@@ -290,6 +295,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 
 #### taikoL2
 
