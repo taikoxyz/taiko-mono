@@ -102,6 +102,19 @@
   },
   {
     "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "init",
     "inputs": [
       {
@@ -576,7 +589,7 @@
         "internalType": "address"
       },
       {
-        "name": "authrized",
+        "name": "authorized",
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
@@ -757,6 +770,11 @@
   },
   {
     "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
     "inputs": []
   },
@@ -849,11 +867,6 @@
   {
     "type": "error",
     "name": "SS_UNAUTHORIZED",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "SS_UNSUPPORTED",
     "inputs": []
   },
   {

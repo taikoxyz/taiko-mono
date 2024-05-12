@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IQuotaManager.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
-import "./BridgedERC20.sol";
+import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
@@ -191,8 +191,13 @@ contract ERC20Vault is BaseVault {
             btokenBlacklist[btokenOld_] = true;
 
             // Start the migration
-            IBridgedERC20(btokenOld_).changeMigrationStatus(_btokenNew, false);
-            IBridgedERC20(_btokenNew).changeMigrationStatus(btokenOld_, true);
+            if (
+                btokenOld_.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
+                    && _btokenNew.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
+            ) {
+                IBridgedERC20Migratable(btokenOld_).changeMigrationStatus(_btokenNew, false);
+                IBridgedERC20Migratable(_btokenNew).changeMigrationStatus(btokenOld_, true);
+            }
         }
 
         bridgedToCanonical[_btokenNew] = _ctoken;
@@ -408,7 +413,7 @@ contract ERC20Vault is BaseVault {
     /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
         bytes memory data = abi.encodeCall(
-            BridgedERC20.init,
+            IBridgedERC20Initializable.init,
             (
                 owner(),
                 addressManager,
