@@ -32,8 +32,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-- todos:
-  - call init2()
+  - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 
 #### taiko_token
 
