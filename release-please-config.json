@@ -1,5 +1,4 @@
 {
-  "draft": true,
   "packages": {
     "packages/blobstorage": {},
     "packages/branding": {},
