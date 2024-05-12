@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  ra:
+    build: .
+    container_name: onchain-ra
+    environment:
+      - FORK_URL=${FORK_URL}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - QUOTE=${QUOTE}
+    entrypoint: [ "/bin/bash", "-c", "PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote ${QUOTE}"]
