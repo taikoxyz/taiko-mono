@@ -12,9 +12,9 @@ contract DeployTokenUnlocking is Script {
     using stdJson for string;
 
     uint256 public PRIVATE_KEY = vm.envUint("PRIVATE_KEY"); // deployer
-    address public OWNER = vm.envAddress("OWNER");
-    address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
-    uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
+    address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;  // admin.taiko.eth
+    address public TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
+    uint256 public TGE = 1716767999; // Date and time (GMT): Sunday, May 26, 2024 11:59:59 PM
     address public IMPL = vm.envAddress("TOKEN_VESTING_IMPL");
 
     function setUp() public { }
