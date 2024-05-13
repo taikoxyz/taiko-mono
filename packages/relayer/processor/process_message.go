@@ -432,7 +432,7 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	// we should check event status one more time, after we have waiting for
-	// confirmations, and after we have gnerated proof. its possible another relayer
+	// confirmations, and after we have generated proof. its possible another relayer
 	// or the user themself has claimed this in the time it took
 	// for us to do this work, which would cause us to revert.
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
