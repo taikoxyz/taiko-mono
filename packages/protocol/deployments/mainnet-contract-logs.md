@@ -176,6 +176,12 @@
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
 
+### token_unlocking
+
+- impl: `0x244108e321FE03b0E33FE63Ef62285F05d191a62`
+- logs:
+  - deployed on May 13, 2024 at commit `165e28279`
+
 ## L2 Contracts
 
 ### bridge
