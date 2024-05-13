@@ -2,8 +2,12 @@
   "packages": {
     "packages/blobstorage": {},
     "packages/branding": {},
-    "packages/bridge-ui": {},
-    "packages/docs-site": {},
+    "packages/bridge-ui": {
+      "release-as": "2.10.0"
+    },
+    "packages/docs-site": {
+      "release-as": "1.0.0"
+    },
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},
