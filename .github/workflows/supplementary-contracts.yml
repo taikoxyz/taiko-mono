@@ -36,7 +36,7 @@ jobs:
         run: pnpm clean && pnpm test
 
       - name: Format solidity && update contract layout table
-        working-directory: ./packages/protocol
+        working-directory: ./packages/supplementary-contracts
         run: pnpm layout && forge fmt
 
       - name: Commit contract layout table
