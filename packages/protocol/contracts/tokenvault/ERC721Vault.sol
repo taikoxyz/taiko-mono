@@ -4,8 +4,9 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
+import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
-import "./BridgedERC721.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
@@ -41,7 +42,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
         }
 
-        if (!_op.token.supportsInterface(ERC721_INTERFACE_ID)) {
+        if (!_op.token.supportsInterface(type(IERC721).interfaceId)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -92,7 +93,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // Don't allow sending to disallowed addresses.
         // Don't send the tokens back to `from` because `from` is on the source chain.
-        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+        checkToAddress(to);
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, tokenIds);
@@ -158,7 +159,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return "erc721_vault";
+        return LibStrings.B_ERC721_VAULT;
     }
 
     function _transferTokens(
@@ -177,7 +178,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
             for (uint256 i; i < _tokenIds.length; ++i) {
-                BridgedERC721(token_).mint(_to, _tokenIds[i]);
+                IBridgedERC721(token_).mint(_to, _tokenIds[i]);
             }
         }
     }
@@ -196,29 +197,19 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    BridgedERC721(_op.token).burn(msg.sender, _op.tokenIds[i]);
+                    IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
+                    IBridgedERC721(_op.token).burn(_op.tokenIds[i]);
                 }
             } else {
-                ERC721Upgradeable t = ERC721Upgradeable(_op.token);
-
                 ctoken_ = CanonicalNFT({
                     chainId: uint64(block.chainid),
                     addr: _op.token,
-                    symbol: "",
-                    name: ""
+                    symbol: safeSymbol(_op.token),
+                    name: safeName(_op.token)
                 });
 
-                // Try fill in the boilerplate values, but use try-catch because functions below are
-                // ERC20-optional only.
-                try t.name() returns (string memory _name) {
-                    ctoken_.name = _name;
-                } catch { }
-                try t.symbol() returns (string memory _symbol) {
-                    ctoken_.symbol = _symbol;
-                } catch { }
-
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    t.safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
+                    IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
                 }
             }
         }
@@ -249,7 +240,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @return btoken_ Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
-            BridgedERC721.init,
+            IBridgedERC721Initializable.init,
             (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 

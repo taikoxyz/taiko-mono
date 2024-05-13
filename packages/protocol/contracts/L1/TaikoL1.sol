@@ -36,7 +36,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     /// @dev Allows for receiving Ether from Hooks
     receive() external payable {
-        if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
+        if (!inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
     /// @notice Initializes the contract.
@@ -64,6 +64,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
+    }
+
+    function resetGenesisHash(bytes32 _genesisBlockHash) external onlyOwner {
+        LibVerifying.resetGenesisHash(state, _genesisBlockHash);
     }
 
     /// @inheritdoc ITaikoL1
