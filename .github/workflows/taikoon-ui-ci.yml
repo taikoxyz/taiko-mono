@@ -25,13 +25,13 @@ jobs:
         working-directory: ./packages/taikoon-ui
         run: cp .env.example .env
 
-      - name: Svelte check
-        working-directory: ./packages/taikoon-ui
-        run: pnpm check
-
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
         run: pnpm build
+
+      - name: Svelte check
+        working-directory: ./packages/taikoon-ui
+        run: pnpm check
 
       - name: Check formatting
         working-directory: ./packages/taikoon-ui
