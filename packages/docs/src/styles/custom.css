@@ -1,0 +1,30 @@
+/* Generated from https://starlight.astro.build/guides/css-and-tailwind/#color-theme-editor */
+/* Dark mode colors. */
+:root {
+  --sl-color-accent-low: #3f0e29;
+  --sl-color-accent: #bc007a;
+  --sl-color-accent-high: #f3b3d0;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #eceef2;
+  --sl-color-gray-2: #c0c2c7;
+  --sl-color-gray-3: #888b96;
+  --sl-color-gray-4: #545861;
+  --sl-color-gray-5: #353841;
+  --sl-color-gray-6: #24272f;
+  --sl-color-black: #17181c;
+}
+/* Light mode colors. */
+:root[data-theme="light"] {
+  --sl-color-accent-low: #f8c7dc;
+  --sl-color-accent: #bf007c;
+  --sl-color-accent-high: #5c073a;
+  --sl-color-white: #17181c;
+  --sl-color-gray-1: #24272f;
+  --sl-color-gray-2: #353841;
+  --sl-color-gray-3: #545861;
+  --sl-color-gray-4: #888b96;
+  --sl-color-gray-5: #c0c2c7;
+  --sl-color-gray-6: #eceef2;
+  --sl-color-gray-7: #f5f6f8;
+  --sl-color-black: #ffffff;
+}
