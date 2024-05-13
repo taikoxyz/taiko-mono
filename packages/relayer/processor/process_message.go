@@ -447,6 +447,8 @@ func (p *Processor) sendProcessMessageCall(
 		p.relayerAddr,
 		uint64(event.Message.GasLimit),
 	) {
+		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
+
 		return nil, errUnprocessable
 	}
 
