@@ -39,5 +39,5 @@ jobs:
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy Project Artifacts to Vercel
-        working-directory: packages/taiko-client
+        working-directory: packages/taiko-client/docs
         run: vercel --token=${{ secrets.VERCEL_TOKEN }}
