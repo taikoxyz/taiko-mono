@@ -141,7 +141,7 @@ func (s *ProofSubmitter) SubmitProof(
 	proofWithHeader *proofProducer.ProofWithHeader,
 ) (err error) {
 	log.Info(
-		"NewProofSubmitter block proof",
+		"Submit block proof",
 		"blockID", proofWithHeader.BlockID,
 		"coinbase", proofWithHeader.Meta.Coinbase,
 		"parentHash", proofWithHeader.Header.ParentHash,
