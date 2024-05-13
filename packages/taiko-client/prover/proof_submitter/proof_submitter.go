@@ -156,7 +156,7 @@ func (s *ProofSubmitter) SubmitProof(
 	if err != nil {
 		return err
 	}
-	if proofStatus.IsSubmitted {
+	if proofStatus.IsSubmitted && !proofStatus.Invalid {
 		return nil
 	}
 
@@ -170,14 +170,14 @@ func (s *ProofSubmitter) SubmitProof(
 		if err != nil {
 			return err
 		}
-		// TODO:  Need to check if there will be performance issues while using simple time.Sleep()
-		time.Sleep(submissionDelay)
+		delayTimer := time.After(submissionDelay)
+		<-delayTimer
 		// Check again.
 		proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, s.proverAddress)
 		if err != nil {
 			return err
 		}
-		if proofStatus.IsSubmitted {
+		if proofStatus.IsSubmitted && !proofStatus.Invalid {
 			return nil
 		}
 	}
