@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import { Script, console } from "forge-std/src/Script.sol";
 import "forge-std/src/StdJson.sol";
+import { IMinimalBlacklist } from "../../contracts/IMinimalBlacklist.sol";
+import { MockBlacklist } from "../../test/Blacklist.sol";
 
 contract UtilsScript is Script {
     using stdJson for string;
@@ -55,6 +57,18 @@ contract UtilsScript is Script {
 
     function getIpfsBaseURI() public view returns (string memory) {
         return vm.envString("IPFS_BASE_URI");
+    }
+
+    function getBlacklist() public returns (IMinimalBlacklist blacklistAddress) {
+        if (block.chainid == 1) {
+            // mainnet blacklist address
+            blacklistAddress = IMinimalBlacklist(0x97044531D0fD5B84438499A49629488105Dc58e6);
+        } else {
+            // deploy a mock blacklist otherwise
+            blacklistAddress = IMinimalBlacklist(new MockBlacklist());
+        }
+
+        return blacklistAddress;
     }
 
     function run() public { }

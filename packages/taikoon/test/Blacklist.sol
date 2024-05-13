@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import { IMinimalBlacklist } from "../contracts/IMinimalBlacklist.sol";
 // Blaclist contract mock
-contract MockBlacklist {
+
+contract MockBlacklist is IMinimalBlacklist {
     address[] public blacklist;
+
     constructor() {
         // hardhat accounts, #5 to #9
         blacklist.push(0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc);

@@ -7,7 +7,7 @@ import { ERC721EnumerableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 
 import { MerkleWhitelist } from "./MerkleWhitelist.sol";
-import { IMinimalBlacklist } from "./Blacklist/IMinimalBlacklist.sol";
+import { IMinimalBlacklist } from "./IMinimalBlacklist.sol";
 
 /// @title TaikoonToken
 /// @dev The Taikoons ERC-721 token
@@ -18,6 +18,7 @@ contract TaikoonToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     // Base URI required to interact with IPFS
     string private _baseURIExtended;
 
+    /// @notice Gap for upgrade safety
     uint256[48] private __gap;
 
     error MAX_MINTS_EXCEEDED();
@@ -31,13 +32,14 @@ contract TaikoonToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     function initialize(
         address _owner,
         string memory _rootURI,
-        bytes32 _merkleRoot
+        bytes32 _merkleRoot,
+        IMinimalBlacklist _blacklistAddress
     )
         external
         initializer
     {
         __ERC721_init("Taikoon", "TKOON");
-        __MerkleWhitelist_init(_owner, _merkleRoot);
+        __MerkleWhitelist_init(_owner, _merkleRoot, _blacklistAddress);
         _baseURIExtended = _rootURI;
     }
 
