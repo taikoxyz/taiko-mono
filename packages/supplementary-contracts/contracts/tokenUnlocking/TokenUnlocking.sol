@@ -77,9 +77,9 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         tgeTimestamp = _tgeTimestamp;
     }
 
-    /// @notice Vest certain tokens to this contract.
+    /// @notice Deposits certain tokens to this contract.
     /// @param _amount The newly vested amount
-    function vest(uint128 _amount) external onlyOwner nonReentrant {
+    function deposit(uint128 _amount) external nonReentrant {
         if (_amount == 0) revert INVALID_PARAM();
 
         amountVested += _amount;
