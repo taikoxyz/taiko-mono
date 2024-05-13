@@ -20,8 +20,8 @@ jobs:
     needs: build-and-test
     uses: ./.github/workflows/vercel-deploy.yml
     with:
-          environment: 'preview'
-          flags: ''
+      environment: "preview"
+      flags: ""
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
@@ -32,20 +32,20 @@ jobs:
     needs: build-and-test
     uses: ./.github/workflows/vercel-deploy.yml
     with:
-          environment: 'preview'
-          flags: ''
+      environment: "preview"
+      flags: ""
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_bridge-ui_hekla_production:
-    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/bridge-ui-') }}
+    if: ${{ contains(github.ref, 'refs/tags/bridge-ui-') }}
     needs: build-and-test
     uses: ./.github/workflows/vercel-deploy.yml
     with:
-      environment: 'production'
-      flags: '--prod'
+      environment: "production"
+      flags: "--prod"
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
