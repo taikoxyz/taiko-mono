@@ -66,7 +66,10 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         external
         initializer
     {
-        if (_taikoToken == address(0) || _recipient == address(0) || _tgeTimestamp == 0) {
+        if (
+            _owner == _recipient || _owner == address(0) || _recipient == address(0)
+                || _taikoToken == address(0) || _tgeTimestamp == 0
+        ) {
             revert INVALID_PARAM();
         }
 
