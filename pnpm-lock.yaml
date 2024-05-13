@@ -589,6 +589,9 @@ importers:
       convert-csv-to-json:
         specifier: ^2.44.0
         version: 2.46.0
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.4.5
       eslint:
         specifier: ^8.56.0
         version: 8.57.0
