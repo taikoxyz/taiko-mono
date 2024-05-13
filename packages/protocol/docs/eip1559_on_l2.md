@@ -6,9 +6,9 @@ The EIP-1559 base fee per gas (base fee) on Taiko L2 is calculated by Taiko L1 p
 
 ## Basefee Calculation
 
-We use Vitalik's idea proposed here: https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082 (read it first!). The x-axis represents the current gas _excess_, the y-axis is the ether amount. When some gas is sold, excess goes up, and the difference of the new and the old y value is the total cost of the gas purchase, or $$cost(gasAmount) = e^{(gasExcess + gasAmount)} -e^{gasExcess}$$, and $$basefee(gasAmount) = cost(gasAmount)/gasAmount$$.
+We use Vitalik's idea proposed here: https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082 (read it first!). The x-axis represents the current gas _excess_, the y-axis is the ether amount. When some gas is sold, excess goes up, and the difference of the new and the old y value is the total cost of the gas purchase, or $$cost(gasAmount) = e^{(gasExcess + gasAmount)} -e^{gasExcess}$$ <p style="text-align:center"> and </p> $$basefee(gasAmount) = {cost(gasAmount)\over gasAmount}$$
 
-A nice property of the $e^x$ curve is that for a chosen gas target $T$, the base fee ($basefee(T)$) for a block with $T$ gas and the base fee ($basefee(2T)$) for a block with $2T$ gas always have the fixed ratio: $$R == basefee(2T)/basefee(T)$$ regardless of the current _gas excess_ value, $T$ and $R$ together determine the shape of the curve. In Ethereum, $T$ is 15 million and $R$ is 12.5%; it's yet to be decided what value we should use in Taiko.
+A nice property of the $e^x$ curve is that for a chosen gas target $T$, the base fee ($basefee(T)$) for a block with $T$ gas and the base fee ($basefee(2T)$) for a block with $2T$ gas always have the fixed ratio: $$R == {basefee(2T)\over basefee(T)}$$ regardless of the current _gas excess_ value, $T$ and $R$ together determine the shape of the curve. In Ethereum, $T$ is 15 million and $R$ is 12.5%; it's yet to be decided what value we should use in Taiko.
 
 ![4f785d35722c2f255a448c7803d511a0bb2b148c](https://user-images.githubusercontent.com/99078276/229010491-a3fcddd5-1798-47af-bafc-5d680fbb574c.png)
 
@@ -26,7 +26,7 @@ The $e^x$ curve can be expressed using $$py=e^{qx}$$, as you can see below: the 
 
 The following is how we calculate $p$ and $q$. Assuming the max gas excess $M$, a uint64. then $q = 135305999368893231588/M$ (internally we keep $q'=q <<64$ as it fits into a uint64).
 
-We also assuming the initial value of gasExcess is $M/2$; and the initial basefee (the fee for purchasing 1 gas) is $b_0$, or $$b_0=p e^{(M/2 + 1)} + p e^{M/2}$$, so $$p = b_0/(e^{(M/2 + 1)} + e^{M/2})$$.
+We also assuming the initial value of gasExcess is $M/2$; and the initial basefee (the fee for purchasing 1 gas) is $b_0$, or $$b_0=p e^{(M/2 + 1)} + p e^{M/2}$$ <p style="text-align: center">and so</p> $$p = {b_0 \over e^{(M/2 + 1)} + e^{M/2}}$$
 
 It turns out the initial value of gasExcess doesn't really matter for the above calculation due to the nature of the e-curve. But choosing $M/2$ allows price to go up and down by the same max amount.
 
