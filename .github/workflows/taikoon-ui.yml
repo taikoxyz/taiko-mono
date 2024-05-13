@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/vercel-deploy.yml
     with:
       environment: "preview"
-      flags: ""
+      flags: "--env-file .env.example"
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
