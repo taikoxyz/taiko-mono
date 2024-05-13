@@ -17,14 +17,6 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Copy .env.example to .env
-        working-directory: ./packages/guardian-prover-health-check-ui
-        run: cp .env.example .env
-
-      - name: Export config to .env
-        working-directory: ./packages/guardian-prover-health-check-ui
-        run: pnpm export:config
-
       - name: Build
         env:
           SKIP_ENV_VALIDATION: "true"
