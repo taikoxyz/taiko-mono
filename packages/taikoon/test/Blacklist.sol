@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import { IMinimalBlacklist } from "../contracts/IMinimalBlacklist.sol";
-// Blaclist contract mock
+// Blacklist contract mock
 
 contract MockBlacklist is IMinimalBlacklist {
     address[] public blacklist;
