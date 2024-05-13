@@ -30,6 +30,7 @@ jobs:
             main
             deps
             deps-dev
+            docs-site
             blobstorage
             branding
             bridge-ui
