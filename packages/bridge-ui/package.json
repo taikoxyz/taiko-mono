@@ -1,6 +1,6 @@
 {
   "name": "bridge-ui",
-  "version": "4.2.0",
+  "version": "2.9.3",
   "private": true,
   "scripts": {
     "dev": "vite dev",
