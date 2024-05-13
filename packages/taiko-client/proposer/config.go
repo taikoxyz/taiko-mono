@@ -55,9 +55,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 	}
 
-	l1ProposerPrivKey, err := crypto.ToECDSA(
-		common.Hex2Bytes(c.String(flags.L1ProposerPrivKey.Name)),
-	)
+	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProposerPrivKey.Name)))
 	if err != nil {
 		return nil, fmt.Errorf("invalid L1 proposer private key: %w", err)
 	}
