@@ -46,7 +46,7 @@ contract VestTokenUnlocking is Script {
             require(tko.balanceOf(msg.sender) >= vestAmount, "insufficient TKO balance");
 
             tko.approve(proxy, vestAmount);
-            TokenUnlocking(proxy).vest(vestAmount);
+            TokenUnlocking(proxy).deposit(vestAmount);
 
             console2.log("Vested!\n");
         }
