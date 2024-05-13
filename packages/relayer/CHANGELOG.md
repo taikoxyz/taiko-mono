@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2024-05-13)
+
+
+### Features
+
+* **blobstorage:** add health check, change regular mux for echo, filter changes ([#16449](https://github.com/taikoxyz/taiko-mono/issues/16449)) ([ee1233d](https://github.com/taikoxyz/taiko-mono/commit/ee1233d523a24e682b9dced312d3ffafe76c1889))
+* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
+* **eventindexer:** fix down mig + regen bindings ([#16563](https://github.com/taikoxyz/taiko-mono/issues/16563)) ([da5a039](https://github.com/taikoxyz/taiko-mono/commit/da5a03900409ded0488058068092d6d2ec9a0b26))
+* **relayer:** add indexer for MAX() in MySQL ([#16077](https://github.com/taikoxyz/taiko-mono/issues/16077)) ([b079ead](https://github.com/taikoxyz/taiko-mono/commit/b079ead831435765feb13138a0d7c64ffdd3ef49))
+* **relayer:** add indexer in MySQL ([#16338](https://github.com/taikoxyz/taiko-mono/issues/16338)) ([95c9bcf](https://github.com/taikoxyz/taiko-mono/commit/95c9bcfa13ac1ed1e4e8968a09d78b8d66eaa280))
+* **relayer:** add one more prometheus target for rabbitmq queue ([#16539](https://github.com/taikoxyz/taiko-mono/issues/16539)) ([3e3f529](https://github.com/taikoxyz/taiko-mono/commit/3e3f529163e9e1a1e344c9dd1a7e60c53abc8d73))
+* **relayer:** add Prometheus and Grafana to docker-compose ([#16500](https://github.com/taikoxyz/taiko-mono/issues/16500)) ([830b83e](https://github.com/taikoxyz/taiko-mono/commit/830b83e75b5789c9eca28324c5b6131bb1686e79))
+* **relayer:** add quota manager, update relayer, requeue failed messages ([#17001](https://github.com/taikoxyz/taiko-mono/issues/17001)) ([90944a2](https://github.com/taikoxyz/taiko-mono/commit/90944a2449e50ca94cecb6cfc04f87d13a940461))
+* **relayer:** add the bridge software to send bridge txs  ([#16498](https://github.com/taikoxyz/taiko-mono/issues/16498)) ([09d79ac](https://github.com/taikoxyz/taiko-mono/commit/09d79acc9b9c0acaf50c0f941b4a0f6fe7fb6b91))
+* **relayer:** bridge improvement ([#16752](https://github.com/taikoxyz/taiko-mono/issues/16752)) ([ac93ace](https://github.com/taikoxyz/taiko-mono/commit/ac93acea1ef28e059a5d18630ca8a8b713f4a01a))
+* **relayer:** document indexer with comments, fix broken crawler logic, add new metrics ([#16330](https://github.com/taikoxyz/taiko-mono/issues/16330)) ([4d8d9d7](https://github.com/taikoxyz/taiko-mono/commit/4d8d9d717c839ad856b4d85ba75d2a11611c3051))
+* **relayer:** enable rabbitmq metrics in prometheus in docker-compose ([#16525](https://github.com/taikoxyz/taiko-mono/issues/16525)) ([89d8ece](https://github.com/taikoxyz/taiko-mono/commit/89d8ece91cc7c7725ce116d2e2aaad14b87f9704))
+* **relayer:** handle replacement tx underpriced ([#16493](https://github.com/taikoxyz/taiko-mono/issues/16493)) ([34e7207](https://github.com/taikoxyz/taiko-mono/commit/34e72071e33546a43f2beb103c6e5e3cd66682cb))
+* **relayer:** more logs for hekla ([#16841](https://github.com/taikoxyz/taiko-mono/issues/16841)) ([71f8275](https://github.com/taikoxyz/taiko-mono/commit/71f8275ab0672bbbf4b990c93ccdadc397fdef76))
+* **relayer:** only publish messages with new status ([#16351](https://github.com/taikoxyz/taiko-mono/issues/16351)) ([88c39d8](https://github.com/taikoxyz/taiko-mono/commit/88c39d8f53c2549ba75e6cbfdb628c44851ba704))
+* **relayer:** pause the bridge when a message has been detected as not sent ([#16542](https://github.com/taikoxyz/taiko-mono/issues/16542)) ([ebb9da3](https://github.com/taikoxyz/taiko-mono/commit/ebb9da37ac16bc328406bfb9f9fbdf2edd29d973))
+* **relayer:** regen bindings, make changes for stateVars, add isMessageReceived ([#16664](https://github.com/taikoxyz/taiko-mono/issues/16664)) ([66a35e2](https://github.com/taikoxyz/taiko-mono/commit/66a35e29aa3c688ac57ddd40a24b59aef45beff6))
+* **relayer:** relayer small fixes + logs ([#16692](https://github.com/taikoxyz/taiko-mono/issues/16692)) ([cc53a17](https://github.com/taikoxyz/taiko-mono/commit/cc53a174d7ae630b64fd96614f105263e2ebd44d))
+* **relayer:** remove subscriptions, make reorg detecting easier, filter on event loop ([#16417](https://github.com/taikoxyz/taiko-mono/issues/16417)) ([e985d59](https://github.com/taikoxyz/taiko-mono/commit/e985d593c2b2b59490150c2d5a76e3ccb5fc0fe2))
+* **relayer:** rmq: add dead letter exchange, add retry capability ([#16345](https://github.com/taikoxyz/taiko-mono/issues/16345)) ([3a4bbd6](https://github.com/taikoxyz/taiko-mono/commit/3a4bbd68e84386d53d743023a9ccb7266c69d80d))
+* **relayer:** two-step bridge + watchdog + full merkle proof ([#15669](https://github.com/taikoxyz/taiko-mono/issues/15669)) ([1039a96](https://github.com/taikoxyz/taiko-mono/commit/1039a960f8c0a0896821f067cca1137f108d847d))
+* **relayer:** unprofitable queue + use txmgr ([#16505](https://github.com/taikoxyz/taiko-mono/issues/16505)) ([a2aa89b](https://github.com/taikoxyz/taiko-mono/commit/a2aa89b752e57846d9fefbabbe1f4a83d96db1b1))
+* **relayer:** useful relayer logs ([#16503](https://github.com/taikoxyz/taiko-mono/issues/16503)) ([8a26758](https://github.com/taikoxyz/taiko-mono/commit/8a26758ffef1e85b84c73cc6193aa8fe64899127))
+
+
+### Bug Fixes
+
+* **blobstorage, eventindexer, relayer:** remove username and password ([#16700](https://github.com/taikoxyz/taiko-mono/issues/16700)) ([35adb3d](https://github.com/taikoxyz/taiko-mono/commit/35adb3d7f5a79200573c1f6822586ea221a29dfa))
+* **eventindexer:** add disperser log, remove unused stats from previous testnets ([#16938](https://github.com/taikoxyz/taiko-mono/issues/16938)) ([aec6bca](https://github.com/taikoxyz/taiko-mono/commit/aec6bca19a1d61a98b3c0c554997ae5af2fd749b))
+* **relayer:** add revert check back in, add gas limit to response ([#16734](https://github.com/taikoxyz/taiko-mono/issues/16734)) ([324d626](https://github.com/taikoxyz/taiko-mono/commit/324d6267a970ed29159607fd333a9d6db4f49029))
+* **relayer:** basefee changes ([#16709](https://github.com/taikoxyz/taiko-mono/issues/16709)) ([2b4eb92](https://github.com/taikoxyz/taiko-mono/commit/2b4eb92ed9c4f0fc82d760bd65a8f8210d1fcf75))
+* **relayer:** change gaslimit, add in block scannign as heartbeat ([#16713](https://github.com/taikoxyz/taiko-mono/issues/16713)) ([462b885](https://github.com/taikoxyz/taiko-mono/commit/462b88579dd34c3233a24bcf8e75aeaec39b7464))
+* **relayer:** cost estimation ([#16707](https://github.com/taikoxyz/taiko-mono/issues/16707)) ([6baf7fd](https://github.com/taikoxyz/taiko-mono/commit/6baf7fd946ac013e68086c4a0eb6c9fd9464f0f8))
+* **relayer:** fix a panic in relayer-api ([#16720](https://github.com/taikoxyz/taiko-mono/issues/16720)) ([e992ec9](https://github.com/taikoxyz/taiko-mono/commit/e992ec902583c9f726bf915c6fd7b00289977460))
+* **relayer:** fix bigint conversion in decode message data ([#16476](https://github.com/taikoxyz/taiko-mono/issues/16476)) ([972db87](https://github.com/taikoxyz/taiko-mono/commit/972db873723a0615cafbbbb54e08ee0e6dfe8758))
+* **relayer:** fix crawler ([#16617](https://github.com/taikoxyz/taiko-mono/issues/16617)) ([4cda96c](https://github.com/taikoxyz/taiko-mono/commit/4cda96c802853606ccf8a0c70fd05c02a7730294))
+* **relayer:** fix decodeMessageSentData ([#16391](https://github.com/taikoxyz/taiko-mono/issues/16391)) ([d9dc4b6](https://github.com/taikoxyz/taiko-mono/commit/d9dc4b6732cd49a91c3299831f9e34ed177dbf35))
+* **relayer:** func WaitConfirmations should not wait forever for ethereum.NotFound ([#16547](https://github.com/taikoxyz/taiko-mono/issues/16547)) ([5578687](https://github.com/taikoxyz/taiko-mono/commit/5578687ba139659c0f80f6785db1614e68a4b789))
+* **relayer:** handle retry count manually since it's lost in translation from moving between exchanges ([#16922](https://github.com/taikoxyz/taiko-mono/issues/16922)) ([13cec87](https://github.com/taikoxyz/taiko-mono/commit/13cec87c716d93c5e9d1abfbc65eefeadfbaefdb))
+* **relayer:** handling message received events should compare message dest chain with indexer source chain ([#16537](https://github.com/taikoxyz/taiko-mono/issues/16537)) ([5c84e16](https://github.com/taikoxyz/taiko-mono/commit/5c84e1637cf61c36b37e77d0f95bc93fc56088f4))
+* **relayer:** reconnect after notify close ([#16329](https://github.com/taikoxyz/taiko-mono/issues/16329)) ([8987156](https://github.com/taikoxyz/taiko-mono/commit/8987156919e973d8f8915c850cacd96b8241e1e0))
+* **relayer:** remove unnecessary FindLatestBlockID ([#16480](https://github.com/taikoxyz/taiko-mono/issues/16480)) ([72d74b1](https://github.com/taikoxyz/taiko-mono/commit/72d74b12c0cfd78f251256f58be96ac333003a25))
+* **relayer:** revert func `WaitConfirmations` should not wait forever for ethereum.NotFound ([#16554](https://github.com/taikoxyz/taiko-mono/issues/16554)) ([6ad16f5](https://github.com/taikoxyz/taiko-mono/commit/6ad16f5a65107d9edc8de376c49095003452e018))
+
+
+### Performance Improvements
+
+* **main:** use errors.New to replace fmt.Errorf with no parameters ([#16777](https://github.com/taikoxyz/taiko-mono/issues/16777)) ([bb0c1ae](https://github.com/taikoxyz/taiko-mono/commit/bb0c1ae3077eeb8558f9bf9b01c5f5a71ec337ba))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
