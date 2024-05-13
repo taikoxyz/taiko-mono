@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.4.0...fork-diff-v0.5.0) (2024-05-13)
+
+
+### Features
+
+* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
+
+
+### Performance Improvements
+
+* **main:** use errors.New to replace fmt.Errorf with no parameters ([#16777](https://github.com/taikoxyz/taiko-mono/issues/16777)) ([bb0c1ae](https://github.com/taikoxyz/taiko-mono/commit/bb0c1ae3077eeb8558f9bf9b01c5f5a71ec337ba))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.3.0...fork-diff-v0.4.0) (2023-09-25)
 
 
