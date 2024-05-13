@@ -14,13 +14,11 @@ contract DeployTokenUnlocking is Script {
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
     address public TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
     uint64 public TGE = 1_716_767_999; // Date and time (GMT): Sunday, May 26, 2024 11:59:59 PM
-    address public IMPL = vm.envAddress("TOKEN_VESTING_IMPL");
+    address public IMPL = 0x244108e321FE03b0E33FE63Ef62285F05d191a62;
 
     function setUp() public { }
 
     function run() external {
-        address impl = IMPL == address(0) ? address(new TokenUnlocking()) : IMPL;
-
         string memory path = "/script/tokenUnlocking/Deploy.data.json";
         address[] memory recipients = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (address[])
@@ -31,7 +29,7 @@ contract DeployTokenUnlocking is Script {
 
             vm.startBroadcast();
             deployProxy({
-                impl: impl,
+                impl: IMPL,
                 data: abi.encodeCall(TokenUnlocking.init, (OWNER, TAIKO_TOKEN, recipients[i], TGE))
             });
             vm.stopBroadcast();
