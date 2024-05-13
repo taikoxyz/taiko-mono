@@ -17,6 +17,7 @@
 
   import Claim from '../Claim.svelte';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
   import RetryOptionStep from './RetrySteps/RetryOptionStep.svelte';
@@ -34,13 +35,15 @@
 
   const dialogId = `dialog-${uid()}`;
 
-  export let activeStep: RetrySteps = RetrySteps.SELECT;
+  export let activeStep: RetrySteps = INITIAL_STEP;
 
   let canContinue = false;
   let retrying: boolean;
   let retryDone = false;
   let ClaimComponent: Claim;
   let isDesktopOrLarger = false;
+
+  let hideContinueButton = false;
 
   let txHash: Hash;
 
@@ -117,6 +120,10 @@
     <div class="w-full h-full f-col">
       <DialogStepper>
         <DialogStep
+          stepIndex={RetrySteps.CHECK}
+          currentStepIndex={activeStep}
+          isActive={activeStep === RetrySteps.CHECK}>{$t('transactions.claim.steps.pre_check.title')}</DialogStep>
+        <DialogStep
           stepIndex={RetrySteps.SELECT}
           currentStepIndex={activeStep}
           isActive={activeStep === RetrySteps.SELECT}>{$t('transactions.retry.steps.select.title')}</DialogStep>
@@ -130,7 +137,9 @@
           isActive={activeStep === RetrySteps.CONFIRM}>{$t('common.confirm')}</DialogStep>
       </DialogStepper>
 
-      {#if activeStep === RetrySteps.SELECT}
+      {#if activeStep === RetrySteps.CHECK}
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
+      {:else if activeStep === RetrySteps.SELECT}
         <RetryOptionStep bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}
         <ReviewStep bind:tx={bridgeTx} />
