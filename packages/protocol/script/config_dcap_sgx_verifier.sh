@@ -95,7 +95,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --toggle-mr-check)
-            echo "toogle mr check"
+            echo "toggle mr check"
             toggle_check=1
             shift
             shift
