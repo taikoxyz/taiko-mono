@@ -1,12 +1,5 @@
 # Changelog
 
-## [2.10.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.10.0...bridge-ui-v2.10.1) (2024-05-13)
-
-
-### Bug Fixes
-
-* **bridge-ui:** fix changelog and deployment ([#17141](https://github.com/taikoxyz/taiko-mono/issues/17141)) ([809707d](https://github.com/taikoxyz/taiko-mono/commit/809707d7cebdfc0af253ab54ea2c1503ae02ab0e))
-
 ## [2.10.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v2.10.0) (2024-05-13)
 
 
