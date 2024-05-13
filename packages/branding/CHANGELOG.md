@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.3.0...branding-v0.4.0) (2024-05-13)
+
+
+### Features
+
+* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
+
 ## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.2.0...branding-v0.3.0) (2023-08-15)
 
 
