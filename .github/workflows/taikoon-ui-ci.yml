@@ -27,13 +27,11 @@ jobs:
 
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
-        run: |
-          pnpm build
+        run: pnpm build
 
       - name: Svelte check
         working-directory: ./packages/taikoon-ui
-        run: |
-          pnpm check
+        run: pnpm check
 
       - name: Check formatting
         working-directory: ./packages/taikoon-ui
