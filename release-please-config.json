@@ -1,5 +1,4 @@
 {
-  "draft": true,
   "packages": {
     "packages/blobstorage": {},
     "packages/branding": {},
@@ -11,6 +10,7 @@
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/taikoon": {},
+    "packages/taiko-client": {},
     "packages/supplementary-contracts": {}
   },
   "separate-pull-requests": true
