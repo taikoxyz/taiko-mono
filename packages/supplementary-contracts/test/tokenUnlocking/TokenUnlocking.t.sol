@@ -60,10 +60,10 @@ contract TestTokenUnlocking is Test {
     function test_single_vest_withdrawal() public {
         vm.prank(Cindy);
         vm.expectRevert(); //"revert: Ownable: caller is not the owner"
-        target.vest(10 ether);
+        target.deposit(10 ether);
 
         vm.prank(Alice);
-        target.vest(100 ether);
+        target.deposit(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
@@ -101,13 +101,13 @@ contract TestTokenUnlocking is Test {
 
     function test_multiple_vest_withdrawal() public {
         vm.prank(Alice);
-        target.vest(100 ether);
+        target.deposit(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.prank(Alice);
-        target.vest(200 ether);
+        target.deposit(200 ether);
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
@@ -118,7 +118,7 @@ contract TestTokenUnlocking is Test {
         assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.prank(Alice);
-        target.vest(300 ether);
+        target.deposit(300 ether);
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 150 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
@@ -129,7 +129,7 @@ contract TestTokenUnlocking is Test {
         assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.prank(Alice);
-        target.vest(400 ether);
+        target.deposit(400 ether);
         assertEq(target.amountVested(), 1000 ether);
         assertEq(target.amountWithdrawable(), 500 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
@@ -146,7 +146,7 @@ contract TestTokenUnlocking is Test {
         target.withdraw(Bob);
 
         vm.prank(Alice);
-        target.vest(100 ether);
+        target.deposit(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
@@ -157,7 +157,7 @@ contract TestTokenUnlocking is Test {
         target.withdraw(Bob);
 
         vm.prank(Alice);
-        target.vest(200 ether);
+        target.deposit(200 ether);
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
@@ -179,7 +179,7 @@ contract TestTokenUnlocking is Test {
         assertEq(tko.balanceOf(address(target)), 225 ether);
 
         vm.prank(Alice);
-        target.vest(300 ether);
+        target.deposit(300 ether);
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 75 ether);
         assertEq(target.amountWithdrawn(), 75 ether);
@@ -201,7 +201,7 @@ contract TestTokenUnlocking is Test {
         assertEq(tko.balanceOf(address(target)), 300 ether);
 
         vm.prank(Alice);
-        target.vest(400 ether);
+        target.deposit(400 ether);
         assertEq(target.amountVested(), 1000 ether);
         assertEq(target.amountWithdrawable(), 200 ether);
         assertEq(target.amountWithdrawn(), 300 ether);
@@ -225,7 +225,7 @@ contract TestTokenUnlocking is Test {
 
     function test_delegate() public {
         vm.prank(Alice);
-        target.vest(100 ether);
+        target.deposit(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
         assertEq(target.amountWithdrawn(), 0 ether);
