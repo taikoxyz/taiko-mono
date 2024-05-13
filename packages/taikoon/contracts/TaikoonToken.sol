@@ -7,6 +7,7 @@ import { ERC721EnumerableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 
 import { MerkleWhitelist } from "./MerkleWhitelist.sol";
+import { IMinimalBlacklist } from "./Blacklist/IMinimalBlacklist.sol";
 
 /// @title TaikoonToken
 /// @dev The Taikoons ERC-721 token
