@@ -219,6 +219,12 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
 
+### token_unlocking
+
+- impl: `0x244108e321FE03b0E33FE63Ef62285F05d191a62`
+- logs:
+  - deployed on May 13, 2024 at commit `165e28279`
+
 ## L2 Contracts
 
 ### Shared
