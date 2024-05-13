@@ -12,43 +12,29 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: [taiko-runner]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Build and Checks
-        uses: ./.github/workflows/taikoon-ui-ci.yml
+    uses: ./.github/workflows/taikoon-ui-ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(taikoon-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   deploy_taikoon-ui_mainnet_preview:
     if: ${{ github.ref_name != 'main' }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
           environment: 'preview'
           flags: ''
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
-
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_taikoon-ui_mainnet_production:
     if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/taikoon-ui-') }}
-    runs-on: [taiko-runner]
     needs: build-and-test
-    env:
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy
-        uses: ./.github/workflows/vercel-deploy.yml
-        with:
-          environment: 'production'
-          flags: '--prod'
-          vercel_project_id: ${{ env.VERCEL_PROJECT_ID }}
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
+      environment: 'production'
+      flags: '--prod'
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}

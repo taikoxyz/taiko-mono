@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
@@ -26,6 +27,7 @@ import (
 )
 
 var (
+	zeroAddress      = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	errUnprocessable = errors.New("message is unprocessable")
 )
 
@@ -91,6 +93,47 @@ func (p *Processor) processMessage(
 		uint64(msgBody.Event.Message.GasLimit),
 	) {
 		return false, msgBody.TimesRetried, nil
+	}
+
+	// destQuotaManager is optional, it will not be set for L1-L2 bridging
+	// but will be set for L2-L1 bridging.
+	if p.destQuotaManager != nil {
+		eventType, canonicalToken, amount, err := relayer.DecodeMessageData(
+			msgBody.Event.Message.Data,
+			msgBody.Event.Message.Value,
+		)
+		if err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+
+		// dont check quota for NFTs
+		if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
+			// default to ETH (zero address) and msg value, overwrite if ERC20
+			var tokenAddress common.Address = zeroAddress
+
+			var value *big.Int = msgBody.Event.Message.Value
+
+			if eventType == relayer.EventTypeSendERC20 {
+				tokenAddress = canonicalToken.Address()
+				value = amount
+			}
+
+			hasQuota, waitUntil, err := p.hasQuotaAvailable(ctx, tokenAddress, value)
+			if err != nil {
+				return false, msgBody.TimesRetried, err
+			}
+
+			if !hasQuota {
+				// wait until quota available
+				slog.Info("quota not available for token", "waitUntil", waitUntil)
+
+				select {
+				case <-ctx.Done():
+					return false, msgBody.TimesRetried, ctx.Err()
+				case <-time.After(time.Duration(int64(waitUntil)) * time.Second):
+				}
+			}
+		}
 	}
 
 	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
