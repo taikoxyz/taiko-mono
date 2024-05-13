@@ -31,8 +31,7 @@
   let openStatusDialog = false;
 
   let tooltipOpen = false;
-  const openToolTip = (event: Event) => {
-    event.stopPropagation();
+  const openToolTip = () => {
     tooltipOpen = !tooltipOpen;
   };
   let dialogId = `dialog-${uid()}`;
@@ -122,7 +121,7 @@
           <li class="f-between-center">
             <h4 class="text-secondary-content">
               <div class="f-items-center space-x-1">
-                <button on:click={openToolTip}>
+                <button on:click|stopPropagation={openToolTip}>
                   <span>{$t('transactions.header.status')}</span>
                 </button>
                 <button on:click={handleStatusDialog} class="flex justify-start content-center">
