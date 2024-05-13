@@ -1,0 +1,22 @@
+{
+  "name": "docs-site",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.6.0",
+    "@astrojs/starlight": "^0.22.2",
+    "astro": "^4.7.1",
+    "astro-og-canvas": "^0.4.2",
+    "canvaskit-wasm": "^0.39.1",
+    "sharp": "^0.33.3",
+    "starlight-links-validator": "^0.6.0",
+    "typescript": "^5.4.3"
+  }
+}
