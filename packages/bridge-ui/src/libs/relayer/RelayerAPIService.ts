@@ -189,6 +189,7 @@ export class RelayerAPIService {
         msgHash: tx.msgHash,
         tokenType: _eventToTokenType(tx.eventType),
         blockNumber: tx.data.Raw.blockNumber,
+        canonicalTokenAddress: tx.canonicalTokenAddress,
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,

@@ -1,0 +1,49 @@
+name: Bridge UI Build and Checks
+
+on: workflow_call
+
+jobs:
+  build:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      # This step is needed because the .env file is not committed to the repository
+      # and the Svelte check complains about not finding the exports from $env/static/public,
+      # which will be generated based on the .env file when running `svelte-kit sync`
+      - name: Copy .env.example to .env
+        working-directory: ./packages/bridge-ui
+        run: cp .env.example .env
+
+      - name: Export config to .env
+        working-directory: ./packages/bridge-ui
+        run: pnpm export:config
+
+      - name: Build Svelte app
+        env:
+          SKIP_ENV_VALIDATION: "true"
+        working-directory: ./packages/bridge-ui
+        run: pnpm build
+
+      - name: Svelte check
+        working-directory: ./packages/bridge-ui
+        run: pnpm svelte:check
+
+      - name: Linting
+        working-directory: ./packages/bridge-ui
+        run: pnpm lint
+
+      - name: Unit tests
+        env:
+          SKIP_ENV_VALIDATION: "true"
+        working-directory: ./packages/bridge-ui
+        run: pnpm test:unit

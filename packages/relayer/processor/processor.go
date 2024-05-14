@@ -465,7 +465,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 						headers := make(map[string]interface{}, 0)
 
-						headers["retries"] = timesRetried + 1
+						headers["retries"] = int64(timesRetried + 1)
 
 						if err := p.queue.Publish(
 							ctx,
