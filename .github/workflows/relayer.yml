@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint-relayer:
-    name: lint
+    name: lint-relayer
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -30,7 +30,7 @@ jobs:
 
   test-relayer:
     runs-on: [taiko-runner]
-    needs: lint
+    needs: lint-relayer
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.12.1
