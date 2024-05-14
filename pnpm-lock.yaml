@@ -692,7 +692,7 @@ importers:
   packages/ui-lib:
     devDependencies:
       '@chromatic-com/storybook':
-        specifier: ^1.3.3
+        specifier: ^1.3.4
         version: 1.3.4(react@18.3.1)
       '@playwright/test':
         specifier: ^1.28.1
