@@ -988,8 +988,8 @@ github.com/prysmaticlabs/prombbolt v0.0.0-20210126082820-9b7adba6db7c h1:9PHRCuO
 github.com/prysmaticlabs/prombbolt v0.0.0-20210126082820-9b7adba6db7c/go.mod h1:ZRws458tYHS/Zs936OQ6oCrL+Ict5O4Xpwve1UQ6C9M=
 github.com/prysmaticlabs/protoc-gen-go-cast v0.0.0-20230228205207-28762a7b9294 h1:q9wE0ZZRdTUAAeyFP/w0SwBEnCqlVy2+on6X2/e+eAU=
 github.com/prysmaticlabs/protoc-gen-go-cast v0.0.0-20230228205207-28762a7b9294/go.mod h1:ZVEbRdnMkGhp/pu35zq4SXxtvUwWK0J1MATtekZpH2Y=
-github.com/prysmaticlabs/prysm/v4 v4.2.1 h1:eHdK4OuJBUCJCmHgI3c07y0u/vWrKCyOsRN2l/VXQxc=
-github.com/prysmaticlabs/prysm/v4 v4.2.1/go.mod h1:0Iz1Q/WiuClvdm/9vQbiKKeToeL/uD3QBjEwV9UExBQ=
+github.com/prysmaticlabs/prysm/v4 v4.2.0 h1:87QoRT3Azs7c1Y6SnIq0+CNtQRbAt0sVKGj2OxRT1Rw=
+github.com/prysmaticlabs/prysm/v4 v4.2.0/go.mod h1:PQrQtHJeeqTz4K3udN/EX1Gs2xhWR4j93gSj0OQZ1f4=
 github.com/quic-go/qpack v0.4.0 h1:Cr9BXA1sQS2SmDUWjSofMPNKmvF6IiIfDRmgU0w1ZCo=
 github.com/quic-go/qpack v0.4.0/go.mod h1:UZVnYIfi5GRk+zI9UMaCPsmZ2xKJP7XBUvVyT1Knj9A=
 github.com/quic-go/qtls-go1-20 v0.3.4 h1:MfFAPULvst4yoMgY9QmtpYmfij/em7O8UUi+bNVm7Cg=
