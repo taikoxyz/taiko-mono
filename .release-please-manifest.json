@@ -10,5 +10,6 @@
   "packages/protocol": "1.5.0",
   "packages/relayer": "0.12.0",
   "packages/taiko-client": "0.22.0",
-  "packages/taikoon": "1.0.0"
+  "packages/taikoon": "1.0.0",
+  "packages/supplementary-contracts": "1.0.0"
 }
