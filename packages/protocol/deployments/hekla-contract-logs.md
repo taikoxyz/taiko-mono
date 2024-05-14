@@ -106,9 +106,9 @@
 
 ### tierProvider
 
-- impl: `0x02932D1c8C9EBf283aA809E7591A070c82b1696D`
+- impl: `0x750D885DCAB712bA808D66D934CF315D0D98d04c.`
 - logs:
-  - upgraded on May 10, 2024 at commit `4903bec`
+  - upgraded on May 14, 2024 at commit `0ef7b8caa`
 
 ### guardian_prover_minority
 
