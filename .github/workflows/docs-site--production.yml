@@ -1,16 +1,16 @@
-name: Blobstorage Production
+name: Docs Site Production
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BLOBSTORAGE }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS_SITE }}
 
 on:
   push:
     tags:
-      - "blobstorage-*"
+      - "docs-site-*"
 
 jobs:
-  deploy-blobstorage-production:
+  deploy-docs-site-production:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository

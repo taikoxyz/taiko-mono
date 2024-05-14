@@ -1,8 +1,8 @@
-name: Blobstorage Preview
+name: Docs Site Preview
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BLOBSTORAGE }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS_SITE }}
 
 on:
   push:
@@ -10,10 +10,10 @@ on:
       - main
       - release-please-*
     paths:
-      - "packages/blobstorage/**"
+      - "packages/docs-site/**"
 
 jobs:
-  deploy-blobstorage-preview:
+  deploy-docs-site-preview:
     runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
