@@ -63,14 +63,14 @@ func (b *BlobTransactionBuilder) Build(
 	includeParentMetaHash bool,
 	txListBytes []byte,
 ) (*txmgr.TxCandidate, error) {
-	// Make a sidecar then calculate the blob hash.
-	sideCar, err := rpc.MakeSidecar(txListBytes)
-	if err != nil {
+	var blob = &eth.Blob{}
+	if err := blob.FromData(txListBytes); err != nil {
 		return nil, err
 	}
 
-	var blob = &eth.Blob{}
-	if err := blob.FromData(txListBytes); err != nil {
+	// Make a sidecar then calculate the blob hash.
+	sideCar, _, err := txmgr.MakeSidecar([]*eth.Blob{blob})
+	if err != nil {
 		return nil, err
 	}
 
