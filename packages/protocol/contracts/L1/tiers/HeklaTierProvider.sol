@@ -65,9 +65,7 @@ contract HeklaTierProvider is EssentialContract, ITierProvider {
 
     /// @inheritdoc ITierProvider
     function getMinTier(uint256 _rand) public pure override returns (uint16) {
-        // 50% will be selected to require SGX proofs.
-        if (_rand % 2 == 0) return LibTiers.TIER_SGX;
-        // Other blocks are optimistic, without validity proofs.
-        return LibTiers.TIER_OPTIMISTIC;
+        // All blocks require SGX proofs.
+        return LibTiers.TIER_SGX;
     }
 }
