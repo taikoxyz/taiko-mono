@@ -11,18 +11,18 @@ on:
         required: true
     secrets:
       vercel_project_id:
-        description: 'Vercel Project ID'
+        description: "Vercel Project ID"
         required: true
       vercel_org_id:
-        description: 'Vercel ORG ID'
+        description: "Vercel ORG ID"
         required: true
       vercel_token:
-        description: 'Vercel TOKEN'
+        description: "Vercel TOKEN"
         required: true
 
 env:
-    VERCEL_ORG_ID: ${{ secrets.vercel_org_id }}
-    VERCEL_PROJECT_ID: ${{ secrets.vercel_project_id }}
+  VERCEL_ORG_ID: ${{ secrets.vercel_org_id }}
+  VERCEL_PROJECT_ID: ${{ secrets.vercel_project_id }}
 
 jobs:
   build-deploy:

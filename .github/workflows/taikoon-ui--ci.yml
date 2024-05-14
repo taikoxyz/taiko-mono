@@ -1,7 +1,6 @@
 name: Taikoon UI Build and Checks
 
-on:
-  workflow_call
+on: workflow_call
 
 jobs:
   build:
