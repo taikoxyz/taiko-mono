@@ -8,10 +8,12 @@ on:
   pull_request:
     paths:
       - "packages/relayer/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
-  lint:
-    name: lint
+  lint-relayer:
+    name: lint-relayer
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -19,7 +21,7 @@ jobs:
           go-version: 1.21.0
       - uses: actions/checkout@v4
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: latest
@@ -28,9 +30,9 @@ jobs:
           working-directory: ./packages/relayer
           args: --config=.golangci.yml --timeout=4m
 
-  test:
+  test-relayer:
     runs-on: [taiko-runner]
-    needs: lint
+    needs: lint-relayer
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -52,9 +54,9 @@ jobs:
           files: ./packages/relayer/coverage.txt
           flags: relayer
 
-  push-docker-image:
+  push-relayer-docker-image:
     # only push docker image on PR merge to main
-    if: ${{ github.event }} == 'push'
+    if: ${{ github.event == 'push' && github.ref == 'refs/heads/main' }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

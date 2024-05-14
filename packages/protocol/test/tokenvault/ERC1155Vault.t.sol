@@ -824,7 +824,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         vm.prank(Alice, Alice);
-        vm.expectRevert("ERC1155: burn amount exceeds balance");
+        vm.expectRevert("ERC1155: caller is not token owner or approved");
         destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
@@ -897,5 +897,92 @@ contract ERC1155VaultTest is TaikoTest {
         catch {
             fail();
         }
+    }
+
+    function test_1155Vault_shall_not_be_able_to_burn_arbitrarily() public {
+        vm.prank(Alice, Alice);
+        ctoken1155.setApprovalForAll(address(erc1155Vault), true);
+
+        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
+        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
+            destChainId,
+            address(0),
+            Alice,
+            GAS_LIMIT,
+            address(ctoken1155),
+            GAS_LIMIT,
+            tokenIds,
+            amounts
+        );
+        vm.prank(Alice, Alice);
+        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+
+        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 1);
+
+        // This canonicalToken is basically need to be exact same as the
+        // sendToken() puts together
+        // - here is just mocking putting it together.
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
+            chainId: 31_337,
+            addr: address(ctoken1155),
+            symbol: "TT",
+            name: "TT"
+        });
+
+        uint64 chainId = uint64(block.chainid);
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
+            canonicalToken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(erc1155Vault),
+            chainId,
+            0
+        );
+
+        // Query canonicalToBridged
+        address deployedContract =
+            destChainErc1155Vault.canonicalToBridged(chainId, address(ctoken1155));
+        // Alice bridged over 1 from tokenId 1
+        assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
+
+        sendOpts = BaseNFTVault.BridgeTransferOp(
+            chainId,
+            address(0),
+            Alice,
+            GAS_LIMIT,
+            address(deployedContract),
+            GAS_LIMIT,
+            tokenIds,
+            amounts
+        );
+
+        // Alice hasn't approved the vault yet!
+        vm.prank(Alice, Alice);
+        vm.expectRevert("ERC1155: caller is not token owner or approved");
+        destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+
+        // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
+        vm.prank(address(destChainErc1155Vault), address(destChainErc1155Vault));
+        vm.expectRevert("ERC1155: burn amount exceeds balance");
+        BridgedERC1155(deployedContract).burn(1, 20);
+
+        // After setApprovalForAll() ERC1155Vault can transfer and burn
+        vm.prank(Alice, Alice);
+        ERC1155(deployedContract).setApprovalForAll(address(destChainErc1155Vault), true);
+        vm.prank(Alice, Alice);
+        destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 }

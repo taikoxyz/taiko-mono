@@ -12,6 +12,9 @@ import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
+import "../contracts/tokenvault/BridgedERC20.sol";
+import "../contracts/tokenvault/BridgedERC721.sol";
+import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
@@ -34,8 +37,8 @@ import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployOnL1 is DeployCapability {
-    uint256 public constant NUM_MIN_MAJORITY_GUARDIANS = 7;
-    uint256 public constant NUM_MIN_MINORITY_GUARDIANS = 2;
+    uint256 public NUM_MIN_MAJORITY_GUARDIANS = vm.envUint("NUM_MIN_MAJORITY_GUARDIANS");
+    uint256 public NUM_MIN_MINORITY_GUARDIANS = vm.envUint("NUM_MIN_MINORITY_GUARDIANS");
 
     address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
 

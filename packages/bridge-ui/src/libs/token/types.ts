@@ -23,6 +23,7 @@ export type Token = {
   imported?: boolean;
   mintable?: boolean;
   balance?: bigint;
+  wrapped?: boolean;
 };
 
 export type NFT = Token & {

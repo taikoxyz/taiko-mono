@@ -1,9 +1,9 @@
 {
-  "draft": true,
   "packages": {
     "packages/blobstorage": {},
     "packages/branding": {},
     "packages/bridge-ui": {},
+    "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},
@@ -11,6 +11,8 @@
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/taikoon": {},
+    "packages/taikoon-ui": {},
+    "packages/taiko-client": {},
     "packages/supplementary-contracts": {}
   },
   "separate-pull-requests": true
