@@ -3,6 +3,7 @@
     "packages/blobstorage": {},
     "packages/branding": {},
     "packages/bridge-ui": {},
+    "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},

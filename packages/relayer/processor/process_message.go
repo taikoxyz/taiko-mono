@@ -431,6 +431,27 @@ func (p *Processor) sendProcessMessageCall(
 		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
 	}
 
+	// we should check event status one more time, after we have waiting for
+	// confirmations, and after we have generated proof. its possible another relayer
+	// or the user themself has claimed this in the time it took
+	// for us to do this work, which would cause us to revert.
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.eventStatusFromMsgHash")
+	}
+
+	if !canProcessMessage(
+		ctx,
+		eventStatus,
+		event.Message.SrcOwner,
+		p.relayerAddr,
+		uint64(event.Message.GasLimit),
+	) {
+		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
+
+		return nil, errUnprocessable
+	}
+
 	candidate := txmgr.TxCandidate{
 		TxData:   data,
 		Blobs:    nil,

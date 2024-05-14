@@ -14,6 +14,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
@@ -94,6 +95,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 func (p *Prover) initProofSubmitters(
 	txmgr *txmgr.SimpleTxManager,
 	txBuilder *transaction.ProveBlockTxBuilder,
+	tiers []*rpc.TierProviderTierWithID,
 ) error {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
@@ -144,6 +146,9 @@ func (p *Prover) initProofSubmitters(
 			p.cfg.ProveBlockGasLimit,
 			txmgr,
 			txBuilder,
+			tiers,
+			p.IsGuardianProver(),
+			p.cfg.GuardianProofSubmissionDelay,
 		); err != nil {
 			return err
 		}
@@ -227,7 +232,6 @@ func (p *Prover) initEventHandlers() error {
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
 	if p.IsGuardianProver() {
-		opts.SubmissionDelay = p.cfg.GuardianProofSubmissionDelay
 		p.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
 			&handler.NewBlockProposedGuardianEventHandlerOps{
 				NewBlockProposedEventHandlerOps: opts,
@@ -241,7 +245,9 @@ func (p *Prover) initEventHandlers() error {
 	p.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
 		p.rpc,
 		p.proofContestCh,
+		p.proofSubmissionCh,
 		p.cfg.ContesterMode,
+		p.IsGuardianProver(),
 	)
 	// ------- TransitionContested -------
 	p.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
@@ -256,6 +262,7 @@ func (p *Prover) initEventHandlers() error {
 		p.proofSubmissionCh,
 		p.proofContestCh,
 		p.cfg.ContesterMode,
+		p.IsGuardianProver(),
 	)
 
 	// ------- BlockVerified -------
