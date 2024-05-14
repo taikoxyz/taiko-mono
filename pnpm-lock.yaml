@@ -467,6 +467,9 @@ importers:
       convert-csv-to-json:
         specifier: ^2.46.0
         version: 2.46.0
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.4.5
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
