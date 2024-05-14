@@ -9,7 +9,6 @@
 * **blobstorage:** allow get_blob api to return blob data ([#16629](https://github.com/taikoxyz/taiko-mono/issues/16629)) ([2581772](https://github.com/taikoxyz/taiko-mono/commit/2581772afb6875de2a6f4d54a93a2f11be5ab2fc))
 * **blobstorage:** isolating tables for no blob data duplication ([#16702](https://github.com/taikoxyz/taiko-mono/issues/16702)) ([55426ef](https://github.com/taikoxyz/taiko-mono/commit/55426ef700c3eabc693f32829525a42775909b2a))
 * **blobstorage:** set initial indexing block via genesis if no blobs exist ([#16477](https://github.com/taikoxyz/taiko-mono/issues/16477)) ([9427ab4](https://github.com/taikoxyz/taiko-mono/commit/9427ab43c599f9d26637bb0d051e11f3ccdee47c))
-* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
 * **eventindexer:** fix down mig + regen bindings ([#16563](https://github.com/taikoxyz/taiko-mono/issues/16563)) ([da5a039](https://github.com/taikoxyz/taiko-mono/commit/da5a03900409ded0488058068092d6d2ec9a0b26))
 * **relayer:** regen bindings, make changes for stateVars, add isMessageReceived ([#16664](https://github.com/taikoxyz/taiko-mono/issues/16664)) ([66a35e2](https://github.com/taikoxyz/taiko-mono/commit/66a35e29aa3c688ac57ddd40a24b59aef45beff6))
 
