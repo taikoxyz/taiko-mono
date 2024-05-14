@@ -6,8 +6,9 @@ import "../contracts/bridge/QuotaManager.sol";
 
 contract DeployL1QuotaManager is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    // MAINNET_SECURITY_COUNCIL: council.taiko.eth (0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd)
-    address public addressManager = vm.envAddress("L1_ROLLUP_ADDRESS_MANAGER");
+    // MAINNET_L1_SHARED_ADDRESS_MANAGER: 0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa
+    address public addressManager = vm.envAddress("L1_SHARED_ADDRESS_MANAGER");
+    // MAINNET_OWNER: admin.taiko.eth (0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
     address public owner = vm.envAddress("OWNER");
 
     modifier broadcast() {

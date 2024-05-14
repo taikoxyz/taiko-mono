@@ -5,35 +5,28 @@
   // CSS media queries. We can use it to show/hide elements or render
   // different components based on whether or not the size is desktop
   // or larger
-  const isDesktopMediaQuery = window.matchMedia('(min-width: 1024px)');
-  const isMobileMediaQuery = window.matchMedia('(max-width: 640px)');
-
-  let isDesktop: boolean;
-  let isMobile: boolean;
+  const isLgMediaQuery = window.matchMedia('(min-width: 1024px)');
+  const isMdMediaQuery = window.matchMedia('(min-width: 768px)');
 
   export let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  function isDesktopQueryHandler(event: MediaQueryListEvent) {
-    isDesktop = event.matches;
-    isDesktop ? (windowSize = 'lg') : (windowSize = 'md');
+  function isLgQueryHandler(event: MediaQueryListEvent) {
+    windowSize = event.matches ? 'lg' : 'md';
   }
 
-  function isMobileQueryHandler(event: MediaQueryListEvent) {
-    isMobile = event.matches;
-    isMobile ? (windowSize = 'sm') : (windowSize = 'md');
+  function isMdQueryHandler(event: MediaQueryListEvent) {
+    windowSize = event.matches ? 'md' : 'sm';
   }
 
   onMount(() => {
-    isDesktop = isDesktopMediaQuery.matches;
-    isMobile = isMobileMediaQuery.matches;
-    isDesktopMediaQuery.addEventListener('change', isDesktopQueryHandler);
-    isMobileMediaQuery.addEventListener('change', isMobileQueryHandler);
+    isLgMediaQuery.addEventListener('change', isLgQueryHandler);
+    isMdMediaQuery.addEventListener('change', isMdQueryHandler);
     //assign starting value
-    windowSize = window.innerWidth > 1024 ? 'lg' : window.innerWidth < 640 ? 'sm' : 'md';
+    windowSize = window.innerWidth > 1024 ? 'lg' : window.innerWidth < 768 ? 'sm' : 'md';
   });
 
   onDestroy(() => {
-    isDesktopMediaQuery.removeEventListener('change', isDesktopQueryHandler);
-    isMobileMediaQuery.removeEventListener('change', isMobileQueryHandler);
+    isLgMediaQuery.removeEventListener('change', isLgQueryHandler);
+    isMdMediaQuery.removeEventListener('change', isMdQueryHandler);
   });
 </script>

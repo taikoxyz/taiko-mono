@@ -118,7 +118,9 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 	handler := NewTransitionProvedEventHandler(
 		s.RPCClient,
 		make(chan *proofProducer.ContestRequestBody),
+		make(chan *proofProducer.ProofRequestBody),
 		true,
+		false,
 	)
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
 	err := handler.Handle(context.Background(), &bindings.TaikoL1ClientTransitionProved{

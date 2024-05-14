@@ -232,7 +232,6 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 }
 
 func (s *ProverTestSuite) TestContestWrongBlocks() {
-	s.T().Skip()
 	s.p.cfg.ContesterMode = false
 	s.Nil(s.p.initEventHandlers())
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
@@ -308,7 +307,10 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 		s.p.cfg.GuardianProverMinorityAddress,
 	)
 	s.p.proofSubmitters = nil
-	s.Nil(s.p.initProofSubmitters(s.p.txmgr, txBuilder))
+	// Protocol proof tiers
+	tiers, err := s.RPCClient.GetTiers(context.Background())
+	s.Nil(err)
+	s.Nil(s.p.initProofSubmitters(s.p.txmgr, txBuilder, tiers))
 
 	s.p.rpc.GuardianProverMajority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMajorityAddress, s.p.rpc.L1)
 	s.Nil(err)
