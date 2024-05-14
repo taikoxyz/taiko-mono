@@ -365,6 +365,19 @@
   },
   {
     "type": "function",
+    "name": "impl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "inNonReentrant",
     "inputs": [],
     "outputs": [
@@ -636,6 +649,19 @@
     "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resetGenesisHash",
+    "inputs": [
+      {
+        "name": "_genesisBlockHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -1941,6 +1967,16 @@
   {
     "type": "error",
     "name": "L1_RECEIVE_DISABLED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_TOO_LATE",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_TOO_LATE",
     "inputs": []
   },
   {

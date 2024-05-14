@@ -10,9 +10,11 @@
   import type { IconType } from '../../types';
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
+  type ISocialLink = 'youtube' | 'twitter' | 'discord' | 'mirror' | 'forum' | 'none';
+
   $: socialLinks = $json('content.sections.footer.socials') as {
-    label: string;
-    href: string;
+    name: ISocialLink;
+    url: string;
     icon: IconType;
   }[];
 
@@ -57,13 +59,14 @@
     'items-center',
     'justify-center',
     'bg-background-neutral',
-    'md:p-5',
+    'lg:p-5',
     'p-3',
     'gap-3',
     'rounded-xl',
     'text-content-primary',
     'font-medium',
-    'text-2xl',
+    'lg:text-2xl',
+    'md:text-base',
     'font-clash-grotesk',
     'border',
     'transition-all',
@@ -183,6 +186,8 @@
     'text-content-secondary',
     'font-normal',
   );
+
+  $: hoveredIcon = 'none' as ISocialLink;
 </script>
 
 <Section height={windowSize === 'sm' ? 'fit' : 'min'} background="footer" class={sectionClasses} width="xl">
@@ -191,12 +196,27 @@
       {$t('content.sections.footer.joinTaiko')}
     </div>
     <div class={socialLinksWrapperClasses}>
-      {#each socialLinks as link}
-        {@const Icon = Icons[link.icon]}
-        <a href={link.url} target="_blank" class={socialLinkClasses}>
-          <Icon size="28" class="text-content-secondary" />
+      {#each socialLinks as { name, icon, url }}
+        {@const Icon = Icons[icon]}
+        <a
+          href={url}
+          on:mouseenter={() => (hoveredIcon = name)}
+          on:mouseleave={() => (hoveredIcon = 'none')}
+          target="_blank"
+          class={socialLinkClasses}>
+          <Icon
+            size={windowSize === 'md' ? '16' : '24'}
+            class={classNames(
+              'transition-colors',
+              //'text-primary'
+              hoveredIcon === name && hoveredIcon === 'youtube' ? 'text-red-500' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'forum' ? 'text-primary' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'discord' ? 'text-[#7289da]' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'twitter' ? 'text-icon-primary' : 'text-content-tertiary',
+              hoveredIcon === name && hoveredIcon === 'mirror' ? 'text-icon-primary' : 'text-content-tertiary',
+            )} />
           {#if windowSize !== 'sm'}
-            {link.name}
+            {name}
           {/if}
         </a>
       {/each}

@@ -7,11 +7,12 @@
   import Token from '$lib/token';
   import { classNames } from '$lib/util/classNames';
   import { shortenAddress } from '$lib/util/shortenAddress';
+  import type { ITaikoonDetail } from '$stores/taikoonDetail';
   import { Modal, ModalBody, ModalTitle } from '$ui/Modal';
 
   $: shortenedAddress = '...';
 
-  const taikoonDetailState = getContext('taikoonDetail');
+  const taikoonDetailState = getContext<ITaikoonDetail>('taikoonDetail');
 
   async function updateShortenedAddress() {
     if ($taikoonDetailState.tokenId < 0) return;
