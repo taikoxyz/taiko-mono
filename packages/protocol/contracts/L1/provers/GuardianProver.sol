@@ -76,7 +76,7 @@ contract GuardianProver is IVerifier, Guardians {
         nonReentrant
         returns (bool approved_)
     {
-        if (_proof.tier != LibTiers.TIER_GUARDIAN) {
+        if (_proof.tier < LibTiers.TIER_GUARDIAN_MINORITY) {
             revert INVALID_PROOF();
         }
 
