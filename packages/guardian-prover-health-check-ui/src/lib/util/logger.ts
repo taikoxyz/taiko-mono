@@ -1,5 +1,5 @@
 import debug from 'debug';
 
 export function getLogger(namespace: string) {
-  return debug(`guardian:${namespace}`);
+	return debug(`guardian:${namespace}`);
 }
