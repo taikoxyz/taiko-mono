@@ -1,14 +1,16 @@
 import type { Preview } from '@storybook/svelte';
 
 const preview: Preview = {
-	parameters: {
+    parameters: {
 		controls: {
 			matchers: {
 				color: /(background|color)$/i,
 				date: /Date$/i
 			}
 		}
-	}
+	},
+
+    tags: ['autodocs']
 };
 
 export default preview;
