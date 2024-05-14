@@ -22,9 +22,6 @@
               "erc20VaultAddress": {
                 "type": "string"
               },
-              "etherVaultAddress": {
-                "type": "string"
-              },
               "erc721VaultAddress": {
                 "type": "string"
               },
@@ -35,6 +32,9 @@
                 "type": "string"
               },
               "signalServiceAddress": {
+                "type": "string"
+              },
+              "quotaManagerAddress": {
                 "type": "string"
               },
               "hops": {
