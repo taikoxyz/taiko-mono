@@ -7,7 +7,7 @@ export const collections = {
       extend: z.object({
         description: z
           .string()
-          .max(160, { message: "Must be 160 characters or less." }),
+          .max(160, { message: "Must be 160 characters or less." }).optional(),
       }),
     }),
   }),

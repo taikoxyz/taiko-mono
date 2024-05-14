@@ -11,13 +11,10 @@ export const { getStaticPaths, GET } = OGImageRoute({
   getImageOptions: (_path, page: (typeof pages)[number]) => {
     return {
       title: page.data.title,
-      description: page.data.description,
+      description: page.data.description ?? "",
       logo: {
         path: "./src/assets/taiko-og-logo.png",
       },
-      // bgImage: {
-      //   path: "./src/assets/taiko-og-bg.png",
-      // },
       bgGradient: [
         [15, 2, 15],
         [58, 12, 36],
