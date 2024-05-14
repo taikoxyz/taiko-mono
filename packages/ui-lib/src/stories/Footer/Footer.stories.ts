@@ -5,7 +5,8 @@ import { Footer } from '../../lib/components/Footer';
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories
 const meta = {
 	title: 'Footer',
-	component: Footer
+	component: Footer,
+  tags:[],
 	//tags: ['autodocs'],
 	/*
   argTypes: {

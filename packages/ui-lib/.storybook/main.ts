@@ -6,11 +6,13 @@ export const framework = {
     options: {}
 };
 
-export const docs = {autodocs: 'tag'};
-export const addons = ['@storybook/addon-links',
+export const docs = {autodocs: false};
+export const addons = [
+	'@storybook/addon-links',
 '@storybook/addon-essentials',
 '@chromatic-com/storybook',
-'@storybook/addon-interactions'];
+'@storybook/addon-interactions'
+];
 
 
 const config: StorybookConfig = {
@@ -21,6 +23,7 @@ const config: StorybookConfig = {
 		name: '@storybook/sveltekit',
 		options: {}
 	},
+	docs
 };
 
 
