@@ -79,8 +79,9 @@
 
 <script lang="ts">
   import { SvelteToast } from '@zerodevx/svelte-toast';
+  import type { SvelteToastOptions } from '@zerodevx/svelte-toast/stores';
 
-  const options: { duration: number } = {
+  const options: SvelteToastOptions = {
     duration: toastConfig.duration,
   };
 </script>

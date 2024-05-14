@@ -8,14 +8,8 @@
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
   export let ariaLabel = 'angle down solid';
-  export let title = {
-    id: `angle-down-solid-title-${Math.random().toString(36).substring(7)}`,
-    title: ariaLabel,
-  };
-  export let desc = {
-    id: `angle-down-solid-desc-${Math.random().toString(36).substring(7)}`,
-    desc: 'An angle down solid icon',
-  };
+  export let title = {};
+  export let desc = {};
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

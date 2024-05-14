@@ -8,14 +8,8 @@
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
   export let ariaLabel = 'circle user regular';
-  export let title = {
-    id: `circle-user-regular-title-${Math.random().toString(36).substring(7)}`,
-    title: ariaLabel,
-  };
-  export let desc = {
-    id: `circle-user-regular-desc-${Math.random().toString(36).substring(7)}`,
-    desc: 'A circle user regular icon',
-  };
+  export let title = {};
+  export let desc = {};
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

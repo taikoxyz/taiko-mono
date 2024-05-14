@@ -5,8 +5,6 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
     plugins: [sveltekit(), tsconfigPaths()],
     test: {
-      environment: 'jsdom',
-    globals: true,
         include: ['src/**/*.{test,spec}.{js,ts}'],
     },
         optimizeDeps: {

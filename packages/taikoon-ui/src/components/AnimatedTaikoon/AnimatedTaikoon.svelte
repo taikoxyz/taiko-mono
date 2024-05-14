@@ -1,15 +1,11 @@
-<script lang="ts">
+<script>
+  import { getContext } from 'svelte';
+  const ctx = getContext('iconCtx') ?? {};
   export let size = 'full';
-  export let role = 'img';
-  export let ariaLabel = 'animated taikoon';
-  export let title = {
-    id: `animated-taikoon-title-${Math.random().toString(36).substring(7)}`,
-    title: ariaLabel,
-  };
-  export let desc = {
-    id: `animated-taikoon-desc-${Math.random().toString(36).substring(7)}`,
-    desc: 'An animated taikoon',
-  };
+  export let role = ctx.role || 'img';
+  export let ariaLabel = 'angle up solid';
+  export let title = {};
+  export let desc = {};
   import { onDestroy, onMount } from 'svelte';
 
   import { Theme, theme } from '../../stores/theme';
@@ -36,7 +32,7 @@
 
   $: colorPairIndex = 0;
 
-  let animationIntervalId: any;
+  let animationIntervalId;
   onMount(() => {
     animationIntervalId = setInterval(() => {
       primaryColor = colorPairs[colorPairIndex].primary;

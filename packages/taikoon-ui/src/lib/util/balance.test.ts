@@ -3,7 +3,7 @@ import { renderBalance, renderEthBalance } from './balance';
 vi.mock('@wagmi/core');
 
 test('renderBalance lib', () => {
-  expect(renderBalance()).toBe('0.00');
+  expect(renderBalance(null)).toBe('0.00');
   expect(
     renderBalance({
       decimals: 18,

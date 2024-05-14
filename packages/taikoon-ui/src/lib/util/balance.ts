@@ -3,7 +3,7 @@ import { formatEther } from 'viem';
 
 import { truncateString } from '../../lib/util/truncateString';
 
-export function renderBalance(balance?: GetBalanceReturnType) {
+export function renderBalance(balance: Maybe<GetBalanceReturnType>) {
   if (!balance) return '0.00';
   // if (typeof balance === 'bigint') return balance.toString();
   const maxlength = Number(balance.formatted) < 0.000001 ? balance.decimals : 6;

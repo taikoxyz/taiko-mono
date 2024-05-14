@@ -6,5 +6,3 @@ export interface ITaikoonDetailStore {
 }
 
 export const taikoonDetail = writable<ITaikoonDetailStore>();
-
-export type ITaikoonDetail = typeof taikoonDetail;

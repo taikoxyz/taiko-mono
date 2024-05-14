@@ -10,20 +10,12 @@
     'text-primary',
     'mb-4',
     'uppercase',
-    'tracking-normal',
-    'text-[16px]/[24px]',
+    'text-base',
     'font-bold',
     'font-sans',
     'leading-relaxed',
   );
-  const contentClasses = classNames(
-    'md:font-normal',
-    'md:text-[57px]/[64px]',
-    'text-content-primary',
-    'font-medium',
-    'font-clash-grotesk',
-    'text-4xl',
-  );
+  const contentClasses = classNames('md:font-normal', 'font-medium', 'md:text-6xl', 'font-clash-grotesk', 'text-4xl');
 </script>
 
 <Section height="min">

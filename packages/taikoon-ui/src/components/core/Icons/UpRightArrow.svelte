@@ -7,15 +7,9 @@
   export let role = ctx.role || 'img';
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
-  export let ariaLabel = 'up right arrow';
-  export let title = {
-    id: `up-right-arrow-title-${Math.random().toString(36).substring(7)}`,
-    title: ariaLabel,
-  };
-  export let desc = {
-    id: `up-right-arrow-desc-${Math.random().toString(36).substring(7)}`,
-    desc: 'An up right arrow icon',
-  };
+  export let ariaLabel = 'minus sign';
+  export let title = {};
+  export let desc = {};
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

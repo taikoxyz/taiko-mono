@@ -8,9 +8,6 @@ export interface IMintStore {
   tokenIds: number[];
   address: IAddress;
   totalMintCount: number;
-  txHash: string;
 }
 
 export const mint = writable<IMintStore>();
-
-export type IMint = typeof mint;

@@ -8,14 +8,8 @@
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
   export let ariaLabel = 'plus sign';
-  export let title = {
-    id: `plus-sign-title-${Math.random().toString(36).substring(7)}`,
-    title: ariaLabel,
-  };
-  export let desc = {
-    id: `plus-sign-desc-${Math.random().toString(36).substring(7)}`,
-    desc: 'A plus sign icon',
-  };
+  export let title = {};
+  export let desc = {};
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

@@ -7,7 +7,7 @@ import { config } from '$wagmi-config';
 
 import { getChainImages } from '../../lib/chain';
 
-const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID || 'walletconnect-project-id';
+const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 const chainImages = getChainImages();
 
 export const chainId = readable(getChainId(config), (set) => watchChainId(config, { onChange: set }));
@@ -24,7 +24,7 @@ export const provider = readable<unknown | undefined>(undefined, (set) =>
 );
 
 export const web3modal = createWeb3Modal({
-  wagmiConfig: config || { projectId, chains: [], connectors: [] },
+  wagmiConfig: config,
   projectId,
   featuredWalletIds: [],
   allowUnsupportedChain: true,

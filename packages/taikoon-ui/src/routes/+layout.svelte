@@ -7,7 +7,7 @@
   import { zeroAddress } from 'viem';
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
-  import { MintConfirmationModal, PostMintModal, TaikoonDetailModal } from '$components/modals';
+  import { MintConfirmationModal, TaikoonDetailModal } from '$components/modals';
   import { mint } from '$stores/mint';
   import { taikoonDetail } from '$stores/taikoonDetail';
 
@@ -26,7 +26,6 @@
     tokenIds: [],
     address: zeroAddress,
     totalMintCount: 0,
-    txHash: '',
   });
 
   const taikoonDetailState = taikoonDetail;
@@ -37,16 +36,7 @@
 
   setContext('mint', mintState);
   setContext('taikoonDetail', taikoonDetailState);
-  const containerClasses = classNames(
-    'z-0',
-    'w-full',
-    'h-full',
-    'flex',
-    'flex-col',
-    'relative',
-    'items-center',
-    'justify-evenly',
-  );
+  const containerClasses = classNames('z-0', 'w-full', 'h-full', 'flex', 'flex-col', 'items-center', 'justify-evenly');
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -71,9 +61,7 @@
 
 <SwitchChainModal />
 
-<MintConfirmationModal />
-
-<PostMintModal />
+<MintConfirmationModal isMinting={false} tokenIds={[]} txHash={''} minterAddress={zeroAddress} totalMintCount={1} />
 
 {#if windowSize === 'sm'}
   <TaikoonDetailModal />
