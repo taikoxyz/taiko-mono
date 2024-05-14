@@ -3,7 +3,7 @@ pre-commit:
   parallel: true
   commands:
     guardian-ui:
-      glob: "packages/guardian-health-check-ui/**.{js,ts,css,svelte}"
+      glob: "packages/guardian-prover-health-check-ui/**.{js,ts,css,svelte}"
       run: pnpm -F bridge-ui svelte:check && pnpm -F bridge-ui lint:fix && git add {staged_files}
     protocol_sol:
       glob: "packages/protocol/**.{sol}"
