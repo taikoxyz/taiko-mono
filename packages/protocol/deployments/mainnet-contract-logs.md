@@ -28,6 +28,8 @@
   - bridged_erc1155: `0x3c90963cfba436400b0f9c46aa9224cb379c2c40`
   - bridged_erc721: `0xc3310905e2bc9cfb198695b75ef3e5b69c6a1bf7`
   - bridged_erc20: `0x79bc0aada00fcf6e7ab514bfeb093b5fae3653e3`
+  - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
+  - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -70,12 +72,16 @@
 
 - proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - impl: `0x49c5e5F131314Bb24b17E249960F8B12F925ef22`
-- owner: `0x56706F118e42AE069F20c5636141B844D1324AE1`
-- pendingOwner: `admin.taiko.eth`
-- todo:
-  - admin.taiko.eth to accept the owner
+- owner: `admin.taiko.eth`
+- quota:
+  - ETH: `64516129032258064516` (`200_000 * 1 ether / 3100`)
+  - WETH(`0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2`): `64516129032258064516` (`200_000 * 1 ether / 3100`)
+  - TKO(`0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`): `40000000000000000000000` (`200_000 * 1e18 / 5`)
+  - USDT(`0xdAC17F958D2ee523a2206206994597C13D831ec7`): `200000000000` (`200_000 * 1e6`)
+  - USDC(`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`): `200000000000` (`200_000 * 1e6`)
 - logs:
   - deployed on May 13, 2024 at commit `b90b932`
+  - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
 
 #### erc20_vault
 
@@ -141,7 +147,7 @@
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
-  -
+  - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -229,6 +235,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit `b90b932` @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
 
 ### token_unlocking
 
