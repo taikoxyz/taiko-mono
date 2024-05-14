@@ -8,6 +8,8 @@ on:
   pull_request:
     paths:
       - "packages/guardian-prover-health-check/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   lint-guardian-prover-health-check:
