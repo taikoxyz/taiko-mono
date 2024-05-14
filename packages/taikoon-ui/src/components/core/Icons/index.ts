@@ -1,6 +1,4 @@
 import { default as AngleDownSolid } from './AngleDownSolid.svelte';
-import { default as AngleLeft } from './AngleLeft.svelte';
-import { default as AngleRight } from './AngleRight.svelte';
 import { default as ArrowDown } from './ArrowDown.svelte';
 import { default as ArrowRightFilled } from './ArrowRightFilled.svelte';
 import { default as CircleUserRegular } from './CircleUserRegular.svelte';
@@ -34,8 +32,6 @@ export const Icons = {
   UpRightArrow,
   XSolid,
   YoutubeLogo,
-  AngleLeft,
-  AngleRight,
 };
 
 export type IconType = keyof typeof Icons;

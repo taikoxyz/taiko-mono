@@ -7,36 +7,27 @@
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
-  import isCountdownActive from '$lib/util/isCountdownActive';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
-  import { pageScroll } from '$stores/pageScroll';
+  import { Button } from '$ui/Button';
   import { config } from '$wagmi-config';
 
-  import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   import {
-    baseHeaderClasses,
+    buttonClasses,
+    headerClasses,
     menuButtonsWrapperClasses,
     mobileMenuButtonClasses,
-    navButtonClasses,
     rightSectionClasses,
     taikoonsIconClasses,
     themeButtonSeparatorClasses,
     wrapperClasses,
   } from './classes';
   const { Menu: MenuIcon, XSolid: CloseMenuIcon } = Icons;
-  $: address = zeroAddress as IAddress;
+  $: address = zeroAddress;
 
   $: isMobileMenuOpen = false;
-
-  $: headerClasses = classNames(
-    baseHeaderClasses,
-    $pageScroll ? 'md:glassy-background-lg' : null,
-    $pageScroll ? 'md:border-b-[1px] md:border-border-divider-default' : 'md:border-b-[1px] md:border-transparent',
-    $$props.class,
-  );
 
   $: taikoonsOptions = [
     {
@@ -71,33 +62,26 @@
 
     {#if windowSize === 'sm'}
       <div class={rightSectionClasses}>
-        {#if isCountdownActive()}
-          <ThemeButton />
-        {:else}
-          <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
-            {#if isMobileMenuOpen}
-              <CloseMenuIcon size="14" />
-            {:else}
-              <MenuIcon size="14" />
-            {/if}
-          </button>
-        {/if}
+        <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
+          {#if isMobileMenuOpen}
+            <CloseMenuIcon size="14" />
+          {:else}
+            <MenuIcon size="14" />
+          {/if}
+        </button>
       </div>
     {:else}
-      {#if !isCountdownActive()}
-        <div class={menuButtonsWrapperClasses}>
-          <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
+      <div class={menuButtonsWrapperClasses}>
+        <Button href="/mint" type="neutral" class={buttonClasses}>Mint</Button>
 
-          <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
-          {#if address !== zeroAddress}
-            <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
-          {/if}
-        </div>
-      {/if}
-      <div class={rightSectionClasses}>
-        {#if !isCountdownActive()}
-          <ConnectButton connected={$account?.isConnected} />
+        <Button href="/collection" type="neutral" class={buttonClasses}>Collection</Button>
+        {#if address !== zeroAddress}
+          <Button href={`/collection/${address.toLowerCase()}`} type="neutral" class={buttonClasses}>
+            Your taikoons</Button>
         {/if}
+      </div>
+      <div class={rightSectionClasses}>
+        <ConnectButton connected={$account?.isConnected} />
         <div class="hidden md:inline-flex">
           <div class={themeButtonSeparatorClasses} />
           <ThemeButton />

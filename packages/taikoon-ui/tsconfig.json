@@ -10,7 +10,6 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
-    "types": ["vitest/globals"],
     "paths": {
       "$assets/*": ["./src/assets/*"],
       "$components/*": ["./src/components/*"],

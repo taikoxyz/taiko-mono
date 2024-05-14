@@ -6,7 +6,6 @@ export const connectedButtonClasses = classNames(
   'rounded-full',
   'flex',
   'items-center',
-  'h-[44px]',
   'gap-2',
   'font-bold',
 );
@@ -24,28 +23,9 @@ export const buttonContentClasses = classNames(
 export const addressClasses = classNames(
   'flex',
   'rounded-full',
-  'px-2.5',
-  'py-2',
+  'p-2.5',
   'bg-neutral-background',
   'border border-divider-border',
 );
 
-export const chainIconClasses = classNames(
-  'w-[24px]',
-  'ml-1',
-  //'md:ml-[0]',
-  'md:mx-2',
-);
-
-export const connectButtonClasses = classNames(
-  'w-max',
-  'h-[44px]',
-  'bg-primary',
-  'rounded-full',
-  'flex flex-row',
-  'justify-center',
-  'items-center',
-  'px-4',
-  'gap-4',
-  'font-medium',
-);
+export const chainIconClasses = classNames('w-[24px]', 'ml-1');

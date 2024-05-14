@@ -9,9 +9,10 @@ import { totalWhitelistMintCount } from '../user/totalWhitelistMintCount';
 import estimateContractGas from '../wagmi/estimateContractGas';
 import { canMint } from './canMint';
 
-export async function estimateMintGasCost(): Promise<number> {
+export async function estimateMintGasCost({ freeMintCount }: { freeMintCount: number }): Promise<number> {
+  if (freeMintCount === 0) return 0;
   const { selectedNetworkId } = web3modal.getState();
-  if (!selectedNetworkId) return 0;
+  if (!selectedNetworkId) return -1;
   const chainId = selectedNetworkId as IChainId;
 
   const freeMintLeft = await totalWhitelistMintCount();
