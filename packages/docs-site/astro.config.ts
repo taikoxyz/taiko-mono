@@ -1,6 +1,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
+import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
 
 // https://astro.build/config
 export default defineConfig({
@@ -13,7 +14,38 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      plugins: [starlightLinksValidator()],
+      plugins: [
+        starlightLinksValidator({
+          exclude: [
+            // "/api-reference/blob-storage",
+            "/api-reference/bridge-relayer",
+            "/api-reference/event-indexer",
+            "/api-reference/prover-server",
+          ],
+        }),
+        starlightOpenAPI([
+          // {
+          //   base: "api-reference/blob-storage",
+          //   label: "Blob Storage API",
+          //   schema: "../blobstorage/docs/swagger.yaml",
+          // },
+          {
+            base: "api-reference/bridge-relayer",
+            label: "Bridge Relayer API",
+            schema: "../relayer/docs/swagger.yaml",
+          },
+          {
+            base: "api-reference/event-indexer",
+            label: "Event Indexer API",
+            schema: "../eventindexer/docs/swagger.yaml",
+          },
+          {
+            base: "api-reference/prover-server",
+            label: "Prover Server API",
+            schema: "../taiko-client/docs/swagger.yaml",
+          },
+        ]),
+      ],
       components: {
         SiteTitle: "./src/components/starlight/SiteTitle.astro",
         Head: "./src/components/starlight/Head.astro",
@@ -116,12 +148,12 @@ export default defineConfig({
           ],
         },
         {
-          label: "API Reference",
-          autogenerate: { directory: "api-reference" },
-        },
-        {
           label: "Resources",
           autogenerate: { directory: "resources" },
+        },
+        {
+          label: "API Reference",
+          items: openAPISidebarGroups,
         },
       ],
     }),
