@@ -21,7 +21,7 @@ type ethClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
 
-// @title Taiko Relayer API
+// @title Taiko Bridge Relayer API
 // @version 1.0
 // @termsOfService http://swagger.io/terms/
 
@@ -30,8 +30,9 @@ type ethClient interface {
 // @contact.email info@taiko.xyz
 
 // @license.name MIT
+// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 
-// @host relayer.katla.taiko.xyz
+// @host relayer.hekla.taiko.xyz
 // Server represents an relayer http server instance.
 type Server struct {
 	echo                    *echo.Echo
