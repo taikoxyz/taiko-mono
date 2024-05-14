@@ -23,6 +23,7 @@ const config: StorybookConfig = {
 		name: '@storybook/sveltekit',
 		options: {}
 	},
+	addons,
 	docs
 };
 
