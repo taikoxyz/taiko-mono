@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.1.0...docs-site-v1.2.0) (2024-05-14)
+
+
+### Features
+
+* **taikoon:** ui qa checklist ([#16870](https://github.com/taikoxyz/taiko-mono/issues/16870)) ([e965597](https://github.com/taikoxyz/taiko-mono/commit/e96559762d844b042bbf23de878883d3b647671a))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.0.0...docs-site-v1.1.0) (2024-05-14)
 
 
