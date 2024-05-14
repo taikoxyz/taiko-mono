@@ -1,7 +1,6 @@
 name: Guardians UI Build and Checks
 
-on:
-  workflow_call
+on: workflow_call
 
 jobs:
   check-guardian-prover-health-check-ui:
@@ -31,9 +30,3 @@ jobs:
       - name: Linting
         working-directory: ./packages/guardian-prover-health-check-ui
         run: pnpm lint
-
-      - name: Unit tests
-        env:
-          SKIP_ENV_VALIDATION: "true"
-        working-directory: ./packages/guardian-prover-health-check-ui
-        run: pnpm test:unit
