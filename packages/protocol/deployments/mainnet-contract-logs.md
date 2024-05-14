@@ -29,7 +29,7 @@
   - bridged_erc721: `0xc3310905e2bc9cfb198695b75ef3e5b69c6a1bf7`
   - bridged_erc20: `0x79bc0aada00fcf6e7ab514bfeb093b5fae3653e3`
   - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
-  - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29Es`
+  - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
