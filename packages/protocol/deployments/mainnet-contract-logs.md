@@ -72,7 +72,6 @@
 
 - proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - impl: `0x49c5e5F131314Bb24b17E249960F8B12F925ef22`
-- owner: `0x56706F118e42AE069F20c5636141B844D1324AE1`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 13, 2024 at commit `b90b932`
