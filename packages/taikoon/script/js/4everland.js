@@ -3,6 +3,8 @@ const { Upload } = require("@aws-sdk/lib-storage");
 const fs = require("fs");
 const fsPromises = fs.promises;
 const path = require("path");
+const dotenv = require('dotenv')
+dotenv.config()
 
 async function uploadFile(s3, params) {
   try {
@@ -32,8 +34,8 @@ function populateNFTMetadata(name, description, CID) {
 
 async function main() {
   const s3Params = {
-    accessKey: "KYEKUCIU01RUW4LL5M26",
-    secretKey: "f+htmVYyj9IMN1XOoJfuVuYr08P6vb4ZW2xhxIQM",
+    accessKey: process.env["4EVERLAND_ACCESS_KEY"],
+    secretKey: process.env["4EVERLAND_SECRET_KEY"],
   };
   const { accessKey, secretKey } = s3Params;
   const s3 = new S3({

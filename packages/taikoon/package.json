@@ -39,6 +39,7 @@
     "@openzeppelin/contracts-upgradeable": "5.0.2",
     "@openzeppelin/merkle-tree": "^1.0.6",
     "convert-csv-to-json": "^2.46.0",
+    "dotenv": "^16.4.5",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std",
     "ipfs-http-client": "^60.0.1",
