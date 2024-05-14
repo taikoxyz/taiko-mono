@@ -160,7 +160,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(p.txmgr, txBuilder); err != nil {
+	if err := p.initProofSubmitters(p.txmgr, txBuilder, tiers); err != nil {
 		return err
 	}
 
@@ -446,6 +446,10 @@ func (p *Prover) Name() string {
 func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
 	for _, s := range p.proofSubmitters {
 		if s.Tier() >= minTier {
+			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
+				continue
+			}
+
 			log.Debug("Proof submitter selected", "tier", s.Tier(), "minTier", minTier)
 			return s
 		}
@@ -460,6 +464,10 @@ func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
 func (p *Prover) getSubmitterByTier(tier uint16) proofSubmitter.Submitter {
 	for _, s := range p.proofSubmitters {
 		if s.Tier() == tier {
+			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
+				continue
+			}
+
 			return s
 		}
 	}

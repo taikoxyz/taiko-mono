@@ -48,6 +48,17 @@
 - logs:
   - deployed on May 1, 2024 at commit `56dddf2b6`
 
+### quota_manager
+
+- proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
+- impl: `0x49c5e5F131314Bb24b17E249960F8B12F925ef22`
+- owner: `0x56706F118e42AE069F20c5636141B844D1324AE1`
+- pendingOwner: `admin.taiko.eth`
+- todo:
+  - admin.taiko.eth to accept the owner
+- logs:
+  - deployed on May 13, 2024 at commit `b90b932`
+
 ### erc20_vault
 
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`

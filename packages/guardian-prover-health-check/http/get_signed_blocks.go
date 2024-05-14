@@ -46,6 +46,7 @@ func (srv *Server) GetSignedBlocks(c echo.Context) error {
 
 		start, err = strconv.ParseUint(c.QueryParam("start"), 10, 64)
 		if err != nil {
+			log.Error("Failed to parse start", "error", err)
 			return echo.NewHTTPError(http.StatusBadRequest, err)
 		}
 	}

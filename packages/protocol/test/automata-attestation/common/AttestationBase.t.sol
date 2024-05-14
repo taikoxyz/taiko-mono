@@ -61,12 +61,12 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
                 data: abi.encodeCall(
                     AutomataDcapV3Attestation.init,
                     (admin, address(sigVerifyLib), address(pemCertChainLib))
-                )
+                    )
             })
         );
 
-        setMrEnclave(address(attestation), mrEnclave);
-        setMrSigner(address(attestation), mrSigner);
+        setMrEnclave(address(attestation), mrEnclave, true);
+        setMrSigner(address(attestation), mrSigner, true);
 
         string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
         string memory enclaveIdJson = vm.readFile(string.concat(vm.projectRoot(), idPath));
@@ -81,12 +81,16 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         vm.stopPrank();
     }
 
-    function setMrEnclave(address _attestationAddress, bytes32 _mrEnclave) internal {
-        AutomataDcapV3Attestation(_attestationAddress).setMrEnclave(_mrEnclave, true);
+    function setMrEnclave(address _attestationAddress, bytes32 _mrEnclave, bool enable) internal {
+        AutomataDcapV3Attestation(_attestationAddress).setMrEnclave(_mrEnclave, enable);
     }
 
-    function setMrSigner(address _attestationAddress, bytes32 _mrSigner) internal {
-        AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, true);
+    function setMrSigner(address _attestationAddress, bytes32 _mrSigner, bool enable) internal {
+        AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, enable);
+    }
+
+    function toggleCheckQuoteValidity(address _attestationAddress) internal {
+        AutomataDcapV3Attestation(_attestationAddress).toggleLocalReportCheck();
     }
 
     function configureQeIdentityJson(
@@ -114,13 +118,16 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         console.log("tcbParsedSuccess: %s", tcbParsedSuccess);
     }
 
-    function parsedQuoteAttestation(bytes memory v3QuoteBytes)
+    function verifyParsedQuoteAttestation(
+        bytes memory v3QuoteBytes,
+        bool expected
+    )
         internal
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)
     {
         v3quote = ParseV3QuoteBytes(address(pemCertChainLib), v3QuoteBytes);
         (bool verified,) = attestation.verifyParsedQuote(v3quote);
-        assertTrue(verified);
+        assertEq(verified, expected);
     }
 
     function registerSgxInstanceWithQuoteBytes(
