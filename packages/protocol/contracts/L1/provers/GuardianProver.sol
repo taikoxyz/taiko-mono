@@ -76,10 +76,6 @@ contract GuardianProver is IVerifier, Guardians {
         nonReentrant
         returns (bool approved_)
     {
-        if (_proof.tier < LibTiers.TIER_GUARDIAN_MINORITY) {
-            revert INVALID_PROOF();
-        }
-
         bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
         approved_ = approve(_meta.id, hash);
 
