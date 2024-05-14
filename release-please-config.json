@@ -11,6 +11,7 @@
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/taikoon": {},
+    "packages/taikoon-ui": {},
     "packages/taiko-client": {},
     "packages/supplementary-contracts": {}
   },
