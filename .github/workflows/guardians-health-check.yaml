@@ -10,8 +10,8 @@ on:
       - "packages/guardian-prover-health-check/**"
 
 jobs:
-  lint:
-    name: lint
+  lint-guardian-prover-health-check:
+    name: lint-guardian-prover-health-check
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -28,9 +28,9 @@ jobs:
           working-directory: ./packages/guardian-prover-health-check
           args: --config=.golangci.yml --timeout=4m
 
-  test:
+  test-guardian-prover-health-check:
     runs-on: [taiko-runner]
-    needs: lint
+    needs: lint-guardian-prover-health-check
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -52,7 +52,7 @@ jobs:
           files: ./packages/guardian-prover-health-check/coverage.txt
           flags: guardian-prover-health-check
 
-  push-docker-image:
+  push-guardian-prover-health-check-docker-image:
     # only push docker image on PR merge to main
     if: ${{ github.event }} == 'push'
     name: Build and push docker image
