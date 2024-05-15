@@ -81,7 +81,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_NETWORK();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
@@ -124,10 +123,8 @@ contract Bridge is EssentialContract, IBridge {
         __reserved3 = 0;
     }
 
-    function selfDelegateTaikoToken() external {
-        if (block.chainid != LibNetwork.MAINNET) revert B_INVALID_NETWORK();
-        address tko = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-        ERC20VotesUpgradeable(tko).delegate(address(this));
+    function selfDelegate(address _anyToken) external nonZeroAddr(_anyToken) {
+        ERC20VotesUpgradeable(_anyToken).delegate(address(this));
     }
 
     /// @inheritdoc IBridge
