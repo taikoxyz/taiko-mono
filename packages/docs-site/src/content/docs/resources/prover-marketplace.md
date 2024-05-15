@@ -9,5 +9,5 @@ Any provers added to this page must be tested by the team to ensure they have go
 
 ## Prover marketplace list
 
-| Name | Endpoint |
-| ---- | -------- |
+| Name   | Endpoint                              |
+| ------ | ------------------------------------- |
