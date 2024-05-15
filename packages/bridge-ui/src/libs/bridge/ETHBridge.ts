@@ -56,11 +56,13 @@ export class ETHBridge extends Bridge {
       id: BigInt(0), // will be set in contract
     };
 
-    const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([0n]);
-    log('Min gas limit for message', minGasLimit);
+    if (processingFee !== 0n) {
+      const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([0n]);
+      log('Min gas limit for message', minGasLimit);
 
-    const gasLimit = minGasLimit + 1;
-    message.gasLimit = gasLimit;
+      const gasLimit = minGasLimit + 1;
+      message.gasLimit = gasLimit;
+    }
 
     log('Preparing transaction with message', message);
 

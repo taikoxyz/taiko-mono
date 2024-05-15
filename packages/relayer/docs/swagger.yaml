@@ -17,6 +17,10 @@ definitions:
     type: object
   paginate.Page:
     properties:
+      error:
+        type: boolean
+      error_message:
+        type: string
       first:
         type: boolean
       items: {}
@@ -35,7 +39,7 @@ definitions:
       visible:
         type: integer
     type: object
-host: relayer.katla.taiko.xyz
+host: relayer.hekla.taiko.xyz
 info:
   contact:
     email: info@taiko.xyz
@@ -43,8 +47,9 @@ info:
     url: https://community.taiko.xyz/
   license:
     name: MIT
+    url: https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
   termsOfService: http://swagger.io/terms/
-  title: Taiko Relayer API
+  title: Taiko Bridge Relayer API
   version: "1.0"
 paths:
   /blockInfo:

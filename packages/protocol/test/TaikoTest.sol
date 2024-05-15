@@ -6,6 +6,9 @@ import "forge-std/src/Test.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
+import "../contracts/tokenvault/BridgedERC20.sol";
+import "../contracts/tokenvault/BridgedERC721.sol";
+import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -14,7 +17,7 @@ import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
-import "../contracts/L1/tiers/TierProviderV1.sol";
+import "../test/L1/TestTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/bridge/QuotaManager.sol";

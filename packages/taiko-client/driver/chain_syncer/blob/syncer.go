@@ -255,12 +255,7 @@ func (s *Syncer) onBlockProposed(
 	}
 	txListBytes, err := txListFetcher.Fetch(ctx, tx, &event.Meta)
 	if err != nil {
-		if errors.Is(err, rpc.ErrBlobInvalid) {
-			log.Info("Invalid blob detected", "blockID", event.BlockId)
-			txListBytes = []byte{}
-		} else {
-			return fmt.Errorf("failed to fetch tx list: %w", err)
-		}
+		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
 	// Decompress the transactions list and try to insert a new head block to L2 EE.

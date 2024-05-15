@@ -8,10 +8,12 @@ import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
-import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
+import "../contracts/tokenvault/BridgedERC20.sol";
+import "../contracts/tokenvault/BridgedERC721.sol";
+import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
@@ -22,6 +24,7 @@ import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
+import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
@@ -274,13 +277,6 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "tier_provider",
-            impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
-            data: abi.encodeCall(TierProviderV1.init, (owner)),
-            registerTo: rollupAddressManager
-        });
-
-        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
@@ -307,6 +303,7 @@ contract DeployOnL1 is DeployCapability {
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
+        register(rollupAddressManager, "tier_provider", address(new TestTierProvider()));
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
@@ -344,7 +341,7 @@ contract DeployOnL1 is DeployCapability {
         if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
             return address(new DevnetTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TierProviderV1());
+            return address(new TestTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
             return address(new TierProviderV2());
         } else {

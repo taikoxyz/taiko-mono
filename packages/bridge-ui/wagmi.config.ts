@@ -13,6 +13,7 @@ import ERC1155Vault from '../protocol/out/ERC1155Vault.sol/ERC1155Vault.json';
 import FreeMintERC20 from '../protocol/out/FreeMintERC20.sol/FreeMintERC20.json';
 import ICrossChainSync from '../protocol/out/ICrossChainSync.sol/ICrossChainSync.json';
 import ISignalService from '../protocol/out/ISignalService.sol/ISignalService.json';
+import QuotaManager from '../protocol/out/QuotaManager.sol/QuotaManager.json';
 
 export default defineConfig({
   out: 'src/abi/index.ts',
@@ -56,6 +57,10 @@ export default defineConfig({
     {
       name: 'Erc1155',
       abi: ERC1155.abi as Abi,
+    },
+    {
+      name: 'QuotaManager',
+      abi: QuotaManager.abi as Abi,
     },
   ],
 });
