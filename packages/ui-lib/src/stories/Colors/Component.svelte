@@ -1,9 +1,19 @@
 <script lang="ts">
 	import { classNames } from "$lib/util/classNames";
     import colors from '$lib/theme/colors'
-    export let color: keyof typeof colors = "tko-pink-10"
+    type IColor = keyof typeof colors
+    export let color: IColor
 
-    $: bg = `bg-${color}`
+    const colorMap: Record<IColor, string> = {
+        'pink-10': "bg-tko-pink-10",
+    'pink-50': "bg-tko-pink-50",
+    'pink-200': "bg-tko-pink-200",
+    "pink-400": "bg-tko-pink-400",
+    "pink-500": "bg-tko-pink-500",
+
+    }
+
+    $: bg = `bg-tko-${color}`
     $: bg, console.log(bg, colors[color])
     $: classes = classNames(
         'w-8',
@@ -11,7 +21,9 @@
         'border',
         'rounded-full',
         //`bg-${color}`
-       bg
+
+        color ? colorMap[color] : null
+
        //'bg-tko-pink-500'
     );
 </script>

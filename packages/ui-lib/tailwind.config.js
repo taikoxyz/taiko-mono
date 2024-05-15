@@ -49,7 +49,7 @@ export default {
 				'cell-pulse-negative-7': 'cell-pulse-negative-animation 7s ease-in infinite'
 			},
 			colors: {
-				...colors,
+				tko: colors,
 				/***************
 				 * Base colors *
 				 ***************/
@@ -266,7 +266,11 @@ export default {
 		}
 	},
 
-	plugins: [daisyuiPlugin, require('tailwindcss-image-rendering')()],
+	plugins: [
+		daisyuiPlugin,
+		require('tailwindcss-image-rendering')(),
+
+	],
 
 	// https://daisyui.com/docs/config/
 	daisyui: {

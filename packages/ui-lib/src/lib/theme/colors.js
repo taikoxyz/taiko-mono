@@ -1,10 +1,9 @@
 const colors = {
-    'tko-pink-10': '#FFE7F6',
-    'tko-pink-50': '#FFC6E9',
-    'tko-pink-200': '#FF6FC8',
-    "tko-pink-400": "#E81899",
-    "tko-pink-500": "#C8047D",
-    "tko-purple": "#6F2C91",
+    'pink-10': '#FFE7F6',
+    'pink-50': '#FFC6E9',
+    'pink-200': '#FF6FC8',
+    "pink-400": "#E81899",
+    "pink-500": "#C8047D",
 }
 
 export default colors
