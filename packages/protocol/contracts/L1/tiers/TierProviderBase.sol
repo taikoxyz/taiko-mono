@@ -21,7 +21,7 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
-                provingWindow: 120, // 2 hours
+                provingWindow: 30, // 0.5 hours
                 maxBlocksToVerifyPerProof: 16
             });
         }
