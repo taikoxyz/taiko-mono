@@ -24,15 +24,20 @@ const blacklistedCountries = [
   'VE', // Venezuela (VE)
 ];
 
-export function load(event) {
-  const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
-  console.warn('page load event', {
-    country,
-    event,
-  });
-  if (blacklistedCountries.includes(country)) {
-    // revoke access
-    redirect(302, '/blocked');
+export function load(event: any) {
+  try {
+    console.warn('onLoad', event);
+    const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
+    console.warn('page load event', {
+      country,
+      event,
+    });
+    if (blacklistedCountries.includes(country)) {
+      // revoke access
+      redirect(302, '/blocked');
+    }
+    return {};
+  } catch (error) {
+    console.error("Couldn't determine IP country", error);
   }
-  return {};
 }
