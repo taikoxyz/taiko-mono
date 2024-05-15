@@ -15,7 +15,7 @@ This guide will walk you through the full process of building a node from source
 
 #### Taiko Client (taiko-client)
 
-The taiko client is responsible for deriving L2 blocks from L1 calldata (and blobspace!), then passing those payloads to our execution engine.
+The taiko client is responsible for decoding L2 blocks from L1 calldata (and blobspace!), then passing those payloads to our execution engine.
 
 It has three subcommands, `driver`, `prover`, and `proposer`, of which this guide will utilize the `driver`. Please reference our other guides for running the other subcommands.
 
@@ -27,7 +27,7 @@ In this tutorial you will build the `taiko-client` as found in the [taiko monore
 
 The execution engine is responsible for executing the block payloads it receives from the taiko client. It holds the latest state of the chain.
 
-`taiko-geth` exposes the standard JSON-RPC API that Ethereum developers are familiar with, and can be used to query blockchain data and submit transactions to the network.
+`taiko-geth` exposes the standard JSON-RPC API that Ethereum developers are familiar with, and can be used accordingly to query blockchain data and submit transactions to the network.
 
 `taiko-geth` replaces the [execution client](https://ethereum.org/en/developers/docs/nodes-and-clients/) in an Ethereum mainnet node.
 
