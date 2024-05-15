@@ -3,21 +3,20 @@ module github.com/taikoxyz/taiko-mono
 go 1.21
 
 require (
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2
+	github.com/btcsuite/btcd/btcec/v2 v2.3.3
 	github.com/buildkite/terminal-to-html/v3 v3.8.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
 	github.com/cyberhorsey/webutils v0.0.0-20230314183728-56890c6ddbe7
 	github.com/davecgh/go-spew v1.1.1
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
 	github.com/ethereum-optimism/optimism v1.7.4
 	github.com/ethereum/go-ethereum v1.13.15
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gomarkdown/markdown v0.0.0-20231222211730-1d6d20845b47
 	github.com/google/uuid v1.6.0
-	github.com/holiman/uint256 v1.2.4
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo-contrib v0.17.1
 	github.com/labstack/echo/v4 v4.12.0
@@ -30,7 +29,7 @@ require (
 	github.com/pressly/goose/v3 v3.20.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prysmaticlabs/prysm/v4 v4.2.0
-	github.com/rabbitmq/amqp091-go v1.9.0
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/swag v1.16.3
@@ -140,6 +139,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/herumi/bls-eth-go-binary v0.0.0-20210917013441-d37c07cfda4e // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
+	github.com/holiman/uint256 v1.2.4 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.2.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect

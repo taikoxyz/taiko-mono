@@ -8,6 +8,8 @@ on:
   pull_request:
     paths:
       - "packages/relayer/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   lint-relayer:
@@ -53,8 +55,7 @@ jobs:
           flags: relayer
 
   push-relayer-docker-image:
-    # only push docker image on PR merge to main
-    if: ${{ github.event }} == 'push'
+    if: ${{ github.event == 'push' }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

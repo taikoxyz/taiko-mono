@@ -8,6 +8,8 @@ on:
   pull_request:
     paths:
       - "packages/taiko-client/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   lint:
