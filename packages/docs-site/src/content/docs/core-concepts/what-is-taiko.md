@@ -38,14 +38,14 @@ Taiko is a **fully open source, permissionless, Ethereum-equivalent ZK-Rollup**.
 
 ### Non-critical backend infrastructure
 
-- [Event indexer](/api-reference/event-indexer-api)
-- [Bridge relayer](/api-reference/bridge-relayer-api)
-- [P2P bootstrapping nodes](/network-reference/addresses)
-- [A few community proposers/provers](/network-reference/addresses)
+- [Event indexer](/api-reference/event-indexer)
+- [Bridge relayer](/api-reference/bridge-relayer)
+- [P2P bootstrapping nodes](/network-reference/addresses#taiko-labs-bootnode-addresses)
+- [Taiko Labs' proposers and provers](/network-reference/addresses)
 
 ### Critical backend infrastructure
 
-- [Rollup contracts owner](/network-reference/addresses)
+- [Rollup contracts owner](/network-reference/addresses#rollup-contracts-owner)
 
 ### Open-source software
 
