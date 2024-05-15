@@ -39,25 +39,30 @@ export const checkBridgeQuota = async ({
     log('Skipping quota check for L2 chain');
     return true;
   }
+  try {
+    const quotaManagerAddress = getContractAddressByType({
+      srcChainId: Number(transaction.destChainId),
+      destChainId: Number(transaction.srcChainId),
+      contractType: ContractType.QUOTAMANAGER,
+    });
 
-  const quotaManagerAddress = getContractAddressByType({
-    srcChainId: Number(transaction.destChainId),
-    destChainId: Number(transaction.srcChainId),
-    contractType: ContractType.QUOTAMANAGER,
-  });
+    const quota = await readContract(config, {
+      address: quotaManagerAddress,
+      abi: quotaManagerAbi,
+      chainId: Number(transaction.destChainId),
+      functionName: 'availableQuota',
+      args: [tokenAddress, 0n],
+    });
 
-  const quota = await readContract(config, {
-    address: quotaManagerAddress,
-    abi: quotaManagerAbi,
-    chainId: Number(transaction.destChainId),
-    functionName: 'availableQuota',
-    args: [tokenAddress, 0n],
-  });
-
-  if (amount > quota) {
-    log('Not enough quota', quota, amount);
-    return false;
+    if (amount > quota) {
+      log('Not enough quota', quota, amount);
+      return false;
+    }
+    log('Quota:', quota, 'Amount:', amount, 'Has enough quota:', amount <= quota);
+    return true;
+  } catch (e) {
+    // If there is an error checking the quota, there is probably no quota configured
+    log('Error checking quota', e);
+    return true;
   }
-  log('Quota:', quota, 'Amount:', amount, 'Has enough quota:', amount <= quota);
-  return true;
 };
