@@ -5,7 +5,7 @@ description: The network configuration page describes many of the configuration 
 
 ## Tier configuration
 
-You can view the full `TierProviderV1` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L1/tiers/TierProviderV1.sol):
+You can view the full `TestTierProvider` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L1/TestTierProvider.sol):
 
 Here is a diagram of the proof tier configuration:
 

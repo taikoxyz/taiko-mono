@@ -18,7 +18,7 @@ contracts=(
     "BridgedERC1155"
     "AssignmentHook"
     "DevnetTierProvider"
-    "TierProviderV1"
+    "TestTierProvider"
     "TierProviderV2"
     "TierProviderV3"
     "ERC20Airdrop"
