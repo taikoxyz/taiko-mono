@@ -1,4 +1,5 @@
 import daisyuiPlugin from 'daisyui';
+import colors from './src/lib/theme/colors';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -48,6 +49,7 @@ export default {
 				'cell-pulse-negative-7': 'cell-pulse-negative-animation 7s ease-in infinite'
 			},
 			colors: {
+				...colors,
 				/***************
 				 * Base colors *
 				 ***************/

@@ -1,18 +1,21 @@
-import '../lib/styles/app.css';
-// used to load the css into storybook
 import type { Meta, StoryObj } from '@storybook/svelte';
-import { Footer } from '../lib/components/Footer';
-
+import { default as Component } from './Component.svelte';
+import colors from '../../lib/theme/colors'
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories
 const meta = {
-	title: 'Index',
-	component: Footer,
+	title: 'Colors',
+	component: Component,
 	tags: [],
 	//tags: ['autodocs'],
 	argTypes: {
-		label: { control: 'text' },
-		title: { control: 'text' },
-		text: { control: 'text' }
+        color: {control: 'select', options: [
+            ...Object.keys(colors),
+            'tko-purple'
+        ]
+        }
+		//label: { control: 'text' },
+		//title: { control: 'text' },
+		//text: { control: 'text' }
 	}
 
 	/*
@@ -23,7 +26,7 @@ const meta = {
       options: ['small', 'medium', 'large'],
     },
   },*/
-} satisfies Meta<Footer>;
+} satisfies Meta<Component>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -31,8 +34,5 @@ type Story = StoryObj<typeof meta>;
 // More on writing stories with args: https://storybook.js.org/docs/writing-stories/args
 export const Primary: Story = {
 	args: {
-		label: 'Join the taiko community',
-		title: 'Taiko',
-		text: 'The most developer-friendly and secure Ethereum scaling solution'
 	}
 };
