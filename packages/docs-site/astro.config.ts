@@ -123,7 +123,7 @@ export default defineConfig({
             },
             { label: "Run a Taiko node with Docker", link: "/guides/run-a-taiko-node-with-docker/" },
             { label: "Build a Taiko node from source", link: "/guides/build-a-taiko-node-from-source/" },
-            { label: "Run a Mainnet Taiko node from source", link: "/guides/run-a-mainnet-taiko-node-from-source/" },
+            // { label: "Run a Mainnet Taiko node from source", link: "/guides/run-a-mainnet-taiko-node-from-source/" },
             { label: "Run a Testnet Taiko node from source", link: "/guides/run-a-testnet-taiko-node-from-source/" },
             { label: "Enable a proposer", link: "/guides/enable-a-proposer/" },
             { label: "Enable a prover", link: "/guides/enable-a-prover/" },
