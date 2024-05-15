@@ -54,6 +54,14 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
     uint256[39] __gap;
 
+    event MrSignerUpdated(bytes32 indexed mrSigner, bool trusted);
+    event MrEnclaveUpdated(bytes32 indexed mrEnclave, bool trusted);
+    event TcbInfoJsonConfigured(string indexed fmspc, TCBInfoStruct.TCBInfo tcbInfoInput);
+    event ConfigQeIdentity(EnclaveIdStruct.EnclaveId qeIdentityInput);
+    event LocalReportCheckToggled(bool checkLocalEnclaveReport);
+    event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
+    event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
+
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
     /// @param pemCertLibAddr Address of certificate library.
@@ -70,22 +78,14 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         pemCertLib = PEMCertChainLib(pemCertLibAddr);
     }
 
-    event SetMrSigner(bytes32);
-    event SetMrEnclave(bytes32);
-    event ConfigTcbInfo(string, string);
-    event ConfigQeIdentity(bytes32);
-    event ToggleLocalReportCheck(bool);
-    event AddRevokedCertSerialNum(uint256, bytes);
-    event RemoveRevokedCertSerialNum(uint256, bytes);
-
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
         trustedUserMrSigner[_mrSigner] = _trusted;
-        emit SetMrSigner(_mrSigner);
+        emit MrSignerUpdated(_mrSigner, _trusted);
     }
 
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
         trustedUserMrEnclave[_mrEnclave] = _trusted;
-        emit SetMrEnclave(_mrEnclave);
+        emit MrEnclaveUpdated(_mrEnclave, _trusted);
     }
 
     function addRevokedCertSerialNum(
@@ -100,7 +100,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 continue;
             }
             serialNumIsRevoked[index][serialNumBatch[i]] = true;
-            emit AddRevokedCertSerialNum(index, serialNumBatch[i]);
+            emit RevokedCertSerialNumAdded(index, serialNumBatch[i]);
         }
     }
 
@@ -116,7 +116,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 continue;
             }
             delete serialNumIsRevoked[index][serialNumBatch[i]];
-            emit RemoveRevokedCertSerialNum(index, serialNumBatch[i]);
+            emit RevokedCertSerialNumRemoved(index, serialNumBatch[i]);
         }
     }
 
@@ -129,7 +129,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     {
         // 2.2M gas
         tcbInfo[fmspc] = tcbInfoInput;
-        emit ConfigTcbInfo(fmspc, tcbInfoInput.pceid);
+        emit TcbInfoJsonConfigured(fmspc, tcbInfoInput);
     }
 
     function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
@@ -138,12 +138,12 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     {
         // 250k gas
         qeIdentity = qeIdentityInput;
-        emit ConfigQeIdentity(qeIdentityInput.mrsigner);
+        emit ConfigQeIdentity(qeIdentityInput);
     }
 
     function toggleLocalReportCheck() external onlyOwner {
         checkLocalEnclaveReport = !checkLocalEnclaveReport;
-        emit ToggleLocalReportCheck(checkLocalEnclaveReport);
+        emit LocalReportCheckToggled(checkLocalEnclaveReport);
     }
 
     function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
