@@ -74,13 +74,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         setupGuardianProverMultisig();
 
-        cp = TierProviderV1(
-            deployProxy({
-                name: "tier_provider",
-                impl: address(new TierProviderV1()),
-                data: abi.encodeCall(TierProviderV1.init, (address(0)))
-            })
-        );
+        cp = new TierProviderV1();
 
         bridge = Bridge(
             payable(
