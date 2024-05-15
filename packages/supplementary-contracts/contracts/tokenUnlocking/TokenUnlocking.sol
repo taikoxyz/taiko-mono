@@ -66,7 +66,10 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         external
         initializer
     {
-        if (_taikoToken == address(0) || _recipient == address(0) || _tgeTimestamp == 0) {
+        if (
+            _owner == _recipient || _owner == address(0) || _recipient == address(0)
+                || _taikoToken == address(0) || _tgeTimestamp == 0
+        ) {
             revert INVALID_PARAM();
         }
 
@@ -77,9 +80,9 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         tgeTimestamp = _tgeTimestamp;
     }
 
-    /// @notice Vest certain tokens to this contract.
+    /// @notice Vests certain tokens to this contract.
     /// @param _amount The newly vested amount
-    function vest(uint128 _amount) external onlyOwner nonReentrant {
+    function vest(uint128 _amount) external nonReentrant {
         if (_amount == 0) revert INVALID_PARAM();
 
         amountVested += _amount;

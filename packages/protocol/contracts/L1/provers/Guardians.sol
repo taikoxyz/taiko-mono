@@ -42,7 +42,6 @@ abstract contract Guardians is EssentialContract {
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
     error INVALID_MIN_GUARDIANS();
-    error INVALID_PROOF();
 
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
