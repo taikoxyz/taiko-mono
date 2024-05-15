@@ -390,27 +390,6 @@
 | \_\_gap        | uint256[49] | 202  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
 | \_\_gap        | uint256[50] | 251  | 0      | 1600  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
 
-## DevnetTierProvider
-
-| Name | Type | Slot | Offset | Bytes | Contract |
-| ---- | ---- | ---- | ------ | ----- | -------- |
-
-## TestTierProvider
-
-| Name    | Type        | Slot | Offset | Bytes | Contract                                      |
-| ------- | ----------- | ---- | ------ | ----- | --------------------------------------------- |
-| \_\_gap | uint256[50] | 0    | 0      | 1600  | test/L1/TestTierProvider.sol:TestTierProvider |
-
-## TierProviderV2
-
-| Name | Type | Slot | Offset | Bytes | Contract |
-| ---- | ---- | ---- | ------ | ----- | -------- |
-
-## TierProviderV3
-
-| Name | Type | Slot | Offset | Bytes | Contract |
-| ---- | ---- | ---- | ------ | ----- | -------- |
-
 ## ERC20Airdrop
 
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                             |
