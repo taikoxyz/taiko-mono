@@ -194,7 +194,7 @@
 - proxy: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
 - impl: `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e`
 - owner: `admin.taiko.eth`
-- guradianProvers:
+- guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
   - `0x0cAC6E2Fd10e92Bf798341Ad0A57b5Cb39DA8D0D`
   - `0xd6BB974bc47626E3547426efa4CA2A8d7DFCccdf`
@@ -215,7 +215,7 @@
 - proxy: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - impl: `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e`
 - owner: `admin.taiko.eth`
-- guradianProvers:
+- guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
   - `0x0cAC6E2Fd10e92Bf798341Ad0A57b5Cb39DA8D0D`
   - `0xd6BB974bc47626E3547426efa4CA2A8d7DFCccdf`
