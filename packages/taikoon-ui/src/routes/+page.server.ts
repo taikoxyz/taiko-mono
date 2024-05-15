@@ -26,7 +26,10 @@ const blacklistedCountries = [
 
 export function load(event) {
   const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
-
+  console.warn('page load event', {
+    country,
+    event,
+  });
   if (blacklistedCountries.includes(country)) {
     // revoke access
     redirect(302, '/blocked');
