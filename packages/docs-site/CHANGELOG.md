@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.2.0...docs-site-v1.3.0) (2024-05-15)
+
+
+### Features
+
+* **docs-site:** update docs from old repo ([#17188](https://github.com/taikoxyz/taiko-mono/issues/17188)) ([84ede84](https://github.com/taikoxyz/taiko-mono/commit/84ede84de877928c47de4dc787ee71266be24c1c))
+
 ## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.1.0...docs-site-v1.2.0) (2024-05-14)
 
 
