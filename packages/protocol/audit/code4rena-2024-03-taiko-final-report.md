@@ -2849,13 +2849,13 @@ _There are 80 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-81: 		            if (_serialNumIsRevoked[index][serialNumBatch[i]]) {
+81: 		            if (serialNumIsRevoked[index][serialNumBatch[i]]) {
 
-84: 		            _serialNumIsRevoked[index][serialNumBatch[i]] = true;
+84: 		            serialNumIsRevoked[index][serialNumBatch[i]] = true;
 
-96: 		            if (!_serialNumIsRevoked[index][serialNumBatch[i]]) {
+96: 		            if (!serialNumIsRevoked[index][serialNumBatch[i]]) {
 
-99: 		            delete _serialNumIsRevoked[index][serialNumBatch[i]];
+99: 		            delete serialNumIsRevoked[index][serialNumBatch[i]];
 
 192: 		            EnclaveIdStruct.TcbLevel memory tcb = enclaveId.tcbLevels[i];
 
@@ -2867,12 +2867,12 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 
 265: 		                issuer = certs[i + 1];
 
-268: 		                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
+268: 		                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
 269: 		                        .serialNumber];
 
 270: 		                } else if (certs[i].isPck) {
 
-271: 		                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
+271: 		                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
 272: 		                        .serialNumber];
 
 280: 		                block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
@@ -3138,12 +3138,12 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 // @audit Can save 1 storage slot (from 7 to 6)
 // @audit Consider using the following order:
 /*
-  *	mapping(bytes32 => bool) _trustedUserMrEnclave (32)
-  *	mapping(bytes32 => bool) _trustedUserMrSigner (32)
-  *	mapping(uint256 => mapping(bytes => bool)) _serialNumIsRevoked (32)
+  *	mapping(bytes32 => bool) trustedUserMrEnclave (32)
+  *	mapping(bytes32 => bool) trustedUserMrSigner (32)
+  *	mapping(uint256 => mapping(bytes => bool)) serialNumIsRevoked (32)
   *	mapping(string => TCBInfoStruct.TCBInfo) tcbInfo (32)
   *	EnclaveIdStruct.EnclaveId qeIdentity (20)
-  *	bool _checkLocalEnclaveReport (1)
+  *	bool checkLocalEnclaveReport (1)
   *	address owner (20)
 */
 22: 		contract AutomataDcapV3Attestation is IAttestation {
@@ -3325,9 +3325,9 @@ _There is 1 instance of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-// @audit consider merging _trustedUserMrEnclave, _trustedUserMrSigner
-39: 		    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
-40: 		    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+// @audit consider merging trustedUserMrEnclave, trustedUserMrSigner
+39: 		    mapping(bytes32 enclave => bool trusted) private trustedUserMrEnclave;
+40: 		    mapping(bytes32 signer => bool trusted) private trustedUserMrSigner;
 ```
 
 [[39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L39)]
@@ -4454,10 +4454,10 @@ _There are 12 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-// @audit _trustedUserMrSigner
+// @audit trustedUserMrSigner
 65: 		    function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
 
-// @audit _trustedUserMrEnclave
+// @audit trustedUserMrEnclave
 69: 		    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
 
 // @audit tcbInfo
@@ -4599,13 +4599,13 @@ _There are 10 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-38: 		    bool private _checkLocalEnclaveReport;
+38: 		    bool private checkLocalEnclaveReport;
 
-39: 		    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
+39: 		    mapping(bytes32 enclave => bool trusted) private trustedUserMrEnclave;
 
-40: 		    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+40: 		    mapping(bytes32 signer => bool trusted) private trustedUserMrSigner;
 
-47: 		    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
+47: 		    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private serialNumIsRevoked;
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L38), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L39), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L40), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L47)]
@@ -4694,14 +4694,14 @@ _There are 13 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-// @audit _serialNumIsRevoked on line 81
-84: 		            _serialNumIsRevoked[index][serialNumBatch[i]] = true;
+// @audit serialNumIsRevoked on line 81
+84: 		            serialNumIsRevoked[index][serialNumBatch[i]] = true;
 
-// @audit _serialNumIsRevoked[index] on line 96
-99: 		            delete _serialNumIsRevoked[index][serialNumBatch[i]];
+// @audit serialNumIsRevoked[index] on line 96
+99: 		            delete serialNumIsRevoked[index][serialNumBatch[i]];
 
-// @audit _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)] on line 268
-271: 		                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
+// @audit serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)] on line 268
+271: 		                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
 272: 		                        .serialNumber];
 ```
 
@@ -9895,13 +9895,13 @@ _There are 10 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-38: 		    bool private _checkLocalEnclaveReport;
+38: 		    bool private checkLocalEnclaveReport;
 
-39: 		    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
+39: 		    mapping(bytes32 enclave => bool trusted) private trustedUserMrEnclave;
 
-40: 		    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+40: 		    mapping(bytes32 signer => bool trusted) private trustedUserMrSigner;
 
-47: 		    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
+47: 		    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private serialNumIsRevoked;
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L38), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L39), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L40), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L47)]
