@@ -112,11 +112,8 @@ async function fetchGuardians() {
 			...newGuardian,
 			alive: GuardianProverStatus.UNKNOWN
 		};
-		console.log('fetching guardian info for', guardian.address, guardian.id);
 
 		guardian.name = await getPseudonym(guardian.address);
-
-		console.log('getting balance for', guardian.name, guardian.id, guardian.address);
 
 		const [status, uptime, balance] = await Promise.all([
 			fetchLatestGuardianProverHealthCheckFromApi(
@@ -186,7 +183,6 @@ async function fetchStats(): Promise<void> {
 	const guardians = get(guardianProvers);
 
 	const updatedGuardiansPromises = guardians.map(async (guardian) => {
-		console.log('fetching stats for', guardian.address);
 		const startupDataFetch = fetchStartupDataFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			guardian.address
