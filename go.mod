@@ -3,7 +3,7 @@ module github.com/taikoxyz/taiko-mono
 go 1.21
 
 require (
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2
+	github.com/btcsuite/btcd/btcec/v2 v2.3.3
 	github.com/buildkite/terminal-to-html/v3 v3.8.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
