@@ -50,17 +50,20 @@
     'w-full',
     'justify-between',
     'items-center',
-
+    'text-[26px]/[32px]',
     'font-medium',
     'font-clash-grotesk',
     'collapse-title',
+    'tracking-normal',
   );
   const collapseContentClasses = classNames(
-    'text-base',
+    'text-[16px]/[24px]',
     'text-content-secondary',
-    'font-clash-grotesk',
+    'font-sans',
     'collapse-content',
+    'tracking-normal',
   );
+  /* eslint-disable */
 </script>
 
 <Section height="fit">
@@ -78,8 +81,8 @@
           <div class={collapseTitleClasses}>
             {option.title}
           </div>
-          <div class={collapseContentClasses}>
-            {option.text}
+          <div class={classNames(collapseContentClasses, i === activeEntryId ? 'mt-4' : null)}>
+            {@html option.text}
           </div>
         </div>
       {/each}

@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -18,11 +17,10 @@ type ProverEventHandlerTestSuite struct {
 }
 
 func (s *ProverEventHandlerTestSuite) TestGetProvingWindowNotFound() {
-	_, err := getProvingWindow(&bindings.TaikoL1ClientBlockProposed{
-		Meta: bindings.TaikoDataBlockMetadata{
-			MinTier: encoding.TierGuardianMajorityID + 1,
-		},
-	}, []*rpc.TierProviderTierWithID{})
+	_, err := getProvingWindow(
+		encoding.TierGuardianMajorityID+1,
+		[]*rpc.TierProviderTierWithID{},
+	)
 	s.ErrorIs(err, errTierNotFound)
 }
 

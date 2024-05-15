@@ -8,7 +8,6 @@ import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
-import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
@@ -25,6 +24,7 @@ import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
+import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
@@ -155,7 +155,7 @@ contract DeployOnL1 is DeployCapability {
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
+                    ),
                 registerTo: sharedAddressManager
             });
         }
@@ -266,7 +266,7 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
@@ -274,13 +274,6 @@ contract DeployOnL1 is DeployCapability {
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
             data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager))
-        });
-
-        deployProxy({
-            name: "tier_provider",
-            impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
-            data: abi.encodeCall(TierProviderV1.init, (owner)),
-            registerTo: rollupAddressManager
         });
 
         deployProxy({
@@ -310,6 +303,7 @@ contract DeployOnL1 is DeployCapability {
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
+        register(rollupAddressManager, "tier_provider", address(new TestTierProvider()));
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
@@ -333,7 +327,7 @@ contract DeployOnL1 is DeployCapability {
             impl: automateDcapV3AttestationImpl,
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
@@ -347,7 +341,7 @@ contract DeployOnL1 is DeployCapability {
         if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
             return address(new DevnetTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TierProviderV1());
+            return address(new TestTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
             return address(new TierProviderV2());
         } else {

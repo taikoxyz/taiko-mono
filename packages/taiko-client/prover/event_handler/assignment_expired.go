@@ -19,6 +19,8 @@ type AssignmentExpiredEventHandler struct {
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 	proofContestCh    chan<- *proofProducer.ContestRequestBody
 	contesterMode     bool
+	// Guardian prover related.
+	isGuardian bool
 }
 
 // NewAssignmentExpiredEventHandler creates a new AssignmentExpiredEventHandler instance.
@@ -28,8 +30,9 @@ func NewAssignmentExpiredEventHandler(
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	proofContestCh chan *proofProducer.ContestRequestBody,
 	contesterMode bool,
+	isGuardian bool,
 ) *AssignmentExpiredEventHandler {
-	return &AssignmentExpiredEventHandler{rpc, proverAddress, proofSubmissionCh, proofContestCh, contesterMode}
+	return &AssignmentExpiredEventHandler{rpc, proverAddress, proofSubmissionCh, proofContestCh, contesterMode, isGuardian}
 }
 
 // Handle implements the AssignmentExpiredHandler interface.
@@ -63,7 +66,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 
 	// If there is no contester, we submit a contest to protocol.
 	go func() {
-		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress {
+		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress && !h.isGuardian {
 			h.proofContestCh <- &proofProducer.ContestRequestBody{
 				BlockID:    e.BlockId,
 				ProposedIn: new(big.Int).SetUint64(e.Raw.BlockNumber),
