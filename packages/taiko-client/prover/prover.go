@@ -160,7 +160,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(p.txmgr, txBuilder); err != nil {
+	if err := p.initProofSubmitters(p.txmgr, txBuilder, tiers); err != nil {
 		return err
 	}
 

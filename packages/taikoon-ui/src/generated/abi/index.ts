@@ -40,6 +40,15 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'blacklist',
+    outputs: [
+      { name: '', internalType: 'contract IMinimalBlacklist', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: '_minter', internalType: 'address', type: 'address' },
       { name: '_maxMints', internalType: 'uint256', type: 'uint256' },
@@ -60,6 +69,11 @@ export const taikoonTokenAbi = [
     inputs: [
       { name: '_owner', internalType: 'address', type: 'address' },
       { name: '_root', internalType: 'bytes32', type: 'bytes32' },
+      {
+        name: '_blacklist',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
     ],
     name: 'initialize',
     outputs: [],
@@ -71,6 +85,11 @@ export const taikoonTokenAbi = [
       { name: '_owner', internalType: 'address', type: 'address' },
       { name: '_rootURI', internalType: 'string', type: 'string' },
       { name: '_merkleRoot', internalType: 'bytes32', type: 'bytes32' },
+      {
+        name: '_blacklistAddress',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
     ],
     name: 'initialize',
     outputs: [],
@@ -277,6 +296,19 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      {
+        name: '_blacklist',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
+    ],
+    name: 'updateBlacklist',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [{ name: '_root', internalType: 'bytes32', type: 'bytes32' }],
     name: 'updateRoot',
     outputs: [],
@@ -448,6 +480,7 @@ export const taikoonTokenAbi = [
     ],
     name: 'Upgraded',
   },
+  { type: 'error', inputs: [], name: 'ADDRESS_BLACKLISTED' },
   {
     type: 'error',
     inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
@@ -455,7 +488,9 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -541,7 +576,7 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const;
+] as const
 
 /**
  * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
@@ -549,8 +584,8 @@ export const taikoonTokenAbi = [
  */
 export const taikoonTokenAddress = {
   17000: '0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393',
-  31337: '0x3Aa5ebB10DC797CAC828524e59A333d0A371443c',
-} as const;
+  31337: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+} as const
 
 /**
  * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xfDbaA6d6c382A2555856bFaB315D5E6F3CDA1393)
@@ -559,4 +594,4 @@ export const taikoonTokenAddress = {
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
   abi: taikoonTokenAbi,
-} as const;
+} as const
