@@ -8,7 +8,6 @@ import { Ownable2StepUpgradeable } from
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { ContextUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-import { IMinimalBlacklist } from "./IMinimalBlacklist.sol";
 
 /// @title MerkleWhitelist
 /// @dev Merkle Tree Whitelist
@@ -20,15 +19,12 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
     error MINTS_EXCEEDED();
     error INVALID_PROOF();
     error INVALID_TOKEN_AMOUNT();
-    error ADDRESS_BLACKLISTED();
 
     /// @notice Merkle Tree Root
     bytes32 public root;
     /// @notice Tracker for minted leaves
     mapping(bytes32 leaf => bool hasMinted) public minted;
-    /// @notice Blackist address
-    IMinimalBlacklist public blacklist;
-    /// @notice Gap for upgrade safety
+
     uint256[48] private __gap;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -36,23 +32,10 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
         _disableInitializers();
     }
 
-    /// @notice Update the blacklist address
-    /// @param _blacklist The new blacklist address
-    function updateBlacklist(IMinimalBlacklist _blacklist) external onlyOwner {
-        blacklist = _blacklist;
-    }
-
     /// @notice Contract initializer
     /// @param _root Merkle Tree root
-    function initialize(
-        address _owner,
-        bytes32 _root,
-        IMinimalBlacklist _blacklist
-    )
-        external
-        initializer
-    {
-        __MerkleWhitelist_init(_owner, _root, _blacklist);
+    function initialize(address _owner, bytes32 _root) external initializer {
+        __MerkleWhitelist_init(_owner, _root);
     }
 
     /// @notice Check if a wallet can free mint
@@ -60,7 +43,6 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
     /// @param _maxMints Max amount of free mints
     /// @return Whether the wallet can mint
     function canMint(address _minter, uint256 _maxMints) public view returns (bool) {
-        if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
         bytes32 _leaf = leaf(_minter, _maxMints);
         return !minted[_leaf];
     }
@@ -75,18 +57,10 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
 
     /// @notice Internal initializer
     /// @param _root Merkle Tree root
-    function __MerkleWhitelist_init(
-        address _owner,
-        bytes32 _root,
-        IMinimalBlacklist _blacklist
-    )
-        internal
-        initializer
-    {
+    function __MerkleWhitelist_init(address _owner, bytes32 _root) internal initializer {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __Context_init();
         root = _root;
-        blacklist = _blacklist;
     }
 
     /// @notice Update the merkle tree's root

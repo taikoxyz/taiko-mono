@@ -43,12 +43,7 @@ contract DeployScript is Script {
         // deploy token with empty root
         address impl = address(new TaikoonToken());
         address proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(
-                    TaikoonToken.initialize, (owner, baseURI, root, utils.getBlacklist())
-                )
-            )
+            new ERC1967Proxy(impl, abi.encodeCall(TaikoonToken.initialize, (owner, baseURI, root)))
         );
 
         TaikoonToken token = TaikoonToken(proxy);
