@@ -1,10 +1,11 @@
 module github.com/taikoxyz/taiko-mono
 
 go 1.21
+toolchain go1.22.2
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3
-	github.com/buildkite/terminal-to-html/v3 v3.8.0
+	github.com/buildkite/terminal-to-html/v3 v3.12.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
@@ -277,7 +278,7 @@ require (
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
