@@ -93,12 +93,16 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Withdraws all withdrawable tokens.
     /// @param _to The address the token will be sent to.
-    function withdraw(address _to) external onlyRecipient nonReentrant {
+    function withdraw(address _to) external nonReentrant {
         uint256 amount = amountWithdrawable();
         if (amount == 0) revert NOT_WITHDRAWABLE();
 
-        amountWithdrawn += amount;
         address to = _to == address(0) ? recipient : _to;
+        if (to != recipient && msg.sender != recipient) {
+            revert PERMISSION_DENIED();
+        }
+
+        amountWithdrawn += amount;
         emit TokenWithdrawn(to, amount);
 
         IERC20(taikoToken).safeTransfer(to, amount);
