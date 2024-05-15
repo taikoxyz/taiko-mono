@@ -253,6 +253,8 @@
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
 - impl: `0xde1b1FBe7D721af4A56651272ef91A59B7303323`
 - owner: `admin.taiko.eth`
+- todo:
+  - upgrade the implementation
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -262,6 +264,8 @@
 ### token_unlocking
 
 - impl: ``
+- todos:
+  - deploy a new version.
 - logs:
   - deployed on May 13, 2024 at commit `165e28279`
 
