@@ -27,9 +27,6 @@ contract UtilsScript is Script {
         } else if (chainId == 167_001) {
             lowercaseNetworkKey = "devnet";
             uppercaseNetworkKey = "DEVNET";
-        } else if (chainId == 11_155_111) {
-            lowercaseNetworkKey = "sepolia";
-            uppercaseNetworkKey = "SEPOLIA";
         } else if (chainId == 167_008) {
             lowercaseNetworkKey = "katla";
             uppercaseNetworkKey = "KATLA";

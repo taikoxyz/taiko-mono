@@ -19,16 +19,13 @@ contract MerkleMintersScript is Script {
 
     TaikoonToken token;
 
-    // bytes32[] public leaves;
-
-    //  bytes32[] public holeskyLeaves;
-
     bytes32 public holeskyRoot;
-
     bytes32 public localhostRoot;
+    bytes32 public devnetRoot;
 
     string public hardhatTreeJson;
     string public holeskyTreeJson;
+    string public devnetTreeJson;
 
     function setUp() public {
         utils = new UtilsScript();
@@ -45,21 +42,24 @@ contract MerkleMintersScript is Script {
         address tokenAddress = abi.decode(addressRaw, (address));
         token = TaikoonToken(tokenAddress);
 
+        // load hardhat's tree and root
         hardhatTreeJson =
             vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/hardhat.json"));
-        //bytes memory treeRaw = hardhatTreeJson.parseRaw('.tree');
-        // leaves = abi.decode(treeRaw, (bytes32[]));
 
         bytes memory rootRaw = hardhatTreeJson.parseRaw(".root");
         localhostRoot = abi.decode(rootRaw, (bytes32));
 
+        // load holesky's tree and root
         holeskyTreeJson =
             vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/holesky.json"));
 
-        // treeRaw = holeskyTreeJson.parseRaw('.tree');
-        //   holeskyLeaves = abi.decode(treeRaw, (bytes32[]));
         rootRaw = holeskyTreeJson.parseRaw(".root");
         holeskyRoot = abi.decode(rootRaw, (bytes32));
+
+        // load devnet's tree and root
+        devnetTreeJson = vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/devnet.json"));
+        rootRaw = devnetTreeJson.parseRaw(".root");
+        devnetRoot = abi.decode(rootRaw, (bytes32));
     }
 
     function getMerkleRoot() public view returns (bytes32) {
@@ -68,6 +68,8 @@ contract MerkleMintersScript is Script {
             return localhostRoot;
         } else if (chainId == 17_000) {
             return holeskyRoot;
+        } else if (chainId == 167_001) {
+            return devnetRoot;
         } else {
             revert("Unsupported chainId");
         }
@@ -86,6 +88,10 @@ contract MerkleMintersScript is Script {
         } else if (chainId == 17_000) {
             // holesky
             bytes memory treeRaw = holeskyTreeJson.parseRaw(".tree");
+            leaves = abi.decode(treeRaw, (bytes32[]));
+        } else if (chainId == 167_001) {
+            // devnet
+            bytes memory treeRaw = devnetTreeJson.parseRaw(".tree");
             leaves = abi.decode(treeRaw, (bytes32[]));
         } else {
             revert("Unsupported chainId");

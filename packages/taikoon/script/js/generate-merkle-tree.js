@@ -23,8 +23,9 @@ async function main(network) {
     JSON.stringify({ ...tree.dump(), root: tree.root }, null, 2),
   );
 
-  console.log("Merkle Root:", tree.root);
+    console.log(`Merkle Root for network ${network}`, tree.root)
 }
 
-main("hardhat");
-main("holesky");
+main('hardhat')
+main('holesky')
+main('devnet')
