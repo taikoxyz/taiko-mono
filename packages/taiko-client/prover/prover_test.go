@@ -232,7 +232,6 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 }
 
 func (s *ProverTestSuite) TestContestWrongBlocks() {
-	s.T().Skip()
 	s.p.cfg.ContesterMode = false
 	s.Nil(s.p.initEventHandlers())
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
