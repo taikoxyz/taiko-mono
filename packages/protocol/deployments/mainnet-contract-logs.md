@@ -251,15 +251,15 @@
 #### automata_dcap_attestation
 
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-- impl: `0xde1b1FBe7D721af4A56651272ef91A59B7303323`
+- impl: `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5`
 - owner: `admin.taiko.eth`
-- todo:
-  - upgrade the implementation
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit `b90b932` @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
   - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit `cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
+  - Upgraded from `0xde1b1FBe7D721af4A56651272ef91A59B7303323` to `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
+  - Called `configureTcbInfoJson` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
 
 ### token_unlocking
 
