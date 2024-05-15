@@ -1,19 +1,17 @@
 import type { StorybookConfig } from '@storybook/sveltekit';
 
-
 export const framework = {
-    name: '@storybook/sveltekit',
-    options: {}
+	name: '@storybook/sveltekit',
+	options: {}
 };
 
-export const docs = {autodocs: false};
+export const docs = { autodocs: false };
 export const addons = [
 	'@storybook/addon-links',
-'@storybook/addon-essentials',
-'@chromatic-com/storybook',
-'@storybook/addon-interactions'
+	'@storybook/addon-essentials',
+	'@chromatic-com/storybook',
+	'@storybook/addon-interactions'
 ];
-
 
 const config: StorybookConfig = {
 	//framework: '@taiko/ui-lib',
@@ -26,6 +24,5 @@ const config: StorybookConfig = {
 	addons,
 	docs
 };
-
 
 export default config;

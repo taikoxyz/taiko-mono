@@ -1,9 +1,11 @@
+import '../lib/styles/app.css';
+// used to load the css into storybook
 import type { Meta, StoryObj } from '@storybook/svelte';
-import { Footer } from '../../lib/components/Footer';
+import { Footer } from '../lib/components/Footer';
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories
 const meta = {
-	title: 'Footer',
+	title: 'Index',
 	component: Footer,
 	tags: [],
 	//tags: ['autodocs'],

@@ -1,4 +1,3 @@
-import '../../app.css';
 import type { Meta, StoryObj } from '@storybook/svelte';
 import { Copyright } from '../../lib/components/Copyright/index.js';
 

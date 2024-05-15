@@ -1,4 +1,3 @@
-import '../../app.css';
 import type { Meta, StoryObj } from '@storybook/svelte';
 import { Icons } from '../../lib/components/Icons/index.js';
 

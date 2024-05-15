@@ -1,8 +1,8 @@
-@import './styles/base.css';
-@import './styles/components.css';
-@import './styles/utilities.css';
-@import './styles/override.css';
-@import './styles/gimmicks.css';
+@import './base.css';
+@import './components.css';
+@import './utilities.css';
+@import './override.css';
+@import './gimmicks.css';
 
 @layer base {
 	/**

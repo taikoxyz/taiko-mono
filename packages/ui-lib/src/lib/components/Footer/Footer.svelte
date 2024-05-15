@@ -102,6 +102,8 @@
 			]
 		}
 	];
+
+	$: hoveredIcon = 'none';
 	const sectionClasses = classNames('justify-end align-end', 'mb-5');
 	const sectionWrapperClasses = classNames(
 		'w-full',
@@ -143,13 +145,14 @@
 		'items-center',
 		'justify-center',
 		'bg-background-neutral',
-		'md:p-5',
+		'lg:p-5',
 		'p-3',
 		'gap-3',
 		'rounded-xl',
 		'text-content-primary',
 		'font-medium',
-		'text-2xl',
+		'lg:text-2xl',
+		'md:text-base',
 		'font-clash-grotesk',
 		'border',
 		'transition-all',
@@ -284,8 +287,35 @@
 		<div class={socialLinksWrapperClasses}>
 			{#each socialLinks as link}
 				{@const Icon = Icons[link.icon]}
-				<a href={link.href} target="_blank" class={socialLinkClasses}>
-					<Icon size="28" class="text-content-secondary" />
+				<a
+					on:mouseenter={() => (hoveredIcon = link.label)}
+					on:mouseleave={() => (hoveredIcon = 'none')}
+					href={link.href}
+					target="_blank"
+					class={socialLinkClasses}
+				>
+					<Icon
+						size="28"
+						class={classNames(
+							'transition-colors',
+							//'text-primary'
+							hoveredIcon === link.label && hoveredIcon === 'youtube'
+								? 'text-red-500'
+								: 'text-content-tertiary',
+							hoveredIcon === link.label && hoveredIcon === 'forum'
+								? 'text-primary'
+								: 'text-content-tertiary',
+							hoveredIcon === link.label && hoveredIcon === 'discord'
+								? 'text-discord'
+								: 'text-content-tertiary',
+							hoveredIcon === link.label && hoveredIcon === 'twitter'
+								? 'text-icon-primary'
+								: 'text-content-tertiary',
+							hoveredIcon === link.label && hoveredIcon === 'mirror'
+								? 'text-icon-primary'
+								: 'text-content-tertiary'
+						)}
+					/>
 					{#if windowSize !== 'sm'}
 						{link.label}
 					{/if}

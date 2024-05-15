@@ -232,6 +232,8 @@ export default {
 				'overlay-background': 'var(--overlay-background)',
 				'divider-border': 'var(--divider-border)',
 
+				discord: '#7289DA',
+
 				'grey-500-10': 'var(--grey-500-10)',
 				'grey-500-20': 'var(--grey-500-20)',
 
