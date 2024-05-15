@@ -250,10 +250,10 @@ Here is a simple POC showing the actual issuance compared to the expected issuan
                 issuance = numL1Blocks * _config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
-            // I have commented out the below basefee calculation
-            // and return issuance instead to show the actual
-            // accumulated issuance over 5 L1 blocks.
-            // nothing else is changed
+			// I have commented out the below basefee calculation
+			// and return issuance instead to show the actual
+			// accumulated issuance over 5 L1 blocks.
+			// nothing else is changed
 
             //gasExcess_ = uint64(excess.min(type(uint64).max));
 
@@ -384,15 +384,15 @@ When the guardian overrides the proof they can not pay back Bob's validity or co
 
 ```solidity
 if (isTopTier) {
-    // A special return value from the top tier prover can signal this
-    // contract to return all liveness bond.
-    bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
-        && bytes32(_proof.data) == RETURN_LIVENESS_BOND;
+	// A special return value from the top tier prover can signal this
+	// contract to return all liveness bond.
+	bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
+		&& bytes32(_proof.data) == RETURN_LIVENESS_BOND;
 
-    if (returnLivenessBond) {
-        tko.transfer(blk.assignedProver, blk.livenessBond);
-        blk.livenessBond = 0;
-    }
+	if (returnLivenessBond) {
+		tko.transfer(blk.assignedProver, blk.livenessBond);
+		blk.livenessBond = 0;
+	}
 }
 ```
 
@@ -504,13 +504,13 @@ We also need to not to not recover any reward when we prove with Guardian and `_
 
 ```diff
 +if (_tier.contestBond != 0){
-    unchecked {
-        if (reward > _tier.validityBond) {
-            _tko.transfer(msg.sender, reward - _tier.validityBond);
-        } else {
-            _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
-        }
-    }
+	unchecked {
+		if (reward > _tier.validityBond) {
+			_tko.transfer(msg.sender, reward - _tier.validityBond);
+		} else {
+			_tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
+		}
+	}
 +}
 ```
 
@@ -1655,11 +1655,11 @@ This also generates issues for independent provers, as they may not utilize the 
 
 ```solidity
 function proveBlock
-    ...
-    if (blk.blockId != _meta.id || blk.metaHash != keccak256(abi.encode(_meta))) {
+	...
+	if (blk.blockId != _meta.id || blk.metaHash != keccak256(abi.encode(_meta))) {
             revert L1_BLOCK_MISMATCH();
         }
-    ...
+	...
 }
 ```
 
@@ -2849,39 +2849,39 @@ _There are 80 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-81:                     if (_serialNumIsRevoked[index][serialNumBatch[i]]) {
+81: 		            if (_serialNumIsRevoked[index][serialNumBatch[i]]) {
 
-84:                     _serialNumIsRevoked[index][serialNumBatch[i]] = true;
+84: 		            _serialNumIsRevoked[index][serialNumBatch[i]] = true;
 
-96:                     if (!_serialNumIsRevoked[index][serialNumBatch[i]]) {
+96: 		            if (!_serialNumIsRevoked[index][serialNumBatch[i]]) {
 
-99:                     delete _serialNumIsRevoked[index][serialNumBatch[i]];
+99: 		            delete _serialNumIsRevoked[index][serialNumBatch[i]];
 
-192:                    EnclaveIdStruct.TcbLevel memory tcb = enclaveId.tcbLevels[i];
+192: 		            EnclaveIdStruct.TcbLevel memory tcb = enclaveId.tcbLevels[i];
 
-215:                    TCBInfoStruct.TCBLevelObj memory current = tcb.tcbLevels[i];
+215: 		            TCBInfoStruct.TCBLevelObj memory current = tcb.tcbLevels[i];
 
-241:                    if (pckCpuSvns[i] < tcbCpuSvns[i]) {
+241: 		            if (pckCpuSvns[i] < tcbCpuSvns[i]) {
 
-263:                        issuer = certs[i];
+263: 		                issuer = certs[i];
 
-265:                        issuer = certs[i + 1];
+265: 		                issuer = certs[i + 1];
 
-268:                            certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
-269:                                .serialNumber];
+268: 		                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
+269: 		                        .serialNumber];
 
-270:                        } else if (certs[i].isPck) {
+270: 		                } else if (certs[i].isPck) {
 
-271:                            certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
-272:                                .serialNumber];
+271: 		                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
+272: 		                        .serialNumber];
 
-280:                        block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
+280: 		                block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
 
-286:                        certs[i].tbsCertificate, certs[i].signature, issuer.pubKey
+286: 		                certs[i].tbsCertificate, certs[i].signature, issuer.pubKey
 
-424:                        (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
+424: 		                (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
 
-425:                            authDataV3.certification.decodedCertDataArray[i], isPckCert
+425: 		                    authDataV3.certification.decodedCertDataArray[i], isPckCert
 ```
 
 [[81](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L81), [84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L84), [96](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L96), [99](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L99), [192](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L192), [215](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L215), [241](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L241), [263](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L263), [265](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L265), [268-269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L268-L269), [270](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L270), [271-272](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L271-L272), [280](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L280), [286](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L286), [424](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L424), [425](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L425)]
@@ -2889,9 +2889,9 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-91:                     bytes32 msgHash = _msgHashes[i];
+91: 		            bytes32 msgHash = _msgHashes[i];
 
-92:                     proofReceipt[msgHash].receivedAt = _timestamp;
+92: 		            proofReceipt[msgHash].receivedAt = _timestamp;
 ```
 
 [[91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L91), [92](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L92)]
@@ -2899,7 +2899,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-236:                        inputs[j % 255] = blockhash(j);
+236: 		                inputs[j % 255] = blockhash(j);
 ```
 
 [[236](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L236)]
@@ -2907,7 +2907,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-105:                    hop = hopProofs[i];
+105: 		            hop = hopProofs[i];
 ```
 
 [[105](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L105)]
@@ -2915,13 +2915,13 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-48:                     if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
+48: 		            if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
 
-252:                            BridgedERC1155(_op.token).burn(_user, _op.tokenIds[i], _op.amounts[i]);
+252: 		                    BridgedERC1155(_op.token).burn(_user, _op.tokenIds[i], _op.amounts[i]);
 
-273:                                id: _op.tokenIds[i],
+273: 		                        id: _op.tokenIds[i],
 
-274:                                amount: _op.amounts[i],
+274: 		                        amount: _op.amounts[i],
 ```
 
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L48), [252](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L252), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L273), [274](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L274)]
@@ -2929,15 +2929,15 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-35:                     if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
+35: 		            if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
 
-171:                        IERC721(token_).safeTransferFrom(address(this), _to, _tokenIds[i]);
+171: 		                IERC721(token_).safeTransferFrom(address(this), _to, _tokenIds[i]);
 
-176:                        BridgedERC721(token_).mint(_to, _tokenIds[i]);
+176: 		                BridgedERC721(token_).mint(_to, _tokenIds[i]);
 
-198:                            BridgedERC721(_op.token).burn(_user, _op.tokenIds[i]);
+198: 		                    BridgedERC721(_op.token).burn(_user, _op.tokenIds[i]);
 
-211:                            t.safeTransferFrom(_user, address(this), _op.tokenIds[i]);
+211: 		                    t.safeTransferFrom(_user, address(this), _op.tokenIds[i]);
 ```
 
 [[35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L35), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L171), [176](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L176), [198](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L198), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L211)]
@@ -2945,25 +2945,25 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-105:                    uint256 idx = _ids[i];
+105: 		            uint256 idx = _ids[i];
 
-107:                    if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
+107: 		            if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
 
-109:                    emit InstanceDeleted(idx, instances[idx].addr);
+109: 		            emit InstanceDeleted(idx, instances[idx].addr);
 
-111:                    delete instances[idx];
+111: 		            delete instances[idx];
 
-211:                    if (addressRegistered[_instances[i]]) revert SGX_ALREADY_ATTESTED();
+211: 		            if (addressRegistered[_instances[i]]) revert SGX_ALREADY_ATTESTED();
 
-213:                    addressRegistered[_instances[i]] = true;
+213: 		            addressRegistered[_instances[i]] = true;
 
-215:                    if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
+215: 		            if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-217:                    instances[nextInstanceId] = Instance(_instances[i], validSince);
+217: 		            instances[nextInstanceId] = Instance(_instances[i], validSince);
 
-218:                    ids[i] = nextInstanceId;
+218: 		            ids[i] = nextInstanceId;
 
-220:                    emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
+220: 		            emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 ```
 
 [[105](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L105), [107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L107), [109](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L109), [111](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L111), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L211), [213](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L213), [215](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L215), [217](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L217), [218](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L218), [220](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L220)]
@@ -2971,11 +2971,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-62:                     (success, certs[i], increment) = _removeHeadersAndFooters(input);
+62: 		            (success, certs[i], increment) = _removeHeadersAndFooters(input);
 
-245:                    contentStr = LibString.concat(contentStr, split[i]);
+245: 		            contentStr = LibString.concat(contentStr, split[i]);
 
-367:                        cpusvns[i] = cpusvn;
+367: 		                cpusvns[i] = cpusvn;
 ```
 
 [[62](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L62), [245](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L245), [367](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L367)]
@@ -2983,9 +2983,9 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-334:                    bytes1 char = self[off + i];
+334: 		            bytes1 char = self[off + i];
 
-336:                    decoded = uint8(BASE32_HEX_TABLE[uint256(uint8(char)) - 0x30]);
+336: 		            decoded = uint8(BASE32_HEX_TABLE[uint256(uint8(char)) - 0x30]);
 ```
 
 [[334](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L334), [336](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L336)]
@@ -2993,19 +2993,19 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-141:                    if (decipher[i] != 0xff) {
+141: 		            if (decipher[i] != 0xff) {
 
-153:                        if (decipher[3 + paddingLen + i] != bytes1(sha256ExplicitNullParam[i])) {
+153: 		                if (decipher[3 + paddingLen + i] != bytes1(sha256ExplicitNullParam[i])) {
 
-159:                        if (decipher[3 + paddingLen + i] != bytes1(sha256ImplicitNullParam[i])) {
+159: 		                if (decipher[3 + paddingLen + i] != bytes1(sha256ImplicitNullParam[i])) {
 
-175:                    if (decipher[5 + paddingLen + digestAlgoWithParamLen + i] != _sha256[i]) {
+175: 		            if (decipher[5 + paddingLen + digestAlgoWithParamLen + i] != _sha256[i]) {
 
-274:                    if (decipher[i] != 0xff) {
+274: 		            if (decipher[i] != 0xff) {
 
-284:                    if (decipher[3 + paddingLen + i] != bytes1(sha1Prefix[i])) {
+284: 		            if (decipher[3 + paddingLen + i] != bytes1(sha1Prefix[i])) {
 
-291:                    if (decipher[3 + paddingLen + sha1Prefix.length + i] != _sha1[i]) {
+291: 		            if (decipher[3 + paddingLen + sha1Prefix.length + i] != _sha1[i]) {
 ```
 
 [[141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L141), [153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L153), [159](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L159), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L175), [274](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L274), [284](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L284), [291](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L291)]
@@ -3013,7 +3013,7 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-60:                     timestamp += uint256(monthDays[i - 1]) * 86_400; // Days in seconds
+60: 		            timestamp += uint256(monthDays[i - 1]) * 86_400; // Days in seconds
 ```
 
 [[60](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L60)]
@@ -3021,7 +3021,7 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-173:                    if (_tierFees[i].tier == _tierId) return _tierFees[i].fee;
+173: 		            if (_tierFees[i].tier == _tierId) return _tierFees[i].fee;
 ```
 
 [[173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L173)]
@@ -3029,13 +3029,13 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-87:                         uint256 data = _state.ethDeposits[j % _config.ethDepositRingBufferSize];
+87: 		                uint256 data = _state.ethDeposits[j % _config.ethDepositRingBufferSize];
 
-88:                         deposits_[i] = TaikoData.EthDeposit({
+88: 		                deposits_[i] = TaikoData.EthDeposit({
 
-93:                         uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
+93: 		                uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
 
-101:                            deposits_[i].amount -= _fee;
+101: 		                    deposits_[i].amount -= _fee;
 ```
 
 [[87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L87), [88](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L88), [93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L93), [101](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L101)]
@@ -3043,13 +3043,13 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-245:                        if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
+245: 		                if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
 
-253:                        IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
+253: 		                IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
 
-254:                            blk, meta_, params.hookCalls[i].data
+254: 		                    blk, meta_, params.hookCalls[i].data
 
-257:                        prevHook = params.hookCalls[i].hook;
+257: 		                prevHook = params.hookCalls[i].hook;
 ```
 
 [[245](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L245), [253](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L253), [254](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L254), [257](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L257)]
@@ -3057,13 +3057,13 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-75:                     delete guardianIds[guardians[i]];
+75: 		            delete guardianIds[guardians[i]];
 
-81:                     address guardian = _newGuardians[i];
+81: 		            address guardian = _newGuardians[i];
 
-84:                     if (guardianIds[guardian] != 0) revert INVALID_GUARDIAN_SET();
+84: 		            if (guardianIds[guardian] != 0) revert INVALID_GUARDIAN_SET();
 
-88:                     guardianIds[guardian] = guardians.length;
+88: 		            guardianIds[guardian] = guardians.length;
 ```
 
 [[75](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L75), [81](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L81), [84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L84), [88](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L88)]
@@ -3071,7 +3071,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-60:                     IERC721(token).safeTransferFrom(vault, user, tokenIds[i]);
+60: 		            IERC721(token).safeTransferFrom(vault, user, tokenIds[i]);
 ```
 
 [[60](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L60)]
@@ -3079,9 +3079,9 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-154:                    uint256 digits = uint256(uint8(bytes1(encoded[i])));
+154: 		            uint256 digits = uint256(uint8(bytes1(encoded[i])));
 
-282:                    quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
+282: 		            quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
 ```
 
 [[154](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L154), [282](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L282)]
@@ -3089,11 +3089,11 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-47:                         out_[i] = bytes1(uint8((_len / (256 ** (lenLen - i))) % 256));
+47: 		                out_[i] = bytes1(uint8((_len / (256 ** (lenLen - i))) % 256));
 
-60:                     if (b[i] != 0) {
+60: 		            if (b[i] != 0) {
 
-67:                     out_[j] = b[i++];
+67: 		            out_[j] = b[i++];
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L47), [60](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L60), [67](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L67)]
@@ -3101,23 +3101,23 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-86:                     TrieNode memory currentNode = proof[i];
+86: 		            TrieNode memory currentNode = proof[i];
 
-118:                            value_ = RLPReader.readBytes(currentNode.decoded[TREE_RADIX]);
+118: 		                    value_ = RLPReader.readBytes(currentNode.decoded[TREE_RADIX]);
 
-134:                            uint8 branchKey = uint8(key[currentKeyIndex]);
+134: 		                    uint8 branchKey = uint8(key[currentKeyIndex]);
 
-135:                            RLPReader.RLPItem memory nextNode = currentNode.decoded[branchKey];
+135: 		                    RLPReader.RLPItem memory nextNode = currentNode.decoded[branchKey];
 
-141:                        uint8 prefix = uint8(path[0]);
+141: 		                uint8 prefix = uint8(path[0]);
 
-171:                            value_ = RLPReader.readBytes(currentNode.decoded[1]);
+171: 		                    value_ = RLPReader.readBytes(currentNode.decoded[1]);
 
-188:                            currentNodeID = _getNodeID(currentNode.decoded[1]);
+188: 		                    currentNodeID = _getNodeID(currentNode.decoded[1]);
 
-209:                    proof_[i] = TrieNode({ encoded: _proof[i], decoded: RLPReader.readList(_proof[i]) });
+209: 		            proof_[i] = TrieNode({ encoded: _proof[i], decoded: RLPReader.readList(_proof[i]) });
 
-244:                for (; shared_ < max && _a[shared_] == _b[shared_];) {
+244: 		        for (; shared_ < max && _a[shared_] == _b[shared_];) {
 ```
 
 [[86](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L86), [118](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L118), [134](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L134), [135](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L135), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L141), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L171), [188](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L188), [209](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L209), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L244)]
@@ -3138,15 +3138,15 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 // @audit Can save 1 storage slot (from 7 to 6)
 // @audit Consider using the following order:
 /*
-  * mapping(bytes32 => bool) _trustedUserMrEnclave (32)
-  * mapping(bytes32 => bool) _trustedUserMrSigner (32)
-  * mapping(uint256 => mapping(bytes => bool)) _serialNumIsRevoked (32)
-  * mapping(string => TCBInfoStruct.TCBInfo) tcbInfo (32)
-  * EnclaveIdStruct.EnclaveId qeIdentity (20)
-  * bool _checkLocalEnclaveReport (1)
-  * address owner (20)
+  *	mapping(bytes32 => bool) _trustedUserMrEnclave (32)
+  *	mapping(bytes32 => bool) _trustedUserMrSigner (32)
+  *	mapping(uint256 => mapping(bytes => bool)) _serialNumIsRevoked (32)
+  *	mapping(string => TCBInfoStruct.TCBInfo) tcbInfo (32)
+  *	EnclaveIdStruct.EnclaveId qeIdentity (20)
+  *	bool _checkLocalEnclaveReport (1)
+  *	address owner (20)
 */
-22:         contract AutomataDcapV3Attestation is IAttestation {
+22: 		contract AutomataDcapV3Attestation is IAttestation {
 ```
 
 [[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L22)]
@@ -3157,14 +3157,14 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 // @audit Can save 1 storage slot (from 6 to 5)
 // @audit Consider using the following order:
 /*
-  * mapping(address => uint256) claimedAmount (32)
-  * mapping(address => uint256) withdrawnAmount (32)
-  * uint256[] __gap (32)
-  * address token (20)
-  * uint64 withdrawalWindow (8)
-  * address vault (20)
+  *	mapping(address => uint256) claimedAmount (32)
+  *	mapping(address => uint256) withdrawnAmount (32)
+  *	uint256[] __gap (32)
+  *	address token (20)
+  *	uint64 withdrawalWindow (8)
+  *	address vault (20)
 */
-12:         contract ERC20Airdrop2 is MerkleClaimable {
+12: 		contract ERC20Airdrop2 is MerkleClaimable {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L12)]
@@ -3186,101 +3186,101 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 // @audit Can save 1 storage slot (from 8 to 7)
 // @audit Consider using the following order:
 /*
-  * uint256 ethDepositRingBufferSize (32)
-  * uint256 ethDepositGas (32)
-  * uint256 ethDepositMaxFee (32)
-  * uint96 livenessBond (12)
-  * uint96 ethDepositMinAmount (12)
-  * uint64 chainId (8)
-  * uint96 ethDepositMaxAmount (12)
-  * uint64 blockMaxProposals (8)
-  * uint64 blockRingBufferSize (8)
-  * uint32 blockMaxGasLimit (4)
-  * uint64 maxBlocksToVerifyPerProposal (8)
-  * uint64 ethDepositMinCountPerBlock (8)
-  * uint64 ethDepositMaxCountPerBlock (8)
-  * uint24 blockMaxTxListBytes (3)
-  * uint24 blobExpiry (3)
-  * bool blobAllowedForDA (1)
-  * bool blobReuseEnabled (1)
-  * uint8 blockSyncThreshold (1)
+  *	uint256 ethDepositRingBufferSize (32)
+  *	uint256 ethDepositGas (32)
+  *	uint256 ethDepositMaxFee (32)
+  *	uint96 livenessBond (12)
+  *	uint96 ethDepositMinAmount (12)
+  *	uint64 chainId (8)
+  *	uint96 ethDepositMaxAmount (12)
+  *	uint64 blockMaxProposals (8)
+  *	uint64 blockRingBufferSize (8)
+  *	uint32 blockMaxGasLimit (4)
+  *	uint64 maxBlocksToVerifyPerProposal (8)
+  *	uint64 ethDepositMinCountPerBlock (8)
+  *	uint64 ethDepositMaxCountPerBlock (8)
+  *	uint24 blockMaxTxListBytes (3)
+  *	uint24 blobExpiry (3)
+  *	bool blobAllowedForDA (1)
+  *	bool blobReuseEnabled (1)
+  *	uint8 blockSyncThreshold (1)
 */
-10:             struct Config {
-11:                 // ---------------------------------------------------------------------
-12:                 // Group 1: General configs
-13:                 // ---------------------------------------------------------------------
-14:                 // The chain ID of the network where Taiko contracts are deployed.
-15:                 uint64 chainId;
-16:                 // ---------------------------------------------------------------------
-17:                 // Group 2: Block level configs
-18:                 // ---------------------------------------------------------------------
-19:                 // The maximum number of proposals allowed in a single block.
-20:                 uint64 blockMaxProposals;
-21:                 // Size of the block ring buffer, allowing extra space for proposals.
-22:                 uint64 blockRingBufferSize;
-23:                 // The maximum number of verifications allowed when a block is proposed.
-24:                 uint64 maxBlocksToVerifyPerProposal;
-25:                 // The maximum gas limit allowed for a block.
-26:                 uint32 blockMaxGasLimit;
-27:                 // The maximum allowed bytes for the proposed transaction list calldata.
-28:                 uint24 blockMaxTxListBytes;
-29:                 // The max period in seconds that a blob can be reused for DA.
-30:                 uint24 blobExpiry;
-31:                 // True if EIP-4844 is enabled for DA
-32:                 bool blobAllowedForDA;
-33:                 // True if blob can be reused
-34:                 bool blobReuseEnabled;
-35:                 // ---------------------------------------------------------------------
-36:                 // Group 3: Proof related configs
-37:                 // ---------------------------------------------------------------------
-38:                 // The amount of Taiko token as a prover liveness bond
-39:                 uint96 livenessBond;
-40:                 // ---------------------------------------------------------------------
-41:                 // Group 4: ETH deposit related configs
-42:                 // ---------------------------------------------------------------------
-43:                 // The size of the ETH deposit ring buffer.
-44:                 uint256 ethDepositRingBufferSize;
-45:                 // The minimum number of ETH deposits allowed per block.
-46:                 uint64 ethDepositMinCountPerBlock;
-47:                 // The maximum number of ETH deposits allowed per block.
-48:                 uint64 ethDepositMaxCountPerBlock;
-49:                 // The minimum amount of ETH required for a deposit.
-50:                 uint96 ethDepositMinAmount;
-51:                 // The maximum amount of ETH allowed for a deposit.
-52:                 uint96 ethDepositMaxAmount;
-53:                 // The gas cost for processing an ETH deposit.
-54:                 uint256 ethDepositGas;
-55:                 // The maximum fee allowed for an ETH deposit.
-56:                 uint256 ethDepositMaxFee;
-57:                 // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
-58:                 // syncing)
-59:                 uint8 blockSyncThreshold;
-60:             }
+10: 		    struct Config {
+11: 		        // ---------------------------------------------------------------------
+12: 		        // Group 1: General configs
+13: 		        // ---------------------------------------------------------------------
+14: 		        // The chain ID of the network where Taiko contracts are deployed.
+15: 		        uint64 chainId;
+16: 		        // ---------------------------------------------------------------------
+17: 		        // Group 2: Block level configs
+18: 		        // ---------------------------------------------------------------------
+19: 		        // The maximum number of proposals allowed in a single block.
+20: 		        uint64 blockMaxProposals;
+21: 		        // Size of the block ring buffer, allowing extra space for proposals.
+22: 		        uint64 blockRingBufferSize;
+23: 		        // The maximum number of verifications allowed when a block is proposed.
+24: 		        uint64 maxBlocksToVerifyPerProposal;
+25: 		        // The maximum gas limit allowed for a block.
+26: 		        uint32 blockMaxGasLimit;
+27: 		        // The maximum allowed bytes for the proposed transaction list calldata.
+28: 		        uint24 blockMaxTxListBytes;
+29: 		        // The max period in seconds that a blob can be reused for DA.
+30: 		        uint24 blobExpiry;
+31: 		        // True if EIP-4844 is enabled for DA
+32: 		        bool blobAllowedForDA;
+33: 		        // True if blob can be reused
+34: 		        bool blobReuseEnabled;
+35: 		        // ---------------------------------------------------------------------
+36: 		        // Group 3: Proof related configs
+37: 		        // ---------------------------------------------------------------------
+38: 		        // The amount of Taiko token as a prover liveness bond
+39: 		        uint96 livenessBond;
+40: 		        // ---------------------------------------------------------------------
+41: 		        // Group 4: ETH deposit related configs
+42: 		        // ---------------------------------------------------------------------
+43: 		        // The size of the ETH deposit ring buffer.
+44: 		        uint256 ethDepositRingBufferSize;
+45: 		        // The minimum number of ETH deposits allowed per block.
+46: 		        uint64 ethDepositMinCountPerBlock;
+47: 		        // The maximum number of ETH deposits allowed per block.
+48: 		        uint64 ethDepositMaxCountPerBlock;
+49: 		        // The minimum amount of ETH required for a deposit.
+50: 		        uint96 ethDepositMinAmount;
+51: 		        // The maximum amount of ETH allowed for a deposit.
+52: 		        uint96 ethDepositMaxAmount;
+53: 		        // The gas cost for processing an ETH deposit.
+54: 		        uint256 ethDepositGas;
+55: 		        // The maximum fee allowed for an ETH deposit.
+56: 		        uint256 ethDepositMaxFee;
+57: 		        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
+58: 		        // syncing)
+59: 		        uint8 blockSyncThreshold;
+60: 		    }
 
 // @audit Can save 1 storage slot (from 7 to 6)
 // @audit Consider using the following order:
 /*
-  * bytes32 extraData (32)
-  * bytes32 blobHash (32)
-  * bytes32 parentMetaHash (32)
-  * HookCall[] hookCalls (32)
-  * address assignedProver (20)
-  * uint24 txListByteOffset (3)
-  * uint24 txListByteSize (3)
-  * bool cacheBlobForReuse (1)
-  * address coinbase (20)
+  *	bytes32 extraData (32)
+  *	bytes32 blobHash (32)
+  *	bytes32 parentMetaHash (32)
+  *	HookCall[] hookCalls (32)
+  *	address assignedProver (20)
+  *	uint24 txListByteOffset (3)
+  *	uint24 txListByteSize (3)
+  *	bool cacheBlobForReuse (1)
+  *	address coinbase (20)
 */
-78:             struct BlockParams {
-79:                 address assignedProver;
-80:                 address coinbase;
-81:                 bytes32 extraData;
-82:                 bytes32 blobHash;
-83:                 uint24 txListByteOffset;
-84:                 uint24 txListByteSize;
-85:                 bool cacheBlobForReuse;
-86:                 bytes32 parentMetaHash;
-87:                 HookCall[] hookCalls;
-88:             }
+78: 		    struct BlockParams {
+79: 		        address assignedProver;
+80: 		        address coinbase;
+81: 		        bytes32 extraData;
+82: 		        bytes32 blobHash;
+83: 		        uint24 txListByteOffset;
+84: 		        uint24 txListByteSize;
+85: 		        bool cacheBlobForReuse;
+86: 		        bytes32 parentMetaHash;
+87: 		        HookCall[] hookCalls;
+88: 		    }
 ```
 
 [[10-60](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L10-L60), [78-88](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L78-L88)]
@@ -3291,21 +3291,21 @@ File: packages/protocol/contracts/signal/ISignalService.sol
 // @audit Can save 1 storage slot (from 5 to 4)
 // @audit Consider using the following order:
 /*
-  * bytes32 rootHash (32)
-  * bytes[] accountProof (32)
-  * bytes[] storageProof (32)
-  * uint64 chainId (8)
-  * uint64 blockId (8)
-  * CacheOption cacheOption (1)
+  *	bytes32 rootHash (32)
+  *	bytes[] accountProof (32)
+  *	bytes[] storageProof (32)
+  *	uint64 chainId (8)
+  *	uint64 blockId (8)
+  *	CacheOption cacheOption (1)
 */
-20:             struct HopProof {
-21:                 uint64 chainId;
-22:                 uint64 blockId;
-23:                 bytes32 rootHash;
-24:                 CacheOption cacheOption;
-25:                 bytes[] accountProof;
-26:                 bytes[] storageProof;
-27:             }
+20: 		    struct HopProof {
+21: 		        uint64 chainId;
+22: 		        uint64 blockId;
+23: 		        bytes32 rootHash;
+24: 		        CacheOption cacheOption;
+25: 		        bytes[] accountProof;
+26: 		        bytes[] storageProof;
+27: 		    }
 ```
 
 [[20-27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L20-L27)]
@@ -3326,8 +3326,8 @@ _There is 1 instance of this issue._
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
 // @audit consider merging _trustedUserMrEnclave, _trustedUserMrSigner
-39:             mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
-40:             mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+39: 		    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
+40: 		    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
 ```
 
 [[39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L39)]
@@ -3347,7 +3347,7 @@ _There are 2 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-180:                EnclaveIdStruct.EnclaveId memory enclaveId = qeIdentity;
+180: 		        EnclaveIdStruct.EnclaveId memory enclaveId = qeIdentity;
 ```
 
 [[180](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L180)]
@@ -3355,7 +3355,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-171:                    CanonicalERC20 memory ctoken = bridgedToCanonical[btokenOld_];
+171: 		            CanonicalERC20 memory ctoken = bridgedToCanonical[btokenOld_];
 ```
 
 [[171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L171)]
@@ -3372,7 +3372,7 @@ _There are 4 instances of this issue._
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
 // @audit nextInstanceId
-218:                    ids[i] = nextInstanceId;
+218: 		            ids[i] = nextInstanceId;
 ```
 
 [[218](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L218)]
@@ -3381,13 +3381,13 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
 // @audit guardians
-87:                     guardians.push(guardian);
+87: 		            guardians.push(guardian);
 
 // @audit guardians
-88:                     guardianIds[guardian] = guardians.length;
+88: 		            guardianIds[guardian] = guardians.length;
 
 // @audit minGuardians
-135:                        if (count == minGuardians) return true;
+135: 		                if (count == minGuardians) return true;
 ```
 
 [[87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L87), [88](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L88), [135](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L135)]
@@ -3407,9 +3407,9 @@ _There are 2 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-56:             mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
+56: 		    mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
 
-59:             mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
+59: 		    mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 ```
 
 [[56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L56), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L59)]
@@ -3425,7 +3425,7 @@ _There are 2 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-52:             address public owner;
+52: 		    address public owner;
 ```
 
 [[52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L52)]
@@ -3433,7 +3433,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
-18:             address private ES256VERIFIER;
+18: 		    address private ES256VERIFIER;
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L18)]
@@ -3453,7 +3453,7 @@ _There are 17 instances of this issue._
 File: packages/protocol/contracts/common/AddressResolver.sol
 
 // @audit addressManager on line 83
-81:                 if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+81: 		        if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
 ```
 
 [[81](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L81)]
@@ -3462,16 +3462,16 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
 // @audit state on lines 67, 70
-69:                 if (!state.slotB.provingPaused) {
+69: 		        if (!state.slotB.provingPaused) {
 
 // @audit state on line 94
-96:                 LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
+96: 		        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
 
 // @audit state on line 151
-154:                    ts_ = state.transitions[slot][blk_.verifiedTransitionId];
+154: 		            ts_ = state.transitions[slot][blk_.verifiedTransitionId];
 
 // @audit state on line 181
-182:                b_ = state.slotB;
+182: 		        b_ = state.slotB;
 ```
 
 [[69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L69), [96](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L96), [154](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L154), [182](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L182)]
@@ -3480,7 +3480,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
 // @audit nextTxId on line 53
-43:                 if (txId != nextTxId) revert XCO_INVALID_TX_ID();
+43: 		        if (txId != nextTxId) revert XCO_INVALID_TX_ID();
 ```
 
 [[43](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L43)]
@@ -3489,10 +3489,10 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
 // @audit gasExcess on line 265
-262:                if (gasExcess > 0) {
+262: 		        if (gasExcess > 0) {
 
 // @audit lastSyncedBlock on line 275
-276:                        numL1Blocks = _l1BlockId - lastSyncedBlock;
+276: 		                numL1Blocks = _l1BlockId - lastSyncedBlock;
 ```
 
 [[262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L262), [276](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L276)]
@@ -3501,7 +3501,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
 // @audit sharedVault on line 219
-220:                IERC20(costToken).safeTransferFrom(_recipient, sharedVault, costToWithdraw);
+220: 		        IERC20(costToken).safeTransferFrom(_recipient, sharedVault, costToWithdraw);
 ```
 
 [[220](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L220)]
@@ -3510,10 +3510,10 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
 // @audit migratingAddress on line 63
-61:                 if (msg.sender == migratingAddress) {
+61: 		        if (msg.sender == migratingAddress) {
 
 // @audit migratingAddress on line 80
-80:                     emit MigratedTo(migratingAddress, _account, _amount);
+80: 		            emit MigratedTo(migratingAddress, _account, _amount);
 ```
 
 [[61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L61), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L80)]
@@ -3522,7 +3522,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
 // @audit nextInstanceId on lines 218, 220, 222
-217:                    instances[nextInstanceId] = Instance(_instances[i], validSince);
+217: 		            instances[nextInstanceId] = Instance(_instances[i], validSince);
 ```
 
 [[217](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L217)]
@@ -3531,13 +3531,13 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
 // @audit version on line 95
-92:                 ++version;
+92: 		        ++version;
 
 // @audit guardians on lines 74, 87, 88
-77:                 delete guardians;
+77: 		        delete guardians;
 
 // @audit version on line 116
-119:                uint256 _approval = _approvals[version][_hash];
+119: 		        uint256 _approval = _approvals[version][_hash];
 ```
 
 [[92](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L92), [77](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L77), [119](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L119)]
@@ -3546,7 +3546,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
 // @audit token on line 63
-71:                 IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
+71: 		        IVotes(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
 ```
 
 [[71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L71)]
@@ -3555,7 +3555,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 
 // @audit usdc on line 48
-49:                 usdc.burn(_amount);
+49: 		        usdc.burn(_amount);
 ```
 
 [[49](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L49)]
@@ -3573,32 +3573,32 @@ _There are 5 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-155:            function recallMessage(
-156:                Message calldata _message,
-157:                bytes calldata _proof
-158:            )
-159:                external
-160:                nonReentrant
-161:                whenNotPaused
-162:                sameChain(_message.srcChainId)
+155: 		    function recallMessage(
+156: 		        Message calldata _message,
+157: 		        bytes calldata _proof
+158: 		    )
+159: 		        external
+160: 		        nonReentrant
+161: 		        whenNotPaused
+162: 		        sameChain(_message.srcChainId)
 
-217:            function processMessage(
-218:                Message calldata _message,
-219:                bytes calldata _proof
-220:            )
-221:                external
-222:                nonReentrant
-223:                whenNotPaused
-224:                sameChain(_message.destChainId)
+217: 		    function processMessage(
+218: 		        Message calldata _message,
+219: 		        bytes calldata _proof
+220: 		    )
+221: 		        external
+222: 		        nonReentrant
+223: 		        whenNotPaused
+224: 		        sameChain(_message.destChainId)
 
-310:            function retryMessage(
-311:                Message calldata _message,
-312:                bool _isLastAttempt
-313:            )
-314:                external
-315:                nonReentrant
-316:                whenNotPaused
-317:                sameChain(_message.destChainId)
+310: 		    function retryMessage(
+311: 		        Message calldata _message,
+312: 		        bool _isLastAttempt
+313: 		    )
+314: 		        external
+315: 		        nonReentrant
+316: 		        whenNotPaused
+317: 		        sameChain(_message.destChainId)
 ```
 
 [[155-162](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L155-L162), [217-224](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L217-L224), [310-317](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L310-L317)]
@@ -3606,20 +3606,20 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-75:             function proveBlock(
-76:                 uint64 _blockId,
-77:                 bytes calldata _input
-78:             )
-79:                 external
-80:                 nonReentrant
-81:                 whenNotPaused
-82:                 whenProvingNotPaused
+75: 		    function proveBlock(
+76: 		        uint64 _blockId,
+77: 		        bytes calldata _input
+78: 		    )
+79: 		        external
+80: 		        nonReentrant
+81: 		        whenNotPaused
+82: 		        whenProvingNotPaused
 
-100:            function verifyBlocks(uint64 _maxBlocksToVerify)
-101:                external
-102:                nonReentrant
-103:                whenNotPaused
-104:                whenProvingNotPaused
+100: 		    function verifyBlocks(uint64 _maxBlocksToVerify)
+101: 		        external
+102: 		        nonReentrant
+103: 		        whenNotPaused
+104: 		        whenProvingNotPaused
 ```
 
 [[75-82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L75-L82), [100-104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L100-L104)]
@@ -3646,7 +3646,7 @@ _There is 1 instance of this issue._
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-50:                 (bool success,) = address(this).call(txdata);
+50: 		        (bool success,) = address(this).call(txdata);
 ```
 
 [[50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L50)]
@@ -3666,27 +3666,27 @@ _There are 116 instances of this issue._
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
 // @audit quoteEnclaveReport
-175:            function _verifyQEReportWithIdentity(V3Struct.EnclaveReport memory quoteEnclaveReport)
+175: 		    function _verifyQEReportWithIdentity(V3Struct.EnclaveReport memory quoteEnclaveReport)
 
 // @audit pck, tcb
-206:            function _checkTcbLevels(
-207:                IPEMCertChainLib.PCKCertificateField memory pck,
-208:                TCBInfoStruct.TCBInfo memory tcb
+206: 		    function _checkTcbLevels(
+207: 		        IPEMCertChainLib.PCKCertificateField memory pck,
+208: 		        TCBInfoStruct.TCBInfo memory tcb
 
 // @audit pckCpuSvns, tcbCpuSvns
-229:            function _isCpuSvnHigherOrGreater(
-230:                uint256[] memory pckCpuSvns,
-231:                uint8[] memory tcbCpuSvns
+229: 		    function _isCpuSvnHigherOrGreater(
+230: 		        uint256[] memory pckCpuSvns,
+231: 		        uint8[] memory tcbCpuSvns
 
 // @audit certs
-248:            function _verifyCertChain(IPEMCertChainLib.ECSha256Certificate[] memory certs)
+248: 		    function _verifyCertChain(IPEMCertChainLib.ECSha256Certificate[] memory certs)
 
 // @audit pckCertPubKey, signedQuoteData, authDataV3, qeEnclaveReport
-303:            function _enclaveReportSigVerification(
-304:                bytes memory pckCertPubKey,
-305:                bytes memory signedQuoteData,
-306:                V3Struct.ECDSAQuoteV3AuthData memory authDataV3,
-307:                V3Struct.EnclaveReport memory qeEnclaveReport
+303: 		    function _enclaveReportSigVerification(
+304: 		        bytes memory pckCertPubKey,
+305: 		        bytes memory signedQuoteData,
+306: 		        V3Struct.ECDSAQuoteV3AuthData memory authDataV3,
+307: 		        V3Struct.EnclaveReport memory qeEnclaveReport
 ```
 
 [[175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L175), [206-208](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L206-L208), [229-231](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L229-L231), [248](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L248), [303-307](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L303-L307)]
@@ -3695,10 +3695,10 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
 // @audit _config
-252:            function _calc1559BaseFee(
-253:                Config memory _config,
-254:                uint64 _l1BlockId,
-255:                uint32 _parentGasUsed
+252: 		    function _calc1559BaseFee(
+253: 		        Config memory _config,
+254: 		        uint64 _l1BlockId,
+255: 		        uint32 _parentGasUsed
 ```
 
 [[252-255](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L252-L255)]
@@ -3707,10 +3707,10 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 File: packages/protocol/contracts/libs/LibAddress.sol
 
 // @audit _sig
-61:             function isValidSignature(
-62:                 address _addr,
-63:                 bytes32 _hash,
-64:                 bytes memory _sig
+61: 		    function isValidSignature(
+62: 		        address _addr,
+63: 		        bytes32 _hash,
+64: 		        bytes memory _sig
 ```
 
 [[61-64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L61-L64)]
@@ -3719,22 +3719,22 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 File: packages/protocol/contracts/signal/SignalService.sol
 
 // @audit _hop
-206:            function _verifyHopProof(
-207:                uint64 _chainId,
-208:                address _app,
-209:                bytes32 _signal,
-210:                bytes32 _value,
-211:                HopProof memory _hop,
-212:                address _signalService
+206: 		    function _verifyHopProof(
+207: 		        uint64 _chainId,
+208: 		        address _app,
+209: 		        bytes32 _signal,
+210: 		        bytes32 _value,
+211: 		        HopProof memory _hop,
+212: 		        address _signalService
 
 // @audit _hop
-271:            function _cacheChainData(
-272:                HopProof memory _hop,
-273:                uint64 _chainId,
-274:                uint64 _blockId,
-275:                bytes32 _signalRoot,
-276:                bool _isFullProof,
-277:                bool _isLastHop
+271: 		    function _cacheChainData(
+272: 		        HopProof memory _hop,
+273: 		        uint64 _chainId,
+274: 		        uint64 _blockId,
+275: 		        bytes32 _signalRoot,
+276: 		        bool _isFullProof,
+277: 		        bool _isLastHop
 ```
 
 [[206-212](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L206-L212), [271-277](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L271-L277)]
@@ -3743,13 +3743,13 @@ File: packages/protocol/contracts/signal/SignalService.sol
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
 // @audit _sig
-168:            function withdraw(address _to, bytes memory _sig) external {
+168: 		    function withdraw(address _to, bytes memory _sig) external {
 
 // @audit _grant
-235:            function _getAmountOwned(Grant memory _grant) private view returns (uint128) {
+235: 		    function _getAmountOwned(Grant memory _grant) private view returns (uint128) {
 
 // @audit _grant
-267:            function _validateGrant(Grant memory _grant) private pure {
+267: 		    function _validateGrant(Grant memory _grant) private pure {
 ```
 
 [[168](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L168), [235](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L235), [267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L267)]
@@ -3758,13 +3758,13 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
 // @audit _symbol, _name
-38:             function init(
-39:                 address _owner,
-40:                 address _addressManager,
-41:                 address _srcToken,
-42:                 uint256 _srcChainId,
-43:                 string memory _symbol,
-44:                 string memory _name
+38: 		    function init(
+39: 		        address _owner,
+40: 		        address _addressManager,
+41: 		        address _srcToken,
+42: 		        uint256 _srcChainId,
+43: 		        string memory _symbol,
+44: 		        string memory _name
 ```
 
 [[38-44](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L38-L44)]
@@ -3773,14 +3773,14 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
 // @audit _symbol, _name
-52:             function init(
-53:                 address _owner,
-54:                 address _addressManager,
-55:                 address _srcToken,
-56:                 uint256 _srcChainId,
-57:                 uint8 _decimals,
-58:                 string memory _symbol,
-59:                 string memory _name
+52: 		    function init(
+53: 		        address _owner,
+54: 		        address _addressManager,
+55: 		        address _srcToken,
+56: 		        uint256 _srcChainId,
+57: 		        uint8 _decimals,
+58: 		        string memory _symbol,
+59: 		        string memory _name
 ```
 
 [[52-59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L52-L59)]
@@ -3789,13 +3789,13 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
 // @audit _symbol, _name
-31:             function init(
-32:                 address _owner,
-33:                 address _addressManager,
-34:                 address _srcToken,
-35:                 uint256 _srcChainId,
-36:                 string memory _symbol,
-37:                 string memory _name
+31: 		    function init(
+32: 		        address _owner,
+33: 		        address _addressManager,
+34: 		        address _srcToken,
+35: 		        uint256 _srcChainId,
+36: 		        string memory _symbol,
+37: 		        string memory _name
 ```
 
 [[31-37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L31-L37)]
@@ -3804,12 +3804,12 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
 // @audit _op
-240:            function _handleMessage(
-241:                address _user,
-242:                BridgeTransferOp memory _op
+240: 		    function _handleMessage(
+241: 		        address _user,
+242: 		        BridgeTransferOp memory _op
 
 // @audit _ctoken
-303:            function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
+303: 		    function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
 ```
 
 [[240-242](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L240-L242), [303](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L303)]
@@ -3818,7 +3818,7 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
 // @audit ctoken
-407:            function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
+407: 		    function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
 ```
 
 [[407](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L407)]
@@ -3827,18 +3827,18 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
 // @audit _tokenIds
-160:            function _transferTokens(
-161:                CanonicalNFT memory _ctoken,
-162:                address _to,
-163:                uint256[] memory _tokenIds
+160: 		    function _transferTokens(
+161: 		        CanonicalNFT memory _ctoken,
+162: 		        address _to,
+163: 		        uint256[] memory _tokenIds
 
 // @audit _op
-187:            function _handleMessage(
-188:                address _user,
-189:                BridgeTransferOp memory _op
+187: 		    function _handleMessage(
+188: 		        address _user,
+189: 		        BridgeTransferOp memory _op
 
 // @audit _ctoken
-240:            function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
+240: 		    function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
 ```
 
 [[160-163](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L160-L163), [187-189](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L187-L189), [240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L240)]
@@ -3847,19 +3847,19 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 
 // @audit _symbol, _name
-11:             function validateInputs(
-12:                 address _srcToken,
-13:                 uint256 _srcChainId,
-14:                 string memory _symbol,
-15:                 string memory _name
+11: 		    function validateInputs(
+12: 		        address _srcToken,
+13: 		        uint256 _srcChainId,
+14: 		        string memory _symbol,
+15: 		        string memory _name
 
 // @audit _name
-28:             function buildName(
-29:                 string memory _name,
-30:                 uint256 _srcChainId
+28: 		    function buildName(
+29: 		        string memory _name,
+30: 		        uint256 _srcChainId
 
 // @audit _symbol
-39:             function buildSymbol(string memory _symbol) internal pure returns (string memory) {
+39: 		    function buildSymbol(string memory _symbol) internal pure returns (string memory) {
 ```
 
 [[11-15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L11-L15), [28-30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L28-L30), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L39)]
@@ -3868,9 +3868,9 @@ File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
 // @audit _instances
-195:            function _addInstances(
-196:                address[] memory _instances,
-197:                bool instantValid
+195: 		    function _addInstances(
+196: 		        address[] memory _instances,
+197: 		        bool instantValid
 ```
 
 [[195-197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L195-L197)]
@@ -3879,33 +3879,33 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
 // @audit pemChain
-40:             function splitCertificateChain(
-41:                 bytes memory pemChain,
-42:                 uint256 size
+40: 		    function splitCertificateChain(
+41: 		        bytes memory pemChain,
+42: 		        uint256 size
 
 // @audit der
-74:             function decodeCert(
-75:                 bytes memory der,
-76:                 bool isPckCert
+74: 		    function decodeCert(
+75: 		        bytes memory der,
+76: 		        bool isPckCert
 
 // @audit pemData
-216:            function _removeHeadersAndFooters(string memory pemData)
+216: 		    function _removeHeadersAndFooters(string memory pemData)
 
 // @audit input
-252:            function _trimBytes(
-253:                bytes memory input,
-254:                uint256 expectedLength
+252: 		    function _trimBytes(
+253: 		        bytes memory input,
+254: 		        uint256 expectedLength
 
 // @audit der
-269:            function _findPckTcbInfo(
-270:                bytes memory der,
-271:                uint256 tbsPtr,
-272:                uint256 tbsParentPtr
+269: 		    function _findPckTcbInfo(
+270: 		        bytes memory der,
+271: 		        uint256 tbsPtr,
+272: 		        uint256 tbsParentPtr
 
 // @audit der
-341:            function _findTcb(
-342:                bytes memory der,
-343:                uint256 oidPtr
+341: 		    function _findTcb(
+342: 		        bytes memory der,
+343: 		        uint256 oidPtr
 ```
 
 [[40-42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L40-L42), [74-76](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L74-L76), [216](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L216), [252-254](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L252-L254), [269-272](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L269-L272), [341-343](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L341-L343)]
@@ -3914,46 +3914,46 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 File: packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol
 
 // @audit der
-47:             function root(bytes memory der) internal pure returns (uint256) {
+47: 		    function root(bytes memory der) internal pure returns (uint256) {
 
 // @audit der
-56:             function rootOfBitStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
+56: 		    function rootOfBitStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
 
 // @audit der
-66:             function rootOfOctetStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
+66: 		    function rootOfOctetStringAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
 
 // @audit der
-77:             function nextSiblingOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
+77: 		    function nextSiblingOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
 
 // @audit der
-87:             function firstChildOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
+87: 		    function firstChildOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
 
 // @audit der
-111:            function bytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
+111: 		    function bytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
 
 // @audit der
-121:            function allBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
+121: 		    function allBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
 
 // @audit der
-131:            function bytes32At(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
+131: 		    function bytes32At(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
 
 // @audit der
-141:            function uintAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
+141: 		    function uintAt(bytes memory der, uint256 ptr) internal pure returns (uint256) {
 
 // @audit der
-154:            function uintBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
+154: 		    function uintBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
 
 // @audit der
-165:            function keccakOfBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
+165: 		    function keccakOfBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
 
 // @audit der
-169:            function keccakOfAllBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
+169: 		    function keccakOfAllBytesAt(bytes memory der, uint256 ptr) internal pure returns (bytes32) {
 
 // @audit der
-179:            function bitstringAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
+179: 		    function bitstringAt(bytes memory der, uint256 ptr) internal pure returns (bytes memory) {
 
 // @audit der
-187:            function _readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
+187: 		    function _readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L47), [56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L56), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L66), [77](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L77), [87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L87), [111](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L111), [121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L121), [131](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L131), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L141), [154](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L154), [165](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L165), [169](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L169), [179](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L179), [187](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L187)]
@@ -3962,82 +3962,82 @@ File: packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
 // @audit self
-16:             function keccak(
-17:                 bytes memory self,
-18:                 uint256 offset,
-19:                 uint256 len
+16: 		    function keccak(
+17: 		        bytes memory self,
+18: 		        uint256 offset,
+19: 		        uint256 len
 
 // @audit self, other
-39:             function compare(bytes memory self, bytes memory other) internal pure returns (int256) {
+39: 		    function compare(bytes memory self, bytes memory other) internal pure returns (int256) {
 
 // @audit self, other
-56:             function compare(
-57:                 bytes memory self,
-58:                 uint256 offset,
-59:                 uint256 len,
-60:                 bytes memory other,
-61:                 uint256 otheroffset,
-62:                 uint256 otherlen
+56: 		    function compare(
+57: 		        bytes memory self,
+58: 		        uint256 offset,
+59: 		        uint256 len,
+60: 		        bytes memory other,
+61: 		        uint256 otheroffset,
+62: 		        uint256 otherlen
 
 // @audit self, other
-116:            function equals(
-117:                bytes memory self,
-118:                uint256 offset,
-119:                bytes memory other,
-120:                uint256 otherOffset,
-121:                uint256 len
+116: 		    function equals(
+117: 		        bytes memory self,
+118: 		        uint256 offset,
+119: 		        bytes memory other,
+120: 		        uint256 otherOffset,
+121: 		        uint256 len
 
 // @audit self, other
-138:            function equals(
-139:                bytes memory self,
-140:                uint256 offset,
-141:                bytes memory other,
-142:                uint256 otherOffset
+138: 		    function equals(
+139: 		        bytes memory self,
+140: 		        uint256 offset,
+141: 		        bytes memory other,
+142: 		        uint256 otherOffset
 
 // @audit self, other
-160:            function equals(
-161:                bytes memory self,
-162:                uint256 offset,
-163:                bytes memory other
+160: 		    function equals(
+161: 		        bytes memory self,
+162: 		        uint256 offset,
+163: 		        bytes memory other
 
 // @audit self, other
-178:            function equals(bytes memory self, bytes memory other) internal pure returns (bool) {
+178: 		    function equals(bytes memory self, bytes memory other) internal pure returns (bool) {
 
 // @audit self
-188:            function readUint8(bytes memory self, uint256 idx) internal pure returns (uint8 ret) {
+188: 		    function readUint8(bytes memory self, uint256 idx) internal pure returns (uint8 ret) {
 
 // @audit self
-198:            function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
+198: 		    function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
 
 // @audit self
-211:            function readUint32(bytes memory self, uint256 idx) internal pure returns (uint32 ret) {
+211: 		    function readUint32(bytes memory self, uint256 idx) internal pure returns (uint32 ret) {
 
 // @audit self
-224:            function readBytes32(bytes memory self, uint256 idx) internal pure returns (bytes32 ret) {
+224: 		    function readBytes32(bytes memory self, uint256 idx) internal pure returns (bytes32 ret) {
 
 // @audit self
-237:            function readBytes20(bytes memory self, uint256 idx) internal pure returns (bytes20 ret) {
+237: 		    function readBytes20(bytes memory self, uint256 idx) internal pure returns (bytes20 ret) {
 
 // @audit self
-255:            function readBytesN(
-256:                bytes memory self,
-257:                uint256 idx,
-258:                uint256 len
+255: 		    function readBytesN(
+256: 		        bytes memory self,
+257: 		        uint256 idx,
+258: 		        uint256 len
 
 // @audit self
-284:            function substring(
-285:                bytes memory self,
-286:                uint256 offset,
-287:                uint256 len
+284: 		    function substring(
+285: 		        bytes memory self,
+286: 		        uint256 offset,
+287: 		        uint256 len
 
 // @audit self
-320:            function base32HexDecodeWord(
-321:                bytes memory self,
-322:                uint256 off,
-323:                uint256 len
+320: 		    function base32HexDecodeWord(
+321: 		        bytes memory self,
+322: 		        uint256 off,
+323: 		        uint256 len
 
 // @audit a, b
-371:            function compareBytes(bytes memory a, bytes memory b) internal pure returns (bool) {
+371: 		    function compareBytes(bytes memory a, bytes memory b) internal pure returns (bool) {
 ```
 
 [[16-19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L16-L19), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L39), [56-62](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L56-L62), [116-121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L116-L121), [138-142](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L138-L142), [160-163](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L160-L163), [178](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L178), [188](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L188), [198](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L198), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L211), [224](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L224), [237](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L237), [255-258](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L255-L258), [284-287](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L284-L287), [320-323](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L320-L323), [371](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L371)]
@@ -4046,32 +4046,32 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
 // @audit _s, _e, _m
-43:             function pkcs1Sha256(
-44:                 bytes32 _sha256,
-45:                 bytes memory _s,
-46:                 bytes memory _e,
-47:                 bytes memory _m
+43: 		    function pkcs1Sha256(
+44: 		        bytes32 _sha256,
+45: 		        bytes memory _s,
+46: 		        bytes memory _e,
+47: 		        bytes memory _m
 
 // @audit _data, _s, _e, _m
-191:            function pkcs1Sha256Raw(
-192:                bytes memory _data,
-193:                bytes memory _s,
-194:                bytes memory _e,
-195:                bytes memory _m
+191: 		    function pkcs1Sha256Raw(
+192: 		        bytes memory _data,
+193: 		        bytes memory _s,
+194: 		        bytes memory _e,
+195: 		        bytes memory _m
 
 // @audit _s, _e, _m
-212:            function pkcs1Sha1(
-213:                bytes20 _sha1,
-214:                bytes memory _s,
-215:                bytes memory _e,
-216:                bytes memory _m
+212: 		    function pkcs1Sha1(
+213: 		        bytes20 _sha1,
+214: 		        bytes memory _s,
+215: 		        bytes memory _e,
+216: 		        bytes memory _m
 
 // @audit _data, _s, _e, _m
-307:            function pkcs1Sha1Raw(
-308:                bytes memory _data,
-309:                bytes memory _s,
-310:                bytes memory _e,
-311:                bytes memory _m
+307: 		    function pkcs1Sha1Raw(
+308: 		        bytes memory _data,
+309: 		        bytes memory _s,
+310: 		        bytes memory _e,
+311: 		        bytes memory _m
 ```
 
 [[43-47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L43-L47), [191-195](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L191-L195), [212-216](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L212-L216), [307-311](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L307-L311)]
@@ -4080,7 +4080,7 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 File: packages/protocol/contracts/automata-attestation/utils/SHA1.sol
 
 // @audit data
-11:             function sha1(bytes memory data) internal pure returns (bytes20 ret) {
+11: 		    function sha1(bytes memory data) internal pure returns (bytes20 ret) {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SHA1.sol#L11)]
@@ -4089,36 +4089,36 @@ File: packages/protocol/contracts/automata-attestation/utils/SHA1.sol
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
 // @audit tbs, signature, publicKey
-24:             function verifyAttStmtSignature(
-25:                 bytes memory tbs,
-26:                 bytes memory signature,
-27:                 PublicKey memory publicKey,
-28:                 Algorithm alg
+24: 		    function verifyAttStmtSignature(
+25: 		        bytes memory tbs,
+26: 		        bytes memory signature,
+27: 		        PublicKey memory publicKey,
+28: 		        Algorithm alg
 
 // @audit tbs, signature, publicKey
-54:             function verifyCertificateSignature(
-55:                 bytes memory tbs,
-56:                 bytes memory signature,
-57:                 PublicKey memory publicKey,
-58:                 CertSigAlgorithm alg
+54: 		    function verifyCertificateSignature(
+55: 		        bytes memory tbs,
+56: 		        bytes memory signature,
+57: 		        PublicKey memory publicKey,
+58: 		        CertSigAlgorithm alg
 
 // @audit tbs, signature, publicKey
-79:             function verifyRS256Signature(
-80:                 bytes memory tbs,
-81:                 bytes memory signature,
-82:                 bytes memory publicKey
+79: 		    function verifyRS256Signature(
+80: 		        bytes memory tbs,
+81: 		        bytes memory signature,
+82: 		        bytes memory publicKey
 
 // @audit tbs, signature, publicKey
-96:             function verifyRS1Signature(
-97:                 bytes memory tbs,
-98:                 bytes memory signature,
-99:                 bytes memory publicKey
+96: 		    function verifyRS1Signature(
+97: 		        bytes memory tbs,
+98: 		        bytes memory signature,
+99: 		        bytes memory publicKey
 
 // @audit tbs, signature, publicKey
-113:            function verifyES256Signature(
-114:                bytes memory tbs,
-115:                bytes memory signature,
-116:                bytes memory publicKey
+113: 		    function verifyES256Signature(
+114: 		        bytes memory tbs,
+115: 		        bytes memory signature,
+116: 		        bytes memory publicKey
 ```
 
 [[24-28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L24-L28), [54-58](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L54-L58), [79-82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L79-L82), [96-99](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L96-L99), [113-116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L113-L116)]
@@ -4127,7 +4127,7 @@ File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
 // @audit x509Time
-8:          function toTimestamp(bytes memory x509Time) internal pure returns (uint256) {
+8: 		    function toTimestamp(bytes memory x509Time) internal pure returns (uint256) {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L8)]
@@ -4136,19 +4136,19 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 
 // @audit _description
-48:             function propose(
-49:                 address[] memory _targets,
-50:                 uint256[] memory _values,
-51:                 bytes[] memory _calldatas,
-52:                 string memory _description
+48: 		    function propose(
+49: 		        address[] memory _targets,
+50: 		        uint256[] memory _values,
+51: 		        bytes[] memory _calldatas,
+52: 		        string memory _description
 
 // @audit _description
-69:             function propose(
-70:                 address[] memory _targets,
-71:                 uint256[] memory _values,
-72:                 string[] memory _signatures,
-73:                 bytes[] memory _calldatas,
-74:                 string memory _description
+69: 		    function propose(
+70: 		        address[] memory _targets,
+71: 		        uint256[] memory _values,
+72: 		        string[] memory _signatures,
+73: 		        bytes[] memory _calldatas,
+74: 		        string memory _description
 ```
 
 [[48-52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L48-L52), [69-74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L69-L74)]
@@ -4157,21 +4157,21 @@ File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
 // @audit _blk, _data
-62:             function onBlockProposed(
-63:                 TaikoData.Block memory _blk,
-64:                 TaikoData.BlockMetadata memory _meta,
-65:                 bytes memory _data
+62: 		    function onBlockProposed(
+63: 		        TaikoData.Block memory _blk,
+64: 		        TaikoData.BlockMetadata memory _meta,
+65: 		        bytes memory _data
 
 // @audit _assignment
-137:            function hashAssignment(
-138:                ProverAssignment memory _assignment,
-139:                address _taikoL1Address,
-140:                bytes32 _blobHash
+137: 		    function hashAssignment(
+138: 		        ProverAssignment memory _assignment,
+139: 		        address _taikoL1Address,
+140: 		        bytes32 _blobHash
 
 // @audit _tierFees
-164:            function _getProverFee(
-165:                TaikoData.TierFee[] memory _tierFees,
-166:                uint16 _tierId
+164: 		    function _getProverFee(
+165: 		        TaikoData.TierFee[] memory _tierFees,
+166: 		        uint16 _tierId
 ```
 
 [[62-65](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L62-L65), [137-140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L137-L140), [164-166](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L164-L166)]
@@ -4180,16 +4180,16 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
 // @audit _config
-67:             function processDeposits(
-68:                 TaikoData.State storage _state,
-69:                 TaikoData.Config memory _config,
-70:                 address _feeRecipient
+67: 		    function processDeposits(
+68: 		        TaikoData.State storage _state,
+69: 		        TaikoData.Config memory _config,
+70: 		        address _feeRecipient
 
 // @audit _config
-122:            function canDepositEthToL2(
-123:                TaikoData.State storage _state,
-124:                TaikoData.Config memory _config,
-125:                uint256 _amount
+122: 		    function canDepositEthToL2(
+123: 		        TaikoData.State storage _state,
+124: 		        TaikoData.Config memory _config,
+125: 		        uint256 _amount
 ```
 
 [[67-70](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L67-L70), [122-125](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L122-L125)]
@@ -4198,15 +4198,15 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
 // @audit _config
-287:            function isBlobReusable(
-288:                TaikoData.State storage _state,
-289:                TaikoData.Config memory _config,
-290:                bytes32 _blobHash
+287: 		    function isBlobReusable(
+288: 		        TaikoData.State storage _state,
+289: 		        TaikoData.Config memory _config,
+290: 		        bytes32 _blobHash
 
 // @audit _slotB
-299:            function _isProposerPermitted(
-300:                TaikoData.SlotB memory _slotB,
-301:                IAddressResolver _resolver
+299: 		    function _isProposerPermitted(
+300: 		        TaikoData.SlotB memory _slotB,
+301: 		        IAddressResolver _resolver
 ```
 
 [[287-290](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L287-L290), [299-301](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L299-L301)]
@@ -4215,37 +4215,37 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
 // @audit _config
-91:             function proveBlock(
-92:                 TaikoData.State storage _state,
-93:                 TaikoData.Config memory _config,
-94:                 IAddressResolver _resolver,
-95:                 TaikoData.BlockMetadata memory _meta,
-96:                 TaikoData.Transition memory _tran,
-97:                 TaikoData.TierProof memory _proof
+91: 		    function proveBlock(
+92: 		        TaikoData.State storage _state,
+93: 		        TaikoData.Config memory _config,
+94: 		        IAddressResolver _resolver,
+95: 		        TaikoData.BlockMetadata memory _meta,
+96: 		        TaikoData.Transition memory _tran,
+97: 		        TaikoData.TierProof memory _proof
 
 // @audit _tran
-269:            function _createTransition(
-270:                TaikoData.State storage _state,
-271:                TaikoData.Block storage _blk,
-272:                TaikoData.Transition memory _tran,
-273:                uint64 slot
+269: 		    function _createTransition(
+270: 		        TaikoData.State storage _state,
+271: 		        TaikoData.Block storage _blk,
+272: 		        TaikoData.Transition memory _tran,
+273: 		        uint64 slot
 
 // @audit _tran, _proof, _tier
-350:            function _overrideWithHigherProof(
-351:                TaikoData.TransitionState storage _ts,
-352:                TaikoData.Transition memory _tran,
-353:                TaikoData.TierProof memory _proof,
-354:                ITierProvider.Tier memory _tier,
-355:                IERC20 _tko,
-356:                bool _sameTransition
+350: 		    function _overrideWithHigherProof(
+351: 		        TaikoData.TransitionState storage _ts,
+352: 		        TaikoData.Transition memory _tran,
+353: 		        TaikoData.TierProof memory _proof,
+354: 		        ITierProvider.Tier memory _tier,
+355: 		        IERC20 _tko,
+356: 		        bool _sameTransition
 
 // @audit _tier
-401:            function _checkProverPermission(
-402:                TaikoData.State storage _state,
-403:                TaikoData.Block storage _blk,
-404:                TaikoData.TransitionState storage _ts,
-405:                uint32 _tid,
-406:                ITierProvider.Tier memory _tier
+401: 		    function _checkProverPermission(
+402: 		        TaikoData.State storage _state,
+403: 		        TaikoData.Block storage _blk,
+404: 		        TaikoData.TransitionState storage _ts,
+405: 		        uint32 _tid,
+406: 		        ITierProvider.Tier memory _tier
 ```
 
 [[91-97](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L91-L97), [269-273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L269-L273), [350-356](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L350-L356), [401-406](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L401-L406)]
@@ -4254,17 +4254,17 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
 // @audit _config
-23:             function getTransition(
-24:                 TaikoData.State storage _state,
-25:                 TaikoData.Config memory _config,
-26:                 uint64 _blockId,
-27:                 bytes32 _parentHash
+23: 		    function getTransition(
+24: 		        TaikoData.State storage _state,
+25: 		        TaikoData.Config memory _config,
+26: 		        uint64 _blockId,
+27: 		        bytes32 _parentHash
 
 // @audit _config
-52:             function getBlock(
-53:                 TaikoData.State storage _state,
-54:                 TaikoData.Config memory _config,
-55:                 uint64 _blockId
+52: 		    function getBlock(
+53: 		        TaikoData.State storage _state,
+54: 		        TaikoData.Config memory _config,
+55: 		        uint64 _blockId
 ```
 
 [[23-27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L23-L27), [52-55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L52-L55)]
@@ -4273,14 +4273,14 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
 // @audit _config
-224:            function _syncChainData(
-225:                TaikoData.Config memory _config,
-226:                IAddressResolver _resolver,
-227:                uint64 _lastVerifiedBlockId,
-228:                bytes32 _stateRoot
+224: 		    function _syncChainData(
+225: 		        TaikoData.Config memory _config,
+226: 		        IAddressResolver _resolver,
+227: 		        uint64 _lastVerifiedBlockId,
+228: 		        bytes32 _stateRoot
 
 // @audit _config
-245:            function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
+245: 		    function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
 ```
 
 [[224-228](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L224-L228), [245](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L245)]
@@ -4289,12 +4289,12 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 File: packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol
 
 // @audit _calldata
-25:             function excessivelySafeCall(
-26:                 address _target,
-27:                 uint256 _gas,
-28:                 uint256 _value,
-29:                 uint16 _maxCopy,
-30:                 bytes memory _calldata
+25: 		    function excessivelySafeCall(
+26: 		        address _target,
+27: 		        uint256 _gas,
+28: 		        uint256 _value,
+29: 		        uint16 _maxCopy,
+30: 		        bytes memory _calldata
 ```
 
 [[25-30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol#L25-L30)]
@@ -4303,19 +4303,19 @@ File: packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol
 File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 
 // @audit _bytes
-15:             function slice(
-16:                 bytes memory _bytes,
-17:                 uint256 _start,
-18:                 uint256 _length
+15: 		    function slice(
+16: 		        bytes memory _bytes,
+17: 		        uint256 _start,
+18: 		        uint256 _length
 
 // @audit _bytes
-91:             function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
+91: 		    function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
 
 // @audit _bytes
-102:            function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
+102: 		    function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
 
 // @audit _bytes, _other
-149:            function equal(bytes memory _bytes, bytes memory _other) internal pure returns (bool) {
+149: 		    function equal(bytes memory _bytes, bytes memory _other) internal pure returns (bool) {
 ```
 
 [[15-18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L15-L18), [91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L91), [102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L102), [149](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L149)]
@@ -4324,34 +4324,34 @@ File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
 // @audit quote
-21:             function parseInput(
-22:                 bytes memory quote,
-23:                 address pemCertLibAddr
+21: 		    function parseInput(
+22: 		        bytes memory quote,
+23: 		        address pemCertLibAddr
 
 // @audit v3Quote
-62:             function validateParsedInput(V3Struct.ParsedV3QuoteStruct memory v3Quote)
+62: 		    function validateParsedInput(V3Struct.ParsedV3QuoteStruct memory v3Quote)
 
 // @audit rawEnclaveReport
-133:            function parseEnclaveReport(bytes memory rawEnclaveReport)
+133: 		    function parseEnclaveReport(bytes memory rawEnclaveReport)
 
 // @audit encoded
-152:            function littleEndianDecode(bytes memory encoded) private pure returns (uint256 decoded) {
+152: 		    function littleEndianDecode(bytes memory encoded) private pure returns (uint256 decoded) {
 
 // @audit rawHeader
-165:            function parseAndVerifyHeader(bytes memory rawHeader)
+165: 		    function parseAndVerifyHeader(bytes memory rawHeader)
 
 // @audit rawAuthData
-203:            function parseAuthDataAndVerifyCertType(
-204:                bytes memory rawAuthData,
-205:                address pemCertLibAddr
+203: 		    function parseAuthDataAndVerifyCertType(
+204: 		        bytes memory rawAuthData,
+205: 		        address pemCertLibAddr
 
 // @audit enclaveReport
-244:            function packQEReport(V3Struct.EnclaveReport memory enclaveReport)
+244: 		    function packQEReport(V3Struct.EnclaveReport memory enclaveReport)
 
 // @audit certBytes
-267:            function parseCerificationChainBytes(
-268:                bytes memory certBytes,
-269:                address pemCertLibAddr
+267: 		    function parseCerificationChainBytes(
+268: 		        bytes memory certBytes,
+269: 		        address pemCertLibAddr
 ```
 
 [[21-23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L21-L23), [62](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L62), [133](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L133), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L152), [165](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L165), [203-205](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L203-L205), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L244), [267-269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L267-L269)]
@@ -4360,19 +4360,19 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
 // @audit _in
-35:             function toRLPItem(bytes memory _in) internal pure returns (RLPItem memory out_) {
+35: 		    function toRLPItem(bytes memory _in) internal pure returns (RLPItem memory out_) {
 
 // @audit _in
-102:            function readList(bytes memory _in) internal pure returns (RLPItem[] memory out_) {
+102: 		    function readList(bytes memory _in) internal pure returns (RLPItem[] memory out_) {
 
 // @audit _in
-128:            function readBytes(bytes memory _in) internal pure returns (bytes memory out_) {
+128: 		    function readBytes(bytes memory _in) internal pure returns (bytes memory out_) {
 
 // @audit _in
-135:            function readRawBytes(RLPItem memory _in) internal pure returns (bytes memory out_) {
+135: 		    function readRawBytes(RLPItem memory _in) internal pure returns (bytes memory out_) {
 
 // @audit _in
-144:            function _decodeLength(RLPItem memory _in)
+144: 		    function _decodeLength(RLPItem memory _in)
 ```
 
 [[35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L35), [102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L102), [128](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L128), [135](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L135), [144](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L144)]
@@ -4381,7 +4381,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
 // @audit _in
-13:             function writeBytes(bytes memory _in) internal pure returns (bytes memory out_) {
+13: 		    function writeBytes(bytes memory _in) internal pure returns (bytes memory out_) {
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L13)]
@@ -4390,28 +4390,28 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
 // @audit _key, _value
-50:             function verifyInclusionProof(
-51:                 bytes memory _key,
-52:                 bytes memory _value,
-53:                 bytes[] memory _proof,
-54:                 bytes32 _root
+50: 		    function verifyInclusionProof(
+51: 		        bytes memory _key,
+52: 		        bytes memory _value,
+53: 		        bytes[] memory _proof,
+54: 		        bytes32 _root
 
 // @audit _key
-68:             function get(
-69:                 bytes memory _key,
-70:                 bytes[] memory _proof,
-71:                 bytes32 _root
+68: 		    function get(
+69: 		        bytes memory _key,
+70: 		        bytes[] memory _proof,
+71: 		        bytes32 _root
 
 // @audit _proof
-205:            function _parseProof(bytes[] memory _proof) private pure returns (TrieNode[] memory proof_) {
+205: 		    function _parseProof(bytes[] memory _proof) private pure returns (TrieNode[] memory proof_) {
 
 // @audit _node
-227:            function _getNodePath(TrieNode memory _node) private pure returns (bytes memory nibbles_) {
+227: 		    function _getNodePath(TrieNode memory _node) private pure returns (bytes memory nibbles_) {
 
 // @audit _a, _b
-235:            function _getSharedNibbleLength(
-236:                bytes memory _a,
-237:                bytes memory _b
+235: 		    function _getSharedNibbleLength(
+236: 		        bytes memory _a,
+237: 		        bytes memory _b
 ```
 
 [[50-54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L50-L54), [68-71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L68-L71), [205](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L205), [227](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L227), [235-237](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L235-L237)]
@@ -4420,20 +4420,20 @@ File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 File: packages/protocol/contracts/thirdparty/optimism/trie/SecureMerkleTrie.sol
 
 // @audit _key, _value
-19:             function verifyInclusionProof(
-20:                 bytes memory _key,
-21:                 bytes memory _value,
-22:                 bytes[] memory _proof,
-23:                 bytes32 _root
+19: 		    function verifyInclusionProof(
+20: 		        bytes memory _key,
+21: 		        bytes memory _value,
+22: 		        bytes[] memory _proof,
+23: 		        bytes32 _root
 
 // @audit _key
-38:             function get(
-39:                 bytes memory _key,
-40:                 bytes[] memory _proof,
-41:                 bytes32 _root
+38: 		    function get(
+39: 		        bytes memory _key,
+40: 		        bytes[] memory _proof,
+41: 		        bytes32 _root
 
 // @audit _key
-54:             function _getSecureKey(bytes memory _key) private pure returns (bytes memory hash_) {
+54: 		    function _getSecureKey(bytes memory _key) private pure returns (bytes memory hash_) {
 ```
 
 [[19-23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/SecureMerkleTrie.sol#L19-L23), [38-41](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/SecureMerkleTrie.sol#L38-L41), [54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/SecureMerkleTrie.sol#L54)]
@@ -4455,16 +4455,16 @@ _There are 12 instances of this issue._
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
 // @audit _trustedUserMrSigner
-65:             function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
+65: 		    function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
 
 // @audit _trustedUserMrEnclave
-69:             function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
+69: 		    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
 
 // @audit tcbInfo
-103:            function configureTcbInfoJson(
+103: 		    function configureTcbInfoJson(
 
 // @audit qeIdentity
-114:            function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
+114: 		    function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
 ```
 
 [[65](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L65), [69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L69), [103](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L103), [114](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L114)]
@@ -4473,7 +4473,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 File: packages/protocol/contracts/bridge/Bridge.sol
 
 // @audit messageStatus
-515:            function _updateMessageStatus(bytes32 _msgHash, Status _status) private {
+515: 		    function _updateMessageStatus(bytes32 _msgHash, Status _status) private {
 ```
 
 [[515](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L515)]
@@ -4482,7 +4482,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 File: packages/protocol/contracts/common/AddressManager.sol
 
 // @audit __addresses
-38:             function setAddress(
+38: 		    function setAddress(
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L38)]
@@ -4491,7 +4491,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
 // @audit customConfig
-25:             function setConfigAndExcess(
+25: 		    function setConfigAndExcess(
 ```
 
 [[25](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L25)]
@@ -4500,7 +4500,7 @@ File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
 // @audit snapshooter
-80:             function setSnapshoter(address _snapshooter) external onlyOwner {
+80: 		    function setSnapshoter(address _snapshooter) external onlyOwner {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L80)]
@@ -4509,7 +4509,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
 // @audit migratingAddress, migratingInbound
-36:             function changeMigrationStatus(
+36: 		    function changeMigrationStatus(
 ```
 
 [[36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L36)]
@@ -4518,7 +4518,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
 // @audit btokenBlacklist, bridgedToCanonical, canonicalToBridged
-148:            function changeBridgedToken(
+148: 		    function changeBridgedToken(
 ```
 
 [[148](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L148)]
@@ -4527,7 +4527,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
 // @audit guardianIds, minGuardians
-53:             function setGuardians(
+53: 		    function setGuardians(
 ```
 
 [[53](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L53)]
@@ -4536,7 +4536,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
 // @audit claimStart, claimEnd, merkleRoot
-90:             function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
+90: 		    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
 ```
 
 [[90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L90)]
@@ -4554,7 +4554,7 @@ _There are 4 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-93:                     emit MessageSuspended(msgHash, _suspend);
+93: 		            emit MessageSuspended(msgHash, _suspend);
 ```
 
 [[93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L93)]
@@ -4562,9 +4562,9 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-109:                    emit InstanceDeleted(idx, instances[idx].addr);
+109: 		            emit InstanceDeleted(idx, instances[idx].addr);
 
-220:                    emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
+220: 		            emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 ```
 
 [[109](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L109), [220](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L220)]
@@ -4572,15 +4572,15 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-198:                        emit BlockVerified({
-199:                            blockId: blockId,
-200:                            assignedProver: blk.assignedProver,
-201:                            prover: ts.prover,
-202:                            blockHash: blockHash,
-203:                            stateRoot: stateRoot,
-204:                            tier: ts.tier,
-205:                            contestations: ts.contestations
-206:                        });
+198: 		                emit BlockVerified({
+199: 		                    blockId: blockId,
+200: 		                    assignedProver: blk.assignedProver,
+201: 		                    prover: ts.prover,
+202: 		                    blockHash: blockHash,
+203: 		                    stateRoot: stateRoot,
+204: 		                    tier: ts.tier,
+205: 		                    contestations: ts.contestations
+206: 		                });
 ```
 
 [[198-206](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L198-L206)]
@@ -4599,13 +4599,13 @@ _There are 10 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-38:             bool private _checkLocalEnclaveReport;
+38: 		    bool private _checkLocalEnclaveReport;
 
-39:             mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
+39: 		    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
 
-40:             mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+40: 		    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
 
-47:             mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
+47: 		    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L38), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L39), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L40), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L47)]
@@ -4613,7 +4613,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-42:             mapping(address addr => bool banned) public addressBanned;
+42: 		    mapping(address addr => bool banned) public addressBanned;
 ```
 
 [[42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L42)]
@@ -4621,7 +4621,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-21:             mapping(address addr => bool authorized) public isAuthorized;
+21: 		    mapping(address addr => bool authorized) public isAuthorized;
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L21)]
@@ -4629,7 +4629,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-14:             bool public migratingInbound;
+14: 		    bool public migratingInbound;
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L14)]
@@ -4637,7 +4637,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-52:             mapping(address btoken => bool blacklisted) public btokenBlacklist;
+52: 		    mapping(address btoken => bool blacklisted) public btokenBlacklist;
 ```
 
 [[52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L52)]
@@ -4645,7 +4645,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-55:             mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
+55: 		    mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 ```
 
 [[55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L55)]
@@ -4653,7 +4653,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-12:             mapping(bytes32 hash => bool claimed) public isClaimed;
+12: 		    mapping(bytes32 hash => bool claimed) public isClaimed;
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L12)]
@@ -4673,7 +4673,7 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
 // @audit switch with this condition
 // ctx.from != owner() || ctx.srcChainId != ownerChainId
-46:                 if (ctx.srcChainId != ownerChainId || ctx.from != owner()) {
+46: 		        if (ctx.srcChainId != ownerChainId || ctx.from != owner()) {
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L46)]
@@ -4695,14 +4695,14 @@ _There are 13 instances of this issue._
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
 // @audit _serialNumIsRevoked on line 81
-84:                     _serialNumIsRevoked[index][serialNumBatch[i]] = true;
+84: 		            _serialNumIsRevoked[index][serialNumBatch[i]] = true;
 
 // @audit _serialNumIsRevoked[index] on line 96
-99:                     delete _serialNumIsRevoked[index][serialNumBatch[i]];
+99: 		            delete _serialNumIsRevoked[index][serialNumBatch[i]];
 
 // @audit _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)] on line 268
-271:                            certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
-272:                                .serialNumber];
+271: 		                    certRevoked = _serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i]
+272: 		                        .serialNumber];
 ```
 
 [[84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L84), [99](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L99), [271-272](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L271-L272)]
@@ -4711,7 +4711,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 File: packages/protocol/contracts/bridge/Bridge.sol
 
 // @audit proofReceipt on lines 168, 184
-190:                    delete proofReceipt[msgHash];
+190: 		            delete proofReceipt[msgHash];
 ```
 
 [[190](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L190)]
@@ -4720,7 +4720,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 File: packages/protocol/contracts/common/AddressManager.sol
 
 // @audit __addresses on line 47
-49:                 __addresses[_chainId][_name] = _newAddress;
+49: 		        __addresses[_chainId][_name] = _newAddress;
 ```
 
 [[49](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L49)]
@@ -4729,7 +4729,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
 // @audit state.transitions on line 154
-154:                    ts_ = state.transitions[slot][blk_.verifiedTransitionId];
+154: 		            ts_ = state.transitions[slot][blk_.verifiedTransitionId];
 ```
 
 [[154](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L154)]
@@ -4738,7 +4738,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 File: packages/protocol/contracts/signal/SignalService.sol
 
 // @audit topBlockId on line 247
-248:                    topBlockId[_chainId][_kind] = _blockId;
+248: 		            topBlockId[_chainId][_kind] = _blockId;
 ```
 
 [[248](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L248)]
@@ -4747,7 +4747,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
 // @audit recipients on line 137
-142:                recipients[_recipient].grant = _grant;
+142: 		        recipients[_recipient].grant = _grant;
 ```
 
 [[142](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L142)]
@@ -4756,10 +4756,10 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
 // @audit canonicalToBridged on line 168
-189:                canonicalToBridged[_ctoken.chainId][_ctoken.addr] = _btokenNew;
+189: 		        canonicalToBridged[_ctoken.chainId][_ctoken.addr] = _btokenNew;
 
 // @audit bridgedToCanonical on line 358
-359:                    ctoken_ = bridgedToCanonical[_token];
+359: 		            ctoken_ = bridgedToCanonical[_token];
 ```
 
 [[189](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L189), [359](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L359)]
@@ -4768,10 +4768,10 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
 // @audit instances on lines 107, 109
-111:                    delete instances[idx];
+111: 		            delete instances[idx];
 
 // @audit instances on lines 235, 236
-237:                    && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
+237: 		            && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
 ```
 
 [[111](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L111), [237](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L237)]
@@ -4780,7 +4780,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
 // @audit _approvals on line 116
-119:                uint256 _approval = _approvals[version][_hash];
+119: 		        uint256 _approval = _approvals[version][_hash];
 ```
 
 [[119](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L119)]
@@ -4798,11 +4798,11 @@ _There are 2 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-200:            function getBlockHash(uint64 _blockId) public view returns (bytes32) {
-201:                if (_blockId >= block.number) return 0;
-202:                if (_blockId + 256 >= block.number) return blockhash(_blockId);
-203:                return l2Hashes[_blockId];
-204:            }
+200: 		    function getBlockHash(uint64 _blockId) public view returns (bytes32) {
+201: 		        if (_blockId >= block.number) return 0;
+202: 		        if (_blockId + 256 >= block.number) return blockhash(_blockId);
+203: 		        return l2Hashes[_blockId];
+204: 		    }
 ```
 
 [[200-204](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L200-L204)]
@@ -4810,9 +4810,9 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
-43:             function getConfig() public view override returns (Config memory) {
-44:                 return customConfig;
-45:             }
+43: 		    function getConfig() public view override returns (Config memory) {
+44: 		        return customConfig;
+45: 		    }
 ```
 
 [[43-45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L43-L45)]
@@ -4831,7 +4831,7 @@ _There are 14 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-35:             uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
+35: 		    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
 ```
 
 [[35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L35)]
@@ -4839,12 +4839,12 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/libs/Lib4844.sol
 
-10:             address public constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(0x0A);
+10: 		    address public constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(0x0A);
 
-13:             uint32 public constant FIELD_ELEMENTS_PER_BLOB = 4096;
+13: 		    uint32 public constant FIELD_ELEMENTS_PER_BLOB = 4096;
 
-16:             uint256 public constant BLS_MODULUS =
-17:                 52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
+16: 		    uint256 public constant BLS_MODULUS =
+17: 		        52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L10), [13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L13), [16-17](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L16-L17)]
@@ -4852,11 +4852,11 @@ File: packages/protocol/contracts/libs/Lib4844.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-47:             bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+47: 		    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
 
-50:             bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+50: 		    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
-53:             uint256 public constant MAX_TOKEN_PER_TXN = 10;
+53: 		    uint256 public constant MAX_TOKEN_PER_TXN = 10;
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L47), [50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L50), [53](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L53)]
@@ -4864,9 +4864,9 @@ File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-30:             uint64 public constant INSTANCE_EXPIRY = 180 days;
+30: 		    uint64 public constant INSTANCE_EXPIRY = 180 days;
 
-34:             uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
+34: 		    uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
 ```
 
 [[30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L30), [34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L34)]
@@ -4874,7 +4874,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-38:             uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
+38: 		    uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L38)]
@@ -4882,7 +4882,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-21:             uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
+21: 		    uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L21)]
@@ -4890,9 +4890,9 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-20:             bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
+20: 		    bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
 
-23:             bytes32 public constant TIER_OP = bytes32("tier_optimistic");
+23: 		    bytes32 public constant TIER_OP = bytes32("tier_optimistic");
 ```
 
 [[20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L20), [23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L23)]
@@ -4900,7 +4900,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-11:             uint256 public constant MIN_NUM_GUARDIANS = 5;
+11: 		    uint256 public constant MIN_NUM_GUARDIANS = 5;
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L11)]
@@ -4919,7 +4919,7 @@ _There are 4 instances of this issue._
 File: packages/protocol/contracts/common/EssentialContract.sol
 
 // @audit expensive op on line 103
-105:                if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
+105: 		        if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
 ```
 
 [[105](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L105)]
@@ -4928,13 +4928,13 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
 // @audit expensive op on line 120
-121:                if (_taikoToken == address(0)) revert INVALID_PARAM();
+121: 		        if (_taikoToken == address(0)) revert INVALID_PARAM();
 
 // @audit expensive op on line 120
-124:                if (_costToken == address(0)) revert INVALID_PARAM();
+124: 		        if (_costToken == address(0)) revert INVALID_PARAM();
 
 // @audit expensive op on line 120
-127:                if (_sharedVault == address(0)) revert INVALID_PARAM();
+127: 		        if (_sharedVault == address(0)) revert INVALID_PARAM();
 ```
 
 [[121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L121), [124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L124), [127](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L127)]
@@ -4961,7 +4961,7 @@ _There are 12 instances of this issue._
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
 // @audit blockhash(parentId) is duplicated on line 157
-154:                l2Hashes[parentId] = blockhash(parentId);
+154: 		        l2Hashes[parentId] = blockhash(parentId);
 ```
 
 [[154](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L154)]
@@ -4970,31 +4970,31 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
 // @audit der.nextSiblingOf(tbsPtr) is duplicated on line 111, 112, 127, 144, 157, 186
-104:                tbsPtr = der.nextSiblingOf(tbsPtr);
+104: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
 // @audit der.firstChildOf(tbsPtr) is duplicated on line 130, 147, 161, 193, 194
-115:                    uint256 issuerPtr = der.firstChildOf(tbsPtr);
+115: 		            uint256 issuerPtr = der.firstChildOf(tbsPtr);
 
 // @audit der.firstChildOf(issuerPtr) is duplicated on line 117
-116:                    issuerPtr = der.firstChildOf(issuerPtr);
+116: 		            issuerPtr = der.firstChildOf(issuerPtr);
 
 // @audit der.firstChildOf(subjectPtr) is duplicated on line 149
-148:                    subjectPtr = der.firstChildOf(subjectPtr);
+148: 		            subjectPtr = der.firstChildOf(subjectPtr);
 
 // @audit der.nextSiblingOf(sigPtr) is duplicated on line 176
-167:                    sigPtr = der.nextSiblingOf(sigPtr);
+167: 		            sigPtr = der.nextSiblingOf(sigPtr);
 
 // @audit _trimBytes(der.bytesAt(sigPtr), 32) is duplicated on line 177
-174:                    bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
+174: 		            bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
 
 // @audit der.bytesAt(sigPtr) is duplicated on line 177
-174:                    bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
+174: 		            bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
 
 // @audit der.nextSiblingOf(extnValueOidPtr) is duplicated on line 318
-312:                                uint256 pceidPtr = der.nextSiblingOf(extnValueOidPtr);
+312: 		                        uint256 pceidPtr = der.nextSiblingOf(extnValueOidPtr);
 
 // @audit bytes2(svnValueBytes) is duplicated on line 360
-359:                        ? uint16(bytes2(svnValueBytes)) / 256
+359: 		                ? uint16(bytes2(svnValueBytes)) / 256
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L104), [115](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L115), [116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L116), [148](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L148), [167](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L167), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L174), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L174), [312](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L312), [359](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L359)]
@@ -5003,10 +5003,10 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
 // @audit MemoryPointer.wrap(MemoryPointer.unwrap(_in.ptr) + offset) is duplicated on line 86
-78:                             ptr: MemoryPointer.wrap(MemoryPointer.unwrap(_in.ptr) + offset)
+78: 		                    ptr: MemoryPointer.wrap(MemoryPointer.unwrap(_in.ptr) + offset)
 
 // @audit MemoryPointer.unwrap(_in.ptr) is duplicated on line 86
-78:                             ptr: MemoryPointer.wrap(MemoryPointer.unwrap(_in.ptr) + offset)
+78: 		                    ptr: MemoryPointer.wrap(MemoryPointer.unwrap(_in.ptr) + offset)
 ```
 
 [[78](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L78), [78](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L78)]
@@ -5033,36 +5033,36 @@ _There are 37 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-65:             function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
+65: 		    function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
 
-69:             function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
+69: 		    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
 
-73:             function addRevokedCertSerialNum(
-74:                 uint256 index,
-75:                 bytes[] calldata serialNumBatch
-76:             )
-77:                 external
-78:                 onlyOwner
+73: 		    function addRevokedCertSerialNum(
+74: 		        uint256 index,
+75: 		        bytes[] calldata serialNumBatch
+76: 		    )
+77: 		        external
+78: 		        onlyOwner
 
-88:             function removeRevokedCertSerialNum(
-89:                 uint256 index,
-90:                 bytes[] calldata serialNumBatch
-91:             )
-92:                 external
-93:                 onlyOwner
+88: 		    function removeRevokedCertSerialNum(
+89: 		        uint256 index,
+90: 		        bytes[] calldata serialNumBatch
+91: 		    )
+92: 		        external
+93: 		        onlyOwner
 
-103:            function configureTcbInfoJson(
-104:                string calldata fmspc,
-105:                TCBInfoStruct.TCBInfo calldata tcbInfoInput
-106:            )
-107:                public
-108:                onlyOwner
+103: 		    function configureTcbInfoJson(
+104: 		        string calldata fmspc,
+105: 		        TCBInfoStruct.TCBInfo calldata tcbInfoInput
+106: 		    )
+107: 		        public
+108: 		        onlyOwner
 
-114:            function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
-115:                external
-116:                onlyOwner
+114: 		    function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
+115: 		        external
+116: 		        onlyOwner
 
-122:            function toggleLocalReportCheck() external onlyOwner {
+122: 		    function toggleLocalReportCheck() external onlyOwner {
 ```
 
 [[65](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L65), [69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L69), [73-78](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L73-L78), [88-93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L88-L93), [103-108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L103-L108), [114-116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L114-L116), [122](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L122)]
@@ -5070,20 +5070,20 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-82:             function suspendMessages(
-83:                 bytes32[] calldata _msgHashes,
-84:                 bool _suspend
-85:             )
-86:                 external
-87:                 onlyFromOwnerOrNamed("bridge_watchdog")
+82: 		    function suspendMessages(
+83: 		        bytes32[] calldata _msgHashes,
+84: 		        bool _suspend
+85: 		    )
+86: 		        external
+87: 		        onlyFromOwnerOrNamed("bridge_watchdog")
 
-101:            function banAddress(
-102:                address _addr,
-103:                bool _ban
-104:            )
-105:                external
-106:                onlyFromOwnerOrNamed("bridge_watchdog")
-107:                nonReentrant
+101: 		    function banAddress(
+102: 		        address _addr,
+103: 		        bool _ban
+104: 		    )
+105: 		        external
+106: 		        onlyFromOwnerOrNamed("bridge_watchdog")
+107: 		        nonReentrant
 ```
 
 [[82-87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L82-L87), [101-107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L101-L107)]
@@ -5091,14 +5091,14 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressManager.sol
 
-38:             function setAddress(
-39:                 uint64 _chainId,
-40:                 bytes32 _name,
-41:                 address _newAddress
-42:             )
-43:                 external
-44:                 virtual
-45:                 onlyOwner
+38: 		    function setAddress(
+39: 		        uint64 _chainId,
+40: 		        bytes32 _name,
+41: 		        address _newAddress
+42: 		    )
+43: 		        external
+44: 		        virtual
+45: 		        onlyOwner
 ```
 
 [[38-45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L38-L45)]
@@ -5106,7 +5106,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-58:             function __AddressResolver_init(address _addressManager) internal virtual onlyInitializing {
+58: 		    function __AddressResolver_init(address _addressManager) internal virtual onlyInitializing {
 ```
 
 [[58](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L58)]
@@ -5114,17 +5114,17 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-95:             function __Essential_init(
-96:                 address _owner,
-97:                 address _addressManager
-98:             )
-99:                 internal
-100:                virtual
-101:                onlyInitializing
+95: 		    function __Essential_init(
+96: 		        address _owner,
+97: 		        address _addressManager
+98: 		    )
+99: 		        internal
+100: 		        virtual
+101: 		        onlyInitializing
 
-114:            function _authorizeUpgrade(address) internal virtual override onlyOwner { }
+114: 		    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 
-116:            function _authorizePause(address) internal virtual onlyOwner { }
+116: 		    function _authorizePause(address) internal virtual onlyOwner { }
 ```
 
 [[95-101](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L95-L101), [114](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L114), [116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L116)]
@@ -5132,9 +5132,9 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoToken.sol
 
-47:             function burn(address _from, uint256 _amount) public onlyOwner {
+47: 		    function burn(address _from, uint256 _amount) public onlyOwner {
 
-52:             function snapshot() public onlyFromOwnerOrNamed("snapshooter") {
+52: 		    function snapshot() public onlyFromOwnerOrNamed("snapshooter") {
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L47), [52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L52)]
@@ -5142,14 +5142,14 @@ File: packages/protocol/contracts/L1/TaikoToken.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-60:             function __CrossChainOwned_init(
-61:                 address _owner,
-62:                 address _addressManager,
-63:                 uint64 _ownerChainId
-64:             )
-65:                 internal
-66:                 virtual
-67:                 onlyInitializing
+60: 		    function __CrossChainOwned_init(
+61: 		        address _owner,
+62: 		        address _addressManager,
+63: 		        uint64 _ownerChainId
+64: 		    )
+65: 		        internal
+66: 		        virtual
+67: 		        onlyInitializing
 ```
 
 [[60-67](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L60-L67)]
@@ -5157,14 +5157,14 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-163:            function withdraw(
-164:                address _token,
-165:                address _to
-166:            )
-167:                external
-168:                onlyFromOwnerOrNamed("withdrawer")
-169:                nonReentrant
-170:                whenNotPaused
+163: 		    function withdraw(
+164: 		        address _token,
+165: 		        address _to
+166: 		    )
+167: 		        external
+168: 		        onlyFromOwnerOrNamed("withdrawer")
+169: 		        nonReentrant
+170: 		        whenNotPaused
 ```
 
 [[163-170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L163-L170)]
@@ -5172,13 +5172,13 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
-25:             function setConfigAndExcess(
-26:                 Config memory _newConfig,
-27:                 uint64 _newGasExcess
-28:             )
-29:                 external
-30:                 virtual
-31:                 onlyOwner
+25: 		    function setConfigAndExcess(
+26: 		        Config memory _newConfig,
+27: 		        uint64 _newGasExcess
+28: 		    )
+29: 		        external
+30: 		        virtual
+31: 		        onlyOwner
 ```
 
 [[25-31](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L25-L31)]
@@ -5186,7 +5186,7 @@ File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-56:             function authorize(address _addr, bool _authorize) external onlyOwner {
+56: 		    function authorize(address _addr, bool _authorize) external onlyOwner {
 ```
 
 [[56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L56)]
@@ -5194,9 +5194,9 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-135:            function grant(address _recipient, Grant memory _grant) external onlyOwner {
+135: 		    function grant(address _recipient, Grant memory _grant) external onlyOwner {
 
-150:            function void(address _recipient) external onlyOwner {
+150: 		    function void(address _recipient) external onlyOwner {
 ```
 
 [[135](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L135), [150](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L150)]
@@ -5204,35 +5204,35 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-66:             function mint(
-67:                 address _to,
-68:                 uint256 _tokenId,
-69:                 uint256 _amount
-70:             )
-71:                 public
-72:                 nonReentrant
-73:                 whenNotPaused
-74:                 onlyFromNamed("erc1155_vault")
+66: 		    function mint(
+67: 		        address _to,
+68: 		        uint256 _tokenId,
+69: 		        uint256 _amount
+70: 		    )
+71: 		        public
+72: 		        nonReentrant
+73: 		        whenNotPaused
+74: 		        onlyFromNamed("erc1155_vault")
 
-83:             function mintBatch(
-84:                 address _to,
-85:                 uint256[] memory _tokenIds,
-86:                 uint256[] memory _amounts
-87:             )
-88:                 public
-89:                 nonReentrant
-90:                 whenNotPaused
-91:                 onlyFromNamed("erc1155_vault")
+83: 		    function mintBatch(
+84: 		        address _to,
+85: 		        uint256[] memory _tokenIds,
+86: 		        uint256[] memory _amounts
+87: 		    )
+88: 		        public
+89: 		        nonReentrant
+90: 		        whenNotPaused
+91: 		        onlyFromNamed("erc1155_vault")
 
-100:            function burn(
-101:                address _account,
-102:                uint256 _tokenId,
-103:                uint256 _amount
-104:            )
-105:                public
-106:                nonReentrant
-107:                whenNotPaused
-108:                onlyFromNamed("erc1155_vault")
+100: 		    function burn(
+101: 		        address _account,
+102: 		        uint256 _tokenId,
+103: 		        uint256 _amount
+104: 		    )
+105: 		        public
+106: 		        nonReentrant
+107: 		        whenNotPaused
+108: 		        onlyFromNamed("erc1155_vault")
 ```
 
 [[66-74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L66-L74), [83-91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L83-L91), [100-108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L100-L108)]
@@ -5240,9 +5240,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-80:             function setSnapshoter(address _snapshooter) external onlyOwner {
+80: 		    function setSnapshoter(address _snapshooter) external onlyOwner {
 
-85:             function snapshot() external onlyOwnerOrSnapshooter {
+85: 		    function snapshot() external onlyOwnerOrSnapshooter {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L80), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L85)]
@@ -5250,14 +5250,14 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-36:             function changeMigrationStatus(
-37:                 address _migratingAddress,
-38:                 bool _migratingInbound
-39:             )
-40:                 external
-41:                 nonReentrant
-42:                 whenNotPaused
-43:                 onlyFromOwnerOrNamed("erc20_vault")
+36: 		    function changeMigrationStatus(
+37: 		        address _migratingAddress,
+38: 		        bool _migratingInbound
+39: 		    )
+40: 		        external
+41: 		        nonReentrant
+42: 		        whenNotPaused
+43: 		        onlyFromOwnerOrNamed("erc20_vault")
 ```
 
 [[36-43](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L36-L43)]
@@ -5265,23 +5265,23 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-54:             function mint(
-55:                 address _account,
-56:                 uint256 _tokenId
-57:             )
-58:                 public
-59:                 nonReentrant
-60:                 whenNotPaused
-61:                 onlyFromNamed("erc721_vault")
+54: 		    function mint(
+55: 		        address _account,
+56: 		        uint256 _tokenId
+57: 		    )
+58: 		        public
+59: 		        nonReentrant
+60: 		        whenNotPaused
+61: 		        onlyFromNamed("erc721_vault")
 
-69:             function burn(
-70:                 address _account,
-71:                 uint256 _tokenId
-72:             )
-73:                 public
-74:                 nonReentrant
-75:                 whenNotPaused
-76:                 onlyFromNamed("erc721_vault")
+69: 		    function burn(
+70: 		        address _account,
+71: 		        uint256 _tokenId
+72: 		    )
+73: 		        public
+74: 		        nonReentrant
+75: 		        whenNotPaused
+76: 		        onlyFromNamed("erc721_vault")
 ```
 
 [[54-61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L54-L61), [69-76](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L69-L76)]
@@ -5289,14 +5289,14 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-148:            function changeBridgedToken(
-149:                CanonicalERC20 calldata _ctoken,
-150:                address _btokenNew
-151:            )
-152:                external
-153:                nonReentrant
-154:                whenNotPaused
-155:                onlyOwner
+148: 		    function changeBridgedToken(
+149: 		        CanonicalERC20 calldata _ctoken,
+150: 		        address _btokenNew
+151: 		    )
+152: 		        external
+153: 		        nonReentrant
+154: 		        whenNotPaused
+155: 		        onlyOwner
 ```
 
 [[148-155](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L148-L155)]
@@ -5304,21 +5304,21 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-90:             function addInstances(address[] calldata _instances)
-91:                 external
-92:                 onlyOwner
+90: 		    function addInstances(address[] calldata _instances)
+91: 		        external
+92: 		        onlyOwner
 
-100:            function deleteInstances(uint256[] calldata _ids)
-101:                external
-102:                onlyFromOwnerOrNamed("rollup_watchdog")
+100: 		    function deleteInstances(uint256[] calldata _ids)
+101: 		        external
+102: 		        onlyFromOwnerOrNamed("rollup_watchdog")
 
-139:            function verifyProof(
-140:                Context calldata _ctx,
-141:                TaikoData.Transition calldata _tran,
-142:                TaikoData.TierProof calldata _proof
-143:            )
-144:                external
-145:                onlyFromNamed("taiko")
+139: 		    function verifyProof(
+140: 		        Context calldata _ctx,
+141: 		        TaikoData.Transition calldata _tran,
+142: 		        TaikoData.TierProof calldata _proof
+143: 		    )
+144: 		        external
+145: 		        onlyFromNamed("taiko")
 ```
 
 [[90-92](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L90-L92), [100-102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L100-L102), [139-145](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L139-L145)]
@@ -5326,13 +5326,13 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-53:             function setGuardians(
-54:                 address[] memory _newGuardians,
-55:                 uint8 _minGuardians
-56:             )
-57:                 external
-58:                 onlyOwner
-59:                 nonReentrant
+53: 		    function setGuardians(
+54: 		        address[] memory _newGuardians,
+55: 		        uint8 _minGuardians
+56: 		    )
+57: 		        external
+58: 		        onlyOwner
+59: 		        nonReentrant
 ```
 
 [[53-59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L53-L59)]
@@ -5340,21 +5340,21 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-45:             function setConfig(
-46:                 uint64 _claimStart,
-47:                 uint64 _claimEnd,
-48:                 bytes32 _merkleRoot
-49:             )
-50:                 external
-51:                 onlyOwner
+45: 		    function setConfig(
+46: 		        uint64 _claimStart,
+47: 		        uint64 _claimEnd,
+48: 		        bytes32 _merkleRoot
+49: 		    )
+50: 		        external
+51: 		        onlyOwner
 
-56:             function __MerkleClaimable_init(
-57:                 uint64 _claimStart,
-58:                 uint64 _claimEnd,
-59:                 bytes32 _merkleRoot
-60:             )
-61:                 internal
-62:                 onlyInitializing
+56: 		    function __MerkleClaimable_init(
+57: 		        uint64 _claimStart,
+58: 		        uint64 _claimEnd,
+59: 		        bytes32 _merkleRoot
+60: 		    )
+61: 		        internal
+62: 		        onlyInitializing
 ```
 
 [[45-51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L45-L51), [56-62](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L56-L62)]
@@ -5372,7 +5372,7 @@ _There is 1 instance of this issue._
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-93:                 address taikoL1Address = msg.sender;
+93: 		        address taikoL1Address = msg.sender;
 ```
 
 [[93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L93)]
@@ -5392,7 +5392,7 @@ _There are 7 instances of this issue._
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
 // @audit check on line 275
-276:                        numL1Blocks = _l1BlockId - lastSyncedBlock;
+276: 		                numL1Blocks = _l1BlockId - lastSyncedBlock;
 ```
 
 [[276](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L276)]
@@ -5401,7 +5401,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
 // @audit check on line 257
-264:                return _amount * uint64(block.timestamp - _start) / _period;
+264: 		        return _amount * uint64(block.timestamp - _start) / _period;
 ```
 
 [[264](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L264)]
@@ -5410,7 +5410,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
 // @audit check on line 262
-265:                uint256 lengthDiff = n - expectedLength;
+265: 		        uint256 lengthDiff = n - expectedLength;
 ```
 
 [[265](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L265)]
@@ -5419,7 +5419,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
 // @audit check on line 90
-93:                             mask = ~(2 ** (8 * (32 - shortest + idx)) - 1);
+93: 		                    mask = ~(2 ** (8 * (32 - shortest + idx)) - 1);
 ```
 
 [[93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L93)]
@@ -5428,7 +5428,7 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 
 // @audit check on line 92
-95:                 return slice(_bytes, _start, _bytes.length - _start);
+95: 		        return slice(_bytes, _start, _bytes.length - _start);
 ```
 
 [[95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L95)]
@@ -5437,10 +5437,10 @@ File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
 // @audit check on line 166
-190:                    uint256 lenOfStrLen = prefix - 0xb7;
+190: 		            uint256 lenOfStrLen = prefix - 0xb7;
 
 // @audit check on line 223
-236:                    uint256 lenOfListLen = prefix - 0xf7;
+236: 		            uint256 lenOfListLen = prefix - 0xf7;
 ```
 
 [[190](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L190), [236](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L236)]
@@ -5463,7 +5463,7 @@ _There are 13 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-215:                    ethDepositMaxFee: 1 ether / 10,
+215: 		            ethDepositMaxFee: 1 ether / 10,
 ```
 
 [[215](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L215)]
@@ -5471,12 +5471,12 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L2/Lib1559Math.sol
 
-28:                 return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
-29:                     / _adjustmentFactor;
+28: 		        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
+29: 		            / _adjustmentFactor;
 
-28:                 return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
+28: 		        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR
 
-41:                 uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _adjustmentFactor;
+41: 		        uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _adjustmentFactor;
 ```
 
 [[28-29](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L28-L29), [28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L28), [41](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L41)]
@@ -5484,9 +5484,9 @@ File: packages/protocol/contracts/L2/Lib1559Math.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-197:                uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
+197: 		        uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
 
-264:                return _amount * uint64(block.timestamp - _start) / _period;
+264: 		        return _amount * uint64(block.timestamp - _start) / _period;
 ```
 
 [[197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L197), [264](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L264)]
@@ -5494,7 +5494,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-359:                        ? uint16(bytes2(svnValueBytes)) / 256
+359: 		                ? uint16(bytes2(svnValueBytes)) / 256
 ```
 
 [[359](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L359)]
@@ -5502,7 +5502,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 
-124:                return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
+124: 		        return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
 ```
 
 [[124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L124)]
@@ -5510,7 +5510,7 @@ File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-262:                        || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
+262: 		                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
 ```
 
 [[262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L262)]
@@ -5518,8 +5518,8 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-117:                uint256 timeBasedAllowance = balance
-118:                    * (block.timestamp.min(claimEnd + withdrawalWindow) - claimEnd) / withdrawalWindow;
+117: 		        uint256 timeBasedAllowance = balance
+118: 		            * (block.timestamp.min(claimEnd + withdrawalWindow) - claimEnd) / withdrawalWindow;
 ```
 
 [[117-118](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L117-L118)]
@@ -5527,7 +5527,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-155:                    uint256 upperDigit = digits / 16;
+155: 		            uint256 upperDigit = digits / 16;
 ```
 
 [[155](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L155)]
@@ -5535,9 +5535,9 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-39:                     while (_len / i != 0) {
+39: 		            while (_len / i != 0) {
 
-47:                         out_[i] = bytes1(uint8((_len / (256 ** (lenLen - i))) % 256));
+47: 		                out_[i] = bytes1(uint8((_len / (256 ** (lenLen - i))) % 256));
 ```
 
 [[39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L39), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L47)]
@@ -5555,7 +5555,7 @@ _There is 1 instance of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-70:             receive() external payable { }
+70: 		    receive() external payable { }
 ```
 
 [[70](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L70)]
@@ -5580,7 +5580,7 @@ _There are 322 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-36:             uint8 internal constant INVALID_EXIT_CODE = 255;
+36: 		    uint8 internal constant INVALID_EXIT_CODE = 255;
 ```
 
 [[36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L36)]
@@ -5588,23 +5588,23 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-31:             uint128 public nextMessageId;
+31: 		    uint128 public nextMessageId;
 
-64:             modifier sameChain(uint64 _chainId) {
+64: 		    modifier sameChain(uint64 _chainId) {
 
-89:                 uint64 _timestamp = _suspend ? type(uint64).max : uint64(block.timestamp);
+89: 		        uint64 _timestamp = _suspend ? type(uint64).max : uint64(block.timestamp);
 
-168:                uint64 receivedAt = proofReceipt[msgHash].receivedAt;
+168: 		        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
 
-230:                uint64 receivedAt = proofReceipt[msgHash].receivedAt;
+230: 		        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
 
-392:            function isDestChainEnabled(uint64 _chainId)
+392: 		    function isDestChainEnabled(uint64 _chainId)
 
-541:            function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
+541: 		    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
 
-559:                    uint64 srcChainId;
+559: 		            uint64 srcChainId;
 
-580:                uint64 _chainId,
+580: 		        uint64 _chainId,
 ```
 
 [[31](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L31), [64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L64), [89](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L89), [168](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L168), [230](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L230), [392](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L392), [541](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L541), [559](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L559), [580](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L580)]
@@ -5612,15 +5612,15 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/bridge/IBridge.sol
 
-19:                 uint128 id;
+19: 		        uint128 id;
 
-24:                 uint64 srcChainId;
+24: 		        uint64 srcChainId;
 
-26:                 uint64 destChainId;
+26: 		        uint64 destChainId;
 
-51:                 uint64 receivedAt;
+51: 		        uint64 receivedAt;
 
-63:                 uint64 srcChainId; // Source chain ID.
+63: 		        uint64 srcChainId; // Source chain ID.
 ```
 
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L19), [24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L24), [26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L26), [51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L51), [63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L63)]
@@ -5628,11 +5628,11 @@ File: packages/protocol/contracts/bridge/IBridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressManager.sol
 
-22:                 uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
+22: 		        uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
 
-39:                 uint64 _chainId,
+39: 		        uint64 _chainId,
 
-54:             function getAddress(uint64 _chainId, bytes32 _name) public view override returns (address) {
+54: 		    function getAddress(uint64 _chainId, bytes32 _name) public view override returns (address) {
 ```
 
 [[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L22), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L39), [54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L54)]
@@ -5640,11 +5640,11 @@ File: packages/protocol/contracts/common/AddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-19:             error RESOLVER_ZERO_ADDR(uint64 chainId, bytes32 name);
+19: 		    error RESOLVER_ZERO_ADDR(uint64 chainId, bytes32 name);
 
-44:                 uint64 _chainId,
+44: 		        uint64 _chainId,
 
-73:                 uint64 _chainId,
+73: 		        uint64 _chainId,
 ```
 
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L19), [44](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L44), [73](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L73)]
@@ -5652,17 +5652,17 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-11:             uint8 private constant _FALSE = 1;
+11: 		    uint8 private constant _FALSE = 1;
 
-13:             uint8 private constant _TRUE = 2;
+13: 		    uint8 private constant _TRUE = 2;
 
-21:             uint8 private __reentry;
+21: 		    uint8 private __reentry;
 
-23:             uint8 private __paused;
+23: 		    uint8 private __paused;
 
-119:            function _storeReentryLock(uint8 _reentry) internal virtual {
+119: 		    function _storeReentryLock(uint8 _reentry) internal virtual {
 
-130:            function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
+130: 		    function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L11), [13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L13), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L21), [23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L23), [119](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L119), [130](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L130)]
@@ -5670,7 +5670,7 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/common/IAddressManager.sol
 
-14:             function getAddress(uint64 _chainId, bytes32 _name) external view returns (address);
+14: 		    function getAddress(uint64 _chainId, bytes32 _name) external view returns (address);
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressManager.sol#L14)]
@@ -5678,7 +5678,7 @@ File: packages/protocol/contracts/common/IAddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/IAddressResolver.sol
 
-35:                 uint64 _chainId,
+35: 		        uint64 _chainId,
 ```
 
 [[35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressResolver.sol#L35)]
@@ -5686,9 +5686,9 @@ File: packages/protocol/contracts/common/IAddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/L1/ITaikoL1.sol
 
-27:             function proveBlock(uint64 _blockId, bytes calldata _input) external;
+27: 		    function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
-31:             function verifyBlocks(uint64 _maxBlocksToVerify) external;
+31: 		    function verifyBlocks(uint64 _maxBlocksToVerify) external;
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/ITaikoL1.sol#L27), [31](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/ITaikoL1.sol#L31)]
@@ -5696,101 +5696,101 @@ File: packages/protocol/contracts/L1/ITaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoData.sol
 
-15:                 uint64 chainId;
+15: 		        uint64 chainId;
 
-20:                 uint64 blockMaxProposals;
+20: 		        uint64 blockMaxProposals;
 
-22:                 uint64 blockRingBufferSize;
+22: 		        uint64 blockRingBufferSize;
 
-24:                 uint64 maxBlocksToVerifyPerProposal;
+24: 		        uint64 maxBlocksToVerifyPerProposal;
 
-26:                 uint32 blockMaxGasLimit;
+26: 		        uint32 blockMaxGasLimit;
 
-28:                 uint24 blockMaxTxListBytes;
+28: 		        uint24 blockMaxTxListBytes;
 
-30:                 uint24 blobExpiry;
+30: 		        uint24 blobExpiry;
 
-39:                 uint96 livenessBond;
+39: 		        uint96 livenessBond;
 
-46:                 uint64 ethDepositMinCountPerBlock;
+46: 		        uint64 ethDepositMinCountPerBlock;
 
-48:                 uint64 ethDepositMaxCountPerBlock;
+48: 		        uint64 ethDepositMaxCountPerBlock;
 
-50:                 uint96 ethDepositMinAmount;
+50: 		        uint96 ethDepositMinAmount;
 
-52:                 uint96 ethDepositMaxAmount;
+52: 		        uint96 ethDepositMaxAmount;
 
-59:                 uint8 blockSyncThreshold;
+59: 		        uint8 blockSyncThreshold;
 
-64:                 uint16 tier;
+64: 		        uint16 tier;
 
-65:                 uint128 fee;
+65: 		        uint128 fee;
 
-69:                 uint16 tier;
+69: 		        uint16 tier;
 
-83:                 uint24 txListByteOffset;
+83: 		        uint24 txListByteOffset;
 
-84:                 uint24 txListByteSize;
+84: 		        uint24 txListByteSize;
 
-101:                uint64 id;
+101: 		        uint64 id;
 
-102:                uint32 gasLimit;
+102: 		        uint32 gasLimit;
 
-103:                uint64 timestamp; // slot 7
+103: 		        uint64 timestamp; // slot 7
 
-104:                uint64 l1Height;
+104: 		        uint64 l1Height;
 
-105:                uint24 txListByteOffset;
+105: 		        uint24 txListByteOffset;
 
-106:                uint24 txListByteSize;
+106: 		        uint24 txListByteSize;
 
-107:                uint16 minTier;
+107: 		        uint16 minTier;
 
-127:                uint96 validityBond;
+127: 		        uint96 validityBond;
 
-129:                uint96 contestBond;
+129: 		        uint96 contestBond;
 
-130:                uint64 timestamp; // slot 6 (90 bits)
+130: 		        uint64 timestamp; // slot 6 (90 bits)
 
-131:                uint16 tier;
+131: 		        uint16 tier;
 
-132:                uint8 contestations;
+132: 		        uint8 contestations;
 
-140:                uint96 livenessBond;
+140: 		        uint96 livenessBond;
 
-141:                uint64 blockId; // slot 3
+141: 		        uint64 blockId; // slot 3
 
-142:                uint64 proposedAt; // timestamp
+142: 		        uint64 proposedAt; // timestamp
 
-143:                uint64 proposedIn; // L1 block number
+143: 		        uint64 proposedIn; // L1 block number
 
-144:                uint32 nextTransitionId;
+144: 		        uint32 nextTransitionId;
 
-145:                uint32 verifiedTransitionId;
+145: 		        uint32 verifiedTransitionId;
 
-152:                uint96 amount;
+152: 		        uint96 amount;
 
-153:                uint64 id;
+153: 		        uint64 id;
 
-162:                uint64 genesisHeight;
+162: 		        uint64 genesisHeight;
 
-163:                uint64 genesisTimestamp;
+163: 		        uint64 genesisTimestamp;
 
-164:                uint64 numEthDeposits;
+164: 		        uint64 numEthDeposits;
 
-165:                uint64 nextEthDepositToProcess;
+165: 		        uint64 nextEthDepositToProcess;
 
-169:                uint64 numBlocks;
+169: 		        uint64 numBlocks;
 
-170:                uint64 lastVerifiedBlockId;
+170: 		        uint64 lastVerifiedBlockId;
 
-172:                uint8 __reserved1;
+172: 		        uint8 __reserved1;
 
-173:                uint16 __reserved2;
+173: 		        uint16 __reserved2;
 
-174:                uint32 __reserved3;
+174: 		        uint32 __reserved3;
 
-175:                uint64 lastUnpausedAt;
+175: 		        uint64 lastUnpausedAt;
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L15), [20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L20), [22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L22), [24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L24), [26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L26), [28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L28), [30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L30), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L39), [46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L46), [48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L48), [50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L50), [52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L52), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L59), [64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L64), [65](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L65), [69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L69), [83](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L83), [84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L84), [101](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L101), [102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L102), [103](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L103), [104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L104), [105](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L105), [106](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L106), [107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L107), [127](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L127), [129](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L129), [130](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L130), [131](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L131), [132](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L132), [140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L140), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L141), [142](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L142), [143](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L143), [144](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L144), [145](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L145), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L152), [153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L153), [162](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L162), [163](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L163), [164](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L164), [165](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L165), [169](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L169), [170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L170), [172](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L172), [173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L173), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L174), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L175)]
@@ -5798,19 +5798,19 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoEvents.sol
 
-24:                 uint96 livenessBond,
+24: 		        uint96 livenessBond,
 
-43:                 uint16 tier,
+43: 		        uint16 tier,
 
-44:                 uint8 contestations
+44: 		        uint8 contestations
 
-57:                 uint96 validityBond,
+57: 		        uint96 validityBond,
 
-58:                 uint16 tier
+58: 		        uint16 tier
 
-71:                 uint96 contestBond,
+71: 		        uint96 contestBond,
 
-72:                 uint16 tier
+72: 		        uint16 tier
 ```
 
 [[24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L24), [43](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L43), [44](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L44), [57](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L57), [58](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L58), [71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L71), [72](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L72)]
@@ -5818,17 +5818,17 @@ File: packages/protocol/contracts/L1/TaikoEvents.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-76:                 uint64 _blockId,
+76: 		        uint64 _blockId,
 
-94:                 uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
+94: 		        uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
 
-100:            function verifyBlocks(uint64 _maxBlocksToVerify)
+100: 		    function verifyBlocks(uint64 _maxBlocksToVerify)
 
-145:            function getBlock(uint64 _blockId)
+145: 		    function getBlock(uint64 _blockId)
 
-150:                uint64 slot;
+150: 		        uint64 slot;
 
-163:                uint64 _blockId,
+163: 		        uint64 _blockId,
 ```
 
 [[76](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L76), [94](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L94), [100](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L100), [145](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L145), [150](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L150), [163](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L163)]
@@ -5836,15 +5836,15 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-16:             uint64 public ownerChainId;
+16: 		    uint64 public ownerChainId;
 
-19:             uint64 public nextTxId;
+19: 		    uint64 public nextTxId;
 
-26:             event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector);
+26: 		    event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector);
 
-42:                 (uint64 txId, bytes memory txdata) = abi.decode(_data, (uint64, bytes));
+42: 		        (uint64 txId, bytes memory txdata) = abi.decode(_data, (uint64, bytes));
 
-63:                 uint64 _ownerChainId
+63: 		        uint64 _ownerChainId
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L16), [19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L19), [26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L26), [42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L42), [63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L63)]
@@ -5852,37 +5852,37 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-27:                 uint32 gasTargetPerL1Block;
+27: 		        uint32 gasTargetPerL1Block;
 
-28:                 uint8 basefeeAdjustmentQuotient;
+28: 		        uint8 basefeeAdjustmentQuotient;
 
-35:             uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
+35: 		    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
 
-47:             uint64 public gasExcess;
+47: 		    uint64 public gasExcess;
 
-50:             uint64 public lastSyncedBlock;
+50: 		    uint64 public lastSyncedBlock;
 
-57:             event Anchored(bytes32 parentHash, uint64 gasExcess);
+57: 		    event Anchored(bytes32 parentHash, uint64 gasExcess);
 
-74:                 uint64 _l1ChainId,
+74: 		        uint64 _l1ChainId,
 
-75:                 uint64 _gasExcess
+75: 		        uint64 _gasExcess
 
-110:                uint64 _l1BlockId,
+110: 		        uint64 _l1BlockId,
 
-111:                uint32 _parentGasUsed
+111: 		        uint32 _parentGasUsed
 
-186:                uint64 _l1BlockId,
+186: 		        uint64 _l1BlockId,
 
-187:                uint32 _parentGasUsed
+187: 		        uint32 _parentGasUsed
 
-200:            function getBlockHash(uint64 _blockId) public view returns (bytes32) {
+200: 		    function getBlockHash(uint64 _blockId) public view returns (bytes32) {
 
-254:                uint64 _l1BlockId,
+254: 		        uint64 _l1BlockId,
 
-255:                uint32 _parentGasUsed
+255: 		        uint32 _parentGasUsed
 
-259:                returns (uint256 basefee_, uint64 gasExcess_)
+259: 		        returns (uint256 basefee_, uint64 gasExcess_)
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L27), [28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L28), [35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L35), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L47), [50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L50), [57](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L57), [74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L74), [75](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L75), [110](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L110), [111](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L111), [186](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L186), [187](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L187), [200](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L200), [254](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L254), [255](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L255), [259](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L259)]
@@ -5890,9 +5890,9 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
-18:             event ConfigAndExcessChanged(Config config, uint64 gasExcess);
+18: 		    event ConfigAndExcessChanged(Config config, uint64 gasExcess);
 
-27:                 uint64 _newGasExcess
+27: 		        uint64 _newGasExcess
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L18), [27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L27)]
@@ -5900,7 +5900,7 @@ File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 ```solidity
 File: packages/protocol/contracts/libs/Lib4844.sol
 
-13:             uint32 public constant FIELD_ELEMENTS_PER_BLOB = 4096;
+13: 		    uint32 public constant FIELD_ELEMENTS_PER_BLOB = 4096;
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L13)]
@@ -5908,33 +5908,33 @@ File: packages/protocol/contracts/libs/Lib4844.sol
 ```solidity
 File: packages/protocol/contracts/signal/ISignalService.sol
 
-21:                 uint64 chainId;
+21: 		        uint64 chainId;
 
-22:                 uint64 blockId;
+22: 		        uint64 blockId;
 
-37:                 uint64 indexed chainId,
+37: 		        uint64 indexed chainId,
 
-38:                 uint64 indexed blockId,
+38: 		        uint64 indexed blockId,
 
-69:                 uint64 _chainId,
+69: 		        uint64 _chainId,
 
-71:                 uint64 _blockId,
+71: 		        uint64 _blockId,
 
-85:                 uint64 _chainId,
+85: 		        uint64 _chainId,
 
-106:                uint64 _chainId,
+106: 		        uint64 _chainId,
 
-108:                uint64 _blockId,
+108: 		        uint64 _blockId,
 
-123:                uint64 _chainId,
+123: 		        uint64 _chainId,
 
-125:                uint64 _blockId
+125: 		        uint64 _blockId
 
-129:                returns (uint64 blockId_, bytes32 chainData_);
+129: 		        returns (uint64 blockId_, bytes32 chainData_);
 
-138:                uint64 _chainId,
+138: 		        uint64 _chainId,
 
-140:                uint64 _blockId
+140: 		        uint64 _blockId
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L21), [22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L22), [37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L37), [38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L38), [69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L69), [71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L71), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L85), [106](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L106), [108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L108), [123](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L123), [125](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L125), [129](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L129), [138](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L138), [140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L140)]
@@ -5942,39 +5942,39 @@ File: packages/protocol/contracts/signal/ISignalService.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-69:                 uint64 _chainId,
+69: 		        uint64 _chainId,
 
-71:                 uint64 _blockId,
+71: 		        uint64 _blockId,
 
-84:                 uint64 _chainId,
+84: 		        uint64 _chainId,
 
-97:                 uint64 chainId = _chainId;
+97: 		        uint64 chainId = _chainId;
 
-138:                uint64 _chainId,
+138: 		        uint64 _chainId,
 
-140:                uint64 _blockId,
+140: 		        uint64 _blockId,
 
-159:                uint64 _chainId,
+159: 		        uint64 _chainId,
 
-161:                uint64 _blockId
+161: 		        uint64 _blockId
 
-165:                returns (uint64 blockId_, bytes32 chainData_)
+165: 		        returns (uint64 blockId_, bytes32 chainData_)
 
-178:                uint64 _chainId,
+178: 		        uint64 _chainId,
 
-180:                uint64 _blockId
+180: 		        uint64 _blockId
 
-195:                uint64 _chainId,
+195: 		        uint64 _chainId,
 
-207:                uint64 _chainId,
+207: 		        uint64 _chainId,
 
-236:                uint64 _chainId,
+236: 		        uint64 _chainId,
 
-238:                uint64 _blockId,
+238: 		        uint64 _blockId,
 
-273:                uint64 _chainId,
+273: 		        uint64 _chainId,
 
-274:                uint64 _blockId,
+274: 		        uint64 _blockId,
 ```
 
 [[69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L69), [71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L71), [84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L84), [97](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L97), [138](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L138), [140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L140), [159](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L159), [161](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L161), [165](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L165), [178](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L178), [180](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L180), [195](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L195), [207](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L207), [236](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L236), [238](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L238), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L273), [274](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L274)]
@@ -5982,81 +5982,81 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-29:                 uint128 amount;
+29: 		        uint128 amount;
 
-31:                 uint128 costPerToken;
+31: 		        uint128 costPerToken;
 
-34:                 uint64 grantStart;
+34: 		        uint64 grantStart;
 
-37:                 uint64 grantCliff;
+37: 		        uint64 grantCliff;
 
-40:                 uint32 grantPeriod;
+40: 		        uint32 grantPeriod;
 
-43:                 uint64 unlockStart;
+43: 		        uint64 unlockStart;
 
-46:                 uint64 unlockCliff;
+46: 		        uint64 unlockCliff;
 
-49:                 uint32 unlockPeriod;
+49: 		        uint32 unlockPeriod;
 
-53:                 uint128 amountWithdrawn;
+53: 		        uint128 amountWithdrawn;
 
-54:                 uint128 costPaid;
+54: 		        uint128 costPaid;
 
-68:             uint128 public totalAmountGranted;
+68: 		    uint128 public totalAmountGranted;
 
-71:             uint128 public totalAmountVoided;
+71: 		    uint128 public totalAmountVoided;
 
-74:             uint128 public totalAmountWithdrawn;
+74: 		    uint128 public totalAmountWithdrawn;
 
-77:             uint128 public totalCostPaid;
+77: 		    uint128 public totalCostPaid;
 
-92:             event Voided(address indexed recipient, uint128 amount);
+92: 		    event Voided(address indexed recipient, uint128 amount);
 
-99:             event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
+99: 		    event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
-99:             event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
+99: 		    event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
-152:                uint128 amountVoided = _voidGrant(r.grant);
+152: 		        uint128 amountVoided = _voidGrant(r.grant);
 
-180:                    uint128 amountOwned,
+180: 		            uint128 amountOwned,
 
-181:                    uint128 amountUnlocked,
+181: 		            uint128 amountUnlocked,
 
-182:                    uint128 amountWithdrawn,
+182: 		            uint128 amountWithdrawn,
 
-183:                    uint128 amountToWithdraw,
+183: 		            uint128 amountToWithdraw,
 
-184:                    uint128 costToWithdraw
+184: 		            uint128 costToWithdraw
 
-197:                uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
+197: 		        uint128 _amountUnlocked = amountUnlocked / 1e18; // divide first
 
-211:                (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(_recipient);
+211: 		        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(_recipient);
 
-211:                (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(_recipient);
+211: 		        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(_recipient);
 
-225:            function _voidGrant(Grant storage _grant) private returns (uint128 amountVoided) {
+225: 		    function _voidGrant(Grant storage _grant) private returns (uint128 amountVoided) {
 
-226:                uint128 amountOwned = _getAmountOwned(_grant);
+226: 		        uint128 amountOwned = _getAmountOwned(_grant);
 
-235:            function _getAmountOwned(Grant memory _grant) private view returns (uint128) {
+235: 		    function _getAmountOwned(Grant memory _grant) private view returns (uint128) {
 
-239:            function _getAmountUnlocked(Grant memory _grant) private view returns (uint128) {
+239: 		    function _getAmountUnlocked(Grant memory _grant) private view returns (uint128) {
 
-246:                uint128 _amount,
+246: 		        uint128 _amount,
 
-247:                uint64 _start,
+247: 		        uint64 _start,
 
-248:                uint64 _cliff,
+248: 		        uint64 _cliff,
 
-249:                uint64 _period
+249: 		        uint64 _period
 
-253:                returns (uint128)
+253: 		        returns (uint128)
 
-273:            function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
+273: 		    function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
 
-273:            function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
+273: 		    function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
 
-273:            function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
+273: 		    function _validateCliff(uint64 _start, uint64 _cliff, uint32 _period) private pure {
 ```
 
 [[29](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L29), [31](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L31), [34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L34), [37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L37), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L40), [43](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L43), [46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L46), [49](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L49), [53](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L53), [54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L54), [68](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L68), [71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L71), [74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L74), [77](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L77), [92](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L92), [99](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L99), [99](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L99), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L152), [180](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L180), [181](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L181), [182](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L182), [183](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L183), [184](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L184), [197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L197), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L211), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L211), [225](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L225), [226](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L226), [235](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L235), [239](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L239), [246](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L246), [247](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L247), [248](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L248), [249](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L249), [253](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L253), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L273), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L273), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L273)]
@@ -6064,15 +6064,15 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-13:                 uint64 chainId;
+13: 		        uint64 chainId;
 
-25:                 uint64 destChainId;
+25: 		        uint64 destChainId;
 
-70:                 uint64 indexed chainId,
+70: 		        uint64 indexed chainId,
 
-90:                 uint64 destChainId,
+90: 		        uint64 destChainId,
 
-126:                uint64 srcChainId,
+126: 		        uint64 srcChainId,
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L13), [25](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L25), [70](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L70), [90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L90), [126](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L126)]
@@ -6080,11 +6080,11 @@ File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-24:             uint8 private __srcDecimals;
+24: 		    uint8 private __srcDecimals;
 
-57:                 uint8 _decimals,
+57: 		        uint8 _decimals,
 
-117:                returns (uint8)
+117: 		        returns (uint8)
 ```
 
 [[24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L24), [57](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L57), [117](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L117)]
@@ -6092,19 +6092,19 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-24:                 uint64 chainId;
+24: 		        uint64 chainId;
 
-26:                 uint8 decimals;
+26: 		        uint8 decimals;
 
-33:                 uint64 destChainId;
+33: 		        uint64 destChainId;
 
-69:                 uint8 ctokenDecimal
+69: 		        uint8 ctokenDecimal
 
-87:                 uint8 ctokenDecimal
+87: 		        uint8 ctokenDecimal
 
-102:                uint64 destChainId,
+102: 		        uint64 destChainId,
 
-130:                uint64 srcChainId,
+130: 		        uint64 srcChainId,
 ```
 
 [[24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L24), [26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L26), [33](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L33), [69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L69), [87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L87), [102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L102), [130](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L130)]
@@ -6112,7 +6112,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/IVerifier.sol
 
-14:                 uint64 blockId;
+14: 		        uint64 blockId;
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/IVerifier.sol#L14)]
@@ -6120,15 +6120,15 @@ File: packages/protocol/contracts/verifiers/IVerifier.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-26:                 uint64 validSince;
+26: 		        uint64 validSince;
 
-30:             uint64 public constant INSTANCE_EXPIRY = 180 days;
+30: 		    uint64 public constant INSTANCE_EXPIRY = 180 days;
 
-34:             uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
+34: 		    uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
 
-154:                uint32 id = uint32(bytes4(Bytes.slice(_proof.data, 0, 4)));
+154: 		        uint32 id = uint32(bytes4(Bytes.slice(_proof.data, 0, 4)));
 
-204:                uint64 validSince = uint64(block.timestamp);
+204: 		        uint64 validSince = uint64(block.timestamp);
 ```
 
 [[26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L26), [30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L30), [34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L34), [154](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L154), [204](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L204)]
@@ -6136,9 +6136,9 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol
 
-10:                 uint16 isvprodid;
+10: 		        uint16 isvprodid;
 
-23:                 uint16 isvsvn;
+23: 		        uint16 isvsvn;
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol#L10), [23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol#L23)]
@@ -6146,7 +6146,7 @@ File: packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-358:                    uint16 svnValue = svnValueBytes.length < 2
+358: 		            uint16 svnValue = svnValueBytes.length < 2
 ```
 
 [[358](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L358)]
@@ -6154,11 +6154,11 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol
 
-189:                uint80 ixFirstContentByte;
+189: 		        uint80 ixFirstContentByte;
 
-190:                uint80 ixLastContentByte;
+190: 		        uint80 ixLastContentByte;
 
-196:                    uint8 lengthbytesLength = uint8(der[ix + 1] & 0x7F);
+196: 		            uint8 lengthbytesLength = uint8(der[ix + 1] & 0x7F);
 ```
 
 [[189](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L189), [190](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L190), [196](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L196)]
@@ -6166,13 +6166,13 @@ File: packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-188:            function readUint8(bytes memory self, uint256 idx) internal pure returns (uint8 ret) {
+188: 		    function readUint8(bytes memory self, uint256 idx) internal pure returns (uint8 ret) {
 
-198:            function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
+198: 		    function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
 
-211:            function readUint32(bytes memory self, uint256 idx) internal pure returns (uint32 ret) {
+211: 		    function readUint32(bytes memory self, uint256 idx) internal pure returns (uint32 ret) {
 
-332:                uint8 decoded;
+332: 		        uint8 decoded;
 ```
 
 [[188](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L188), [198](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L198), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L211), [332](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L332)]
@@ -6180,37 +6180,37 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-9:              uint16 yrs;
+9: 		        uint16 yrs;
 
-10:                 uint8 mnths;
+10: 		        uint8 mnths;
 
-11:                 uint8 dys;
+11: 		        uint8 dys;
 
-12:                 uint8 hrs;
+12: 		        uint8 hrs;
 
-13:                 uint8 mins;
+13: 		        uint8 mins;
 
-14:                 uint8 secs;
+14: 		        uint8 secs;
 
-15:                 uint8 offset;
+15: 		        uint8 offset;
 
-35:                 uint16 year,
+35: 		        uint16 year,
 
-36:                 uint8 month,
+36: 		        uint8 month,
 
-37:                 uint8 day,
+37: 		        uint8 day,
 
-38:                 uint8 hour,
+38: 		        uint8 hour,
 
-39:                 uint8 minute,
+39: 		        uint8 minute,
 
-40:                 uint8 second
+40: 		        uint8 second
 
-48:                 for (uint16 i = 1970; i < year; ++i) {
+48: 		        for (uint16 i = 1970; i < year; ++i) {
 
-59:                 for (uint8 i = 1; i < month; ++i) {
+59: 		        for (uint8 i = 1; i < month; ++i) {
 
-71:             function isLeapYear(uint16 year) internal pure returns (bool) {
+71: 		    function isLeapYear(uint16 year) internal pure returns (bool) {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L9), [10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L10), [11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L11), [12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L12), [13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L13), [14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L14), [15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L15), [35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L35), [36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L36), [37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L37), [38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L38), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L39), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L40), [48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L48), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L59), [71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L71)]
@@ -6218,13 +6218,13 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-20:                 uint64 expiry;
+20: 		        uint64 expiry;
 
-21:                 uint64 maxBlockId;
+21: 		        uint64 maxBlockId;
 
-22:                 uint64 maxProposedIn;
+22: 		        uint64 maxProposedIn;
 
-166:                uint16 _tierId
+166: 		        uint16 _tierId
 ```
 
 [[20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L20), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L21), [22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L22), [166](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L166)]
@@ -6232,13 +6232,13 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-83:                     uint96 fee = uint96(_config.ethDepositMaxFee.min(block.basefee * _config.ethDepositGas));
+83: 		            uint96 fee = uint96(_config.ethDepositMaxFee.min(block.basefee * _config.ethDepositGas));
 
-84:                     uint64 j = _state.slotA.nextEthDepositToProcess;
+84: 		            uint64 j = _state.slotA.nextEthDepositToProcess;
 
-85:                     uint96 totalFee;
+85: 		            uint96 totalFee;
 
-93:                         uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
+93: 		                uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
 ```
 
 [[83](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L83), [84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L84), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L85), [93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L93)]
@@ -6246,7 +6246,7 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-34:                 uint96 livenessBond,
+34: 		        uint96 livenessBond,
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L34)]
@@ -6254,25 +6254,25 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-36:                 uint96 validityBond,
+36: 		        uint96 validityBond,
 
-37:                 uint16 tier
+37: 		        uint16 tier
 
-50:                 uint96 contestBond,
+50: 		        uint96 contestBond,
 
-51:                 uint16 tier
+51: 		        uint16 tier
 
-100:                returns (uint8 maxBlocksToVerify_)
+100: 		        returns (uint8 maxBlocksToVerify_)
 
-115:                uint64 slot = _meta.id % _config.blockRingBufferSize;
+115: 		        uint64 slot = _meta.id % _config.blockRingBufferSize;
 
-129:                (uint32 tid, TaikoData.TransitionState storage ts) =
+129: 		        (uint32 tid, TaikoData.TransitionState storage ts) =
 
-273:                uint64 slot
+273: 		        uint64 slot
 
-276:                returns (uint32 tid_, TaikoData.TransitionState storage ts_)
+276: 		        returns (uint32 tid_, TaikoData.TransitionState storage ts_)
 
-405:                uint32 _tid,
+405: 		        uint32 _tid,
 ```
 
 [[36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L36), [37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L37), [50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L50), [51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L51), [100](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L100), [115](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L115), [129](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L129), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L273), [276](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L276), [405](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L405)]
@@ -6280,19 +6280,19 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
-26:                 uint64 _blockId,
+26: 		        uint64 _blockId,
 
-38:                 uint64 slot = _blockId % _config.blockRingBufferSize;
+38: 		        uint64 slot = _blockId % _config.blockRingBufferSize;
 
-42:                 uint32 tid = getTransitionId(_state, blk, slot, _parentHash);
+42: 		        uint32 tid = getTransitionId(_state, blk, slot, _parentHash);
 
-55:                 uint64 _blockId
+55: 		        uint64 _blockId
 
-59:                 returns (TaikoData.Block storage blk_, uint64 slot_)
+59: 		        returns (TaikoData.Block storage blk_, uint64 slot_)
 
-73:                 uint64 _slot,
+73: 		        uint64 _slot,
 
-78:                 returns (uint32 tid_)
+78: 		        returns (uint32 tid_)
 ```
 
 [[26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L26), [38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L38), [42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L42), [55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L55), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L59), [73](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L73), [78](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L78)]
@@ -6300,25 +6300,25 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-34:                 uint16 tier,
+34: 		        uint16 tier,
 
-35:                 uint8 contestations
+35: 		        uint8 contestations
 
-89:                 uint64 _maxBlocksToVerify
+89: 		        uint64 _maxBlocksToVerify
 
-100:                uint64 blockId = b.lastVerifiedBlockId;
+100: 		        uint64 blockId = b.lastVerifiedBlockId;
 
-102:                uint64 slot = blockId % _config.blockRingBufferSize;
+102: 		        uint64 slot = blockId % _config.blockRingBufferSize;
 
-107:                uint32 tid = blk.verifiedTransitionId;
+107: 		        uint32 tid = blk.verifiedTransitionId;
 
-117:                uint64 numBlocksVerified;
+117: 		        uint64 numBlocksVerified;
 
-213:                        uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+213: 		                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
 
-227:                uint64 _lastVerifiedBlockId,
+227: 		        uint64 _lastVerifiedBlockId,
 
-234:                (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
+234: 		        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L34), [35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L35), [89](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L89), [100](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L100), [102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L102), [107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L107), [117](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L117), [213](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L213), [227](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L227), [234](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L234)]
@@ -6326,13 +6326,13 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-27:             uint32 public version;
+27: 		    uint32 public version;
 
-30:             uint32 public minGuardians;
+30: 		    uint32 public minGuardians;
 
-37:             event GuardiansUpdated(uint32 version, address[] guardians);
+37: 		    event GuardiansUpdated(uint32 version, address[] guardians);
 
-55:                 uint8 _minGuardians
+55: 		        uint8 _minGuardians
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L27), [30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L30), [37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L37), [55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L55)]
@@ -6340,9 +6340,9 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 
-20:             function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+20: 		    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
 
-54:             function getMinTier(uint256) public pure override returns (uint16) {
+54: 		    function getMinTier(uint256) public pure override returns (uint16) {
 ```
 
 [[20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol#L20), [54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol#L54)]
@@ -6350,27 +6350,27 @@ File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 
-10:                 uint96 validityBond;
+10: 		        uint96 validityBond;
 
-11:                 uint96 contestBond;
+11: 		        uint96 contestBond;
 
-12:                 uint24 cooldownWindow; // in minutes
+12: 		        uint24 cooldownWindow; // in minutes
 
-13:                 uint16 provingWindow; // in minutes
+13: 		        uint16 provingWindow; // in minutes
 
-14:                 uint8 maxBlocksToVerifyPerProof;
+14: 		        uint8 maxBlocksToVerifyPerProof;
 
-22:             function getTier(uint16 tierId) external view returns (Tier memory);
+22: 		    function getTier(uint16 tierId) external view returns (Tier memory);
 
-33:             function getMinTier(uint256 rand) external view returns (uint16);
+33: 		    function getMinTier(uint256 rand) external view returns (uint16);
 
-39:             uint16 public constant TIER_OPTIMISTIC = 100;
+39: 		    uint16 public constant TIER_OPTIMISTIC = 100;
 
-42:             uint16 public constant TIER_SGX = 200;
+42: 		    uint16 public constant TIER_SGX = 200;
 
-45:             uint16 public constant TIER_SGX_ZKVM = 300;
+45: 		    uint16 public constant TIER_SGX_ZKVM = 300;
 
-48:             uint16 public constant TIER_GUARDIAN = 1000;
+48: 		    uint16 public constant TIER_GUARDIAN = 1000;
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L10), [11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L11), [12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L12), [13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L13), [14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L14), [22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L22), [33](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L33), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L39), [42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L42), [45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L45), [48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L48)]
@@ -6378,9 +6378,9 @@ File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 
-20:             function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+20: 		    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
 
-66:             function getMinTier(uint256 _rand) public pure override returns (uint16) {
+66: 		    function getMinTier(uint256 _rand) public pure override returns (uint16) {
 ```
 
 [[20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol#L20), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol#L66)]
@@ -6388,9 +6388,9 @@ File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 
-20:             function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+20: 		    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
 
-66:             function getMinTier(uint256 _rand) public pure override returns (uint16) {
+66: 		    function getMinTier(uint256 _rand) public pure override returns (uint16) {
 ```
 
 [[20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol#L20), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol#L66)]
@@ -6398,11 +6398,11 @@ File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-29:                 uint64 _claimStart,
+29: 		        uint64 _claimStart,
 
-30:                 uint64 _claimEnd,
+30: 		        uint64 _claimEnd,
 
-69:                 (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
+69: 		        (address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) =
 ```
 
 [[29](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L29), [30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L30), [69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L69)]
@@ -6410,13 +6410,13 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-28:             uint64 public withdrawalWindow;
+28: 		    uint64 public withdrawalWindow;
 
-56:                 uint64 _claimStart,
+56: 		        uint64 _claimStart,
 
-57:                 uint64 _claimEnd,
+57: 		        uint64 _claimEnd,
 
-61:                 uint64 _withdrawalWindow
+61: 		        uint64 _withdrawalWindow
 ```
 
 [[28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L28), [56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L56), [57](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L57), [61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L61)]
@@ -6424,9 +6424,9 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-27:                 uint64 _claimStart,
+27: 		        uint64 _claimStart,
 
-28:                 uint64 _claimEnd,
+28: 		        uint64 _claimEnd,
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L27), [28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L28)]
@@ -6434,21 +6434,21 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-18:             uint64 public claimStart;
+18: 		    uint64 public claimStart;
 
-21:             uint64 public claimEnd;
+21: 		    uint64 public claimEnd;
 
-46:                 uint64 _claimStart,
+46: 		        uint64 _claimStart,
 
-47:                 uint64 _claimEnd,
+47: 		        uint64 _claimEnd,
 
-57:                 uint64 _claimStart,
+57: 		        uint64 _claimStart,
 
-58:                 uint64 _claimEnd,
+58: 		        uint64 _claimEnd,
 
-90:             function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
+90: 		    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
 
-90:             function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
+90: 		    function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) private {
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L18), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L21), [46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L46), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L47), [57](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L57), [58](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L58), [90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L90), [90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L90)]
@@ -6456,7 +6456,7 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol
 
-29:                 uint16 _maxCopy,
+29: 		        uint16 _maxCopy,
 ```
 
 [[29](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol#L29)]
@@ -6464,11 +6464,11 @@ File: packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-106:                uint32 totalQuoteSize = 48 // header
+106: 		        uint32 totalQuoteSize = 48 // header
 
-249:                uint16 isvProdIdPackBE = (enclaveReport.isvProdId >> 8) | (enclaveReport.isvProdId << 8);
+249: 		        uint16 isvProdIdPackBE = (enclaveReport.isvProdId >> 8) | (enclaveReport.isvProdId << 8);
 
-250:                uint16 isvSvnPackBE = (enclaveReport.isvSvn >> 8) | (enclaveReport.isvSvn << 8);
+250: 		        uint16 isvSvnPackBE = (enclaveReport.isvSvn >> 8) | (enclaveReport.isvSvn << 8);
 ```
 
 [[106](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L106), [249](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L249), [250](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L250)]
@@ -6476,15 +6476,15 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol
 
-26:                 uint16 isvProdId;
+26: 		        uint16 isvProdId;
 
-27:                 uint16 isvSvn;
+27: 		        uint16 isvSvn;
 
-34:                 uint16 parsedDataSize;
+34: 		        uint16 parsedDataSize;
 
-39:                 uint16 certType;
+39: 		        uint16 certType;
 
-43:                 uint32 certDataSize;
+43: 		        uint32 certDataSize;
 ```
 
 [[26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol#L26), [27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol#L27), [34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol#L34), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol#L39), [43](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol#L43)]
@@ -6492,19 +6492,19 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-30:             uint8 internal constant PREFIX_EXTENSION_EVEN = 0;
+30: 		    uint8 internal constant PREFIX_EXTENSION_EVEN = 0;
 
-33:             uint8 internal constant PREFIX_EXTENSION_ODD = 1;
+33: 		    uint8 internal constant PREFIX_EXTENSION_ODD = 1;
 
-36:             uint8 internal constant PREFIX_LEAF_EVEN = 2;
+36: 		    uint8 internal constant PREFIX_LEAF_EVEN = 2;
 
-39:             uint8 internal constant PREFIX_LEAF_ODD = 3;
+39: 		    uint8 internal constant PREFIX_LEAF_ODD = 3;
 
-134:                            uint8 branchKey = uint8(key[currentKeyIndex]);
+134: 		                    uint8 branchKey = uint8(key[currentKeyIndex]);
 
-141:                        uint8 prefix = uint8(path[0]);
+141: 		                uint8 prefix = uint8(path[0]);
 
-142:                        uint8 offset = 2 - (prefix % 2);
+142: 		                uint8 offset = 2 - (prefix % 2);
 ```
 
 [[30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L30), [33](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L33), [36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L36), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L39), [134](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L134), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L141), [142](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L142)]
@@ -6523,7 +6523,7 @@ _There are 7 instances of this issue._
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
 // @audit nextTxId++
-53:                 emit TransactionExecuted(nextTxId++, bytes4(txdata));
+53: 		        emit TransactionExecuted(nextTxId++, bytes4(txdata));
 ```
 
 [[53](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L53)]
@@ -6532,7 +6532,7 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
 // @audit gasExcess
-157:                emit Anchored(blockhash(parentId), gasExcess);
+157: 		        emit Anchored(blockhash(parentId), gasExcess);
 ```
 
 [[157](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L157)]
@@ -6541,10 +6541,10 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
 // @audit migratingAddress
-63:                     emit MigratedTo(migratingAddress, _account, _amount);
+63: 		            emit MigratedTo(migratingAddress, _account, _amount);
 
 // @audit migratingAddress
-80:                     emit MigratedTo(migratingAddress, _account, _amount);
+80: 		            emit MigratedTo(migratingAddress, _account, _amount);
 ```
 
 [[63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L63), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L80)]
@@ -6553,10 +6553,10 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
 // @audit instances[idx].addr
-109:                    emit InstanceDeleted(idx, instances[idx].addr);
+109: 		            emit InstanceDeleted(idx, instances[idx].addr);
 
 // @audit nextInstanceId
-220:                    emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
+220: 		            emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 ```
 
 [[109](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L109), [220](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L220)]
@@ -6565,7 +6565,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
 // @audit version
-95:                 emit GuardiansUpdated(version, _newGuardians);
+95: 		        emit GuardiansUpdated(version, _newGuardians);
 ```
 
 [[95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L95)]
@@ -6581,7 +6581,7 @@ _There is 1 instance of this issue._
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-230:                emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
+230: 		        emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
 ```
 
 [[230](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L230)]
@@ -6597,7 +6597,7 @@ _There are 7 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-222:                    nextInstanceId++;
+222: 		            nextInstanceId++;
 ```
 
 [[222](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L222)]
@@ -6605,15 +6605,15 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-46:                     for (i = 1; i <= lenLen; i++) {
+46: 		            for (i = 1; i <= lenLen; i++) {
 
-59:                 for (; i < 32; i++) {
+59: 		        for (; i < 32; i++) {
 
-66:                 for (uint256 j = 0; j < out_.length; j++) {
+66: 		        for (uint256 j = 0; j < out_.length; j++) {
 
-67:                     out_[j] = b[i++];
+67: 		            out_[j] = b[i++];
 
-40:                         lenLen++;
+40: 		                lenLen++;
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L46), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L59), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L66), [67](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L67), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L40)]
@@ -6621,7 +6621,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-85:                 for (uint256 i = 0; i < proof.length; i++) {
+85: 		        for (uint256 i = 0; i < proof.length; i++) {
 ```
 
 [[85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L85)]
@@ -6640,25 +6640,25 @@ _There are 130 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-80:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+80: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-95:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+95: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-191:                for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
+191: 		        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
 
-214:                for (uint256 i; i < tcb.tcbLevels.length; ++i) {
+214: 		        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
 
-240:                for (uint256 i; i < CPUSVN_LENGTH; ++i) {
+240: 		        for (uint256 i; i < CPUSVN_LENGTH; ++i) {
 
-241:                    if (pckCpuSvns[i] < tcbCpuSvns[i]) {
+241: 		            if (pckCpuSvns[i] < tcbCpuSvns[i]) {
 
-259:                for (uint256 i; i < n; ++i) {
+259: 		        for (uint256 i; i < n; ++i) {
 
-280:                        block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
+280: 		                block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
 
-280:                        block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
+280: 		                block.timestamp > certs[i].notBefore && block.timestamp < certs[i].notAfter;
 
-420:                    for (uint256 i; i < 3; ++i) {
+420: 		            for (uint256 i; i < 3; ++i) {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L80), [95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L95), [191](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L191), [214](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L214), [240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L240), [241](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L241), [259](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L259), [280](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L280), [280](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L280), [420](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L420)]
@@ -6666,7 +6666,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-90:                 for (uint256 i; i < _msgHashes.length; ++i) {
+90: 		        for (uint256 i; i < _msgHashes.length; ++i) {
 ```
 
 [[90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L90)]
@@ -6674,7 +6674,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-59:                 if (block.chainid > type(uint64).max) {
+59: 		        if (block.chainid > type(uint64).max) {
 ```
 
 [[59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L59)]
@@ -6682,7 +6682,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/L2/Lib1559Math.sol
 
-42:                 if (input > LibFixedPointMath.MAX_EXP_INPUT) {
+42: 		        if (input > LibFixedPointMath.MAX_EXP_INPUT) {
 ```
 
 [[42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L42)]
@@ -6690,21 +6690,21 @@ File: packages/protocol/contracts/L2/Lib1559Math.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-82:                 if (block.chainid <= 1 || block.chainid > type(uint64).max) {
+82: 		        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
 
-145:                if (_l1BlockId > lastSyncedBlock + BLOCK_SYNC_THRESHOLD) {
+145: 		        if (_l1BlockId > lastSyncedBlock + BLOCK_SYNC_THRESHOLD) {
 
-234:                    for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
+234: 		            for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
 
-262:                if (gasExcess > 0) {
+262: 		        if (gasExcess > 0) {
 
-275:                    if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
+275: 		            if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
 
-275:                    if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
+275: 		            if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
 
-279:                    if (numL1Blocks > 0) {
+279: 		            if (numL1Blocks > 0) {
 
-281:                        excess = excess > issuance ? excess - issuance : 1;
+281: 		                excess = excess > issuance ? excess - issuance : 1;
 ```
 
 [[82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L82), [145](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L145), [234](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L234), [262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L262), [275](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L275), [275](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L275), [279](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L279), [281](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L281)]
@@ -6712,9 +6712,9 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibMath.sol
 
-13:                 return _a > _b ? _b : _a;
+13: 		        return _a > _b ? _b : _a;
 
-21:                 return _a > _b ? _a : _b;
+21: 		        return _a > _b ? _a : _b;
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibMath.sol#L13), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibMath.sol#L21)]
@@ -6722,11 +6722,11 @@ File: packages/protocol/contracts/libs/LibMath.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-104:                for (uint256 i; i < hopProofs.length; ++i) {
+104: 		        for (uint256 i; i < hopProofs.length; ++i) {
 
-120:                    bool isFullProof = hop.accountProof.length > 0;
+120: 		            bool isFullProof = hop.accountProof.length > 0;
 
-247:                if (topBlockId[_chainId][_kind] < _blockId) {
+247: 		        if (topBlockId[_chainId][_kind] < _blockId) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L104), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L120), [247](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L247)]
@@ -6734,9 +6734,9 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-275:                    if (_cliff > 0) revert INVALID_GRANT();
+275: 		            if (_cliff > 0) revert INVALID_GRANT();
 
-277:                    if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+277: 		            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
 ```
 
 [[275](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L275), [277](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L277)]
@@ -6744,7 +6744,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-145:                if (_op.tokenIds.length > MAX_TOKEN_PER_TXN) {
+145: 		        if (_op.tokenIds.length > MAX_TOKEN_PER_TXN) {
 ```
 
 [[145](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L145)]
@@ -6752,11 +6752,11 @@ File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-47:                 for (uint256 i; i < _op.amounts.length; ++i) {
+47: 		        for (uint256 i; i < _op.amounts.length; ++i) {
 
-251:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+251: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-269:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+269: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L47), [251](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L251), [269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L269)]
@@ -6764,15 +6764,15 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-34:                 for (uint256 i; i < _op.tokenIds.length; ++i) {
+34: 		        for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-170:                    for (uint256 i; i < _tokenIds.length; ++i) {
+170: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-175:                    for (uint256 i; i < _tokenIds.length; ++i) {
+175: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-197:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+197: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-210:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+210: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L34), [170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L170), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L175), [197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L197), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L210)]
@@ -6780,9 +6780,9 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-104:                for (uint256 i; i < _ids.length; ++i) {
+104: 		        for (uint256 i; i < _ids.length; ++i) {
 
-210:                for (uint256 i; i < _instances.length; ++i) {
+210: 		        for (uint256 i; i < _instances.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L104), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L210)]
@@ -6790,19 +6790,19 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-54:                 for (uint256 i; i < size; ++i) {
+54: 		        for (uint256 i; i < size; ++i) {
 
-56:                     if (i > 0) {
+56: 		            if (i > 0) {
 
-244:                for (uint256 i; i < split.length; ++i) {
+244: 		        for (uint256 i; i < split.length; ++i) {
 
-323:                            if (extnValuePtr.ixl() < extnValueParentPtr.ixl()) {
+323: 		                    if (extnValuePtr.ixl() < extnValueParentPtr.ixl()) {
 
-333:                    if (tbsPtr.ixl() < tbsParentPtr.ixl()) {
+333: 		            if (tbsPtr.ixl() < tbsParentPtr.ixl()) {
 
-354:                for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
+354: 		        for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
 
-358:                    uint16 svnValue = svnValueBytes.length < 2
+358: 		            uint16 svnValue = svnValueBytes.length < 2
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L54), [56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L56), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L244), [323](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L323), [333](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L333), [354](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L354), [358](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L358)]
@@ -6810,13 +6810,13 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-69:                 if (otherlen < len) {
+69: 		        if (otherlen < len) {
 
-80:                 for (uint256 idx = 0; idx < shortest; idx += 32) {
+80: 		        for (uint256 idx = 0; idx < shortest; idx += 32) {
 
-90:                         if (shortest > 32) {
+90: 		                if (shortest > 32) {
 
-333:                for (uint256 i; i < len; ++i) {
+333: 		        for (uint256 i; i < len; ++i) {
 ```
 
 [[69](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L69), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L80), [90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L90), [333](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L333)]
@@ -6824,19 +6824,19 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-140:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+140: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-152:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+152: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-158:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+158: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-174:                for (uint256 i; i < _sha256.length; ++i) {
+174: 		        for (uint256 i; i < _sha256.length; ++i) {
 
-273:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+273: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-283:                for (uint256 i; i < sha1Prefix.length; ++i) {
+283: 		        for (uint256 i; i < sha1Prefix.length; ++i) {
 
-290:                for (uint256 i; i < _sha1.length; ++i) {
+290: 		        for (uint256 i; i < _sha1.length; ++i) {
 ```
 
 [[140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L140), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L152), [158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L158), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L174), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L273), [283](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L283), [290](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L290)]
@@ -6844,11 +6844,11 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-18:                     if (uint8(x509Time[0]) - 48 < 5) yrs += 2000;
+18: 		            if (uint8(x509Time[0]) - 48 < 5) yrs += 2000;
 
-48:                 for (uint16 i = 1970; i < year; ++i) {
+48: 		        for (uint16 i = 1970; i < year; ++i) {
 
-59:                 for (uint8 i = 1; i < month; ++i) {
+59: 		        for (uint8 i = 1; i < month; ++i) {
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L18), [48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L48), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L59)]
@@ -6856,15 +6856,15 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-82:                     block.timestamp > assignment.expiry
+82: 		            block.timestamp > assignment.expiry
 
-85:                         || assignment.maxBlockId != 0 && _meta.id > assignment.maxBlockId
+85: 		                || assignment.maxBlockId != 0 && _meta.id > assignment.maxBlockId
 
-86:                         || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
+86: 		                || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
 
-125:                if (address(this).balance > 0) {
+125: 		        if (address(this).balance > 0) {
 
-172:                for (uint256 i; i < _tierFees.length; ++i) {
+172: 		        for (uint256 i; i < _tierFees.length; ++i) {
 ```
 
 [[82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L82), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L85), [86](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L86), [125](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L125), [172](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L172)]
@@ -6872,16 +6872,16 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-78:                 if (numPending < _config.ethDepositMinCountPerBlock) {
+78: 		        if (numPending < _config.ethDepositMinCountPerBlock) {
 
-86:                     for (uint256 i; i < deposits_.length;) {
+86: 		            for (uint256 i; i < deposits_.length;) {
 
-93:                         uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
+93: 		                uint96 _fee = deposits_[i].amount > fee ? fee : deposits_[i].amount;
 
-140:                        && _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess
-141:                            < _config.ethDepositRingBufferSize - 1;
+140: 		                && _state.slotA.numEthDeposits - _state.slotA.nextEthDepositToProcess
+141: 		                    < _config.ethDepositRingBufferSize - 1;
 
-150:                if (_amount > type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+150: 		        if (_amount > type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
 ```
 
 [[78](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L78), [86](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L86), [93](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L93), [140-141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L140-L141), [150](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L150)]
@@ -6889,13 +6889,13 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-171:                    if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
+171: 		            if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
 
-195:                if (meta_.txListByteSize == 0 || meta_.txListByteSize > _config.blockMaxTxListBytes) {
+195: 		        if (meta_.txListByteSize == 0 || meta_.txListByteSize > _config.blockMaxTxListBytes) {
 
-244:                    for (uint256 i; i < params.hookCalls.length; ++i) {
+244: 		            for (uint256 i; i < params.hookCalls.length; ++i) {
 
-296:                return _state.reusableBlobs[_blobHash] + _config.blobExpiry > block.timestamp;
+296: 		        return _state.reusableBlobs[_blobHash] + _config.blobExpiry > block.timestamp;
 ```
 
 [[171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L171), [195](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L195), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L244), [296](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L296)]
@@ -6903,15 +6903,15 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-134:                if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+134: 		        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
 
-134:                if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+134: 		        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
 
-192:                    bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
+192: 		            bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
 
-203:                if (_proof.tier > ts.tier) {
+203: 		        if (_proof.tier > ts.tier) {
 
-381:                    if (reward > _tier.validityBond) {
+381: 		            if (reward > _tier.validityBond) {
 ```
 
 [[134](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L134), [134](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L134), [192](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L192), [203](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L203), [381](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L381)]
@@ -6919,7 +6919,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
-34:                 if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
+34: 		        if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L34)]
@@ -6927,26 +6927,26 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-127:                    while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
+127: 		            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
 
-127:                    while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
+127: 		            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
 
-152:                                uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
-153:                                    + uint256(ts.timestamp).max(_state.slotB.lastUnpausedAt) > block.timestamp
+152: 		                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
+153: 		                            + uint256(ts.timestamp).max(_state.slotB.lastUnpausedAt) > block.timestamp
 
-212:                    if (numBlocksVerified > 0) {
+212: 		            if (numBlocksVerified > 0) {
 
-238:                if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
+238: 		        if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
 
-251:                        || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
+251: 		                || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
 
-256:                    || _config.ethDepositMaxCountPerBlock > 32
+256: 		            || _config.ethDepositMaxCountPerBlock > 32
 
-257:                        || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
+257: 		                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
 
-260:                        || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
+260: 		                || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
 
-262:                        || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
+262: 		                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
 ```
 
 [[127](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L127), [127](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L127), [152-153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L152-L153), [212](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L212), [238](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L238), [251](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L251), [256](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L256), [257](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L257), [260](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L260), [262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L262)]
@@ -6954,19 +6954,19 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-63:                 if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
+63: 		        if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
 
-63:                 if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
+63: 		        if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
 
-68:                 if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
+68: 		        if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
 
-68:                 if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
+68: 		        if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
 
-74:                 for (uint256 i; i < guardians.length; ++i) {
+74: 		        for (uint256 i; i < guardians.length; ++i) {
 
-80:                 for (uint256 i = 0; i < _newGuardians.length; ++i) {
+80: 		        for (uint256 i = 0; i < _newGuardians.length; ++i) {
 
-133:                    for (uint256 i; i < guardiansLength; ++i) {
+133: 		            for (uint256 i; i < guardiansLength; ++i) {
 ```
 
 [[63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L63), [63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L63), [68](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L68), [68](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L68), [74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L74), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L80), [133](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L133)]
@@ -6974,11 +6974,11 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-40:                 if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
+40: 		        if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
 
-40:                 if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
+40: 		        if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
 
-114:                if (block.timestamp < claimEnd) return (balance, 0);
+114: 		        if (block.timestamp < claimEnd) return (balance, 0);
 ```
 
 [[40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L40), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L40), [114](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L114)]
@@ -6986,7 +6986,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-59:                 for (uint256 i; i < tokenIds.length; ++i) {
+59: 		        for (uint256 i; i < tokenIds.length; ++i) {
 ```
 
 [[59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L59)]
@@ -6994,9 +6994,9 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-35:                     merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
+35: 		            merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
 
-36:                         || claimEnd < block.timestamp
+36: 		                || claimEnd < block.timestamp
 ```
 
 [[35](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L35), [36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L36)]
@@ -7004,13 +7004,13 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-153:                for (uint256 i; i < encoded.length; ++i) {
+153: 		        for (uint256 i; i < encoded.length; ++i) {
 
-218:                if (cert.certType < 1 || cert.certType > 5) {
+218: 		        if (cert.certType < 1 || cert.certType > 5) {
 
-218:                if (cert.certType < 1 || cert.certType > 5) {
+218: 		        if (cert.certType < 1 || cert.certType > 5) {
 
-281:                for (uint256 i; i < 3; ++i) {
+281: 		        for (uint256 i; i < 3; ++i) {
 ```
 
 [[153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L153), [218](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L218), [218](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L218), [281](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L281)]
@@ -7018,27 +7018,27 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
-38:                     _in.length > 0,
+38: 		            _in.length > 0,
 
-74:                 while (offset < _in.length) {
+74: 		        while (offset < _in.length) {
 
-153:                    _in.length > 0,
+153: 		            _in.length > 0,
 
-173:                        _in.length > strLen,
+173: 		                _in.length > strLen,
 
-193:                        _in.length > lenOfStrLen,
+193: 		                _in.length > lenOfStrLen,
 
-213:                        strLen > 55,
+213: 		                strLen > 55,
 
-218:                        _in.length > lenOfStrLen + strLen,
+218: 		                _in.length > lenOfStrLen + strLen,
 
-229:                        _in.length > listLen,
+229: 		                _in.length > listLen,
 
-239:                        _in.length > lenOfListLen,
+239: 		                _in.length > lenOfListLen,
 
-259:                        listLen > 55,
+259: 		                listLen > 55,
 
-264:                        _in.length > lenOfListLen + listLen,
+264: 		                _in.length > lenOfListLen + listLen,
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L38), [74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L74), [153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L153), [173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L173), [193](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L193), [213](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L213), [218](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L218), [229](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L229), [239](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L239), [259](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L259), [264](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L264)]
@@ -7046,13 +7046,13 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-14:                 if (_in.length == 1 && uint8(_in[0]) < 128) {
+14: 		        if (_in.length == 1 && uint8(_in[0]) < 128) {
 
-33:                 if (_len < 56) {
+33: 		        if (_len < 56) {
 
-59:                 for (; i < 32; i++) {
+59: 		        for (; i < 32; i++) {
 
-66:                 for (uint256 j = 0; j < out_.length; j++) {
+66: 		        for (uint256 j = 0; j < out_.length; j++) {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L14), [33](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L33), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L59), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L66)]
@@ -7060,21 +7060,21 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-77:                 require(_key.length > 0, "MerkleTrie: empty key");
+77: 		        require(_key.length > 0, "MerkleTrie: empty key");
 
-85:                 for (uint256 i = 0; i < proof.length; i++) {
+85: 		        for (uint256 i = 0; i < proof.length; i++) {
 
-120:                                value_.length > 0,
+120: 		                        value_.length > 0,
 
-173:                                value_.length > 0,
+173: 		                        value_.length > 0,
 
-208:                for (uint256 i = 0; i < length;) {
+208: 		        for (uint256 i = 0; i < length;) {
 
-221:                id_ = _node.length < 32 ? RLPReader.readRawBytes(_node) : RLPReader.readBytes(_node);
+221: 		        id_ = _node.length < 32 ? RLPReader.readRawBytes(_node) : RLPReader.readBytes(_node);
 
-243:                uint256 max = (_a.length < _b.length) ? _a.length : _b.length;
+243: 		        uint256 max = (_a.length < _b.length) ? _a.length : _b.length;
 
-244:                for (; shared_ < max && _a[shared_] == _b[shared_];) {
+244: 		        for (; shared_ < max && _a[shared_] == _b[shared_];) {
 ```
 
 [[77](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L77), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L85), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L120), [173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L173), [208](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L208), [221](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L221), [243](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L243), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L244)]
@@ -7095,7 +7095,7 @@ _There are 20 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-126:            function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
+126: 		    function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
 ```
 
 [[126](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L126)]
@@ -7103,7 +7103,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-109:            function __Essential_init(address _owner) internal virtual {
+109: 		    function __Essential_init(address _owner) internal virtual {
 ```
 
 [[109](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L109)]
@@ -7111,7 +7111,7 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibAddress.sol
 
-42:             function sendEther(address _to, uint256 _amount) internal {
+42: 		    function sendEther(address _to, uint256 _amount) internal {
 ```
 
 [[42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L42)]
@@ -7119,7 +7119,7 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-206:            function _verifyHopProof(
+206: 		    function _verifyHopProof(
 ```
 
 [[206](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L206)]
@@ -7127,9 +7127,9 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-97:             function _mintToken(address _account, uint256 _amount) internal virtual;
+97: 		    function _mintToken(address _account, uint256 _amount) internal virtual;
 
-99:             function _burnToken(address _from, uint256 _amount) internal virtual;
+99: 		    function _burnToken(address _from, uint256 _amount) internal virtual;
 ```
 
 [[97](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L97), [99](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L99)]
@@ -7137,7 +7137,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-56:             function compare(
+56: 		    function compare(
 ```
 
 [[56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L56)]
@@ -7145,9 +7145,9 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-43:             function pkcs1Sha256(
+43: 		    function pkcs1Sha256(
 
-212:            function pkcs1Sha1(
+212: 		    function pkcs1Sha1(
 ```
 
 [[43](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L43), [212](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L212)]
@@ -7155,7 +7155,7 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-34:             function toUnixTimestamp(
+34: 		    function toUnixTimestamp(
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L34)]
@@ -7163,7 +7163,7 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-122:            function canDepositEthToL2(
+122: 		    function canDepositEthToL2(
 ```
 
 [[122](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L122)]
@@ -7171,7 +7171,7 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-287:            function isBlobReusable(
+287: 		    function isBlobReusable(
 ```
 
 [[287](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L287)]
@@ -7179,7 +7179,7 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
-70:             function getTransitionId(
+70: 		    function getTransitionId(
 ```
 
 [[70](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L70)]
@@ -7187,7 +7187,7 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-77:             function _verifyMerkleProof(
+77: 		    function _verifyMerkleProof(
 ```
 
 [[77](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L77)]
@@ -7195,7 +7195,7 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 
-91:             function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
+91: 		    function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
 ```
 
 [[91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L91)]
@@ -7203,7 +7203,7 @@ File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-267:            function parseCerificationChainBytes(
+267: 		    function parseCerificationChainBytes(
 ```
 
 [[267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L267)]
@@ -7211,9 +7211,9 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
-102:            function readList(bytes memory _in) internal pure returns (RLPItem[] memory out_) {
+102: 		    function readList(bytes memory _in) internal pure returns (RLPItem[] memory out_) {
 
-128:            function readBytes(bytes memory _in) internal pure returns (bytes memory out_) {
+128: 		    function readBytes(bytes memory _in) internal pure returns (bytes memory out_) {
 ```
 
 [[102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L102), [128](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L128)]
@@ -7221,7 +7221,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-13:             function writeBytes(bytes memory _in) internal pure returns (bytes memory out_) {
+13: 		    function writeBytes(bytes memory _in) internal pure returns (bytes memory out_) {
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L13)]
@@ -7229,7 +7229,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-68:             function get(
+68: 		    function get(
 ```
 
 [[68](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L68)]
@@ -7247,15 +7247,15 @@ _There are 5 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-53:             modifier whenPaused() {
-54:                 if (!paused()) revert INVALID_PAUSE_STATUS();
-55:                 _;
-56:             }
+53: 		    modifier whenPaused() {
+54: 		        if (!paused()) revert INVALID_PAUSE_STATUS();
+55: 		        _;
+56: 		    }
 
-58:             modifier whenNotPaused() {
-59:                 if (paused()) revert INVALID_PAUSE_STATUS();
-60:                 _;
-61:             }
+58: 		    modifier whenNotPaused() {
+59: 		        if (paused()) revert INVALID_PAUSE_STATUS();
+60: 		        _;
+61: 		    }
 ```
 
 [[53-56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L53-L56), [58-61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L58-L61)]
@@ -7263,12 +7263,12 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-37:             modifier onlyOwnerOrSnapshooter() {
-38:                 if (msg.sender != owner() && msg.sender != snapshooter) {
-39:                     revert BTOKEN_UNAUTHORIZED();
-40:                 }
-41:                 _;
-42:             }
+37: 		    modifier onlyOwnerOrSnapshooter() {
+38: 		        if (msg.sender != owner() && msg.sender != snapshooter) {
+39: 		            revert BTOKEN_UNAUTHORIZED();
+40: 		        }
+41: 		        _;
+42: 		    }
 ```
 
 [[37-42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L37-L42)]
@@ -7276,12 +7276,12 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-39:             modifier ongoingWithdrawals() {
-40:                 if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
-41:                     revert WITHDRAWALS_NOT_ONGOING();
-42:                 }
-43:                 _;
-44:             }
+39: 		    modifier ongoingWithdrawals() {
+40: 		        if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
+41: 		            revert WITHDRAWALS_NOT_ONGOING();
+42: 		        }
+43: 		        _;
+44: 		    }
 ```
 
 [[39-44](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L39-L44)]
@@ -7289,13 +7289,13 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-33:             modifier ongoingClaim() {
-34:                 if (
-35:                     merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
-36:                         || claimEnd < block.timestamp
-37:                 ) revert CLAIM_NOT_ONGOING();
-38:                 _;
-39:             }
+33: 		    modifier ongoingClaim() {
+34: 		        if (
+35: 		            merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
+36: 		                || claimEnd < block.timestamp
+37: 		        ) revert CLAIM_NOT_ONGOING();
+38: 		        _;
+39: 		    }
 ```
 
 [[33-39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L33-L39)]
@@ -7314,17 +7314,17 @@ _There are 41 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-162:            function _verify(bytes calldata quote) private view returns (bool, bytes memory) {
+162: 		    function _verify(bytes calldata quote) private view returns (bool, bytes memory) {
 
-175:            function _verifyQEReportWithIdentity(V3Struct.EnclaveReport memory quoteEnclaveReport)
+175: 		    function _verifyQEReportWithIdentity(V3Struct.EnclaveReport memory quoteEnclaveReport)
 
-206:            function _checkTcbLevels(
+206: 		    function _checkTcbLevels(
 
-229:            function _isCpuSvnHigherOrGreater(
+229: 		    function _isCpuSvnHigherOrGreater(
 
-248:            function _verifyCertChain(IPEMCertChainLib.ECSha256Certificate[] memory certs)
+248: 		    function _verifyCertChain(IPEMCertChainLib.ECSha256Certificate[] memory certs)
 
-303:            function _enclaveReportSigVerification(
+303: 		    function _enclaveReportSigVerification(
 ```
 
 [[162](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L162), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L175), [206](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L206), [229](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L229), [248](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L248), [303](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L303)]
@@ -7332,7 +7332,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-555:            function _loadContext() private view returns (Context memory) {
+555: 		    function _loadContext() private view returns (Context memory) {
 ```
 
 [[555](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L555)]
@@ -7340,7 +7340,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/L2/Lib1559Math.sol
 
-33:             function _ethQty(
+33: 		    function _ethQty(
 ```
 
 [[33](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L33)]
@@ -7348,7 +7348,7 @@ File: packages/protocol/contracts/L2/Lib1559Math.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-271:            function _cacheChainData(
+271: 		    function _cacheChainData(
 ```
 
 [[271](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L271)]
@@ -7356,11 +7356,11 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-225:            function _voidGrant(Grant storage _grant) private returns (uint128 amountVoided) {
+225: 		    function _voidGrant(Grant storage _grant) private returns (uint128 amountVoided) {
 
-239:            function _getAmountUnlocked(Grant memory _grant) private view returns (uint128) {
+239: 		    function _getAmountUnlocked(Grant memory _grant) private view returns (uint128) {
 
-267:            function _validateGrant(Grant memory _grant) private pure {
+267: 		    function _validateGrant(Grant memory _grant) private pure {
 ```
 
 [[225](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L225), [239](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L239), [267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L267)]
@@ -7368,11 +7368,11 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-240:            function _handleMessage(
+240: 		    function _handleMessage(
 
-288:            function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
+288: 		    function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
 
-303:            function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
+303: 		    function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
 ```
 
 [[240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L240), [288](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L288), [303](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L303)]
@@ -7380,11 +7380,11 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-348:            function _handleMessage(
+348: 		    function _handleMessage(
 
-391:            function _getOrDeployBridgedToken(CanonicalERC20 memory ctoken)
+391: 		    function _getOrDeployBridgedToken(CanonicalERC20 memory ctoken)
 
-407:            function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
+407: 		    function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
 ```
 
 [[348](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L348), [391](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L391), [407](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L407)]
@@ -7392,11 +7392,11 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-187:            function _handleMessage(
+187: 		    function _handleMessage(
 
-224:            function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
+224: 		    function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
 
-240:            function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
+240: 		    function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
 ```
 
 [[187](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L187), [224](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L224), [240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L240)]
@@ -7404,9 +7404,9 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-226:            function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
+226: 		    function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
 
-233:            function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
+233: 		    function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
 ```
 
 [[226](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L226), [233](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L233)]
@@ -7414,11 +7414,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-216:            function _removeHeadersAndFooters(string memory pemData)
+216: 		    function _removeHeadersAndFooters(string memory pemData)
 
-269:            function _findPckTcbInfo(
+269: 		    function _findPckTcbInfo(
 
-341:            function _findTcb(
+341: 		    function _findTcb(
 ```
 
 [[216](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L216), [269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L269), [341](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L341)]
@@ -7426,7 +7426,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-272:            function memcpy(uint256 dest, uint256 src, uint256 len) private pure {
+272: 		    function memcpy(uint256 dest, uint256 src, uint256 len) private pure {
 ```
 
 [[272](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L272)]
@@ -7434,7 +7434,7 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-164:            function _getProverFee(
+164: 		    function _getProverFee(
 ```
 
 [[164](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L164)]
@@ -7442,7 +7442,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-299:            function _isProposerPermitted(
+299: 		    function _isProposerPermitted(
 ```
 
 [[299](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L299)]
@@ -7450,11 +7450,11 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-269:            function _createTransition(
+269: 		    function _createTransition(
 
-350:            function _overrideWithHigherProof(
+350: 		    function _overrideWithHigherProof(
 
-401:            function _checkProverPermission(
+401: 		    function _checkProverPermission(
 ```
 
 [[269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L269), [350](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L350), [401](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L401)]
@@ -7462,9 +7462,9 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-224:            function _syncChainData(
+224: 		    function _syncChainData(
 
-245:            function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
+245: 		    function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
 ```
 
 [[224](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L224), [245](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L245)]
@@ -7472,9 +7472,9 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-165:            function parseAndVerifyHeader(bytes memory rawHeader)
+165: 		    function parseAndVerifyHeader(bytes memory rawHeader)
 
-203:            function parseAuthDataAndVerifyCertType(
+203: 		    function parseAuthDataAndVerifyCertType(
 ```
 
 [[165](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L165), [203](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L203)]
@@ -7482,9 +7482,9 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-32:             function _writeLength(uint256 _len, uint256 _offset) private pure returns (bytes memory out_) {
+32: 		    function _writeLength(uint256 _len, uint256 _offset) private pure returns (bytes memory out_) {
 
-55:             function _toBinary(uint256 _x) private pure returns (bytes memory out_) {
+55: 		    function _toBinary(uint256 _x) private pure returns (bytes memory out_) {
 ```
 
 [[32](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L32), [55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L55)]
@@ -7492,11 +7492,11 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-205:            function _parseProof(bytes[] memory _proof) private pure returns (TrieNode[] memory proof_) {
+205: 		    function _parseProof(bytes[] memory _proof) private pure returns (TrieNode[] memory proof_) {
 
-227:            function _getNodePath(TrieNode memory _node) private pure returns (bytes memory nibbles_) {
+227: 		    function _getNodePath(TrieNode memory _node) private pure returns (bytes memory nibbles_) {
 
-235:            function _getSharedNibbleLength(
+235: 		    function _getSharedNibbleLength(
 ```
 
 [[205](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L205), [227](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L227), [235](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L235)]
@@ -7517,21 +7517,21 @@ _There are 37 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-124:                if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
-125:                    revert B_INVALID_USER();
-126:                }
+124: 		        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
+125: 		            revert B_INVALID_USER();
+126: 		        }
 
-260:                    if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
-261:                        revert B_PERMISSION_DENIED();
-262:                    }
+260: 		            if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
+261: 		                revert B_PERMISSION_DENIED();
+262: 		            }
 
-321:                if (_message.gasLimit == 0 || _isLastAttempt) {
-322:                    if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
-323:                }
+321: 		        if (_message.gasLimit == 0 || _isLastAttempt) {
+322: 		            if (msg.sender != _message.destOwner) revert B_PERMISSION_DENIED();
+323: 		        }
 
-405:                if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(PLACEHOLDER)) {
-406:                    revert B_INVALID_CONTEXT();
-407:                }
+405: 		        if (ctx_.msgHash == 0 || ctx_.msgHash == bytes32(PLACEHOLDER)) {
+406: 		            revert B_INVALID_CONTEXT();
+407: 		        }
 ```
 
 [[124-126](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L124-L126), [260-262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L260-L262), [321-323](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L321-L323), [405-407](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L405-L407)]
@@ -7539,9 +7539,9 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-85:                 if (!_allowZeroAddress && addr_ == address(0)) {
-86:                     revert RESOLVER_ZERO_ADDR(_chainId, _name);
-87:                 }
+85: 		        if (!_allowZeroAddress && addr_ == address(0)) {
+86: 		            revert RESOLVER_ZERO_ADDR(_chainId, _name);
+87: 		        }
 ```
 
 [[85-87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L85-L87)]
@@ -7549,7 +7549,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-42:                 if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+42: 		        if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
 ```
 
 [[42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L42)]
@@ -7557,13 +7557,13 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-46:                 if (ctx.srcChainId != ownerChainId || ctx.from != owner()) {
-47:                     revert XCO_PERMISSION_DENIED();
-48:                 }
+46: 		        if (ctx.srcChainId != ownerChainId || ctx.from != owner()) {
+47: 		            revert XCO_PERMISSION_DENIED();
+48: 		        }
 
-70:                 if (_ownerChainId == 0 || _ownerChainId == block.chainid) {
-71:                     revert XCO_INVALID_OWNER_CHAINID();
-72:                 }
+70: 		        if (_ownerChainId == 0 || _ownerChainId == block.chainid) {
+71: 		            revert XCO_INVALID_OWNER_CHAINID();
+72: 		        }
 ```
 
 [[46-48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L46-L48), [70-72](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L70-L72)]
@@ -7571,20 +7571,20 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-82:                 if (block.chainid <= 1 || block.chainid > type(uint64).max) {
-83:                     revert L2_INVALID_CHAIN_ID();
-84:                 }
+82: 		        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
+83: 		            revert L2_INVALID_CHAIN_ID();
+84: 		        }
 
-116:                if (
-117:                    _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
-118:                        || (block.number != 1 && _parentGasUsed == 0)
-119:                ) {
-120:                    revert L2_INVALID_PARAM();
-121:                }
+116: 		        if (
+117: 		            _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
+118: 		                || (block.number != 1 && _parentGasUsed == 0)
+119: 		        ) {
+120: 		            revert L2_INVALID_PARAM();
+121: 		        }
 
-141:                if (!skipFeeCheck() && block.basefee != basefee) {
-142:                    revert L2_BASEFEE_MISMATCH();
-143:                }
+141: 		        if (!skipFeeCheck() && block.basefee != basefee) {
+142: 		            revert L2_BASEFEE_MISMATCH();
+143: 		        }
 ```
 
 [[82-84](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L82-L84), [116-121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L116-L121), [141-143](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L141-L143)]
@@ -7592,9 +7592,9 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/libs/Lib4844.sol
 
-57:                 if (uint256(first) != FIELD_ELEMENTS_PER_BLOB || uint256(second) != BLS_MODULUS) {
-58:                     revert EVAL_FAILED_2();
-59:                 }
+57: 		        if (uint256(first) != FIELD_ELEMENTS_PER_BLOB || uint256(second) != BLS_MODULUS) {
+58: 		            revert EVAL_FAILED_2();
+59: 		        }
 ```
 
 [[57-59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L57-L59)]
@@ -7602,13 +7602,13 @@ File: packages/protocol/contracts/libs/Lib4844.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-114:                        if (hop.chainId == 0 || hop.chainId == block.chainid) {
-115:                            revert SS_INVALID_MID_HOP_CHAINID();
-116:                        }
+114: 		                if (hop.chainId == 0 || hop.chainId == block.chainid) {
+115: 		                    revert SS_INVALID_MID_HOP_CHAINID();
+116: 		                }
 
-131:                if (value == 0 || value != _loadSignalValue(address(this), signal)) {
-132:                    revert SS_SIGNAL_NOT_FOUND();
-133:                }
+131: 		        if (value == 0 || value != _loadSignalValue(address(this), signal)) {
+132: 		            revert SS_SIGNAL_NOT_FOUND();
+133: 		        }
 ```
 
 [[114-116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L114-L116), [131-133](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L131-L133)]
@@ -7616,14 +7616,14 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-274:                if (_start == 0 || _period == 0) {
-275:                    if (_cliff > 0) revert INVALID_GRANT();
-276:                } else {
-277:                    if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
-278:                    if (_cliff >= _start + _period) revert INVALID_GRANT();
-279:                }
+274: 		        if (_start == 0 || _period == 0) {
+275: 		            if (_cliff > 0) revert INVALID_GRANT();
+276: 		        } else {
+277: 		            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+278: 		            if (_cliff >= _start + _period) revert INVALID_GRANT();
+279: 		        }
 
-277:                    if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+277: 		            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
 ```
 
 [[274-279](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L274-L279), [277](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L277)]
@@ -7631,9 +7631,9 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-38:                 if (msg.sender != owner() && msg.sender != snapshooter) {
-39:                     revert BTOKEN_UNAUTHORIZED();
-40:                 }
+38: 		        if (msg.sender != owner() && msg.sender != snapshooter) {
+39: 		            revert BTOKEN_UNAUTHORIZED();
+40: 		        }
 ```
 
 [[38-40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L38-L40)]
@@ -7641,9 +7641,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-45:                 if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
-46:                     revert BB_INVALID_PARAMS();
-47:                 }
+45: 		        if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
+46: 		            revert BB_INVALID_PARAMS();
+47: 		        }
 ```
 
 [[45-47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L45-L47)]
@@ -7651,7 +7651,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-108:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+108: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 ```
 
 [[108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L108)]
@@ -7659,17 +7659,17 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-158:                if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
-159:                    revert VAULT_INVALID_NEW_BTOKEN();
-160:                }
+158: 		        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
+159: 		            revert VAULT_INVALID_NEW_BTOKEN();
+160: 		        }
 
-174:                    if (
-175:                        ctoken.decimals != _ctoken.decimals
-176:                            || keccak256(bytes(ctoken.symbol)) != keccak256(bytes(_ctoken.symbol))
-177:                            || keccak256(bytes(ctoken.name)) != keccak256(bytes(_ctoken.name))
-178:                    ) revert VAULT_CTOKEN_MISMATCH();
+174: 		            if (
+175: 		                ctoken.decimals != _ctoken.decimals
+176: 		                    || keccak256(bytes(ctoken.symbol)) != keccak256(bytes(_ctoken.symbol))
+177: 		                    || keccak256(bytes(ctoken.name)) != keccak256(bytes(_ctoken.name))
+178: 		            ) revert VAULT_CTOKEN_MISMATCH();
 
-267:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+267: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 ```
 
 [[158-160](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L158-L160), [174-178](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L174-L178), [267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L267)]
@@ -7677,7 +7677,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-91:                 if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+91: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 ```
 
 [[91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L91)]
@@ -7685,12 +7685,12 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 
-20:                 if (
-21:                     _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-22:                         || bytes(_symbol).length == 0 || bytes(_name).length == 0
-23:                 ) {
-24:                     revert BTOKEN_INVALID_PARAMS();
-25:                 }
+20: 		        if (
+21: 		            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+22: 		                || bytes(_symbol).length == 0 || bytes(_name).length == 0
+23: 		        ) {
+24: 		            revert BTOKEN_INVALID_PARAMS();
+25: 		        }
 ```
 
 [[20-25](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L20-L25)]
@@ -7698,15 +7698,15 @@ File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-81:                 if (
-82:                     block.timestamp > assignment.expiry
-83:                         || assignment.metaHash != 0 && _blk.metaHash != assignment.metaHash
-84:                         || assignment.parentMetaHash != 0 && _meta.parentMetaHash != assignment.parentMetaHash
-85:                         || assignment.maxBlockId != 0 && _meta.id > assignment.maxBlockId
-86:                         || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
-87:                 ) {
-88:                     revert HOOK_ASSIGNMENT_EXPIRED();
-89:                 }
+81: 		        if (
+82: 		            block.timestamp > assignment.expiry
+83: 		                || assignment.metaHash != 0 && _blk.metaHash != assignment.metaHash
+84: 		                || assignment.parentMetaHash != 0 && _meta.parentMetaHash != assignment.parentMetaHash
+85: 		                || assignment.maxBlockId != 0 && _meta.id > assignment.maxBlockId
+86: 		                || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
+87: 		        ) {
+88: 		            revert HOOK_ASSIGNMENT_EXPIRED();
+89: 		        }
 ```
 
 [[81-89](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L81-L89)]
@@ -7714,13 +7714,13 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-108:                if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
-109:                    revert L1_UNEXPECTED_PARENT();
-110:                }
+108: 		        if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
+109: 		            revert L1_UNEXPECTED_PARENT();
+110: 		        }
 
-195:                if (meta_.txListByteSize == 0 || meta_.txListByteSize > _config.blockMaxTxListBytes) {
-196:                    revert L1_TXLIST_SIZE();
-197:                }
+195: 		        if (meta_.txListByteSize == 0 || meta_.txListByteSize > _config.blockMaxTxListBytes) {
+196: 		            revert L1_TXLIST_SIZE();
+197: 		        }
 ```
 
 [[108-110](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L108-L110), [195-197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L195-L197)]
@@ -7728,29 +7728,29 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-105:                if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
-106:                    revert L1_INVALID_TRANSITION();
-107:                }
+105: 		        if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
+106: 		            revert L1_INVALID_TRANSITION();
+107: 		        }
 
-111:                if (_meta.id <= b.lastVerifiedBlockId || _meta.id >= b.numBlocks) {
-112:                    revert L1_INVALID_BLOCK_ID();
-113:                }
+111: 		        if (_meta.id <= b.lastVerifiedBlockId || _meta.id >= b.numBlocks) {
+112: 		            revert L1_INVALID_BLOCK_ID();
+113: 		        }
 
-121:                if (blk.blockId != _meta.id || blk.metaHash != keccak256(abi.encode(_meta))) {
-122:                    revert L1_BLOCK_MISMATCH();
-123:                }
+121: 		        if (blk.blockId != _meta.id || blk.metaHash != keccak256(abi.encode(_meta))) {
+122: 		            revert L1_BLOCK_MISMATCH();
+123: 		        }
 
-134:                if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
-135:                    revert L1_INVALID_TIER();
-136:                }
+134: 		        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+135: 		            revert L1_INVALID_TIER();
+136: 		        }
 
-419:                if (_tid == 1 && _ts.tier == 0 && inProvingWindow) {
-420:                    if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
-421:                } else {
-422:                    // Disallow the same address to prove the block so that we can detect that the
-423:                    // assigned prover should not receive his liveness bond back
-424:                    if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-425:                }
+419: 		        if (_tid == 1 && _ts.tier == 0 && inProvingWindow) {
+420: 		            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
+421: 		        } else {
+422: 		            // Disallow the same address to prove the block so that we can detect that the
+423: 		            // assigned prover should not receive his liveness bond back
+424: 		            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+425: 		        }
 ```
 
 [[105-107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L105-L107), [111-113](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L111-L113), [121-123](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L121-L123), [134-136](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L134-L136), [419-425](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L419-L425)]
@@ -7758,9 +7758,9 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
-34:                 if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
-35:                     revert L1_INVALID_BLOCK_ID();
-36:                 }
+34: 		        if (_blockId < b.lastVerifiedBlockId || _blockId >= b.numBlocks) {
+35: 		            revert L1_INVALID_BLOCK_ID();
+36: 		        }
 ```
 
 [[34-36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L34-L36)]
@@ -7768,14 +7768,14 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-63:                 if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
-64:                     revert INVALID_GUARDIAN_SET();
-65:                 }
+63: 		        if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
+64: 		            revert INVALID_GUARDIAN_SET();
+65: 		        }
 
-68:                 if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
-69:                 {
-70:                     revert INVALID_MIN_GUARDIANS();
-71:                 }
+68: 		        if (_minGuardians < (_newGuardians.length + 1) >> 1 || _minGuardians > _newGuardians.length)
+69: 		        {
+70: 		            revert INVALID_MIN_GUARDIANS();
+71: 		        }
 ```
 
 [[63-65](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L63-L65), [68-71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L68-L71)]
@@ -7783,9 +7783,9 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-40:                 if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
-41:                     revert WITHDRAWALS_NOT_ONGOING();
-42:                 }
+40: 		        if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
+41: 		            revert WITHDRAWALS_NOT_ONGOING();
+42: 		        }
 ```
 
 [[40-42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L40-L42)]
@@ -7793,10 +7793,10 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-34:                 if (
-35:                     merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
-36:                         || claimEnd < block.timestamp
-37:                 ) revert CLAIM_NOT_ONGOING();
+34: 		        if (
+35: 		            merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0 || claimStart > block.timestamp
+36: 		                || claimEnd < block.timestamp
+37: 		        ) revert CLAIM_NOT_ONGOING();
 ```
 
 [[34-37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L34-L37)]
@@ -7817,7 +7817,7 @@ _There are 16 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-482:                retData = abi.encodePacked(sha256(abi.encode(v3quote)), tcbStatus);
+482: 		        retData = abi.encodePacked(sha256(abi.encode(v3quote)), tcbStatus);
 ```
 
 [[482](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L482)]
@@ -7825,7 +7825,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-450:                return keccak256(abi.encode("TAIKO_MESSAGE", _message));
+450: 		        return keccak256(abi.encode("TAIKO_MESSAGE", _message));
 ```
 
 [[450](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L450)]
@@ -7833,7 +7833,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-186:                return keccak256(abi.encode(_chainId, _kind, _blockId));
+186: 		        return keccak256(abi.encode(_chainId, _kind, _blockId));
 ```
 
 [[186](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L186)]
@@ -7841,7 +7841,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-281:                    this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds, _op.amounts)
+281: 		            this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds, _op.amounts)
 ```
 
 [[281](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L281)]
@@ -7849,7 +7849,7 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-384:                    this.onMessageInvocation, abi.encode(ctoken_, _user, _to, balanceChange_)
+384: 		            this.onMessageInvocation, abi.encode(ctoken_, _user, _to, balanceChange_)
 ```
 
 [[384](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L384)]
@@ -7857,7 +7857,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-217:                    this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds)
+217: 		            this.onMessageInvocation, abi.encode(ctoken_, _user, _op.to, _op.tokenIds)
 ```
 
 [[217](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L217)]
@@ -7865,7 +7865,7 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
-136:                bytes memory args = abi.encode(sha256(tbs), r, s, gx, gy);
+136: 		        bytes memory args = abi.encode(sha256(tbs), r, s, gx, gy);
 ```
 
 [[136](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L136)]
@@ -7873,9 +7873,9 @@ File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-126:                        depositsHash: keccak256(abi.encode(deposits_)),
+126: 		                depositsHash: keccak256(abi.encode(deposits_)),
 
-213:                    metaHash: keccak256(abi.encode(meta_)),
+213: 		            metaHash: keccak256(abi.encode(meta_)),
 ```
 
 [[126](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L126), [213](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L213)]
@@ -7883,7 +7883,7 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-121:                if (blk.blockId != _meta.id || blk.metaHash != keccak256(abi.encode(_meta))) {
+121: 		        if (blk.blockId != _meta.id || blk.metaHash != keccak256(abi.encode(_meta))) {
 ```
 
 [[121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L121)]
@@ -7891,9 +7891,9 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 
-46:                 bytes32 hash = keccak256(abi.encode(_meta, _tran));
+46: 		        bytes32 hash = keccak256(abi.encode(_meta, _tran));
 
-51:                     ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
+51: 		            ITaikoL1(resolve("taiko", false)).proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/GuardianProver.sol#L46), [51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/GuardianProver.sol#L51)]
@@ -7901,7 +7901,7 @@ File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-60:                 _verifyClaim(abi.encode(user, amount), proof);
+60: 		        _verifyClaim(abi.encode(user, amount), proof);
 ```
 
 [[60](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L60)]
@@ -7909,7 +7909,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-80:                 _verifyClaim(abi.encode(user, amount), proof);
+80: 		        _verifyClaim(abi.encode(user, amount), proof);
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L80)]
@@ -7917,7 +7917,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-56:                 _verifyClaim(abi.encode(user, tokenIds), proof);
+56: 		        _verifyClaim(abi.encode(user, tokenIds), proof);
 ```
 
 [[56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L56)]
@@ -7925,7 +7925,7 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-68:                 bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
+68: 		        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
 ```
 
 [[68](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L68)]
@@ -7947,13 +7947,13 @@ _There are 20 instances of this issue._
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
 // @audit bool valid
-130:                returns (bool valid)
+130: 		        returns (bool valid)
 
 // @audit bool
-178:                returns (bool, EnclaveIdStruct.EnclaveIdStatus status)
+178: 		        returns (bool, EnclaveIdStruct.EnclaveIdStatus status)
 
 // @audit bool
-212:                returns (bool, TCBInfoStruct.TCBStatus status)
+212: 		        returns (bool, TCBInfoStruct.TCBStatus status)
 ```
 
 [[130](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L130), [178](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L178), [212](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L212)]
@@ -7962,7 +7962,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 File: packages/protocol/contracts/bridge/Bridge.sol
 
 // @audit uint256 invocationDelay_, uint256 invocationExtraDelay_
-421:                returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
+421: 		        returns (uint256 invocationDelay_, uint256 invocationExtraDelay_)
 ```
 
 [[421](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L421)]
@@ -7971,10 +7971,10 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 File: packages/protocol/contracts/common/AddressResolver.sol
 
 // @audit address payable
-37:                 returns (address payable)
+37: 		        returns (address payable)
 
 // @audit address payable
-51:                 returns (address payable)
+51: 		        returns (address payable)
 ```
 
 [[37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L37), [51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L51)]
@@ -7983,7 +7983,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 File: packages/protocol/contracts/libs/LibAddress.sol
 
 // @audit
-52:                 returns (bool result_)
+52: 		        returns (bool result_)
 ```
 
 [[52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L52)]
@@ -7992,19 +7992,19 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
 // @audit
-46:                 returns (bool success, bytes[] memory certs)
+46: 		        returns (bool success, bytes[] memory certs)
 
 // @audit
-80:                 returns (bool success, ECSha256Certificate memory cert)
+80: 		        returns (bool success, ECSha256Certificate memory cert)
 
 // @audit bool success, bytes memory extracted, uint256 endIndex
-219:                returns (bool success, bytes memory extracted, uint256 endIndex)
+219: 		        returns (bool success, bytes memory extracted, uint256 endIndex)
 
 // @audit
-258:                returns (bytes memory output)
+258: 		        returns (bytes memory output)
 
 // @audit uint256 pcesvn, uint256[] memory cpusvns
-277:                    bool success,
+277: 		            bool success,
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L46), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L80), [219](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L219), [258](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L258), [277](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L277)]
@@ -8013,7 +8013,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
 // @audit uint8 ret
-188:            function readUint8(bytes memory self, uint256 idx) internal pure returns (uint8 ret) {
+188: 		    function readUint8(bytes memory self, uint256 idx) internal pure returns (uint8 ret) {
 ```
 
 [[188](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L188)]
@@ -8022,7 +8022,7 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
 // @audit bool sigValid
-120:                returns (bool sigValid)
+120: 		        returns (bool sigValid)
 ```
 
 [[120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L120)]
@@ -8031,7 +8031,7 @@ File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
 // @audit uint8 maxBlocksToVerify_
-100:                returns (uint8 maxBlocksToVerify_)
+100: 		        returns (uint8 maxBlocksToVerify_)
 ```
 
 [[100](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L100)]
@@ -8040,7 +8040,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
 // @audit
-107:                returns (uint256 balance, uint256 withdrawableAmount)
+107: 		        returns (uint256 balance, uint256 withdrawableAmount)
 ```
 
 [[107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L107)]
@@ -8049,13 +8049,13 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
 // @audit
-27:                 returns (bool success, V3Struct.ParsedV3QuoteStruct memory v3ParsedQuote)
+27: 		        returns (bool success, V3Struct.ParsedV3QuoteStruct memory v3ParsedQuote)
 
 // @audit
-168:                returns (bool success, V3Struct.Header memory header)
+168: 		        returns (bool success, V3Struct.Header memory header)
 
 // @audit
-209:                returns (bool success, V3Struct.ECDSAQuoteV3AuthData memory authDataV3)
+209: 		        returns (bool success, V3Struct.ECDSAQuoteV3AuthData memory authDataV3)
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L27), [168](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L168), [209](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L209)]
@@ -8064,7 +8064,7 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
 // @audit uint256 offset_, uint256 length_, RLPItemType type_
-147:                returns (uint256 offset_, uint256 length_, RLPItemType type_)
+147: 		        returns (uint256 offset_, uint256 length_, RLPItemType type_)
 ```
 
 [[147](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L147)]
@@ -8085,15 +8085,15 @@ _There are 40 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-174:                    if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
+174: 		            if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
 
-196:                        _storeContext(msgHash, address(this), _message.srcChainId);
+196: 		                _storeContext(msgHash, address(this), _message.srcChainId);
 
-270:                        _message.to == address(0) || _message.to == address(this)
+270: 		                _message.to == address(0) || _message.to == address(this)
 
-343:                    _app: address(this),
+343: 		            _app: address(this),
 
-486:                assert(_message.from != address(this));
+486: 		        assert(_message.from != address(this));
 ```
 
 [[174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L174), [196](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L196), [270](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L270), [343](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L343), [486](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L486)]
@@ -8101,9 +8101,9 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoToken.sol
 
-61:                 if (_to == address(this)) revert TKO_INVALID_ADDR();
+61: 		        if (_to == address(this)) revert TKO_INVALID_ADDR();
 
-79:                 if (_to == address(this)) revert TKO_INVALID_ADDR();
+79: 		        if (_to == address(this)) revert TKO_INVALID_ADDR();
 ```
 
 [[61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L61), [79](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L79)]
@@ -8111,7 +8111,7 @@ File: packages/protocol/contracts/L1/TaikoToken.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-50:                 (bool success,) = address(this).call(txdata);
+50: 		        (bool success,) = address(this).call(txdata);
 ```
 
 [[50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L50)]
@@ -8119,9 +8119,9 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-174:                    _to.sendEther(address(this).balance);
+174: 		            _to.sendEther(address(this).balance);
 
-176:                    IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
+176: 		            IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
 ```
 
 [[174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L174), [176](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L176)]
@@ -8129,15 +8129,15 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-112:                        signalService = address(this);
+112: 		                signalService = address(this);
 
-131:                if (value == 0 || value != _loadSignalValue(address(this), signal)) {
+131: 		        if (value == 0 || value != _loadSignalValue(address(this), signal)) {
 
-149:                return _loadSignalValue(address(this), signal) == _chainData;
+149: 		        return _loadSignalValue(address(this), signal) == _chainData;
 
-171:                    chainData_ = _loadSignalValue(address(this), signal);
+171: 		            chainData_ = _loadSignalValue(address(this), signal);
 
-245:                _sendSignal(address(this), signal_, _chainData);
+245: 		        _sendSignal(address(this), signal_, _chainData);
 ```
 
 [[112](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L112), [131](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L131), [149](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L149), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L171), [245](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L245)]
@@ -8145,7 +8145,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-137:                if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+137: 		        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
 ```
 
 [[137](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L137)]
@@ -8153,7 +8153,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-147:                if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+147: 		        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
 ```
 
 [[147](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L147)]
@@ -8161,7 +8161,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-125:                if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+125: 		        if (_to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
 ```
 
 [[125](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L125)]
@@ -8169,11 +8169,11 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-108:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+108: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-226:                    IERC1155(token).safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
+226: 		            IERC1155(token).safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
 
-272:                                to: address(this),
+272: 		                        to: address(this),
 ```
 
 [[108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L108), [226](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L226), [272](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L272)]
@@ -8181,13 +8181,13 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-267:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+267: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-378:                    uint256 _balance = t.balanceOf(address(this));
+378: 		            uint256 _balance = t.balanceOf(address(this));
 
-379:                    t.safeTransferFrom({ from: msg.sender, to: address(this), value: _amount });
+379: 		            t.safeTransferFrom({ from: msg.sender, to: address(this), value: _amount });
 
-380:                    balanceChange_ = t.balanceOf(address(this)) - _balance;
+380: 		            balanceChange_ = t.balanceOf(address(this)) - _balance;
 ```
 
 [[267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L267), [378](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L378), [379](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L379), [380](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L380)]
@@ -8195,11 +8195,11 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-91:                 if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+91: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-171:                        IERC721(token_).safeTransferFrom(address(this), _to, _tokenIds[i]);
+171: 		                IERC721(token_).safeTransferFrom(address(this), _to, _tokenIds[i]);
 
-211:                            t.safeTransferFrom(_user, address(this), _op.tokenIds[i]);
+211: 		                    t.safeTransferFrom(_user, address(this), _op.tokenIds[i]);
 ```
 
 [[91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L91), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L171), [211](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L211)]
@@ -8207,7 +8207,7 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-186:                        address(this),
+186: 		                address(this),
 ```
 
 [[186](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L186)]
@@ -8215,11 +8215,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-125:                if (address(this).balance > 0) {
+125: 		        if (address(this).balance > 0) {
 
-126:                    taikoL1Address.sendEther(address(this).balance);
+126: 		            taikoL1Address.sendEther(address(this).balance);
 
-151:                        address(this),
+151: 		                address(this),
 ```
 
 [[125](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L125), [126](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L126), [151](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L151)]
@@ -8227,15 +8227,15 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-238:                    uint256 tkoBalance = tko.balanceOf(address(this));
+238: 		            uint256 tkoBalance = tko.balanceOf(address(this));
 
-253:                        IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
+253: 		                IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
 
-260:                    if (address(this).balance != 0) {
+260: 		            if (address(this).balance != 0) {
 
-261:                        msg.sender.sendEther(address(this).balance);
+261: 		                msg.sender.sendEther(address(this).balance);
 
-268:                    if (tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
+268: 		            if (tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
 ```
 
 [[238](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L238), [253](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L253), [260](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L260), [261](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L261), [268](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L268)]
@@ -8243,9 +8243,9 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-242:                        tko.transferFrom(msg.sender, address(this), tier.contestBond);
+242: 		                tko.transferFrom(msg.sender, address(this), tier.contestBond);
 
-384:                        _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
+384: 		                _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
 ```
 
 [[242](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L242), [384](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L384)]
@@ -8253,7 +8253,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 
-48:                 usdc.transferFrom(_from, address(this), _amount);
+48: 		        usdc.transferFrom(_from, address(this), _amount);
 ```
 
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L48)]
@@ -8271,7 +8271,7 @@ _There are 4 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/L2/Lib1559Math.sol
 
-41:                 uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _adjustmentFactor;
+41: 		        uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _adjustmentFactor;
 ```
 
 [[41](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L41)]
@@ -8279,7 +8279,7 @@ File: packages/protocol/contracts/L2/Lib1559Math.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-264:                return _amount * uint64(block.timestamp - _start) / _period;
+264: 		        return _amount * uint64(block.timestamp - _start) / _period;
 ```
 
 [[264](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L264)]
@@ -8287,22 +8287,22 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-247:                    _config.chainId <= 1 || _config.chainId == block.chainid //
-248:                        || _config.blockMaxProposals == 1
-249:                        || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
-250:                        || _config.blockMaxGasLimit == 0 || _config.blockMaxTxListBytes == 0
-251:                        || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
-252:                        || _config.livenessBond == 0 || _config.ethDepositRingBufferSize <= 1
-253:                        || _config.ethDepositMinCountPerBlock == 0
-254:                    // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
-255:                    // TaikoL1.sol) costs 72_502 gas.
-256:                    || _config.ethDepositMaxCountPerBlock > 32
-257:                        || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
-258:                        || _config.ethDepositMinAmount == 0
-259:                        || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
-260:                        || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
-261:                        || _config.ethDepositMaxFee == 0
-262:                        || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
+247: 		            _config.chainId <= 1 || _config.chainId == block.chainid //
+248: 		                || _config.blockMaxProposals == 1
+249: 		                || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
+250: 		                || _config.blockMaxGasLimit == 0 || _config.blockMaxTxListBytes == 0
+251: 		                || _config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
+252: 		                || _config.livenessBond == 0 || _config.ethDepositRingBufferSize <= 1
+253: 		                || _config.ethDepositMinCountPerBlock == 0
+254: 		            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
+255: 		            // TaikoL1.sol) costs 72_502 gas.
+256: 		            || _config.ethDepositMaxCountPerBlock > 32
+257: 		                || _config.ethDepositMaxCountPerBlock < _config.ethDepositMinCountPerBlock
+258: 		                || _config.ethDepositMinAmount == 0
+259: 		                || _config.ethDepositMaxAmount <= _config.ethDepositMinAmount
+260: 		                || _config.ethDepositMaxAmount > type(uint96).max || _config.ethDepositGas == 0
+261: 		                || _config.ethDepositMaxFee == 0
+262: 		                || _config.ethDepositMaxFee > type(uint96).max / _config.ethDepositMaxCountPerBlock
 ```
 
 [[247-262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L247-L262)]
@@ -8310,8 +8310,8 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-117:                uint256 timeBasedAllowance = balance
-118:                    * (block.timestamp.min(claimEnd + withdrawalWindow) - claimEnd) / withdrawalWindow;
+117: 		        uint256 timeBasedAllowance = balance
+118: 		            * (block.timestamp.min(claimEnd + withdrawalWindow) - claimEnd) / withdrawalWindow;
 ```
 
 [[117-118](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L117-L118)]
@@ -8334,7 +8334,7 @@ _There are 86 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-22:         contract AutomataDcapV3Attestation is IAttestation {
+22: 		contract AutomataDcapV3Attestation is IAttestation {
 ```
 
 [[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L22)]
@@ -8342,7 +8342,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-16:         contract Bridge is EssentialContract, IBridge {
+16: 		contract Bridge is EssentialContract, IBridge {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L16)]
@@ -8350,11 +8350,11 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/bridge/IBridge.sol
 
-8:      interface IBridge {
+8: 		interface IBridge {
 
-160:        interface IRecallableSender {
+160: 		interface IRecallableSender {
 
-174:        interface IMessageInvocable {
+174: 		interface IMessageInvocable {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L8), [160](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L160), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L174)]
@@ -8362,7 +8362,7 @@ File: packages/protocol/contracts/bridge/IBridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressManager.sol
 
-10:         contract AddressManager is EssentialContract, IAddressManager {
+10: 		contract AddressManager is EssentialContract, IAddressManager {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L10)]
@@ -8370,7 +8370,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-11:         abstract contract AddressResolver is IAddressResolver, Initializable {
+11: 		abstract contract AddressResolver is IAddressResolver, Initializable {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L11)]
@@ -8378,7 +8378,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-10:         abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
+10: 		abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L10)]
@@ -8386,7 +8386,7 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/common/IAddressManager.sol
 
-7:      interface IAddressManager {
+7: 		interface IAddressManager {
 ```
 
 [[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressManager.sol#L7)]
@@ -8394,7 +8394,7 @@ File: packages/protocol/contracts/common/IAddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/IAddressResolver.sol
 
-13:         interface IAddressResolver {
+13: 		interface IAddressResolver {
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressResolver.sol#L13)]
@@ -8402,7 +8402,7 @@ File: packages/protocol/contracts/common/IAddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/L1/ITaikoL1.sol
 
-8:      interface ITaikoL1 {
+8: 		interface ITaikoL1 {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/ITaikoL1.sol#L8)]
@@ -8410,7 +8410,7 @@ File: packages/protocol/contracts/L1/ITaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoData.sol
 
-8:      library TaikoData {
+8: 		library TaikoData {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoData.sol#L8)]
@@ -8418,7 +8418,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoErrors.sol
 
-11:         abstract contract TaikoErrors {
+11: 		abstract contract TaikoErrors {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoErrors.sol#L11)]
@@ -8426,7 +8426,7 @@ File: packages/protocol/contracts/L1/TaikoErrors.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoEvents.sol
 
-13:         abstract contract TaikoEvents {
+13: 		abstract contract TaikoEvents {
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoEvents.sol#L13)]
@@ -8434,7 +8434,7 @@ File: packages/protocol/contracts/L1/TaikoEvents.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-22:         contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
+22: 		contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 ```
 
 [[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L22)]
@@ -8442,7 +8442,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoToken.sol
 
-15:         contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
+15: 		contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L15)]
@@ -8450,7 +8450,7 @@ File: packages/protocol/contracts/L1/TaikoToken.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-14:         abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
+14: 		abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L14)]
@@ -8458,7 +8458,7 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/Lib1559Math.sol
 
-10:         library Lib1559Math {
+10: 		library Lib1559Math {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L10)]
@@ -8466,7 +8466,7 @@ File: packages/protocol/contracts/L2/Lib1559Math.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-21:         contract TaikoL2 is CrossChainOwned {
+21: 		contract TaikoL2 is CrossChainOwned {
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L21)]
@@ -8474,7 +8474,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
-9:      contract TaikoL2EIP1559Configurable is TaikoL2 {
+9: 		contract TaikoL2EIP1559Configurable is TaikoL2 {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L9)]
@@ -8482,7 +8482,7 @@ File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 ```solidity
 File: packages/protocol/contracts/libs/Lib4844.sol
 
-8:      library Lib4844 {
+8: 		library Lib4844 {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L8)]
@@ -8490,7 +8490,7 @@ File: packages/protocol/contracts/libs/Lib4844.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibAddress.sol
 
-13:         library LibAddress {
+13: 		library LibAddress {
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L13)]
@@ -8498,7 +8498,7 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibMath.sol
 
-7:      library LibMath {
+7: 		library LibMath {
 ```
 
 [[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibMath.sol#L7)]
@@ -8506,7 +8506,7 @@ File: packages/protocol/contracts/libs/LibMath.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibTrieProof.sol
 
-15:         library LibTrieProof {
+15: 		library LibTrieProof {
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibTrieProof.sol#L15)]
@@ -8514,7 +8514,7 @@ File: packages/protocol/contracts/libs/LibTrieProof.sol
 ```solidity
 File: packages/protocol/contracts/signal/ISignalService.sol
 
-12:         interface ISignalService {
+12: 		interface ISignalService {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L12)]
@@ -8522,7 +8522,7 @@ File: packages/protocol/contracts/signal/ISignalService.sol
 ```solidity
 File: packages/protocol/contracts/signal/LibSignals.sol
 
-6:      library LibSignals {
+6: 		library LibSignals {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/LibSignals.sol#L6)]
@@ -8530,7 +8530,7 @@ File: packages/protocol/contracts/signal/LibSignals.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-14:         contract SignalService is EssentialContract, ISignalService {
+14: 		contract SignalService is EssentialContract, ISignalService {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L14)]
@@ -8538,7 +8538,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-25:         contract TimelockTokenPool is EssentialContract {
+25: 		contract TimelockTokenPool is EssentialContract {
 ```
 
 [[25](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L25)]
@@ -8546,7 +8546,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-9:      abstract contract BaseNFTVault is BaseVault {
+9: 		abstract contract BaseNFTVault is BaseVault {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L9)]
@@ -8554,7 +8554,7 @@ File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseVault.sol
 
-12:         abstract contract BaseVault is
+12: 		abstract contract BaseVault is
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L12)]
@@ -8562,7 +8562,7 @@ File: packages/protocol/contracts/tokenvault/BaseVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-14:         contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
+14: 		contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L14)]
@@ -8570,7 +8570,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-15:         contract BridgedERC20 is
+15: 		contract BridgedERC20 is
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L15)]
@@ -8578,7 +8578,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-9:      abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
+9: 		abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L9)]
@@ -8586,7 +8586,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-12:         contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
+12: 		contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L12)]
@@ -8594,9 +8594,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-16:         interface IERC1155NameAndSymbol {
+16: 		interface IERC1155NameAndSymbol {
 
-29:         contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
+29: 		contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L16), [29](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L29)]
@@ -8604,7 +8604,7 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-18:         contract ERC20Vault is BaseVault {
+18: 		contract ERC20Vault is BaseVault {
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L18)]
@@ -8612,7 +8612,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-16:         contract ERC721Vault is BaseNFTVault, IERC721Receiver {
+16: 		contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L16)]
@@ -8620,7 +8620,7 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/IBridgedERC20.sol
 
-10:         interface IBridgedERC20 {
+10: 		interface IBridgedERC20 {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/IBridgedERC20.sol#L10)]
@@ -8628,7 +8628,7 @@ File: packages/protocol/contracts/tokenvault/IBridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 
-8:      library LibBridgedToken {
+8: 		library LibBridgedToken {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L8)]
@@ -8636,7 +8636,7 @@ File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/GuardianVerifier.sol
 
-10:         contract GuardianVerifier is EssentialContract, IVerifier {
+10: 		contract GuardianVerifier is EssentialContract, IVerifier {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/GuardianVerifier.sol#L10)]
@@ -8644,7 +8644,7 @@ File: packages/protocol/contracts/verifiers/GuardianVerifier.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/IVerifier.sol
 
-9:      interface IVerifier {
+9: 		interface IVerifier {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/IVerifier.sol#L9)]
@@ -8652,7 +8652,7 @@ File: packages/protocol/contracts/verifiers/IVerifier.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-19:         contract SgxVerifier is EssentialContract, IVerifier {
+19: 		contract SgxVerifier is EssentialContract, IVerifier {
 ```
 
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L19)]
@@ -8660,7 +8660,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/interfaces/IAttestation.sol
 
-8:      interface IAttestation {
+8: 		interface IAttestation {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/interfaces/IAttestation.sol#L8)]
@@ -8668,7 +8668,7 @@ File: packages/protocol/contracts/automata-attestation/interfaces/IAttestation.s
 ```solidity
 File: packages/protocol/contracts/automata-attestation/interfaces/ISigVerifyLib.sol
 
-6:      interface ISigVerifyLib {
+6: 		interface ISigVerifyLib {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/interfaces/ISigVerifyLib.sol#L6)]
@@ -8676,7 +8676,7 @@ File: packages/protocol/contracts/automata-attestation/interfaces/ISigVerifyLib.
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol
 
-6:      library EnclaveIdStruct {
+6: 		library EnclaveIdStruct {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol#L6)]
@@ -8684,7 +8684,7 @@ File: packages/protocol/contracts/automata-attestation/lib/EnclaveIdStruct.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-12:         contract PEMCertChainLib is IPEMCertChainLib {
+12: 		contract PEMCertChainLib is IPEMCertChainLib {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L12)]
@@ -8692,7 +8692,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/TCBInfoStruct.sol
 
-6:      library TCBInfoStruct {
+6: 		library TCBInfoStruct {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/TCBInfoStruct.sol#L6)]
@@ -8700,9 +8700,9 @@ File: packages/protocol/contracts/automata-attestation/lib/TCBInfoStruct.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol
 
-12:         library NodePtr {
+12: 		library NodePtr {
 
-38:         library Asn1Decode {
+38: 		library Asn1Decode {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L12), [38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol#L38)]
@@ -8710,7 +8710,7 @@ File: packages/protocol/contracts/automata-attestation/utils/Asn1Decode.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-8:      library BytesUtils {
+8: 		library BytesUtils {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L8)]
@@ -8718,7 +8718,7 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-34:         library RsaVerify {
+34: 		library RsaVerify {
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L34)]
@@ -8726,7 +8726,7 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/SHA1.sol
 
-10:         library SHA1 {
+10: 		library SHA1 {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SHA1.sol#L10)]
@@ -8734,7 +8734,7 @@ File: packages/protocol/contracts/automata-attestation/utils/SHA1.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
-15:         contract SigVerifyLib is ISigVerifyLib {
+15: 		contract SigVerifyLib is ISigVerifyLib {
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L15)]
@@ -8742,7 +8742,7 @@ File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-7:      library X509DateUtils {
+7: 		library X509DateUtils {
 ```
 
 [[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L7)]
@@ -8750,7 +8750,7 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 
-16:         contract TaikoGovernor is
+16: 		contract TaikoGovernor is
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L16)]
@@ -8758,7 +8758,7 @@ File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 
-9:      contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
+9: 		contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoTimelockController.sol#L9)]
@@ -8766,7 +8766,7 @@ File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-14:         contract AssignmentHook is EssentialContract, IHook {
+14: 		contract AssignmentHook is EssentialContract, IHook {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L14)]
@@ -8774,7 +8774,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/IHook.sol
 
-8:      interface IHook {
+8: 		interface IHook {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/IHook.sol#L8)]
@@ -8782,7 +8782,7 @@ File: packages/protocol/contracts/L1/hooks/IHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-12:         library LibDepositing {
+12: 		library LibDepositing {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L12)]
@@ -8790,7 +8790,7 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-15:         library LibProposing {
+15: 		library LibProposing {
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L15)]
@@ -8798,7 +8798,7 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-16:         library LibProving {
+16: 		library LibProving {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L16)]
@@ -8806,7 +8806,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
-9:      library LibUtils {
+9: 		library LibUtils {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L9)]
@@ -8814,7 +8814,7 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-16:         library LibVerifying {
+16: 		library LibVerifying {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L16)]
@@ -8822,7 +8822,7 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 
-10:         contract GuardianProver is Guardians {
+10: 		contract GuardianProver is Guardians {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/GuardianProver.sol#L10)]
@@ -8830,7 +8830,7 @@ File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-9:      abstract contract Guardians is EssentialContract {
+9: 		abstract contract Guardians is EssentialContract {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L9)]
@@ -8838,7 +8838,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 
-10:         contract DevnetTierProvider is EssentialContract, ITierProvider {
+10: 		contract DevnetTierProvider is EssentialContract, ITierProvider {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol#L10)]
@@ -8846,9 +8846,9 @@ File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 
-7:      interface ITierProvider {
+7: 		interface ITierProvider {
 
-37:         library LibTiers {
+37: 		library LibTiers {
 ```
 
 [[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L7), [37](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L37)]
@@ -8856,7 +8856,7 @@ File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 
-10:         contract MainnetTierProvider is EssentialContract, ITierProvider {
+10: 		contract MainnetTierProvider is EssentialContract, ITierProvider {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol#L10)]
@@ -8864,7 +8864,7 @@ File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 
-10:         contract TestnetTierProvider is EssentialContract, ITierProvider {
+10: 		contract TestnetTierProvider is EssentialContract, ITierProvider {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol#L10)]
@@ -8872,7 +8872,7 @@ File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-11:         contract ERC20Airdrop is MerkleClaimable {
+11: 		contract ERC20Airdrop is MerkleClaimable {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L11)]
@@ -8880,7 +8880,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-12:         contract ERC20Airdrop2 is MerkleClaimable {
+12: 		contract ERC20Airdrop2 is MerkleClaimable {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L12)]
@@ -8888,7 +8888,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-9:      contract ERC721Airdrop is MerkleClaimable {
+9: 		contract ERC721Airdrop is MerkleClaimable {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L9)]
@@ -8896,7 +8896,7 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-10:         abstract contract MerkleClaimable is EssentialContract {
+10: 		abstract contract MerkleClaimable is EssentialContract {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L10)]
@@ -8904,7 +8904,7 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol
 
-5:      library ExcessivelySafeCall {
+5: 		library ExcessivelySafeCall {
 ```
 
 [[5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol#L5)]
@@ -8912,7 +8912,7 @@ File: packages/protocol/contracts/thirdparty/nomad-xyz/ExcessivelySafeCall.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 
-6:      library Bytes {
+6: 		library Bytes {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/Bytes.sol#L6)]
@@ -8920,9 +8920,9 @@ File: packages/protocol/contracts/thirdparty/optimism/Bytes.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 
-8:      interface IUSDC {
+8: 		interface IUSDC {
 
-28:         contract USDCAdapter is BridgedERC20Base {
+28: 		contract USDCAdapter is BridgedERC20Base {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L8), [28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L28)]
@@ -8930,7 +8930,7 @@ File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/interfaces/IPEMCertChainLib.sol
 
-6:      interface IPEMCertChainLib {
+6: 		interface IPEMCertChainLib {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/interfaces/IPEMCertChainLib.sol#L6)]
@@ -8938,7 +8938,7 @@ File: packages/protocol/contracts/automata-attestation/lib/interfaces/IPEMCertCh
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-11:         library V3Parser {
+11: 		library V3Parser {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L11)]
@@ -8946,7 +8946,7 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol
 
-6:      library V3Struct {
+6: 		library V3Struct {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol#L6)]
@@ -8954,7 +8954,7 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
-9:      library RLPReader {
+9: 		library RLPReader {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L9)]
@@ -8962,7 +8962,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-9:      library RLPWriter {
+9: 		library RLPWriter {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L9)]
@@ -8970,7 +8970,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-11:         library MerkleTrie {
+11: 		library MerkleTrie {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L11)]
@@ -8978,7 +8978,7 @@ File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/SecureMerkleTrie.sol
 
-9:      library SecureMerkleTrie {
+9: 		library SecureMerkleTrie {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/SecureMerkleTrie.sol#L9)]
@@ -8997,10 +8997,10 @@ _There are 4 instances of this issue._
 File: packages/protocol/contracts/bridge/Bridge.sol
 
 // @audit true
-210:                    emit MessageReceived(msgHash, _message, true);
+210: 		            emit MessageReceived(msgHash, _message, true);
 
 // @audit false
-303:                    emit MessageReceived(msgHash, _message, false);
+303: 		            emit MessageReceived(msgHash, _message, false);
 ```
 
 [[210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L210), [303](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L303)]
@@ -9009,13 +9009,13 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
 // @audit 0
-230:                        emit TransitionProved({
-231:                            blockId: blk.blockId,
-232:                            tran: _tran,
-233:                            prover: msg.sender,
-234:                            validityBond: 0,
-235:                            tier: _proof.tier
-236:                        });
+230: 		                emit TransitionProved({
+231: 		                    blockId: blk.blockId,
+232: 		                    tran: _tran,
+233: 		                    prover: msg.sender,
+234: 		                    validityBond: 0,
+235: 		                    tier: _proof.tier
+236: 		                });
 ```
 
 [[230-236](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L230-L236)]
@@ -9024,15 +9024,15 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
 // @audit 0, 0, 0, 0
-73:                 emit BlockVerified({
-74:                     blockId: 0,
-75:                     assignedProver: address(0),
-76:                     prover: address(0),
-77:                     blockHash: _genesisBlockHash,
-78:                     stateRoot: 0,
-79:                     tier: 0,
-80:                     contestations: 0
-81:                 });
+73: 		        emit BlockVerified({
+74: 		            blockId: 0,
+75: 		            assignedProver: address(0),
+76: 		            prover: address(0),
+77: 		            blockHash: _genesisBlockHash,
+78: 		            stateRoot: 0,
+79: 		            tier: 0,
+80: 		            contestations: 0
+81: 		        });
 ```
 
 [[73-81](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L73-L81)]
@@ -9051,7 +9051,7 @@ _There are 54 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-4:      import "@openzeppelin/contracts/utils/Address.sol";
+4: 		import "@openzeppelin/contracts/utils/Address.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L4)]
@@ -9059,7 +9059,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L4)]
@@ -9067,9 +9067,9 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-4:      import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+4: 		import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-5:      import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+5: 		import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L5)]
@@ -9077,11 +9077,11 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoToken.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-5:      import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
+5: 		import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 
-6:      import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+6: 		import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L5), [6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L6)]
@@ -9089,7 +9089,7 @@ File: packages/protocol/contracts/L1/TaikoToken.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L4)]
@@ -9097,9 +9097,9 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-5:      import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+5: 		import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L5)]
@@ -9107,13 +9107,13 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibAddress.sol
 
-4:      import "@openzeppelin/contracts/utils/Address.sol";
+4: 		import "@openzeppelin/contracts/utils/Address.sol";
 
-5:      import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+5: 		import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-6:      import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+6: 		import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-7:      import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+7: 		import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L5), [6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L6), [7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L7)]
@@ -9121,7 +9121,7 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-4:      import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+4: 		import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L4)]
@@ -9129,11 +9129,11 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-4:      import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+4: 		import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-5:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+5: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-6:      import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+6: 		import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L5), [6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L6)]
@@ -9141,9 +9141,9 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseVault.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 
-5:      import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+5: 		import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L5)]
@@ -9151,12 +9151,12 @@ File: packages/protocol/contracts/tokenvault/BaseVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-4:      import "@openzeppelin/contracts/utils/Strings.sol";
+4: 		import "@openzeppelin/contracts/utils/Strings.sol";
 
-5:      import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+5: 		import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 
-6:      import
-7:          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
+6: 		import
+7: 		    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L5), [6-7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L6-L7)]
@@ -9164,13 +9164,13 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
-5:      import "@openzeppelin/contracts/utils/Strings.sol";
+5: 		import "@openzeppelin/contracts/utils/Strings.sol";
 
-6:      import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
+6: 		import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 
-7:      import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+7: 		import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L5), [6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L6), [7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L7)]
@@ -9178,9 +9178,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
-5:      import "@openzeppelin/contracts/utils/Strings.sol";
+5: 		import "@openzeppelin/contracts/utils/Strings.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L5)]
@@ -9188,9 +9188,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-4:      import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+4: 		import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
-5:      import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
+5: 		import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L5)]
@@ -9198,11 +9198,11 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-5:      import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+5: 		import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-6:      import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+6: 		import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L5), [6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L6)]
@@ -9210,9 +9210,9 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-4:      import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+4: 		import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-5:      import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+5: 		import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L5)]
@@ -9220,7 +9220,7 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 
-4:      import "@openzeppelin/contracts/utils/Strings.sol";
+4: 		import "@openzeppelin/contracts/utils/Strings.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L4)]
@@ -9228,7 +9228,7 @@ File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-4:      import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+4: 		import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L4)]
@@ -9236,18 +9236,18 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
 
-5:      import
-6:          "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
+5: 		import
+6: 		    "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
 
-7:      import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
+7: 		import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 
-8:      import
-9:          "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+8: 		import
+9: 		    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 
-10:         import
-11:             "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+10: 		import
+11: 		    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L4), [5-6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L5-L6), [7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L7), [8-9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L8-L9), [10-11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L10-L11)]
@@ -9255,7 +9255,7 @@ File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 
-4:      import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+4: 		import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoTimelockController.sol#L4)]
@@ -9263,9 +9263,9 @@ File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-5:      import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+5: 		import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L5)]
@@ -9273,7 +9273,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L4)]
@@ -9281,7 +9281,7 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L4)]
@@ -9289,7 +9289,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L4)]
@@ -9297,9 +9297,9 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-5:      import "@openzeppelin/contracts/governance/utils/IVotes.sol";
+5: 		import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L4), [5](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L5)]
@@ -9307,7 +9307,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-4:      import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+4: 		import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L4)]
@@ -9315,7 +9315,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-4:      import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+4: 		import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L4)]
@@ -9323,7 +9323,7 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-4:      import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+4: 		import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 ```
 
 [[4](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L4)]
@@ -9346,7 +9346,7 @@ _There are 56 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-22:         contract AutomataDcapV3Attestation is IAttestation {
+22: 		contract AutomataDcapV3Attestation is IAttestation {
 ```
 
 [[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L22)]
@@ -9354,7 +9354,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-16:         contract Bridge is EssentialContract, IBridge {
+16: 		contract Bridge is EssentialContract, IBridge {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L16)]
@@ -9362,11 +9362,11 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/bridge/IBridge.sol
 
-8:      interface IBridge {
+8: 		interface IBridge {
 
-160:        interface IRecallableSender {
+160: 		interface IRecallableSender {
 
-174:        interface IMessageInvocable {
+174: 		interface IMessageInvocable {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L8), [160](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L160), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L174)]
@@ -9374,7 +9374,7 @@ File: packages/protocol/contracts/bridge/IBridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressManager.sol
 
-10:         contract AddressManager is EssentialContract, IAddressManager {
+10: 		contract AddressManager is EssentialContract, IAddressManager {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L10)]
@@ -9382,7 +9382,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-11:         abstract contract AddressResolver is IAddressResolver, Initializable {
+11: 		abstract contract AddressResolver is IAddressResolver, Initializable {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L11)]
@@ -9390,7 +9390,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-10:         abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
+10: 		abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L10)]
@@ -9398,7 +9398,7 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/common/IAddressManager.sol
 
-7:      interface IAddressManager {
+7: 		interface IAddressManager {
 ```
 
 [[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressManager.sol#L7)]
@@ -9406,7 +9406,7 @@ File: packages/protocol/contracts/common/IAddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/IAddressResolver.sol
 
-13:         interface IAddressResolver {
+13: 		interface IAddressResolver {
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressResolver.sol#L13)]
@@ -9414,7 +9414,7 @@ File: packages/protocol/contracts/common/IAddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/L1/ITaikoL1.sol
 
-8:      interface ITaikoL1 {
+8: 		interface ITaikoL1 {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/ITaikoL1.sol#L8)]
@@ -9422,7 +9422,7 @@ File: packages/protocol/contracts/L1/ITaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-22:         contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
+22: 		contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 ```
 
 [[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L22)]
@@ -9430,7 +9430,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoToken.sol
 
-15:         contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
+15: 		contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L15)]
@@ -9438,7 +9438,7 @@ File: packages/protocol/contracts/L1/TaikoToken.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-14:         abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
+14: 		abstract contract CrossChainOwned is EssentialContract, IMessageInvocable {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L14)]
@@ -9446,7 +9446,7 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-21:         contract TaikoL2 is CrossChainOwned {
+21: 		contract TaikoL2 is CrossChainOwned {
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L21)]
@@ -9454,7 +9454,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
-9:      contract TaikoL2EIP1559Configurable is TaikoL2 {
+9: 		contract TaikoL2EIP1559Configurable is TaikoL2 {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L9)]
@@ -9462,7 +9462,7 @@ File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 ```solidity
 File: packages/protocol/contracts/signal/ISignalService.sol
 
-12:         interface ISignalService {
+12: 		interface ISignalService {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/ISignalService.sol#L12)]
@@ -9470,7 +9470,7 @@ File: packages/protocol/contracts/signal/ISignalService.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-14:         contract SignalService is EssentialContract, ISignalService {
+14: 		contract SignalService is EssentialContract, ISignalService {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L14)]
@@ -9478,7 +9478,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-25:         contract TimelockTokenPool is EssentialContract {
+25: 		contract TimelockTokenPool is EssentialContract {
 ```
 
 [[25](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L25)]
@@ -9486,7 +9486,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseVault.sol
 
-12:         abstract contract BaseVault is
+12: 		abstract contract BaseVault is
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L12)]
@@ -9494,7 +9494,7 @@ File: packages/protocol/contracts/tokenvault/BaseVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-14:         contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
+14: 		contract BridgedERC1155 is EssentialContract, IERC1155MetadataURIUpgradeable, ERC1155Upgradeable {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L14)]
@@ -9502,7 +9502,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-15:         contract BridgedERC20 is
+15: 		contract BridgedERC20 is
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L15)]
@@ -9510,7 +9510,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-9:      abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
+9: 		abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L9)]
@@ -9518,7 +9518,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-12:         contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
+12: 		contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L12)]
@@ -9526,9 +9526,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-16:         interface IERC1155NameAndSymbol {
+16: 		interface IERC1155NameAndSymbol {
 
-29:         contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
+29: 		contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L16), [29](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L29)]
@@ -9536,7 +9536,7 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-18:         contract ERC20Vault is BaseVault {
+18: 		contract ERC20Vault is BaseVault {
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L18)]
@@ -9544,7 +9544,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-16:         contract ERC721Vault is BaseNFTVault, IERC721Receiver {
+16: 		contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L16)]
@@ -9552,7 +9552,7 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/IBridgedERC20.sol
 
-10:         interface IBridgedERC20 {
+10: 		interface IBridgedERC20 {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/IBridgedERC20.sol#L10)]
@@ -9560,7 +9560,7 @@ File: packages/protocol/contracts/tokenvault/IBridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/GuardianVerifier.sol
 
-10:         contract GuardianVerifier is EssentialContract, IVerifier {
+10: 		contract GuardianVerifier is EssentialContract, IVerifier {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/GuardianVerifier.sol#L10)]
@@ -9568,7 +9568,7 @@ File: packages/protocol/contracts/verifiers/GuardianVerifier.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/IVerifier.sol
 
-9:      interface IVerifier {
+9: 		interface IVerifier {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/IVerifier.sol#L9)]
@@ -9576,7 +9576,7 @@ File: packages/protocol/contracts/verifiers/IVerifier.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-19:         contract SgxVerifier is EssentialContract, IVerifier {
+19: 		contract SgxVerifier is EssentialContract, IVerifier {
 ```
 
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L19)]
@@ -9584,7 +9584,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/interfaces/IAttestation.sol
 
-8:      interface IAttestation {
+8: 		interface IAttestation {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/interfaces/IAttestation.sol#L8)]
@@ -9592,7 +9592,7 @@ File: packages/protocol/contracts/automata-attestation/interfaces/IAttestation.s
 ```solidity
 File: packages/protocol/contracts/automata-attestation/interfaces/ISigVerifyLib.sol
 
-6:      interface ISigVerifyLib {
+6: 		interface ISigVerifyLib {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/interfaces/ISigVerifyLib.sol#L6)]
@@ -9600,7 +9600,7 @@ File: packages/protocol/contracts/automata-attestation/interfaces/ISigVerifyLib.
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-12:         contract PEMCertChainLib is IPEMCertChainLib {
+12: 		contract PEMCertChainLib is IPEMCertChainLib {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L12)]
@@ -9608,7 +9608,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
-15:         contract SigVerifyLib is ISigVerifyLib {
+15: 		contract SigVerifyLib is ISigVerifyLib {
 ```
 
 [[15](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L15)]
@@ -9616,7 +9616,7 @@ File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 
-16:         contract TaikoGovernor is
+16: 		contract TaikoGovernor is
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L16)]
@@ -9624,7 +9624,7 @@ File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 
-9:      contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
+9: 		contract TaikoTimelockController is EssentialContract, TimelockControllerUpgradeable {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoTimelockController.sol#L9)]
@@ -9632,7 +9632,7 @@ File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-14:         contract AssignmentHook is EssentialContract, IHook {
+14: 		contract AssignmentHook is EssentialContract, IHook {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L14)]
@@ -9640,7 +9640,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/IHook.sol
 
-8:      interface IHook {
+8: 		interface IHook {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/IHook.sol#L8)]
@@ -9648,7 +9648,7 @@ File: packages/protocol/contracts/L1/hooks/IHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-16:         library LibProving {
+16: 		library LibProving {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L16)]
@@ -9656,7 +9656,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibUtils.sol
 
-9:      library LibUtils {
+9: 		library LibUtils {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibUtils.sol#L9)]
@@ -9664,7 +9664,7 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-16:         library LibVerifying {
+16: 		library LibVerifying {
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L16)]
@@ -9672,7 +9672,7 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 
-10:         contract GuardianProver is Guardians {
+10: 		contract GuardianProver is Guardians {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/GuardianProver.sol#L10)]
@@ -9680,7 +9680,7 @@ File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-9:      abstract contract Guardians is EssentialContract {
+9: 		abstract contract Guardians is EssentialContract {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L9)]
@@ -9688,7 +9688,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 
-10:         contract DevnetTierProvider is EssentialContract, ITierProvider {
+10: 		contract DevnetTierProvider is EssentialContract, ITierProvider {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol#L10)]
@@ -9696,7 +9696,7 @@ File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 
-7:      interface ITierProvider {
+7: 		interface ITierProvider {
 ```
 
 [[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/ITierProvider.sol#L7)]
@@ -9704,7 +9704,7 @@ File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 
-10:         contract MainnetTierProvider is EssentialContract, ITierProvider {
+10: 		contract MainnetTierProvider is EssentialContract, ITierProvider {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol#L10)]
@@ -9712,7 +9712,7 @@ File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 
-10:         contract TestnetTierProvider is EssentialContract, ITierProvider {
+10: 		contract TestnetTierProvider is EssentialContract, ITierProvider {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol#L10)]
@@ -9720,7 +9720,7 @@ File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-11:         contract ERC20Airdrop is MerkleClaimable {
+11: 		contract ERC20Airdrop is MerkleClaimable {
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L11)]
@@ -9728,7 +9728,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-12:         contract ERC20Airdrop2 is MerkleClaimable {
+12: 		contract ERC20Airdrop2 is MerkleClaimable {
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L12)]
@@ -9736,7 +9736,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-9:      contract ERC721Airdrop is MerkleClaimable {
+9: 		contract ERC721Airdrop is MerkleClaimable {
 ```
 
 [[9](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L9)]
@@ -9744,7 +9744,7 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-10:         abstract contract MerkleClaimable is EssentialContract {
+10: 		abstract contract MerkleClaimable is EssentialContract {
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L10)]
@@ -9752,9 +9752,9 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 
-8:      interface IUSDC {
+8: 		interface IUSDC {
 
-28:         contract USDCAdapter is BridgedERC20Base {
+28: 		contract USDCAdapter is BridgedERC20Base {
 ```
 
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L8), [28](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L28)]
@@ -9762,7 +9762,7 @@ File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/interfaces/IPEMCertChainLib.sol
 
-6:      interface IPEMCertChainLib {
+6: 		interface IPEMCertChainLib {
 ```
 
 [[6](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/interfaces/IPEMCertChainLib.sol#L6)]
@@ -9780,7 +9780,7 @@ _There are 10 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-219:                IERC20(taikoToken).transferFrom(sharedVault, _to, amountToWithdraw);
+219: 		        IERC20(taikoToken).transferFrom(sharedVault, _to, amountToWithdraw);
 ```
 
 [[219](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L219)]
@@ -9788,17 +9788,17 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-196:                        tko.transfer(blk.assignedProver, blk.livenessBond);
+196: 		                tko.transfer(blk.assignedProver, blk.livenessBond);
 
-242:                        tko.transferFrom(msg.sender, address(this), tier.contestBond);
+242: 		                tko.transferFrom(msg.sender, address(this), tier.contestBond);
 
-367:                        _tko.transfer(_ts.prover, _ts.validityBond + reward);
+367: 		                _tko.transfer(_ts.prover, _ts.validityBond + reward);
 
-371:                        _tko.transfer(_ts.contester, _ts.contestBond + reward);
+371: 		                _tko.transfer(_ts.contester, _ts.contestBond + reward);
 
-382:                        _tko.transfer(msg.sender, reward - _tier.validityBond);
+382: 		                _tko.transfer(msg.sender, reward - _tier.validityBond);
 
-384:                        _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
+384: 		                _tko.transferFrom(msg.sender, address(this), _tier.validityBond - reward);
 ```
 
 [[196](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L196), [242](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L242), [367](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L367), [371](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L371), [382](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L382), [384](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L384)]
@@ -9806,7 +9806,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-189:                        tko.transfer(ts.prover, bondToReturn);
+189: 		                tko.transfer(ts.prover, bondToReturn);
 ```
 
 [[189](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L189)]
@@ -9814,7 +9814,7 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-63:                 IERC20(token).transferFrom(vault, user, amount);
+63: 		        IERC20(token).transferFrom(vault, user, amount);
 ```
 
 [[63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L63)]
@@ -9822,7 +9822,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-91:                 IERC20(token).transferFrom(vault, user, amount);
+91: 		        IERC20(token).transferFrom(vault, user, amount);
 ```
 
 [[91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L91)]
@@ -9838,9 +9838,9 @@ _There are 10 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-231:                _grant.grantStart = 0;
+231: 		        _grant.grantStart = 0;
 
-232:                _grant.grantPeriod = 0;
+232: 		        _grant.grantPeriod = 0;
 ```
 
 [[231](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L231), [232](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L232)]
@@ -9848,7 +9848,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-336:                        tbsPtr = 0; // exit
+336: 		                tbsPtr = 0; // exit
 ```
 
 [[336](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L336)]
@@ -9856,7 +9856,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-190:                    meta_.txListByteOffset = 0;
+190: 		            meta_.txListByteOffset = 0;
 ```
 
 [[190](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L190)]
@@ -9864,17 +9864,17 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-197:                        blk.livenessBond = 0;
+197: 		                blk.livenessBond = 0;
 
-300:                    ts_.blockHash = 0;
+300: 		            ts_.blockHash = 0;
 
-301:                    ts_.stateRoot = 0;
+301: 		            ts_.stateRoot = 0;
 
-302:                    ts_.validityBond = 0;
+302: 		            ts_.validityBond = 0;
 
-306:                    ts_.tier = 0;
+306: 		            ts_.tier = 0;
 
-307:                    ts_.contestations = 0;
+307: 		            ts_.contestations = 0;
 ```
 
 [[197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L197), [300](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L300), [301](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L301), [302](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L302), [306](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L306), [307](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L307)]
@@ -9895,13 +9895,13 @@ _There are 10 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-38:             bool private _checkLocalEnclaveReport;
+38: 		    bool private _checkLocalEnclaveReport;
 
-39:             mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
+39: 		    mapping(bytes32 enclave => bool trusted) private _trustedUserMrEnclave;
 
-40:             mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
+40: 		    mapping(bytes32 signer => bool trusted) private _trustedUserMrSigner;
 
-47:             mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
+47: 		    mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) private _serialNumIsRevoked;
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L38), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L39), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L40), [47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L47)]
@@ -9909,7 +9909,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-42:             mapping(address addr => bool banned) public addressBanned;
+42: 		    mapping(address addr => bool banned) public addressBanned;
 ```
 
 [[42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L42)]
@@ -9917,7 +9917,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-21:             mapping(address addr => bool authorized) public isAuthorized;
+21: 		    mapping(address addr => bool authorized) public isAuthorized;
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L21)]
@@ -9925,7 +9925,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-14:             bool public migratingInbound;
+14: 		    bool public migratingInbound;
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L14)]
@@ -9933,7 +9933,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-52:             mapping(address btoken => bool blacklisted) public btokenBlacklist;
+52: 		    mapping(address btoken => bool blacklisted) public btokenBlacklist;
 ```
 
 [[52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L52)]
@@ -9941,7 +9941,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-55:             mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
+55: 		    mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 ```
 
 [[55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L55)]
@@ -9949,7 +9949,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-12:             mapping(bytes32 hash => bool claimed) public isClaimed;
+12: 		    mapping(bytes32 hash => bool claimed) public isClaimed;
 ```
 
 [[12](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L12)]
@@ -9972,7 +9972,7 @@ _There are 36 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-48:             uint256[43] private __gap;
+48: 		    uint256[43] private __gap;
 ```
 
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L48)]
@@ -9980,7 +9980,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressManager.sol
 
-14:             uint256[49] private __gap;
+14: 		    uint256[49] private __gap;
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L14)]
@@ -9988,7 +9988,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-14:             uint256[49] private __gap;
+14: 		    uint256[49] private __gap;
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L14)]
@@ -9996,7 +9996,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-25:             uint256[49] private __gap;
+25: 		    uint256[49] private __gap;
 ```
 
 [[25](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L25)]
@@ -10004,7 +10004,7 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-26:             uint256[50] private __gap;
+26: 		    uint256[50] private __gap;
 ```
 
 [[26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L26)]
@@ -10012,7 +10012,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoToken.sol
 
-16:             uint256[50] private __gap;
+16: 		    uint256[50] private __gap;
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L16)]
@@ -10020,7 +10020,7 @@ File: packages/protocol/contracts/L1/TaikoToken.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-21:             uint256[49] private __gap;
+21: 		    uint256[49] private __gap;
 ```
 
 [[21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L21)]
@@ -10028,7 +10028,7 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-52:             uint256[47] private __gap;
+52: 		    uint256[47] private __gap;
 ```
 
 [[52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L52)]
@@ -10036,7 +10036,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 
-13:             uint256[49] private __gap;
+13: 		    uint256[49] private __gap;
 ```
 
 [[13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol#L13)]
@@ -10044,7 +10044,7 @@ File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-23:             uint256[48] private __gap;
+23: 		    uint256[48] private __gap;
 ```
 
 [[23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L23)]
@@ -10052,7 +10052,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-82:             uint128[44] private __gap;
+82: 		    uint128[44] private __gap;
 ```
 
 [[82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L82)]
@@ -10060,7 +10060,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-61:             uint256[48] private __gap;
+61: 		    uint256[48] private __gap;
 ```
 
 [[61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L61)]
@@ -10068,7 +10068,7 @@ File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseVault.sol
 
-18:             uint256[50] private __gap;
+18: 		    uint256[50] private __gap;
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L18)]
@@ -10076,7 +10076,7 @@ File: packages/protocol/contracts/tokenvault/BaseVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-27:             uint256[46] private __gap;
+27: 		    uint256[46] private __gap;
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L27)]
@@ -10084,7 +10084,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-32:             uint256[47] private __gap;
+32: 		    uint256[47] private __gap;
 ```
 
 [[32](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L32)]
@@ -10092,7 +10092,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-16:             uint256[49] private __gap;
+16: 		    uint256[49] private __gap;
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L16)]
@@ -10100,7 +10100,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-19:             uint256[48] private __gap;
+19: 		    uint256[48] private __gap;
 ```
 
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L19)]
@@ -10108,7 +10108,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-32:             uint256[50] private __gap;
+32: 		    uint256[50] private __gap;
 ```
 
 [[32](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L32)]
@@ -10116,7 +10116,7 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-54:             uint256[47] private __gap;
+54: 		    uint256[47] private __gap;
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L54)]
@@ -10124,7 +10124,7 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-19:             uint256[50] private __gap;
+19: 		    uint256[50] private __gap;
 ```
 
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L19)]
@@ -10132,7 +10132,7 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/GuardianVerifier.sol
 
-11:             uint256[50] private __gap;
+11: 		    uint256[50] private __gap;
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/GuardianVerifier.sol#L11)]
@@ -10140,7 +10140,7 @@ File: packages/protocol/contracts/verifiers/GuardianVerifier.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-57:             uint256[47] private __gap;
+57: 		    uint256[47] private __gap;
 ```
 
 [[57](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L57)]
@@ -10148,7 +10148,7 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 
-23:             uint256[50] private __gap;
+23: 		    uint256[50] private __gap;
 ```
 
 [[23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoGovernor.sol#L23)]
@@ -10156,7 +10156,7 @@ File: packages/protocol/contracts/L1/gov/TaikoGovernor.sol
 ```solidity
 File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 
-10:             uint256[50] private __gap;
+10: 		    uint256[50] private __gap;
 ```
 
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/gov/TaikoTimelockController.sol#L10)]
@@ -10164,7 +10164,7 @@ File: packages/protocol/contracts/L1/gov/TaikoTimelockController.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-40:             uint256[50] private __gap;
+40: 		    uint256[50] private __gap;
 ```
 
 [[40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L40)]
@@ -10172,7 +10172,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 
-11:             uint256[50] private __gap;
+11: 		    uint256[50] private __gap;
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/GuardianProver.sol#L11)]
@@ -10180,9 +10180,9 @@ File: packages/protocol/contracts/L1/provers/GuardianProver.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-23:             address[] public guardians;
+23: 		    address[] public guardians;
 
-32:             uint256[46] private __gap;
+32: 		    uint256[46] private __gap;
 ```
 
 [[23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L23), [32](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L32)]
@@ -10190,7 +10190,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 
-11:             uint256[50] private __gap;
+11: 		    uint256[50] private __gap;
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol#L11)]
@@ -10198,7 +10198,7 @@ File: packages/protocol/contracts/L1/tiers/DevnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 
-11:             uint256[50] private __gap;
+11: 		    uint256[50] private __gap;
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol#L11)]
@@ -10206,7 +10206,7 @@ File: packages/protocol/contracts/L1/tiers/MainnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 
-11:             uint256[50] private __gap;
+11: 		    uint256[50] private __gap;
 ```
 
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol#L11)]
@@ -10214,7 +10214,7 @@ File: packages/protocol/contracts/L1/tiers/TestnetTierProvider.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 
-18:             uint256[48] private __gap;
+18: 		    uint256[48] private __gap;
 ```
 
 [[18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol#L18)]
@@ -10222,7 +10222,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 
-30:             uint256[45] private __gap;
+30: 		    uint256[45] private __gap;
 ```
 
 [[30](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol#L30)]
@@ -10230,7 +10230,7 @@ File: packages/protocol/contracts/team/airdrop/ERC20Airdrop2.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-16:             uint256[48] private __gap;
+16: 		    uint256[48] private __gap;
 ```
 
 [[16](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L16)]
@@ -10238,7 +10238,7 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
-23:             uint256[47] private __gap;
+23: 		    uint256[47] private __gap;
 ```
 
 [[23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/MerkleClaimable.sol#L23)]
@@ -10246,7 +10246,7 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol
 
-32:             uint256[49] private __gap;
+32: 		    uint256[49] private __gap;
 ```
 
 [[32](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/adapters/USDCAdapter.sol#L32)]
@@ -10272,15 +10272,15 @@ _There are 5 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-17:             string internal constant HEADER = "-----BEGIN CERTIFICATE-----";
+17: 		    string internal constant HEADER = "-----BEGIN CERTIFICATE-----";
 
-18:             string internal constant FOOTER = "-----END CERTIFICATE-----";
+18: 		    string internal constant FOOTER = "-----END CERTIFICATE-----";
 
-22:             string internal constant PCK_COMMON_NAME = "Intel SGX PCK Certificate";
+22: 		    string internal constant PCK_COMMON_NAME = "Intel SGX PCK Certificate";
 
-23:             string internal constant PLATFORM_ISSUER_NAME = "Intel SGX PCK Platform CA";
+23: 		    string internal constant PLATFORM_ISSUER_NAME = "Intel SGX PCK Platform CA";
 
-24:             string internal constant PROCESSOR_ISSUER_NAME = "Intel SGX PCK Processor CA";
+24: 		    string internal constant PROCESSOR_ISSUER_NAME = "Intel SGX PCK Processor CA";
 ```
 
 [[17](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L17), [18](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L18), [22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L22), [23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L23), [24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L24)]
@@ -10298,7 +10298,7 @@ _There are 3 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-54:             constructor(address sigVerifyLibAddr, address pemCertLibAddr) {
+54: 		    constructor(address sigVerifyLibAddr, address pemCertLibAddr) {
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L54)]
@@ -10306,7 +10306,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-64:             constructor() {
+64: 		    constructor() {
 ```
 
 [[64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L64)]
@@ -10314,7 +10314,7 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 
-20:             constructor(address es256Verifier) {
+20: 		    constructor(address es256Verifier) {
 ```
 
 [[20](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol#L20)]
@@ -10330,17 +10330,17 @@ _There are 2 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-209:                } else if (!isMessageProven) {
-210:                    emit MessageReceived(msgHash, _message, true);
-211:                } else {
-212:                    revert B_INVOCATION_TOO_EARLY();
-213:                }
+209: 		        } else if (!isMessageProven) {
+210: 		            emit MessageReceived(msgHash, _message, true);
+211: 		        } else {
+212: 		            revert B_INVOCATION_TOO_EARLY();
+213: 		        }
 
-302:                } else if (!isMessageProven) {
-303:                    emit MessageReceived(msgHash, _message, false);
-304:                } else {
-305:                    revert B_INVOCATION_TOO_EARLY();
-306:                }
+302: 		        } else if (!isMessageProven) {
+303: 		            emit MessageReceived(msgHash, _message, false);
+304: 		        } else {
+305: 		            revert B_INVOCATION_TOO_EARLY();
+306: 		        }
 ```
 
 [[209-213](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L209-L213), [302-306](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L302-L306)]
@@ -10359,10 +10359,10 @@ _There are 27 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-87:                 require(
-88:                     v3Quote.v3AuthData.certification.certType == 5,
-89:                     "certType must be 5: Concatenated PCK Cert Chain (PEM formatted)"
-90:                 );
+87: 		        require(
+88: 		            v3Quote.v3AuthData.certification.certType == 5,
+89: 		            "certType must be 5: Concatenated PCK Cert Chain (PEM formatted)"
+90: 		        );
 ```
 
 [[87-90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L87-L90)]
@@ -10370,90 +10370,90 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
-37:                 require(
-38:                     _in.length > 0,
-39:                     "RLPReader: length of an RLP item must be greater than zero to be decodable"
-40:                 );
+37: 		        require(
+38: 		            _in.length > 0,
+39: 		            "RLPReader: length of an RLP item must be greater than zero to be decodable"
+40: 		        );
 
-56:                 require(
-57:                     itemType == RLPItemType.LIST_ITEM,
-58:                     "RLPReader: decoded item type for list is not a list item"
-59:                 );
+56: 		        require(
+57: 		            itemType == RLPItemType.LIST_ITEM,
+58: 		            "RLPReader: decoded item type for list is not a list item"
+59: 		        );
 
-61:                 require(
-62:                     listOffset + listLength == _in.length,
-63:                     "RLPReader: list item has an invalid data remainder"
-64:                 );
+61: 		        require(
+62: 		            listOffset + listLength == _in.length,
+63: 		            "RLPReader: list item has an invalid data remainder"
+64: 		        );
 
-112:                require(
-113:                    itemType == RLPItemType.DATA_ITEM,
-114:                    "RLPReader: decoded item type for bytes is not a data item"
-115:                );
+112: 		        require(
+113: 		            itemType == RLPItemType.DATA_ITEM,
+114: 		            "RLPReader: decoded item type for bytes is not a data item"
+115: 		        );
 
-117:                require(
-118:                    _in.length == itemOffset + itemLength,
-119:                    "RLPReader: bytes value contains an invalid remainder"
-120:                );
+117: 		        require(
+118: 		            _in.length == itemOffset + itemLength,
+119: 		            "RLPReader: bytes value contains an invalid remainder"
+120: 		        );
 
-152:                require(
-153:                    _in.length > 0,
-154:                    "RLPReader: length of an RLP item must be greater than zero to be decodable"
-155:                );
+152: 		        require(
+153: 		            _in.length > 0,
+154: 		            "RLPReader: length of an RLP item must be greater than zero to be decodable"
+155: 		        );
 
-172:                    require(
-173:                        _in.length > strLen,
-174:                        "RLPReader: length of content must be greater than string length (short string)"
-175:                    );
+172: 		            require(
+173: 		                _in.length > strLen,
+174: 		                "RLPReader: length of content must be greater than string length (short string)"
+175: 		            );
 
-182:                    require(
-183:                        strLen != 1 || firstByteOfContent >= 0x80,
-184:                        "RLPReader: invalid prefix, single byte < 0x80 are not prefixed (short string)"
-185:                    );
+182: 		            require(
+183: 		                strLen != 1 || firstByteOfContent >= 0x80,
+184: 		                "RLPReader: invalid prefix, single byte < 0x80 are not prefixed (short string)"
+185: 		            );
 
-192:                    require(
-193:                        _in.length > lenOfStrLen,
-194:                        "RLPReader: length of content must be > than length of string length (long string)"
-195:                    );
+192: 		            require(
+193: 		                _in.length > lenOfStrLen,
+194: 		                "RLPReader: length of content must be > than length of string length (long string)"
+195: 		            );
 
-202:                    require(
-203:                        firstByteOfContent != 0x00,
-204:                        "RLPReader: length of content must not have any leading zeros (long string)"
-205:                    );
+202: 		            require(
+203: 		                firstByteOfContent != 0x00,
+204: 		                "RLPReader: length of content must not have any leading zeros (long string)"
+205: 		            );
 
-212:                    require(
-213:                        strLen > 55,
-214:                        "RLPReader: length of content must be greater than 55 bytes (long string)"
-215:                    );
+212: 		            require(
+213: 		                strLen > 55,
+214: 		                "RLPReader: length of content must be greater than 55 bytes (long string)"
+215: 		            );
 
-217:                    require(
-218:                        _in.length > lenOfStrLen + strLen,
-219:                        "RLPReader: length of content must be greater than total length (long string)"
-220:                    );
+217: 		            require(
+218: 		                _in.length > lenOfStrLen + strLen,
+219: 		                "RLPReader: length of content must be greater than total length (long string)"
+220: 		            );
 
-228:                    require(
-229:                        _in.length > listLen,
-230:                        "RLPReader: length of content must be greater than list length (short list)"
-231:                    );
+228: 		            require(
+229: 		                _in.length > listLen,
+230: 		                "RLPReader: length of content must be greater than list length (short list)"
+231: 		            );
 
-238:                    require(
-239:                        _in.length > lenOfListLen,
-240:                        "RLPReader: length of content must be > than length of list length (long list)"
-241:                    );
+238: 		            require(
+239: 		                _in.length > lenOfListLen,
+240: 		                "RLPReader: length of content must be > than length of list length (long list)"
+241: 		            );
 
-248:                    require(
-249:                        firstByteOfContent != 0x00,
-250:                        "RLPReader: length of content must not have any leading zeros (long list)"
-251:                    );
+248: 		            require(
+249: 		                firstByteOfContent != 0x00,
+250: 		                "RLPReader: length of content must not have any leading zeros (long list)"
+251: 		            );
 
-258:                    require(
-259:                        listLen > 55,
-260:                        "RLPReader: length of content must be greater than 55 bytes (long list)"
-261:                    );
+258: 		            require(
+259: 		                listLen > 55,
+260: 		                "RLPReader: length of content must be greater than 55 bytes (long list)"
+261: 		            );
 
-263:                    require(
-264:                        _in.length > lenOfListLen + listLen,
-265:                        "RLPReader: length of content must be greater than total length (long list)"
-266:                    );
+263: 		            require(
+264: 		                _in.length > lenOfListLen + listLen,
+265: 		                "RLPReader: length of content must be greater than total length (long list)"
+266: 		            );
 ```
 
 [[37-40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L37-L40), [56-59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L56-L59), [61-64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L61-L64), [112-115](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L112-L115), [117-120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L117-L120), [152-155](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L152-L155), [172-175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L172-L175), [182-185](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L182-L185), [192-195](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L192-L195), [202-205](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L202-L205), [212-215](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L212-L215), [217-220](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L217-L220), [228-231](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L228-L231), [238-241](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L238-L241), [248-251](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L248-L251), [258-261](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L258-L261), [263-266](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L263-L266)]
@@ -10461,47 +10461,47 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-89:                     require(currentKeyIndex <= key.length, "MerkleTrie: key index exceeds total key length");
+89: 		            require(currentKeyIndex <= key.length, "MerkleTrie: key index exceeds total key length");
 
-99:                         require(
-100:                            Bytes.equal(abi.encodePacked(keccak256(currentNode.encoded)), currentNodeID),
-101:                            "MerkleTrie: invalid large internal hash"
-102:                        );
+99: 		                require(
+100: 		                    Bytes.equal(abi.encodePacked(keccak256(currentNode.encoded)), currentNodeID),
+101: 		                    "MerkleTrie: invalid large internal hash"
+102: 		                );
 
-105:                        require(
-106:                            Bytes.equal(currentNode.encoded, currentNodeID),
-107:                            "MerkleTrie: invalid internal node hash"
-108:                        );
+105: 		                require(
+106: 		                    Bytes.equal(currentNode.encoded, currentNodeID),
+107: 		                    "MerkleTrie: invalid internal node hash"
+108: 		                );
 
-119:                            require(
-120:                                value_.length > 0,
-121:                                "MerkleTrie: value length must be greater than zero (branch)"
-122:                            );
+119: 		                    require(
+120: 		                        value_.length > 0,
+121: 		                        "MerkleTrie: value length must be greater than zero (branch)"
+122: 		                    );
 
-125:                            require(
-126:                                i == proof.length - 1,
-127:                                "MerkleTrie: value node must be last node in proof (branch)"
-128:                            );
+125: 		                    require(
+126: 		                        i == proof.length - 1,
+127: 		                        "MerkleTrie: value node must be last node in proof (branch)"
+128: 		                    );
 
-150:                        require(
-151:                            pathRemainder.length == sharedNibbleLength,
-152:                            "MerkleTrie: path remainder must share all nibbles with key"
-153:                        );
+150: 		                require(
+151: 		                    pathRemainder.length == sharedNibbleLength,
+152: 		                    "MerkleTrie: path remainder must share all nibbles with key"
+153: 		                );
 
-162:                            require(
-163:                                keyRemainder.length == sharedNibbleLength,
-164:                                "MerkleTrie: key remainder must be identical to path remainder"
-165:                            );
+162: 		                    require(
+163: 		                        keyRemainder.length == sharedNibbleLength,
+164: 		                        "MerkleTrie: key remainder must be identical to path remainder"
+165: 		                    );
 
-172:                            require(
-173:                                value_.length > 0,
-174:                                "MerkleTrie: value length must be greater than zero (leaf)"
-175:                            );
+172: 		                    require(
+173: 		                        value_.length > 0,
+174: 		                        "MerkleTrie: value length must be greater than zero (leaf)"
+175: 		                    );
 
-178:                            require(
-179:                                i == proof.length - 1,
-180:                                "MerkleTrie: value node must be last node in proof (leaf)"
-181:                            );
+178: 		                    require(
+179: 		                        i == proof.length - 1,
+180: 		                        "MerkleTrie: value node must be last node in proof (leaf)"
+181: 		                    );
 ```
 
 [[89](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L89), [99-102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L99-L102), [105-108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L105-L108), [119-122](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L119-L122), [125-128](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L125-L128), [150-153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L150-L153), [162-165](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L162-L165), [172-175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L172-L175), [178-181](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L178-L181)]
@@ -10522,7 +10522,7 @@ _There are 23 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-220:                    if (pceSvnIsHigherOrGreater && cpuSvnsAreHigherOrGreater) {
+220: 		            if (pceSvnIsHigherOrGreater && cpuSvnsAreHigherOrGreater) {
 ```
 
 [[220](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L220)]
@@ -10530,15 +10530,15 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-250:                if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
+250: 		        if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
 
-260:                    if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
+260: 		            if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
 
-439:                } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
+439: 		        } else if (block.chainid >= 32_300 && block.chainid <= 32_400) {
 
-491:                    _message.data.length >= 4 // msg can be empty
-492:                        && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
-493:                        && _message.to.isContract()
+491: 		            _message.data.length >= 4 // msg can be empty
+492: 		                && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
+493: 		                && _message.to.isContract()
 ```
 
 [[250](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L250), [260](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L260), [439](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L439), [491-493](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L491-L493)]
@@ -10546,7 +10546,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-85:                 if (!_allowZeroAddress && addr_ == address(0)) {
+85: 		        if (!_allowZeroAddress && addr_ == address(0)) {
 ```
 
 [[85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L85)]
@@ -10554,7 +10554,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-42:                 if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+42: 		        if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
 ```
 
 [[42](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L42)]
@@ -10562,12 +10562,12 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-117:                    _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
-118:                        || (block.number != 1 && _parentGasUsed == 0)
+117: 		            _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
+118: 		                || (block.number != 1 && _parentGasUsed == 0)
 
-141:                if (!skipFeeCheck() && block.basefee != basefee) {
+141: 		        if (!skipFeeCheck() && block.basefee != basefee) {
 
-275:                    if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
+275: 		            if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
 ```
 
 [[117-118](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L117-L118), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L141), [275](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L275)]
@@ -10575,9 +10575,9 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-285:                if (cacheStateRoot && _isFullProof && !_isLastHop) {
+285: 		        if (cacheStateRoot && _isFullProof && !_isLastHop) {
 
-293:                if (cacheSignalRoot && (_isFullProof || !_isLastHop)) {
+293: 		        if (cacheSignalRoot && (_isFullProof || !_isLastHop)) {
 ```
 
 [[285](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L285), [293](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L293)]
@@ -10585,7 +10585,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-277:                    if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+277: 		            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
 ```
 
 [[277](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L277)]
@@ -10593,7 +10593,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-38:                 if (msg.sender != owner() && msg.sender != snapshooter) {
+38: 		        if (msg.sender != owner() && msg.sender != snapshooter) {
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L38)]
@@ -10601,7 +10601,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-45:                 if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
+45: 		        if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
 ```
 
 [[45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L45)]
@@ -10609,8 +10609,8 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-135:                        (notBeforeTag != 0x17 && notBeforeTag == 0x18)
-136:                            || (notAfterTag != 0x17 && notAfterTag != 0x18)
+135: 		                (notBeforeTag != 0x17 && notBeforeTag == 0x18)
+136: 		                    || (notAfterTag != 0x17 && notAfterTag != 0x18)
 ```
 
 [[135-136](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L135-L136)]
@@ -10618,13 +10618,13 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-82:                     block.timestamp > assignment.expiry
-83:                         || assignment.metaHash != 0 && _blk.metaHash != assignment.metaHash
-84:                         || assignment.parentMetaHash != 0 && _meta.parentMetaHash != assignment.parentMetaHash
-85:                         || assignment.maxBlockId != 0 && _meta.id > assignment.maxBlockId
-86:                         || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
+82: 		            block.timestamp > assignment.expiry
+83: 		                || assignment.metaHash != 0 && _blk.metaHash != assignment.metaHash
+84: 		                || assignment.parentMetaHash != 0 && _meta.parentMetaHash != assignment.parentMetaHash
+85: 		                || assignment.maxBlockId != 0 && _meta.id > assignment.maxBlockId
+86: 		                || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
 
-120:                if (input.tip != 0 && block.coinbase != address(0)) {
+120: 		        if (input.tip != 0 && block.coinbase != address(0)) {
 ```
 
 [[82-86](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L82-L86), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L120)]
@@ -10632,11 +10632,11 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-108:                if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
+108: 		        if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
 
-164:                        if (_config.blobReuseEnabled && params.cacheBlobForReuse) {
+164: 		                if (_config.blobReuseEnabled && params.cacheBlobForReuse) {
 
-310:                    if (proposerOne != address(0) && msg.sender != proposerOne) {
+310: 		            if (proposerOne != address(0) && msg.sender != proposerOne) {
 ```
 
 [[108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L108), [164](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L164), [310](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L310)]
@@ -10644,7 +10644,7 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-419:                if (_tid == 1 && _ts.tier == 0 && inProvingWindow) {
+419: 		        if (_tid == 1 && _ts.tier == 0 && inProvingWindow) {
 ```
 
 [[419](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L419)]
@@ -10652,7 +10652,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-14:                 if (_in.length == 1 && uint8(_in[0]) < 128) {
+14: 		        if (_in.length == 1 && uint8(_in[0]) < 128) {
 ```
 
 [[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L14)]
@@ -10673,19 +10673,19 @@ _There are 45 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-80:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+80: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-95:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+95: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-191:                for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
+191: 		        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
 
-214:                for (uint256 i; i < tcb.tcbLevels.length; ++i) {
+214: 		        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
 
-240:                for (uint256 i; i < CPUSVN_LENGTH; ++i) {
+240: 		        for (uint256 i; i < CPUSVN_LENGTH; ++i) {
 
-259:                for (uint256 i; i < n; ++i) {
+259: 		        for (uint256 i; i < n; ++i) {
 
-420:                    for (uint256 i; i < 3; ++i) {
+420: 		            for (uint256 i; i < 3; ++i) {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L80), [95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L95), [191](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L191), [214](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L214), [240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L240), [259](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L259), [420](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L420)]
@@ -10693,7 +10693,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-90:                 for (uint256 i; i < _msgHashes.length; ++i) {
+90: 		        for (uint256 i; i < _msgHashes.length; ++i) {
 ```
 
 [[90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L90)]
@@ -10701,7 +10701,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-234:                    for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
+234: 		            for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
 ```
 
 [[234](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L234)]
@@ -10709,7 +10709,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-104:                for (uint256 i; i < hopProofs.length; ++i) {
+104: 		        for (uint256 i; i < hopProofs.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L104)]
@@ -10717,11 +10717,11 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-47:                 for (uint256 i; i < _op.amounts.length; ++i) {
+47: 		        for (uint256 i; i < _op.amounts.length; ++i) {
 
-251:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+251: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-269:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+269: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L47), [251](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L251), [269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L269)]
@@ -10729,15 +10729,15 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-34:                 for (uint256 i; i < _op.tokenIds.length; ++i) {
+34: 		        for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-170:                    for (uint256 i; i < _tokenIds.length; ++i) {
+170: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-175:                    for (uint256 i; i < _tokenIds.length; ++i) {
+175: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-197:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+197: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-210:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+210: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L34), [170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L170), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L175), [197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L197), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L210)]
@@ -10745,9 +10745,9 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-104:                for (uint256 i; i < _ids.length; ++i) {
+104: 		        for (uint256 i; i < _ids.length; ++i) {
 
-210:                for (uint256 i; i < _instances.length; ++i) {
+210: 		        for (uint256 i; i < _instances.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L104), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L210)]
@@ -10755,11 +10755,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-54:                 for (uint256 i; i < size; ++i) {
+54: 		        for (uint256 i; i < size; ++i) {
 
-244:                for (uint256 i; i < split.length; ++i) {
+244: 		        for (uint256 i; i < split.length; ++i) {
 
-354:                for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
+354: 		        for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L54), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L244), [354](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L354)]
@@ -10767,7 +10767,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-333:                for (uint256 i; i < len; ++i) {
+333: 		        for (uint256 i; i < len; ++i) {
 ```
 
 [[333](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L333)]
@@ -10775,19 +10775,19 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-140:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+140: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-152:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+152: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-158:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+158: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-174:                for (uint256 i; i < _sha256.length; ++i) {
+174: 		        for (uint256 i; i < _sha256.length; ++i) {
 
-273:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+273: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-283:                for (uint256 i; i < sha1Prefix.length; ++i) {
+283: 		        for (uint256 i; i < sha1Prefix.length; ++i) {
 
-290:                for (uint256 i; i < _sha1.length; ++i) {
+290: 		        for (uint256 i; i < _sha1.length; ++i) {
 ```
 
 [[140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L140), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L152), [158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L158), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L174), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L273), [283](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L283), [290](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L290)]
@@ -10795,9 +10795,9 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-48:                 for (uint16 i = 1970; i < year; ++i) {
+48: 		        for (uint16 i = 1970; i < year; ++i) {
 
-59:                 for (uint8 i = 1; i < month; ++i) {
+59: 		        for (uint8 i = 1; i < month; ++i) {
 ```
 
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L48), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L59)]
@@ -10805,7 +10805,7 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-172:                for (uint256 i; i < _tierFees.length; ++i) {
+172: 		        for (uint256 i; i < _tierFees.length; ++i) {
 ```
 
 [[172](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L172)]
@@ -10813,7 +10813,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-244:                    for (uint256 i; i < params.hookCalls.length; ++i) {
+244: 		            for (uint256 i; i < params.hookCalls.length; ++i) {
 ```
 
 [[244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L244)]
@@ -10821,11 +10821,11 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-74:                 for (uint256 i; i < guardians.length; ++i) {
+74: 		        for (uint256 i; i < guardians.length; ++i) {
 
-80:                 for (uint256 i = 0; i < _newGuardians.length; ++i) {
+80: 		        for (uint256 i = 0; i < _newGuardians.length; ++i) {
 
-133:                    for (uint256 i; i < guardiansLength; ++i) {
+133: 		            for (uint256 i; i < guardiansLength; ++i) {
 ```
 
 [[74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L74), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L80), [133](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L133)]
@@ -10833,7 +10833,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-59:                 for (uint256 i; i < tokenIds.length; ++i) {
+59: 		        for (uint256 i; i < tokenIds.length; ++i) {
 ```
 
 [[59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L59)]
@@ -10841,9 +10841,9 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-153:                for (uint256 i; i < encoded.length; ++i) {
+153: 		        for (uint256 i; i < encoded.length; ++i) {
 
-281:                for (uint256 i; i < 3; ++i) {
+281: 		        for (uint256 i; i < 3; ++i) {
 ```
 
 [[153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L153), [281](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L281)]
@@ -10851,11 +10851,11 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-46:                     for (i = 1; i <= lenLen; i++) {
+46: 		            for (i = 1; i <= lenLen; i++) {
 
-59:                 for (; i < 32; i++) {
+59: 		        for (; i < 32; i++) {
 
-66:                 for (uint256 j = 0; j < out_.length; j++) {
+66: 		        for (uint256 j = 0; j < out_.length; j++) {
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L46), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L59), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L66)]
@@ -10863,7 +10863,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-85:                 for (uint256 i = 0; i < proof.length; i++) {
+85: 		        for (uint256 i = 0; i < proof.length; i++) {
 ```
 
 [[85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L85)]
@@ -10888,19 +10888,19 @@ _There are 49 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-80:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+80: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-95:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+95: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-191:                for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
+191: 		        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
 
-214:                for (uint256 i; i < tcb.tcbLevels.length; ++i) {
+214: 		        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
 
-240:                for (uint256 i; i < CPUSVN_LENGTH; ++i) {
+240: 		        for (uint256 i; i < CPUSVN_LENGTH; ++i) {
 
-259:                for (uint256 i; i < n; ++i) {
+259: 		        for (uint256 i; i < n; ++i) {
 
-420:                    for (uint256 i; i < 3; ++i) {
+420: 		            for (uint256 i; i < 3; ++i) {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L80), [95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L95), [191](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L191), [214](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L214), [240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L240), [259](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L259), [420](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L420)]
@@ -10908,7 +10908,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-90:                 for (uint256 i; i < _msgHashes.length; ++i) {
+90: 		        for (uint256 i; i < _msgHashes.length; ++i) {
 ```
 
 [[90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L90)]
@@ -10916,7 +10916,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-234:                    for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
+234: 		            for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
 ```
 
 [[234](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L234)]
@@ -10924,7 +10924,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-104:                for (uint256 i; i < hopProofs.length; ++i) {
+104: 		        for (uint256 i; i < hopProofs.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L104)]
@@ -10932,11 +10932,11 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-47:                 for (uint256 i; i < _op.amounts.length; ++i) {
+47: 		        for (uint256 i; i < _op.amounts.length; ++i) {
 
-251:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+251: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-269:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+269: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L47), [251](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L251), [269](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L269)]
@@ -10944,15 +10944,15 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-34:                 for (uint256 i; i < _op.tokenIds.length; ++i) {
+34: 		        for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-170:                    for (uint256 i; i < _tokenIds.length; ++i) {
+170: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-175:                    for (uint256 i; i < _tokenIds.length; ++i) {
+175: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-197:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+197: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-210:                        for (uint256 i; i < _op.tokenIds.length; ++i) {
+210: 		                for (uint256 i; i < _op.tokenIds.length; ++i) {
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L34), [170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L170), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L175), [197](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L197), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L210)]
@@ -10960,9 +10960,9 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-104:                for (uint256 i; i < _ids.length; ++i) {
+104: 		        for (uint256 i; i < _ids.length; ++i) {
 
-210:                for (uint256 i; i < _instances.length; ++i) {
+210: 		        for (uint256 i; i < _instances.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L104), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L210)]
@@ -10970,11 +10970,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-54:                 for (uint256 i; i < size; ++i) {
+54: 		        for (uint256 i; i < size; ++i) {
 
-244:                for (uint256 i; i < split.length; ++i) {
+244: 		        for (uint256 i; i < split.length; ++i) {
 
-354:                for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
+354: 		        for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L54), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L244), [354](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L354)]
@@ -10982,9 +10982,9 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-80:                 for (uint256 idx = 0; idx < shortest; idx += 32) {
+80: 		        for (uint256 idx = 0; idx < shortest; idx += 32) {
 
-333:                for (uint256 i; i < len; ++i) {
+333: 		        for (uint256 i; i < len; ++i) {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L80), [333](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L333)]
@@ -10992,19 +10992,19 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-140:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+140: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-152:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+152: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-158:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+158: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-174:                for (uint256 i; i < _sha256.length; ++i) {
+174: 		        for (uint256 i; i < _sha256.length; ++i) {
 
-273:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+273: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-283:                for (uint256 i; i < sha1Prefix.length; ++i) {
+283: 		        for (uint256 i; i < sha1Prefix.length; ++i) {
 
-290:                for (uint256 i; i < _sha1.length; ++i) {
+290: 		        for (uint256 i; i < _sha1.length; ++i) {
 ```
 
 [[140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L140), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L152), [158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L158), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L174), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L273), [283](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L283), [290](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L290)]
@@ -11012,9 +11012,9 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-48:                 for (uint16 i = 1970; i < year; ++i) {
+48: 		        for (uint16 i = 1970; i < year; ++i) {
 
-59:                 for (uint8 i = 1; i < month; ++i) {
+59: 		        for (uint8 i = 1; i < month; ++i) {
 ```
 
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L48), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L59)]
@@ -11022,7 +11022,7 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-172:                for (uint256 i; i < _tierFees.length; ++i) {
+172: 		        for (uint256 i; i < _tierFees.length; ++i) {
 ```
 
 [[172](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L172)]
@@ -11030,7 +11030,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-86:                     for (uint256 i; i < deposits_.length;) {
+86: 		            for (uint256 i; i < deposits_.length;) {
 ```
 
 [[86](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L86)]
@@ -11038,7 +11038,7 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-244:                    for (uint256 i; i < params.hookCalls.length; ++i) {
+244: 		            for (uint256 i; i < params.hookCalls.length; ++i) {
 ```
 
 [[244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L244)]
@@ -11046,11 +11046,11 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-74:                 for (uint256 i; i < guardians.length; ++i) {
+74: 		        for (uint256 i; i < guardians.length; ++i) {
 
-80:                 for (uint256 i = 0; i < _newGuardians.length; ++i) {
+80: 		        for (uint256 i = 0; i < _newGuardians.length; ++i) {
 
-133:                    for (uint256 i; i < guardiansLength; ++i) {
+133: 		            for (uint256 i; i < guardiansLength; ++i) {
 ```
 
 [[74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L74), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L80), [133](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L133)]
@@ -11058,7 +11058,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-59:                 for (uint256 i; i < tokenIds.length; ++i) {
+59: 		        for (uint256 i; i < tokenIds.length; ++i) {
 ```
 
 [[59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L59)]
@@ -11066,9 +11066,9 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-153:                for (uint256 i; i < encoded.length; ++i) {
+153: 		        for (uint256 i; i < encoded.length; ++i) {
 
-281:                for (uint256 i; i < 3; ++i) {
+281: 		        for (uint256 i; i < 3; ++i) {
 ```
 
 [[153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L153), [281](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L281)]
@@ -11076,11 +11076,11 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-46:                     for (i = 1; i <= lenLen; i++) {
+46: 		            for (i = 1; i <= lenLen; i++) {
 
-59:                 for (; i < 32; i++) {
+59: 		        for (; i < 32; i++) {
 
-66:                 for (uint256 j = 0; j < out_.length; j++) {
+66: 		        for (uint256 j = 0; j < out_.length; j++) {
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L46), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L59), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L66)]
@@ -11088,11 +11088,11 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-85:                 for (uint256 i = 0; i < proof.length; i++) {
+85: 		        for (uint256 i = 0; i < proof.length; i++) {
 
-208:                for (uint256 i = 0; i < length;) {
+208: 		        for (uint256 i = 0; i < length;) {
 
-244:                for (; shared_ < max && _a[shared_] == _b[shared_];) {
+244: 		        for (; shared_ < max && _a[shared_] == _b[shared_];) {
 ```
 
 [[85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L85), [208](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L208), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L244)]
@@ -11107,9 +11107,9 @@ Use `unchecked` to increment the loop variable as it can save gas:
 
 ```solidity
 for(uint256 i; i < length;) {
-    unchecked{
-        ++i;
-    }
+	unchecked{
+		++i;
+	}
 }
 ```
 
@@ -11121,19 +11121,19 @@ _There are 39 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-80:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+80: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-95:                 for (uint256 i; i < serialNumBatch.length; ++i) {
+95: 		        for (uint256 i; i < serialNumBatch.length; ++i) {
 
-191:                for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
+191: 		        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
 
-214:                for (uint256 i; i < tcb.tcbLevels.length; ++i) {
+214: 		        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
 
-240:                for (uint256 i; i < CPUSVN_LENGTH; ++i) {
+240: 		        for (uint256 i; i < CPUSVN_LENGTH; ++i) {
 
-259:                for (uint256 i; i < n; ++i) {
+259: 		        for (uint256 i; i < n; ++i) {
 
-420:                    for (uint256 i; i < 3; ++i) {
+420: 		            for (uint256 i; i < 3; ++i) {
 ```
 
 [[80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L80), [95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L95), [191](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L191), [214](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L214), [240](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L240), [259](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L259), [420](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L420)]
@@ -11141,7 +11141,7 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-90:                 for (uint256 i; i < _msgHashes.length; ++i) {
+90: 		        for (uint256 i; i < _msgHashes.length; ++i) {
 ```
 
 [[90](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L90)]
@@ -11149,7 +11149,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-104:                for (uint256 i; i < hopProofs.length; ++i) {
+104: 		        for (uint256 i; i < hopProofs.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L104)]
@@ -11157,7 +11157,7 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-47:                 for (uint256 i; i < _op.amounts.length; ++i) {
+47: 		        for (uint256 i; i < _op.amounts.length; ++i) {
 ```
 
 [[47](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L47)]
@@ -11165,11 +11165,11 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-34:                 for (uint256 i; i < _op.tokenIds.length; ++i) {
+34: 		        for (uint256 i; i < _op.tokenIds.length; ++i) {
 
-170:                    for (uint256 i; i < _tokenIds.length; ++i) {
+170: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 
-175:                    for (uint256 i; i < _tokenIds.length; ++i) {
+175: 		            for (uint256 i; i < _tokenIds.length; ++i) {
 ```
 
 [[34](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L34), [170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L170), [175](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L175)]
@@ -11177,9 +11177,9 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-104:                for (uint256 i; i < _ids.length; ++i) {
+104: 		        for (uint256 i; i < _ids.length; ++i) {
 
-210:                for (uint256 i; i < _instances.length; ++i) {
+210: 		        for (uint256 i; i < _instances.length; ++i) {
 ```
 
 [[104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L104), [210](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L210)]
@@ -11187,11 +11187,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-54:                 for (uint256 i; i < size; ++i) {
+54: 		        for (uint256 i; i < size; ++i) {
 
-244:                for (uint256 i; i < split.length; ++i) {
+244: 		        for (uint256 i; i < split.length; ++i) {
 
-354:                for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
+354: 		        for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L54), [244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L244), [354](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L354)]
@@ -11199,7 +11199,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 
-333:                for (uint256 i; i < len; ++i) {
+333: 		        for (uint256 i; i < len; ++i) {
 ```
 
 [[333](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol#L333)]
@@ -11207,19 +11207,19 @@ File: packages/protocol/contracts/automata-attestation/utils/BytesUtils.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 
-140:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+140: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-152:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+152: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-158:                    for (uint256 i; i < digestAlgoWithParamLen; ++i) {
+158: 		            for (uint256 i; i < digestAlgoWithParamLen; ++i) {
 
-174:                for (uint256 i; i < _sha256.length; ++i) {
+174: 		        for (uint256 i; i < _sha256.length; ++i) {
 
-273:                for (uint256 i = 2; i < 2 + paddingLen; ++i) {
+273: 		        for (uint256 i = 2; i < 2 + paddingLen; ++i) {
 
-283:                for (uint256 i; i < sha1Prefix.length; ++i) {
+283: 		        for (uint256 i; i < sha1Prefix.length; ++i) {
 
-290:                for (uint256 i; i < _sha1.length; ++i) {
+290: 		        for (uint256 i; i < _sha1.length; ++i) {
 ```
 
 [[140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L140), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L152), [158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L158), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L174), [273](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L273), [283](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L283), [290](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol#L290)]
@@ -11227,9 +11227,9 @@ File: packages/protocol/contracts/automata-attestation/utils/RsaVerify.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 
-48:                 for (uint16 i = 1970; i < year; ++i) {
+48: 		        for (uint16 i = 1970; i < year; ++i) {
 
-59:                 for (uint8 i = 1; i < month; ++i) {
+59: 		        for (uint8 i = 1; i < month; ++i) {
 ```
 
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L48), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol#L59)]
@@ -11237,7 +11237,7 @@ File: packages/protocol/contracts/automata-attestation/utils/X509DateUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-172:                for (uint256 i; i < _tierFees.length; ++i) {
+172: 		        for (uint256 i; i < _tierFees.length; ++i) {
 ```
 
 [[172](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L172)]
@@ -11245,7 +11245,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-244:                    for (uint256 i; i < params.hookCalls.length; ++i) {
+244: 		            for (uint256 i; i < params.hookCalls.length; ++i) {
 ```
 
 [[244](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L244)]
@@ -11253,9 +11253,9 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-74:                 for (uint256 i; i < guardians.length; ++i) {
+74: 		        for (uint256 i; i < guardians.length; ++i) {
 
-80:                 for (uint256 i = 0; i < _newGuardians.length; ++i) {
+80: 		        for (uint256 i = 0; i < _newGuardians.length; ++i) {
 ```
 
 [[74](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L74), [80](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L80)]
@@ -11263,7 +11263,7 @@ File: packages/protocol/contracts/L1/provers/Guardians.sol
 ```solidity
 File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 
-59:                 for (uint256 i; i < tokenIds.length; ++i) {
+59: 		        for (uint256 i; i < tokenIds.length; ++i) {
 ```
 
 [[59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol#L59)]
@@ -11271,9 +11271,9 @@ File: packages/protocol/contracts/team/airdrop/ERC721Airdrop.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol
 
-153:                for (uint256 i; i < encoded.length; ++i) {
+153: 		        for (uint256 i; i < encoded.length; ++i) {
 
-281:                for (uint256 i; i < 3; ++i) {
+281: 		        for (uint256 i; i < 3; ++i) {
 ```
 
 [[153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L153), [281](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.sol#L281)]
@@ -11281,11 +11281,11 @@ File: packages/protocol/contracts/automata-attestation/lib/QuoteV3Auth/V3Parser.
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 
-46:                     for (i = 1; i <= lenLen; i++) {
+46: 		            for (i = 1; i <= lenLen; i++) {
 
-59:                 for (; i < 32; i++) {
+59: 		        for (; i < 32; i++) {
 
-66:                 for (uint256 j = 0; j < out_.length; j++) {
+66: 		        for (uint256 j = 0; j < out_.length; j++) {
 ```
 
 [[46](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L46), [59](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L59), [66](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol#L66)]
@@ -11293,7 +11293,7 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPWriter.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-85:                 for (uint256 i = 0; i < proof.length; i++) {
+85: 		        for (uint256 i = 0; i < proof.length; i++) {
 ```
 
 [[85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L85)]
@@ -11314,11 +11314,11 @@ _There are 15 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-262:                if (gasExcess > 0) {
+262: 		        if (gasExcess > 0) {
 
-275:                    if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
+275: 		            if (lastSyncedBlock > 0 && _l1BlockId > lastSyncedBlock) {
 
-279:                    if (numL1Blocks > 0) {
+279: 		            if (numL1Blocks > 0) {
 ```
 
 [[262](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L262), [275](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L275), [279](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L279)]
@@ -11326,7 +11326,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-120:                    bool isFullProof = hop.accountProof.length > 0;
+120: 		            bool isFullProof = hop.accountProof.length > 0;
 ```
 
 [[120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L120)]
@@ -11334,9 +11334,9 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-275:                    if (_cliff > 0) revert INVALID_GRANT();
+275: 		            if (_cliff > 0) revert INVALID_GRANT();
 
-277:                    if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
+277: 		            if (_cliff > 0 && _cliff <= _start) revert INVALID_GRANT();
 ```
 
 [[275](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L275), [277](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L277)]
@@ -11344,7 +11344,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-56:                     if (i > 0) {
+56: 		            if (i > 0) {
 ```
 
 [[56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L56)]
@@ -11352,7 +11352,7 @@ File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-125:                if (address(this).balance > 0) {
+125: 		        if (address(this).balance > 0) {
 ```
 
 [[125](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L125)]
@@ -11360,7 +11360,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-192:                    bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
+192: 		            bool returnLivenessBond = blk.livenessBond > 0 && _proof.data.length == 32
 ```
 
 [[192](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L192)]
@@ -11368,7 +11368,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-212:                    if (numBlocksVerified > 0) {
+212: 		            if (numBlocksVerified > 0) {
 ```
 
 [[212](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L212)]
@@ -11376,9 +11376,9 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 
-38:                     _in.length > 0,
+38: 		            _in.length > 0,
 
-153:                    _in.length > 0,
+153: 		            _in.length > 0,
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L38), [153](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol#L153)]
@@ -11386,11 +11386,11 @@ File: packages/protocol/contracts/thirdparty/optimism/rlp/RLPReader.sol
 ```solidity
 File: packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol
 
-77:                 require(_key.length > 0, "MerkleTrie: empty key");
+77: 		        require(_key.length > 0, "MerkleTrie: empty key");
 
-120:                                value_.length > 0,
+120: 		                        value_.length > 0,
 
-173:                                value_.length > 0,
+173: 		                        value_.length > 0,
 ```
 
 [[77](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L77), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L120), [173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/thirdparty/optimism/trie/MerkleTrie.sol#L173)]
@@ -11411,27 +11411,27 @@ _There are 74 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-124:                if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
+124: 		        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
 
-124:                if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
+124: 		        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
 
-124:                if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
+124: 		        if (_message.srcOwner == address(0) || _message.destOwner == address(0)) {
 
-270:                        _message.to == address(0) || _message.to == address(this)
-271:                            || _message.to == signalService || addressBanned[_message.to]
+270: 		                _message.to == address(0) || _message.to == address(this)
+271: 		                    || _message.to == signalService || addressBanned[_message.to]
 
-270:                        _message.to == address(0) || _message.to == address(this)
-271:                            || _message.to == signalService || addressBanned[_message.to]
+270: 		                _message.to == address(0) || _message.to == address(this)
+271: 		                    || _message.to == signalService || addressBanned[_message.to]
 
-270:                        _message.to == address(0) || _message.to == address(this)
+270: 		                _message.to == address(0) || _message.to == address(this)
 
-270:                        _message.to == address(0) || _message.to == address(this)
+270: 		                _message.to == address(0) || _message.to == address(this)
 
-291:                        _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
+291: 		                _message.refundTo == address(0) ? _message.destOwner : _message.refundTo;
 
-398:                enabled_ = destBridge_ != address(0);
+398: 		        enabled_ = destBridge_ != address(0);
 
-398:                enabled_ = destBridge_ != address(0);
+398: 		        enabled_ = destBridge_ != address(0);
 ```
 
 [[124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L124), [124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L124), [124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L124), [270-271](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L270-L271), [270-271](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L270-L271), [270](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L270), [270](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L270), [291](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L291), [398](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L398), [398](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L398)]
@@ -11439,11 +11439,11 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-81:                 if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+81: 		        if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
 
-85:                 if (!_allowZeroAddress && addr_ == address(0)) {
+85: 		        if (!_allowZeroAddress && addr_ == address(0)) {
 
-85:                 if (!_allowZeroAddress && addr_ == address(0)) {
+85: 		        if (!_allowZeroAddress && addr_ == address(0)) {
 ```
 
 [[81](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L81), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L85), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L85)]
@@ -11451,9 +11451,9 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/common/EssentialContract.sol
 
-105:                if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
+105: 		        if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
 
-110:                _transferOwnership(_owner == address(0) ? msg.sender : _owner);
+110: 		        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
 ```
 
 [[105](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L105), [110](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L110)]
@@ -11461,9 +11461,9 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-172:                if (_to == address(0)) revert L2_INVALID_PARAM();
+172: 		        if (_to == address(0)) revert L2_INVALID_PARAM();
 
-173:                if (_token == address(0)) {
+173: 		        if (_token == address(0)) {
 ```
 
 [[172](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L172), [173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L173)]
@@ -11471,7 +11471,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibAddress.sol
 
-24:                 if (_to == address(0)) revert ETH_TRANSFER_FAILED();
+24: 		        if (_to == address(0)) revert ETH_TRANSFER_FAILED();
 ```
 
 [[24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L24)]
@@ -11479,7 +11479,7 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 ```solidity
 File: packages/protocol/contracts/signal/SignalService.sol
 
-36:                 if (_app == address(0)) revert SS_INVALID_SENDER();
+36: 		        if (_app == address(0)) revert SS_INVALID_SENDER();
 ```
 
 [[36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/signal/SignalService.sol#L36)]
@@ -11487,15 +11487,15 @@ File: packages/protocol/contracts/signal/SignalService.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-121:                if (_taikoToken == address(0)) revert INVALID_PARAM();
+121: 		        if (_taikoToken == address(0)) revert INVALID_PARAM();
 
-124:                if (_costToken == address(0)) revert INVALID_PARAM();
+124: 		        if (_costToken == address(0)) revert INVALID_PARAM();
 
-127:                if (_sharedVault == address(0)) revert INVALID_PARAM();
+127: 		        if (_sharedVault == address(0)) revert INVALID_PARAM();
 
-136:                if (_recipient == address(0)) revert INVALID_PARAM();
+136: 		        if (_recipient == address(0)) revert INVALID_PARAM();
 
-169:                if (_to == address(0)) revert INVALID_PARAM();
+169: 		        if (_to == address(0)) revert INVALID_PARAM();
 ```
 
 [[121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L121), [124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L124), [127](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L127), [136](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L136), [169](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L169)]
@@ -11503,7 +11503,7 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 
-149:                if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
+149: 		        if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
 ```
 
 [[149](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseNFTVault.sol#L149)]
@@ -11511,9 +11511,9 @@ File: packages/protocol/contracts/tokenvault/BaseNFTVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-102:                return migratingAddress != address(0) && !migratingInbound;
+102: 		        return migratingAddress != address(0) && !migratingInbound;
 
-102:                return migratingAddress != address(0) && !migratingInbound;
+102: 		        return migratingAddress != address(0) && !migratingInbound;
 ```
 
 [[102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L102), [102](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L102)]
@@ -11521,15 +11521,15 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-64:                     destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+64: 		            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
 
-108:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+108: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-108:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+108: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-249:                    if (bridgedToCanonical[_op.token].addr != address(0)) {
+249: 		            if (bridgedToCanonical[_op.token].addr != address(0)) {
 
-293:                if (btoken_ == address(0)) {
+293: 		        if (btoken_ == address(0)) {
 ```
 
 [[64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L64), [108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L108), [108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L108), [249](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L249), [293](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L293)]
@@ -11537,25 +11537,25 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-158:                if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
+158: 		        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
 
-158:                if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
+158: 		        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
 
-158:                if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
+158: 		        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
 
-170:                if (btokenOld_ != address(0)) {
+170: 		        if (btokenOld_ != address(0)) {
 
-215:                if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
+215: 		        if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
 
-227:                    destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+227: 		            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
 
-267:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+267: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-267:                if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+267: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-358:                if (bridgedToCanonical[_token].addr != address(0)) {
+358: 		        if (bridgedToCanonical[_token].addr != address(0)) {
 
-397:                if (btoken == address(0)) {
+397: 		        if (btoken == address(0)) {
 ```
 
 [[158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L158), [158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L158), [158](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L158), [170](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L170), [215](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L215), [227](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L227), [267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L267), [267](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L267), [358](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L358), [397](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L397)]
@@ -11563,15 +11563,15 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-50:                     destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+50: 		            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
 
-91:                 if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+91: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-91:                 if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
+91: 		        if (to == address(0) || to == address(this)) revert VAULT_INVALID_TO();
 
-195:                    if (bridgedToCanonical[_op.token].addr != address(0)) {
+195: 		            if (bridgedToCanonical[_op.token].addr != address(0)) {
 
-230:                if (btoken_ == address(0)) {
+230: 		        if (btoken_ == address(0)) {
 ```
 
 [[50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L50), [91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L91), [91](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L91), [195](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L195), [230](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L230)]
@@ -11579,17 +11579,17 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 
-21:                     _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-22:                         || bytes(_symbol).length == 0 || bytes(_name).length == 0
+21: 		            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+22: 		                || bytes(_symbol).length == 0 || bytes(_name).length == 0
 
-21:                     _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-22:                         || bytes(_symbol).length == 0 || bytes(_name).length == 0
+21: 		            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+22: 		                || bytes(_symbol).length == 0 || bytes(_name).length == 0
 
-21:                     _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+21: 		            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
 
-21:                     _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+21: 		            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
 
-21:                     _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+21: 		            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
 ```
 
 [[21-22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L21-L22), [21-22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L21-L22), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L21), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L21), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L21)]
@@ -11597,13 +11597,13 @@ File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-107:                    if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
+107: 		            if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
 
-124:                if (automataDcapAttestation == address(0)) {
+124: 		        if (automataDcapAttestation == address(0)) {
 
-215:                    if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
+215: 		            if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-234:                if (instance == address(0)) return false;
+234: 		        if (instance == address(0)) return false;
 ```
 
 [[107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L107), [124](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L124), [215](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L215), [234](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L234)]
@@ -11611,11 +11611,11 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 
-109:                if (assignment.feeToken == address(0)) {
+109: 		        if (assignment.feeToken == address(0)) {
 
-120:                if (input.tip != 0 && block.coinbase != address(0)) {
+120: 		        if (input.tip != 0 && block.coinbase != address(0)) {
 
-120:                if (input.tip != 0 && block.coinbase != address(0)) {
+120: 		        if (input.tip != 0 && block.coinbase != address(0)) {
 ```
 
 [[109](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L109), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L120), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/hooks/AssignmentHook.sol#L120)]
@@ -11623,7 +11623,7 @@ File: packages/protocol/contracts/L1/hooks/AssignmentHook.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 
-44:                 address recipient_ = _recipient == address(0) ? msg.sender : _recipient;
+44: 		        address recipient_ = _recipient == address(0) ? msg.sender : _recipient;
 ```
 
 [[44](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibDepositing.sol#L44)]
@@ -11631,17 +11631,17 @@ File: packages/protocol/contracts/L1/libs/LibDepositing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProposing.sol
 
-81:                 if (params.assignedProver == address(0)) {
+81: 		        if (params.assignedProver == address(0)) {
 
-85:                 if (params.coinbase == address(0)) {
+85: 		        if (params.coinbase == address(0)) {
 
-310:                    if (proposerOne != address(0) && msg.sender != proposerOne) {
+310: 		            if (proposerOne != address(0) && msg.sender != proposerOne) {
 
-310:                    if (proposerOne != address(0) && msg.sender != proposerOne) {
+310: 		            if (proposerOne != address(0) && msg.sender != proposerOne) {
 
-316:                return proposer == address(0) || msg.sender == proposer;
+316: 		        return proposer == address(0) || msg.sender == proposer;
 
-316:                return proposer == address(0) || msg.sender == proposer;
+316: 		        return proposer == address(0) || msg.sender == proposer;
 ```
 
 [[81](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L81), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L85), [310](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L310), [310](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L310), [316](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L316), [316](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProposing.sol#L316)]
@@ -11649,15 +11649,15 @@ File: packages/protocol/contracts/L1/libs/LibProposing.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-163:                    if (verifier != address(0)) {
+163: 		            if (verifier != address(0)) {
 
-224:                        assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
+224: 		                assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
 
-224:                        assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
+224: 		                assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
 
-239:                        if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
+239: 		                if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
-363:                if (_ts.contester != address(0)) {
+363: 		        if (_ts.contester != address(0)) {
 ```
 
 [[163](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L163), [224](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L224), [224](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L224), [239](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L239), [363](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L363)]
@@ -11665,9 +11665,9 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-145:                        if (ts.contester != address(0)) {
+145: 		                if (ts.contester != address(0)) {
 
-148:                            if (tierProvider == address(0)) {
+148: 		                    if (tierProvider == address(0)) {
 ```
 
 [[145](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L145), [148](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibVerifying.sol#L148)]
@@ -11675,7 +11675,7 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 ```solidity
 File: packages/protocol/contracts/L1/provers/Guardians.sol
 
-82:                     if (guardian == address(0)) revert INVALID_GUARDIAN();
+82: 		            if (guardian == address(0)) revert INVALID_GUARDIAN();
 ```
 
 [[82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/provers/Guardians.sol#L82)]
@@ -11696,21 +11696,21 @@ _There are 333 instances of this issue._
 ```solidity
 File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol
 
-167:                    V3Parser.parseInput(quote, address(pemCertLib));
+167: 		            V3Parser.parseInput(quote, address(pemCertLib));
 
-313:                bytes32 expectedAuthDataHash = bytes32(qeEnclaveReport.reportData.substring(0, 32));
+313: 		        bytes32 expectedAuthDataHash = bytes32(qeEnclaveReport.reportData.substring(0, 32));
 
-321:                        V3Parser.packQEReport(authDataV3.pckSignedQeReport);
+321: 		                V3Parser.packQEReport(authDataV3.pckSignedQeReport);
 
-378:                ) = V3Parser.validateParsedInput(v3quote);
+378: 		        ) = V3Parser.validateParsedInput(v3quote);
 
-424:                        (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
-425:                            authDataV3.certification.decodedCertDataArray[i], isPckCert
-426:                        );
+424: 		                (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
+425: 		                    authDataV3.certification.decodedCertDataArray[i], isPckCert
+426: 		                );
 
-437:                    bool tcbConfigured = LibString.eq(parsedFmspc, fetchedTcbInfo.fmspc);
+437: 		            bool tcbConfigured = LibString.eq(parsedFmspc, fetchedTcbInfo.fmspc);
 
-443:                    bool pceidMatched = LibString.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
+443: 		            bool pceidMatched = LibString.eq(pckCert.pck.sgxExtension.pceid, fetchedTcbInfo.pceid);
 ```
 
 [[167](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L167), [313](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L313), [321](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L321), [378](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L378), [424-426](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L424-L426), [437](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L437), [443](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation.sol#L443)]
@@ -11718,32 +11718,32 @@ File: packages/protocol/contracts/automata-attestation/AutomataDcapV3Attestation
 ```solidity
 File: packages/protocol/contracts/bridge/Bridge.sol
 
-150:                ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
+150: 		        ISignalService(resolve("signal_service", false)).sendSignal(msgHash_);
 
-174:                    if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
+174: 		            if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
 
-195:                    if (_message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
+195: 		            if (_message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
 
-206:                        _message.srcOwner.sendEther(_message.value);
+206: 		                _message.srcOwner.sendEther(_message.value);
 
-295:                        refundTo.sendEther(_message.fee + refundAmount);
+295: 		                refundTo.sendEther(_message.fee + refundAmount);
 
-298:                        msg.sender.sendEther(_message.fee);
+298: 		                msg.sender.sendEther(_message.fee);
 
-299:                        refundTo.sendEther(refundAmount);
+299: 		                refundTo.sendEther(refundAmount);
 
-342:                return ISignalService(resolve("signal_service", false)).isSignalSent({
-343:                    _app: address(this),
-344:                    _signal: hashMessage(_message)
-345:                });
+342: 		        return ISignalService(resolve("signal_service", false)).isSignalSent({
+343: 		            _app: address(this),
+344: 		            _signal: hashMessage(_message)
+345: 		        });
 
-493:                        && _message.to.isContract()
+493: 		                && _message.to.isContract()
 
-522:                    ISignalService(resolve("signal_service", false)).sendSignal(
-523:                        signalForFailedMessage(_msgHash)
-524:                    );
+522: 		            ISignalService(resolve("signal_service", false)).sendSignal(
+523: 		                signalForFailedMessage(_msgHash)
+524: 		            );
 
-591:                (success_,) = _signalService.staticcall(data);
+591: 		        (success_,) = _signalService.staticcall(data);
 ```
 
 [[150](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L150), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L174), [195](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L195), [206](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L206), [295](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L295), [298](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L298), [299](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L299), [342-345](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L342-L345), [493](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L493), [522-524](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L522-L524), [591](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L591)]
@@ -11751,7 +11751,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-83:                 addr_ = payable(IAddressManager(addressManager).getAddress(_chainId, _name));
+83: 		        addr_ = payable(IAddressManager(addressManager).getAddress(_chainId, _name));
 ```
 
 [[83](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L83)]
@@ -11759,7 +11759,7 @@ File: packages/protocol/contracts/common/AddressResolver.sol
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
 
-113:                LibProving.pauseProving(state, _pause);
+113: 		        LibProving.pauseProving(state, _pause);
 ```
 
 [[113](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoL1.sol#L113)]
@@ -11767,9 +11767,9 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 ```solidity
 File: packages/protocol/contracts/L2/CrossChainOwned.sol
 
-45:                 IBridge.Context memory ctx = IBridge(msg.sender).context();
+45: 		        IBridge.Context memory ctx = IBridge(msg.sender).context();
 
-50:                 (bool success,) = address(this).call(txdata);
+50: 		        (bool success,) = address(this).call(txdata);
 ```
 
 [[45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L45), [50](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/CrossChainOwned.sol#L50)]
@@ -11777,7 +11777,7 @@ File: packages/protocol/contracts/L2/CrossChainOwned.sol
 ```solidity
 File: packages/protocol/contracts/L2/Lib1559Math.sol
 
-45:                 return uint256(LibFixedPointMath.exp(int256(input)));
+45: 		        return uint256(LibFixedPointMath.exp(int256(input)));
 ```
 
 [[45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/Lib1559Math.sol#L45)]
@@ -11785,17 +11785,17 @@ File: packages/protocol/contracts/L2/Lib1559Math.sol
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2.sol
 
-174:                    _to.sendEther(address(this).balance);
+174: 		            _to.sendEther(address(this).balance);
 
-176:                    IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
+176: 		            IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
 
-176:                    IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
+176: 		            IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
 
-284:                    gasExcess_ = uint64(excess.min(type(uint64).max));
+284: 		            gasExcess_ = uint64(excess.min(type(uint64).max));
 
-290:                    basefee_ = Lib1559Math.basefee(
-291:                        gasExcess_, uint256(_config.basefeeAdjustmentQuotient) * _config.gasTargetPerL1Block
-292:                    );
+290: 		            basefee_ = Lib1559Math.basefee(
+291: 		                gasExcess_, uint256(_config.basefeeAdjustmentQuotient) * _config.gasTargetPerL1Block
+292: 		            );
 ```
 
 [[174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L174), [176](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L176), [176](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L176), [284](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L284), [290-292](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L2/TaikoL2.sol#L290-L292)]
@@ -11803,9 +11803,9 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 ```solidity
 File: packages/protocol/contracts/libs/Lib4844.sol
 
-43:                 (bool ok, bytes memory ret) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
-44:                     abi.encodePacked(_blobHash, _x, _y, _commitment, _pointProof)
-45:                 );
+43: 		        (bool ok, bytes memory ret) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
+44: 		            abi.encodePacked(_blobHash, _x, _y, _commitment, _pointProof)
+45: 		        );
 ```
 
 [[43-45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/Lib4844.sol#L43-L45)]
@@ -11813,15 +11813,15 @@ File: packages/protocol/contracts/libs/Lib4844.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibAddress.sol
 
-54:                 if (!Address.isContract(_addr)) return false;
+54: 		        if (!Address.isContract(_addr)) return false;
 
-56:                 try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
+56: 		        try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
 
-70:                 if (Address.isContract(_addr)) {
+70: 		        if (Address.isContract(_addr)) {
 
-71:                     return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
+71: 		            return IERC1271(_addr).isValidSignature(_hash, _sig) == _EIP1271_MAGICVALUE;
 
-73:                     return ECDSA.recover(_hash, _sig) == _addr;
+73: 		            return ECDSA.recover(_hash, _sig) == _addr;
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L54), [56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L56), [70](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L70), [71](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L71), [73](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibAddress.sol#L73)]
@@ -11829,13 +11829,13 @@ File: packages/protocol/contracts/libs/LibAddress.sol
 ```solidity
 File: packages/protocol/contracts/libs/LibTrieProof.sol
 
-52:                     RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
+52: 		            RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
-55:                         bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
+55: 		                bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
 
-61:                     bytes.concat(_slot), RLPWriter.writeUint(uint256(_value)), _storageProof, storageRoot_
+61: 		            bytes.concat(_slot), RLPWriter.writeUint(uint256(_value)), _storageProof, storageRoot_
 
-61:                     bytes.concat(_slot), RLPWriter.writeUint(uint256(_value)), _storageProof, storageRoot_
+61: 		            bytes.concat(_slot), RLPWriter.writeUint(uint256(_value)), _storageProof, storageRoot_
 ```
 
 [[52](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibTrieProof.sol#L52), [55](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibTrieProof.sol#L55), [61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibTrieProof.sol#L61), [61](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/libs/LibTrieProof.sol#L61)]
@@ -11843,7 +11843,7 @@ File: packages/protocol/contracts/libs/LibTrieProof.sol
 ```solidity
 File: packages/protocol/contracts/team/TimelockTokenPool.sol
 
-171:                address recipient = ECDSA.recover(hash, _sig);
+171: 		        address recipient = ECDSA.recover(hash, _sig);
 ```
 
 [[171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/team/TimelockTokenPool.sol#L171)]
@@ -11851,9 +11851,9 @@ File: packages/protocol/contracts/team/TimelockTokenPool.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BaseVault.sol
 
-53:                 ctx_ = IBridge(msg.sender).context();
+53: 		        ctx_ = IBridge(msg.sender).context();
 
-64:                 ctx_ = IBridge(msg.sender).context();
+64: 		        ctx_ = IBridge(msg.sender).context();
 ```
 
 [[53](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L53), [64](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BaseVault.sol#L64)]
@@ -11861,11 +11861,11 @@ File: packages/protocol/contracts/tokenvault/BaseVault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 
-54:                 __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
+54: 		        __ERC1155_init(LibBridgedToken.buildURI(_srcToken, _srcChainId));
 
-116:                return LibBridgedToken.buildName(__name, srcChainId);
+116: 		        return LibBridgedToken.buildName(__name, srcChainId);
 
-122:                return LibBridgedToken.buildSymbol(__symbol);
+122: 		        return LibBridgedToken.buildSymbol(__symbol);
 ```
 
 [[54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L54), [116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L116), [122](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC1155.sol#L122)]
@@ -11873,9 +11873,9 @@ File: packages/protocol/contracts/tokenvault/BridgedERC1155.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 
-97:                 return LibBridgedToken.buildName(super.name(), srcChainId);
+97: 		        return LibBridgedToken.buildName(super.name(), srcChainId);
 
-108:                return LibBridgedToken.buildSymbol(super.symbol());
+108: 		        return LibBridgedToken.buildSymbol(super.symbol());
 ```
 
 [[97](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L97), [108](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20.sol#L108)]
@@ -11883,7 +11883,7 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 
-82:                     IBridgedERC20(migratingAddress).mint(_account, _amount);
+82: 		            IBridgedERC20(migratingAddress).mint(_account, _amount);
 ```
 
 [[82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC20Base.sol#L82)]
@@ -11891,13 +11891,13 @@ File: packages/protocol/contracts/tokenvault/BridgedERC20Base.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 
-88:                 return LibBridgedToken.buildName(super.name(), srcChainId);
+88: 		        return LibBridgedToken.buildName(super.name(), srcChainId);
 
-94:                 return LibBridgedToken.buildSymbol(super.symbol());
+94: 		        return LibBridgedToken.buildSymbol(super.symbol());
 
-110:                        LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
+110: 		                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
 
-110:                        LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
+110: 		                LibBridgedToken.buildURI(srcToken, srcChainId), Strings.toString(_tokenId)
 ```
 
 [[88](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L88), [94](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L94), [110](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L110), [110](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/BridgedERC721.sol#L110)]
@@ -11905,17 +11905,17 @@ File: packages/protocol/contracts/tokenvault/BridgedERC721.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 
-51:                 if (!_op.token.supportsInterface(ERC1155_INTERFACE_ID)) {
+51: 		        if (!_op.token.supportsInterface(ERC1155_INTERFACE_ID)) {
 
-112:                to.sendEther(msg.value);
+112: 		        to.sendEther(msg.value);
 
-146:                message.srcOwner.sendEther(message.value);
+146: 		        message.srcOwner.sendEther(message.value);
 
-200:                    || BaseVault.supportsInterface(interfaceId);
+200: 		            || BaseVault.supportsInterface(interfaceId);
 
-263:                        try t.name() returns (string memory _name) {
+263: 		                try t.name() returns (string memory _name) {
 
-266:                        try t.symbol() returns (string memory _symbol) {
+266: 		                try t.symbol() returns (string memory _symbol) {
 ```
 
 [[51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L51), [112](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L112), [146](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L146), [200](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L200), [263](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L263), [266](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC1155Vault.sol#L266)]
@@ -11923,31 +11923,31 @@ File: packages/protocol/contracts/tokenvault/ERC1155Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 
-164:                if (IBridgedERC20(_btokenNew).owner() != owner()) {
+164: 		        if (IBridgedERC20(_btokenNew).owner() != owner()) {
 
-184:                    IBridgedERC20(btokenOld_).changeMigrationStatus(_btokenNew, false);
+184: 		            IBridgedERC20(btokenOld_).changeMigrationStatus(_btokenNew, false);
 
-185:                    IBridgedERC20(_btokenNew).changeMigrationStatus(btokenOld_, true);
+185: 		            IBridgedERC20(_btokenNew).changeMigrationStatus(btokenOld_, true);
 
-271:                to.sendEther(msg.value);
+271: 		        to.sendEther(msg.value);
 
-304:                _message.srcOwner.sendEther(_message.value);
+304: 		        _message.srcOwner.sendEther(_message.value);
 
-330:                    IERC20(token_).safeTransfer(_to, _amount);
+330: 		            IERC20(token_).safeTransfer(_to, _amount);
 
-333:                    IBridgedERC20(token_).mint(_to, _amount);
+333: 		            IBridgedERC20(token_).mint(_to, _amount);
 
-360:                    IBridgedERC20(_token).burn(msg.sender, _amount);
+360: 		            IBridgedERC20(_token).burn(msg.sender, _amount);
 
-368:                        decimals: meta.decimals(),
+368: 		                decimals: meta.decimals(),
 
-369:                        symbol: meta.symbol(),
+369: 		                symbol: meta.symbol(),
 
-370:                        name: meta.name()
+370: 		                name: meta.name()
 
-378:                    uint256 _balance = t.balanceOf(address(this));
+378: 		            uint256 _balance = t.balanceOf(address(this));
 
-380:                    balanceChange_ = t.balanceOf(address(this)) - _balance;
+380: 		            balanceChange_ = t.balanceOf(address(this)) - _balance;
 ```
 
 [[164](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L164), [184](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L184), [185](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L185), [271](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L271), [304](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L304), [330](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L330), [333](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L333), [360](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L360), [368](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L368), [369](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L369), [370](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L370), [378](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L378), [380](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC20Vault.sol#L380)]
@@ -11955,19 +11955,19 @@ File: packages/protocol/contracts/tokenvault/ERC20Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 
-38:                 if (!_op.token.supportsInterface(ERC721_INTERFACE_ID)) {
+38: 		        if (!_op.token.supportsInterface(ERC721_INTERFACE_ID)) {
 
-95:                 to.sendEther(msg.value);
+95: 		        to.sendEther(msg.value);
 
-129:                _message.srcOwner.sendEther(_message.value);
+129: 		        _message.srcOwner.sendEther(_message.value);
 
-176:                        BridgedERC721(token_).mint(_to, _tokenIds[i]);
+176: 		                BridgedERC721(token_).mint(_to, _tokenIds[i]);
 
-198:                            BridgedERC721(_op.token).burn(_user, _op.tokenIds[i]);
+198: 		                    BridgedERC721(_op.token).burn(_user, _op.tokenIds[i]);
 
-206:                            symbol: t.symbol(),
+206: 		                    symbol: t.symbol(),
 
-207:                            name: t.name()
+207: 		                    name: t.name()
 ```
 
 [[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L38), [95](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L95), [129](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L129), [176](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L176), [198](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L198), [206](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L206), [207](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/ERC721Vault.sol#L207)]
@@ -11975,13 +11975,13 @@ File: packages/protocol/contracts/tokenvault/ERC721Vault.sol
 ```solidity
 File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 
-36:                 return string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
+36: 		        return string.concat("Bridged ", _name, unicode" (⭀", Strings.toString(_srcChainId), ")");
 
-40:                 return string.concat(_symbol, ".t");
+40: 		        return string.concat(_symbol, ".t");
 
-56:                         Strings.toHexString(uint160(_srcToken), 20),
+56: 		                Strings.toHexString(uint160(_srcToken), 20),
 
-58:                         Strings.toString(_srcChainId),
+58: 		                Strings.toString(_srcChainId),
 ```
 
 [[36](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L36), [40](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L40), [56](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L56), [58](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/tokenvault/LibBridgedToken.sol#L58)]
@@ -11989,13 +11989,13 @@ File: packages/protocol/contracts/tokenvault/LibBridgedToken.sol
 ```solidity
 File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 
-128:                (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
+128: 		        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
 
-156:                bytes memory signature = Bytes.slice(_proof.data, 24);
+156: 		        bytes memory signature = Bytes.slice(_proof.data, 24);
 
-159:                    ECDSA.recover(getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), signature);
+159: 		            ECDSA.recover(getSignedHash(_tran, newInstance, _ctx.prover, _ctx.metaHash), signature);
 
-185:                        ITaikoL1(taikoL1).getConfig().chainId,
+185: 		                ITaikoL1(taikoL1).getConfig().chainId,
 ```
 
 [[128](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L128), [156](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L156), [159](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L159), [185](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/verifiers/SgxVerifier.sol#L185)]
@@ -12003,181 +12003,181 @@ File: packages/protocol/contracts/verifiers/SgxVerifier.sol
 ```solidity
 File: packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol
 
-82:                 uint256 root = der.root();
+82: 		        uint256 root = der.root();
 
-85:                 uint256 tbsParentPtr = der.firstChildOf(root);
+85: 		        uint256 tbsParentPtr = der.firstChildOf(root);
 
-88:                 uint256 tbsPtr = der.firstChildOf(tbsParentPtr);
+88: 		        uint256 tbsPtr = der.firstChildOf(tbsParentPtr);
 
-104:                tbsPtr = der.nextSiblingOf(tbsPtr);
+104: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
-107:                    bytes memory serialNumBytes = der.bytesAt(tbsPtr);
+107: 		            bytes memory serialNumBytes = der.bytesAt(tbsPtr);
 
-111:                tbsPtr = der.nextSiblingOf(tbsPtr);
+111: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
-112:                tbsPtr = der.nextSiblingOf(tbsPtr);
+112: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
-115:                    uint256 issuerPtr = der.firstChildOf(tbsPtr);
+115: 		            uint256 issuerPtr = der.firstChildOf(tbsPtr);
 
-116:                    issuerPtr = der.firstChildOf(issuerPtr);
+116: 		            issuerPtr = der.firstChildOf(issuerPtr);
 
-117:                    issuerPtr = der.firstChildOf(issuerPtr);
+117: 		            issuerPtr = der.firstChildOf(issuerPtr);
 
-118:                    issuerPtr = der.nextSiblingOf(issuerPtr);
+118: 		            issuerPtr = der.nextSiblingOf(issuerPtr);
 
-119:                    cert.pck.issuerName = string(der.bytesAt(issuerPtr));
+119: 		            cert.pck.issuerName = string(der.bytesAt(issuerPtr));
 
-120:                    bool issuerNameIsValid = LibString.eq(cert.pck.issuerName, PLATFORM_ISSUER_NAME)
+120: 		            bool issuerNameIsValid = LibString.eq(cert.pck.issuerName, PLATFORM_ISSUER_NAME)
 
-121:                        || LibString.eq(cert.pck.issuerName, PROCESSOR_ISSUER_NAME);
+121: 		                || LibString.eq(cert.pck.issuerName, PROCESSOR_ISSUER_NAME);
 
-127:                tbsPtr = der.nextSiblingOf(tbsPtr);
+127: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
-130:                    uint256 notBeforePtr = der.firstChildOf(tbsPtr);
+130: 		            uint256 notBeforePtr = der.firstChildOf(tbsPtr);
 
-131:                    uint256 notAfterPtr = der.nextSiblingOf(notBeforePtr);
+131: 		            uint256 notAfterPtr = der.nextSiblingOf(notBeforePtr);
 
-132:                    bytes1 notBeforeTag = der[notBeforePtr.ixs()];
+132: 		            bytes1 notBeforeTag = der[notBeforePtr.ixs()];
 
-133:                    bytes1 notAfterTag = der[notAfterPtr.ixs()];
+133: 		            bytes1 notAfterTag = der[notAfterPtr.ixs()];
 
-140:                    cert.notBefore = X509DateUtils.toTimestamp(der.bytesAt(notBeforePtr));
+140: 		            cert.notBefore = X509DateUtils.toTimestamp(der.bytesAt(notBeforePtr));
 
-140:                    cert.notBefore = X509DateUtils.toTimestamp(der.bytesAt(notBeforePtr));
+140: 		            cert.notBefore = X509DateUtils.toTimestamp(der.bytesAt(notBeforePtr));
 
-141:                    cert.notAfter = X509DateUtils.toTimestamp(der.bytesAt(notAfterPtr));
+141: 		            cert.notAfter = X509DateUtils.toTimestamp(der.bytesAt(notAfterPtr));
 
-141:                    cert.notAfter = X509DateUtils.toTimestamp(der.bytesAt(notAfterPtr));
+141: 		            cert.notAfter = X509DateUtils.toTimestamp(der.bytesAt(notAfterPtr));
 
-144:                tbsPtr = der.nextSiblingOf(tbsPtr);
+144: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
-147:                    uint256 subjectPtr = der.firstChildOf(tbsPtr);
+147: 		            uint256 subjectPtr = der.firstChildOf(tbsPtr);
 
-148:                    subjectPtr = der.firstChildOf(subjectPtr);
+148: 		            subjectPtr = der.firstChildOf(subjectPtr);
 
-149:                    subjectPtr = der.firstChildOf(subjectPtr);
+149: 		            subjectPtr = der.firstChildOf(subjectPtr);
 
-150:                    subjectPtr = der.nextSiblingOf(subjectPtr);
+150: 		            subjectPtr = der.nextSiblingOf(subjectPtr);
 
-151:                    cert.pck.commonName = string(der.bytesAt(subjectPtr));
+151: 		            cert.pck.commonName = string(der.bytesAt(subjectPtr));
 
-152:                    if (!LibString.eq(cert.pck.commonName, PCK_COMMON_NAME)) {
+152: 		            if (!LibString.eq(cert.pck.commonName, PCK_COMMON_NAME)) {
 
-157:                tbsPtr = der.nextSiblingOf(tbsPtr);
+157: 		        tbsPtr = der.nextSiblingOf(tbsPtr);
 
-161:                    uint256 subjectPublicKeyInfoPtr = der.firstChildOf(tbsPtr);
+161: 		            uint256 subjectPublicKeyInfoPtr = der.firstChildOf(tbsPtr);
 
-162:                    subjectPublicKeyInfoPtr = der.nextSiblingOf(subjectPublicKeyInfoPtr);
+162: 		            subjectPublicKeyInfoPtr = der.nextSiblingOf(subjectPublicKeyInfoPtr);
 
-166:                    uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
+166: 		            uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
 
-167:                    sigPtr = der.nextSiblingOf(sigPtr);
+167: 		            sigPtr = der.nextSiblingOf(sigPtr);
 
-171:                    sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
+171: 		            sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
 
-171:                    sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
+171: 		            sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
 
-171:                    sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
+171: 		            sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
 
-173:                    sigPtr = der.firstChildOf(sigPtr);
+173: 		            sigPtr = der.firstChildOf(sigPtr);
 
-174:                    bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
+174: 		            bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
 
-176:                    sigPtr = der.nextSiblingOf(sigPtr);
+176: 		            sigPtr = der.nextSiblingOf(sigPtr);
 
-177:                    bytes memory sigY = _trimBytes(der.bytesAt(sigPtr), 32);
+177: 		            bytes memory sigY = _trimBytes(der.bytesAt(sigPtr), 32);
 
-179:                    cert.tbsCertificate = der.allBytesAt(tbsParentPtr);
+179: 		            cert.tbsCertificate = der.allBytesAt(tbsParentPtr);
 
-180:                    cert.pubKey = _trimBytes(der.bytesAt(subjectPublicKeyInfoPtr), 64);
+180: 		            cert.pubKey = _trimBytes(der.bytesAt(subjectPublicKeyInfoPtr), 64);
 
-186:                    tbsPtr = der.nextSiblingOf(tbsPtr);
+186: 		            tbsPtr = der.nextSiblingOf(tbsPtr);
 
-189:                    if (der[tbsPtr.ixs()] != 0xA3) {
+189: 		            if (der[tbsPtr.ixs()] != 0xA3) {
 
-193:                    tbsPtr = der.firstChildOf(tbsPtr);
+193: 		            tbsPtr = der.firstChildOf(tbsPtr);
 
-194:                    tbsPtr = der.firstChildOf(tbsPtr);
+194: 		            tbsPtr = der.firstChildOf(tbsPtr);
 
-208:                    cert.pck.sgxExtension.pceid = LibString.toHexStringNoPrefix(pceidBytes);
+208: 		            cert.pck.sgxExtension.pceid = LibString.toHexStringNoPrefix(pceidBytes);
 
-209:                    cert.pck.sgxExtension.fmspc = LibString.toHexStringNoPrefix(fmspcBytes);
+209: 		            cert.pck.sgxExtension.fmspc = LibString.toHexStringNoPrefix(fmspcBytes);
 
-222:                uint256 beginPos = LibString.indexOf(pemData, HEADER);
+222: 		        uint256 beginPos = LibString.indexOf(pemData, HEADER);
 
-223:                uint256 endPos = LibString.indexOf(pemData, FOOTER);
+223: 		        uint256 endPos = LibString.indexOf(pemData, FOOTER);
 
-241:                string[] memory split = LibString.split(contentSlice, string(delimiter));
+241: 		        string[] memory split = LibString.split(contentSlice, string(delimiter));
 
-245:                    contentStr = LibString.concat(contentStr, split[i]);
+245: 		            contentStr = LibString.concat(contentStr, split[i]);
 
-266:                output = input.substring(lengthDiff, expectedLength);
+266: 		        output = input.substring(lengthDiff, expectedLength);
 
-287:                    uint256 internalPtr = der.firstChildOf(tbsPtr);
+287: 		            uint256 internalPtr = der.firstChildOf(tbsPtr);
 
-288:                    if (der[internalPtr.ixs()] != 0x06) {
+288: 		            if (der[internalPtr.ixs()] != 0x06) {
 
-292:                    if (BytesUtils.compareBytes(der.bytesAt(internalPtr), SGX_EXTENSION_OID)) {
+292: 		            if (BytesUtils.compareBytes(der.bytesAt(internalPtr), SGX_EXTENSION_OID)) {
 
-292:                    if (BytesUtils.compareBytes(der.bytesAt(internalPtr), SGX_EXTENSION_OID)) {
+292: 		            if (BytesUtils.compareBytes(der.bytesAt(internalPtr), SGX_EXTENSION_OID)) {
 
-294:                        internalPtr = der.nextSiblingOf(internalPtr);
+294: 		                internalPtr = der.nextSiblingOf(internalPtr);
 
-295:                        uint256 extnValueParentPtr = der.rootOfOctetStringAt(internalPtr);
+295: 		                uint256 extnValueParentPtr = der.rootOfOctetStringAt(internalPtr);
 
-296:                        uint256 extnValuePtr = der.firstChildOf(extnValueParentPtr);
+296: 		                uint256 extnValuePtr = der.firstChildOf(extnValueParentPtr);
 
-302:                            uint256 extnValueOidPtr = der.firstChildOf(extnValuePtr);
+302: 		                    uint256 extnValueOidPtr = der.firstChildOf(extnValuePtr);
 
-303:                            if (der[extnValueOidPtr.ixs()] != 0x06) {
+303: 		                    if (der[extnValueOidPtr.ixs()] != 0x06) {
 
-306:                            if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), TCB_OID)) {
+306: 		                    if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), TCB_OID)) {
 
-306:                            if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), TCB_OID)) {
+306: 		                    if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), TCB_OID)) {
 
-310:                            if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), PCEID_OID)) {
+310: 		                    if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), PCEID_OID)) {
 
-310:                            if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), PCEID_OID)) {
+310: 		                    if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), PCEID_OID)) {
 
-312:                                uint256 pceidPtr = der.nextSiblingOf(extnValueOidPtr);
+312: 		                        uint256 pceidPtr = der.nextSiblingOf(extnValueOidPtr);
 
-313:                                pceidBytes = der.bytesAt(pceidPtr);
+313: 		                        pceidBytes = der.bytesAt(pceidPtr);
 
-316:                            if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), FMSPC_OID)) {
+316: 		                    if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), FMSPC_OID)) {
 
-316:                            if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), FMSPC_OID)) {
+316: 		                    if (BytesUtils.compareBytes(der.bytesAt(extnValueOidPtr), FMSPC_OID)) {
 
-318:                                uint256 fmspcPtr = der.nextSiblingOf(extnValueOidPtr);
+318: 		                        uint256 fmspcPtr = der.nextSiblingOf(extnValueOidPtr);
 
-319:                                fmspcBytes = der.bytesAt(fmspcPtr);
+319: 		                        fmspcBytes = der.bytesAt(fmspcPtr);
 
-323:                            if (extnValuePtr.ixl() < extnValueParentPtr.ixl()) {
+323: 		                    if (extnValuePtr.ixl() < extnValueParentPtr.ixl()) {
 
-323:                            if (extnValuePtr.ixl() < extnValueParentPtr.ixl()) {
+323: 		                    if (extnValuePtr.ixl() < extnValueParentPtr.ixl()) {
 
-324:                                extnValuePtr = der.nextSiblingOf(extnValuePtr);
+324: 		                        extnValuePtr = der.nextSiblingOf(extnValuePtr);
 
-333:                    if (tbsPtr.ixl() < tbsParentPtr.ixl()) {
+333: 		            if (tbsPtr.ixl() < tbsParentPtr.ixl()) {
 
-333:                    if (tbsPtr.ixl() < tbsParentPtr.ixl()) {
+333: 		            if (tbsPtr.ixl() < tbsParentPtr.ixl()) {
 
-334:                        tbsPtr = der.nextSiblingOf(tbsPtr);
+334: 		                tbsPtr = der.nextSiblingOf(tbsPtr);
 
-350:                uint256 tcbPtr = der.nextSiblingOf(oidPtr);
+350: 		        uint256 tcbPtr = der.nextSiblingOf(oidPtr);
 
-352:                uint256 svnParentPtr = der.firstChildOf(tcbPtr);
+352: 		        uint256 svnParentPtr = der.firstChildOf(tcbPtr);
 
-355:                    uint256 svnPtr = der.firstChildOf(svnParentPtr); // OID
+355: 		            uint256 svnPtr = der.firstChildOf(svnParentPtr); // OID
 
-356:                    uint256 svnValuePtr = der.nextSiblingOf(svnPtr); // value
+356: 		            uint256 svnValuePtr = der.nextSiblingOf(svnPtr); // value
 
-357:                    bytes memory svnValueBytes = der.bytesAt(svnValuePtr);
+357: 		            bytes memory svnValueBytes = der.bytesAt(svnValuePtr);
 
-361:                    if (BytesUtils.compareBytes(der.bytesAt(svnPtr), PCESVN_OID)) {
+361: 		            if (BytesUtils.compareBytes(der.bytesAt(svnPtr), PCESVN_OID)) {
 
-361:                    if (BytesUtils.compareBytes(der.bytesAt(svnPtr), PCESVN_OID)) {
+361: 		            if (BytesUtils.compareBytes(der.bytesAt(svnPtr), PCESVN_OID)) {
 
-371:                    svnParentPtr = der.nextSiblingOf(svnParentPtr);
+371: 		            svnParentPtr = der.nextSiblingOf(svnParentPtr);
 ```
 
 [[82](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L82), [85](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L85), [88](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L88), [104](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L104), [107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L107), [111](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L111), [112](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L112), [115](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L115), [116](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L116), [117](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L117), [118](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L118), [119](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L119), [120](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L120), [121](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L121), [127](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L127), [130](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L130), [131](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L131), [132](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L132), [133](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L133), [140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L140), [140](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L140), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L141), [141](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L141), [144](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L144), [147](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L147), [148](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L148), [149](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L149), [150](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L150), [151](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L151), [152](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L152), [157](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L157), [161](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L161), [162](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L162), [166](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L166), [167](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L167), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L171), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L171), [171](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L171), [173](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L173), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L174), [176](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L176), [177](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L177), [179](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L179), [180](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L180), [186](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L186), [189](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L189), [193](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L193), [194](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L194), [208](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L208), [209](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L209), [222](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L222), [223](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L223), [241](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L241), [245](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L245), [266](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L266), [287](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L287), [288](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L288), [292](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L292), [292](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L292), [294](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L294), [295](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L295), [296](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L296), [302](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L302), [303](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L303), [306](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L306), [306](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/automata-attestation/lib/PEMCertChainLib.sol#L306), [310](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a47232232
