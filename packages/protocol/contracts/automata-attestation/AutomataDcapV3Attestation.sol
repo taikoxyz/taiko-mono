@@ -70,14 +70,22 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         pemCertLib = PEMCertChainLib(pemCertLibAddr);
     }
 
+    event SetMrSigner(bytes32);
+    event SetMrEnclave(bytes32);
+    event ConfigTcbInfo(string, string);
+    event ConfigQeIdentity(bytes32);
+    event ToggleLocalReportCheck(bool);
+    event AddRevokedCertSerialNum(uint256, bytes);
+    event RemoveRevokedCertSerialNum(uint256, bytes);
+
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
         trustedUserMrSigner[_mrSigner] = _trusted;
-        // TODO(yue): emit an event
+        emit SetMrSigner(_mrSigner);
     }
 
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
         trustedUserMrEnclave[_mrEnclave] = _trusted;
-        // TODO(yue): emit an event
+        emit SetMrEnclave(_mrEnclave);
     }
 
     function addRevokedCertSerialNum(
@@ -92,7 +100,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 continue;
             }
             serialNumIsRevoked[index][serialNumBatch[i]] = true;
-            // TODO(yue): emit an event
+            emit AddRevokedCertSerialNum(index, serialNumBatch[i]);
         }
     }
 
@@ -108,7 +116,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 continue;
             }
             delete serialNumIsRevoked[index][serialNumBatch[i]];
-            // TODO(yue): emit an event
+            emit RemoveRevokedCertSerialNum(index, serialNumBatch[i]);
         }
     }
 
@@ -121,7 +129,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     {
         // 2.2M gas
         tcbInfo[fmspc] = tcbInfoInput;
-        // TODO(yue): emit an event
+        emit ConfigTcbInfo(fmspc, tcbInfoInput.pceid);
     }
 
     function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
@@ -130,12 +138,12 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     {
         // 250k gas
         qeIdentity = qeIdentityInput;
-        // TODO(yue): emit an event
+        emit ConfigQeIdentity(qeIdentityInput.mrsigner);
     }
 
     function toggleLocalReportCheck() external onlyOwner {
         checkLocalEnclaveReport = !checkLocalEnclaveReport;
-        // TODO(yue): emit an event
+        emit ToggleLocalReportCheck(checkLocalEnclaveReport);
     }
 
     function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
