@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/taikoon-v1.0.0...taikoon-v1.1.0) (2024-05-15)
+
+
+### Features
+
+* **taikoon:** devnet deployment ([#16937](https://github.com/taikoxyz/taiko-mono/issues/16937)) ([387ffb1](https://github.com/taikoxyz/taiko-mono/commit/387ffb1d18423f9e52dd9f668ddfaef748f7c97f))
+
 ## 1.0.0 (2024-05-14)
 
 
