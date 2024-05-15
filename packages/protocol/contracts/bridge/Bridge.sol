@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
@@ -80,6 +81,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
+    error B_INVALID_NETWORK();
     error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
@@ -120,6 +122,12 @@ contract Bridge is EssentialContract, IBridge {
         __reserved1 = 0;
         __reserved2 = 0;
         __reserved3 = 0;
+    }
+
+    function selfDelegateTaikoToken() external {
+        if (block.chainid != LibNetwork.MAINNET) revert B_INVALID_NETWORK();
+        address tko = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
+        ERC20VotesUpgradeable(tko).delegate(address(this));
     }
 
     /// @inheritdoc IBridge
