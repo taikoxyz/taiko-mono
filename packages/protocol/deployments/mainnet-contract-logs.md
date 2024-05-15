@@ -261,7 +261,7 @@
 
 ### token_unlocking
 
-- impl: `0x244108e321FE03b0E33FE63Ef62285F05d191a62`
+- impl: ``
 - logs:
   - deployed on May 13, 2024 at commit `165e28279`
 
