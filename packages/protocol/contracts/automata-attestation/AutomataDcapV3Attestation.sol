@@ -57,7 +57,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     event MrSignerUpdated(bytes32 indexed mrSigner, bool trusted);
     event MrEnclaveUpdated(bytes32 indexed mrEnclave, bool trusted);
     event TcbInfoJsonConfigured(string indexed fmspc, TCBInfoStruct.TCBInfo tcbInfoInput);
-    event ConfigQeIdentity(EnclaveIdStruct.EnclaveId qeIdentityInput);
+    event QeIdentityConfigured(EnclaveIdStruct.EnclaveId qeIdentityInput);
     event LocalReportCheckToggled(bool checkLocalEnclaveReport);
     event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
@@ -138,7 +138,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     {
         // 250k gas
         qeIdentity = qeIdentityInput;
-        emit ConfigQeIdentity(qeIdentityInput);
+        emit QeIdentityConfigured(qeIdentityInput);
     }
 
     function toggleLocalReportCheck() external onlyOwner {
