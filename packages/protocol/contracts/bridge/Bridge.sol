@@ -123,6 +123,8 @@ contract Bridge is EssentialContract, IBridge {
         __reserved3 = 0;
     }
 
+    /// @notice Delegates a given token's voting power to the bridge itself.
+    /// @param _anyToken Any token that supports delegation.
     function selfDelegate(address _anyToken) external nonZeroAddr(_anyToken) {
         ERC20VotesUpgradeable(_anyToken).delegate(address(this));
     }
