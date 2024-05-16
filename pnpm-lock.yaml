@@ -168,7 +168,7 @@ importers:
         version: 4.3.2(typescript@5.4.5)(vite@5.2.11(@types/node@20.12.11)(terser@5.31.0))
       vitest:
         specifier: ^1.5.3
-        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
       vitest-fetch-mock:
         specifier: ^0.2.2
         version: 0.2.2(encoding@0.1.13)(vitest@1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0))
@@ -301,7 +301,7 @@ importers:
         version: 4.3.2(typescript@5.4.5)(vite@4.5.3(@types/node@20.12.11)(terser@5.31.0))
       vitest:
         specifier: ^1.5.0
-        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
 
   packages/protocol:
     dependencies:
@@ -684,7 +684,7 @@ importers:
         version: 4.3.2(typescript@5.4.5)(vite@5.2.11(@types/node@20.12.11)(terser@5.31.0))
       vitest:
         specifier: ^1.2.0
-        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
       which:
         specifier: ^4.0.0
         version: 4.0.0
@@ -796,7 +796,7 @@ importers:
         version: 5.2.11(@types/node@20.12.11)(terser@5.31.0)
       vitest:
         specifier: ^1.2.0
-        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+        version: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
 
 packages:
 
@@ -14706,7 +14706,7 @@ snapshots:
       redent: 3.0.0
     optionalDependencies:
       '@types/jest': 29.5.12
-      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@9.3.4)':
     dependencies:
@@ -15087,7 +15087,7 @@ snapshots:
       std-env: 3.7.0
       strip-literal: 2.1.0
       test-exclude: 6.0.0
-      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -23021,7 +23021,7 @@ snapshots:
   vitest-fetch-mock@0.2.2(encoding@0.1.13)(vitest@1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)):
     dependencies:
       cross-fetch: 3.1.8(encoding@0.1.13)
-      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
     transitivePeerDependencies:
       - encoding
 
@@ -23029,9 +23029,9 @@ snapshots:
     dependencies:
       ts-essentials: 9.4.2(typescript@5.4.5)
       typescript: 5.4.5
-      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0)
+      vitest: 1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0)
 
-  vitest@1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8))(terser@5.31.0):
+  vitest@1.6.0(@types/node@20.12.11)(jsdom@24.0.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(terser@5.31.0):
     dependencies:
       '@vitest/expect': 1.6.0
       '@vitest/runner': 1.6.0
