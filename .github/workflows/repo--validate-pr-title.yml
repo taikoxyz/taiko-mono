@@ -41,6 +41,7 @@ jobs:
             protocol
             relayer
             taikoon
+            ui-lib
             taiko-client
             supplementary-contracts
           requireScope: true
