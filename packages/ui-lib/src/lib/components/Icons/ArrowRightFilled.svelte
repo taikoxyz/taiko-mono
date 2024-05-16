@@ -8,8 +8,14 @@
 	export let color = ctx.color || 'currentColor';
 	export let withEvents = ctx.withEvents || false;
 	export let ariaLabel = 'arrow right filled';
-	export let title = {};
-	export let desc = {};
+	export let title = {
+		id: `arrow-right-filled-title-${Math.random().toString(36).substring(7)}`,
+		title: ariaLabel
+	};
+	export let desc = {
+		id: `arrow-right-filled-desc-${Math.random().toString(36).substring(7)}`,
+		desc: 'An arrow right filled icon'
+	};
 	let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
 	let hasDescription = false;
 	$: if (title.id || desc.id) {
@@ -47,7 +53,6 @@
 			<desc id={desc.id}>{desc.desc}</desc>
 		{/if}
 
-		<circle cx="16" cy="16" r="16" stroke="none" fill={color} />
 		<path
 			d="M17.418 12.459L20.9588 15.9998L17.418 19.5407"
 			stroke="#E81899"
@@ -55,7 +60,7 @@
 			stroke-miterlimit="10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			fill="none"
+			fill={color}
 		/>
 		<path
 			d="M11.041 16H20.8585"
@@ -64,7 +69,7 @@
 			stroke-miterlimit="10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			fill="none"
+			fill={color}
 		/>
 	</svg>
 {:else}
@@ -86,7 +91,6 @@
 			<desc id={desc.id}>{desc.desc}</desc>
 		{/if}
 
-		<circle cx="16" cy="16" r="16" fill={color} />
 		<path
 			d="M17.418 12.459L20.9588 15.9998L17.418 19.5407"
 			stroke="#E81899"
@@ -94,7 +98,7 @@
 			stroke-miterlimit="10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			fill="none"
+			fill={color}
 		/>
 		<path
 			d="M11.041 16H20.8585"
@@ -103,7 +107,7 @@
 			stroke-miterlimit="10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			fill="none"
+			fill={color}
 		/>
 	</svg>
 {/if}

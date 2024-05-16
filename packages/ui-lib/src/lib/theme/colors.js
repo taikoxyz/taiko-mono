@@ -67,7 +67,9 @@ const colors = {
 	'border-hover': 'var(--border-hover)',
 	'border-accent': 'var(--border-accent)',
 	'base-content-primary': 'var(--base-content-primary)',
-	'base-background-primary': 'var(--base-background-primary)'
+	'base-background-primary': 'var(--base-background-primary)',
+	// Custom
+	discord: '#5765f1'
 };
 
 export default colors;

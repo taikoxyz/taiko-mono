@@ -7,14 +7,14 @@
 	export let role = ctx.role || 'img';
 	export let color = ctx.color || 'currentColor';
 	export let withEvents = ctx.withEvents || false;
-	export let ariaLabel = 'twitter logo';
+	export let ariaLabel = 'angle left';
 	export let title = {
-		id: `twitter-logo-title-${Math.random().toString(36).substring(7)}`,
+		id: `angle-left-title-${Math.random().toString(36).substring(7)}`,
 		title: ariaLabel
 	};
 	export let desc = {
-		id: `twitter-logo-desc-${Math.random().toString(36).substring(7)}`,
-		desc: 'A twitter logo icon'
+		id: `angle-left-desc-${Math.random().toString(36).substring(7)}`,
+		desc: 'An angle left icon'
 	};
 	let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
 	let hasDescription = false;
@@ -35,7 +35,7 @@
 		class={className}
 		aria-label={ariaLabel}
 		aria-describedby={hasDescription ? ariaDescribedby : undefined}
-		viewBox="0 0 32 30"
+		viewBox="0 0 24 24"
 		on:click
 		on:keydown
 		on:keyup
@@ -54,7 +54,9 @@
 		{/if}
 
 		<path
-			d="M25.2624 0.972656H30.0415L19.6006 12.9059L31.8835 29.1444H22.266L14.7333 19.2959L6.11422 29.1444H1.33224L12.4998 16.3805L0.716797 0.972656H10.5784L17.3873 9.97463L25.2624 0.972656ZM23.5851 26.2839H26.2332L9.13944 3.68293H6.2977L23.5851 26.2839Z"
+			fill-rule="evenodd"
+			clip-rule="evenodd"
+			d="M7.71967 12.5303C7.42678 12.2374 7.42678 11.7626 7.71967 11.4697L15.2197 3.96967C15.5126 3.67678 15.9874 3.67678 16.2803 3.96967C16.5732 4.26256 16.5732 4.73744 16.2803 5.03033L9.31066 12L16.2803 18.9697C16.5732 19.2626 16.5732 19.7374 16.2803 20.0303C15.9874 20.3232 15.5126 20.3232 15.2197 20.0303L7.71967 12.5303Z"
 			fill={color}
 		/>
 	</svg>
@@ -68,7 +70,7 @@
 		class={className}
 		aria-label={ariaLabel}
 		aria-describedby={hasDescription ? ariaDescribedby : undefined}
-		viewBox="0 0 32 30"
+		viewBox="0 0 24 24"
 	>
 		{#if title.id && title.title}
 			<title id={title.id}>{title.title}</title>
@@ -78,7 +80,9 @@
 		{/if}
 
 		<path
-			d="M25.2624 0.972656H30.0415L19.6006 12.9059L31.8835 29.1444H22.266L14.7333 19.2959L6.11422 29.1444H1.33224L12.4998 16.3805L0.716797 0.972656H10.5784L17.3873 9.97463L25.2624 0.972656ZM23.5851 26.2839H26.2332L9.13944 3.68293H6.2977L23.5851 26.2839Z"
+			fill-rule="evenodd"
+			clip-rule="evenodd"
+			d="M7.71967 12.5303C7.42678 12.2374 7.42678 11.7626 7.71967 11.4697L15.2197 3.96967C15.5126 3.67678 15.9874 3.67678 16.2803 3.96967C16.5732 4.26256 16.5732 4.73744 16.2803 5.03033L9.31066 12L16.2803 18.9697C16.5732 19.2626 16.5732 19.7374 16.2803 20.0303C15.9874 20.3232 15.5126 20.3232 15.2197 20.0303L7.71967 12.5303Z"
 			fill={color}
 		/>
 	</svg>

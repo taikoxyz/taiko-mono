@@ -7,9 +7,15 @@
 	export let role = ctx.role || 'img';
 	export let color = ctx.color || 'currentColor';
 	export let withEvents = ctx.withEvents || false;
-	export let ariaLabel = 'minus sign';
-	export let title = {};
-	export let desc = {};
+	export let ariaLabel = 'taiko logo';
+	export let title = {
+		id: `taiko-logo-title-${Math.random().toString(36).substring(7)}`,
+		title: ariaLabel
+	};
+	export let desc = {
+		id: `taiko-logo-desc-${Math.random().toString(36).substring(7)}`,
+		desc: 'A taiko logo icon'
+	};
 	let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
 	let hasDescription = false;
 	$: if (title.id || desc.id) {

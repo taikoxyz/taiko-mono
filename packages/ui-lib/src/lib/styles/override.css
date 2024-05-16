@@ -31,7 +31,6 @@ input[type='number'] {
 	--tw-border-opacity: 1;
 	--tw-bg-opacity: 1;
 	--tw-text-opacity: 1;
-	@apply text-tertiary-content;
 }
 
 .title-body-bold {

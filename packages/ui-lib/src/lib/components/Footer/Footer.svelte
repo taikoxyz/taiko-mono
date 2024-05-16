@@ -110,7 +110,8 @@
 		'flex flex-col',
 		'items-center',
 		'justify-center',
-		'bg-background-elevated',
+		'bg-tko-background-elevated',
+		//'bg-primary',
 		'mt-5',
 		'p-5',
 		'rounded-2xl',
@@ -128,7 +129,7 @@
 		'text-xs',
 		'font-bold',
 		'font-sans',
-		'text-content-primary'
+		'text-tko-content-primary'
 	);
 	const socialLinksWrapperClasses = classNames(
 		'w-full',
@@ -144,12 +145,12 @@
 		'flex flex-row',
 		'items-center',
 		'justify-center',
-		'bg-background-neutral',
+		'bg-tko-background-neutral',
 		'lg:p-5',
 		'p-3',
 		'gap-3',
 		'rounded-xl',
-		'text-content-primary',
+		'text-tko-content-primary',
 		'font-medium',
 		'lg:text-2xl',
 		'md:text-base',
@@ -186,14 +187,14 @@
 		'text-4xl',
 		'font-clash-grotesk',
 		'font-medium',
-		'text-content-primary',
+		'text-tko-content-primary',
 		'md:text-left',
 		'text-center',
 		'w-full'
 	);
 
 	const bottomContentClasses = classNames(
-		'text-content-secondary',
+		'text-tko-content-secondary',
 		'font-sans',
 		'text-base',
 		'font-normal',
@@ -212,7 +213,7 @@
 		'pt-6',
 		'font-sans',
 		'text-base',
-		'text-content-secondary',
+		'text-tko-content-secondary',
 		'font-normal'
 	);
 
@@ -221,7 +222,7 @@
 		'flex flex-col',
 		'items-center',
 		'justify-center',
-		'bg-background-neutral',
+		'bg-tko-background-neutral',
 		'rounded-3xl',
 		'p-7'
 	);
@@ -252,14 +253,14 @@
 
 	const textLinkTitleClasses = classNames(
 		'font-bold',
-		'text-content-primary',
+		'text-tko-content-primary',
 		'text-base',
 		'uppercase'
 	);
 
 	const textLinkContentClasses = classNames(
 		'hover:text-primary',
-		'text-content-secondary',
+		'text-tko-content-secondary',
 		'text-base',
 		'cursor-pointer'
 	);
@@ -274,7 +275,7 @@
 		'py-3',
 		'font-sans',
 		'text-base',
-		'text-content-secondary',
+		'text-tko-content-secondary',
 		'font-normal'
 	);
 </script>
@@ -300,20 +301,20 @@
 							'transition-colors',
 							//'text-primary'
 							hoveredIcon === link.label && hoveredIcon === 'youtube'
-								? 'text-red-500'
-								: 'text-content-tertiary',
+								? 'text-tko-red-500'
+								: 'text-tko-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'forum'
-								? 'text-primary'
-								: 'text-content-tertiary',
+								? 'text-tko-primary'
+								: 'text-tko-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'discord'
-								? 'text-discord'
-								: 'text-content-tertiary',
+								? 'text-tko-discord'
+								: 'text-tko-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'twitter'
-								? 'text-icon-primary'
-								: 'text-content-tertiary',
+								? 'text-tko-icon-primary'
+								: 'text-tko-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'mirror'
-								? 'text-icon-primary'
-								: 'text-content-tertiary'
+								? 'text-tko-icon-primary'
+								: 'text-tko-content-tertiary'
 						)}
 					/>
 					{#if windowSize !== 'sm'}

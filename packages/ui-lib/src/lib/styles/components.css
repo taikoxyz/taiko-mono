@@ -148,11 +148,6 @@
 		@apply divider divider-horizontal w-[1px] border-divider-border;
 	}
 
-	/* Links and buttons */
-	.link {
-		@apply link-regular text-primary-link underline hover:text-primary-link-hover;
-	}
-
 	.status-btn {
 		@apply px-[20px]
       py-2

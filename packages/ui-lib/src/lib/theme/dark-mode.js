@@ -14,7 +14,7 @@ const theme = {
 	'brand-secondary': 'pink-400',
 	positive: 'green-300',
 	negative: 'red-300',
-	warning: 'yellow-400',
+	warning: 'yellow-300',
 	// Background
 	'background-primary': 'gray-900',
 	'background-elevated': 'gray-800',
