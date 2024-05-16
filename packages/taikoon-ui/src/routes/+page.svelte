@@ -20,6 +20,7 @@
 
   onMount(() => {
     console.warn('location data?', data);
+    alert('location: ' + JSON.stringify(data, null, 2));
   });
   function scrollToFaq() {
     if (!scrollTarget) return;
