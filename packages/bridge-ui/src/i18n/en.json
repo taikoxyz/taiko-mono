@@ -40,7 +40,7 @@
     },
     "alerts": {
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
-      "stable_coin": "You are bridging a stable coin. Currently we are not supporting native a 1:1 conversion. Please use the <a href=\"https://stargate.finance/transfer\" class=\"link\"> Stargate Bridge </a> instead. Your bridged asset might not be of any use.",
+      "stable_coin": "You are bridging a stable coin. Currently we are not supporting native a 1:1 conversion. Please use the <a href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> instead. Your bridged asset might not be of any use.",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
