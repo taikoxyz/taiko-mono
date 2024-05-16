@@ -7,7 +7,7 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "./CsvParser.sol";
 import { MerkleWhitelist } from "../../contracts/MerkleWhitelist.sol";
-import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
+import { AlphaToken } from "../../contracts/AlphaToken.sol";
 
 contract MerkleMintersScript is Script {
     using stdJson for string;
@@ -17,7 +17,7 @@ contract MerkleMintersScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    TaikoonToken token;
+    AlphaToken token;
 
     bytes32 public holeskyRoot;
     bytes32 public localhostRoot;
@@ -37,10 +37,10 @@ contract MerkleMintersScript is Script {
         string memory path = utils.getContractJsonLocation();
         string memory json = vm.readFile(path);
 
-        // TaikoonToken
-        bytes memory addressRaw = json.parseRaw(".TaikoonToken");
+        // AlphaToken
+        bytes memory addressRaw = json.parseRaw(".AlphaToken");
         address tokenAddress = abi.decode(addressRaw, (address));
-        token = TaikoonToken(tokenAddress);
+        token = AlphaToken(tokenAddress);
 
         // load hardhat's tree and root
         hardhatTreeJson =

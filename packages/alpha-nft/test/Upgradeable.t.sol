@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import { Test, console } from "forge-std/src/Test.sol";
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
+import { AlphaToken } from "../contracts/AlphaToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { MerkleMintersScript } from "../script/sol/MerkleMinters.s.sol";
 import "forge-std/src/StdJson.sol";
@@ -12,7 +12,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 contract UpgradeableTest is Test {
     using stdJson for string;
 
-    TaikoonToken public token;
+    AlphaToken public token;
 
     address public owner = vm.addr(0x5);
 
@@ -31,14 +31,14 @@ contract UpgradeableTest is Test {
         bytes32 root = tree.getRoot(leaves);
 
         // deploy token with empty root
-        address impl = address(new TaikoonToken());
+        address impl = address(new AlphaToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root))
+                impl, abi.encodeCall(AlphaToken.initialize, (address(0), "ipfs://", root))
             )
         );
 
-        token = TaikoonToken(proxy);
+        token = AlphaToken(proxy);
         // use the token to calculate leaves
         for (uint256 i = 0; i < minters.length; i++) {
             leaves[i] = token.leaf(minters[i], FREE_MINTS);

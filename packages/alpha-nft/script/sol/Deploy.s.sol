@@ -6,7 +6,7 @@ import { Script, console } from "forge-std/src/Script.sol";
 import { MerkleMintersScript } from "./MerkleMinters.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
+import { AlphaToken } from "../../contracts/AlphaToken.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
@@ -41,20 +41,20 @@ contract DeployScript is Script {
         string memory baseURI = utils.getIpfsBaseURI();
 
         // deploy token with empty root
-        address impl = address(new TaikoonToken());
+        address impl = address(new AlphaToken());
         address proxy = address(
-            new ERC1967Proxy(impl, abi.encodeCall(TaikoonToken.initialize, (owner, baseURI, root)))
+            new ERC1967Proxy(impl, abi.encodeCall(AlphaToken.initialize, (owner, baseURI, root)))
         );
 
-        TaikoonToken token = TaikoonToken(proxy);
+        AlphaToken token = AlphaToken(proxy);
 
         console.log("Token Base URI:", baseURI);
-        console.log("Deployed TaikoonToken to:", address(token));
+        console.log("Deployed AlphaToken to:", address(token));
 
         vm.serializeBytes32(jsonRoot, "MerkleRoot", root);
         vm.serializeAddress(jsonRoot, "Owner", token.owner());
 
-        string memory finalJson = vm.serializeAddress(jsonRoot, "TaikoonToken", address(token));
+        string memory finalJson = vm.serializeAddress(jsonRoot, "AlphaToken", address(token));
         vm.writeJson(finalJson, jsonLocation);
 
         vm.stopBroadcast();
