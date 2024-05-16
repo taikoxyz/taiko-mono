@@ -2,6 +2,8 @@
 
 ## Blacklist
 
+[Contract source](https://etherscan.io/address/0x97044531D0fD5B84438499A49629488105Dc58e6#readContract)
+
 Used to ban addresses from interacting with implementing contracts.
 
 ### Deploy data
