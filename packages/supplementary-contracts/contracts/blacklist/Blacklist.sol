@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "./IMinimalBlacklist.sol";
@@ -13,9 +13,11 @@ contract Blacklist is IMinimalBlacklist, AccessControlEnumerable {
 
     /// @notice We use a mapping in addition to an EnumerableSet to make reading from the storage
     /// addresses easier
+    // solhint-disable-next-line named-parameters-mapping
     mapping(address => bool) public isBlacklisted;
 
     /// @notice We use an EnumerableSet to make lookups and iteration easier
+    // solhint-disable-next-line state-visibility
     EnumerableSet.AddressSet blacklistSet;
 
     /// @notice Permissioned role able to add and remove addresses from the blacklist
@@ -23,6 +25,7 @@ contract Blacklist is IMinimalBlacklist, AccessControlEnumerable {
 
     /// @notice Only Updater modifier
     modifier onlyUpdater() {
+        // solhint-disable-next-line gas-custom-errors
         require(hasRole(UPDATER_ROLE, msg.sender), "Must be updater");
         _;
     }
@@ -102,6 +105,7 @@ contract Blacklist is IMinimalBlacklist, AccessControlEnumerable {
      */
     function _addToBlacklist(address[] memory newBlacklistEntries) internal {
         for (uint256 i = 0; i < newBlacklistEntries.length; i++) {
+            // solhint-disable-next-line gas-custom-errors
             require(!blacklistSet.contains(newBlacklistEntries[i]), "Address already in blacklist");
             isBlacklisted[newBlacklistEntries[i]] = true;
             blacklistSet.add(newBlacklistEntries[i]);
@@ -115,6 +119,7 @@ contract Blacklist is IMinimalBlacklist, AccessControlEnumerable {
      */
     function _removeFromBlacklist(address[] calldata blacklistEntriesToRemove) internal {
         for (uint256 i = 0; i < blacklistEntriesToRemove.length; i++) {
+            // solhint-disable-next-line gas-custom-errors
             require(blacklistSet.contains(blacklistEntriesToRemove[i]), "Address not in blacklist");
             delete isBlacklisted[blacklistEntriesToRemove[i]];
             blacklistSet.remove(blacklistEntriesToRemove[i]);
