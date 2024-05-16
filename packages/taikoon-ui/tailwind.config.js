@@ -1,11 +1,9 @@
 import daisyuiPlugin from 'daisyui'
-import UiLibConfig from 'ui-lib/tailwind'
 
 /** @type {import('tailwindcss').Config} */
 export default {
-    ...UiLibConfig,
     darkMode: ['class', '[data-theme="dark"]'],
-	content: ['./src/**/*.{html,js,svelte,ts}', './node_modules/ui-lib/src/**/*.{html,js,svelte,ts}'],
+    content: ['./src/**/*.{html,js,svelte,ts}'],
     theme: {
         extend: {
             fontFamily: {
@@ -50,7 +48,6 @@ export default {
                 'arrows-x-3-reset': 'arrows-x-animation 300ms linear reverse',
             },
             colors: {
-                ...UiLibConfig.theme.extend.colors,
                 /***************
                  * Base colors *
                  ***************/
@@ -288,8 +285,6 @@ export default {
         themes: [
             {
                 dark: {
-                    ...UiLibConfig.daisyui.themes[0].dark,
-
                     'color-scheme': 'dark',
                     '--btn-text-case': 'capitalize',
                     // '--rounded-box': '0.625rem', // 10px
@@ -403,7 +398,6 @@ export default {
                 },
 
                 light: {
-                    ...UiLibConfig.daisyui.themes[0].light,
                     'color-scheme': 'light',
                     '--btn-text-case': 'capitalize',
 
