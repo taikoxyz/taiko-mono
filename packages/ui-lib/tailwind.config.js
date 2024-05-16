@@ -1,5 +1,7 @@
 import daisyuiPlugin from 'daisyui';
 import colors from './src/lib/theme/colors';
+import darkTheme from './src/lib/theme/dark-mode'
+import lightTheme from './src/lib/theme/light-mode'
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -284,6 +286,7 @@ export default {
 		themes: [
 			{
 				dark: {
+					...darkTheme,
 					'color-scheme': 'dark',
 					'--btn-text-case': 'capitalize',
 					// '--rounded-box': '0.625rem', // 10px
@@ -342,27 +345,7 @@ export default {
 
 					'--neutral': '#2B303B', // grey-700
 
-					// figma's theme
-					'--interactive-primary-pink': '#C8047D', // pink 500
-					'--interactive-primary-accent': '#E81899', // pink-400
-					'--interactive-secondary': '#2b303b', // grey-700
-					'--interactive-tertiary': '#444a55', // grey-600
-					'--interactive-accent': '#5D636F', // grey-500
 
-					'--content-primary': '#F3F3F3', // grey-10
-					'--content-secondary': '#ADB1B8', // grey-200
-					'--content-tertiary': '#5D636F', // grey-500
-					'--content-link-primary': '#FF6FC8', // pink-200
-					'--content-link-hover': '#FFC6E9', // pink-50
-
-					'--border-divider-default': '#444A55', // grey-600
-
-					'--background-primary': '#0B101B', // grey-900
-					'--background-neutral': '#2B303B', // grey-700
-					'--background-elevated': '#191E28', // grey-800
-
-					'--icon-primary': '#CACBCE', // grey-100
-					'--icon-secondary': '#2B303B', // grey-700
 					// ================================ //
 
 					primary: '#C8047D', // pink-500,
@@ -391,6 +374,7 @@ export default {
 				},
 
 				light: {
+					...lightTheme,
 					'color-scheme': 'light',
 					'--btn-text-case': 'capitalize',
 

@@ -39,3 +39,6 @@
 <div class={classes}>
 </div>
 {color}
+
+
+<div class="bg-tko-test-content-primary w-64 h-64 border"></div>

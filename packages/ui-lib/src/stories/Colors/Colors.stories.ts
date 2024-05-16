@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/svelte';
 import { default as Component } from './Component.svelte';
-import colors from '../../lib/theme/colors'
+import colors from '../../lib/theme/colors';
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories
 const meta = {
 	title: 'Colors',
@@ -8,8 +8,7 @@ const meta = {
 	tags: [],
 	//tags: ['autodocs'],
 	argTypes: {
-        color: {control: 'select', options: Object.keys(colors)
-        }
+		color: { control: 'select', options: Object.keys(colors) }
 		//label: { control: 'text' },
 		//title: { control: 'text' },
 		//text: { control: 'text' }
@@ -31,6 +30,6 @@ type Story = StoryObj<typeof meta>;
 // More on writing stories with args: https://storybook.js.org/docs/writing-stories/args
 export const Primary: Story = {
 	args: {
-        color: 'pink-500'
+		color: 'yellow-700'
 	}
 };

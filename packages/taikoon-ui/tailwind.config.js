@@ -288,6 +288,8 @@ export default {
         themes: [
             {
                 dark: {
+                    ...UiLibConfig.daisyui.themes[0].dark,
+
                     'color-scheme': 'dark',
                     '--btn-text-case': 'capitalize',
                     // '--rounded-box': '0.625rem', // 10px
@@ -401,6 +403,7 @@ export default {
                 },
 
                 light: {
+                    ...UiLibConfig.daisyui.themes[0].light,
                     'color-scheme': 'light',
                     '--btn-text-case': 'capitalize',
 
