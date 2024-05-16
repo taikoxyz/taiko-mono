@@ -16,7 +16,7 @@
 
 ## Logs
 
-#### tx: ????
+#### tx: `0x9ede1da0bb372fbaa210bb1847172888b30e8a3cc68c9d868ec066ca3301f480`
 
 - labs.taiko.eth depositted 10 ETH to proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
 - labs.taiko.eth depositted 10 ETH to prover: `0x000000629fbcf27a347d1aeba658435230d74a5f`
