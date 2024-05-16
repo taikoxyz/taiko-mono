@@ -41,6 +41,7 @@ jobs:
             protocol
             relayer
             taikoon
+            alpha-nft
             taiko-client
             supplementary-contracts
           requireScope: true
