@@ -19,9 +19,13 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Frontend build
+      - name: Svelte build
         working-directory: ./packages/ui-lib
         run: pnpm build
+
+      - name: Storybook build
+        working-directory: ./packages/ui-lib
+        run: pnpm build-storybook
 
       - name: Svelte check
         working-directory: ./packages/ui-lib
