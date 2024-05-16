@@ -21,7 +21,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
     /// @dev Emitted when a trusted image is set / unset.
     /// @param imageId The id of the image
-    /// @param trusted The block's assigned prover.
+    /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
 
     error RISC_ZERO_INVALID_IMAGE_ID();
