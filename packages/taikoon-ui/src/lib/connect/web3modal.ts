@@ -6,10 +6,10 @@ import { browser } from '$app/environment';
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 import { config } from '$wagmi-config';
 
-//import { getChainImages } from '../../lib/chain';
+import { getChainImages } from '../../lib/chain/chains';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID || 'walletconnect-project-id';
-//const chainImages = getChainImages();
+const chainImages = getChainImages();
 
 export const chainId = readable(getChainId(config), (set) => watchChainId(config, { onChange: set }));
 
@@ -30,7 +30,7 @@ export const web3modal = createWeb3Modal({
   featuredWalletIds: [],
   allowUnsupportedChain: true,
   excludeWalletIds: ['c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96'],
-  chainImages: [],
+  chainImages,
   themeVariables: {
     '--w3m-color-mix': 'var(--neutral-background)',
     '--w3m-color-mix-strength': 20,
