@@ -13,6 +13,20 @@ export enum TokenType {
   ERC1155 = 'ERC1155',
 }
 
+export enum TokenAttributeKey {
+  Mintable = 'mintable',
+  Wrapped = 'wrapped',
+  Stablecoin = 'stablecoin',
+  Supported = 'supported',
+}
+
+export type TokenAttributes = {
+  [TokenAttributeKey.Mintable]?: boolean;
+  [TokenAttributeKey.Wrapped]?: boolean;
+  [TokenAttributeKey.Stablecoin]?: boolean;
+  [TokenAttributeKey.Supported]?: boolean;
+};
+
 export type Token = {
   type: TokenType;
   name: string;
@@ -21,9 +35,8 @@ export type Token = {
   decimals: number;
   logoURI?: string;
   imported?: boolean;
-  mintable?: boolean;
   balance?: bigint;
-  wrapped?: boolean;
+  attributes?: TokenAttributes[];
 };
 
 export type NFT = Token & {

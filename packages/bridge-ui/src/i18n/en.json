@@ -246,6 +246,7 @@
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
+    "switch_chain": "Switch chain",
     "switch_to": "Switch to",
     "symbol": "Symbol",
     "to": "To",
@@ -282,7 +283,7 @@
     "warning": {
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "no_connected": "Please connect your wallet to mint tokens.",
-      "not_mintable": "This token is not mintable on this network",
+      "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
       "unknown": "Something did not work"
     },
