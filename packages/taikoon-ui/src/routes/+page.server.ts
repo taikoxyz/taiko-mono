@@ -28,7 +28,8 @@ const blacklistedCountries = [
 export function load(event: any) {
   try {
     console.warn('PAGE.SERVER..ts', 'onLoad', event);
-    console.warn('cook.SERVER.ies', event.cookies);
+    const city = decodeURIComponent(event.request.headers.get('x-vercel-ip-city') ?? 'unknown');
+    console.warn('PAGE.SERVER..ts', 'city', city);
     //const res = geolocation(event);
     //console.error('geolocation res?', { res });
     const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
@@ -40,7 +41,9 @@ export function load(event: any) {
       // revoke access
       redirect(302, '/blocked');
     }
-    return {};
+    return {
+      location: { city, country },
+    };
   } catch (error) {
     console.error("Couldn't determine IP country", error);
   }

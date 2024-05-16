@@ -1,6 +1,10 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
+  import type { PageData } from './$types';
+  export let data: PageData;
+  import { onMount } from 'svelte';
+
   import {
     CountdownSection,
     FaqSection,
@@ -14,6 +18,9 @@
 
   let scrollTarget: HTMLElement | undefined = undefined;
 
+  onMount(() => {
+    console.warn('location data?', data);
+  });
   function scrollToFaq() {
     if (!scrollTarget) return;
     scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
