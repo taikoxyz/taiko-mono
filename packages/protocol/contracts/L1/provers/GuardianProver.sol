@@ -47,7 +47,7 @@ contract GuardianProver is IVerifier, Guardians {
     function enableTaikoTokenAllowance(bool _enable) external onlyOwner {
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, false);
         address taiko = resolve(LibStrings.B_TAIKO, false);
-        IERC20(tko).safeApprove(taiko, _enable ? type(uint256).max : 0);
+        IERC20(tko).approve(taiko, _enable ? type(uint256).max : 0);
     }
 
     /// @dev Withdraws Taiko Token to a given address.

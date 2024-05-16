@@ -73,4 +73,14 @@ contract TestGuardianProver is TaikoL1TestBase {
         vm.expectRevert(GuardianProver.GV_PERMISSION_DENIED.selector);
         gp.verifyProof(ctx, transition, proof);
     }
+
+    function test_enableTaikoTokenAllowance() public {
+        vm.startPrank(gp.owner());
+        gp.enableTaikoTokenAllowance(true);
+        assertEq(tko.allowance(address(gp), address(L1)), type(uint256).max);
+
+        gp.enableTaikoTokenAllowance(false);
+        assertEq(tko.allowance(address(gp), address(L1)), 0);
+        vm.stopPrank();
+    }
 }
