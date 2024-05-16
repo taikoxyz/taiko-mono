@@ -25,6 +25,10 @@ jobs:
         working-directory: ./packages/taikoon-ui
         run: cp .env.example .env
 
+      - name: UI Lib build
+        working-directory: ./packages/ui-lib
+        run: pnpm build
+
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
         run: pnpm build
