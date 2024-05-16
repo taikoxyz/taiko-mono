@@ -17,6 +17,7 @@
     'leading-relaxed',
   );
   const contentClasses = classNames(
+    'w-3/4',
     'md:font-normal',
     'md:text-[57px]/[64px]',
     'text-content-primary',
