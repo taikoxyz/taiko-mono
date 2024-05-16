@@ -2,4 +2,6 @@
   import { page } from '$app/stores';
 </script>
 
-<h1>{$page.error.message}</h1>
+{#if $page && $page.error && $page.error.message}
+  <h1>{$page.error.message}</h1>
+{/if}
