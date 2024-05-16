@@ -15,18 +15,17 @@ const preview: Preview = {
 	tags: ['autodocs']
 };
 
-
 /* snipped for brevity */
 
 export const decorators = [
-  withThemeByDataAttribute({
-    themes: {
-      light: 'light',
-      dark: 'dark',
-    },
-    defaultTheme: 'light',
-    attributeName: 'data-theme',
-  }),
+	withThemeByDataAttribute({
+		themes: {
+			light: 'light',
+			dark: 'dark'
+		},
+		defaultTheme: 'light',
+		attributeName: 'data-theme'
+	})
 ];
 
 export default preview;

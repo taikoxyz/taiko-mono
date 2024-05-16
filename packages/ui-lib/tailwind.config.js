@@ -1,7 +1,7 @@
 import daisyuiPlugin from 'daisyui';
 import colors from './src/lib/theme/colors';
-import darkTheme from './src/lib/theme/dark-mode'
-import lightTheme from './src/lib/theme/light-mode'
+import darkTheme from './src/lib/theme/dark-mode';
+import lightTheme from './src/lib/theme/light-mode';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -268,11 +268,7 @@ export default {
 		}
 	},
 
-	plugins: [
-		daisyuiPlugin,
-		require('tailwindcss-image-rendering')(),
-
-	],
+	plugins: [daisyuiPlugin, require('tailwindcss-image-rendering')()],
 
 	// https://daisyui.com/docs/config/
 	daisyui: {
@@ -344,7 +340,6 @@ export default {
 					'--text-light': '#444A55', // grey-600
 
 					'--neutral': '#2B303B', // grey-700
-
 
 					// ================================ //
 
