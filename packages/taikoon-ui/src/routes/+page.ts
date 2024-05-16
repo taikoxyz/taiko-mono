@@ -28,8 +28,8 @@ const blacklistedCountries = [
 export function load(event: any) {
   try {
     console.warn('PAGE.ts', 'onLoad', event);
-    const res = geolocation(event)
-    console.error('geolocation res?', {res})
+    const res = geolocation(event);
+    console.error('geolocation res?', { res });
     const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
     console.warn('PAGE.ts', 'page load event', {
       country,
