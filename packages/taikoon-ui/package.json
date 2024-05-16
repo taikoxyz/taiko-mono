@@ -55,6 +55,7 @@
   "type": "module",
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.6",
+    "@vercel/edge": "^1.1.1",
     "@wagmi/cli": "^2.1.4",
     "@wagmi/connectors": "^4.1.18",
     "@wagmi/core": "^2.8.0",

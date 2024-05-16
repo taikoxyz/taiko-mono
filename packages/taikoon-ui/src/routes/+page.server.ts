@@ -26,9 +26,9 @@ const blacklistedCountries = [
 
 export function load(event: any) {
   try {
-    console.warn('PAGE.ts', 'onLoad', event);
+    console.warn('PAGE:SERVER', 'onLoad', event);
     const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
-    console.warn('PAGE.ts', 'page load event', {
+    console.warn('PAGE:SERVER', 'page load event', {
       country,
       event,
     });
