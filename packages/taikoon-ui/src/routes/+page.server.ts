@@ -24,6 +24,7 @@ const blacklistedCountries = [
   'SD', // Sudan (SD)
   'SY', // Syria (SY)
   'VE', // Venezuela (VE)
+  'US', // United States (US)
 ];
 
 export function load(event: any) {
@@ -38,7 +39,7 @@ export function load(event: any) {
       country,
       event,
     });
-    if (!blacklistedCountries.includes(country)) {
+    if (blacklistedCountries.includes(country)) {
       error(400, { message: 'This site is not available in your country.' });
     }
     return {
