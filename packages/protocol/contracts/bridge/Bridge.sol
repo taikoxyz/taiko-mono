@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
@@ -120,6 +121,12 @@ contract Bridge is EssentialContract, IBridge {
         __reserved1 = 0;
         __reserved2 = 0;
         __reserved3 = 0;
+    }
+
+    /// @notice Delegates a given token's voting power to the bridge itself.
+    /// @param _anyToken Any token that supports delegation.
+    function selfDelegate(address _anyToken) external nonZeroAddr(_anyToken) {
+        ERC20VotesUpgradeable(_anyToken).delegate(address(this));
     }
 
     /// @inheritdoc IBridge

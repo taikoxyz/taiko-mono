@@ -108,6 +108,7 @@ export type BridgeTransaction = {
 
   status?: MessageStatus;
   receipt?: TransactionReceipt;
+  canonicalTokenAddress?: Address;
 };
 
 interface BaseBridgeTransferOp {
@@ -242,6 +243,7 @@ export type AddressConfig = {
   erc1155VaultAddress: Address;
   crossChainSyncAddress: Address;
   signalServiceAddress: Address;
+  quotaManagerAddress?: Address;
   hops?: Array<HopAddressConfig>;
 };
 
@@ -256,12 +258,13 @@ export enum ContractType {
   VAULT,
   SIGNALSERVICE,
   CROSSCHAINSYNC,
+  QUOTAMANAGER,
 }
 
 export type GetContractAddressType = {
   srcChainId: number;
   destChainId: number;
-  tokenType: TokenType;
+  tokenType?: TokenType;
   contractType: ContractType;
 };
 

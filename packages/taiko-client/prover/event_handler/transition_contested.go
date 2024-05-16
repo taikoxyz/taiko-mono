@@ -90,7 +90,7 @@ func (h *TransitionContestedEventHandler) Handle(
 		return err
 	}
 
-	blockProposedEvent, err := getBlockProposedEventFromBlockID(
+	blockProposedEvent, err := GetBlockProposedEventFromBlockID(
 		ctx,
 		h.rpc,
 		e.BlockId,

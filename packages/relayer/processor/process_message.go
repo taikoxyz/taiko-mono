@@ -95,6 +95,19 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
+	// check paused status
+	paused, err := p.destBridge.Paused(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
+	// if paused, lets requeue
+	if paused {
+		return true, msgBody.TimesRetried, nil
+	}
+
 	// destQuotaManager is optional, it will not be set for L1-L2 bridging
 	// but will be set for L2-L1 bridging.
 	if p.destQuotaManager != nil {
@@ -429,6 +442,27 @@ func (p *Processor) sendProcessMessageCall(
 		}
 
 		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
+	}
+
+	// we should check event status one more time, after we have waiting for
+	// confirmations, and after we have generated proof. its possible another relayer
+	// or the user themself has claimed this in the time it took
+	// for us to do this work, which would cause us to revert.
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.eventStatusFromMsgHash")
+	}
+
+	if !canProcessMessage(
+		ctx,
+		eventStatus,
+		event.Message.SrcOwner,
+		p.relayerAddr,
+		uint64(event.Message.GasLimit),
+	) {
+		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
+
+		return nil, errUnprocessable
 	}
 
 	candidate := txmgr.TxCandidate{

@@ -29,10 +29,10 @@
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
-  import ClaimPreCheck from './ClaimSteps/ClaimPreCheck.svelte';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
@@ -171,8 +171,6 @@
     claimingDone = false;
   };
 
-  let checkingPrerequisites: boolean;
-
   let previousStep: ClaimSteps;
   $: if (activeStep !== previousStep) {
     previousStep = activeStep;
@@ -202,7 +200,7 @@
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue {checkingPrerequisites} bind:hideContinueButton />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}

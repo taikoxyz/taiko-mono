@@ -1,26 +1,11 @@
 <script lang="ts">
-  import Countdown from 'svelte-countdown';
   import { t } from 'svelte-i18n';
 
   import { AnimatedTaikoon } from '$components/AnimatedTaikoon';
   import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { PUBLIC_LAUNCH_DATE } from '$env/static/public';
   import { classNames } from '$lib/util/classNames';
-  import formatDate from '$lib/util/formatDate';
   import { Section } from '$ui/Section';
-
-  import { default as TimerItem } from './TimerItem.svelte';
-
-  const timerContainerClass = classNames(
-    'z-0',
-    'w-full',
-    'md:h-[50vh]',
-    'h-max',
-    'flex',
-    'flex-row',
-    'items-center',
-    'justify-between',
-    'text-xs',
-  );
 
   const taikoonClasses = classNames(
     'flex flex-col items-center justify-center',
@@ -31,16 +16,56 @@
     'overflow-visible',
   );
 
-  const separatorClasses = classNames(
-    'w-[1px]',
-    'h-[64px]',
-    'md:mt-[-50px]',
-    'mt-[-35px]',
-    'bg-divider-border',
-    'opacity-50',
+  let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  let counters = [
+    { label: $t('time.days'), value: 0 },
+    { label: $t('time.hours'), value: 0 },
+    { label: $t('time.minutes'), value: 0 },
+    { label: $t('time.seconds'), value: 0 },
+  ];
+
+  const targetDate = new Date(PUBLIC_LAUNCH_DATE);
+  setInterval(() => {
+    const now = new Date();
+    const diff = targetDate.getTime() - now.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    counters = [
+      { label: days === 1 ? $t('time.day') : $t('time.days'), value: days },
+      { label: hours === 1 ? $t('time.hour') : $t('time.hours'), value: hours },
+      { label: minutes === 1 ? $t('time.minute') : $t('time.minutes'), value: minutes },
+      { label: seconds === 1 ? $t('time.second') : $t('time.seconds'), value: seconds },
+    ];
+  }, 1000);
+
+  const containerClasses = classNames(
+    'w-[15vw]',
+    'h-full',
+    'flex',
+    'flex-col',
+    'gap-4',
+    'items-center',
+    'justify-center',
+    'z-10',
   );
 
-  let windowSize: 'sm' | 'md' | 'lg' = 'md';
+  const countClasses = classNames(
+    'countdown',
+    'font-clash-grotesk',
+    'text-center',
+    'w-full',
+    'flex',
+    'items-center',
+    'justify-center',
+    'font-medium',
+    'md:text-h0',
+    'text-5xl',
+  );
+  const labelClasses = classNames('text-content-secondary', 'md:text-h4', 'text-center', 'w-full', 'text-sm');
 </script>
 
 <Section class="justify-center items-center" animated>
@@ -49,26 +74,24 @@
       <AnimatedTaikoon />
     </div>
   {/if}
-  <Countdown zone="UTC" from={formatDate(new Date('2024-05-08T00:00:00'))} dateFormat="YYYY-MM-DD H:m:s" let:remaining>
-    <div class={timerContainerClass}>
-      <TimerItem count={remaining.days} label={remaining.days === 1 ? $t('time.day') : $t('time.days')} />
 
-      <div class={separatorClasses}></div>
-      <TimerItem count={remaining.hours} label={remaining.hours === 1 ? $t('time.hour') : $t('time.hours')} />
-
-      {#if windowSize === 'sm'}
-        <div class={separatorClasses}></div>
-      {:else}
+  <div class={classNames('w-full', 'flex', 'items-center', 'justify-center')}>
+    {#each counters as { label, value }, i}
+      {#if i == 2 && windowSize !== 'sm'}
         <div class={taikoonClasses}>
           <AnimatedTaikoon />
         </div>
       {/if}
-      <TimerItem count={remaining.minutes} label={remaining.minutes === 1 ? $t('time.minute') : $t('time.minutes')} />
-      <div class={separatorClasses}></div>
-
-      <TimerItem count={remaining.seconds} label={remaining.seconds === 1 ? $t('time.second') : $t('time.seconds')} />
-    </div>
-  </Countdown>
+      <div class={containerClasses}>
+        <div class={countClasses}>
+          <span style={`--value:${value};`}></span>
+        </div>
+        <div class={labelClasses}>
+          {label}
+        </div>
+      </div>
+    {/each}
+  </div>
 
   <slot />
 </Section>

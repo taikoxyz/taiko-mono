@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { Theme, theme } from '$stores/theme';
   import { AnimatedBackground } from '$ui/AnimatedBackground';
 
   import { classNames } from '../../../lib/util/classNames';
+  $: isDarkTheme = $theme === Theme.DARK;
 
   export let height: 'full' | 'min' | 'fit' = 'full';
   export let width: 'sm' | 'md' | 'lg' | 'xl' | 'full' = 'lg';
@@ -16,15 +18,16 @@
     'overflow-hidden',
     height === 'full' ? 'h-screen' : null,
     height === 'min' ? 'h-[50vh] pt-32' : null,
-    height === 'fit' ? 'h-auto' : null,
+    height === 'fit' ? 'h-auto pt-32' : null,
     'relative',
     'flex flex-col',
     'items-center',
     'justify-center',
-
+    background === 'none' ? 'bg-background-body' : null,
     background !== 'none' ? 'bg-cover bg-center' : null,
-    background === 'general' ? 'bg-general' : null,
-    background === 'footer' ? 'bg-footer' : null,
+    background === 'general' && isDarkTheme ? 'bg-general' : null,
+    background === 'footer' && isDarkTheme ? 'bg-footer' : null,
+    'carousel-item',
   );
 
   $: sectionClasses = classNames(

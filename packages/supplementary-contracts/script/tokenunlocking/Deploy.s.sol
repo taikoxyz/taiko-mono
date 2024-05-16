@@ -11,17 +11,14 @@ import "../../contracts/tokenUnlocking/TokenUnlocking.sol";
 contract DeployTokenUnlocking is Script {
     using stdJson for string;
 
-    uint256 public PRIVATE_KEY = vm.envUint("PRIVATE_KEY"); // deployer
-    address public OWNER = vm.envAddress("OWNER");
-    address public TAIKO_TOKEN = vm.envAddress("TAIKO_TOKEN");
-    uint256 public TGE = vm.envUint("TGE_TIMESTAMP");
-    address public IMPL = vm.envAddress("TOKEN_VESTING_IMPL");
+    address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
+    address public TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
+    uint64 public TGE = 1_716_767_999; // Date and time (GMT): Sunday, May 26, 2024 11:59:59 PM
+    address public IMPL = 0x244108e321FE03b0E33FE63Ef62285F05d191a62;
 
     function setUp() public { }
 
     function run() external {
-        address impl = IMPL == address(0) ? address(new TokenUnlocking()) : IMPL;
-
         string memory path = "/script/tokenUnlocking/Deploy.data.json";
         address[] memory recipients = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (address[])
@@ -30,12 +27,10 @@ contract DeployTokenUnlocking is Script {
         for (uint256 i; i < recipients.length; i++) {
             console2.log("Grantee:", recipients[i]);
 
-            vm.startBroadcast(PRIVATE_KEY);
+            vm.startBroadcast();
             deployProxy({
-                impl: impl,
-                data: abi.encodeCall(
-                    TokenUnlocking.init, (OWNER, TAIKO_TOKEN, recipients[i], uint64(TGE))
-                    )
+                impl: IMPL,
+                data: abi.encodeCall(TokenUnlocking.init, (OWNER, TAIKO_TOKEN, recipients[i], TGE))
             });
             vm.stopBroadcast();
             console2.log("Deployed!\n");
