@@ -1,5 +1,7 @@
 //import { geolocation } from '@vercel/edge';
 
+import { error } from '@sveltejs/kit';
+
 const blacklistedCountries = [
   'AF', // Afghanistan (AF)
   'BY', // Belarus (BY)
