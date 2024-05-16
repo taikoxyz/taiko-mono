@@ -503,9 +503,17 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					return
 				}
 
-				// otherwise if no error, we can acknowledge it successfully.
-				if err := p.queue.Ack(ctx, m); err != nil {
-					slog.Error("Err acking message", "err", err.Error())
+				if shouldRequeue {
+					// we want to negatively acknowledge the message and make sure
+					// we requeue it
+					if err := p.queue.Nack(ctx, m, true); err != nil {
+						slog.Error("Err nacking message", "err", err.Error())
+					}
+				} else {
+					// otherwise if no error, we can acknowledge it successfully.
+					if err := p.queue.Ack(ctx, m); err != nil {
+						slog.Error("Err acking message", "err", err.Error())
+					}
 				}
 			}(msg)
 		}
