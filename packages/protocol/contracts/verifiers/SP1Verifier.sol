@@ -3,12 +3,12 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../thirdparty/succint/SP1VerifierBase.sol";
+import "../thirdparty/succinct/SP1VerifierBase.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
 
-/// @title SuccintVerifier
+/// @title SuccinctVerifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is EssentialContract, IVerifier, SP1VerifierBase {
     /// @notice The verification keys mappings for the proving programs.
