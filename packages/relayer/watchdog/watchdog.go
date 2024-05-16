@@ -85,7 +85,8 @@ type Watchdog struct {
 	srcChainId  *big.Int
 	destChainId *big.Int
 
-	txmgr txmgr.TxManager
+	srcTxmgr  txmgr.TxManager
+	destTxmgr txmgr.TxManager
 
 	cfg *Config
 }
@@ -155,11 +156,20 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
-	if w.txmgr, err = txmgr.NewSimpleTxManager(
+	if w.srcTxmgr, err = txmgr.NewSimpleTxManager(
 		"watchdog",
 		log.Root(),
 		new(txmgrMetrics.NoopTxMetrics),
-		*cfg.TxmgrConfigs,
+		*cfg.SrcTxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
+	if w.destTxmgr, err = txmgr.NewSimpleTxManager(
+		"watchdog",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		*cfg.DestTxmgrConfigs,
 	); err != nil {
 		return err
 	}
@@ -313,7 +323,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	// we should alert based on this metric
 	relayer.BridgeMessageNotSent.Inc()
 
-	pauseReceipt, err := w.pauseBridge(ctx, w.srcBridge, w.cfg.SrcBridgeAddress)
+	pauseReceipt, err := w.pauseBridge(ctx, w.srcBridge, w.cfg.SrcBridgeAddress, w.srcTxmgr)
 	if err != nil {
 		return err
 	}
@@ -335,7 +345,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	relayer.BridgePaused.Inc()
 
-	pauseReceipt, err = w.pauseBridge(ctx, w.destBridge, w.cfg.DestBridgeAddress)
+	pauseReceipt, err = w.pauseBridge(ctx, w.destBridge, w.cfg.DestBridgeAddress, w.destTxmgr)
 	if err != nil {
 		return err
 	}
@@ -364,6 +374,7 @@ func (w *Watchdog) pauseBridge(
 	ctx context.Context,
 	bridge relayer.Bridge,
 	bridgeAddress common.Address,
+	mgr txmgr.TxManager,
 ) (*types.Receipt, error) {
 	paused, err := bridge.Paused(&bind.CallOpts{
 		Context: ctx,
@@ -390,7 +401,7 @@ func (w *Watchdog) pauseBridge(
 		To:     &bridgeAddress,
 	}
 
-	receipt, err := w.txmgr.Send(ctx, candidate)
+	receipt, err := mgr.Send(ctx, candidate)
 	if err != nil {
 		slog.Warn("Failed to send pause transaction", "error", err.Error())
 		return nil, err
