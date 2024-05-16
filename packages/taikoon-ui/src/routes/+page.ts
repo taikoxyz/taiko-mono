@@ -28,6 +28,7 @@ const blacklistedCountries = [
 export function load(event: any) {
   try {
     console.warn('PAGE.ts', 'onLoad', event);
+    console.warn('cookies', event.cookies);
     const res = geolocation(event);
     console.error('geolocation res?', { res });
     const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
