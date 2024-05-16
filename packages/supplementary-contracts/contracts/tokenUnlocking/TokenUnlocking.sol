@@ -38,7 +38,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @param amount The amount of tokens withdrawn.
     event TokenWithdrawn(address indexed to, uint256 amount);
 
-    /// @notice Emitted when receipt changed.
+    /// @notice Emitted when the recipient changed.
     /// @param oldRecipient The old recipient address.
     /// @param newRecipient The new recipient address.
     event RecipientChanged(address indexed oldRecipient, address indexed newRecipient);
