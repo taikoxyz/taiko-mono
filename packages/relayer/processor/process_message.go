@@ -95,6 +95,19 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
+	// check paused status
+	paused, err := p.destBridge.Paused(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
+	// if paused, lets requeue
+	if paused {
+		return true, msgBody.TimesRetried, nil
+	}
+
 	// destQuotaManager is optional, it will not be set for L1-L2 bridging
 	// but will be set for L2-L1 bridging.
 	if p.destQuotaManager != nil {

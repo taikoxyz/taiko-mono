@@ -1,6 +1,27 @@
-const path = require("path");
+const { S3 } = require("@aws-sdk/client-s3");
+const { Upload } = require("@aws-sdk/lib-storage");
 const fs = require("fs");
 const fsPromises = fs.promises;
+const path = require("path");
+const dotenv = require('dotenv')
+dotenv.config()
+
+async function uploadFile(s3, params) {
+  try {
+    const task = new Upload({
+      client: s3,
+      queueSize: 3, // 3 MiB
+      params,
+    });
+
+    const res = await task.done();
+    return res.ETag.split('"').join("");
+  } catch (error) {
+    if (error) {
+      console.log("task", error.message);
+    }
+  }
+}
 
 // Helper function to form the metadata JSON object
 function populateNFTMetadata(name, description, CID) {
@@ -12,13 +33,19 @@ function populateNFTMetadata(name, description, CID) {
 }
 
 async function main() {
-  console.log(`Configuring the IPFS instance...`);
-  const { create } = await import("ipfs-http-client");
-  const ipfs = create();
-  const endpointConfig = await ipfs.getEndpointConfig();
-  console.log(`IPFS configured to connect via: `);
-  console.debug(endpointConfig);
-  console.log(` `);
+  const s3Params = {
+    accessKey: process.env["4EVERLAND_ACCESS_KEY"],
+    secretKey: process.env["4EVERLAND_SECRET_KEY"],
+  };
+  const { accessKey, secretKey } = s3Params;
+  const s3 = new S3({
+    endpoint: "https://endpoint.4everland.co",
+    credentials: {
+      accessKeyId: accessKey,
+      secretAccessKey: secretKey,
+    },
+    region: "4EVERLAND",
+  });
 
   // Get the images to upload from the local filesystem (/images)
   console.log(`Importing images from the images/ directory...`);
@@ -28,51 +55,40 @@ async function main() {
       console.log("Import from directory failed: ", err);
     }
   });
-  const imagesName = filesName.filter((fileName) => fileName.includes(".png"));
-  const imagesData = [];
-  for await (const imageName of imagesName) {
-    const imageFilePath = path.join(
-      path.resolve(__dirname, "../../data"),
-      "images",
-      imageName,
-    );
-    const imageData = await fsPromises.readFile(imageFilePath);
-    imagesData.push(imageData);
-  }
-  console.log(`Imported images as buffered data\n`);
 
   // Uploading images to IPFS
   console.log(`Uploading image data to IPFS...`);
   const imageCIDs = [];
   const imagesSummary = [];
   let imageCount = 1;
-  for await (const imageData of imagesData) {
-    const { cid: imageCID } = await ipfs.add({
-      content: imageData,
-    });
+  const imagesName = filesName.filter((fileName) => fileName.includes(".png"));
+  for await (const imageName of imagesName) {
+    const imageFilePath = path.join(
+      path.resolve(__dirname, "../../data"),
+      "images",
+      imageName,
+    );
+    const params = {
+      Bucket: "taikoons-testbucket",
+      Key: imageName,
+      ContentType: "image/png",
+      Body: fs.readFileSync(imageFilePath),
+    };
+
+    const imageCID = await uploadFile(s3, params);
+
     imageCIDs.push(imageCID);
     imagesSummary.push({ imageCID, imageCount });
-    console.log(`Image added to IPFS with CID of ${imageCID}`);
+    console.log(`Image ${imageCount} added to IPFS with CID of ${imageCID}`);
     imageCount++;
   }
   console.log(` `);
 
   // Add the metadata to IPFS
   console.log(`Adding metadata to IPFS...`);
-  const metadataCIDs = [];
   let taikoonId = 0;
   for await (const imageCID of imageCIDs) {
     taikoonId++;
-    const { cid: metadataCID } = await ipfs.add({
-      // NOTE: You can implement different name & descriptions for each metadata
-      content: JSON.stringify(
-        populateNFTMetadata(
-          `Taikoon ${taikoonId}`,
-          "A Taikoon",
-          imageCID.toString(),
-        ),
-      ),
-    });
 
     // write into a file
     fs.writeFileSync(
@@ -97,16 +113,17 @@ async function main() {
         `${taikoonId}.json`,
       ),
     );
+    /*
     metadataCIDs.push(metadataCID);
     for (let i = 0; i < imagesSummary.length; i++) {
       if (imagesSummary[i].imageCID == imageCID) {
         imagesSummary[i].metadataCID = metadataCID;
       }
-    }
+    } */
     // console.log(`Metadata with image CID ${imageCID} added to IPFS with CID of ${metadataCID}`);
   }
   console.log(` `);
-
+  /*
   fs.writeFileSync(
     path.join(
       path.resolve(__dirname, "../../data"),
@@ -115,6 +132,37 @@ async function main() {
     ),
     JSON.stringify({ imagesSummary }),
   );
+*/
+  /*
+  const putObjectOutput = await s3.putObject({
+    Bucket: "bucketname",
+    Key: "key",
+    Body: "data content",
+  });
+
+  // multipart upload
+  const params = {
+    Bucket,
+    Key: file.name,
+    Body: file,
+    ContentType: file.type,
+  };
+  try {
+    const task = new Upload({
+      client: s3,
+      queueSize: 3, // 3 MiB
+      params,
+    });
+    task.on("httpUploadProgress", (e) => {
+      const progress = ((e.loaded / e.total) * 100) | 0;
+      console.log(progress, e);
+    });
+    await task.done();
+  } catch (error) {
+    if (error) {
+      console.log("task", error.message);
+    }
+  } */
 }
 
 main();
