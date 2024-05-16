@@ -27,8 +27,8 @@ const blacklistedCountries = [
 
 export function load(event: any) {
   const country = event.request.headers.get('x-vercel-ip-country') ?? false;
-
-  if (!country || blacklistedCountries.includes(country)) {
+  const isDev = event.url.hostname === 'localhost';
+  if (!isDev && (!country || blacklistedCountries.includes(country))) {
     return error(400, { message: 'This site is not available in your country.' });
   }
   return {
