@@ -1,5 +1,3 @@
-//import { geolocation } from '@vercel/edge';
-
 import { error } from '@sveltejs/kit';
 
 const blacklistedCountries = [
@@ -28,24 +26,12 @@ const blacklistedCountries = [
 ];
 
 export function load(event: any) {
-  try {
-    console.warn('PAGE.SERVER..ts', 'onLoad', event);
-    const city = decodeURIComponent(event.request.headers.get('x-vercel-ip-city') ?? 'unknown');
-    console.warn('PAGE.SERVER..ts', 'city', city);
-    //const res = geolocation(event);
-    //console.error('geolocation res?', { res });
-    const country = event.request.headers.get('x-vercel-ip-country') ?? 'dev';
-    console.warn('PAGE.SERVER..ts', 'page load event', {
-      country,
-      event,
-    });
-    if (blacklistedCountries.includes(country)) {
-      error(400, { message: 'This site is not available in your country.' });
-    }
-    return {
-      location: { city, country },
-    };
-  } catch (error) {
-    console.error("Couldn't determine IP country", error);
+  const country = event.request.headers.get('x-vercel-ip-country') ?? false;
+
+  if (!country || blacklistedCountries.includes(country)) {
+    return error(400, { message: 'This site is not available in your country.' });
   }
+  return {
+    location: { country },
+  };
 }
