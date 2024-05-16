@@ -1,0 +1,73 @@
+{
+  "format": "standard-v1",
+  "tree": [
+    "0x1c71ed62062e13d65812291988bfef0460682d875100761c58592d17c18555a9",
+    "0x8bb46b909451ba8922cd72ca90e4afce2c7ffdccf14d3ade6fc98efccfe64ec2",
+    "0x2ab871cb5e296646403f25784cfeb5dfbf75d5636a5712436cbaff8e1a1ceca1",
+    "0x352d7e8aaa905d0ad60f23d4f1fe8623eeb226ab9176237ec2999824a5b42a8a",
+    "0xce952912fdfb7274edac76d5aad2b651d8cf9b7f80ecafce517cf92b8cd9d546",
+    "0xd240494c00293ec17300c655e0c65b6086b9bc7c1952f40981ba763b419fd457",
+    "0x6c6c6e5a37e025eb0424ef0310815cafdd25bb9db7c7e9b38fe895a7c0c284a2",
+    "0xf312d570abc8cd8e0a9125e24d3226d09cc52a06299ee24dd29bae06d286d5f4",
+    "0xc5214eda5aa1a2b4b374c4174c0bb2e19919fa0926785c366db4a7518683b2b1",
+    "0xdd5c4aa8136160e7f06dcae4fc2a53f2e61cc44f298cc8752e04419704fc566f",
+    "0xfa31eb8d65ff2307b7026df667a06a19aade0151ed701ed2307295ae4fa48364",
+    "0xd564c879701263dc95ed8b12a3ccc0068725c20abe9b3f974d37039d3502004a",
+    "0xd2ba18d108a6f870072af3fcac999272d9f05eae84b5b3c9d90caa5eae14b690",
+    "0xcfa52795847379e100e5fe363a62abec587da5ae587614c82afb0af917d037c6",
+    "0xb389f4bc7aeae1095ce783a124301833696089020a9fac46d22d49d63172c2e4",
+    "0xaef7908975d3b9b86b11945a9988e60f10766d68b86477c34d7ed55b500c70fc",
+    "0xae323cc40a61b10949149004b5400452f33014003b414e93c2ecc7b0a945e356",
+    "0xa0af2dd081de8fe969bfc780d7dd36be3c6c9e5ddae779a9a8b8b79f31c7e070",
+    "0x6a9ce9822687cfc256f353882a96be5fe95f4de311b84f737ad8a5e184a0dd4f",
+    "0x2f62398f45c265d27e2e1e1735584f35c729b0bf3e0aad336410144e43b83d43",
+    "0x216e60a5ff1ea005e332f4ff55613abd29e314ea5de98b3c27162aad1428f5f4"
+  ],
+  "values": [
+    {
+      "value": ["0x8f63e3cD0D14cAef993E59B4e01e3D404cF3c1B7", "17"],
+      "treeIndex": 15
+    },
+    {
+      "value": ["0x2E2989015f5818A256EB967940454EfE8a0B4b5d", "17"],
+      "treeIndex": 12
+    },
+    {
+      "value": ["0x927a146e18294efb36edCacC99D9aCEA6aB16b95", "17"],
+      "treeIndex": 19
+    },
+    {
+      "value": ["0x4757D97449acA795510b9f3152C6a9019A3545c3", "17"],
+      "treeIndex": 16
+    },
+    {
+      "value": ["0x424bFb32f78731252a6BCeDc828E38e2701DAAEf", "17"],
+      "treeIndex": 17
+    },
+    {
+      "value": ["0xC66fAdfFeb6DA3b9A7FA3C71130F881e3a9B13fb", "17"],
+      "treeIndex": 14
+    },
+    {
+      "value": ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "100"],
+      "treeIndex": 20
+    },
+    {
+      "value": ["0x70997970C51812dc3A010C7d01b50e0d17dc79C8", "100"],
+      "treeIndex": 18
+    },
+    {
+      "value": ["0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", "100"],
+      "treeIndex": 10
+    },
+    {
+      "value": ["0x90F79bf6EB2c4f870365E785982E1f101E93b906", "100"],
+      "treeIndex": 13
+    },
+    {
+      "value": ["0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65", "100"],
+      "treeIndex": 11
+    }
+  ],
+  "leafEncoding": ["address", "uint256"]
+}
