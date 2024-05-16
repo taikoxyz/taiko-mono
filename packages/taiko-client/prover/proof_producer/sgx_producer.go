@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -65,20 +64,9 @@ type RISC0RequestProofBodyParam struct {
 	ExecutionPo2 *big.Int `json:"execution_po2"`
 }
 
-// SGXRequestProofBodyResponse represents the JSON body of the response of the proof requests.
-type SGXRequestProofBodyResponse struct {
-	JsonRPC string           `json:"jsonrpc"` //nolint:revive,stylecheck
-	ID      *big.Int         `json:"id"`
-	Result  *RaikoHostOutput `json:"result"`
-	Error   *struct {
-		Code    *big.Int `json:"code"`
-		Message string   `json:"message"`
-	} `json:"error,omitempty"`
-}
-
-// RaikoHostOutput represents the JSON body of SGXRequestProofBodyResponse's `result` field.
-type RaikoHostOutput struct {
-	Proof string `json:"proof"`
+// RaikoRequestProofBodyResponse represents the JSON body of the response of the proof requests.
+type RaikoRequestProofBodyResponse struct {
+	Proof string `json:"proof"` //nolint:revive,stylecheck
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -162,7 +150,7 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 }
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.
-func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoHostOutput, error) {
+func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoRequestProofBodyResponse, error) {
 	reqBody := RaikoRequestProofBody{
 		Type:        s.ProofType,
 		Block:       opts.BlockID,
@@ -183,7 +171,7 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoHostOu
 		return nil, err
 	}
 
-	res, err := http.Post(s.RaikoHostEndpoint+"/proof", "application/json", bytes.NewBuffer(jsonValue))
+	res, err := http.Post(s.RaikoHostEndpoint+"/v1/proof", "application/json", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}
@@ -198,16 +186,16 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoHostOu
 		return nil, err
 	}
 
-	var output SGXRequestProofBodyResponse
+	var output RaikoRequestProofBodyResponse
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
 
-	if output.Error != nil {
-		return nil, errors.New(output.Error.Message)
+	if len(output.Proof) <= 0 {
+		return nil, fmt.Errorf("failed to get proof")
 	}
 
-	return output.Result, nil
+	return &output, nil
 }
 
 // Tier implements the ProofProducer interface.
