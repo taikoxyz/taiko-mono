@@ -15,8 +15,7 @@
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
   const sectionClasses = 'items-center justify-center';
-  const imageClasses = classNames('w-full',
-  'h-auto', 'mb-20');
+  const imageClasses = classNames('w-full', 'h-auto', 'mb-20');
 
   const mintNowButtonClasses = classNames(
     'bg-[#E81899]',

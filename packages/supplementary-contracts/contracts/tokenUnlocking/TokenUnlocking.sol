@@ -36,7 +36,12 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice Emitted when tokens are withdrawn.
     /// @param to The address tokens will be sent to.
     /// @param amount The amount of tokens withdrawn.
-    event TokenWithdrawn(address to, uint256 amount);
+    event TokenWithdrawn(address indexed to, uint256 amount);
+
+    /// @notice Emitted when the recipient changed.
+    /// @param oldRecipient The old recipient address.
+    /// @param newRecipient The new recipient address.
+    event RecipientChanged(address indexed oldRecipient, address indexed newRecipient);
 
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
@@ -93,15 +98,28 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Withdraws all withdrawable tokens.
     /// @param _to The address the token will be sent to.
-    function withdraw(address _to) external onlyRecipient nonReentrant {
+    function withdraw(address _to) external nonReentrant {
         uint256 amount = amountWithdrawable();
         if (amount == 0) revert NOT_WITHDRAWABLE();
 
-        amountWithdrawn += amount;
         address to = _to == address(0) ? recipient : _to;
+        if (to != recipient && msg.sender != recipient) {
+            revert PERMISSION_DENIED();
+        }
+
+        amountWithdrawn += amount;
         emit TokenWithdrawn(to, amount);
 
         IERC20(taikoToken).safeTransfer(to, amount);
+    }
+
+    function changeRecipient(address _newRecipient) external onlyRecipient nonReentrant {
+        if (_newRecipient == address(0) || _newRecipient == recipient) {
+            revert INVALID_PARAM();
+        }
+
+        emit RecipientChanged(recipient, _newRecipient);
+        recipient = _newRecipient;
     }
 
     /// @notice Delegates token voting right to a delegatee.
