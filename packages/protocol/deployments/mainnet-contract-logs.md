@@ -263,11 +263,12 @@
 
 ### token_unlocking
 
-- impl: ``
+- impl: `0xaccd34dffa1a112880422fccd9df8f08d79dd555`
 - todos:
   - deploy a new version.
 - logs:
   - deployed on May 13, 2024 at commit `165e28279`
+  - deployed again at commit `e0f6938` @tx `0x53dfd6a880826d12f5d697e85551d2ea56bcd071fecad93d3169c63c05b62a92`
 
 ## L2 Contracts
 
