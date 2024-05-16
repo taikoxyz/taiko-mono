@@ -49,6 +49,7 @@
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "sharp": "^0.33.3",
     "solady": "github:Vectorized/solady#v0.0.167",
-    "solidity-stringutils": "github:Arachnid/solidity-stringutils"
+    "solidity-stringutils": "github:Arachnid/solidity-stringutils",
+    "@taiko/supplementary-contracts": "workspace:*"
   }
 }
