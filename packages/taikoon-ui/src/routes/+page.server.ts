@@ -1,4 +1,3 @@
-import { redirect } from '@sveltejs/kit';
 //import { geolocation } from '@vercel/edge';
 
 const blacklistedCountries = [
@@ -38,8 +37,7 @@ export function load(event: any) {
       event,
     });
     if (blacklistedCountries.includes(country)) {
-      // revoke access
-      redirect(302, '/blocked');
+      error(400, { message: 'This site is not available in your country.' });
     }
     return {
       location: { city, country },
