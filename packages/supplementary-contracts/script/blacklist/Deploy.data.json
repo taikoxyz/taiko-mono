@@ -1,6 +1,6 @@
 {
-  "admin": "0x0",
-  "updater": "0x0",
+  "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "updater": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "blacklist": [
     "0x098B716B8Aaf21512996dC57EB0615e2383E2f96",
     "0xa0e1c89Ef1a489c9C7dE96311eD5Ce5D32c20E4B",
