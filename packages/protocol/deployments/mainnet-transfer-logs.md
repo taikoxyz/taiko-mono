@@ -9,6 +9,11 @@
 - bridge L1 relayer: `0x0000001539d3a970c979ac67a8836a359ce4a1fc`
 - bridge L2 relayer: `0x00006ca990540f6e30e3ef05f085a033ae67f214`
 
+## TODO:
+
+- [ ] Daniel transfer 200 ETH to L1 bridge `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` on Ethereum
+- [ ] Daniel transfer 5 ETH to `0x00006ca990540f6e30e3ef05f085a033ae67f214` on Taiko L2
+
 ## Logs
 
 #### tx: ????
@@ -18,4 +23,4 @@
 - labs.taiko.eth depositted 5 ETH to contester: `0x00000027f51a57e7fcbc4b481d15fce5be68b30b`
 - labs.taiko.eth depositted 0.01 ETH to bridge watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
 - labs.taiko.eth depositted 5 ETH to bridge L1 relayer: `0x0000001539d3a970c979ac67a8836a359ce4a1fc`
-- labs.taiko.eth transferred 5 ETH to Daniel Wang: `0x69AA0361Dbb0527d4F1e5312403Bd41788fe61Fe`, he will deposit 5 ETH on L2 to the L2 relayer `0x00006ca990540f6e30e3ef05f085a033ae67f214`.
+- labs.taiko.eth transferred 5 ETH to Daniel Wang: `0x69AA0361Dbb0527d4F1e5312403Bd41788fe61Fe`
