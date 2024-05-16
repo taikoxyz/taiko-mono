@@ -7,6 +7,7 @@ import "./IMinimalBlacklist.sol";
 /**
  * @title Blacklist
  * @dev List of blacklisted addresses on Ethereum
+ * @dev Source: https://etherscan.io/address/0x97044531D0fD5B84438499A49629488105Dc58e6#readContract
  */
 contract Blacklist is IMinimalBlacklist, AccessControlEnumerable {
     using EnumerableSet for EnumerableSet.AddressSet;
