@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
 import { ERC20Airdrop } from "../contracts/team/airdrop/ERC20Airdrop.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // @KorbinianK , @2manslkh
 // As written also in the tests the workflow shall be the following (checklist):
@@ -49,7 +50,7 @@ contract DeployERC20Airdrop is DeployCapability {
 
     function testEnvOnly() internal {
         MockAddressManager addressManager;
-        if (block.chainid != 167_001) {
+        if (block.chainid != 167_000) {
             // Assuming non-mainnet chain ids indicate a testnet
 
             if (vaultAddress == address(0)) {
@@ -84,7 +85,7 @@ contract DeployERC20Airdrop is DeployCapability {
                                 "TKO",
                                 "Taiko Token"
                             )
-                            )
+                        )
                     })
                 );
                 bridgedTko = address(newToken);
@@ -94,7 +95,7 @@ contract DeployERC20Airdrop is DeployCapability {
 
     function postDeployment() internal {
         console.log("=== Post deployment ===");
-        if (block.chainid != 167_001) {
+        if (block.chainid != 167_000) {
             // Assuming non-mainnet chain ids indicate a testnet
             // Mint (AKA transfer) to the vault. This step on mainnet will be done by Taiko Labs.
             // For testing on A6 the important thing is: HAVE tokens in this vault!
@@ -126,11 +127,15 @@ contract DeployERC20Airdrop is DeployCapability {
                 impl: address(new ERC20Airdrop()),
                 data: abi.encodeCall(
                     ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
-                    )
+                )
             })
         );
 
         airdropContractAddress = address(airdropContract);
+
+        // @dantaik If using EOA:
+        // vm.broadcast(vaultPrivateKey);
+        // IERC20(bridgedTko).approve(airdropContractAddress, 50_000_000_000e18);
 
         postDeployment();
         vm.stopBroadcast();
