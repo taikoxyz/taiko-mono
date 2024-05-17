@@ -15,10 +15,10 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 contract TaikoonToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     /// @notice The current supply
     uint256 private _totalSupply;
-    // Base URI required to interact with IPFS
+    /// @notice Base URI required to interact with IPFS
     string private _baseURIExtended;
-
-    uint256[48] private __gap;
+    /// @notice Gap for upgrade safety
+    uint256[47] private __gap;
 
     error MAX_MINTS_EXCEEDED();
     error MAX_SUPPLY_REACHED();

@@ -29,7 +29,7 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
     /// @notice Blackist address
     IMinimalBlacklist public blacklist;
     /// @notice Gap for upgrade safety
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
