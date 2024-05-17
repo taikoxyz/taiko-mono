@@ -8,6 +8,7 @@ import (
 
 	"log/slog"
 
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/metrics"
 	"github.com/urfave/cli/v2"
 )
 
@@ -27,13 +28,13 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		// _, startMetrics := metrics.Serve(ctx, c)
+		_, startMetrics := metrics.Serve(ctx, c)
 
-		// go func() {
-		// 	if err := startMetrics(); err != nil {
-		// 		slog.Error("Starting metrics server error", "error", err)
-		// 	}
-		// }()
+		go func() {
+			if err := startMetrics(); err != nil {
+				slog.Error("Starting metrics server error", "error", err)
+			}
+		}()
 
 		slog.Info("Starting Taiko balance monitor application", "name", app.Name())
 

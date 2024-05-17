@@ -45,6 +45,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"INTERVAL"},
 	}
+	MetricsHTTPPort = &cli.Uint64Flag{
+		Name:     "metrics.port",
+		Usage:    "Port to run metrics http server on",
+		Category: commonCategory,
+		Value:    6061,
+		EnvVars:  []string{"METRICS_HTTP_PORT"},
+	}
 )
 
 var CommonFlags = []cli.Flag{
@@ -53,4 +60,5 @@ var CommonFlags = []cli.Flag{
 	L2RPCUrl,
 	ERC20Addresses,
 	Interval,
+	MetricsHTTPPort,
 }

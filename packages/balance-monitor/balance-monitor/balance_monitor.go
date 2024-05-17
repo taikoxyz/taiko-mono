@@ -3,6 +3,7 @@ package balanceMonitor
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -93,21 +94,57 @@ func (b *BalanceMonitor) Start() error {
 
 	for range ticker.C {
 		for _, address := range b.Addresses {
-			balance, err := b.GetEthBalance(context.Background(), address)
+			// Check L1 ETH balance
+			l1Balance, err := b.GetEthBalance(context.Background(), b.l1EthClient, address)
 			if err != nil {
-				slog.Info("Failed to get ETH balance for address", "address", address.Hex(), "error", err)
+				slog.Info("Failed to get L1 ETH balance for address", "address", address.Hex(), "error", err)
 				continue
 			}
-			slog.Info("ETH Balance", "address", address.Hex(), "balance", balance.String())
+			l1BalanceFloat, _ := new(big.Float).Quo(new(big.Float).SetInt(l1Balance), big.NewFloat(1e18)).Float64()
+			l1EthBalanceGauge.WithLabelValues(address.Hex()).Set(l1BalanceFloat)
+			slog.Info("L1 ETH Balance", "address", address.Hex(), "balance", l1BalanceFloat)
 
-			// Check balance for each ERC-20 token address
+			// Check L2 ETH balance
+			l2Balance, err := b.GetEthBalance(context.Background(), b.l2EthClient, address)
+			if err != nil {
+				slog.Info("Failed to get L2 ETH balance for address", "address", address.Hex(), "error", err)
+				continue
+			}
+			l2BalanceFloat, _ := new(big.Float).Quo(new(big.Float).SetInt(l2Balance), big.NewFloat(1e18)).Float64()
+			l2EthBalanceGauge.WithLabelValues(address.Hex()).Set(l2BalanceFloat)
+			slog.Info("L2 ETH Balance", "address", address.Hex(), "balance", l2BalanceFloat)
+
+			// Check ERC-20 token balances
 			for _, tokenAddress := range b.ERC20Addresses {
-				tokenBalance, err := b.GetERC20Balance(context.Background(), tokenAddress, address)
+				// Check L1 ERC-20 balance
+				l1TokenBalance, err := b.GetERC20Balance(context.Background(), b.l1EthClient, tokenAddress, address)
 				if err != nil {
-					slog.Info("Failed to get ERC-20 balance for address", "address", address.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
+					slog.Info("Failed to get L1 ERC-20 balance for address", "address", address.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
 					continue
 				}
-				slog.Info("ERC-20 Balance", "tokenAddress", tokenAddress.Hex(), "address", address.Hex(), "balance", tokenBalance.String())
+				l1TokenDecimals, err := b.GetERC20Decimals(context.Background(), b.l1EthClient, tokenAddress)
+				if err != nil {
+					slog.Info("Failed to get L1 ERC-20 decimals for token", "tokenAddress", tokenAddress.Hex(), "error", err)
+					continue
+				}
+				l1TokenBalanceFloat, _ := new(big.Float).Quo(new(big.Float).SetInt(l1TokenBalance), big.NewFloat(math.Pow(10, float64(l1TokenDecimals)))).Float64()
+				l1Erc20BalanceGauge.WithLabelValues(tokenAddress.Hex(), address.Hex()).Set(l1TokenBalanceFloat)
+				slog.Info("L1 ERC-20 Balance", "tokenAddress", tokenAddress.Hex(), "address", address.Hex(), "balance", l1TokenBalanceFloat)
+
+				// Check L2 ERC-20 balance
+				l2TokenBalance, err := b.GetERC20Balance(context.Background(), b.l2EthClient, tokenAddress, address)
+				if err != nil {
+					slog.Info("Failed to get L2 ERC-20 balance for address", "address", address.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
+					continue
+				}
+				l2TokenDecimals, err := b.GetERC20Decimals(context.Background(), b.l2EthClient, tokenAddress)
+				if err != nil {
+					slog.Info("Failed to get L2 ERC-20 decimals for token", "tokenAddress", tokenAddress.Hex(), "error", err)
+					continue
+				}
+				l2TokenBalanceFloat, _ := new(big.Float).Quo(new(big.Float).SetInt(l2TokenBalance), big.NewFloat(math.Pow(10, float64(l2TokenDecimals)))).Float64()
+				l2Erc20BalanceGauge.WithLabelValues(tokenAddress.Hex(), address.Hex()).Set(l2TokenBalanceFloat)
+				slog.Info("L2 ERC-20 Balance", "tokenAddress", tokenAddress.Hex(), "address", address.Hex(), "balance", l2TokenBalanceFloat)
 			}
 		}
 	}
@@ -115,8 +152,14 @@ func (b *BalanceMonitor) Start() error {
 	return nil
 }
 
-func (b *BalanceMonitor) GetEthBalance(ctx context.Context, address common.Address) (*big.Int, error) {
-	balance, err := b.l1EthClient.BalanceAt(ctx, address, nil)
+const erc20ABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
+
+type ERC20 interface {
+	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
+}
+
+func (b *BalanceMonitor) GetEthBalance(ctx context.Context, client ethClient, address common.Address) (*big.Int, error) {
+	balance, err := client.BalanceAt(ctx, address, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -124,23 +167,14 @@ func (b *BalanceMonitor) GetEthBalance(ctx context.Context, address common.Addre
 	return balance, nil
 }
 
-const erc20ABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}]`
-
-type ERC20 interface {
-	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
-}
-
-func (b *BalanceMonitor) GetERC20Balance(ctx context.Context, tokenAddress, holderAddress common.Address) (*big.Int, error) {
-	// Parse the ERC-20 ABI
+func (b *BalanceMonitor) GetERC20Balance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
 		return nil, err
 	}
 
-	// Create an instance of the token contract
-	tokenContract := bind.NewBoundContract(tokenAddress, parsedABI, b.l1EthClient, b.l1EthClient, b.l1EthClient)
+	tokenContract := bind.NewBoundContract(tokenAddress, parsedABI, client, client, client)
 
-	// Prepare the call to the balanceOf method
 	var result []interface{}
 	err = tokenContract.Call(&bind.CallOpts{
 		Context: ctx,
@@ -160,4 +194,33 @@ func (b *BalanceMonitor) GetERC20Balance(ctx context.Context, tokenAddress, hold
 	}
 
 	return balance, nil
+}
+
+func (b *BalanceMonitor) GetERC20Decimals(ctx context.Context, client ethClient, tokenAddress common.Address) (uint8, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	if err != nil {
+		return 0, err
+	}
+
+	tokenContract := bind.NewBoundContract(tokenAddress, parsedABI, client, client, client)
+
+	var result []interface{}
+	err = tokenContract.Call(&bind.CallOpts{
+		Context: ctx,
+	}, &result, "decimals")
+
+	if err != nil {
+		return 0, err
+	}
+
+	if len(result) == 0 {
+		return 0, fmt.Errorf("no result from token contract call")
+	}
+
+	decimals, ok := result[0].(uint8)
+	if !ok {
+		return 0, fmt.Errorf("unexpected type for decimals result")
+	}
+
+	return decimals, nil
 }
