@@ -17,8 +17,8 @@ import { ERC20Airdrop } from "../contracts/team/airdrop/ERC20Airdrop.sol";
 // 3. Backend retrieves the proof and together with signature in the input params, user fires away
 // the claimAndDelegate() transaction.
 
-import { MockAddressManager } from "../contracts/team/airdrop/MockAddressManager.sol";
-import { SimpleERC20Vault } from "../contracts/team/airdrop/SimpleERC20Vault.sol";
+import { MockAddressManager } from "../test/mocks/MockAddressManager.sol";
+import { MockERC20Vault } from "../test/mocks/MockERC20Vault.sol";
 import { BridgedERC20 } from "../contracts/tokenvault/BridgedERC20.sol";
 
 /// @title Deployment script for ERC20 Airdrop
@@ -53,11 +53,11 @@ contract DeployERC20Airdrop is DeployCapability {
             // Assuming non-mainnet chain ids indicate a testnet
 
             if (vaultAddress == address(0)) {
-                SimpleERC20Vault newVault = SimpleERC20Vault(
+                MockERC20Vault newVault = MockERC20Vault(
                     deployProxy({
                         name: "vault",
-                        impl: address(new SimpleERC20Vault()),
-                        data: abi.encodeCall(SimpleERC20Vault.init, ())
+                        impl: address(new MockERC20Vault()),
+                        data: abi.encodeCall(MockERC20Vault.init, ())
                     })
                 );
                 vaultAddress = address(newVault);
@@ -98,8 +98,8 @@ contract DeployERC20Airdrop is DeployCapability {
             // Assuming non-mainnet chain ids indicate a testnet
             // Mint (AKA transfer) to the vault. This step on mainnet will be done by Taiko Labs.
             // For testing on A6 the important thing is: HAVE tokens in this vault!
-            SimpleERC20Vault(vaultAddress).mintToVault(bridgedTko, vaultAddress);
-            SimpleERC20Vault(vaultAddress).approveAirdropContract(
+            MockERC20Vault(vaultAddress).mintToVault(bridgedTko, vaultAddress);
+            MockERC20Vault(vaultAddress).approveAirdropContract(
                 bridgedTko, airdropContractAddress, 50_000_000_000e18
             );
         }

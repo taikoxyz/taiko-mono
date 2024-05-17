@@ -15,15 +15,15 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import { BridgedERC20 } from "../../tokenvault/BridgedERC20.sol";
+import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
 
-/// @title Simple ERC20 Vault
+/// @title Mock ERC20 Vault
 /// @notice This contract manages an ERC20 token vault designed for storing and approving tokens for
 /// airdrops,
 /// as well as allowing the owner to withdraw tokens.
 /// @dev The contract uses OwnableUpgradeable for access control and interacts with BridgedERC20
 /// tokens.
-contract SimpleERC20Vault is OwnableUpgradeable {
+contract MockERC20Vault is OwnableUpgradeable {
     /// @notice Initializes the vault and sets up the contract with ownership rights.
     /// @dev This function calls the initializer for OwnableUpgradeable to set up the contract owner
     /// upon deployment.
