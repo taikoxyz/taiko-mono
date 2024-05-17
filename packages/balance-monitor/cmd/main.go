@@ -19,7 +19,7 @@ func main() {
 	// attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
 
-	app.Name = "Taiko Relayer"
+	app.Name = "Taiko Balance Monitor"
 	app.Usage = "The taiko relayer software command line interface"
 	app.Copyright = "Copyright 2021-2024 Taiko Labs"
 	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"

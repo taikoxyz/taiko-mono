@@ -15,9 +15,9 @@ type Config struct {
 }
 
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
-	var addresess []common.Address
+	var addresses []common.Address
 	for _, addressStr := range c.StringSlice(flags.Addresses.Name) {
-		addresess = append(addresess, common.HexToAddress(addressStr))
+		addresses = append(addresses, common.HexToAddress(addressStr))
 	}
 
 	var erc20Addresses []common.Address
@@ -26,7 +26,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	return &Config{
-		Addresses:      addresess,
+		Addresses:      addresses,
 		L1RPCUrl:       c.String(flags.L1RPCUrl.Name),
 		L2RPCUrl:       c.String(flags.L2RPCUrl.Name),
 		ERC20Addresses: erc20Addresses,

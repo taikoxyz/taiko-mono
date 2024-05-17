@@ -35,7 +35,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 		// 	}
 		// }()
 
-		slog.Info("Starting Taiko relayer application", "name", app.Name())
+		slog.Info("Starting Taiko balance monitor application", "name", app.Name())
 
 		if err := app.Start(); err != nil {
 			slog.Error("Starting application error", "name", app.Name(), "error", err)
