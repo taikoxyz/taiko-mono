@@ -3,20 +3,19 @@ pragma solidity 0.8.24;
 
 import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
-import { MerkleMintersScript } from "./MerkleMinters.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { AlphaToken } from "../../contracts/AlphaToken.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
-    MerkleMintersScript public merkleMinters = new MerkleMintersScript();
     string public jsonLocation;
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
     // Please set owner to labs.taiko.eth (0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D) on Mainnnet.
     address owner = vm.envAddress("OWNER");
+    bytes32 root = vm.envBytes32("MERKLE_ROOT");
 
     function setUp() public {
         utils = new UtilsScript();
@@ -25,8 +24,6 @@ contract DeployScript is Script {
         jsonLocation = utils.getContractJsonLocation();
         deployerPrivateKey = utils.getPrivateKey();
         deployerAddress = utils.getAddress();
-
-        merkleMinters.setUp();
     }
 
     function run() public {
@@ -36,11 +33,8 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        bytes32 root = merkleMinters.getMerkleRoot();
-
         string memory baseURI = utils.getIpfsBaseURI();
 
-        // deploy token with empty root
         address impl = address(new AlphaToken());
         address proxy = address(
             new ERC1967Proxy(impl, abi.encodeCall(AlphaToken.initialize, (owner, baseURI, root)))
@@ -51,7 +45,6 @@ contract DeployScript is Script {
         console.log("Token Base URI:", baseURI);
         console.log("Deployed AlphaToken to:", address(token));
 
-        vm.serializeBytes32(jsonRoot, "MerkleRoot", root);
         vm.serializeAddress(jsonRoot, "Owner", token.owner());
 
         string memory finalJson = vm.serializeAddress(jsonRoot, "AlphaToken", address(token));

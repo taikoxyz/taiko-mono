@@ -21,9 +21,6 @@ contract UtilsScript is Script {
         if (chainId == 31_337) {
             lowercaseNetworkKey = "localhost";
             uppercaseNetworkKey = "LOCALHOST";
-        } else if (chainId == 17_000) {
-            lowercaseNetworkKey = "holesky";
-            uppercaseNetworkKey = "HOLESKY";
         } else if (chainId == 167_001) {
             lowercaseNetworkKey = "devnet";
             uppercaseNetworkKey = "DEVNET";

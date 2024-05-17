@@ -24,8 +24,8 @@ async function main(network) {
   );
 
     console.log(`Merkle Root for network ${network}`, tree.root)
+
 }
 
 main('hardhat')
-main('holesky')
 main('devnet')

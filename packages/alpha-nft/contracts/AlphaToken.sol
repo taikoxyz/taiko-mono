@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-
 import { ERC721EnumerableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 
@@ -72,9 +70,8 @@ contract AlphaToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     }
 
     /// @notice Get the tokenURI of a particular tokenId
-    /// @param _tokenId The token ID
     /// @return The token URI
-    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
+    function tokenURI(uint256) public view override returns (string memory) {
         return _baseURI();
     }
 
