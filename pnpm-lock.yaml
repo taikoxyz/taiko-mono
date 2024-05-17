@@ -375,6 +375,8 @@ importers:
 
   packages/relayer: {}
 
+  packages/snaefell-nft: {}
+
   packages/supplementary-contracts:
     dependencies:
       '@openzeppelin/contracts':
