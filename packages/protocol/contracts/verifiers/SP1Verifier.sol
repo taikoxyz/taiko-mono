@@ -26,13 +26,7 @@ contract SP1Verifier is EssentialContract, IVerifier, SP1VerifierBase {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
     /// @param _addressManager The address of the AddressManager.
-    function init(
-        address _owner,
-        address _addressManager
-    )
-        external
-        initializer
-    {
+    function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
     }
 
@@ -58,8 +52,7 @@ contract SP1Verifier is EssentialContract, IVerifier, SP1VerifierBase {
         if (_ctx.isContesting) return;
 
         // Decode will throw if not proper length/encoding
-        (bytes32 programVKey, bytes memory proof) =
-            abi.decode(_proof.data, (bytes32, bytes));
+        (bytes32 programVKey, bytes memory proof) = abi.decode(_proof.data, (bytes32, bytes));
 
         if (!isProgramTrusted[programVKey]) {
             revert SP1_INVALID_PROGRAM_VKEY();
@@ -71,7 +64,8 @@ contract SP1Verifier is EssentialContract, IVerifier, SP1VerifierBase {
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
         );
 
-        // @Brecht: Is 'hash' var the public value ? OR the input params of the LibPublicInput.hashPublicInputs() encoded as a bytes stream ?
+        // @Brecht: Is 'hash' var the public value ? OR the input params of the
+        // LibPublicInput.hashPublicInputs() encoded as a bytes stream ?
         this.verifyProof(programVKey, encodedPublicInput, proof);
         // SP1VerifierBase.verifyProof() will revert if invalid
     }

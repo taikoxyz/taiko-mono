@@ -29,7 +29,11 @@ library LibPublicInput {
         pure
         returns (bytes32)
     {
-        return keccak256(abiEncodePublicInputs(_tran, _verifierContract,_newInstance, _prover, _metaHash, _chainId));
+        return keccak256(
+            abiEncodePublicInputs(
+                _tran, _verifierContract, _newInstance, _prover, _metaHash, _chainId
+            )
+        );
     }
 
     /// @notice Abi encode the public input for the proof verification.
@@ -53,6 +57,8 @@ library LibPublicInput {
         pure
         returns (bytes memory)
     {
-        return abi.encode("VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash);
+        return abi.encode(
+            "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+        );
     }
 }
