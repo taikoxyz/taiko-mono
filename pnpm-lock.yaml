@@ -377,6 +377,8 @@ importers:
 
   packages/snaefell-nft: {}
 
+  packages/snaefell-ui: {}
+
   packages/supplementary-contracts:
     dependencies:
       '@openzeppelin/contracts':
