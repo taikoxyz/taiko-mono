@@ -66,8 +66,8 @@ type RISC0RequestProofBodyParam struct {
 
 // RaikoRequestProofBodyResponse represents the JSON body of the response of the proof requests.
 type RaikoRequestProofBodyResponse struct {
-	Proof string `json:"proof"` //nolint:revive,stylecheck
-	Error string `json:"error"`
+	Proof        string `json:"proof"` //nolint:revive,stylecheck
+	ErrorMessage string `json:"message"`
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -192,8 +192,8 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		return nil, err
 	}
 
-	if len(output.Error) > 0 || len(output.Proof) <= 0 {
-		return nil, fmt.Errorf("failed to get proof, msg: %s", output.Error)
+	if len(output.ErrorMessage) > 0 || len(output.Proof) <= 0 {
+		return nil, fmt.Errorf("failed to get proof, msg: %s", output.ErrorMessage)
 	}
 
 	return &output, nil
