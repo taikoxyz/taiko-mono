@@ -7,7 +7,7 @@ import "../../L1/ITaikoL1.sol";
 
 /// @title ProverSet
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to TAIKO so msg.sender doesn't need to hold any TKO.
+/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract {
     address public constant TKO = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
