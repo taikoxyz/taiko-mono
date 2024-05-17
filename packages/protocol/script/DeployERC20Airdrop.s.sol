@@ -67,11 +67,19 @@ contract DeployERC20Airdrop is DeployCapability {
 
     function postDeployment() internal {
         console.log("=== Post deployment ===");
-        if (block.chainid != 167_000) { } else {
+        if (block.chainid != 167_000) {
+            // If testnet, mint 50 Million tokens to the vault
+            console.log("[TEST] Minting 50 Million tokens to the vault");
+            MockERC20(bridgedTko).mint(vaultAddress, 50_000_000_000e18);
+        } else {
             // Transfer ownership to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be
             // This address will have ownership of the airdrop contract which will have the ability
             // to set the airdrop start and end time, and the merkle root with
             // setConfig(_claimStart, _claimEnd, _merkleRoot).
+            console.log(
+                "[INFO] Transferring Ownership to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be"
+            );
+
             airdropContract.transferOwnership(0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be);
         }
     }
