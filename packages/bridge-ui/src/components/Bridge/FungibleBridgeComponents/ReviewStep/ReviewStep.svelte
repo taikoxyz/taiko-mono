@@ -30,7 +30,7 @@
 
   $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
 
-  $: stableCoinWarning = $t('bridge.alerts.stable_coin');
+  $: stableCoinWarning = $t('bridge.alerts.usdc_token');
 
   $: if (wrapped || unsupportedStableCoin) {
     needsManualConfirmation = true;
