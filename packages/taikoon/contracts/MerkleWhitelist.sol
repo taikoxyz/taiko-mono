@@ -16,6 +16,7 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgradeable {
     event RootUpdated(bytes32 _root);
     event MintConsumed(address _minter, uint256 _mintAmount);
+    event BlacklistUpdated(address _blacklist);
 
     error MINTS_EXCEEDED();
     error INVALID_PROOF();
@@ -40,6 +41,7 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
     /// @param _blacklist The new blacklist address
     function updateBlacklist(IMinimalBlacklist _blacklist) external onlyOwner {
         blacklist = _blacklist;
+        emit BlacklistUpdated(address(_blacklist));
     }
 
     /// @notice Contract initializer
