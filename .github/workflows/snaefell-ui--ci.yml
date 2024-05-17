@@ -22,23 +22,23 @@ jobs:
       # and the Svelte check complains about not finding the exports from $env/static/public,
       # which will be generated based on the .env file when running `svelte-kit sync`
       - name: Copy .env.example to .env
-        working-directory: ./packages/taikoon-ui
+        working-directory: ./packages/snaefell-ui
         run: cp .env.example .env
 
       - name: Frontend build
-        working-directory: ./packages/taikoon-ui
+        working-directory: ./packages/snaefell-ui
         run: pnpm build
 
       - name: Svelte check
-        working-directory: ./packages/taikoon-ui
+        working-directory: ./packages/snaefell-ui
         run: pnpm check
 
       - name: Check formatting
-        working-directory: ./packages/taikoon-ui
+        working-directory: ./packages/snaefell-ui
         run: pnpm lint
 
       - name: Unit tests
         env:
           SKIP_ENV_VALIDATION: "true"
-        working-directory: ./packages/taikoon-ui
+        working-directory: ./packages/snaefell-ui
         run: pnpm test:unit
