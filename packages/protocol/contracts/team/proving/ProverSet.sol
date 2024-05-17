@@ -52,6 +52,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         ITaikoL1(TAIKO).proveBlock(_blockId, _input);
     }
 
+    // This function is necessary for this contract to become an assigned prover.
     function isValidSignature(
         bytes32 _hash,
         bytes memory _signature
