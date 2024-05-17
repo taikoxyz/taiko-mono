@@ -20,7 +20,8 @@ contract ProverSet is EssentialContract, IERC1271 {
     mapping(address prover => bool isProver) public isProver;
     uint256[49] private __gap;
 
-    event ProverEnabled(address indexed addr, bool indexed enabled);
+    event ProverEnabled(address indexed prover, bool indexed enabled);
+    event BlockProven(address indexed prover, uint64 indexed blockId);
 
     error INVALID_STATUS();
     error PERMISSION_DENIED();
@@ -49,6 +50,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     function proveBlock(uint64 _blockId, bytes calldata _input) external whenNotPaused {
         if (!isProver[msg.sender]) revert PERMISSION_DENIED();
 
+        emit BlockProven(msg.sender, _blockId);
         ITaikoL1(TAIKO).proveBlock(_blockId, _input);
     }
 
