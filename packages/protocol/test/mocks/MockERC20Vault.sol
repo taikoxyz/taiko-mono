@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
 
 /// @title Mock ERC20 Vault
