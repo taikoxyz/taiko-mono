@@ -66,12 +66,13 @@ contract SP1Verifier is EssentialContract, IVerifier, SP1VerifierBase {
         }
 
         uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
-        bytes32 hash = LibPublicInput.hashPublicInputs(
+
+        bytes memory encodedPublicInput = LibPublicInput.abiEncodePublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
         );
 
         // @Brecht: Is 'hash' var the public value ? OR the input params of the LibPublicInput.hashPublicInputs() encoded as a bytes stream ?
-        this.verifyProof(programVKey, abi.encode(hash), proof);
+        this.verifyProof(programVKey, encodedPublicInput, proof);
         // SP1VerifierBase.verifyProof() will revert if invalid
     }
 }
