@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../L1/ITaikoL1.sol";
@@ -9,7 +11,8 @@ import "../../L1/ITaikoL1.sol";
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
 /// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
 /// @custom:security-contact security@taiko.xyz
-contract ProverSet is EssentialContract {
+contract ProverSet is EssentialContract, IERC1271 {
+    bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
     address public constant TKO = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
     address public constant TAIKO = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     address public constant ASSIGNMENT_HOOK = 0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6;
@@ -47,5 +50,19 @@ contract ProverSet is EssentialContract {
         if (!isProver[msg.sender]) revert PERMISSION_DENIED();
 
         ITaikoL1(TAIKO).proveBlock(_blockId, _input);
+    }
+
+    function isValidSignature(
+        bytes32 _hash,
+        bytes memory _signature
+    )
+        external
+        view
+        returns (bytes4 magicValue_)
+    {
+        (address recovered, ECDSA.RecoverError error) = ECDSA.tryRecover(_hash, _signature);
+        if (error == ECDSA.RecoverError.NoError && isProver[recovered]) {
+            magicValue_ = _EIP1271_MAGICVALUE;
+        }
     }
 }
