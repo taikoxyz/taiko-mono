@@ -5,7 +5,7 @@
   "scripts": {
     "clean": "rm -rf abis cache* && forge clean",
     "compile": "forge build --build-info --extra-output storage-layout",
-    "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
+    "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test": "pnpm clean && pnpm compile && forge test --match-path 'test/*.t.sol' -vvv",
@@ -13,8 +13,8 @@
     "merkle": "node script/js/generate-merkle-tree.js",
     "deploy:localhost": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
     "deploy:holesky": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
-    "deploy:devnet": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url https://rpc.internal.taiko.xyz --broadcast --gas-estimate-multiplier 200",
-    "deploy:ipfs": "rm -rf data/metadata/* && node script/js/resize-images.js && node script/js/add-images-ipfs.js && echo 'IPFS Base URI:' && ipfs add -r ./data/metadata/ && echo 'Update your .env file with the new IPFS URI'"
+    "deploy:ipfs": "rm -rf data/metadata/* && node script/js/resize-images.js && node script/js/4everland.js",
+    "deploy:devnet": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url https://rpc.internal.taiko.xyz --broadcast --gas-estimate-multiplier 200"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -34,10 +34,13 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.574.0",
+    "@aws-sdk/lib-storage": "^3.574.0",
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
     "@openzeppelin/merkle-tree": "^1.0.6",
     "convert-csv-to-json": "^2.46.0",
+    "dotenv": "^16.4.5",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std",
     "ipfs-http-client": "^60.0.1",

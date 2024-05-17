@@ -37,7 +37,7 @@ jobs:
 
       - name: Format solidity && update contract layout table
         working-directory: ./packages/supplementary-contracts
-        run: pnpm layout && forge fmt
+        run: pnpm layout &&  pnpm lint:sol
 
       - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
