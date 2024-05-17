@@ -1,4 +1,4 @@
-# Taikoon MFT
+# NFTs
 
 ## Setup
 
@@ -18,7 +18,7 @@ $ pnpm install # installs the workspace's dependencies
 
 ---
 
-## Deploying the Taikoons
+## Deploying the Taikoon NFT
 
 In order to deploy the token, the images for the NFTs must be placed under `data/original/`. The following script will re-size them and upload them to IPFS:
 
