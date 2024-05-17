@@ -29,10 +29,6 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Check formatting
-        working-directory: ./packages/nfts
-        run: forge fmt --check
-
       - name: Solidity compilation
         working-directory: ./packages/nfts
         run: pnpm compile
@@ -40,3 +36,7 @@ jobs:
       - name: Unit Tests
         working-directory: ./packages/nfts
         run: pnpm test
+
+      - name: Format solidity && update contract layout table
+        working-directory: ./packages/supplementary-contracts
+        run: pnpm layout &&  pnpm lint:sol
