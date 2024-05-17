@@ -69,7 +69,7 @@ async function main() {
       imageName,
     );
     const params = {
-      Bucket: "taikoons-testbucket",
+      Bucket: "snaefell-bucket",
       Key: imageName,
       ContentType: "image/png",
       Body: fs.readFileSync(imageFilePath),
@@ -86,31 +86,46 @@ async function main() {
 
   // Add the metadata to IPFS
   console.log(`Adding metadata to IPFS...`);
-  let taikoonId = 0;
+  let tokenId = 0;
   for await (const imageCID of imageCIDs) {
-    taikoonId++;
+    tokenId++;
 
     // write into a file
     fs.writeFileSync(
       path.join(
         path.resolve(__dirname, "../../data"),
         "metadata",
-        `${taikoonId}.json`,
+        `${tokenId}.json`,
       ),
       JSON.stringify(
         populateNFTMetadata(
-          `Taikoon ${taikoonId}`,
-          "A Taikoon",
+          `Snæfellsjökull Commemorative NFT`,
+          "Commemorative NFT for Testnet - Alpha 1",
           imageCID.toString(),
         ),
       ),
     );
 
+    const metadataCID = await uploadFile(s3, {
+      Bucket: "snaefell-bucket",
+      Key: `${tokenId}.json`,
+      ContentType: "application/json",
+      Body: fs.readFileSync(
+        path.join(
+          path.resolve(__dirname, "../../data"),
+          "metadata",
+          `${tokenId}.json`,
+        ),
+      ),
+    });
+
+    console.log('Metadata CID:', metadataCID)
+
     console.log(
       path.join(
         path.resolve(__dirname, "../../data"),
         "metadata",
-        `${taikoonId}.json`,
+        `${tokenId}.json`,
       ),
     );
     /*
@@ -123,46 +138,7 @@ async function main() {
     // console.log(`Metadata with image CID ${imageCID} added to IPFS with CID of ${metadataCID}`);
   }
   console.log(` `);
-  /*
-  fs.writeFileSync(
-    path.join(
-      path.resolve(__dirname, "../../data"),
-      "metadata",
-      "summary.json",
-    ),
-    JSON.stringify({ imagesSummary }),
-  );
-*/
-  /*
-  const putObjectOutput = await s3.putObject({
-    Bucket: "bucketname",
-    Key: "key",
-    Body: "data content",
-  });
 
-  // multipart upload
-  const params = {
-    Bucket,
-    Key: file.name,
-    Body: file,
-    ContentType: file.type,
-  };
-  try {
-    const task = new Upload({
-      client: s3,
-      queueSize: 3, // 3 MiB
-      params,
-    });
-    task.on("httpUploadProgress", (e) => {
-      const progress = ((e.loaded / e.total) * 100) | 0;
-      console.log(progress, e);
-    });
-    await task.done();
-  } catch (error) {
-    if (error) {
-      console.log("task", error.message);
-    }
-  } */
 }
 
 main();
