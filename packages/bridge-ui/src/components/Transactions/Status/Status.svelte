@@ -1,43 +1,31 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { ClaimDialog, ReleaseDialog, RetryDialog } from '$components/Dialogs';
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-  import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { BridgePausedError } from '$libs/error';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
-  import type { NFT } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
+  const dispatch = createEventDispatcher();
+
   export let bridgeTx: BridgeTransaction;
-  export let nft: NFT | null = null;
 
   let polling: ReturnType<typeof startPolling>;
 
   // UI state
   let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
-  let bridgeTxStatus: Maybe<MessageStatus>;
+  export let bridgeTxStatus: Maybe<MessageStatus>;
 
   let loading = false;
 
   function onProcessable(isTxProcessable: boolean) {
     isProcessable = isTxProcessable;
-  }
-
-  async function claimingDone() {
-    // Keeping model and UI in sync
-    bridgeTx.msgStatus = await getMessageStatusForMsgHash({
-      msgHash: bridgeTx.msgHash,
-      srcChainId: Number(bridgeTx.srcChainId),
-      destChainId: Number(bridgeTx.destChainId),
-    });
-    bridgeTxStatus = bridgeTx.msgStatus;
   }
 
   function onStatusChange(status: MessageStatus) {
@@ -50,7 +38,8 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-    retryModalOpen = true;
+    // retryModalOpen = true;
+    dispatch('openModal', 'retry');
   }
 
   async function handleReleaseClick() {
@@ -58,7 +47,8 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-    releaseModalOpen = true;
+    // releaseModalOpen = true;
+    dispatch('openModal', 'release');
   }
 
   async function handleClaimClick() {
@@ -67,7 +57,8 @@
     });
     if (!$connectedSourceChain || !$account?.address) return;
 
-    claimModalOpen = true;
+    // claimModalOpen = true;
+    dispatch('openModal', 'claim');
   }
 
   async function release() {
@@ -77,10 +68,6 @@
     if (!$connectedSourceChain || !$account?.address) return;
     // TODO: implement release handling
   }
-
-  $: claimModalOpen = false;
-  $: retryModalOpen = false;
-  $: releaseModalOpen = false;
 
   onMount(async () => {
     if (bridgeTx && $account?.address) {
@@ -143,9 +130,3 @@
     <span>{$t('transactions.status.error.name')}</span>
   {/if}
 </div>
-
-<RetryDialog {bridgeTx} bind:dialogOpen={retryModalOpen} />
-
-<ReleaseDialog {bridgeTx} bind:dialogOpen={releaseModalOpen} />
-
-<ClaimDialog {bridgeTx} bind:loading bind:dialogOpen={claimModalOpen} {nft} on:claimingDone={() => claimingDone()} />
