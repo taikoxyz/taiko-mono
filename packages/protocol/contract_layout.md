@@ -488,3 +488,22 @@
 | quotaPeriod    | uint24                                        | 252  | 0      | 3     | contracts/bridge/QuotaManager.sol:QuotaManager |
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
 
+## ProverSet
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                      |
+|----------------|--------------------------|------|--------|-------|-----------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/provers/MyProver.sol:ProverSet |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/team/provers/MyProver.sol:ProverSet |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/team/provers/MyProver.sol:ProverSet |
+| _owner         | address                  | 51   | 0      | 20    | contracts/team/provers/MyProver.sol:ProverSet |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/team/provers/MyProver.sol:ProverSet |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/team/provers/MyProver.sol:ProverSet |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/team/provers/MyProver.sol:ProverSet |
+| addressManager | address                  | 151  | 0      | 20    | contracts/team/provers/MyProver.sol:ProverSet |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/team/provers/MyProver.sol:ProverSet |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/team/provers/MyProver.sol:ProverSet |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/team/provers/MyProver.sol:ProverSet |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/provers/MyProver.sol:ProverSet |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/provers/MyProver.sol:ProverSet |
+| isProver       | mapping(address => bool) | 251  | 0      | 32    | contracts/team/provers/MyProver.sol:ProverSet |
+| __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/team/provers/MyProver.sol:ProverSet |
+
