@@ -77,10 +77,13 @@ contract DeployERC20Airdrop is DeployCapability {
             // to set the airdrop start and end time, and the merkle root with
             // setConfig(_claimStart, _claimEnd, _merkleRoot).
             console.log(
-                "[INFO] Transferring Ownership to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be"
+                "[INFO] Transferring Ownership of Airdrop Contract to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be"
             );
-
             airdropContract.transferOwnership(0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be);
+            console.log(
+                "[INFO] Transferring Ownership of Airdrop Vault to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be"
+            );
+            airdropVault.transferOwnership(0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be);
         }
     }
 
