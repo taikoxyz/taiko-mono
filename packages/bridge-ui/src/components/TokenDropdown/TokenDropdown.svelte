@@ -1,6 +1,6 @@
 <script lang="ts">
   import { deepEqual } from '@wagmi/core';
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
   import { zeroAddress } from 'viem';
@@ -35,6 +35,8 @@
 
   const log = getLogger('TokenDropdown');
 
+  const dispatch = createEventDispatcher();
+
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let onlyMintable: boolean = false;
@@ -65,6 +67,7 @@
   };
 
   const selectToken = async (token: Token) => {
+    dispatch('tokenSelected', { token });
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     $computingBalance = true;
