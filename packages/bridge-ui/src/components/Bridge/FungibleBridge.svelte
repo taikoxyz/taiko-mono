@@ -16,6 +16,8 @@
   let hasEnoughEth: boolean = false;
   let bridgingStatus: BridgingStatus;
 
+  let needsManualConfirmation: boolean;
+
   const handleTransactionDetailsClick = () => (activeStep = BridgeSteps.RECIPIENT);
   const handleBackClick = () => (activeStep = BridgeSteps.IMPORT);
 
@@ -51,6 +53,7 @@
         <ReviewStep
           on:editTransactionDetails={handleTransactionDetailsClick}
           on:goBack={handleBackClick}
+          bind:needsManualConfirmation
           bind:hasEnoughEth />
       {:else if activeStep === BridgeSteps.RECIPIENT}
         <!-- RECIPIENT STEP -->
@@ -60,7 +63,7 @@
         <ConfirmationStep bind:bridgingStatus />
       {/if}
       <!-- NAVIGATION -->
-      <StepNavigation bind:activeStep {bridgingStatus} />
+      <StepNavigation bind:activeStep {bridgingStatus} bind:needsManualConfirmation />
     </div>
   </Card>
 </div>

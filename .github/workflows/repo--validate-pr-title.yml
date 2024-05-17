@@ -42,6 +42,7 @@ jobs:
             relayer
             taikoon
             alpha-nft
+            ui-lib
             taiko-client
             supplementary-contracts
           requireScope: true
