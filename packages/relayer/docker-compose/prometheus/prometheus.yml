@@ -15,3 +15,7 @@ scrape_configs:
     metrics_path: /metrics/per-object
     static_configs:
       - targets: ["host.docker.internal:15692"]
+
+  - job_name: "balance-monitor"
+    static_configs:
+      - targets: ["localhost:6061"]
