@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { Test, console } from "forge-std/src/Test.sol";
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
-import { Merkle } from "murky/Merkle.sol";
-import { MerkleMintersScript } from "../script/sol/MerkleMinters.s.sol";
 import "forge-std/src/StdJson.sol";
-
+import { Test, console } from "forge-std/src/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Merkle } from "murky/Merkle.sol";
+import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
+import { MerkleMintersScript } from "../../script/taikoon/MerkleMinters.s.sol";
+
 
 contract UpgradeableTest is Test {
     using stdJson for string;

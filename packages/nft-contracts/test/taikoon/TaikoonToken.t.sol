@@ -3,9 +3,9 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
 
 contract TaikoonTokenTest is Test {
     TaikoonToken public token;
