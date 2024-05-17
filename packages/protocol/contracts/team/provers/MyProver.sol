@@ -42,7 +42,7 @@ contract ProverSet is EssentialContract {
         IERC20(TKO).transfer(owner(), _amount);
     }
 
-    /// @notice Proves a Taiko block.
+    /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external whenNotPaused {
         if (!isProver[msg.sender]) revert PERMISSION_DENIED();
 
