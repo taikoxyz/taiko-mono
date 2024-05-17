@@ -30,12 +30,12 @@
 
   export let loading = false;
 
+  export let activeStep: RetrySteps = INITIAL_STEP;
+
   const log = getLogger('RetryDialog');
   const dispatch = createEventDispatcher();
 
   const dialogId = `dialog-${uid()}`;
-
-  export let activeStep: RetrySteps = INITIAL_STEP;
 
   let canContinue = false;
   let retrying: boolean;
