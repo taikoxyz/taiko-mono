@@ -30,10 +30,27 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L2_RPC_URL"},
 	}
+	ERC20Addresses = &cli.StringSliceFlag{
+		Name:     "erc20Addresses",
+		Usage:    "Comma-delimited list of ERC-20 token contract addresses",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"ERC20_ADDRESSES"},
+	}
+	Interval = &cli.IntFlag{
+		Name:     "interval",
+		Usage:    "Interval in seconds to check the balances",
+		Required: false,
+		Value:    10, // default value
+		Category: commonCategory,
+		EnvVars:  []string{"INTERVAL"},
+	}
 )
 
 var CommonFlags = []cli.Flag{
 	Addresses,
 	L1RPCUrl,
 	L2RPCUrl,
+	ERC20Addresses,
+	Interval,
 }
