@@ -88,6 +88,7 @@ contract DeployERC20Airdrop is DeployCapability {
         testEnvOnly();
 
         require(deployerPrivKey != 0, "invalid deployer priv key");
+        console.log("[INFO] Deploying from", vm.addr(deployerPrivKey));
 
         // Deploy AirdropVault if not deployed already
         if (vaultAddress == address(0)) {
