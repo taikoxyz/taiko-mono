@@ -57,7 +57,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     // This function is necessary for this contract to become an assigned prover.
     function isValidSignature(
         bytes32 _hash,
-        bytes memory _signature
+        bytes calldata _signature
     )
         external
         view
