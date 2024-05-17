@@ -3,12 +3,12 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { AlphaToken } from "../contracts/AlphaToken.sol";
+import { SnaefellToken } from "../contracts/SnaefellToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract AlphaTokenTest is Test {
-    AlphaToken public token;
+contract SnaefellTokenTest is Test {
+    SnaefellToken public token;
 
     address public owner = vm.addr(0x5);
 
@@ -25,14 +25,14 @@ contract AlphaTokenTest is Test {
         bytes32 root = tree.getRoot(leaves);
 
         // deploy token with empty root
-        address impl = address(new AlphaToken());
+        address impl = address(new SnaefellToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(AlphaToken.initialize, (address(0), "ipfs://", root))
+                impl, abi.encodeCall(SnaefellToken.initialize, (address(0), "ipfs://", root))
             )
         );
 
-        token = AlphaToken(proxy);
+        token = SnaefellToken(proxy);
         // use the token to calculate leaves
         for (uint256 i = 0; i < minters.length; i++) {
             leaves[i] = token.leaf(minters[i], MAX_MINTS);
@@ -44,8 +44,8 @@ contract AlphaTokenTest is Test {
     }
 
     function test_metadata() public view {
-        assertEq(token.name(), "AlphaToken");
-        assertEq(token.symbol(), "ATK");
+        assertEq(token.name(), "SnaefellToken");
+        assertEq(token.symbol(), "SNF");
         assertEq(token.totalSupply(), 0);
     }
 

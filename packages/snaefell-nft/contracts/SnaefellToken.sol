@@ -7,9 +7,9 @@ import { ERC721EnumerableUpgradeable } from
 import { MerkleWhitelist } from "./MerkleWhitelist.sol";
 
 /// @title TaikoonToken
-/// @dev The AlphaToken ERC-721 token
+/// @dev The SnaefellToken ERC-721 token
 /// @custom:security-contact security@taiko.xyz
-contract AlphaToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
+contract SnaefellToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     /// @notice The current supply
     uint256 private _totalSupply;
     // Base URI required to interact with IPFS
@@ -33,7 +33,7 @@ contract AlphaToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
         external
         initializer
     {
-        __ERC721_init("AlphaToken", "ATK");
+        __ERC721_init("SnaefellToken", "SNF");
         __MerkleWhitelist_init(_owner, _merkleRoot);
         _baseURIExtended = _rootURI;
     }

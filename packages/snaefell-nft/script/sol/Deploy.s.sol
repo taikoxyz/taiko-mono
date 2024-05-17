@@ -5,7 +5,7 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { AlphaToken } from "../../contracts/AlphaToken.sol";
+import { SnaefellToken } from "../../contracts/SnaefellToken.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
@@ -35,19 +35,19 @@ contract DeployScript is Script {
 
         string memory baseURI = utils.getIpfsBaseURI();
 
-        address impl = address(new AlphaToken());
+        address impl = address(new SnaefellToken());
         address proxy = address(
-            new ERC1967Proxy(impl, abi.encodeCall(AlphaToken.initialize, (owner, baseURI, root)))
+            new ERC1967Proxy(impl, abi.encodeCall(SnaefellToken.initialize, (owner, baseURI, root)))
         );
 
-        AlphaToken token = AlphaToken(proxy);
+        SnaefellToken token = SnaefellToken(proxy);
 
         console.log("Token Base URI:", baseURI);
-        console.log("Deployed AlphaToken to:", address(token));
+        console.log("Deployed SnaefellToken to:", address(token));
 
         vm.serializeAddress(jsonRoot, "Owner", token.owner());
 
-        string memory finalJson = vm.serializeAddress(jsonRoot, "AlphaToken", address(token));
+        string memory finalJson = vm.serializeAddress(jsonRoot, "SnaefellToken", address(token));
         vm.writeJson(finalJson, jsonLocation);
 
         vm.stopBroadcast();
