@@ -39,7 +39,7 @@ export type Token = {
   attributes?: TokenAttributes[];
 };
 
-export type NFT = Token & {
+export type NFT = Omit<Token, 'decimals'> & {
   tokenId: number;
   uri?: string;
   metadata?: NFTMetadata;
@@ -55,7 +55,7 @@ export type NFTMetadata = {
 };
 
 export type GetTokenInfo = {
-  token: Token;
+  token: Token | NFT;
   srcChainId: number;
   destChainId: number;
 };
