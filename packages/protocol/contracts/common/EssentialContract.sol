@@ -36,10 +36,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
-    error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
-    error ZERO_ADDR_MANAGER();
     error FUNC_NOT_IMPLEMENTED();
+    error REENTRANT_CALL();
+    error ZERO_ADDR_MANAGER();
+    error ZERO_ADDRESS();
+    error ZERO_VALUE();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
@@ -67,6 +69,16 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     modifier whenNotPaused() {
         if (paused()) revert INVALID_PAUSE_STATUS();
+        _;
+    }
+
+    modifier nonZeroAddr(address _addr) {
+        if (_addr == address(0)) revert ZERO_ADDRESS();
+        _;
+    }
+
+    modifier nonZeroValue(bytes32 _value) {
+        if (_value == 0) revert ZERO_VALUE();
         _;
     }
 
