@@ -192,7 +192,7 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 || len(output.Proof) <= 0 {
+	if len(output.ErrorMessage) > 0 {
 		return nil, fmt.Errorf("failed to get proof, msg: %s", output.ErrorMessage)
 	}
 
