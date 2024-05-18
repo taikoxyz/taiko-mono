@@ -82,7 +82,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
-    error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
@@ -98,11 +97,6 @@ contract Bridge is EssentialContract, IBridge {
 
     modifier diffChain(uint64 _chainId) {
         if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
-        _;
-    }
-
-    modifier nonZeroAddr(address _addr) {
-        if (_addr == address(0)) revert B_INVALID_USER();
         _;
     }
 
