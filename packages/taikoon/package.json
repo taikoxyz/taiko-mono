@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.574.0",
-    "@aws-sdk/lib-storage": "^3.574.0",
+    "@aws-sdk/lib-storage": "^3.578.0",
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
     "@openzeppelin/merkle-tree": "^1.0.6",
