@@ -39,7 +39,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     error INVALID_PAUSE_STATUS();
     error FUNC_NOT_IMPLEMENTED();
     error REENTRANT_CALL();
-    error ZERO_ADDR_MANAGER();
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
@@ -120,8 +119,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function __Essential_init(address _owner, address _addressManager) internal {
-        if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
+    function __Essential_init(
+        address _owner,
+        address _addressManager
+    )
+        internal
+        nonZeroAddr(_addressManager)
+    {
         __Essential_init(_owner);
         __AddressResolver_init(_addressManager);
     }
