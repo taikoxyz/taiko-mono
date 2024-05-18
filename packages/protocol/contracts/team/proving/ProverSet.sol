@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
 import "../../L1/ITaikoL1.sol";
 
 /// @title ProverSet
@@ -13,24 +14,27 @@ import "../../L1/ITaikoL1.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
-    address public constant TKO = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-    address public constant TAIKO = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
-    address public constant ASSIGNMENT_HOOK = 0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6;
 
     mapping(address prover => bool isProver) public isProver;
     uint256[49] private __gap;
 
     event ProverEnabled(address indexed prover, bool indexed enabled);
-    event BlockProven(address indexed prover, uint64 indexed blockId);
+    event BlockProvenBy(address indexed prover, uint64 indexed blockId);
 
     error INVALID_STATUS();
     error PERMISSION_DENIED();
 
     /// @notice Initializes the contract.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-        IERC20(TKO).approve(TAIKO, type(uint256).max);
-        IERC20(TKO).approve(ASSIGNMENT_HOOK, type(uint256).max);
+    function init(address _owner, address _addressManager) external initializer {
+        __Essential_init(_owner, _addressManager);
+
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+
+        address taikoL1 = resolve(LibStrings.B_TAIKO, false);
+        tko.approve(taikoL1, type(uint256).max);
+
+        address assignmentHook = resolve(LibStrings.B_ASSIGNMENT_HOOK, false);
+        tko.approve(assignmentHook, type(uint256).max);
     }
 
     /// @notice Enables or disables a prover.
@@ -43,15 +47,15 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the owner address.
     function withdraw(uint256 _amount) external onlyOwner {
-        IERC20(TKO).transfer(owner(), _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).transfer(owner(), _amount);
     }
 
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external whenNotPaused {
         if (!isProver[msg.sender]) revert PERMISSION_DENIED();
 
-        emit BlockProven(msg.sender, _blockId);
-        ITaikoL1(TAIKO).proveBlock(_blockId, _input);
+        emit BlockProvenBy(msg.sender, _blockId);
+        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(_blockId, _input);
     }
 
     // This function is necessary for this contract to become an assigned prover.
