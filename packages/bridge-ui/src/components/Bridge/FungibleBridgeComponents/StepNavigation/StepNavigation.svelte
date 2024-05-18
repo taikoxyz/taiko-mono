@@ -6,17 +6,18 @@
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { StepBack } from '$components/Stepper';
-  import { account } from '$stores/account';
+  import { account, connectedSmartContractWallet } from '$stores/account';
 
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
 
-  export let needsManualConfirmation: boolean;
+  export let needsManualReviewConfirmation: boolean;
+  export let needsManualRecipientConfirmation: boolean;
   export let bridgingStatus: BridgingStatus;
 
   let nextStepButtonText: string;
-
-  let manuallyConfirmed = false;
+  let manuallyConfirmedReviewStep = false;
+  let manuallyConfirmedRecipientStep = false;
 
   const getStepText = () => {
     if (activeStep === BridgeSteps.REVIEW) {
@@ -31,7 +32,12 @@
 
   const handleNextStep = () => {
     if (activeStep === BridgeSteps.IMPORT) {
-      activeStep = BridgeSteps.REVIEW;
+      if ($connectedSmartContractWallet && !manuallyConfirmedRecipientStep) {
+        // If the user is connected to a smart contract wallet and hasn't confirmed the risk, we enforce the recipient step first
+        activeStep = BridgeSteps.RECIPIENT;
+      } else {
+        activeStep = BridgeSteps.REVIEW;
+      }
     } else if (activeStep === BridgeSteps.REVIEW) {
       activeStep = BridgeSteps.CONFIRM;
     } else if (activeStep === BridgeSteps.RECIPIENT) {
@@ -53,16 +59,17 @@
   };
 
   const reset = () => {
-    manuallyConfirmed = false;
+    manuallyConfirmedReviewStep = false;
+    manuallyConfirmedRecipientStep = false;
   };
 
   $: disabled = !$account || !$account.isConnected;
 
-  $: {
-    nextStepButtonText = getStepText();
-  }
+  $: nextStepButtonText = getStepText();
 
-  $: needsConfirmation = needsManualConfirmation && !manuallyConfirmed;
+  $: reviewConfirmed = !needsManualReviewConfirmation || manuallyConfirmedReviewStep;
+
+  $: recipientConfirmed = !needsManualRecipientConfirmation || manuallyConfirmedRecipientStep;
 </script>
 
 <div class="f-col w-full justify-content-center gap-4">
@@ -77,9 +84,12 @@
     </ActionButton>
   {/if}
   {#if activeStep === BridgeSteps.REVIEW}
-    {#if needsManualConfirmation}
-      <ActionButton priority="primary" disabled={manuallyConfirmed} on:click={() => (manuallyConfirmed = true)}>
-        {#if needsConfirmation}
+    {#if needsManualReviewConfirmation}
+      <ActionButton
+        priority="primary"
+        disabled={manuallyConfirmedReviewStep}
+        on:click={() => (manuallyConfirmedReviewStep = true)}>
+        {#if !reviewConfirmed}
           {$t('bridge.actions.acknowledge')}
         {:else}
           <Icon type="check" />{$t('common.confirmed')}
@@ -87,7 +97,7 @@
       </ActionButton>
     {/if}
 
-    <ActionButton priority="primary" disabled={disabled || needsConfirmation} on:click={() => handleNextStep()}>
+    <ActionButton priority="primary" disabled={disabled || !reviewConfirmed} on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
 
@@ -97,7 +107,19 @@
   {/if}
 
   {#if activeStep === BridgeSteps.RECIPIENT}
-    <ActionButton {disabled} priority="primary" on:click={() => handleNextStep()}>
+    {#if needsManualRecipientConfirmation}
+      <ActionButton
+        priority="primary"
+        disabled={recipientConfirmed}
+        on:click={() => (manuallyConfirmedRecipientStep = true)}>
+        {#if !recipientConfirmed}
+          {$t('bridge.actions.acknowledge')}
+        {:else}
+          <Icon type="check" />{$t('common.confirmed')}
+        {/if}
+      </ActionButton>
+    {/if}
+    <ActionButton disabled={disabled || !recipientConfirmed} priority="primary" on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
   {/if}
