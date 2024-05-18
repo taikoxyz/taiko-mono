@@ -63,6 +63,8 @@
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
 - impl: `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D`
 - owner: `admin.taiko.eth`
+- todo:
+  - upgrade contract impl to enable selfeDelegate and remove unused code.
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -139,7 +141,7 @@
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - tier_provider: `0x33879cDF01121dc7bCe011b461e64d791aE931F2`
+  - tier_provider: `0x4cffe56C947E26D07C14020499776DB3e9AE3a23`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
   - guardian_prover_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
@@ -153,6 +155,8 @@
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+- todo:
+  - register `assignment_hook` for `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
 
 #### taikoL1
 
@@ -175,11 +179,10 @@
 
 #### tier_provider
 
-- proxy: `0x33879cDF01121dc7bCe011b461e64d791aE931F2`
-- impl: `0xf8254fd073063C35811577877f840548e77fD52E`
-- owner: `admin.taiko.eth`
+- impl: `0x4cffe56C947E26D07C14020499776DB3e9AE3a23`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - deployed on May 15, 2024 @commit `cd5144255`
 
 #### tier_sgx
 
@@ -193,21 +196,43 @@
 #### guardian_prover_minority
 
 - proxy: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
-- impl: `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2`
+- impl: `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e`
 - owner: `admin.taiko.eth`
+- guardianProvers:
+  - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
+  - `0x0cAC6E2Fd10e92Bf798341Ad0A57b5Cb39DA8D0D`
+  - `0xd6BB974bc47626E3547426efa4CA2A8d7DFCccdf`
+  - `0xd26c4e85BC2fAAc27a320987e340971cF3b47d51`
+  - `0xC384B679c028787166b9B3725aC14A60da205861`
+  - `0x1602958A85494cd9C3e0D6672BA0eE42b95B4200`
+  - `0x5CfEb9a72256B1b49dc2C98b1b7b99d172D50B68`
+  - `0x1DB8Ac9f19AbdD60A6418383BfA56A4450aa80C6`
+- minGuardiansReached: `1`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - Upgraded from `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` to `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65es` @commit `cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
 
 #### guardian_prover
 
 - proxy: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
-- impl: `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2`
+- impl: `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e`
 - owner: `admin.taiko.eth`
+- guardianProvers:
+  - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
+  - `0x0cAC6E2Fd10e92Bf798341Ad0A57b5Cb39DA8D0D`
+  - `0xd6BB974bc47626E3547426efa4CA2A8d7DFCccdf`
+  - `0xd26c4e85BC2fAAc27a320987e340971cF3b47d51`
+  - `0xC384B679c028787166b9B3725aC14A60da205861`
+  - `0x1602958A85494cd9C3e0D6672BA0eE42b95B4200`
+  - `0x5CfEb9a72256B1b49dc2C98b1b7b99d172D50B68`
+  - `0x1DB8Ac9f19AbdD60A6418383BfA56A4450aa80C6`
+- minGuardiansReached: `6`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - Upgraded from `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` to `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e` @commit `cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
 
 #### p256_verifier
 
@@ -230,18 +255,22 @@
 #### automata_dcap_attestation
 
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-- impl: `0xde1b1FBe7D721af4A56651272ef91A59B7303323`
+- impl: `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit `b90b932` @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
+  - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit `cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
+  - Upgraded from `0xde1b1FBe7D721af4A56651272ef91A59B7303323` to `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
+  - Called `configureTcbInfoJson` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
 
 ### token_unlocking
 
-- impl: `0x244108e321FE03b0E33FE63Ef62285F05d191a62`
+- impl: `0xaccd34dffa1a112880422fccd9df8f08d79dd555`
 - logs:
   - deployed on May 13, 2024 at commit `165e28279`
+  - deployed again at commit `e0f6938` @tx `0x53dfd6a880826d12f5d697e85551d2ea56bcd071fecad93d3169c63c05b62a92`
 
 ## L2 Contracts
 

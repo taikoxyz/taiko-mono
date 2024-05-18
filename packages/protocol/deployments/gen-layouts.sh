@@ -17,15 +17,12 @@ contracts=(
     "BridgedERC721"
     "BridgedERC1155"
     "AssignmentHook"
-    "DevnetTierProvider"
-    "TierProviderV1"
-    "TierProviderV2"
-    "TierProviderV3"
     "ERC20Airdrop"
     "AutomataDcapV3Attestation"
     "SgxVerifier"
     "RiscZeroVerifier"
     "QuotaManager"
+    "ProverSet"
 )
 
 # Empty the output file initially
