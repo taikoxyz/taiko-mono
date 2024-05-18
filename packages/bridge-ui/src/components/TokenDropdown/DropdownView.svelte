@@ -11,7 +11,7 @@
   import { OnAccount } from '$components/OnAccount';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
-  import type { Token } from '$libs/token';
+  import type { NFT, Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { noop } from '$libs/util/noop';
   import { truncateString } from '$libs/util/truncateString';
@@ -28,7 +28,7 @@
   };
   export let tokens: Token[] = [];
   export let customTokens: Token[] = [];
-  export let value: Maybe<Token> = null;
+  export let value: Maybe<Token | NFT> = null;
   export let selectToken: (token: Token) => void = noop;
   export let onlyMintable: boolean = false;
 
