@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { type Address, type Chain, zeroAddress } from 'viem';
+import type { Address, Chain } from 'viem';
 
 import { destNetwork } from '$components/Bridge/state';
 import { FetchMetadataError } from '$libs/error';
@@ -12,19 +12,7 @@ import { fetchNFTMetadata } from './fetchNFTMetadata';
 import { getTokenAddresses } from './getTokenAddresses';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
 
-vi.mock('../../generated/customTokenConfig', () => {
-  const mockERC20 = {
-    name: 'MockERC20',
-    addresses: { '1': zeroAddress },
-    symbol: 'MTF',
-    decimals: 18,
-    type: 'ERC20',
-  };
-  return {
-    customToken: [mockERC20],
-  };
-});
-
+vi.mock('$customToken');
 vi.mock('./getTokenAddresses');
 
 describe('fetchNFTMetadata()', () => {
