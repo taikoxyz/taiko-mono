@@ -9,9 +9,6 @@ on:
       - "packages/bridge-ui/**"
     tags:
       - "bridge-ui-v*"
-  pull_request:
-    paths:
-      - "packages/bridge-ui/**"
 
 jobs:
   build-and-test:
