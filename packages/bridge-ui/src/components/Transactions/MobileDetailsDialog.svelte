@@ -55,9 +55,9 @@
   let canonicalAddress: Address | null;
   let canonicalChain: number | null;
 
-  $: if (token && !fetchingAddress && !canonicalAddress && !bridgedAddress) {
-    fetchTokenAddresses();
-  }
+  const forwardEvent = (e: CustomEvent) => {
+    dispatch(e.type, e.detail);
+  };
 
   const fetchTokenAddresses = async () => {
     if (!token) return;
@@ -85,6 +85,9 @@
     fetchingAddress = false;
   };
 
+  $: if (token && !fetchingAddress && !canonicalAddress && !bridgedAddress) {
+    fetchTokenAddresses();
+  }
   $: imageUrl = token?.metadata?.image || placeholderUrl;
 
   $: isERC721 = selectedItem?.tokenType === TokenType.ERC721;
@@ -127,7 +130,11 @@
               </div>
             </h4>
             <div class="f-items-center space-x-1">
-              <Status bridgeTx={selectedItem} on:insufficientFunds={handleInsufficientFunds} />
+              <Status
+                bridgeTxStatus={selectedItem.status}
+                bridgeTx={selectedItem}
+                on:openModal={forwardEvent}
+                on:insufficientFunds={handleInsufficientFunds} />
             </div>
           </li>
 

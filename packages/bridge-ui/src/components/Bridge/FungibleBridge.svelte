@@ -3,21 +3,26 @@
 
   import { Card } from '$components/Card';
   import { Step, Stepper } from '$components/Stepper';
+  import { connectedSmartContractWallet } from '$stores/account';
 
   import { ImportStep, ReviewStep, StepNavigation } from './FungibleBridgeComponents';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
   import { BridgeSteps, BridgingStatus } from './types';
+
+  const handleTransactionDetailsClick = () => (activeStep = BridgeSteps.RECIPIENT);
+  const handleBackClick = () => (activeStep = BridgeSteps.IMPORT);
 
   let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   let recipientStepComponent: RecipientStep;
 
   let stepTitle: string;
   let stepDescription: string;
+
   let hasEnoughEth: boolean = false;
   let bridgingStatus: BridgingStatus;
+  let needsManualReviewConfirmation: boolean;
 
-  const handleTransactionDetailsClick = () => (activeStep = BridgeSteps.RECIPIENT);
-  const handleBackClick = () => (activeStep = BridgeSteps.IMPORT);
+  $: needsManualRecipientConfirmation = $connectedSmartContractWallet;
 
   $: {
     const stepKey = BridgeSteps[activeStep].toLowerCase();
@@ -51,16 +56,21 @@
         <ReviewStep
           on:editTransactionDetails={handleTransactionDetailsClick}
           on:goBack={handleBackClick}
+          bind:needsManualReviewConfirmation
           bind:hasEnoughEth />
       {:else if activeStep === BridgeSteps.RECIPIENT}
         <!-- RECIPIENT STEP -->
-        <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth />
+        <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth bind:needsManualRecipientConfirmation />
       {:else if activeStep === BridgeSteps.CONFIRM}
         <!-- CONFIRM STEP -->
         <ConfirmationStep bind:bridgingStatus />
       {/if}
       <!-- NAVIGATION -->
-      <StepNavigation bind:activeStep {bridgingStatus} />
+      <StepNavigation
+        bind:activeStep
+        {bridgingStatus}
+        bind:needsManualReviewConfirmation
+        bind:needsManualRecipientConfirmation />
     </div>
   </Card>
 </div>

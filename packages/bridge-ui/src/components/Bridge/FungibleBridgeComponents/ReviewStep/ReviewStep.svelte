@@ -9,22 +9,34 @@
   import { destNetwork as destChain, enteredAmount, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
-  import { isWrapped, type Token } from '$libs/token';
+  import { isStablecoin, isSupported, isWrapped, type Token } from '$libs/token';
+  import { isToken } from '$libs/token/isToken';
   import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
+  export let needsManualReviewConfirmation = false;
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
-  $: renderedDisplay = ($selectedToken && formatUnits($enteredAmount, $selectedToken.decimals)) || 0;
-
+  $: renderedDisplay = isToken($selectedToken) ? formatUnits($enteredAmount, $selectedToken.decimals) : 0;
   $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
 
   $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
 
+  $: unsupportedStableCoin =
+    $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
+
   $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
+
+  $: stableCoinWarning = $t('bridge.alerts.stable_coin');
+
+  $: if (wrapped || unsupportedStableCoin) {
+    needsManualReviewConfirmation = true;
+  } else {
+    needsManualReviewConfirmation = false;
+  }
 
   const dispatch = createEventDispatcher();
 
@@ -69,11 +81,6 @@
   <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
 {/if}
 
-{#if wrapped}
-  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  <Alert type="warning">{@html wrappedAssetWarning}</Alert>
-{/if}
-
 <div class="h-sep" />
 <!-- 
 Recipient & Processing Fee
@@ -88,3 +95,13 @@ Recipient & Processing Fee
 </div>
 
 <div class="h-sep" />
+
+{#if wrapped}
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  <Alert type="warning">{@html wrappedAssetWarning}</Alert>
+{/if}
+
+{#if unsupportedStableCoin}
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  <Alert type="warning">{@html stableCoinWarning}</Alert>
+{/if}

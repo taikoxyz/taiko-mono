@@ -66,7 +66,7 @@
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.amount')}</div>
           {#if tx.tokenType === TokenType.ERC20}
-            {formatUnits(tx.amount ? tx.amount : BigInt(0), tx.decimals)}
+            {formatUnits(tx.amount ? tx.amount : BigInt(0), tx.decimals ?? 0)}
           {:else if tx.tokenType === TokenType.ETH}
             {formatEther(tx.amount ? tx.amount : BigInt(0))}
           {:else}

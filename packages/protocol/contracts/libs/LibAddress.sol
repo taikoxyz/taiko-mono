@@ -9,8 +9,6 @@ import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 /// @dev Provides utilities for address-related operations.
 /// @custom:security-contact security@taiko.xyz
 library LibAddress {
-    bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
-
     error ETH_TRANSFER_FAILED();
 
     /// @dev Sends Ether to the specified address. This method will not revert even if sending ether
