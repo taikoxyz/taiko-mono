@@ -53,6 +53,9 @@ contract L1RollupAddressManager is AddressManager {
             if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
                 return 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
             }
+            if (_name == LibStrings.B_ASSIGNMENT_HOOK) {
+                return 0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6;
+            }
         }
         return address(0);
     }
