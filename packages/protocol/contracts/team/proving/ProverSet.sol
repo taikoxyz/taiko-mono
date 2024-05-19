@@ -76,9 +76,23 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver whenNotPaused {
+    function proveBlock(
+        uint64 _blockId,
+        bytes calldata _input
+    )
+        external
+        onlyProver
+        whenNotPaused
+        nonReentrant
+    {
         emit BlockProvenBy(msg.sender, _blockId);
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(_blockId, _input);
+    }
+
+    /// @notice Delegates token voting right to a delegatee.
+    /// @param _delegatee The delegatee to receive the voting right.
+    function delegate(address _delegatee) external onlyAuthorized whenNotPaused nonReentrant {
+        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.

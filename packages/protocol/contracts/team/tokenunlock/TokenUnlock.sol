@@ -51,8 +51,14 @@ contract TokenUnlock is EssentialContract {
     /// @param proverSet The new prover set.
     event ProverSetCreated(address indexed proverSet);
 
+    /// @notice Emitted when TKO are deposited to a prover set.
+    /// @param proverSet The prover set.
+    /// @param amount The amount of TKO deposited.
+    event DepositToProverSet(address indexed proverSet, uint256 amount);
+
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
+    error NOT_PROVER_SET();
     error PERMISSION_DENIED();
 
     modifier onlyRecipient() {
@@ -91,7 +97,7 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Vests certain tokens to this contract.
     /// @param _amount The newly vested amount
-    function vest(uint128 _amount) external nonReentrant {
+    function vest(uint128 _amount) external whenNotPaused nonReentrant {
         if (_amount == 0) revert INVALID_PARAM();
 
         amountVested += _amount;
@@ -102,9 +108,33 @@ contract TokenUnlock is EssentialContract {
         );
     }
 
+    /// @notice Create a new prover set.
+    function createProverSet() external onlyRecipient whenNotPaused returns (address proverSet_) {
+        bytes memory data = abi.encodeCall(ProverSet.init, (owner(), address(this), addressManager));
+        proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
+
+        isProverSet[proverSet_] = true;
+        emit ProverSetCreated(proverSet_);
+    }
+
+    function depositToProverSet(
+        address _proverSet,
+        uint256 _amount
+    )
+        external
+        nonZeroValue(bytes32(_amount))
+        onlyRecipient
+        whenNotPaused
+    {
+        if (!isProverSet[_proverSet]) revert NOT_PROVER_SET();
+
+        emit DepositToProverSet(_proverSet, _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
+    }
+
     /// @notice Withdraws all withdrawable tokens.
     /// @param _to The address the token will be sent to.
-    function withdraw(address _to) external nonReentrant {
+    function withdraw(address _to) external whenNotPaused nonReentrant {
         uint256 amount = amountWithdrawable();
         if (amount == 0) revert NOT_WITHDRAWABLE();
 
@@ -119,7 +149,7 @@ contract TokenUnlock is EssentialContract {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(to, amount);
     }
 
-    function changeRecipient(address _newRecipient) external onlyRecipient nonReentrant {
+    function changeRecipient(address _newRecipient) external onlyRecipient whenNotPaused {
         if (_newRecipient == address(0) || _newRecipient == recipient) {
             revert INVALID_PARAM();
         }
@@ -130,18 +160,8 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
-    function delegate(address _delegatee) external onlyRecipient nonReentrant {
+    function delegate(address _delegatee) external onlyRecipient whenNotPaused nonReentrant {
         ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
-    }
-
-    function createProverSet() external onlyRecipient nonReentrant {
-        bytes memory data =
-            abi.encodeCall(ProverSet.init, (owner(), address(this), addressManager,));
-
-        address proverSet = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
-        isProverSet[proverSet] = true;
-
-        emit ProverSetCreated(proverSet);
     }
 
     /// @notice Returns the amount of token withdrawable.
