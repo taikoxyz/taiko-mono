@@ -45,7 +45,7 @@ type BalanceMonitor struct {
 	l2EthClient        ethClient
 	addresses          []common.Address
 	erc20Addresses     []common.Address
-	Interval           int
+	interval           int
 	wg                 *sync.WaitGroup
 	erc20DecimalsCache map[common.Address]uint8
 }
@@ -75,7 +75,7 @@ func InitFromConfig(ctx context.Context, b *BalanceMonitor, cfg *Config) (err er
 	b.l2EthClient = l2EthClient
 	b.addresses = cfg.Addresses
 	b.erc20Addresses = cfg.ERC20Addresses
-	b.Interval = cfg.Interval
+	b.interval = cfg.Interval
 	b.erc20DecimalsCache = make(map[common.Address]uint8)
 
 	return nil
@@ -92,7 +92,7 @@ func (b *BalanceMonitor) Close(ctx context.Context) {
 func (b *BalanceMonitor) Start() error {
 	slog.Info("hello from balance monitor")
 
-	ticker := time.NewTicker(time.Duration(b.Interval) * time.Second)
+	ticker := time.NewTicker(time.Duration(b.interval) * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
