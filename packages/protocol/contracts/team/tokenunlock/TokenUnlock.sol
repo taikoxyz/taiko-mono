@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
 
-/// @title TokenUnlocking
+/// @title TokenUnlock
 /// @notice Manages the linear unlocking of Taiko tokens over a four-year period.
 /// Tokens purchased off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals are permitted linearly over four years starting from the Token
 /// Generation Event (TGE), with no withdrawals allowed during the first year.
 /// A separate instance of this contract is deployed for each recipient.
 /// @custom:security-contact security@taiko.xyz
-contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract TokenUnlock is EssentialContract {
     using SafeERC20 for IERC20;
 
     uint256 public constant ONE_YEAR = 365 days;
@@ -24,10 +24,9 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public amountVested;
     uint256 public amountWithdrawn;
     address public recipient;
-    address public taikoToken;
     uint64 public tgeTimestamp;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /// @notice Emitted when token is vested.
     /// @param amount The newly vested amount.
@@ -59,29 +58,25 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
-    /// @param _taikoToken The Taiko token address.
+    /// @param _addressManager The rollup address manager.
     /// @param _recipient Who will be the grantee for this contract.
     /// @param _tgeTimestamp The token generation event timestamp.
     function init(
         address _owner,
-        address _taikoToken,
+        address _addressManager,
         address _recipient,
         uint64 _tgeTimestamp
     )
         external
         initializer
     {
-        if (
-            _owner == _recipient || _owner == address(0) || _recipient == address(0)
-                || _taikoToken == address(0) || _tgeTimestamp == 0
-        ) {
+        if (_owner == _recipient || _recipient == address(0) || _tgeTimestamp == 0) {
             revert INVALID_PARAM();
         }
 
-        _transferOwnership(_owner);
+        __Essential_init(_owner, _addressManager);
 
         recipient = _recipient;
-        taikoToken = _taikoToken;
         tgeTimestamp = _tgeTimestamp;
     }
 
@@ -93,7 +88,9 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         amountVested += _amount;
         emit TokenVested(_amount);
 
-        IERC20(taikoToken).safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransferFrom(
+            msg.sender, address(this), _amount
+        );
     }
 
     /// @notice Withdraws all withdrawable tokens.
@@ -110,7 +107,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         amountWithdrawn += amount;
         emit TokenWithdrawn(to, amount);
 
-        IERC20(taikoToken).safeTransfer(to, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(to, amount);
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipient nonReentrant {
@@ -125,7 +122,7 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyRecipient nonReentrant {
-        ERC20VotesUpgradeable(taikoToken).delegate(_delegatee);
+        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
     }
 
     /// @notice Returns the amount of token withdrawable.
