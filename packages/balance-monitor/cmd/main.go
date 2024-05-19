@@ -20,9 +20,9 @@ func main() {
 	// exist.
 
 	app.Name = "Taiko Balance Monitor"
-	app.Usage = "The taiko relayer software command line interface"
+	app.Usage = "The taiko balance monitor software command line interface"
 	app.Copyright = "Copyright 2021-2024 Taiko Labs"
-	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"
+	app.Description = "Bridge balance monitor implementation in Golang"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
 	app.EnableBashCompletion = true
 
@@ -32,7 +32,7 @@ func main() {
 			Name:        "balance-monitor",
 			Flags:       flags.CommonFlags,
 			Usage:       "Starts the balance monitor oftware",
-			Description: "Taiko relayer balance monitro",
+			Description: "Taiko balance monitor",
 			Action:      utils.SubcommandAction(new(balanceMonitor.BalanceMonitor)),
 		},
 	}

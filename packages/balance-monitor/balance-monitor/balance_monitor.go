@@ -105,7 +105,7 @@ func (b *BalanceMonitor) Start() error {
 				b.checkErc20Balance(context.Background(), b.l1EthClient, l1Erc20BalanceGauge, "L1", tokenAddress, address)
 				b.checkErc20Balance(context.Background(), b.l2EthClient, l2Erc20BalanceGauge, "L2", tokenAddress, address)
 			}
-			// Add a 1-second sleep between address checks
+			// Add a 1 second sleep between address checks
 			time.Sleep(time.Second)
 		}
 	}
@@ -125,7 +125,7 @@ func (b *BalanceMonitor) checkEthBalance(ctx context.Context, client ethClient, 
 }
 
 func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient, gauge *prometheus.GaugeVec, clientLabel string, tokenAddress, holderAddress common.Address) {
-	tokenBalance, err := b.GetERC20Balance(ctx, client, tokenAddress, holderAddress)
+	tokenBalance, err := b.getErc20Balance(ctx, client, tokenAddress, holderAddress)
 	if err != nil {
 		slog.Info(fmt.Sprintf("Failed to get %s ERC-20 balance for address", clientLabel), "address", holderAddress.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
 		return
@@ -164,7 +164,7 @@ func (b *BalanceMonitor) getEthBalance(ctx context.Context, client ethClient, ad
 	return balance, nil
 }
 
-func (b *BalanceMonitor) GetERC20Balance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
+func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
 		return nil, err
