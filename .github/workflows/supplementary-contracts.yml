@@ -5,9 +5,6 @@ on:
     branches: [main]
     paths:
       - "packages/supplementary-contracts/**"
-  pull_request:
-    paths:
-      - "packages/supplementary-contracts/**"
 
 jobs:
   build-supplementary-contracts:

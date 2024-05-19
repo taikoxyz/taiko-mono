@@ -3,14 +3,14 @@
 
   import { destNetwork, selectedToken } from '$components/Bridge/state';
   import { recommendProcessingFee } from '$libs/fee';
-  import { fetchBalance, type Token } from '$libs/token';
+  import { fetchBalance, type NFT, type Token } from '$libs/token';
   import { account, connectedSourceChain } from '$stores';
 
   export let enoughEth: boolean;
   export let calculating = false;
   export let error = false;
 
-  async function compute(token: Maybe<Token>, userAddress?: Address, srcChain?: number, destChain?: number) {
+  async function compute(token: Maybe<Token | NFT>, userAddress?: Address, srcChain?: number, destChain?: number) {
     if (!token || !userAddress || !srcChain || !destChain) {
       enoughEth = false;
       return;
