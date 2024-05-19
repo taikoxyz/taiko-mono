@@ -8,6 +8,10 @@ import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
 import "../../L1/ITaikoL1.sol";
 
+interface IHasRecipient {
+    function recipient() external view returns (address);
+}
+
 /// @title ProverSet
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
 /// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
@@ -24,6 +28,14 @@ contract ProverSet is EssentialContract, IERC1271 {
     error INVALID_STATUS();
     error PERMISSION_DENIED();
 
+    modifier onlyAuthorized() {
+        address _owner = owner();
+        if (msg.sender != _owner && msg.sender != IHasRecipient(_owner).recipient()) {
+            revert PERMISSION_DENIED();
+        }
+        _;
+    }
+
     /// @notice Initializes the contract.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
@@ -38,7 +50,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Enables or disables a prover.
-    function enableProver(address _prover, bool _isProver) external onlyOwner {
+    function enableProver(address _prover, bool _isProver) external onlyAuthorized {
         if (isProver[_prover] == _isProver) revert INVALID_STATUS();
         isProver[_prover] = _isProver;
 
@@ -46,7 +58,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Withdraws Taiko tokens back to the owner address.
-    function withdraw(uint256 _amount) external onlyOwner {
+    function withdrawToOwner(uint256 _amount) external onlyAuthorized {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).transfer(owner(), _amount);
     }
 
