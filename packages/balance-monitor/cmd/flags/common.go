@@ -48,8 +48,9 @@ var (
 	MetricsHTTPPort = &cli.Uint64Flag{
 		Name:     "metrics.port",
 		Usage:    "Port to run metrics http server on",
-		Category: commonCategory,
+		Required: false,
 		Value:    6061,
+		Category: commonCategory,
 		EnvVars:  []string{"METRICS_HTTP_PORT"},
 	}
 )
