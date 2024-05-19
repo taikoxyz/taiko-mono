@@ -30,12 +30,7 @@ type ethClient interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
-	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
-	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
-	ChainID(ctx context.Context) (*big.Int, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
