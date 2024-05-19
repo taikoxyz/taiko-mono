@@ -20,7 +20,10 @@ contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
     mapping(address prover => bool isProver) public isProver;
-    uint256[49] private __gap;
+
+    address public admin;
+
+    uint256[48] private __gap;
 
     event ProverEnabled(address indexed prover, bool indexed enabled);
     event BlockProvenBy(address indexed prover, uint64 indexed blockId);
@@ -29,24 +32,34 @@ contract ProverSet is EssentialContract, IERC1271 {
     error PERMISSION_DENIED();
 
     modifier onlyAuthorized() {
-        address _owner = owner();
-        if (msg.sender != _owner && msg.sender != IHasRecipient(_owner).recipient()) {
+        if (msg.sender != admin && msg.sender != IHasRecipient(admin).recipient()) {
             revert PERMISSION_DENIED();
         }
         _;
     }
 
+    modifier onlyProver() {
+        if (!isProver[msg.sender]) revert PERMISSION_DENIED();
+        _;
+    }
+
     /// @notice Initializes the contract.
-    function init(address _owner, address _addressManager) external initializer {
+    function init(
+        address _owner,
+        address _admin,
+        address _addressManager
+    )
+        external
+        nonZeroAddr(_admin)
+        initializer
+    {
         __Essential_init(_owner, _addressManager);
 
+        admin = _admin;
+
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-
-        address taikoL1 = resolve(LibStrings.B_TAIKO, false);
-        tko.approve(taikoL1, type(uint256).max);
-
-        address assignmentHook = resolve(LibStrings.B_ASSIGNMENT_HOOK, false);
-        tko.approve(assignmentHook, type(uint256).max);
+        tko.approve(resolve(LibStrings.B_TAIKO, false), type(uint256).max);
+        tko.approve(resolve(LibStrings.B_ASSIGNMENT_HOOK, false), type(uint256).max);
     }
 
     /// @notice Enables or disables a prover.
@@ -58,14 +71,12 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Withdraws Taiko tokens back to the owner address.
-    function withdrawToOwner(uint256 _amount) external onlyAuthorized {
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).transfer(owner(), _amount);
+    function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).transfer(admin, _amount);
     }
 
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external whenNotPaused {
-        if (!isProver[msg.sender]) revert PERMISSION_DENIED();
-
+    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver whenNotPaused {
         emit BlockProvenBy(msg.sender, _blockId);
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(_blockId, _input);
     }
