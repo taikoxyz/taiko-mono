@@ -43,8 +43,8 @@ type ethClient interface {
 type BalanceMonitor struct {
 	l1EthClient        ethClient
 	l2EthClient        ethClient
-	Addresses          []common.Address
-	ERC20Addresses     []common.Address
+	addresses          []common.Address
+	erc20Addresses     []common.Address
 	Interval           int
 	wg                 *sync.WaitGroup
 	erc20DecimalsCache map[common.Address]uint8
@@ -73,8 +73,8 @@ func InitFromConfig(ctx context.Context, b *BalanceMonitor, cfg *Config) (err er
 
 	b.l1EthClient = l1EthClient
 	b.l2EthClient = l2EthClient
-	b.Addresses = cfg.Addresses
-	b.ERC20Addresses = cfg.ERC20Addresses
+	b.addresses = cfg.Addresses
+	b.erc20Addresses = cfg.ERC20Addresses
 	b.Interval = cfg.Interval
 	b.erc20DecimalsCache = make(map[common.Address]uint8)
 
@@ -96,12 +96,12 @@ func (b *BalanceMonitor) Start() error {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		for _, address := range b.Addresses {
+		for _, address := range b.addresses {
 			b.checkEthBalance(context.Background(), b.l1EthClient, l1EthBalanceGauge, "L1", address)
 			b.checkEthBalance(context.Background(), b.l2EthClient, l2EthBalanceGauge, "L2", address)
 
 			// Check ERC-20 token balances
-			for _, tokenAddress := range b.ERC20Addresses {
+			for _, tokenAddress := range b.erc20Addresses {
 				b.checkErc20Balance(context.Background(), b.l1EthClient, l1Erc20BalanceGauge, "L1", tokenAddress, address)
 				b.checkErc20Balance(context.Background(), b.l2EthClient, l2Erc20BalanceGauge, "L2", tokenAddress, address)
 			}
@@ -114,7 +114,7 @@ func (b *BalanceMonitor) Start() error {
 }
 
 func (b *BalanceMonitor) checkEthBalance(ctx context.Context, client ethClient, gauge *prometheus.GaugeVec, clientLabel string, address common.Address) {
-	balance, err := b.GetEthBalance(ctx, client, address)
+	balance, err := b.getEthBalance(ctx, client, address)
 	if err != nil {
 		slog.Info(fmt.Sprintf("Failed to get %s ETH balance for address", clientLabel), "address", address.Hex(), "error", err)
 		return
@@ -135,7 +135,7 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient
 	tokenDecimals, ok := b.erc20DecimalsCache[tokenAddress]
 	if !ok {
 		// If not in the cache, fetch the decimals from the contract
-		tokenDecimals, err = b.GetERC20Decimals(ctx, client, tokenAddress)
+		tokenDecimals, err = b.getErc20Decimals(ctx, client, tokenAddress)
 		if err != nil {
 			slog.Info(fmt.Sprintf("Failed to get %s ERC-20 decimals for token", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
 			return
@@ -155,7 +155,7 @@ type ERC20 interface {
 	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
 }
 
-func (b *BalanceMonitor) GetEthBalance(ctx context.Context, client ethClient, address common.Address) (*big.Int, error) {
+func (b *BalanceMonitor) getEthBalance(ctx context.Context, client ethClient, address common.Address) (*big.Int, error) {
 	balance, err := client.BalanceAt(ctx, address, nil)
 	if err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func (b *BalanceMonitor) GetERC20Balance(ctx context.Context, client ethClient, 
 	return balance, nil
 }
 
-func (b *BalanceMonitor) GetERC20Decimals(ctx context.Context, client ethClient, tokenAddress common.Address) (uint8, error) {
+func (b *BalanceMonitor) getErc20Decimals(ctx context.Context, client ethClient, tokenAddress common.Address) (uint8, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
 		return 0, err
