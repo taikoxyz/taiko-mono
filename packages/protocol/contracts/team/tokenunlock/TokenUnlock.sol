@@ -2,11 +2,14 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
+import "../proving/ProverSet.sol";
 
 /// @title TokenUnlock
 /// @notice Manages the linear unlocking of Taiko tokens over a four-year period.
@@ -26,7 +29,9 @@ contract TokenUnlock is EssentialContract {
     address public recipient;
     uint64 public tgeTimestamp;
 
-    uint256[47] private __gap;
+    mapping(address proverSet => bool valid) public isProverSet;
+
+    uint256[46] private __gap;
 
     /// @notice Emitted when token is vested.
     /// @param amount The newly vested amount.
@@ -41,6 +46,10 @@ contract TokenUnlock is EssentialContract {
     /// @param oldRecipient The old recipient address.
     /// @param newRecipient The new recipient address.
     event RecipientChanged(address indexed oldRecipient, address indexed newRecipient);
+
+    /// @notice Emitted when a new prover set is created.
+    /// @param proverSet The new prover set.
+    event ProverSetCreated(address indexed proverSet);
 
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
@@ -123,6 +132,16 @@ contract TokenUnlock is EssentialContract {
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyRecipient nonReentrant {
         ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
+    }
+
+    function createProverSet() external onlyRecipient nonReentrant {
+        bytes memory data =
+            abi.encodeCall(ProverSet.init, (owner(), address(this), addressManager,));
+
+        address proverSet = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
+        isProverSet[proverSet] = true;
+
+        emit ProverSetCreated(proverSet);
     }
 
     /// @notice Returns the amount of token withdrawable.
