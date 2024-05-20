@@ -22,6 +22,7 @@ import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
@@ -273,7 +274,8 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager))
+            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
 
         deployProxy({
@@ -301,7 +303,11 @@ contract DeployOnL1 is DeployCapability {
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
-        register(rollupAddressManager, "tier_provider", address(new TestTierProvider()));
+        register(
+            rollupAddressManager,
+            "tier_provider",
+            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+        );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
@@ -333,6 +339,12 @@ contract DeployOnL1 is DeployCapability {
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
         console2.log("AutomataDcapVaAttestation", automataProxy);
+
+        deployProxy({
+            name: "prover_set",
+            impl: address(new ProverSet()),
+            data: abi.encodeCall(ProverSet.init, (owner, owner, rollupAddressManager))
+        });
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {
