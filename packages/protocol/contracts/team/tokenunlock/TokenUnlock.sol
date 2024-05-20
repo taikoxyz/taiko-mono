@@ -66,11 +66,6 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
     /// @param _addressManager The rollup address manager.
