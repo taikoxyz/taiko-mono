@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/protocol/**"
+  pull_request:
+    paths:
+      - "packages/protocol/**"
 
 jobs:
   build-protocol:
