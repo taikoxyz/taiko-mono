@@ -67,7 +67,7 @@ func (s *Sender) Send(
 	// Send the transaction.
 	receipt, err := s.txmgr.Send(ctx, *txCandidate)
 	if err != nil {
-		return err
+		return encoding.TryParsingCustomError(err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {

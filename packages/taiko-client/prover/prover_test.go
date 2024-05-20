@@ -298,6 +298,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Nil(s.p.transitionContestedHandler.Handle(context.Background(), contestedEvent))
 
 	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.p.cfg.GuardianProverMinorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS"))
 	s.True(s.p.IsGuardianProver())
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
@@ -315,20 +316,35 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.p.rpc.GuardianProverMajority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMajorityAddress, s.p.rpc.L1)
 	s.Nil(err)
 
-	approvedSink := make(chan *bindings.GuardianProverGuardianApproval)
+	s.p.rpc.GuardianProverMinority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMinorityAddress, s.p.rpc.L1)
+	s.Nil(err)
+
+	var (
+		approvedSink = make(chan *bindings.GuardianProverGuardianApproval)
+		// provedSink   = make(chan *bindings.TaikoL1ClientTransitionProved)
+	)
 	approvedSub, err := s.p.rpc.GuardianProverMajority.WatchGuardianApproval(
 		nil, approvedSink, []common.Address{}, [](*big.Int){}, []([32]byte){},
 	)
 	s.Nil(err)
+
+	provedSub, err := s.p.rpc.TaikoL1.WatchTransitionProved(nil, sink, nil)
+	s.Nil(err)
+
 	defer func() {
 		approvedSub.Unsubscribe()
+		provedSub.Unsubscribe()
 		close(approvedSink)
 	}()
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
-	s.Nil(s.p.selectSubmitter(encoding.TierGuardianMajorityID).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.selectSubmitter(encoding.TierGuardianMinorityID).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	approvedEvent := <-approvedSink
+	// provedEvent := <-provedSink
 
+	s.True(approvedEvent.Approved)
+	// s.Equal(header.Number.Uint64(), provedEvent.BlockId.Uint64())
+	// s.Equal(s.p.cfg.GuardianProverMinorityAddress, provedEvent.Prover)
 	s.Equal(header.Number.Uint64(), approvedEvent.BlockId.Uint64())
 }
 

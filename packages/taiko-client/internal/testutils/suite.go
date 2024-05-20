@@ -84,17 +84,24 @@ func (s *ClientTestSuite) SetupTest() {
 		ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
 		s.Nil(err)
 
-		// Transfer some tokens to provers.
+		// Transfer some tokens to provers / guardian provers
 		balance, err := rpcCli.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
 		s.Nil(err)
 		s.Greater(balance.Cmp(common.Big0), 0)
 
 		opts, err := bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
 		s.Nil(err)
-		proverBalance := new(big.Int).Div(balance, common.Big2)
-		s.Greater(proverBalance.Cmp(common.Big0), 0)
+		amountToDistribute := new(big.Int).Div(balance, common.Big3)
+		s.Greater(amountToDistribute.Cmp(common.Big0), 0)
 
-		_, err = rpcCli.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
+		_, err = rpcCli.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), amountToDistribute)
+		s.Nil(err)
+
+		_, err = rpcCli.TaikoToken.Transfer(
+			opts,
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
+			amountToDistribute,
+		)
 		s.Nil(err)
 
 		// Increase allowance for AssignmentHook and TaikoL1
