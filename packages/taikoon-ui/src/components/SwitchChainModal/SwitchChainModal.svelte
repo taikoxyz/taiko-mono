@@ -74,26 +74,27 @@
     <h3 class={titleClasses}>{$t('switch_modal.title')}</h3>
     <p class={textClasses}>{$t('switch_modal.description')}</p>
     <ul role="menu" class=" w-full">
-      {#each chains as chain (chain.id)}
-        {@const icon = getChainImage(Number(chain.id)) || 'Unknown Chain'}
+      {#if chains !== undefined}
+        {#each chains as chain (chain.id)}
+          {@const icon = getChainImage(Number(chain.id)) || 'Unknown Chain'}
 
-        <li
-          role="menuitem"
-          tabindex="0"
-          class={chainItemClasses}
-          on:click={() => selectChain(chain)}
-          on:keydown={getChainKeydownHandler(chain)}>
-          <!-- TODO: agree on hover:bg color -->
-          <div class={chainItemContentClasses}>
-            <div class={chainItemContentWrapperClasses}>
-              <i role="img" aria-label={chain.name}>
-                <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
-              </i>
-              <span class="body-bold">{chain.name}</span>
+          <li
+            role="menuitem"
+            tabindex="0"
+            class={chainItemClasses}
+            on:click={() => selectChain(chain)}
+            on:keydown={getChainKeydownHandler(chain)}>
+            <!-- TODO: agree on hover:bg color -->
+            <div class={chainItemContentClasses}>
+              <div class={chainItemContentWrapperClasses}>
+                <i role="img" aria-label={chain.name}>
+                  <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
+                </i>
+                <span class="body-bold">{chain.name}</span>
+              </div>
             </div>
-          </div>
-        </li>
-      {/each}
+          </li>
+        {/each}{/if}
     </ul>
   </div>
 </dialog>
