@@ -66,8 +66,12 @@ type RISC0RequestProofBodyParam struct {
 
 // RaikoRequestProofBodyResponse represents the JSON body of the response of the proof requests.
 type RaikoRequestProofBodyResponse struct {
-	Proof        string `json:"proof"` //nolint:revive,stylecheck
-	ErrorMessage string `json:"message"`
+	Data         *RaikoProofData `json:"data"`
+	ErrorMessage string          `json:"message"`
+}
+
+type RaikoProofData struct {
+	Proof string `json:"proof"` //nolint:revive,stylecheck
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -135,7 +139,14 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 
 		log.Debug("Proof generation output", "output", output)
 
-		proof = common.Hex2Bytes(output.Proof[2:])
+		// Raiko returns "" as proof when proof type is native,
+		// so we just convert "" to bytes
+		if s.ProofType == ProofTypeCPU {
+			proof = common.Hex2Bytes(output.Data.Proof)
+		} else {
+			proof = common.Hex2Bytes(output.Data.Proof[2:])
+		}
+
 		log.Info(
 			"Proof generated",
 			"height", opts.BlockID,
