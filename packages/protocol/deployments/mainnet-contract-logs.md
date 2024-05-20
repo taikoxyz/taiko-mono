@@ -266,12 +266,11 @@
   - Upgraded from `0xde1b1FBe7D721af4A56651272ef91A59B7303323` to `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
   - Called `configureTcbInfoJson` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
 
-### token_unlocking
+### token_unlock
 
-- impl: `0xaccd34dffa1a112880422fccd9df8f08d79dd555`
-- logs:
-  - deployed on May 13, 2024 at commit `165e28279`
-  - deployed again at commit `e0f6938` @tx `0x53dfd6a880826d12f5d697e85551d2ea56bcd071fecad93d3169c63c05b62a92`
+- impl: ``
+- todo:
+  - deploy
 
 ## L2 Contracts
 
