@@ -1,6 +1,6 @@
 import type { Chain } from 'viem';
 
-import { type ChainConfig, type ChainConfigMap, LayerType } from '../../lib/chain';
+import { type ChainConfig, type ChainConfigMap, LayerType } from '.';
 
 //import { chainConfig } from '$chainConfig';
 
@@ -107,33 +107,33 @@ export const chains: Chain[] = Object.entries(chainConfigs).map(([chainId, chain
   mapChainConfigToChain(chainId, chainConfig as ChainConfig),
 );
 
-export const getConfiguredChainIds = (): number[] => {
+export function getConfiguredChainIds(): number[] {
   return chains.map((chain) => Number(chain.id));
-};
+}
 
-export const isSupportedChain = (chainId: number) => {
+export function isSupportedChain(chainId: number) {
   return chains.some((chain) => chain.id === chainId);
-};
+}
 
-export const getChainImages = (): Record<number, string> => {
+export function getChainImages(): Record<number, string> {
   return Object.fromEntries(
     Object.entries(chainConfigs).map(([chainId]) => [Number(chainId), chainConfigs[Number(chainId)].icon]),
   );
-};
+}
 
-export const getChainImage = (chainId: number) => {
+export function getChainImage(chainId: number) {
   const images = getChainImages();
   if (!images[chainId]) {
     throw new Error(`Chain with id ${chainId} not found`);
   }
 
   return images[chainId];
-};
+}
 
-export const getChainName = (chainId: number) => {
+export function getChainName(chainId: number) {
   const chain = chains.find((chain) => chain.id === chainId);
   if (!chain) {
     throw new Error(`Chain with id ${chainId} not found`);
   }
   return chain.name;
-};
+}
