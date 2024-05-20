@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Footer } from 'ui-lib';
+  import { Footer } from '@taiko/ui-lib';
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
