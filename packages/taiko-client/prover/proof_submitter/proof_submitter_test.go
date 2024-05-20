@@ -44,7 +44,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	builder := transaction.NewProveBlockTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		rpc.ZeroAddress,
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
 	)
@@ -192,7 +192,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
-		rpc.ZeroAddress,
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		"test",
 		0,
@@ -212,7 +212,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
-		rpc.ZeroAddress,
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		"test",
 		0,
