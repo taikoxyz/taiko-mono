@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/src/Script.sol";
-import "forge-std/src/console2.sol";
-
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "../../test/DeployCapability.sol";
 import "../../contracts/team/tokenunlock/TokenUnlock.sol";
 
-contract DeployTokenUnlock is Script {
+contract DeployTokenUnlock is DeployCapability {
     using stdJson for string;
 
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
@@ -24,23 +21,17 @@ contract DeployTokenUnlock is Script {
         );
 
         for (uint256 i; i < recipients.length; i++) {
-            console2.log("grantee:", recipients[i]);
-
             vm.startBroadcast();
             address proxy = deployProxy({
+                name: "TokenUnlock",
                 impl: TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(
                     TokenUnlock.init, (OWNER, ROLLUP_ADDRESS_MANAGER, recipients[i], TGE)
                 )
             });
             vm.stopBroadcast();
-            console2.log("tokenUnlock:", proxy);
+            console2.log("grantee:", recipients[i]);
+            console2.log("proxy. :", proxy);
         }
-    }
-
-    function deployProxy(address impl, bytes memory data) public returns (address proxy) {
-        proxy = address(new ERC1967Proxy(impl, data));
-        console2.log("  proxy      :", proxy);
-        console2.log("  impl       :", impl);
     }
 }
