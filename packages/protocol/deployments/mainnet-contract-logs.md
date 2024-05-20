@@ -156,6 +156,7 @@
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 - todo:
+  - register `prover_set`
   - register `assignment_hook` for `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
 
 #### taikoL1

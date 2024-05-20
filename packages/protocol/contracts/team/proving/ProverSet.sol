@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -19,9 +20,8 @@ interface IHasRecipient {
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
-    mapping(address prover => bool isProver) public isProver;
-
-    address public admin;
+    mapping(address prover => bool isProver) public isProver; // slot 1
+    address public admin; // slot 2
 
     uint256[48] private __gap;
 
@@ -70,15 +70,29 @@ contract ProverSet is EssentialContract, IERC1271 {
         emit ProverEnabled(_prover, _isProver);
     }
 
-    /// @notice Withdraws Taiko tokens back to the owner address.
+    /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).transfer(admin, _amount);
     }
 
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver whenNotPaused {
+    function proveBlock(
+        uint64 _blockId,
+        bytes calldata _input
+    )
+        external
+        onlyProver
+        whenNotPaused
+        nonReentrant
+    {
         emit BlockProvenBy(msg.sender, _blockId);
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(_blockId, _input);
+    }
+
+    /// @notice Delegates token voting right to a delegatee.
+    /// @param _delegatee The delegatee to receive the voting right.
+    function delegate(address _delegatee) external onlyAuthorized whenNotPaused nonReentrant {
+        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.
