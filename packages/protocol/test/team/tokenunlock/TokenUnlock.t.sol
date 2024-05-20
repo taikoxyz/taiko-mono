@@ -67,41 +67,43 @@ contract TestTokenUnlock is TaikoTest {
         vm.expectRevert(); //"revert: Ownable: caller is not the owner"
         target.vest(10 ether);
 
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         target.vest(100 ether);
+        tko.transfer(address(target), 0.5 ether);
+        vm.stopPrank();
+
+        assertEq(tko.balanceOf(address(target)), 100.5 ether);
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 0.5 ether);
 
         vm.warp(TGE + target.ONE_YEAR() - 1);
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 0.5 ether);
 
         vm.warp(TGE + target.ONE_YEAR());
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 25 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 25.5 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 50 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 50.5 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 3);
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 75 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 75.5 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 4);
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 100 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 100.5 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 4 + 1);
         assertEq(target.amountVested(), 100 ether);
-        assertEq(target.amountWithdrawable(), 100 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 100.5 ether);
+
+        vm.prank(Alice);
+        tko.transfer(address(target), 0.5 ether);
+        assertEq(target.amountVested(), 100 ether);
+        assertEq(target.amountWithdrawable(), 101 ether);
     }
 
     function test_tokenunlock_multiple_vest_withdrawal() public {
@@ -109,122 +111,130 @@ contract TestTokenUnlock is TaikoTest {
         target.vest(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.prank(Alice);
         target.vest(200 ether);
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.warp(TGE + target.ONE_YEAR());
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 75 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.prank(Alice);
         target.vest(300 ether);
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 150 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+
+        vm.prank(Alice);
+        tko.transfer(address(target), 1000 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 600 ether);
-        assertEq(target.amountWithdrawable(), 300 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 1300 ether);
 
         vm.prank(Alice);
         target.vest(400 ether);
         assertEq(target.amountVested(), 1000 ether);
-        assertEq(target.amountWithdrawable(), 500 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 1500 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 4);
         assertEq(target.amountVested(), 1000 ether);
-        assertEq(target.amountWithdrawable(), 1000 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
+        assertEq(target.amountWithdrawable(), 2000 ether);
     }
 
     function test_tokenunlock_multiple_vest_withdrawing() public {
         vm.prank(Bob);
         vm.expectRevert(TokenUnlock.NOT_WITHDRAWABLE.selector);
-        target.withdraw(Bob);
+        target.withdraw(Bob, 1 ether);
 
         vm.prank(Alice);
         target.vest(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
         assertEq(tko.balanceOf(address(target)), 100 ether);
 
         vm.prank(Bob);
         vm.expectRevert(TokenUnlock.NOT_WITHDRAWABLE.selector);
-        target.withdraw(Bob);
+        target.withdraw(Bob, 1 ether);
 
         vm.prank(Alice);
         target.vest(200 ether);
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
         assertEq(tko.balanceOf(address(target)), 300 ether);
 
         vm.warp(TGE + target.ONE_YEAR());
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 75 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
 
         vm.prank(Bob);
-        target.withdraw(Bob);
+        target.withdraw(Bob, 75 ether);
         assertEq(tko.balanceOf(address(target)), 225 ether);
         assertEq(tko.balanceOf(Bob), 75 ether);
 
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 75 ether);
         assertEq(tko.balanceOf(address(target)), 225 ether);
 
         vm.prank(Alice);
         target.vest(300 ether);
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 75 ether);
-        assertEq(target.amountWithdrawn(), 75 ether);
         assertEq(tko.balanceOf(address(target)), 525 ether);
+
+        vm.prank(Alice);
+        tko.transfer(address(target), 1000 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 600 ether);
-        assertEq(target.amountWithdrawable(), 225 ether);
-        assertEq(target.amountWithdrawn(), 75 ether);
-        assertEq(tko.balanceOf(address(target)), 525 ether);
+        assertEq(target.amountWithdrawable(), 1225 ether);
+        assertEq(tko.balanceOf(address(target)), 1525 ether);
 
         vm.prank(Bob);
-        target.withdraw(Carol);
+        vm.expectRevert(TokenUnlock.NOT_WITHDRAWABLE.selector);
+        target.withdraw(Carol, 1226 ether);
+
+        vm.prank(Bob);
+        target.withdraw(Carol, 225 ether);
         assertEq(tko.balanceOf(Carol), 225 ether);
 
         assertEq(target.amountVested(), 600 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 300 ether);
-        assertEq(tko.balanceOf(address(target)), 300 ether);
+        assertEq(target.amountWithdrawable(), 1000 ether);
+        assertEq(tko.balanceOf(address(target)), 1300 ether);
 
         vm.prank(Alice);
         target.vest(400 ether);
         assertEq(target.amountVested(), 1000 ether);
-        assertEq(target.amountWithdrawable(), 200 ether);
-        assertEq(target.amountWithdrawn(), 300 ether);
-        assertEq(tko.balanceOf(address(target)), 700 ether);
+        assertEq(target.amountWithdrawable(), 1200 ether);
+        assertEq(tko.balanceOf(address(target)), 1700 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 4);
         assertEq(target.amountVested(), 1000 ether);
-        assertEq(target.amountWithdrawable(), 700 ether);
-        assertEq(target.amountWithdrawn(), 300 ether);
-        assertEq(tko.balanceOf(address(target)), 700 ether);
+        assertEq(target.amountWithdrawable(), 1700 ether);
+        assertEq(tko.balanceOf(address(target)), 1700 ether);
 
         vm.prank(Bob);
-        target.withdraw(address(0));
-        assertEq(tko.balanceOf(Bob), 775 ether);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
+        target.withdraw(address(0), 1 ether);
 
-        assertEq(target.amountVested(), 1000 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 1000 ether);
+        vm.prank(Alice);
+        tko.transfer(address(target), 300 ether);
+
+        vm.warp(TGE + target.ONE_YEAR() * 5);
+
+        vm.prank(Bob);
+        target.withdraw(David, 2000 ether);
+        assertEq(tko.balanceOf(David), 2000 ether);
+        assertEq(tko.balanceOf(address(target)), 0 ether);
+
+        vm.prank(Alice);
+        tko.transfer(address(target), 1000 ether);
+        assertEq(target.amountWithdrawable(), 1000 ether);
+
+        vm.prank(Bob);
+        target.withdraw(Emma, 1000 ether);
+        assertEq(tko.balanceOf(Emma), 1000 ether);
         assertEq(tko.balanceOf(address(target)), 0 ether);
     }
 
@@ -233,12 +243,17 @@ contract TestTokenUnlock is TaikoTest {
         target.vest(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountWithdrawn(), 0 ether);
         assertEq(tko.balanceOf(address(target)), 100 ether);
 
         vm.prank(Bob);
         target.delegate(Carol);
 
         assertEq(tko.delegates(address(target)), Carol);
+    }
+
+    function test_tokenunlock_proverset() public {
+        vm.startPrank(Alice);
+        target.vest(100 ether);
+        vm.stopPrank();
     }
 }

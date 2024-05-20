@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
+import "../../libs/LibMath.sol";
 import "../proving/ProverSet.sol";
 
 /// @title TokenUnlock
@@ -20,18 +20,18 @@ import "../proving/ProverSet.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TokenUnlock is EssentialContract {
     using SafeERC20 for IERC20;
+    using LibMath for uint256;
 
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
 
     uint256 public amountVested;
-    uint256 public amountWithdrawn;
     address public recipient;
     uint64 public tgeTimestamp;
 
     mapping(address proverSet => bool valid) public isProverSet;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /// @notice Emitted when token is vested.
     /// @param amount The newly vested amount.
@@ -134,19 +134,23 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Withdraws all withdrawable tokens.
     /// @param _to The address the token will be sent to.
-    function withdraw(address _to) external whenNotPaused nonReentrant {
-        uint256 amount = amountWithdrawable();
-        if (amount == 0) revert NOT_WITHDRAWABLE();
+    /// @param _amount The amount of tokens to withdraw.
+    function withdraw(
+        address _to,
+        uint256 _amount
+    )
+        external
+        nonZeroAddr(_to)
+        nonZeroValue(bytes32(_amount))
+        onlyRecipient
+        whenNotPaused
+        nonReentrant
+    {
+        if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
 
-        address to = _to == address(0) ? recipient : _to;
-        if (to != recipient && msg.sender != recipient) {
-            revert PERMISSION_DENIED();
-        }
+        emit TokenWithdrawn(_to, _amount);
 
-        amountWithdrawn += amount;
-        emit TokenWithdrawn(to, amount);
-
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(to, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipient whenNotPaused {
@@ -167,17 +171,21 @@ contract TokenUnlock is EssentialContract {
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-        return _getAmountUnlocked() - amountWithdrawn;
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        uint256 balance = tko.balanceOf(address(this));
+        uint256 locked = _getAmountLocked();
+
+        return balance.max(locked) - locked;
     }
 
-    function _getAmountUnlocked() private view returns (uint256) {
+    function _getAmountLocked() private view returns (uint256) {
         uint256 _amountVested = amountVested;
         if (_amountVested == 0) return 0;
 
         uint256 _tgeTimestamp = tgeTimestamp;
 
-        if (block.timestamp < _tgeTimestamp + ONE_YEAR) return 0;
-        if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return _amountVested;
-        return _amountVested * (block.timestamp - _tgeTimestamp) / FOUR_YEARS;
+        if (block.timestamp < _tgeTimestamp + ONE_YEAR) return _amountVested;
+        if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return 0;
+        return _amountVested * (_tgeTimestamp + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
     }
 }
