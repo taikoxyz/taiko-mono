@@ -4,10 +4,10 @@ const fs = require("fs");
 const ConvertCsvToJson = require("convert-csv-to-json");
 
 async function main(network) {
-  const inputFile = path.join(__dirname, `../../data/whitelist/${network}.csv`);
+  const inputFile = path.join(__dirname, `../../../data/taikoon/whitelist/${network}.csv`);
   const outputFile = path.join(
     __dirname,
-    `../../data/whitelist/${network}.json`,
+    `../../../data/taikoon/whitelist/${network}.json`,
   );
   const rawJson =
     ConvertCsvToJson.fieldDelimiter(",").getJsonFromCsv(inputFile);

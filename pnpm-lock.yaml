@@ -320,6 +320,9 @@ importers:
       '@openzeppelin/merkle-tree':
         specifier: ^1.0.6
         version: 1.0.6
+      '@taiko/supplementary-contracts':
+        specifier: workspace:*
+        version: link:../supplementary-contracts
       convert-csv-to-json:
         specifier: ^2.46.0
         version: 2.46.0
