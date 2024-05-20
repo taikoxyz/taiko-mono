@@ -2,11 +2,10 @@
 pragma solidity 0.8.24;
 
 import { Test, console } from "forge-std/src/Test.sol";
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
+import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { MerkleMintersScript } from "../script/sol/MerkleMinters.s.sol";
 import "forge-std/src/StdJson.sol";
-import { UtilsScript } from "../script/sol/Utils.s.sol";
+import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -21,8 +20,6 @@ contract UpgradeableTest is Test {
 
     address[3] public minters = [vm.addr(0x1), vm.addr(0x2), vm.addr(0x3)];
     bytes32[] public leaves = new bytes32[](minters.length);
-
-    MerkleMintersScript merkleMinters = new MerkleMintersScript();
 
     uint256 constant FREE_MINTS = 5;
 
