@@ -3,8 +3,8 @@ const { Upload } = require("@aws-sdk/lib-storage");
 const fs = require("fs");
 const fsPromises = fs.promises;
 const path = require("path");
-const dotenv = require('dotenv')
-dotenv.config()
+const dotenv = require("dotenv");
+dotenv.config();
 
 async function uploadFile(s3, params) {
   try {
@@ -49,7 +49,10 @@ async function main() {
 
   // Get the images to upload from the local filesystem (/images)
   console.log(`Importing images from the images/ directory...`);
-  const imgDirPath = path.join(path.resolve(__dirname, "../../../data/taikoon"), "images");
+  const imgDirPath = path.join(
+    path.resolve(__dirname, "../../../data/taikoon"),
+    "images",
+  );
   const filesName = await fsPromises.readdir(imgDirPath, (err) => {
     if (err) {
       console.log("Import from directory failed: ", err);

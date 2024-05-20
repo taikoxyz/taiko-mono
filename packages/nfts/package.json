@@ -14,7 +14,6 @@
     "snaefell:merkle": "node script/snaefell/js/generate-merkle-tree.js",
     "taikoon:deploy:localhost": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
     "snaefell:deploy:localhost": "forge clean && pnpm compile && forge script script/snaefell/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
-    "taikoon:deploy:holesky": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
     "taikoon:deploy:ipfs": "rm -rf data/taikoon/metadata/* && node script/taikoon/js/4everland.js",
     "snaefell:deploy:ipfs": "rm -rf data/snaefell/metadata/* && node script/snaefell/js/4everland.js",
     "taikoon:deploy:devnet": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://rpc.internal.taiko.xyz --broadcast --gas-estimate-multiplier 200",
