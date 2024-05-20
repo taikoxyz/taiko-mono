@@ -57,7 +57,8 @@ contract MerkleMintersScript is Script {
         holeskyRoot = abi.decode(rootRaw, (bytes32));
 
         // load devnet's tree and root
-        devnetTreeJson = vm.readFile(string.concat(vm.projectRoot(), "/data/taikoon/whitelist/devnet.json"));
+        devnetTreeJson =
+            vm.readFile(string.concat(vm.projectRoot(), "/data/taikoon/whitelist/devnet.json"));
         rootRaw = devnetTreeJson.parseRaw(".root");
         devnetRoot = abi.decode(rootRaw, (bytes32));
     }
