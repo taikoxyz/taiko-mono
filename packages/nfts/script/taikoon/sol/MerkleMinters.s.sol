@@ -44,20 +44,20 @@ contract MerkleMintersScript is Script {
 
         // load hardhat's tree and root
         hardhatTreeJson =
-            vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/hardhat.json"));
+            vm.readFile(string.concat(vm.projectRoot(), "/data/taikoon/whitelist/hardhat.json"));
 
         bytes memory rootRaw = hardhatTreeJson.parseRaw(".root");
         localhostRoot = abi.decode(rootRaw, (bytes32));
 
         // load holesky's tree and root
         holeskyTreeJson =
-            vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/holesky.json"));
+            vm.readFile(string.concat(vm.projectRoot(), "/data/taikoon/whitelist/holesky.json"));
 
         rootRaw = holeskyTreeJson.parseRaw(".root");
         holeskyRoot = abi.decode(rootRaw, (bytes32));
 
         // load devnet's tree and root
-        devnetTreeJson = vm.readFile(string.concat(vm.projectRoot(), "/data/whitelist/devnet.json"));
+        devnetTreeJson = vm.readFile(string.concat(vm.projectRoot(), "/data/taikoon/whitelist/devnet.json"));
         rootRaw = devnetTreeJson.parseRaw(".root");
         devnetRoot = abi.decode(rootRaw, (bytes32));
     }

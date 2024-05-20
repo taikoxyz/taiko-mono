@@ -10,11 +10,13 @@
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test": "pnpm clean && pnpm compile && forge test --match-path 'test/*.t.sol' -vvv",
     "node": "anvil",
-    "merkle": "node script/js/generate-merkle-tree.js",
-    "deploy:localhost": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
-    "deploy:holesky": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
-    "deploy:ipfs": "rm -rf data/metadata/* && node script/js/resize-images.js && node script/js/4everland.js",
-    "deploy:devnet": "forge clean && pnpm compile && forge script script/sol/Deploy.s.sol --rpc-url https://rpc.internal.taiko.xyz --broadcast --gas-estimate-multiplier 200"
+    "taikoon:merkle": "node script/taikoon/js/generate-merkle-tree.js",
+    "taikoon:deploy:localhost": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "taikoon:deploy:holesky": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://l1rpc.hekla.taiko.xyz/ --broadcast --gas-estimate-multiplier 200",
+    "taikoon:deploy:ipfs": "rm -rf data/metadata/* && node script/taikoon/js/4everland.js",
+    "taikoon:deploy:devnet": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://rpc.internal.taiko.xyz --broadcast --gas-estimate-multiplier 200",
+    "merkle": "pnpm taikoon:merkle",
+    "deploy:ipfs": "pnpm taikoon:deploy:ipfs"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
