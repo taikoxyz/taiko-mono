@@ -4,8 +4,9 @@ pragma solidity 0.8.24;
 import { Test, console } from "forge-std/src/Test.sol";
 import "forge-std/src/StdJson.sol";
 import { Merkle } from "murky/Merkle.sol";
-import { MerkleWhitelist } from "../contracts/MerkleWhitelist.sol";
+import { MerkleWhitelist } from "../../contracts/taikoon/MerkleWhitelist.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 
 /// @custom:oz-upgrades-from MerkleWhitelist
 contract MerkleWhitelistForTest is MerkleWhitelist {
@@ -20,6 +21,7 @@ contract MerkleWhitelistForTest is MerkleWhitelist {
 
 contract MerkleWhitelistTest is Test {
     Merkle tree;
+    UtilsScript public utils;
 
     using stdJson for string;
 
@@ -38,6 +40,8 @@ contract MerkleWhitelistTest is Test {
     address[3] minters = [address(0x1), address(0x2), address(0x3)];
 
     function setUp() public {
+        utils = new UtilsScript();
+        utils.setUp();
         vm.startBroadcast(owner);
 
         tree = new Merkle();
@@ -51,7 +55,10 @@ contract MerkleWhitelistTest is Test {
 
         address impl = address(new MerkleWhitelistForTest());
         address proxy = address(
-            new ERC1967Proxy(impl, abi.encodeCall(MerkleWhitelist.initialize, (address(0), root)))
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(MerkleWhitelist.initialize, (address(0), root, utils.getBlacklist()))
+            )
         );
 
         whitelist = MerkleWhitelistForTest(proxy);
@@ -112,5 +119,11 @@ contract MerkleWhitelistTest is Test {
         whitelist.consumeMint(proof, MAX_MINTS);
 
         vm.stopBroadcast();
+    }
+
+    function test_revert_canMint_blacklisted() public {
+        address blacklisted = 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc;
+        vm.expectRevert();
+        whitelist.canMint(blacklisted, MAX_MINTS);
     }
 }
