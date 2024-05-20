@@ -25,11 +25,11 @@ contract TokenUnlock is EssentialContract {
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
 
-    uint256 public amountVested;
-    address public recipient;
+    uint256 public amountVested; // slot 1
+    address public recipient; // slot 2
     uint64 public tgeTimestamp;
 
-    mapping(address proverSet => bool valid) public isProverSet;
+    mapping(address proverSet => bool valid) public isProverSet; // slot 3
 
     uint256[47] private __gap;
 
@@ -78,11 +78,11 @@ contract TokenUnlock is EssentialContract {
         uint64 _tgeTimestamp
     )
         external
+        nonZeroAddr(_recipient)
+        nonZeroValue(bytes32(uint256(_tgeTimestamp)))
         initializer
     {
-        if (_owner == _recipient || _recipient == address(0) || _tgeTimestamp == 0) {
-            revert INVALID_PARAM();
-        }
+        if (_owner == _recipient) revert INVALID_PARAM();
 
         __Essential_init(_owner, _addressManager);
 
