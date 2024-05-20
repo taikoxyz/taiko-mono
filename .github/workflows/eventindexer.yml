@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/eventindexer/**"
+  pull_request:
+    paths:
+      - "packages/eventindexer/**"
       - "go.mod"
       - "go.sum"
 
