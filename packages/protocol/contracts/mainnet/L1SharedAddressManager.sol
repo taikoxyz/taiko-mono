@@ -6,6 +6,8 @@ import "../common/LibStrings.sol";
 
 /// @title L1SharedAddressManager
 /// @notice See the documentation in {IAddressManager}.
+/// @dev This contract shall NOT be used to upgrade existing implementation unless the name-address
+/// registration becomes stable.
 /// @custom:security-contact security@taiko.xyz
 contract L1SharedAddressManager is AddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.
