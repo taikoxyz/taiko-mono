@@ -375,8 +375,6 @@ importers:
 
   packages/relayer: {}
 
-  packages/snaefell-nft: {}
-
   packages/snaefell-ui: {}
 
   packages/supplementary-contracts:
