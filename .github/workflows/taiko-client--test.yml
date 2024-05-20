@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/taiko-client/**"
+  pull_request:
+    paths:
+      - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
 
