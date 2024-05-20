@@ -79,9 +79,7 @@ library LibUtils {
     {
         slot_ = _blockId % _config.blockRingBufferSize;
         blk_ = _state.blocks[slot_];
-        if (blk_.blockId != _blockId) {
-            revert L1_INVALID_BLOCK_ID();
-        }
+        if (blk_.blockId != _blockId) revert L1_INVALID_BLOCK_ID();
     }
 
     /// @dev Retrieves the ID of the transition with a given parentHash.
