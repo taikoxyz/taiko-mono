@@ -55,9 +55,6 @@ contract L1SharedAddressManager is AddressManager {
                 return 0x91f67118DD47d502B1f0C354D0611997B022f29E;
             }
         } else if (_chainId == 167_000) {
-            if (_name == LibStrings.B_SIGNAL_SERVICE) {
-                return 0x1670000000000000000000000000000000000005;
-            }
             if (_name == LibStrings.B_BRIDGE) {
                 return 0x1670000000000000000000000000000000000001;
             }
@@ -69,6 +66,9 @@ contract L1SharedAddressManager is AddressManager {
             }
             if (_name == LibStrings.B_ERC1155_VAULT) {
                 return 0x1670000000000000000000000000000000000004;
+            }
+            if (_name == LibStrings.B_SIGNAL_SERVICE) {
+                return 0x1670000000000000000000000000000000000005;
             }
         }
 
