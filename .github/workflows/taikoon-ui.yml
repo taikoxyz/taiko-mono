@@ -6,6 +6,9 @@ on:
       - release-please-*
     paths:
       - "packages/taikoon-ui/**"
+  pull_request:
+    paths:
+      - "packages/taikoon-ui/**"
 
 jobs:
   build-and-test:

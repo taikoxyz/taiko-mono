@@ -6,6 +6,9 @@ on:
       - release-please-*
     paths:
       - "packages/guardian-prover-health-check-ui/**"
+  pull_request:
+    paths:
+      - "packages/guardian-prover-health-check-ui/**"
 
 jobs:
   build-and-test:
