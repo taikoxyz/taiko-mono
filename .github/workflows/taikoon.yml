@@ -1,13 +1,13 @@
-name: NFTs
+name: Taikoon
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/nfts/**"
+      - "packages/taikoon/**"
   pull_request:
     paths:
-      - "packages/nfts/**"
+      - "packages/taikoon/**"
 
 jobs:
   build-taikoon:
@@ -30,13 +30,13 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Check formatting
-        working-directory: ./packages/nfts
+        working-directory: ./packages/taikoon
         run: forge fmt --check
 
       - name: Solidity compilation
-        working-directory: ./packages/nfts
+        working-directory: ./packages/taikoon
         run: pnpm compile
 
       - name: Unit Tests
-        working-directory: ./packages/nfts
+        working-directory: ./packages/taikoon
         run: pnpm test
