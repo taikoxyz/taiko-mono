@@ -100,7 +100,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L2Endpoint:        c.String(flags.L2HTTPEndpoint.Name),
 			TaikoL1Address:    common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
 			TaikoL2Address:    common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
-			ProverSetAddress:  common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 			L2EngineEndpoint:  c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:         string(jwtSecret),
 			TaikoTokenAddress: common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),

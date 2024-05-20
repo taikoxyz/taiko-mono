@@ -30,16 +30,17 @@ var (
 // ProofSubmitter is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitter struct {
-	rpc             *rpc.Client
-	proofProducer   proofProducer.ProofProducer
-	resultCh        chan *proofProducer.ProofWithHeader
-	anchorValidator *validator.AnchorTxValidator
-	txBuilder       *transaction.ProveBlockTxBuilder
-	sender          *transaction.Sender
-	proverAddress   common.Address
-	taikoL2Address  common.Address
-	graffiti        [32]byte
-	tiers           []*rpc.TierProviderTierWithID
+	rpc              *rpc.Client
+	proofProducer    proofProducer.ProofProducer
+	resultCh         chan *proofProducer.ProofWithHeader
+	anchorValidator  *validator.AnchorTxValidator
+	txBuilder        *transaction.ProveBlockTxBuilder
+	sender           *transaction.Sender
+	proverAddress    common.Address
+	proverSetAddress common.Address
+	taikoL2Address   common.Address
+	graffiti         [32]byte
+	tiers            []*rpc.TierProviderTierWithID
 	// Guardian prover related.
 	isGuardian      bool
 	submissionDelay time.Duration
@@ -50,6 +51,7 @@ func NewProofSubmitter(
 	rpcClient *rpc.Client,
 	proofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofWithHeader,
+	proverSetAddress common.Address,
 	taikoL2Address common.Address,
 	graffiti string,
 	gasLimit uint64,
@@ -65,18 +67,19 @@ func NewProofSubmitter(
 	}
 
 	return &ProofSubmitter{
-		rpc:             rpcClient,
-		proofProducer:   proofProducer,
-		resultCh:        resultCh,
-		anchorValidator: anchorValidator,
-		txBuilder:       builder,
-		sender:          transaction.NewSender(rpcClient, txmgr, gasLimit),
-		proverAddress:   txmgr.From(),
-		taikoL2Address:  taikoL2Address,
-		graffiti:        rpc.StringToBytes32(graffiti),
-		tiers:           tiers,
-		isGuardian:      isGuardian,
-		submissionDelay: submissionDelay,
+		rpc:              rpcClient,
+		proofProducer:    proofProducer,
+		resultCh:         resultCh,
+		anchorValidator:  anchorValidator,
+		txBuilder:        builder,
+		sender:           transaction.NewSender(rpcClient, txmgr, gasLimit),
+		proverAddress:    txmgr.From(),
+		proverSetAddress: proverSetAddress,
+		taikoL2Address:   taikoL2Address,
+		graffiti:         rpc.StringToBytes32(graffiti),
+		tiers:            tiers,
+		isGuardian:       isGuardian,
+		submissionDelay:  submissionDelay,
 	}, nil
 }
 
@@ -117,6 +120,11 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 		ParentGasUsed:      parent.GasUsed(),
 	}
 
+	// If the prover set address is provided, we use that address as the prover on chain.
+	if s.proverSetAddress != rpc.ZeroAddress {
+		opts.ProverAddress = s.proverSetAddress
+	}
+
 	// Send the generated proof.
 	result, err := s.proofProducer.RequestProof(
 		ctx,
@@ -152,7 +160,7 @@ func (s *ProofSubmitter) SubmitProof(
 	)
 
 	// Check if we still need to generate a new proof for that block.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, s.proverAddress)
+	proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, s.proverAddress, s.proverSetAddress)
 	if err != nil {
 		return err
 	}
@@ -173,7 +181,13 @@ func (s *ProofSubmitter) SubmitProof(
 		delayTimer := time.After(submissionDelay)
 		<-delayTimer
 		// Check again.
-		proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, s.proverAddress)
+		proofStatus, err := rpc.GetBlockProofStatus(
+			ctx,
+			s.rpc,
+			proofWithHeader.BlockID,
+			s.proverAddress,
+			s.proverSetAddress,
+		)
 		if err != nil {
 			return err
 		}

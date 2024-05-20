@@ -146,7 +146,9 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	p.sharedState.SetTiers(tiers)
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
-		p.rpc, p.cfg.TaikoL1Address,
+		p.rpc,
+		p.cfg.TaikoL1Address,
+		p.cfg.ProverSetAddress,
 		p.cfg.GuardianProverMajorityAddress,
 		p.cfg.GuardianProverMinorityAddress,
 	)
@@ -177,6 +179,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	// Prover server
 	if p.server, err = server.New(&server.NewProverServerOpts{
 		ProverPrivateKey:      p.cfg.L1ProverPrivKey,
+		ProverSetAddress:      p.cfg.ProverSetAddress,
 		MinOptimisticTierFee:  p.cfg.MinOptimisticTierFee,
 		MinSgxTierFee:         p.cfg.MinSgxTierFee,
 		MinSgxAndZkVMTierFee:  p.cfg.MinSgxAndZkVMTierFee,

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/urfave/cli/v2"
 )
 
@@ -89,13 +88,7 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
-	ProverSetAddress = &cli.StringFlag{
-		Name:     "proverSet",
-		Usage:    "ProverSet contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
-		Category: commonCategory,
-		EnvVars:  []string{"PROVER_SET"},
-	}
+
 	// Optional flags used by all client software.
 	// Logging
 	Verbosity = &cli.IntFlag{

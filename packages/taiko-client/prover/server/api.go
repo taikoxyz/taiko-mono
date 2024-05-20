@@ -121,10 +121,12 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 	// 2. Check if the prover has the required minimum on-chain ETH and Taiko token balance.
 	ok, err := s.checkMinEthAndToken(c.Request().Context())
 	if err != nil {
+		log.Error("Failed to check prover's ETH and Taiko token balance", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
 	if !ok {
+		log.Error("Insufficient prover balance", "prover", s.proverAddress)
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, "insufficient prover balance")
 	}
 
@@ -136,6 +138,7 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 		s.assignmentHookAddress,
 		s.livenessBond,
 	); err != nil {
+		log.Error("Failed to check prover's token balance", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 	if !ok {
@@ -227,10 +230,16 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
+	// If the prover set address is set, use it as the prover address.
+	prover := s.proverAddress
+	if s.proverSetAddress != rpc.ZeroAddress {
+		prover = s.proverSetAddress
+	}
+
 	// 8. Return the signed payload.
 	return c.JSON(http.StatusOK, &ProposeBlockResponse{
 		SignedPayload: signed,
-		Prover:        s.proverAddress,
+		Prover:        prover,
 		MaxBlockID:    l1Head + s.maxSlippage,
 		MaxProposedIn: s.maxProposedIn,
 	})

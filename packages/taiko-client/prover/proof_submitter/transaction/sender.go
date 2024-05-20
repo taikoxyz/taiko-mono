@@ -44,7 +44,13 @@ func (s *Sender) Send(
 	buildTx TxBuilder,
 ) error {
 	// Check if the proof has already been submitted.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, proofWithHeader.Opts.ProverAddress)
+	proofStatus, err := rpc.GetBlockProofStatus(
+		ctx,
+		s.rpc,
+		proofWithHeader.BlockID,
+		proofWithHeader.Opts.ProverAddress,
+		ZeroAddress, // TODO: check this value
+	)
 	if err != nil {
 		return err
 	}
