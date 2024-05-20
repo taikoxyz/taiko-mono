@@ -39,6 +39,12 @@ func NewSyncer(
 // TriggerBeaconSync triggers the L2 execution engine to start performing a beacon sync, if the
 // latest verified block has changed.
 func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
+	var shouldSync bool
+	blockID, shouldSync = s.progressTracker.ShouldReSync(new(big.Int).SetUint64(blockID))
+	if !shouldSync {
+		return nil
+	}
+
 	latestVerifiedHeadPayload, err := s.getVerifiedBlockPayload(s.ctx, blockID)
 	if err != nil {
 		return err

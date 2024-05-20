@@ -29,6 +29,9 @@ type SyncProgressTracker struct {
 	lastSyncedBlockID   *big.Int
 	lastSyncedBlockHash common.Hash
 
+	// Sync block ID
+	syncBlockID *big.Int
+
 	// Out-of-sync check related
 	lastSyncProgress   *ethereum.SyncProgress
 	lastProgressedTime time.Time
@@ -131,6 +134,31 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 			"timeout", t.timeout,
 		)
 	}
+}
+
+// ShouldReSync checks whether a re-sync is needed.
+func (t *SyncProgressTracker) ShouldReSync(id *big.Int) (uint64, bool) {
+	// Sync block ID is nil or reorg appears, re-sync from the latest known block.
+	if t.syncBlockID == nil || t.syncBlockID.Cmp(id) > 0 {
+		t.syncBlockID = new(big.Int).Set(id)
+		return t.syncBlockID.Uint64(), true
+	}
+
+	// Latest id is the same as the current one, no need to re-sync
+	if t.syncBlockID.Cmp(id) == 0 {
+		return 0, false
+	}
+
+	_, err := t.client.BlockByNumber(context.Background(), t.syncBlockID)
+	if err != nil {
+		if err.Error() != "not found" {
+			log.Error("block not found when check should re-sync or not", "blockID", t.syncBlockID.Uint64(), "error", err)
+		}
+		return 0, false
+	}
+	t.syncBlockID = new(big.Int).Set(id)
+
+	return t.syncBlockID.Uint64(), true
 }
 
 // UpdateMeta updates the inner beacon sync metadata.
