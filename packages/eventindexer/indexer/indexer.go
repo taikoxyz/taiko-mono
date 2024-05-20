@@ -154,6 +154,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var taikoL1 *taikol1.TaikoL1
 
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
+
 		taikoL1, err = taikol1.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewTaikoL1")
@@ -163,6 +165,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var bridgeContract *bridge.Bridge
 
 	if cfg.BridgeAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting bridgeADdress", "addr", cfg.BridgeAddress.Hex())
+
 		bridgeContract, err = bridge.NewBridge(cfg.BridgeAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewBridge")
@@ -172,6 +176,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var assignmentHookContract *assignmenthook.AssignmentHook
 
 	if cfg.AssignmentHookAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting assignmentHookAddress", "addr", cfg.AssignmentHookAddress.Hex())
+
 		assignmentHookContract, err = assignmenthook.NewAssignmentHook(cfg.AssignmentHookAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewAssignmentHook")
@@ -182,6 +188,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	if cfg.SwapAddresses != nil && len(cfg.SwapAddresses) > 0 {
 		for _, v := range cfg.SwapAddresses {
+			slog.Info("setting swapAddress", "addr", v.Hex())
+
 			swapContract, err := swap.NewSwap(v, ethClient)
 			if err != nil {
 				return errors.Wrap(err, "contracts.NewSwap")
@@ -194,6 +202,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var sgxVerifierContract *sgxverifier.SgxVerifier
 
 	if cfg.SgxVerifierAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting sgxVerifierAddress", "addr", cfg.SgxVerifierAddress.Hex())
+
 		sgxVerifierContract, err = sgxverifier.NewSgxVerifier(cfg.SgxVerifierAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewSgxVerifier")
