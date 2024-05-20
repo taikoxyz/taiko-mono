@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -19,21 +20,24 @@ import (
 
 // Sender is responsible for sending proof submission transactions with a backoff policy.
 type Sender struct {
-	rpc      *rpc.Client
-	txmgr    *txmgr.SimpleTxManager
-	gasLimit uint64
+	rpc              *rpc.Client
+	txmgr            *txmgr.SimpleTxManager
+	proverSetAddress common.Address
+	gasLimit         uint64
 }
 
 // NewSender creates a new Sener instance.
 func NewSender(
 	cli *rpc.Client,
 	txmgr *txmgr.SimpleTxManager,
+	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
 	return &Sender{
-		rpc:      cli,
-		txmgr:    txmgr,
-		gasLimit: gasLimit,
+		rpc:              cli,
+		txmgr:            txmgr,
+		proverSetAddress: proverSetAddress,
+		gasLimit:         gasLimit,
 	}
 }
 
@@ -49,7 +53,7 @@ func (s *Sender) Send(
 		s.rpc,
 		proofWithHeader.BlockID,
 		proofWithHeader.Opts.ProverAddress,
-		ZeroAddress, // TODO: check this value
+		s.proverSetAddress,
 	)
 	if err != nil {
 		return err

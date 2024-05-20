@@ -72,7 +72,7 @@ func NewProofSubmitter(
 		resultCh:         resultCh,
 		anchorValidator:  anchorValidator,
 		txBuilder:        builder,
-		sender:           transaction.NewSender(rpcClient, txmgr, gasLimit),
+		sender:           transaction.NewSender(rpcClient, txmgr, proverSetAddress, gasLimit),
 		proverAddress:    txmgr.From(),
 		proverSetAddress: proverSetAddress,
 		taikoL2Address:   taikoL2Address,

@@ -69,7 +69,7 @@ func (s *TransactionTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
-	s.sender = NewSender(s.RPCClient, txmgr, 0)
+	s.sender = NewSender(s.RPCClient, txmgr, ZeroAddress, 0)
 }
 
 func (s *TransactionTestSuite) TestIsSubmitProofTxErrorRetryable() {

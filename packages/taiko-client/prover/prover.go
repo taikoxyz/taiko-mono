@@ -172,6 +172,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		p.rpc,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
+		p.cfg.ProverSetAddress,
 		p.cfg.Graffiti,
 		txBuilder,
 	)

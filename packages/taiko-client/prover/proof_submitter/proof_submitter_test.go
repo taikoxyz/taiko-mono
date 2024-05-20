@@ -96,6 +96,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		0,
 		txMgr,
+		rpc.ZeroAddress,
 		"test",
 		builder,
 	)
