@@ -610,7 +610,7 @@ importers:
         specifier: ^2.0.0
         version: 2.5.7(@sveltejs/vite-plugin-svelte@3.1.0)(svelte@4.2.15)(vite@5.2.11)
       '@sveltejs/vite-plugin-svelte':
-        specifier: ^3.0.0
+        specifier: ^3.1.0
         version: 3.1.0(svelte@4.2.15)(vite@5.2.11)
       '@types/eslint':
         specifier: ^8.56.0
