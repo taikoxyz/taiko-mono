@@ -449,7 +449,7 @@ importers:
 
   packages/taiko-client: {}
 
-  packages/taikoon:
+  packages/nfts:
     dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.574.0
