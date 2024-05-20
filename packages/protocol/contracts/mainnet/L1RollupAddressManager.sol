@@ -15,6 +15,7 @@ contract L1RollupAddressManager is AddressManager {
     /// The following names are not cached:
     /// - B_PROPOSER
     /// - B_PROPOSER_ONE
+    /// - B_TIER_PROVIDER
     function _getOverride(
         uint64 _chainId,
         bytes32 _name
@@ -36,9 +37,6 @@ contract L1RollupAddressManager is AddressManager {
             }
             if (_name == LibStrings.B_TAIKO) {
                 return 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
-            }
-            if (_name == LibStrings.B_TIER_PROVIDER) {
-                return 0x4cffe56C947E26D07C14020499776DB3e9AE3a23;
             }
             if (_name == LibStrings.B_TIER_SGX) {
                 return 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81;
