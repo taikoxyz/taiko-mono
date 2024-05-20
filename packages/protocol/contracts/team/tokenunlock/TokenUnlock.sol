@@ -1,33 +1,37 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
+import "../../libs/LibMath.sol";
+import "../proving/ProverSet.sol";
 
-/// @title TokenUnlocking
+/// @title TokenUnlock
 /// @notice Manages the linear unlocking of Taiko tokens over a four-year period.
 /// Tokens purchased off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals are permitted linearly over four years starting from the Token
 /// Generation Event (TGE), with no withdrawals allowed during the first year.
 /// A separate instance of this contract is deployed for each recipient.
 /// @custom:security-contact security@taiko.xyz
-contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract TokenUnlock is EssentialContract {
     using SafeERC20 for IERC20;
+    using LibMath for uint256;
 
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
 
     uint256 public amountVested;
-    uint256 public amountWithdrawn;
     address public recipient;
-    address public taikoToken;
     uint64 public tgeTimestamp;
 
-    uint256[46] private __gap;
+    mapping(address proverSet => bool valid) public isProverSet;
+
+    uint256[47] private __gap;
 
     /// @notice Emitted when token is vested.
     /// @param amount The newly vested amount.
@@ -43,8 +47,18 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @param newRecipient The new recipient address.
     event RecipientChanged(address indexed oldRecipient, address indexed newRecipient);
 
+    /// @notice Emitted when a new prover set is created.
+    /// @param proverSet The new prover set.
+    event ProverSetCreated(address indexed proverSet);
+
+    /// @notice Emitted when TKO are deposited to a prover set.
+    /// @param proverSet The prover set.
+    /// @param amount The amount of TKO deposited.
+    event DepositToProverSet(address indexed proverSet, uint256 amount);
+
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
+    error NOT_PROVER_SET();
     error PERMISSION_DENIED();
 
     modifier onlyRecipient() {
@@ -52,36 +66,27 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _;
     }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
-    /// @param _taikoToken The Taiko token address.
+    /// @param _addressManager The rollup address manager.
     /// @param _recipient Who will be the grantee for this contract.
     /// @param _tgeTimestamp The token generation event timestamp.
     function init(
         address _owner,
-        address _taikoToken,
+        address _addressManager,
         address _recipient,
         uint64 _tgeTimestamp
     )
         external
         initializer
     {
-        if (
-            _owner == _recipient || _owner == address(0) || _recipient == address(0)
-                || _taikoToken == address(0) || _tgeTimestamp == 0
-        ) {
+        if (_owner == _recipient || _recipient == address(0) || _tgeTimestamp == 0) {
             revert INVALID_PARAM();
         }
 
-        _transferOwnership(_owner);
+        __Essential_init(_owner, _addressManager);
 
         recipient = _recipient;
-        taikoToken = _taikoToken;
         tgeTimestamp = _tgeTimestamp;
     }
 
@@ -93,27 +98,55 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         amountVested += _amount;
         emit TokenVested(_amount);
 
-        IERC20(taikoToken).safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransferFrom(
+            msg.sender, address(this), _amount
+        );
+    }
+
+    /// @notice Create a new prover set.
+    function createProverSet() external onlyRecipient returns (address proverSet_) {
+        bytes memory data = abi.encodeCall(ProverSet.init, (owner(), address(this), addressManager));
+        proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
+
+        isProverSet[proverSet_] = true;
+        emit ProverSetCreated(proverSet_);
+    }
+
+    function depositToProverSet(
+        address _proverSet,
+        uint256 _amount
+    )
+        external
+        nonZeroValue(bytes32(_amount))
+        onlyRecipient
+    {
+        if (!isProverSet[_proverSet]) revert NOT_PROVER_SET();
+
+        emit DepositToProverSet(_proverSet, _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
     }
 
     /// @notice Withdraws all withdrawable tokens.
     /// @param _to The address the token will be sent to.
-    function withdraw(address _to) external nonReentrant {
-        uint256 amount = amountWithdrawable();
-        if (amount == 0) revert NOT_WITHDRAWABLE();
+    /// @param _amount The amount of tokens to withdraw.
+    function withdraw(
+        address _to,
+        uint256 _amount
+    )
+        external
+        nonZeroAddr(_to)
+        nonZeroValue(bytes32(_amount))
+        onlyRecipient
+        nonReentrant
+    {
+        if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
 
-        address to = _to == address(0) ? recipient : _to;
-        if (to != recipient && msg.sender != recipient) {
-            revert PERMISSION_DENIED();
-        }
+        emit TokenWithdrawn(_to, _amount);
 
-        amountWithdrawn += amount;
-        emit TokenWithdrawn(to, amount);
-
-        IERC20(taikoToken).safeTransfer(to, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
     }
 
-    function changeRecipient(address _newRecipient) external onlyRecipient nonReentrant {
+    function changeRecipient(address _newRecipient) external onlyRecipient {
         if (_newRecipient == address(0) || _newRecipient == recipient) {
             revert INVALID_PARAM();
         }
@@ -125,23 +158,27 @@ contract TokenUnlocking is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyRecipient nonReentrant {
-        ERC20VotesUpgradeable(taikoToken).delegate(_delegatee);
+        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
     }
 
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-        return _getAmountUnlocked() - amountWithdrawn;
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        uint256 balance = tko.balanceOf(address(this));
+        uint256 locked = _getAmountLocked();
+
+        return balance.max(locked) - locked;
     }
 
-    function _getAmountUnlocked() private view returns (uint256) {
+    function _getAmountLocked() private view returns (uint256) {
         uint256 _amountVested = amountVested;
         if (_amountVested == 0) return 0;
 
         uint256 _tgeTimestamp = tgeTimestamp;
 
-        if (block.timestamp < _tgeTimestamp + ONE_YEAR) return 0;
-        if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return _amountVested;
-        return _amountVested * (block.timestamp - _tgeTimestamp) / FOUR_YEARS;
+        if (block.timestamp < _tgeTimestamp + ONE_YEAR) return _amountVested;
+        if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return 0;
+        return _amountVested * (_tgeTimestamp + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
     }
 }
