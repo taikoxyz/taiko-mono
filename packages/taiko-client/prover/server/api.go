@@ -207,12 +207,19 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 		log.Error("Failed to get L1 block head", "error", err)
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, err)
 	}
+
+	// If the prover set address is set, use it as the prover address.
+	prover := s.proverAddress
+	if s.proverSetAddress != rpc.ZeroAddress {
+		prover = s.proverSetAddress
+	}
+
 	encoded, err := encoding.EncodeProverAssignmentPayload(
 		s.protocolConfigs.ChainId,
 		s.taikoL1Address,
 		s.assignmentHookAddress,
 		req.Proposer,
-		s.proverAddress,
+		prover,
 		req.BlobHash,
 		req.FeeToken,
 		req.Expiry,
@@ -228,12 +235,6 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 	signed, err := crypto.Sign(crypto.Keccak256Hash(encoded).Bytes(), s.proverPrivateKey)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
-
-	// If the prover set address is set, use it as the prover address.
-	prover := s.proverAddress
-	if s.proverSetAddress != rpc.ZeroAddress {
-		prover = s.proverSetAddress
 	}
 
 	// 8. Return the signed payload.
