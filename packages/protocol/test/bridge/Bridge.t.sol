@@ -93,7 +93,7 @@ contract BridgeTest is TaikoTest {
                     impl: address(new DelegateOwner()),
                     data: abi.encodeCall(
                         DelegateOwner.init, (mockDAO, address(addressManager), l1ChainId)
-                    )
+                        )
                 })
             )
         );
@@ -276,7 +276,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        vm.expectRevert(Bridge.B_INVALID_USER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 

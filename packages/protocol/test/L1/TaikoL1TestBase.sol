@@ -100,7 +100,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         registerAddress("tier_guardian", address(gp));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
-        registerAddress("guardian_prover", address(gp));
         registerL2Address("taiko", address(L2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(L2));
