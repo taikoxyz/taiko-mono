@@ -276,7 +276,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        vm.expectRevert(Bridge.B_INVALID_USER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
