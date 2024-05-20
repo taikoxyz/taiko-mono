@@ -147,6 +147,7 @@
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - assignment_hook: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
+  - prover_set: `0xd0e61AA5928bC6aC102A5454BAF183d14a079F19`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
 - logs:
@@ -266,9 +267,11 @@
 
 ### token_unlock
 
-- impl: ``
-- todo:
-  - deploy
+- impl: `0x88F4039C2fD4489cdca4E2ce6917a81a38509F2E`
+
+### prover_set
+
+- impl: `0xd0e61AA5928bC6aC102A5454BAF183d14a079F19`
 
 ## L2 Contracts
 

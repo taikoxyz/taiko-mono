@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../../contracts/team/tokenunlock/TokenUnlock.sol";
 
@@ -30,8 +29,9 @@ contract VestTokenUnlock is Script {
         for (uint256 i; i < items.length; i++) {
             if (items[i].vestAmount != 0) {
                 address proxy = items[i].proxy;
-                console2.log("Grantee unlocking contract address:", proxy);
-                console2.log("Vest amount (TKO):", items[i].vestAmount);
+                console2.log("proxy. :", proxy);
+                console2.log("grantee:", items[i].recipient);
+                console2.log("vested :", items[i].vestAmount);
 
                 require(TokenUnlock(proxy).owner() == msg.sender, "msg.sender not owner");
                 require(
