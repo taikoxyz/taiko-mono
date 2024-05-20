@@ -41,7 +41,6 @@ jobs:
             protocol
             relayer
             nfts
-            snaefell-ui
             ui-lib
             taiko-client
             supplementary-contracts
