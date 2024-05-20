@@ -25,9 +25,9 @@
   - erc721_vault@167000: `0x1670000000000000000000000000000000000003`
   - erc1155_vault: `0xaf145913EA4a56BE22E120ED9C24589659881702`
   - erc1155_vault@167000: `0x1670000000000000000000000000000000000004`
-  - bridged_erc1155: `0x3c90963cfba436400b0f9c46aa9224cb379c2c40`
-  - bridged_erc721: `0xc3310905e2bc9cfb198695b75ef3e5b69c6a1bf7`
-  - bridged_erc20: `0x79bc0aada00fcf6e7ab514bfeb093b5fae3653e3`
+  - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
+  - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
+  - bridged_erc20: `0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3`
   - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
   - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - logs:
@@ -143,11 +143,10 @@
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - tier_provider: `0x4cffe56C947E26D07C14020499776DB3e9AE3a23`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-  - guardian_prover_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
-  - guardian_prover: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
+  - assignment_hook: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
 - logs:
@@ -155,8 +154,6 @@
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
-- todo:
-  - register `assignment_hook` for `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
 
 #### taikoL1
 
