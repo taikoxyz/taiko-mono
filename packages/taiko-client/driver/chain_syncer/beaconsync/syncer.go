@@ -38,20 +38,19 @@ func NewSyncer(
 
 // TriggerBeaconSync triggers the L2 execution engine to start performing a beacon sync, if the
 // latest verified block has changed.
-func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
-	var shouldSync bool
-	blockID, shouldSync = s.progressTracker.ShouldReSync(new(big.Int).SetUint64(blockID))
+func (s *Syncer) TriggerBeaconSync(verifyBlockID uint64) error {
+	syncBlockID, shouldSync := s.progressTracker.ShouldReSync(new(big.Int).SetUint64(verifyBlockID))
 	if !shouldSync {
 		return nil
 	}
 
-	latestVerifiedHeadPayload, err := s.getVerifiedBlockPayload(s.ctx, blockID)
+	latestVerifiedHeadPayload, err := s.getVerifiedBlockPayload(s.ctx, syncBlockID, verifyBlockID)
 	if err != nil {
 		return err
 	}
 
-	if !s.progressTracker.HeadChanged(new(big.Int).SetUint64(blockID)) {
-		log.Debug("Verified head has not changed", "blockID", blockID, "hash", latestVerifiedHeadPayload.BlockHash)
+	if !s.progressTracker.HeadChanged(new(big.Int).SetUint64(syncBlockID)) {
+		log.Debug("Verified head has not changed", "blockID", syncBlockID, "hash", latestVerifiedHeadPayload.BlockHash)
 		return nil
 	}
 
@@ -60,7 +59,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 			log.Info(
 				"Syncing beacon headers, please check L2 execution engine logs for progress",
 				"currentSyncHead", s.progressTracker.LastSyncedBlockID(),
-				"newBlockID", blockID,
+				"newBlockID", syncBlockID,
 			)
 		}
 	}
@@ -87,11 +86,11 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	}
 
 	// Update sync status.
-	s.progressTracker.UpdateMeta(new(big.Int).SetUint64(blockID), latestVerifiedHeadPayload.BlockHash)
+	s.progressTracker.UpdateMeta(new(big.Int).SetUint64(syncBlockID), latestVerifiedHeadPayload.BlockHash)
 
 	log.Info(
 		"⛓️ Beacon sync triggered",
-		"newHeadID", blockID,
+		"newHeadID", syncBlockID,
 		"newHeadHash", s.progressTracker.LastSyncedBlockHash(),
 	)
 
@@ -100,14 +99,15 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 
 // getVerifiedBlockPayload fetches the latest verified block's header, and converts it to an Engine API executable data,
 // which will be used to let the node start beacon syncing.
-func (s *Syncer) getVerifiedBlockPayload(ctx context.Context, blockID uint64) (*engine.ExecutableData, error) {
-	header, err := s.rpc.L2CheckPoint.HeaderByNumber(s.ctx, new(big.Int).SetUint64(blockID))
+func (s *Syncer) getVerifiedBlockPayload(ctx context.Context, syncBlockID, verifyBlockID uint64) (*engine.ExecutableData, error) {
+	header, err := s.rpc.L2CheckPoint.HeaderByNumber(s.ctx, new(big.Int).SetUint64(syncBlockID))
 	if err != nil {
 		return nil, err
 	}
 
-	if s.syncMode == downloader.FullSync.String() {
-		blockInfo, err := s.rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(blockID))
+	// check block hash if the sync mode is full sync and the latest verified block is the same as the block we are trying to sync.
+	if s.syncMode == downloader.FullSync.String() && verifyBlockID == syncBlockID {
+		blockInfo, err := s.rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(syncBlockID))
 		if err != nil {
 			return nil, err
 		}

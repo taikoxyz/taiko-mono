@@ -149,7 +149,7 @@ func (t *SyncProgressTracker) ShouldReSync(id *big.Int) (uint64, bool) {
 		return 0, false
 	}
 
-	_, err := t.client.BlockByNumber(context.Background(), t.syncBlockID)
+	_, err := t.client.HeaderByNumber(context.Background(), t.syncBlockID)
 	if err != nil {
 		if err.Error() != "not found" {
 			log.Error("block not found when check should re-sync or not", "blockID", t.syncBlockID.Uint64(), "error", err)
