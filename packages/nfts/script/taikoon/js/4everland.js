@@ -49,7 +49,7 @@ async function main() {
 
   // Get the images to upload from the local filesystem (/images)
   console.log(`Importing images from the images/ directory...`);
-  const imgDirPath = path.join(path.resolve(__dirname, "../../data"), "images");
+  const imgDirPath = path.join(path.resolve(__dirname, "../../../data/taikoon"), "images");
   const filesName = await fsPromises.readdir(imgDirPath, (err) => {
     if (err) {
       console.log("Import from directory failed: ", err);
@@ -64,7 +64,7 @@ async function main() {
   const imagesName = filesName.filter((fileName) => fileName.includes(".png"));
   for await (const imageName of imagesName) {
     const imageFilePath = path.join(
-      path.resolve(__dirname, "../../data"),
+      path.resolve(__dirname, "../../../data/taikoon"),
       "images",
       imageName,
     );
@@ -93,7 +93,7 @@ async function main() {
     // write into a file
     fs.writeFileSync(
       path.join(
-        path.resolve(__dirname, "../../data"),
+        path.resolve(__dirname, "../../../data/taikoon"),
         "metadata",
         `${taikoonId}.json`,
       ),
@@ -108,7 +108,7 @@ async function main() {
 
     console.log(
       path.join(
-        path.resolve(__dirname, "../../data"),
+        path.resolve(__dirname, "../../../data/taikoon"),
         "metadata",
         `${taikoonId}.json`,
       ),
@@ -126,7 +126,7 @@ async function main() {
   /*
   fs.writeFileSync(
     path.join(
-      path.resolve(__dirname, "../../data"),
+      path.resolve(__dirname, "../../../data/taikoon"),
       "metadata",
       "summary.json",
     ),

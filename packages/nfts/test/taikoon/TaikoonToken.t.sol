@@ -3,11 +3,14 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { TaikoonToken } from "../contracts/TaikoonToken.sol";
+import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 
 contract TaikoonTokenTest is Test {
+    UtilsScript public utils;
+
     TaikoonToken public token;
 
     address public owner = vm.addr(0x5);
@@ -20,6 +23,8 @@ contract TaikoonTokenTest is Test {
     Merkle tree = new Merkle();
 
     function setUp() public {
+        utils = new UtilsScript();
+        utils.setUp();
         // create whitelist merkle tree
         vm.startBroadcast(owner);
         bytes32 root = tree.getRoot(leaves);
@@ -28,7 +33,10 @@ contract TaikoonTokenTest is Test {
         address impl = address(new TaikoonToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root))
+                impl,
+                abi.encodeCall(
+                    TaikoonToken.initialize, (address(0), "ipfs://", root, utils.getBlacklist())
+                )
             )
         );
 
@@ -96,5 +104,15 @@ contract TaikoonTokenTest is Test {
 
         assertEq(token.balanceOf(owner), 5);
         assertEq(tokenIds.length, 5);
+    }
+
+    function test_revert_mint_blacklisted() public {
+        address blacklisted =
+            vm.addr(0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6);
+        vm.startBroadcast(blacklisted);
+        bytes32[] memory fakeProof = tree.getProof(leaves, 0);
+        vm.expectRevert();
+        token.mint(fakeProof, MAX_MINTS);
+        vm.stopBroadcast();
     }
 }
