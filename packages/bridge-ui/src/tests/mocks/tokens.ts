@@ -18,9 +18,9 @@ export const MOCK_ERC721 = {
   name: 'MockERC721',
   addresses: { 1: '0x123624fe5f48128B48F9D20428D33B89Bf7a3456', 2: '0x3456FE5F48128B48f9d20428d33B89BF7A123624' },
   symbol: 'MERC721',
-  decimals: 18,
   type: TokenType.ERC721,
   metadata: MOCK_METADATA,
+  uri: 'mock/uri',
   tokenId: 42,
 } satisfies NFT;
 
@@ -28,10 +28,11 @@ export const MOCK_ERC1155 = {
   name: 'MockERC721',
   addresses: { 1: '0x123624fe5f48128B48F9D20428D33B89Bf7a3456', 2: '0x3456FE5F48128B48f9d20428d33B89BF7A123624' },
   symbol: 'MERC721',
-  decimals: 18,
+  balance: 10n,
   type: TokenType.ERC1155,
   metadata: MOCK_METADATA,
   tokenId: 42,
+  uri: 'mock/uri',
 } satisfies NFT;
 
 export const MOCK_ERC721_BASE64 = {

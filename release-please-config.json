@@ -10,11 +10,11 @@
     "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {},
     "packages/relayer": {},
-    "packages/taikoon": {},
+    "packages/nfts": {},
     "packages/taikoon-ui": {},
     "packages/taiko-client": {},
     "packages/supplementary-contracts": {},
-    "packages/snaefell-nft": {}
+    "packages/snaefell-ui": {}
   },
   "separate-pull-requests": true
 }
