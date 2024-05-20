@@ -26,6 +26,7 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { fetchBalance, tokens } from '$libs/token';
+  import { isToken } from '$libs/token/isToken';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -76,7 +77,7 @@
   const debouncedValidateAmount = debounce(validateAmount, 300);
 
   const handleAmountInputChange = (value: string) => {
-    if (!$selectedToken) return;
+    if (!isToken($selectedToken)) return;
     $validatingAmount = true;
     $errorComputingBalance = false;
 
@@ -86,7 +87,10 @@
 
   const useMaxAmount = async () => {
     log('useMaxAmount');
-    if (!$selectedToken || !$connectedSourceChain || !$destNetwork || !$tokenBalance || !$account?.address) return;
+
+    if (!isToken($selectedToken) || !$connectedSourceChain || !$destNetwork || !$tokenBalance || !$account?.address)
+      return;
+
     try {
       let maxAmount;
       if ($tokenBalance) {
@@ -102,7 +106,6 @@
         // Update state
         $enteredAmount = maxAmount;
         value = formatUnits(maxAmount, $selectedToken.decimals);
-
         value = truncateDecimal(parseFloat(value), 12).toString();
         validateAmount();
       }
