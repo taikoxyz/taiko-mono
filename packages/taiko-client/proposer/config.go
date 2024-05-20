@@ -25,7 +25,6 @@ import (
 type Config struct {
 	*rpc.ClientConfig
 	AssignmentHookAddress      common.Address
-	ProverSetAddress           common.Address
 	L1ProposerPrivKey          *ecdsa.PrivateKey
 	L2SuggestedFeeRecipient    common.Address
 	ExtraData                  string
@@ -101,13 +100,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L2Endpoint:        c.String(flags.L2HTTPEndpoint.Name),
 			TaikoL1Address:    common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
 			TaikoL2Address:    common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+			ProverSetAddress:  common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 			L2EngineEndpoint:  c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:         string(jwtSecret),
 			TaikoTokenAddress: common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:           c.Duration(flags.RPCTimeout.Name),
 		},
 		AssignmentHookAddress:      common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
-		ProverSetAddress:           common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
 		ExtraData:                  c.String(flags.ExtraData.Name),

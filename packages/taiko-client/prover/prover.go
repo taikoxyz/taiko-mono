@@ -110,6 +110,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		TaikoL1Address:                cfg.TaikoL1Address,
 		TaikoL2Address:                cfg.TaikoL2Address,
 		TaikoTokenAddress:             cfg.TaikoTokenAddress,
+		ProverSetAddress:              cfg.ProverSetAddress,
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
 		Timeout:                       cfg.RPCTimeout,
