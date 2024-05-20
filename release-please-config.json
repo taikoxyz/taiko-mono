@@ -13,7 +13,8 @@
     "packages/taikoon": {},
     "packages/taikoon-ui": {},
     "packages/taiko-client": {},
-    "packages/supplementary-contracts": {}
+    "packages/supplementary-contracts": {},
+    "packages/snaefell-ui": {}
   },
   "separate-pull-requests": true
 }

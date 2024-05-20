@@ -41,6 +41,7 @@ jobs:
             protocol
             relayer
             taikoon
+            snaefell-ui
             ui-lib
             taiko-client
             supplementary-contracts
