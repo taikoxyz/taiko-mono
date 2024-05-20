@@ -156,7 +156,7 @@
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 - todo:
-  - register `prover_set`
+  - register `prover_set` to `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
 
 #### taikoL1
 
@@ -269,11 +269,15 @@
 
 ### token_unlock
 
-- impl: ``
+- impl: `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819.`
+- logs:
+  - deployed @commit`bca493f` at @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
 
 ### prover_set
 
-- impl: ``
+- impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
+- logs:
+  - deployed @commit`bca493f` at @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
 
 ## L2 Contracts
 
