@@ -14,7 +14,8 @@
     "packages/taikoon-ui": {},
     "packages/taiko-client": {},
     "packages/supplementary-contracts": {},
-    "packages/snaefell-ui": {}
+    "packages/snaefell-ui": {},
+    "packages/nfts": {}
   },
   "separate-pull-requests": true
 }
