@@ -1,4 +1,4 @@
-name: Snaefell UI Build and Checks
+name: Snaefell UI
 
 on: workflow_call
 
