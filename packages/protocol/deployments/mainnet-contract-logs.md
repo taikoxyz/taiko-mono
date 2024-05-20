@@ -154,6 +154,8 @@
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+- todo:
+  - register `prover_set`
 
 #### taikoL1
 
@@ -262,12 +264,11 @@
   - Upgraded from `0xde1b1FBe7D721af4A56651272ef91A59B7303323` to `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
   - Called `configureTcbInfoJson` @commit `3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
 
-### token_unlocking
+### token_unlock
 
-- impl: `0xaccd34dffa1a112880422fccd9df8f08d79dd555`
-- logs:
-  - deployed on May 13, 2024 at commit `165e28279`
-  - deployed again at commit `e0f6938` @tx `0x53dfd6a880826d12f5d697e85551d2ea56bcd071fecad93d3169c63c05b62a92`
+- impl: ``
+- todo:
+  - deploy
 
 ## L2 Contracts
 
