@@ -44,7 +44,7 @@ contract UtilsScript is Script {
 
     function getContractJsonLocation() public view returns (string memory) {
         string memory root = vm.projectRoot();
-        return string.concat(root, "/deployments/", lowercaseNetworkKey, ".json");
+        return string.concat(root, "/deployments/snaefell/", lowercaseNetworkKey, ".json");
     }
 
     function getIpfsBaseURI() public view returns (string memory) {
