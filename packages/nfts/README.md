@@ -1,4 +1,4 @@
-# Taikoon MFT
+# Taikoon NFTs
 
 ## Setup
 
