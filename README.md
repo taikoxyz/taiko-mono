@@ -48,7 +48,7 @@ taiko-mono/
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
 │   ├── <a href="./packages/supplementary-contracts">supplementary-contracts</a>: Supplementary smart contracts that are not part of the Taiko rollup protocol.
 │   ├── <a href="./packages/taiko-client">taiko-client</a>: Taiko client implementation in Go.
-│   ├── <a href="./packages/taikoon">taikoon</a>: Taikoon NFT contracts.
+│   ├── <a href="./packages/taikoon">taikoon</a>: Taikoon and other NFT contracts.
 │   └── <a href="./packages/taikoon-ui">taikoon-ui</a>: Taikoon NFT UI.
 ...
 </pre>

@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/taikoon/**"
+  pull_request:
+    paths:
+      - "packages/taikoon/**"
 
 jobs:
   build-taikoon:

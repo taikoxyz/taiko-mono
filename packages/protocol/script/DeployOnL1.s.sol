@@ -288,8 +288,7 @@ contract DeployOnL1 is DeployCapability {
         address guardianProverMinority = deployProxy({
             name: "guardian_prover_minority",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
@@ -297,8 +296,7 @@ contract DeployOnL1 is DeployCapability {
         address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
