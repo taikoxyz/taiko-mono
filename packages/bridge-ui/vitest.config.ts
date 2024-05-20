@@ -19,7 +19,7 @@ export default defineProject({
       $bridgeConfig: path.resolve(__dirname, './__mocks__/$bridgeConfig.ts'),
       $chainConfig: path.resolve(__dirname, './src/generated/chainConfig.ts'),
       $relayerConfig: path.resolve(__dirname, './src/generated/relayerConfig.ts'),
-      $customToken: path.resolve(__dirname, './src/generated/customTokenConfig.ts'),
+      $customToken: path.resolve(__dirname, './__mocks__/$customToken.ts'),
       $mocks: path.resolve(__dirname, './src/tests/mocks/index.ts'),
       '$env/static/public': path.resolve(__dirname, './__mocks__/$env/static/public.ts'),
     },

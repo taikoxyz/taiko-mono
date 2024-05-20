@@ -94,7 +94,7 @@ export type BridgeTransaction = {
   from: Address;
   amount: bigint;
   symbol: string;
-  decimals: number;
+  decimals?: number;
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;

@@ -22,6 +22,8 @@ contracts=(
     "SgxVerifier"
     "RiscZeroVerifier"
     "QuotaManager"
+    "ProverSet"
+    "TokenUnlock"
 )
 
 # Empty the output file initially
