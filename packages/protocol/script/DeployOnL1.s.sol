@@ -343,7 +343,9 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "prover_set",
             impl: address(new ProverSet()),
-            data: abi.encodeCall(ProverSet.init, (owner, owner, rollupAddressManager))
+            data: abi.encodeCall(
+                ProverSet.init, (owner, os.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
+            )
         });
     }
 
