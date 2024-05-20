@@ -762,3 +762,24 @@ func (c *Client) WaitL1NewPendingTransaction(
 
 	return nil
 }
+
+// GetBlockVerified fetches the BlockVerified event by L2 block number.
+func (c *Client) GetBlockVerified(
+	ctx context.Context,
+	l2BlockNumber uint64,
+) (*bindings.TaikoL1ClientBlockVerified, error) {
+	iter, err := c.TaikoL1.FilterBlockVerified(
+		&bind.FilterOpts{Context: ctx},
+		[]*big.Int{new(big.Int).SetUint64(l2BlockNumber)},
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for iter.Next() {
+		return iter.Event, nil
+	}
+
+	return nil, fmt.Errorf("failed to get BlockVerified event by L2 block number %d", l2BlockNumber)
+}

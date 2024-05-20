@@ -575,11 +575,7 @@ func (s *Syncer) retrievePastBlock(
 		currentBlockID = 0
 	}
 
-	blockInfo, err := s.rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(currentBlockID))
-	if err != nil {
-		return nil, err
-	}
-	ts, err := s.rpc.GetTransition(ctx, new(big.Int).SetUint64(blockInfo.BlockId), blockInfo.VerifiedTransitionId)
+	event, err := s.rpc.GetBlockVerified(ctx, currentBlockID)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +584,7 @@ func (s *Syncer) retrievePastBlock(
 	if err != nil {
 		return nil, err
 	}
-	if ts.BlockHash == l2Header.Hash() {
+	if event.BlockHash == l2Header.Hash() {
 		// To reduce the number of call contracts by bringing forward the termination condition judgement
 		if retries == 0 {
 			return nil, nil
