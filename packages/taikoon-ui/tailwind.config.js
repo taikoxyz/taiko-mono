@@ -1,5 +1,5 @@
 import daisyuiPlugin from 'daisyui'
-import UiLibConfig from 'ui-lib/tailwind'
+import UiLibConfig from '@taiko/ui-lib/tailwind'
 
 /** @type {import('tailwindcss').Config} */
 export default {
