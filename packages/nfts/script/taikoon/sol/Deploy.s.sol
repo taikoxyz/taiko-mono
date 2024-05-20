@@ -6,7 +6,7 @@ import { Script, console } from "forge-std/src/Script.sol";
 import { MerkleMintersScript } from "./MerkleMinters.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TaikoonToken } from "../../contracts/TaikoonToken.sol";
+import { TaikoonToken } from "../../../contracts/taikoon/TaikoonToken.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
@@ -43,7 +43,12 @@ contract DeployScript is Script {
         // deploy token with empty root
         address impl = address(new TaikoonToken());
         address proxy = address(
-            new ERC1967Proxy(impl, abi.encodeCall(TaikoonToken.initialize, (owner, baseURI, root)))
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    TaikoonToken.initialize, (owner, baseURI, root, utils.getBlacklist())
+                )
+            )
         );
 
         TaikoonToken token = TaikoonToken(proxy);
