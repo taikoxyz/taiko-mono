@@ -2,11 +2,6 @@ name: Bridge UI CI/CD
 
 on:
   push:
-    branches-ignore:
-      - main
-      - release-please-*
-    paths:
-      - "packages/bridge-ui/**"
     tags:
       - "bridge-ui-v*"
   pull_request:
