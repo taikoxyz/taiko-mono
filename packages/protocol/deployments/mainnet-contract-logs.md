@@ -147,7 +147,7 @@
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - assignment_hook: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
-  - prover_set: `0x88F4039C2fD4489cdca4E2ce6917a81a38509F2E`
+  - prover_set: `0xd0e61AA5928bC6aC102A5454BAF183d14a079F19`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
 - logs:
@@ -155,6 +155,8 @@
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+- todo:
+  - register `prover_set`
 
 #### taikoL1
 
@@ -265,9 +267,11 @@
 
 ### token_unlock
 
-- impl: ``
-- todo:
-  - deploy
+- impl: `0x88F4039C2fD4489cdca4E2ce6917a81a38509F2E`
+
+### prover_set
+
+- impl: `0xd0e61AA5928bC6aC102A5454BAF183d14a079F19`
 
 ## L2 Contracts
 
