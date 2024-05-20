@@ -278,6 +278,14 @@
 - logs:
   - deployed @commit`bca493f` at @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
 
+### taiko_labs_prover_set
+
+- proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
+- impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
+
+- logs:
+  - deployed @commit`bca493f`at tx`0xf3b6af477112d0a8209506c8f310f4eb0713beebb1911ef5d11162d36d93c0ff`
+
 ## L2 Contracts
 
 ### Shared
