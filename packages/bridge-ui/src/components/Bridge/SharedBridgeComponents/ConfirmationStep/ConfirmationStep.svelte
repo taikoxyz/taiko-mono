@@ -31,6 +31,7 @@
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
+  import { isToken } from '$libs/token/isToken';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -92,7 +93,7 @@
       from: $account.address,
       amount: $enteredAmount,
       symbol: $selectedToken?.symbol,
-      decimals: $selectedToken?.decimals,
+      decimals: isToken($selectedToken) ? $selectedToken.decimals : undefined,
       srcChainId: BigInt(currentChain),
       destChainId: BigInt(destinationChain),
       tokenType: $selectedToken?.type,

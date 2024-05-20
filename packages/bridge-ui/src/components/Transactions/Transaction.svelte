@@ -216,7 +216,7 @@
       </div>
       <div class="w-1/5 py-2 flex flex-col justify-center">
         {#if item.tokenType === TokenType.ERC20}
-          {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+          {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals ?? 0)}
         {:else if item.tokenType === TokenType.ETH}
           {formatEther(item.amount ? item.amount : BigInt(0))}
         {/if}
@@ -234,7 +234,7 @@
           </div>
           <div class=" flex flex-col justify-center text-sm text-secondary-content">
             {#if item.tokenType === TokenType.ERC20}
-              {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+              {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals ?? 0)}
             {:else if item.tokenType === TokenType.ETH}
               {formatEther(item.amount ? item.amount : BigInt(0))}
             {/if}
