@@ -34,7 +34,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+  - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 
 #### taiko_token
 
@@ -45,7 +45,7 @@
 - logs:
   - deployed on April 25, 2024 @commit `2f6d3c62e`
   - upgraded impl from `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb` to `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` @commit `b90b932` and,
-  - Changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx `0x7d82794932540ed9edd259e58f6ef8ae21a49beada7f0224638f888f7149c01c`
+  - Changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx`0x7d82794932540ed9edd259e58f6ef8ae21a49beada7f0224638f888f7149c01c`
   - Accept owner @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
 
 #### signal_service
@@ -154,7 +154,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+  - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
   - register`prover_set` to `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` @tx`0x252cd7fcb6e02a71c0770d00f2f2476d5dd469a4fb5df622fe7bf6280d8a4100`
 
 #### taikoL1
@@ -165,7 +165,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501` to `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - `Init2()` called and reset block hash to `0411D9F84A525864E0A7E8BB51667D49C6BF73820AF9E4BC76EA66ADB6BE8903` @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+  - `Init2()` called and reset block hash to `0411D9F84A525864E0A7E8BB51667D49C6BF73820AF9E4BC76EA66ADB6BE8903` @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 - todo:
   - upgrade the implementation again
 
@@ -270,21 +270,25 @@
 
 - impl: `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819.`
 - logs:
-  - deployed @commit`bca493f` at @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
+  - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
 
 ### prover_set
 
 - impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
 - logs:
-  - deployed @commit`bca493f` at @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
+  - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
 
 ### taiko_labs_prover_set
 
 - proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
+- ens: `labprovers.taiko.eth`
 - impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
-
+- enabled provers:
+  - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
+  - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
-  - deployed @commit`bca493f`at tx`0xf3b6af477112d0a8209506c8f310f4eb0713beebb1911ef5d11162d36d93c0ff`
+  - deployed @commit`bca493f`@tx`0xf3b6af477112d0a8209506c8f310f4eb0713beebb1911ef5d11162d36d93c0ff`
+  - enabled two provers @tx`???????`
 
 ## L2 Contracts
 
@@ -361,7 +365,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
-  - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+  - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 
 #### taikoL2
 
