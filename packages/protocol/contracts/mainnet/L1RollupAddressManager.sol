@@ -49,9 +49,6 @@ contract L1RollupAddressManager is AddressManager {
             if (_name == LibStrings.B_TIER_GUARDIAN) {
                 return 0xE3D777143Ea25A6E031d1e921F396750885f43aC;
             }
-            if (_name == LibStrings.B_TIER_GUARDIAN) {
-                return 0xE3D777143Ea25A6E031d1e921F396750885f43aC;
-            }
             if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
                 return 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
             }
