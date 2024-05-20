@@ -12,8 +12,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/sgxverifier"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 	"github.com/urfave/cli/v2"
@@ -53,8 +51,6 @@ type Indexer struct {
 	taikol1        *taikol1.TaikoL1
 	bridge         *bridge.Bridge
 	assignmentHook *assignmenthook.AssignmentHook
-	sgxVerifier    *sgxverifier.SgxVerifier
-	swaps          []*swap.Swap
 
 	indexNfts bool
 	layer     string
@@ -184,32 +180,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		}
 	}
 
-	var swapContracts []*swap.Swap
-
-	if cfg.SwapAddresses != nil && len(cfg.SwapAddresses) > 0 {
-		for _, v := range cfg.SwapAddresses {
-			slog.Info("setting swapAddress", "addr", v.Hex())
-
-			swapContract, err := swap.NewSwap(v, ethClient)
-			if err != nil {
-				return errors.Wrap(err, "contracts.NewSwap")
-			}
-
-			swapContracts = append(swapContracts, swapContract)
-		}
-	}
-
-	var sgxVerifierContract *sgxverifier.SgxVerifier
-
-	if cfg.SgxVerifierAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting sgxVerifierAddress", "addr", cfg.SgxVerifierAddress.Hex())
-
-		sgxVerifierContract, err = sgxverifier.NewSgxVerifier(cfg.SgxVerifierAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewSgxVerifier")
-		}
-	}
-
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
@@ -222,8 +192,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
 	i.assignmentHook = assignmentHookContract
-	i.sgxVerifier = sgxVerifierContract
-	i.swaps = swapContracts
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.wg = &sync.WaitGroup{}

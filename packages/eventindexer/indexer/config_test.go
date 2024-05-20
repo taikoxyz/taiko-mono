@@ -78,7 +78,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabaseName.Name, "dbname",
 		"--" + flags.L1TaikoAddress.Name, l1TaikoAddress,
 		"--" + flags.BridgeAddress.Name, bridgeAddress,
-		"--" + flags.SwapAddresses.Name, swapAddresses,
 		"--" + flags.AssignmentHookAddress.Name, assignmentHookAddress,
 		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
