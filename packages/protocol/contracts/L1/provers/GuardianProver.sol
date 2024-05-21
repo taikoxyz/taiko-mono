@@ -95,10 +95,6 @@ contract GuardianProver is IVerifier, EssentialContract {
         __Essential_init(_owner, _addressManager);
     }
 
-    function pauseProving(bool _pause) external whenNotPaused onlyGuardian nonReentrant {
-        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(_pause);
-    }
-
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
     /// @param _minGuardians The minimum required to sign
@@ -212,6 +208,12 @@ contract GuardianProver is IVerifier, EssentialContract {
                 );
             }
         }
+    }
+
+    /// @notice Pauses or unpauses the chain proving.
+    /// @param _pause true to pause, false to unpause.
+    function pauseProving(bool _pause) external whenNotPaused onlyGuardian {
+        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(_pause);
     }
 
     /// @inheritdoc IVerifier
