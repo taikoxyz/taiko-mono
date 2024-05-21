@@ -30,6 +30,10 @@ interface ITaikoL1 {
     /// @param _maxBlocksToVerify Max number of blocks to verify.
     function verifyBlocks(uint64 _maxBlocksToVerify) external;
 
+    /// @notice Pause proving and verification of blocks.
+    /// @param _pause true to pause; false to unpause.
+    function pauseProving(bool _pause) external;
+
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig() external view returns (TaikoData.Config memory);

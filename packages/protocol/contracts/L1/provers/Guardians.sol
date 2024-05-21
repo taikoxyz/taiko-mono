@@ -2,6 +2,8 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
+import "../../common/LibStrings.sol";
+import "../ITaikoL1.sol";
 
 /// @title Guardians
 /// @notice A contract that manages a set of guardians and their approvals.
@@ -26,7 +28,10 @@ abstract contract Guardians is EssentialContract {
     /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
-    uint256[46] private __gap;
+    /// @notice Mapping from block id to its last approved hash
+    mapping(uint32 version => mapping(uint256 blockId => bytes32 hash)) internal _lastApprovedHash;
+
+    uint256[45] private __gap;
 
     /// @notice Emitted when the set of guardians is updated
     /// @param version The new version
@@ -38,6 +43,19 @@ abstract contract Guardians is EssentialContract {
     /// @param approvalBits The new approval bits
     /// @param minGuardiansReached If the proof was submitted
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
+
+    /// @notice Emitted when two provers submitted different proofs
+    /// @param blockId The block ID
+    /// @param prevApprovedHash the previously approved proof
+    /// @param newApprovedHash The new and conflicting proof
+    /// @param provingPaused True if TaikoL1 proving has been paused.
+    event ConflitProofs(
+        uint256 indexed blockId,
+        address indexed prover,
+        bytes32 prevApprovedHash,
+        bytes32 newApprovedHash,
+        bool indexed provingPaused
+    );
 
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
@@ -108,17 +126,30 @@ abstract contract Guardians is EssentialContract {
 
         uint32 _version = version;
 
-        unchecked {
-            _approvals[_version][_hash] |= 1 << (id - 1);
+        bytes32 prevHash = _lastApprovedHash[_version][_blockId];
+        if (prevHash == 0) {
+            _lastApprovedHash[_version][_blockId] = _hash;
+        } else if (prevHash == _hash) {
+            unchecked {
+                _approvals[_version][_hash] |= 1 << (id - 1);
+            }
+
+            uint256 _approval = _approvals[_version][_hash];
+            approved_ = isApproved(_approval);
+            if (approved_) {
+                _deleteApproval(_blockId, _hash);
+            }
+            emit Approved(_blockId, _approval, approved_);
+        } else {
+            bool chainProvingPaused;
+            if (resolve(LibStrings.B_CHAIN_WATCHDOG, true) == address(this)) {
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
+                chainProvingPaused = true;
+            }
+
+            _deleteApproval(_blockId, _hash);
+            emit ConflitProofs(_blockId, msg.sender, prevHash, _hash, chainProvingPaused);
         }
-
-        uint256 _approval = _approvals[_version][_hash];
-        approved_ = isApproved(_approval);
-        emit Approved(_blockId, _approval, approved_);
-    }
-
-    function deleteApproval(bytes32 _hash) internal {
-        delete _approvals[version][_hash];
     }
 
     function isApproved(uint256 _approvalBits) internal view returns (bool) {
@@ -133,5 +164,11 @@ abstract contract Guardians is EssentialContract {
             }
         }
         return false;
+    }
+
+    function _deleteApproval(uint256 _blockId, bytes32 _hash) private {
+        uint32 _version = version;
+        delete _approvals[_version][_hash];
+        delete _lastApprovedHash[_version][_blockId];
     }
 }

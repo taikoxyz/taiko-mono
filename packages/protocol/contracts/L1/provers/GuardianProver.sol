@@ -4,10 +4,8 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../../common/LibStrings.sol";
 import "../../verifiers/IVerifier.sol";
 import "../tiers/ITierProvider.sol";
-import "../ITaikoL1.sol";
 import "./Guardians.sol";
 
 /// @title GuardianProver
@@ -82,7 +80,6 @@ contract GuardianProver is IVerifier, Guardians {
         emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
 
         if (approved_) {
-            deleteApproval(hash);
             ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
                 _meta.id, abi.encode(_meta, _tran, _proof)
             );
