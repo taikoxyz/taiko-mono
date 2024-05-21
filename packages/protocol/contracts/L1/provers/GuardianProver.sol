@@ -83,11 +83,20 @@ contract GuardianProver is IVerifier, EssentialContract {
     error GV_PERMISSION_DENIED();
     error GV_ZERO_ADDRESS();
 
+    modifier onlyGuardian() {
+        if (guardianIds[msg.sender] == 0) revert GP_INVALID_GUARDIAN();
+        _;
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
+    }
+
+    function pauseProving(bool _pause) external whenNotPaused onlyGuardian nonReentrant {
+        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(_pause);
     }
 
     /// @notice Set the set of guardians
