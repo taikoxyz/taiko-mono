@@ -276,7 +276,7 @@
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
 
-### taiko_labs_prover_set
+### labprovers.taiko.eth
 
 - proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
 - ens: `labprovers.taiko.eth`
