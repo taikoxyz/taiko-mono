@@ -34,7 +34,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     uint32 public minGuardians;
 
     /// @notice Mapping from blockId to its latest proof hash
-    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public blockLatestProofHash;
+    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public latestProofHash;
 
     uint256[45] private __gap;
 
@@ -172,10 +172,10 @@ contract GuardianProver is IVerifier, EssentialContract {
     {
         bytes32 proofHash = keccak256(abi.encode(_meta, _tran, _proof.data));
         uint256 _version = version;
-        bytes32 currProofHash = blockLatestProofHash[_version][_meta.id];
+        bytes32 currProofHash = latestProofHash[_version][_meta.id];
 
         if (currProofHash == 0) {
-            blockLatestProofHash[_version][_meta.id] = proofHash;
+            latestProofHash[_version][_meta.id] = proofHash;
             currProofHash = proofHash;
         }
 
@@ -184,7 +184,7 @@ contract GuardianProver is IVerifier, EssentialContract {
             conflicting && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
 
         if (conflicting) {
-            blockLatestProofHash[_version][_meta.id] = proofHash;
+            latestProofHash[_version][_meta.id] = proofHash;
             emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
         }
 
@@ -196,6 +196,8 @@ contract GuardianProver is IVerifier, EssentialContract {
 
             if (approved_) {
                 delete approvals[_version][proofHash];
+                delete latestProofHash[_version][_meta.id];
+
                 ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
                     _meta.id, abi.encode(_meta, _tran, _proof)
                 );
