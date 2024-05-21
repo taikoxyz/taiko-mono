@@ -112,6 +112,7 @@ func GetBlockProofStatus(
 	cli *Client,
 	id *big.Int,
 	proverAddress common.Address,
+	proverSetAddress common.Address,
 ) (*BlockProofStatus, error) {
 	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -158,7 +159,8 @@ func GetBlockProofStatus(
 		}, nil
 	}
 
-	if proverAddress == transition.Prover {
+	if proverAddress == transition.Prover ||
+		(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
 		log.Info(
 			"📬 Block's proof has already been submitted by current prover",
 			"blockID", id,

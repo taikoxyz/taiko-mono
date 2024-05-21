@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/blobstorage/**"
+  pull_request:
+    paths:
+      - "packages/blobstorage/**"
 
 jobs:
   test-blobstorage:
