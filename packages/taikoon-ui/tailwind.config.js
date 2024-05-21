@@ -1,11 +1,11 @@
-import daisyuiPlugin from 'daisyui'
 import UiLibConfig from '@taiko/ui-lib/tailwind'
+import daisyuiPlugin from 'daisyui'
 
 /** @type {import('tailwindcss').Config} */
 export default {
     ...UiLibConfig,
     darkMode: ['class', '[data-theme="dark"]'],
-	content: ['./src/**/*.{html,js,svelte,ts}', './node_modules/ui-lib/src/**/*.{html,js,svelte,ts}'],
+	content: ['./src/**/*.{html,js,svelte,ts}', './node_modules/@taiko/ui-lib/src/**/*.{html,js,svelte,ts}'],
     theme: {
         extend: {
             fontFamily: {
@@ -51,6 +51,7 @@ export default {
             },
             colors: {
                 ...UiLibConfig.theme.extend.colors,
+                'discord-purple': '#5765f1',
                 /***************
                  * Base colors *
                  ***************/
