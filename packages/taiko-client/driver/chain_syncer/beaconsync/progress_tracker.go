@@ -29,9 +29,10 @@ type SyncProgressTracker struct {
 	lastSyncedBlockID   *big.Int
 	lastSyncedBlockHash common.Hash
 
-	// Sync block ID
+	// latest verified block ID.
 	verifyBlockID *big.Int
-	syncBlockID   *big.Int
+	// current syncing block ID.
+	syncBlockID *big.Int
 
 	// Out-of-sync check related
 	lastSyncProgress   *ethereum.SyncProgress
@@ -137,25 +138,25 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 	}
 }
 
-// ShouldReSync checks whether a re-sync is needed.
-func (t *SyncProgressTracker) ShouldReSync(verifyBlockID *big.Int) (uint64, bool) {
+// ShouldSync checks whether sync is needed.
+func (t *SyncProgressTracker) ShouldSync(verifyBlockID *big.Int) (uint64, bool) {
 	if t.verifyBlockID == nil {
 		t.verifyBlockID = new(big.Int).Set(verifyBlockID)
 	}
-	// Sync block ID is nil or reorg appears, re-sync from the latest known block.
+	// If sync blockID is null or the new verifyBlockID is ahead of the current sync block ID, sync again.
 	if t.syncBlockID == nil || t.syncBlockID.Cmp(verifyBlockID) > 0 {
 		t.syncBlockID = new(big.Int).Set(verifyBlockID)
 		return t.syncBlockID.Uint64(), true
 	}
 
-	// Current p2p syncing is finished, set the latest verified block and re-sync again.
+	// This check means that the current syncing work is finished syncing, update syncBlockID and sync again.
 	lastSyncedBlockID := t.LastSyncedBlockID()
 	if lastSyncedBlockID != nil && t.syncBlockID.Cmp(lastSyncedBlockID) == 0 {
 		t.syncBlockID = new(big.Int).Set(verifyBlockID)
 		return t.syncBlockID.Uint64(), true
 	}
 
-	// If the latest verified block is ahead of the current sync block ID 32 blocks, re-sync again.
+	// If the latest verified block is ahead of the current sync block ID 32 blocks, trigger the current syncing again.
 	if t.verifyBlockID.Uint64()+32 <= verifyBlockID.Uint64() {
 		t.verifyBlockID = new(big.Int).Set(verifyBlockID)
 		return t.syncBlockID.Uint64(), true

@@ -39,7 +39,7 @@ func NewSyncer(
 // TriggerBeaconSync triggers the L2 execution engine to start performing a beacon sync, if the
 // latest verified block has changed.
 func (s *Syncer) TriggerBeaconSync(verifyBlockID uint64) error {
-	syncBlockID, shouldSync := s.progressTracker.ShouldReSync(new(big.Int).SetUint64(verifyBlockID))
+	syncBlockID, shouldSync := s.progressTracker.ShouldSync(new(big.Int).SetUint64(verifyBlockID))
 	if !shouldSync {
 		return nil
 	}
@@ -80,8 +80,8 @@ func (s *Syncer) TriggerBeaconSync(verifyBlockID uint64) error {
 		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
 
-	// Update sync status.
-	if fcRes.PayloadStatus.Status == engine.VALID {
+	// If the beacon sync is not in progress, update the sync progress.
+	if fcRes.PayloadStatus.Status != engine.SYNCING {
 		s.progressTracker.UpdateMeta(new(big.Int).SetUint64(syncBlockID), latestVerifiedHeadPayload.BlockHash)
 	}
 
