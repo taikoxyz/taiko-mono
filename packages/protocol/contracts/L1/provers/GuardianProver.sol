@@ -20,7 +20,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     mapping(address guardian => uint256 id) public guardianIds;
 
     /// @notice Mapping to store the approvals for a given hash, for a given version
-    mapping(uint256 version => mapping(bytes32 hash => uint256 approvalBits)) private _approvals;
+    mapping(uint256 version => mapping(bytes32 hash => uint256 approvalBits)) public approvals;
 
     /// @notice The set of guardians
     /// @dev Slot 3
@@ -33,8 +33,8 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
-    /// @notice Mapping from blockId to its first approved hash
-    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) private _firstApprovedHash;
+    /// @notice Mapping from blockId to its first proof hash
+    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public firstProofHash;
 
     uint256[45] private __gap;
 
@@ -186,7 +186,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param _hash The hash to check
     /// @return true if the hash is approved
     function isApproved(bytes32 _hash) public view returns (bool) {
-        return _isApproved(_approvals[version][_hash]);
+        return _isApproved(approvals[version][_hash]);
     }
 
     /// @notice Returns the number of guardians
@@ -202,16 +202,16 @@ contract GuardianProver is IVerifier, EssentialContract {
         uint32 _version = version;
 
         unchecked {
-            _approvals[_version][_hash] |= 1 << (id - 1);
+            approvals[_version][_hash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[_version][_hash];
+        uint256 _approval = approvals[_version][_hash];
         approved_ = _isApproved(_approval);
         emit Approved(_blockId, _approval, approved_);
     }
 
     function _deleteApproval(bytes32 _hash) private {
-        delete _approvals[version][_hash];
+        delete approvals[version][_hash];
     }
 
     function _isApproved(uint256 _approvalBits) private view returns (bool) {
