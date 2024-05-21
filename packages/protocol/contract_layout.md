@@ -129,7 +129,6 @@
 | version        | uint32                                         | 254  | 0      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 | minGuardians   | uint32                                         | 254  | 4      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 | __gap          | uint256[46]                                    | 255  | 0      | 1472  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[50]                                    | 301  | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 
 ## TaikoToken
 | Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                |
@@ -505,5 +504,28 @@
 | lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/proving/ProverSet.sol:ProverSet |
 | __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/proving/ProverSet.sol:ProverSet |
 | isProver       | mapping(address => bool) | 251  | 0      | 32    | contracts/team/proving/ProverSet.sol:ProverSet |
-| __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/team/proving/ProverSet.sol:ProverSet |
+| admin          | address                  | 252  | 0      | 20    | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[48]              | 253  | 0      | 1536  | contracts/team/proving/ProverSet.sol:ProverSet |
+
+## TokenUnlock
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                               |
+|----------------|--------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| _owner         | address                  | 51   | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| addressManager | address                  | 151  | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| amountVested   | uint256                  | 251  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| recipient      | address                  | 252  | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| tgeTimestamp   | uint64                   | 252  | 20     | 8     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| isProverSet    | mapping(address => bool) | 253  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 

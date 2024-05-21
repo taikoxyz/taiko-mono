@@ -97,6 +97,8 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
+	slog.Info("number of guardians", "numGuardians", numGuardians.Int64())
+
 	var guardianProvers []guardianproverhealthcheck.GuardianProver
 
 	for i := 0; i < int(numGuardians.Uint64()); i++ {

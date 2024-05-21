@@ -33,6 +33,7 @@ type ProverServer struct {
 	echo                  *echo.Echo
 	proverPrivateKey      *ecdsa.PrivateKey
 	proverAddress         common.Address
+	proverSetAddress      common.Address
 	minOptimisticTierFee  *big.Int
 	minSgxTierFee         *big.Int
 	minSgxAndZkVMTierFee  *big.Int
@@ -52,6 +53,7 @@ type ProverServer struct {
 // NewProverServerOpts contains all configurations for creating a prover server instance.
 type NewProverServerOpts struct {
 	ProverPrivateKey      *ecdsa.PrivateKey
+	ProverSetAddress      common.Address
 	MinOptimisticTierFee  *big.Int
 	MinSgxTierFee         *big.Int
 	MinSgxAndZkVMTierFee  *big.Int
@@ -73,6 +75,7 @@ func New(opts *NewProverServerOpts) (*ProverServer, error) {
 	srv := &ProverServer{
 		proverPrivateKey:      opts.ProverPrivateKey,
 		proverAddress:         crypto.PubkeyToAddress(opts.ProverPrivateKey.PublicKey),
+		proverSetAddress:      opts.ProverSetAddress,
 		echo:                  echo.New(),
 		minOptimisticTierFee:  opts.MinOptimisticTierFee,
 		minSgxTierFee:         opts.MinSgxTierFee,
