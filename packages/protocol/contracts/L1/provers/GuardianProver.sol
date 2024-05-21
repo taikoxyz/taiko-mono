@@ -63,6 +63,14 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param minGuardiansReached If the proof was submitted
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
 
+    event ConflictingProofs(
+        uint256 indexed blockId,
+        address indexed prover,
+        bytes32 currentProofHash,
+        bytes32 newProofHash,
+        bool taikoProvingPaused
+    );
+
     error GP_INVALID_GUARDIAN();
     error GP_INVALID_GUARDIAN_SET();
     error GP_INVALID_MIN_GUARDIANS();
@@ -156,26 +164,34 @@ contract GuardianProver is IVerifier, EssentialContract {
         nonReentrant
         returns (bool approved_)
     {
-        bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
-
+        bytes32 proofHash = keccak256(abi.encode(_meta, _tran, _proof.data));
         uint256 _version = version;
-        bytes32 proofHash = firstProofHash[_version][_meta.id];
-        if (proofHash == 0) {
-            firstProofHash[_version][_meta.id] = hash;
-        } else if (proofHash == hash) {
-            approved_ = _approve(_meta.id, hash);
+        bytes32 currProofHash = firstProofHash[_version][_meta.id];
 
-            emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
-
-            if (approved_) {
-                delete approvals[_version][hash];
-                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
-                    _meta.id, abi.encode(_meta, _tran, _proof)
-                );
-            }
+        if (currProofHash == 0) {
+            firstProofHash[_version][_meta.id] = proofHash;
         } else {
-            delete firstProofHash[_version][_meta.id];
-            delete approvals[_version][hash];
+            ITaikoL1 taikoL1 = ITaikoL1(resolve(LibStrings.B_TAIKO, false));
+
+            if (currProofHash == proofHash) {
+                approved_ = _approve(_meta.id, proofHash);
+
+                emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
+
+                if (approved_) {
+                    delete approvals[_version][proofHash];
+                    taikoL1.proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
+                }
+            } else {
+                bool pauseProving = address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
+
+                emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
+
+                if (pauseProving) {
+                    ++version;
+                    taikoL1.pauseProving(true);
+                }
+            }
         }
     }
 
