@@ -33,7 +33,11 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
+    /// @notice True to enable pausing taiko proving upon conflicting proofs
+    bool public provingAutoPauseEnabled;
+
     /// @notice Mapping from blockId to its latest proof hash
+    /// @dev Slot 5
     mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public latestProofHash;
 
     uint256[45] private __gap;
@@ -77,16 +81,16 @@ contract GuardianProver is IVerifier, EssentialContract {
         bool provingPaused
     );
 
+    /// @notice Emitted when auto pausing is enabled.
+    /// @param enabled True if TaikoL1 proving auto-pause is enabled.
+    event ProvingAutoPauseEnabled(bool indexed enabled);
+
     error GP_INVALID_GUARDIAN();
     error GP_INVALID_GUARDIAN_SET();
     error GP_INVALID_MIN_GUARDIANS();
+    error GP_INVALID_STATUS();
     error GV_PERMISSION_DENIED();
     error GV_ZERO_ADDRESS();
-
-    modifier onlyGuardian() {
-        if (guardianIds[msg.sender] == 0) revert GP_INVALID_GUARDIAN();
-        _;
-    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -160,6 +164,15 @@ contract GuardianProver is IVerifier, EssentialContract {
         tko.safeTransfer(_to, amount);
     }
 
+    ///@dev Enables or disables proving auto pause.
+    ///@param _enable true to enable, false to disable.
+    function enablePausingProvingUponConflictingProofs(bool _enable) external onlyOwner {
+        if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
+        provingAutoPauseEnabled = _enable;
+
+        emit ProvingAutoPauseEnabled(_enable);
+    }
+
     /// @dev Called by guardians to approve a guardian proof
     /// @param _meta The block's metadata.
     /// @param _tran The valid transition.
@@ -185,8 +198,8 @@ contract GuardianProver is IVerifier, EssentialContract {
         }
 
         bool conflicting = currProofHash != proofHash;
-        bool pauseProving =
-            conflicting && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
+        bool pauseProving = conflicting && provingAutoPauseEnabled
+            && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
 
         if (conflicting) {
             latestProofHash[_version][_meta.id] = proofHash;
@@ -212,7 +225,13 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @notice Pauses or unpauses the chain proving.
     /// @param _pause true to pause, false to unpause.
-    function pauseTaikoProving(bool _pause) external whenNotPaused onlyGuardian {
+    function pauseTaikoProving(bool _pause) external whenNotPaused onlyOwner {
+        if (guardianIds[msg.sender] == 0) revert GP_INVALID_GUARDIAN();
+
+        if (address(this) != resolve(LibStrings.B_CHAIN_WATCHDOG, true)) {
+            revert GV_PERMISSION_DENIED();
+        }
+
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(_pause);
     }
 
