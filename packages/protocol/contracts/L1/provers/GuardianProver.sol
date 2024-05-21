@@ -158,15 +158,24 @@ contract GuardianProver is IVerifier, EssentialContract {
     {
         bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
 
-        approved_ = _approve(_meta.id, hash);
+        uint256 _version = version;
+        bytes32 proofHash = firstProofHash[_version][_meta.id];
+        if (proofHash == 0) {
+            firstProofHash[_version][_meta.id] = hash;
+        } else if (proofHash == hash) {
+            approved_ = _approve(_meta.id, hash);
 
-        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
+            emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
 
-        if (approved_) {
-            _deleteApproval(hash);
-            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
-                _meta.id, abi.encode(_meta, _tran, _proof)
-            );
+            if (approved_) {
+                delete approvals[_version][hash];
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
+                    _meta.id, abi.encode(_meta, _tran, _proof)
+                );
+            }
+        } else {
+            delete firstProofHash[_version][_meta.id];
+            delete approvals[_version][hash];
         }
     }
 
@@ -199,7 +208,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert GP_INVALID_GUARDIAN();
 
-        uint32 _version = version;
+        uint256 _version = version;
 
         unchecked {
             approvals[_version][_hash] |= 1 << (id - 1);
@@ -208,10 +217,6 @@ contract GuardianProver is IVerifier, EssentialContract {
         uint256 _approval = approvals[_version][_hash];
         approved_ = _isApproved(_approval);
         emit Approved(_blockId, _approval, approved_);
-    }
-
-    function _deleteApproval(bytes32 _hash) private {
-        delete approvals[version][_hash];
     }
 
     function _isApproved(uint256 _approvalBits) private view returns (bool) {
