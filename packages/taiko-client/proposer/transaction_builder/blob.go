@@ -113,7 +113,6 @@ func (b *BlobTransactionBuilder) Build(
 		return nil, err
 	}
 	signature[64] = uint8(uint(signature[64])) + 27
-	log.Info("AssignedProver", "assignedProver", assignedProver.String())
 
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
