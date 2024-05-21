@@ -141,6 +141,7 @@ func (p *Prover) initProofSubmitters(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
+			p.cfg.ProverSetAddress,
 			p.cfg.TaikoL2Address,
 			p.cfg.Graffiti,
 			p.cfg.ProveBlockGasLimit,
@@ -220,6 +221,7 @@ func (p *Prover) initEventHandlers() error {
 	opts := &handler.NewBlockProposedEventHandlerOps{
 		SharedState:           p.sharedState,
 		ProverAddress:         p.ProverAddress(),
+		ProverSetAddress:      p.cfg.ProverSetAddress,
 		GenesisHeightL1:       p.genesisHeightL1,
 		RPC:                   p.rpc,
 		ProofGenerationCh:     p.proofGenerationCh,
@@ -259,6 +261,7 @@ func (p *Prover) initEventHandlers() error {
 	p.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,
 		p.ProverAddress(),
+		p.cfg.ProverSetAddress,
 		p.proofSubmissionCh,
 		p.proofContestCh,
 		p.cfg.ContesterMode,
