@@ -44,6 +44,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	builder := transaction.NewProveBlockTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
 	)
@@ -80,6 +81,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		"test",
 		0,
@@ -94,6 +96,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		0,
 		txMgr,
+		rpc.ZeroAddress,
 		"test",
 		builder,
 	)
@@ -127,6 +130,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+			ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		},
 		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
@@ -188,6 +192,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		"test",
 		0,
@@ -207,6 +212,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		"test",
 		0,
