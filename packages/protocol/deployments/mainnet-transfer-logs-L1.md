@@ -1,4 +1,4 @@
-# Taiko Mainnet Transfer Logs
+# Taiko Mainnet Transfer Logs - L1
 
 ## Taiko Labs EOAs
 
