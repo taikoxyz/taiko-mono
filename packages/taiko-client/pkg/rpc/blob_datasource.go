@@ -30,6 +30,12 @@ type BlobDataSeq struct {
 	Data []*BlobData `json:"data"`
 }
 
+type BlobServerResponse struct {
+	Commitment    string `json:"commitment"`
+	Data          string `json:"data"`
+	VersionedHash string `json:"versionedHash"`
+}
+
 func NewBlobDataSource(
 	ctx context.Context,
 	client *Client,
@@ -83,17 +89,13 @@ func (ds *BlobDataSource) GetBlobs(
 
 // getBlobFromServer get blob data from server path `/getBlob`.
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common.Hash) (*BlobDataSeq, error) {
-	var (
-		route = "/getBlob"
-		param = map[string]string{"blobHash": blobHash.String()}
-	)
+	route := "/blobs/" + blobHash.String()
 	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), route)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := resty.New().R().
-		SetResult(BlobDataSeq{}).
-		SetQueryParams(param).
+		SetResult(BlobServerResponse{}).
 		SetContext(ctx).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
@@ -103,9 +105,18 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(
-			"unable to connect blob server endpoint, status code: %v",
+			"unable to connect blobscan endpoint, status code: %v",
 			resp.StatusCode(),
 		)
 	}
-	return resp.Result().(*BlobDataSeq), nil
+	response := resp.Result().(*BlobServerResponse)
+
+	return &BlobDataSeq{
+		Data: []*BlobData{
+			{
+				BlobHash:      response.VersionedHash,
+				KzgCommitment: response.Commitment,
+				Blob:          response.Data,
+			},
+		}}, nil
 }
