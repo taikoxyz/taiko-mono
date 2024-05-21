@@ -7,11 +7,11 @@ export const framework = {
 
 export const docs = { autodocs: false };
 export const addons = [
-	'@storybook/addon-links',
-	'@storybook/addon-essentials',
-	'@chromatic-com/storybook',
-	'@storybook/addon-interactions',
-	'@storybook/addon-themes'
+	//'@storybook/addon-links',
+	'@storybook/addon-essentials'
+	//'@chromatic-com/storybook',
+	//'@storybook/addon-interactions',
+	//'@storybook/addon-themes'
 ];
 
 const config: StorybookConfig = {
