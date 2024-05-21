@@ -164,8 +164,8 @@ contract GuardianProver is IVerifier, EssentialContract {
         tko.safeTransfer(_to, amount);
     }
 
-    ///@dev Enables or disables proving auto pause.
-    ///@param _enable true to enable, false to disable.
+    /// @dev Enables or disables proving auto pause.
+    /// @param _enable true to enable, false to disable.
     function enablePausingProvingUponConflictingProofs(bool _enable) external onlyOwner {
         if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
         provingAutoPauseEnabled = _enable;
