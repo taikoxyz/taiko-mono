@@ -455,7 +455,9 @@ contract Bridge is EssentialContract, IBridge {
             // bytes)
             // = 13 * 32 + (dataLength / 32 * 32) + 32.
             // non-zero calldata cost per byte is 16.
-            return GAS_RESERVE + uint32(448 + dataLength / 32 * 32) << 4;
+
+            uint256 amount = (448 + dataLength / 32 * 32) << 4 + GAS_RESERVE;
+            return SafeCastUpgradeable.toUint32(amount);
         }
     }
 
