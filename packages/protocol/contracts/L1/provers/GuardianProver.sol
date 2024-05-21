@@ -33,8 +33,8 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
-    /// @notice Mapping from blockId to its first proof hash
-    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public firstProofHash;
+    /// @notice Mapping from blockId to its latest proof hash
+    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public blockLatestProofHash;
 
     uint256[45] private __gap;
 
@@ -63,12 +63,18 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param minGuardiansReached If the proof was submitted
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
 
+    /// @notice Emitted when a guardian prover submit a different proof for the same block
+    /// @param blockId The block ID
+    /// @param guardian The guardian prover address
+    /// @param currentProofHash The existing proof hash
+    /// @param newProofHash The new and different proof hash
+    /// @param provingPaused True if TaikoL1's proving is paused.
     event ConflictingProofs(
         uint256 indexed blockId,
-        address indexed prover,
+        address indexed guardian,
         bytes32 currentProofHash,
         bytes32 newProofHash,
-        bool taikoProvingPaused
+        bool provingPaused
     );
 
     error GP_INVALID_GUARDIAN();
@@ -166,31 +172,32 @@ contract GuardianProver is IVerifier, EssentialContract {
     {
         bytes32 proofHash = keccak256(abi.encode(_meta, _tran, _proof.data));
         uint256 _version = version;
-        bytes32 currProofHash = firstProofHash[_version][_meta.id];
+        bytes32 currProofHash = blockLatestProofHash[_version][_meta.id];
 
         if (currProofHash == 0) {
-            firstProofHash[_version][_meta.id] = proofHash;
+            blockLatestProofHash[_version][_meta.id] = proofHash;
+            currProofHash = proofHash;
+        }
+
+        if (currProofHash == proofHash) {
+            approved_ = _approve(_meta.id, proofHash);
+
+            emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
+
+            if (approved_) {
+                delete approvals[_version][proofHash];
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
+                    _meta.id, abi.encode(_meta, _tran, _proof)
+                );
+            }
         } else {
-            ITaikoL1 taikoL1 = ITaikoL1(resolve(LibStrings.B_TAIKO, false));
+            blockLatestProofHash[_version][_meta.id] = proofHash;
 
-            if (currProofHash == proofHash) {
-                approved_ = _approve(_meta.id, proofHash);
+            bool pauseProving = address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
+            emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
 
-                emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
-
-                if (approved_) {
-                    delete approvals[_version][proofHash];
-                    taikoL1.proveBlock(_meta.id, abi.encode(_meta, _tran, _proof));
-                }
-            } else {
-                bool pauseProving = address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
-
-                emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
-
-                if (pauseProving) {
-                    ++version;
-                    taikoL1.pauseProving(true);
-                }
+            if (pauseProving) {
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
             }
         }
     }
