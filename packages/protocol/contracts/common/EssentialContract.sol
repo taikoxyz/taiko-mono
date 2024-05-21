@@ -24,7 +24,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @dev Slot 1.
     uint8 private __reentry;
     uint8 private __paused;
-    uint64 public lastUnpausedAt;
 
     uint256[49] private __gap;
 
@@ -143,7 +142,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     function _unpause() internal whenPaused {
         __paused = _FALSE;
-        lastUnpausedAt = uint64(block.timestamp);
         emit Unpaused(msg.sender);
     }
 
