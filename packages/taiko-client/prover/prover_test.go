@@ -61,6 +61,7 @@ func (s *ProverTestSuite) SetupTest() {
 			L2EngineEndpoint: os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
 			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+			ProverSetAddress: common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 			JwtSecret:        string(jwtSecret),
 		},
 	}))
@@ -81,6 +82,7 @@ func (s *ProverTestSuite) SetupTest() {
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+			ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		},
 		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
@@ -232,7 +234,7 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 }
 
 func (s *ProverTestSuite) TestContestWrongBlocks() {
-	s.T().Skip()
+	s.T().Skip("This test is flaky and needs to be fixed")
 	s.p.cfg.ContesterMode = false
 	s.Nil(s.p.initEventHandlers())
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
@@ -304,6 +306,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	txBuilder := transaction.NewProveBlockTxBuilder(
 		s.p.rpc,
 		s.p.cfg.TaikoL1Address,
+		rpc.ZeroAddress,
 		s.p.cfg.GuardianProverMajorityAddress,
 		s.p.cfg.GuardianProverMinorityAddress,
 	)
@@ -415,7 +418,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
 	// No proof submitted
-	status, err := rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err := rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 	s.False(status.IsSubmitted)
 
@@ -434,13 +437,13 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 
 	s.True(status.IsSubmitted)
 	s.False(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	s.Equal(s.p.ProverAddress(), status.CurrentTransitionState.Prover)
+	s.Equal(common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")), status.CurrentTransitionState.Prover)
 
 	// Invalid proof submitted
 	parent, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -448,7 +451,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 
 	e = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
-	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 	s.False(status.IsSubmitted)
 
@@ -460,12 +463,12 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	proofWithHeader.Opts.BlockHash = testutils.RandomHash()
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), proofWithHeader))
 
-	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 	s.True(status.IsSubmitted)
 	s.True(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	s.Equal(s.p.ProverAddress(), status.CurrentTransitionState.Prover)
+	s.Equal(common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")), status.CurrentTransitionState.Prover)
 	s.Equal(proofWithHeader.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
 }
 
@@ -473,8 +476,7 @@ func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	originalAllowance, err := s.p.rpc.TaikoToken.Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
 	s.Nil(err)
 
-	amt := common.Big1
-	s.p.cfg.Allowance = amt
+	s.p.cfg.Allowance = common.Big1
 
 	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
 
@@ -515,6 +517,7 @@ func (s *ProverTestSuite) initProver(
 		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		AssignmentHookAddress: common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
+		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		L1ProverPrivKey:       key,
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,

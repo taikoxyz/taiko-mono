@@ -3,7 +3,7 @@ import { getPublicClient } from '@wagmi/core';
 import { gasLimitConfig } from '$config';
 import { PUBLIC_FEE_MULTIPLIER } from '$env/static/public';
 import { NoCanonicalInfoFoundError } from '$libs/error';
-import { type Token, TokenType } from '$libs/token';
+import { type NFT, type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
 import { getBaseFee } from '$libs/util/getBaseFee';
 import { getLogger } from '$libs/util/logger';
@@ -12,7 +12,7 @@ import { config } from '$libs/wagmi';
 const log = getLogger('libs:recommendedProcessingFee');
 
 type RecommendProcessingFeeArgs = {
-  token: Token;
+  token: Token | NFT;
   destChainId: number;
   srcChainId?: number;
 };

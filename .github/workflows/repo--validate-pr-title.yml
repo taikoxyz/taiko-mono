@@ -40,7 +40,8 @@ jobs:
             guardian-prover-health-check-ui
             protocol
             relayer
-            taikoon
+            nfts
+            ui-lib
             taiko-client
             supplementary-contracts
           requireScope: true

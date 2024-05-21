@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 /// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
+    bytes32 internal constant B_ASSIGNMENT_HOOK = bytes32("assignment_hook");
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");
@@ -15,6 +16,7 @@ library LibStrings {
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
     bytes32 internal constant B_PROVER_ASSIGNMENT = bytes32("PROVER_ASSIGNMENT");
+    bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
     bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");

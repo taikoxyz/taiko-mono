@@ -6,11 +6,11 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { getAddress } from './getAddress';
-import { type Token, TokenType } from './types';
+import { type NFT, type Token, TokenType } from './types';
 
 type GetBalanceArgs = {
   userAddress: Address;
-  token?: Token;
+  token?: Token | NFT;
   srcChainId?: number;
   destChainId?: number;
 };
@@ -27,9 +27,11 @@ export async function fetchBalance({ userAddress, token, srcChainId, destChainId
     // We need at least the source chain to find the address
     if (!srcChainId) return;
 
+    const fungibleToken = token as Token;
+
     // We are dealing with an ERC20 token. We need to first find out its address
     // on the current chain in order to fetch the balance.
-    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
+    const tokenAddress = await getAddress({ token: fungibleToken, srcChainId, destChainId });
 
     if (!tokenAddress || tokenAddress === zeroAddress) return;
 

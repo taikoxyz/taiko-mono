@@ -7,9 +7,15 @@
   export let role = ctx.role || 'img';
   export let color = ctx.color || 'currentColor';
   export let withEvents = ctx.withEvents || false;
-  export let ariaLabel = 'minus sign';
-  export let title = {};
-  export let desc = {};
+  export let ariaLabel = 'twitter logo';
+  export let title = {
+    id: `twitter-logo-title-${Math.random().toString(36).substring(7)}`,
+    title: ariaLabel,
+  };
+  export let desc = {
+    id: `twitter-logo-desc-${Math.random().toString(36).substring(7)}`,
+    desc: 'A twitter logo icon',
+  };
   let ariaDescribedby = `${title.id || ''} ${desc.id || ''}`;
   let hasDescription = false;
   $: if (title.id || desc.id) {

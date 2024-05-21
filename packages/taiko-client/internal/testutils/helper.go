@@ -237,6 +237,7 @@ func (s *ClientTestSuite) NewTestProverServer(
 		MinTaikoTokenBalance:  common.Big1,
 		MaxExpiry:             24 * time.Hour,
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		AssignmentHookAddress: common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		RPC:                   s.RPCClient,
 		ProtocolConfigs:       &protocolConfig,

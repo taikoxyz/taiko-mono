@@ -2,23 +2,21 @@ name: Guardians UI CI/CD
 
 on:
   push:
-    branches-ignore:
-      - release-please-*
-    paths:
-      - "packages/guardian-prover-health-check-ui/**"
+    tags:
+      - "bridge-ui-v*"
   pull_request:
     paths:
       - "packages/guardian-prover-health-check-ui/**"
 
 jobs:
   build-and-test:
-    uses: ./.github/workflows/guardians-ui-ci.yml
+    uses: ./.github/workflows/guardian-prover-health-check-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(guardian-prover-health-check-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   deploy_guardians-ui_hekla_preview:
     if: ${{ github.ref_name != 'main' }}
     needs: build-and-test
-    uses: ./.github/workflows/vercel-deploy.yml
+    uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "preview"
       flags: ""
@@ -30,7 +28,7 @@ jobs:
   deploy_guardians-ui_devnet_preview:
     if: ${{ github.ref_name != 'main' }}
     needs: build-and-test
-    uses: ./.github/workflows/vercel-deploy.yml
+    uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "preview"
       flags: ""
@@ -40,9 +38,9 @@ jobs:
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_guardians-ui_hekla_production:
-    if: ${{ github.ref_name == 'main' && contains(github.ref, 'refs/tags/guardians-ui-') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/guardians-ui-v') }}
     needs: build-and-test
-    uses: ./.github/workflows/vercel-deploy.yml
+    uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "production"
       flags: "--prod"

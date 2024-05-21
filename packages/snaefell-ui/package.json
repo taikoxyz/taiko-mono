@@ -1,0 +1,15 @@
+{
+  "name": "snaefell-ui",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo 'Unimplemented'",
+    "check": "echo 'Unimplemented'",
+    "lint": "echo 'Unimplemented'",
+    "test:unit": "echo 'Unimplemented'"
+  },
+  "author": "",
+  "license": "ISC"
+}

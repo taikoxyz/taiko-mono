@@ -6,6 +6,7 @@
   },
   "bridge": {
     "actions": {
+      "acknowledge": "I understand",
       "approve": {
         "rejected": {
           "title": "Request to approve rejected"
@@ -39,6 +40,8 @@
     },
     "alerts": {
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
+      "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
+      "stable_coin": "You are bridging a stable coin. Currently we are not supporting a native 1:1 conversion. Please use the <a href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> instead. Your bridged asset might not be of any use.",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
@@ -226,6 +229,7 @@
     "close": "Close",
     "collection": "Collection",
     "confirm": "Confirm",
+    "confirmed": "Confirmed",
     "continue": "Continue",
     "contract_address": "Contract address",
     "customized": "Customized",
@@ -246,6 +250,7 @@
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
+    "switch_chain": "Switch chain",
     "switch_to": "Switch to",
     "symbol": "Symbol",
     "to": "To",
@@ -282,7 +287,7 @@
     "warning": {
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "no_connected": "Please connect your wallet to mint tokens.",
-      "not_mintable": "This token is not mintable on this network",
+      "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
       "unknown": "Something did not work"
     },
