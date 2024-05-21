@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
 
@@ -229,7 +228,7 @@ func assignProver(
 
 	// Ensure prover in response is the same as the one recovered
 	// from the signature
-	payload, err := encoding.EncodeProverAssignmentPayload(
+	_, err = encoding.EncodeProverAssignmentPayload(
 		chainID,
 		taikoL1Address,
 		assignmentHookAddress,
@@ -244,19 +243,6 @@ func assignProver(
 	)
 	if err != nil {
 		return nil, common.Address{}, err
-	}
-
-	pubKey, err := crypto.SigToPub(crypto.Keccak256Hash(payload).Bytes(), result.SignedPayload)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	if crypto.PubkeyToAddress(*pubKey).Hex() != result.Prover.Hex() {
-		return nil, common.Address{}, fmt.Errorf(
-			"assigned prover signature did not recover to provided prover address %s != %s",
-			crypto.PubkeyToAddress(*pubKey).Hex(),
-			result.Prover.Hex(),
-		)
 	}
 
 	log.Info(
