@@ -27,6 +27,7 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 type ProveBlockTxBuilder struct {
 	rpc                           *rpc.Client
 	taikoL1Address                common.Address
+	proverSetAddress              common.Address
 	guardianProverMajorityAddress common.Address
 	guardianProverMinorityAddress common.Address
 }
@@ -35,10 +36,17 @@ type ProveBlockTxBuilder struct {
 func NewProveBlockTxBuilder(
 	rpc *rpc.Client,
 	taikoL1Address common.Address,
+	proverSetAddress common.Address,
 	guardianProverMajorityAddress common.Address,
 	guardianProverMinorityAddress common.Address,
 ) *ProveBlockTxBuilder {
-	return &ProveBlockTxBuilder{rpc, taikoL1Address, guardianProverMajorityAddress, guardianProverMinorityAddress}
+	return &ProveBlockTxBuilder{
+		rpc,
+		taikoL1Address,
+		proverSetAddress,
+		guardianProverMajorityAddress,
+		guardianProverMinorityAddress,
+	}
 }
 
 // Build creates a new TaikoL1.ProveBlock transaction with the given nonce.
@@ -65,17 +73,21 @@ func (a *ProveBlockTxBuilder) Build(
 		)
 
 		if !guardian {
-			to = a.taikoL1Address
-
 			input, err := encoding.EncodeProveBlockInput(meta, transition, tierProof)
 			if err != nil {
 				return nil, err
 			}
-			if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
-				if isSubmitProofTxErrorRetryable(err, blockID) {
+
+			if a.proverSetAddress != ZeroAddress {
+				if data, err = encoding.ProverSetABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
 					return nil, err
 				}
-				return nil, ErrUnretryableSubmission
+				to = a.proverSetAddress
+			} else {
+				if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
+					return nil, err
+				}
+				to = a.taikoL1Address
 			}
 		} else {
 			if tier > encoding.TierGuardianMinorityID {
@@ -86,10 +98,7 @@ func (a *ProveBlockTxBuilder) Build(
 				return nil, fmt.Errorf("tier %d need set guardianProverMinorityAddress", tier)
 			}
 			if data, err = encoding.GuardianProverABI.Pack("approve", *meta, *transition, *tierProof); err != nil {
-				if isSubmitProofTxErrorRetryable(err, blockID) {
-					return nil, err
-				}
-				return nil, ErrUnretryableSubmission
+				return nil, err
 			}
 		}
 

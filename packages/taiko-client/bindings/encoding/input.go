@@ -250,6 +250,7 @@ var (
 	AssignmentHookABI   *abi.ABI
 	SGXVerifierABI      *abi.ABI
 	GuardianVerifierABI *abi.ABI
+	ProverSetABI        *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -301,6 +302,10 @@ func init() {
 		log.Crit("Get GuardianVerifier ABI error", "error", err)
 	}
 
+	if ProverSetABI, err = bindings.ProverSetMetaData.GetAbi(); err != nil {
+		log.Crit("Get ProverSet ABI error", "error", err)
+	}
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -312,6 +317,7 @@ func init() {
 		AssignmentHookABI.Errors,
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
+		ProverSetABI.Errors,
 	}
 }
 
