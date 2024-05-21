@@ -80,8 +80,10 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
 
-	// Update sync status.
-	s.progressTracker.UpdateMeta(new(big.Int).SetUint64(blockID), latestVerifiedHeadPayload.BlockHash)
+	// If the beacon sync is not in syncing status, update the latest blockID.
+	if fcRes.PayloadStatus.Status != engine.SYNCING {
+		s.progressTracker.UpdateMeta(new(big.Int).SetUint64(blockID), latestVerifiedHeadPayload.BlockHash)
+	}
 
 	log.Info(
 		"⛓️ Beacon sync triggered",
