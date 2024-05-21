@@ -55,12 +55,6 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestClearMeta() {
 	s.False(s.t.triggered)
 }
 
-func (s *BeaconSyncProgressTrackerTestSuite) TestHeadChanged() {
-	s.True(s.t.HeadChanged(common.Big256))
-	s.t.triggered = true
-	s.False(s.t.HeadChanged(common.Big256))
-}
-
 func (s *BeaconSyncProgressTrackerTestSuite) TestOutOfSync() {
 	s.False(s.t.OutOfSync())
 }

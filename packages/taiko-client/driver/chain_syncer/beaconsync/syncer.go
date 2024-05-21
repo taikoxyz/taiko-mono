@@ -49,11 +49,6 @@ func (s *Syncer) TriggerBeaconSync(verifyBlockID uint64) error {
 		return err
 	}
 
-	if !s.progressTracker.HeadChanged(new(big.Int).SetUint64(syncBlockID)) {
-		log.Debug("Verified head has not changed", "blockID", syncBlockID, "hash", latestVerifiedHeadPayload.BlockHash)
-		return nil
-	}
-
 	if s.progressTracker.Triggered() {
 		if s.progressTracker.lastSyncProgress == nil {
 			log.Info(
@@ -86,7 +81,9 @@ func (s *Syncer) TriggerBeaconSync(verifyBlockID uint64) error {
 	}
 
 	// Update sync status.
-	s.progressTracker.UpdateMeta(new(big.Int).SetUint64(syncBlockID), latestVerifiedHeadPayload.BlockHash)
+	if fcRes.PayloadStatus.Status == engine.VALID {
+		s.progressTracker.UpdateMeta(new(big.Int).SetUint64(syncBlockID), latestVerifiedHeadPayload.BlockHash)
+	}
 
 	log.Info(
 		"⛓️ Beacon sync triggered",

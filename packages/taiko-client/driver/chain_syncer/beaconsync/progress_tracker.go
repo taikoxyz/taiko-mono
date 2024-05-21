@@ -30,7 +30,8 @@ type SyncProgressTracker struct {
 	lastSyncedBlockHash common.Hash
 
 	// Sync block ID
-	syncBlockID *big.Int
+	verifyBlockID *big.Int
+	syncBlockID   *big.Int
 
 	// Out-of-sync check related
 	lastSyncProgress   *ethereum.SyncProgress
@@ -137,28 +138,30 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 }
 
 // ShouldReSync checks whether a re-sync is needed.
-func (t *SyncProgressTracker) ShouldReSync(id *big.Int) (uint64, bool) {
+func (t *SyncProgressTracker) ShouldReSync(verifyBlockID *big.Int) (uint64, bool) {
+	if t.verifyBlockID == nil {
+		t.verifyBlockID = new(big.Int).Set(verifyBlockID)
+	}
 	// Sync block ID is nil or reorg appears, re-sync from the latest known block.
-	if t.syncBlockID == nil || t.syncBlockID.Cmp(id) > 0 {
-		t.syncBlockID = new(big.Int).Set(id)
+	if t.syncBlockID == nil || t.syncBlockID.Cmp(verifyBlockID) > 0 {
+		t.syncBlockID = new(big.Int).Set(verifyBlockID)
 		return t.syncBlockID.Uint64(), true
 	}
 
-	// Latest id is the same as the current one, no need to re-sync
-	if t.syncBlockID.Cmp(id) == 0 {
-		return 0, false
+	// Current p2p syncing is finished, set the latest verified block and re-sync again.
+	lastSyncedBlockID := t.LastSyncedBlockID()
+	if lastSyncedBlockID != nil && t.syncBlockID.Cmp(lastSyncedBlockID) == 0 {
+		t.syncBlockID = new(big.Int).Set(verifyBlockID)
+		return t.syncBlockID.Uint64(), true
 	}
 
-	_, err := t.client.HeaderByNumber(context.Background(), t.syncBlockID)
-	if err != nil {
-		if err.Error() != "not found" {
-			log.Error("block not found when check should re-sync or not", "blockID", t.syncBlockID.Uint64(), "error", err)
-		}
-		return 0, false
+	// If the latest verified block is ahead of the current sync block ID 32 blocks, re-sync again.
+	if t.verifyBlockID.Uint64()+32 <= verifyBlockID.Uint64() {
+		t.verifyBlockID = new(big.Int).Set(verifyBlockID)
+		return t.syncBlockID.Uint64(), true
 	}
-	t.syncBlockID = new(big.Int).Set(id)
 
-	return t.syncBlockID.Uint64(), true
+	return t.syncBlockID.Uint64(), false
 }
 
 // UpdateMeta updates the inner beacon sync metadata.
@@ -188,18 +191,6 @@ func (t *SyncProgressTracker) ClearMeta() {
 	t.lastSyncedBlockID = nil
 	t.lastSyncedBlockHash = common.Hash{}
 	t.outOfSync = false
-}
-
-// HeadChanged checks if a new beacon sync request will be needed.
-func (t *SyncProgressTracker) HeadChanged(newID *big.Int) bool {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	if !t.triggered {
-		return true
-	}
-
-	return t.lastSyncedBlockID != nil && t.lastSyncedBlockID != newID
 }
 
 // OutOfSync tells whether the L2 execution engine is marked as out of sync.
