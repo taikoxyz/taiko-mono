@@ -88,6 +88,7 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
+
 	// Optional flags used by all client software.
 	// Logging
 	Verbosity = &cli.IntFlag{

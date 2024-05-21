@@ -60,6 +60,7 @@ func (s *ClientTestSuite) SetupTest() {
 		L2Endpoint:                    os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+		ProverSetAddress:              common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
 		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
@@ -91,16 +92,54 @@ func (s *ClientTestSuite) SetupTest() {
 
 		opts, err := bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
 		s.Nil(err)
-		proverBalance := new(big.Int).Div(balance, common.Big2)
+		proverBalance := new(big.Int).Div(balance, common.Big3)
 		s.Greater(proverBalance.Cmp(common.Big0), 0)
 
 		_, err = rpcCli.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
 		s.Nil(err)
 
+		opts, err = bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
+		s.Nil(err)
+		_, err = rpcCli.TaikoToken.Transfer(opts, common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")), proverBalance)
+		s.Nil(err)
+
 		// Increase allowance for AssignmentHook and TaikoL1
 		s.setAllowance(l1ProverPrivKey)
 		s.setAllowance(ownerPrivKey)
+
+		t, err := txmgr.NewSimpleTxManager(
+			"enableProver",
+			log.Root(),
+			new(metrics.NoopTxMetrics),
+			txmgr.CLIConfig{
+				L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+				NumConfirmations:          0,
+				SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+				PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(ownerPrivKey)),
+				FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+				FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+				MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+				MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+				ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+				ReceiptQueryInterval:      1 * time.Second,
+				NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+				TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+				TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+			},
+		)
+		s.Nil(err)
+
+		data, err := encoding.ProverSetABI.Pack("enableProver", crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), true)
+		s.Nil(err)
+
+		proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS"))
+		_, err = t.Send(context.Background(), txmgr.TxCandidate{
+			TxData: data,
+			To:     &proverSetAddress,
+		})
+		s.Nil(err)
 	}
+
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
 }
 
