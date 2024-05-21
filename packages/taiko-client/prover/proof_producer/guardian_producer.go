@@ -31,7 +31,7 @@ func NewGuardianProofProducer(
 
 // RequestProof implements the ProofProducer interface.
 func (g *GuardianProofProducer) RequestProof(
-	ctx context.Context,
+	_ context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
 	meta *bindings.TaikoDataBlockMetadata,
