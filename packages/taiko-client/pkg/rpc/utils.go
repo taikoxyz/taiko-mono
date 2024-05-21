@@ -160,7 +160,7 @@ func GetBlockProofStatus(
 	}
 
 	if proverAddress == transition.Prover ||
-		(proverSetAddress != ZeroAddress && proverAddress == proverSetAddress) {
+		(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
 		log.Info(
 			"📬 Block's proof has already been submitted by current prover",
 			"blockID", id,
