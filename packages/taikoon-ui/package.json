@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite dev",
-    "build": "cd ../ui-lib && pnpm build && cd - && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:integration && npm run test:unit",
     "svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -69,7 +69,6 @@
     "minidenticons": "^4.2.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
-    "viem": "^2.9.29",
-    "@taiko/ui-lib": "workspace:*"
+    "viem": "^2.9.29"
   }
 }
