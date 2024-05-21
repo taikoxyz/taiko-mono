@@ -20,7 +20,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     mapping(address guardian => uint256 id) public guardianIds;
 
     /// @notice Mapping to store the approvals for a given hash, for a given version
-    mapping(uint256 version => mapping(bytes32 hash => uint256 approvalBits)) public approvals;
+    mapping(uint256 version => mapping(bytes32 proofHash => uint256 approvalBits)) public approvals;
 
     /// @notice The set of guardians
     /// @dev Slot 3
@@ -179,9 +179,19 @@ contract GuardianProver is IVerifier, EssentialContract {
             currProofHash = proofHash;
         }
 
-        if (currProofHash == proofHash) {
-            approved_ = _approve(_meta.id, proofHash);
+        bool conflicting = currProofHash != proofHash;
+        bool pauseProving =
+            conflicting && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
 
+        if (conflicting) {
+            blockLatestProofHash[_version][_meta.id] = proofHash;
+            emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
+        }
+
+        if (pauseProving) {
+            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
+        } else {
+            approved_ = _approve(_meta.id, proofHash);
             emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
 
             if (approved_) {
@@ -189,15 +199,6 @@ contract GuardianProver is IVerifier, EssentialContract {
                 ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
                     _meta.id, abi.encode(_meta, _tran, _proof)
                 );
-            }
-        } else {
-            blockLatestProofHash[_version][_meta.id] = proofHash;
-
-            bool pauseProving = address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
-            emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
-
-            if (pauseProving) {
-                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
             }
         }
     }
@@ -215,10 +216,10 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     /// @notice Returns if the hash is approved
-    /// @param _hash The hash to check
+    /// @param _proofHash The hash to check
     /// @return true if the hash is approved
-    function isApproved(bytes32 _hash) public view returns (bool) {
-        return _isApproved(approvals[version][_hash]);
+    function isApproved(bytes32 _proofHash) public view returns (bool) {
+        return _isApproved(approvals[version][_proofHash]);
     }
 
     /// @notice Returns the number of guardians
@@ -227,17 +228,17 @@ contract GuardianProver is IVerifier, EssentialContract {
         return guardians.length;
     }
 
-    function _approve(uint256 _blockId, bytes32 _hash) internal returns (bool approved_) {
+    function _approve(uint256 _blockId, bytes32 _proofHash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert GP_INVALID_GUARDIAN();
 
         uint256 _version = version;
 
         unchecked {
-            approvals[_version][_hash] |= 1 << (id - 1);
+            approvals[_version][_proofHash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = approvals[_version][_hash];
+        uint256 _approval = approvals[_version][_proofHash];
         approved_ = _isApproved(_approval);
         emit Approved(_blockId, _approval, approved_);
     }
