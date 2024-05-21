@@ -14,12 +14,11 @@ This guide presumes you have built the required images already (`taiko-geth` and
 
 ## Hardware Requirements
 
-TODO:
+These are the recommended specs of a [mainnet Geth node](https://geth.ethereum.org/docs/getting-started/hardware-requirements); the actual requirements may be lower.
 
-*       xGB ram
-*       xGB SSD
-*       CPU?
-
+*       16GB RAM
+*       2TB SSD
+*       Quad-core CPU
 
 Node operators should plan for future storage needs as the requirements will grow continuously.
 
@@ -70,7 +69,6 @@ It's generally better to start `taiko-geth` before you start `taiko-client` as y
             --authrpc.port 28551 \
             --authrpc.vhosts "*" \
             --authrpc.jwtsecret ./jwt.txt \
-            --allow-insecure-unlock \
             --http \
             --http.api admin,debug,eth,net,web3,txpool,miner,taiko \
             --http.addr "0.0.0.0" \
@@ -83,7 +81,6 @@ It's generally better to start `taiko-geth` before you start `taiko-client` as y
             --ws.origins "*" \
             --gpo.ignoreprice "100000000" \
             --port 30304 \
-            --nodiscover \
             --syncmode full \
             --state.scheme=path
     ```
@@ -142,8 +139,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
     ```
 
     :::note
-        TODO: David/Dave
-        Does L1 node have to provide `eth_getProof` still? No longer required to be an archive node.
+    If you've participated in our old testnets, the L1 Node is no longer required to be an archive node!
     :::
 </Steps>
 
@@ -151,11 +147,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
 Once you've started `taiko-geth` and `taiko-client` properly you should see them communicate with each other and start syncing.
 
-#### Expected Logs
-
-Syncing can take several hours, depending on the size of the chain. Here are some logs you can expect to see during that time:
-
-TODO
+Syncing can take several hours, depending on the size of the chain. 
 
 ## Next Steps
 
