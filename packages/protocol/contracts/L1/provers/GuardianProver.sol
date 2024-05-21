@@ -212,7 +212,7 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @notice Pauses or unpauses the chain proving.
     /// @param _pause true to pause, false to unpause.
-    function pauseProving(bool _pause) external whenNotPaused onlyGuardian {
+    function pauseTaikoProving(bool _pause) external whenNotPaused onlyGuardian {
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(_pause);
     }
 
