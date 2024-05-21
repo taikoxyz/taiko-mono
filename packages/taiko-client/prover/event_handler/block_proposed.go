@@ -31,6 +31,7 @@ var (
 type BlockProposedEventHandler struct {
 	sharedState           *state.SharedState
 	proverAddress         common.Address
+	proverSetAddress      common.Address
 	genesisHeightL1       uint64
 	rpc                   *rpc.Client
 	proofGenerationCh     chan<- *proofProducer.ProofWithHeader
@@ -49,6 +50,7 @@ type BlockProposedEventHandler struct {
 type NewBlockProposedEventHandlerOps struct {
 	SharedState           *state.SharedState
 	ProverAddress         common.Address
+	ProverSetAddress      common.Address
 	GenesisHeightL1       uint64
 	RPC                   *rpc.Client
 	ProofGenerationCh     chan *proofProducer.ProofWithHeader
@@ -66,6 +68,7 @@ func NewBlockProposedEventHandler(opts *NewBlockProposedEventHandlerOps) *BlockP
 	return &BlockProposedEventHandler{
 		opts.SharedState,
 		opts.ProverAddress,
+		opts.ProverSetAddress,
 		opts.GenesisHeightL1,
 		opts.RPC,
 		opts.ProofGenerationCh,
@@ -240,6 +243,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 		h.rpc,
 		e.BlockId,
 		h.proverAddress,
+		h.proverSetAddress,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to check whether the L2 block needs a new proof: %w", err)
@@ -300,7 +304,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
-	if !windowExpired && e.AssignedProver != h.proverAddress {
+	if !windowExpired && e.AssignedProver != h.proverAddress && e.AssignedProver != h.proverSetAddress {
 		log.Info(
 			"Proposed block is not provable by current prover at the moment",
 			"blockID", e.BlockId,

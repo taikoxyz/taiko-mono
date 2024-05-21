@@ -39,6 +39,7 @@ func (s *TransactionTestSuite) SetupTest() {
 	s.builder = NewProveBlockTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		ZeroAddress,
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
 	)
@@ -68,7 +69,7 @@ func (s *TransactionTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
-	s.sender = NewSender(s.RPCClient, txmgr, 0)
+	s.sender = NewSender(s.RPCClient, txmgr, ZeroAddress, 0)
 }
 
 func (s *TransactionTestSuite) TestIsSubmitProofTxErrorRetryable() {

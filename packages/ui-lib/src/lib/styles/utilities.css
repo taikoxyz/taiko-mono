@@ -1,0 +1,80 @@
+@tailwind utilities;
+
+@layer utilities {
+	.block-hidden {
+		@apply block invisible opacity-0;
+	}
+
+	.md-show-block {
+		@apply hidden md:block;
+	}
+
+	.md-show-inblock {
+		@apply hidden md:inline-block;
+	}
+
+	.w-h-full {
+		@apply w-full h-full;
+	}
+
+	.sticky-top {
+		@apply sticky top-0;
+	}
+
+	.glassy-background {
+		@apply backdrop-filter backdrop-blur-sm;
+	}
+
+	.glassy-background-md {
+		@apply backdrop-filter backdrop-blur-md;
+	}
+
+	.glassy-background-lg {
+		@apply backdrop-filter backdrop-blur-lg;
+	}
+
+	.dark-glass-background-gradient {
+		background: linear-gradient(226deg, rgba(93, 99, 111, 0.1) 1.26%, rgba(25, 30, 40, 0.2) 100%);
+	}
+
+	.light-glass-background-gradient {
+		background: linear-gradient(
+			226deg,
+			rgba(250, 250, 250, 0.9) 1.26%,
+			rgba(250, 249, 249, 0.9) 100%
+		);
+	}
+
+	/* Flex shortcuts */
+	.f-between-center {
+		@apply flex justify-between items-center;
+	}
+
+	.f-center {
+		@apply flex justify-center items-center;
+	}
+
+	.f-justify-center {
+		@apply flex justify-center;
+	}
+
+	.f-items-center {
+		@apply flex items-center;
+	}
+
+	.f-row {
+		@apply flex flex-row;
+	}
+
+	.f-col {
+		@apply flex flex-col;
+	}
+
+	.box-shadow-small {
+		box-shadow: 0px 10px 48px 0px rgba(5, 9, 18, 0.3);
+	}
+
+	.box-shadow-large {
+		box-shadow: 0px 20px 66px 0px rgba(5, 9, 18, 0.48);
+	}
+}

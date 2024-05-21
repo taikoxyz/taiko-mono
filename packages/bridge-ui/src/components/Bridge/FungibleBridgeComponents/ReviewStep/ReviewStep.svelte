@@ -10,17 +10,17 @@
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
   import { isStablecoin, isSupported, isWrapped, type Token } from '$libs/token';
+  import { isToken } from '$libs/token/isToken';
   import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
-  export let needsManualConfirmation = false;
+  export let needsManualReviewConfirmation = false;
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
-  $: renderedDisplay = ($selectedToken && formatUnits($enteredAmount, $selectedToken.decimals)) || 0;
-
+  $: renderedDisplay = isToken($selectedToken) ? formatUnits($enteredAmount, $selectedToken.decimals) : 0;
   $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
 
   $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
@@ -33,9 +33,9 @@
   $: stableCoinWarning = $t('bridge.alerts.stable_coin');
 
   $: if (wrapped || unsupportedStableCoin) {
-    needsManualConfirmation = true;
+    needsManualReviewConfirmation = true;
   } else {
-    needsManualConfirmation = false;
+    needsManualReviewConfirmation = false;
   }
 
   const dispatch = createEventDispatcher();
