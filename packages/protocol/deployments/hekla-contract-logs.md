@@ -126,6 +126,14 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
 
+### guardian_minority
+
+- proxy: `0x31d4d27da5c299d4b6CE19c869B8891C0002795d`
+- impl: `0x22DC7e70B810822EB8DdDDb341021c252f480f2D`
+- owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
+- logs:
+  - deployed on May 20, 2024 at commit `6e56475`
+
 ## L2 Contracts
 
 ### bridge
