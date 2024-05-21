@@ -49,7 +49,7 @@ abstract contract Guardians is EssentialContract {
     /// @param prevApprovedHash the previously approved proof
     /// @param newApprovedHash The new and conflicting proof
     /// @param provingPaused True if TaikoL1 proving has been paused.
-    event ConflitProofs(
+    event ConflictingProofs(
         uint256 indexed blockId,
         address indexed prover,
         bytes32 prevApprovedHash,
@@ -143,12 +143,12 @@ abstract contract Guardians is EssentialContract {
         } else {
             bool chainProvingPaused;
             if (resolve(LibStrings.B_CHAIN_WATCHDOG, true) == address(this)) {
-                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
+                // ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
                 chainProvingPaused = true;
             }
 
             _deleteApproval(_blockId, _hash);
-            emit ConflitProofs(_blockId, msg.sender, prevHash, _hash, chainProvingPaused);
+            emit ConflictingProofs(_blockId, msg.sender, prevHash, _hash, chainProvingPaused);
         }
     }
 
