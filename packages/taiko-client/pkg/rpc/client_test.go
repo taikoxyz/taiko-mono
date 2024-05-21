@@ -17,6 +17,7 @@ func newTestClient(t *testing.T) *Client {
 		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+		ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		L2EngineEndpoint:  os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
 		JwtSecret:         os.Getenv("JWT_SECRET"),
 	})
@@ -34,6 +35,7 @@ func newTestClientWithTimeout(t *testing.T) *Client {
 		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+		ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		L2EngineEndpoint:  os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
 		JwtSecret:         os.Getenv("JWT_SECRET"),
 		Timeout:           5 * time.Second,

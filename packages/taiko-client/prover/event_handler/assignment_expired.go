@@ -16,6 +16,7 @@ import (
 type AssignmentExpiredEventHandler struct {
 	rpc               *rpc.Client
 	proverAddress     common.Address
+	proverSetAddress  common.Address
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 	proofContestCh    chan<- *proofProducer.ContestRequestBody
 	contesterMode     bool
@@ -27,12 +28,21 @@ type AssignmentExpiredEventHandler struct {
 func NewAssignmentExpiredEventHandler(
 	rpc *rpc.Client,
 	proverAddress common.Address,
+	proverSetAddress common.Address,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	proofContestCh chan *proofProducer.ContestRequestBody,
 	contesterMode bool,
 	isGuardian bool,
 ) *AssignmentExpiredEventHandler {
-	return &AssignmentExpiredEventHandler{rpc, proverAddress, proofSubmissionCh, proofContestCh, contesterMode, isGuardian}
+	return &AssignmentExpiredEventHandler{
+		rpc,
+		proverAddress,
+		proverSetAddress,
+		proofSubmissionCh,
+		proofContestCh,
+		contesterMode,
+		isGuardian,
+	}
 }
 
 // Handle implements the AssignmentExpiredHandler interface.
@@ -48,7 +58,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	)
 
 	// Check if we still need to generate a new proof for that block.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, h.rpc, e.BlockId, h.proverAddress)
+	proofStatus, err := rpc.GetBlockProofStatus(ctx, h.rpc, e.BlockId, h.proverAddress, h.proverSetAddress)
 	if err != nil {
 		return err
 	}
