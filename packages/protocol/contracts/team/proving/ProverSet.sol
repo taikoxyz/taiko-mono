@@ -27,8 +27,10 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     event ProverEnabled(address indexed prover, bool indexed enabled);
     event BlockProvenBy(address indexed prover, uint64 indexed blockId);
+    event AdminUpdated(address indexed newAdmin, address indexed oldAdmin);
 
     error INVALID_STATUS();
+    error INVALID_VALUE();
     error PERMISSION_DENIED();
 
     modifier onlyAuthorized() {
@@ -60,6 +62,16 @@ contract ProverSet is EssentialContract, IERC1271 {
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
         tko.approve(resolve(LibStrings.B_TAIKO, false), type(uint256).max);
         tko.approve(resolve(LibStrings.B_ASSIGNMENT_HOOK, false), type(uint256).max);
+    }
+
+    /// @notice Sets a new admin address
+    /// @param _admin The new admin address.
+    function setAdmin(address _admin) external nonZeroAddr(_admin) onlyOwner {
+        address currentAdmin = admin;
+        if (currentAdmin == _admin) revert INVALID_VALUE();
+
+        admin = _admin;
+        emit AdminUpdated(_admin, currentAdmin);
     }
 
     /// @notice Enables or disables a prover.
