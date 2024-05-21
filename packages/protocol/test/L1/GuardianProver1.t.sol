@@ -15,7 +15,7 @@ contract DummyGuardianProver is GuardianProver {
     }
 }
 
-contract TestGuardianProver is TaikoTest {
+contract TestGuardianProver1 is TaikoTest {
     DummyGuardianProver target;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
@@ -36,7 +36,7 @@ contract TestGuardianProver is TaikoTest {
         );
     }
 
-    function test_guardians_set_guardians() public {
+    function test_guardian_prover_set_guardians() public {
         vm.expectRevert(GuardianProver.GP_INVALID_GUARDIAN_SET.selector);
         target.setGuardians(getSigners(0), 0);
 
@@ -47,7 +47,7 @@ contract TestGuardianProver is TaikoTest {
         target.setGuardians(getSigners(5), 6);
     }
 
-    function test_guardians_set_guardians2() public {
+    function test_guardian_prover_set_guardians2() public {
         address[] memory signers = getSigners(5);
         signers[0] = address(0);
         vm.expectRevert(GuardianProver.GP_INVALID_GUARDIAN.selector);
@@ -58,7 +58,7 @@ contract TestGuardianProver is TaikoTest {
         target.setGuardians(signers, 4);
     }
 
-    function test_guardians_approve() public {
+    function test_guardian_prover_approve() public {
         address[] memory signers = getSigners(6);
         target.setGuardians(signers, 4);
 
