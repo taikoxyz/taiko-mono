@@ -108,28 +108,28 @@
 | __gap          | uint256[48] | 253  | 0      | 1536  | contracts/L2/DelegateOwner.sol:DelegateOwner |
 
 ## GuardianProver
-| Name                 | Type                                            | Slot | Offset | Bytes | Contract                                               |
-|----------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
-| _initialized         | uint8                                           | 0    | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _initializing        | bool                                            | 0    | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap                | uint256[50]                                     | 1    | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _owner               | address                                         | 51   | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap                | uint256[49]                                     | 52   | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _pendingOwner        | address                                         | 101  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap                | uint256[49]                                     | 102  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| addressManager       | address                                         | 151  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap                | uint256[49]                                     | 152  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __reentry            | uint8                                           | 201  | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __paused             | uint8                                           | 201  | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| lastUnpausedAt       | uint64                                          | 201  | 2      | 8     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap                | uint256[49]                                     | 202  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| guardianIds          | mapping(address => uint256)                     | 251  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| approvals            | mapping(uint256 => mapping(bytes32 => uint256)) | 252  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| guardians            | address[]                                       | 253  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| version              | uint32                                          | 254  | 0      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| minGuardians         | uint32                                          | 254  | 4      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| blockLatestProofHash | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap                | uint256[45]                                     | 256  | 0      | 1440  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| Name            | Type                                            | Slot | Offset | Bytes | Contract                                               |
+|-----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized    | uint8                                           | 0    | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| _initializing   | bool                                            | 0    | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap           | uint256[50]                                     | 1    | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| _owner          | address                                         | 51   | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap           | uint256[49]                                     | 52   | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| _pendingOwner   | address                                         | 101  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap           | uint256[49]                                     | 102  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| addressManager  | address                                         | 151  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap           | uint256[49]                                     | 152  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __reentry       | uint8                                           | 201  | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __paused        | uint8                                           | 201  | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| lastUnpausedAt  | uint64                                          | 201  | 2      | 8     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap           | uint256[49]                                     | 202  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| guardianIds     | mapping(address => uint256)                     | 251  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| approvals       | mapping(uint256 => mapping(bytes32 => uint256)) | 252  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| guardians       | address[]                                       | 253  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| version         | uint32                                          | 254  | 0      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| minGuardians    | uint32                                          | 254  | 4      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| latestProofHash | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap           | uint256[45]                                     | 256  | 0      | 1440  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 
 ## TaikoToken
 | Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                |
