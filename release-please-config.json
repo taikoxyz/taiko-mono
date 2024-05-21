@@ -1,6 +1,5 @@
 {
   "packages": {
-    "packages/blobstorage": {},
     "packages/branding": {},
     "packages/bridge-ui": {},
     "packages/docs-site": {},

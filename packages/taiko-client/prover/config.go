@@ -30,6 +30,7 @@ type Config struct {
 	TaikoL2Address                          common.Address
 	TaikoTokenAddress                       common.Address
 	AssignmentHookAddress                   common.Address
+	ProverSetAddress                        common.Address
 	L1ProverPrivKey                         *ecdsa.PrivateKey
 	StartingBlockID                         *big.Int
 	Dummy                                   bool
@@ -168,6 +169,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		TaikoL2Address:                          common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
 		TaikoTokenAddress:                       common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		AssignmentHookAddress:                   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
+		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
 		RaikoL1Endpoint:                         raikoL1Endpoint,
