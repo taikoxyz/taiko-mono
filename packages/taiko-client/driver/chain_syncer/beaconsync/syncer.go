@@ -81,7 +81,7 @@ func (s *Syncer) TriggerBeaconSync(verifyBlockID uint64) error {
 	}
 
 	// If the beacon sync is not in progress, update the sync progress.
-	if fcRes.PayloadStatus.Status != engine.SYNCING {
+	if fcRes.PayloadStatus.Status == engine.VALID {
 		s.progressTracker.UpdateMeta(new(big.Int).SetUint64(syncBlockID), latestVerifiedHeadPayload.BlockHash)
 	}
 
