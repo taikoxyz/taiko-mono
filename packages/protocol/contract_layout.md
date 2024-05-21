@@ -129,7 +129,6 @@
 | version        | uint32                                         | 254  | 0      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 | minGuardians   | uint32                                         | 254  | 4      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 | __gap          | uint256[46]                                    | 255  | 0      | 1472  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[50]                                    | 301  | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 
 ## TaikoToken
 | Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                |
