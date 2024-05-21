@@ -20,7 +20,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     mapping(address guardian => uint256 id) public guardianIds;
 
     /// @notice Mapping to store the approvals for a given hash, for a given version
-    mapping(uint32 version => mapping(bytes32 hash => uint256 approvalBits)) internal _approvals;
+    mapping(uint256 version => mapping(bytes32 hash => uint256 approvalBits)) private _approvals;
 
     /// @notice The set of guardians
     /// @dev Slot 3
@@ -33,7 +33,10 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
-    uint256[46] private __gap;
+    /// @notice Mapping from blockId to its first approved hash
+    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) private _firstApprovedHash;
+
+    uint256[45] private __gap;
 
     /// @notice Emitted when a guardian proof is approved.
     /// @param addr The address of the guardian.
@@ -154,6 +157,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         returns (bool approved_)
     {
         bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
+
         approved_ = _approve(_meta.id, hash);
 
         emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
