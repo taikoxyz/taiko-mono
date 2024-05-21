@@ -74,7 +74,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	if err != nil {
 		return err
 	}
-	if fcRes.PayloadStatus.Status == engine.INVALID {
+	if fcRes.PayloadStatus.Status != engine.SYNCING {
 		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
 

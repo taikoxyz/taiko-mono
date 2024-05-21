@@ -24,13 +24,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_CAPACITY"},
 	}
-	RaikoHostEndpoint = &cli.StringFlag{
-		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service",
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST"},
-	}
 )
 
 // Optional flags used by prover.
@@ -41,6 +34,12 @@ var (
 		Value:    rpc.ZeroAddress.Hex(),
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_SET"},
+	}
+	RaikoHostEndpoint = &cli.StringFlag{
+		Name:     "raiko.host",
+		Usage:    "RPC endpoint of a Raiko host service",
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_HOST"},
 	}
 	RaikoL1Endpoint = &cli.StringFlag{
 		Name:     "raiko.l1",
