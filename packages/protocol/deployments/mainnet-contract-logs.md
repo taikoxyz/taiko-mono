@@ -288,7 +288,7 @@
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
   - deployed @commit`bca493f`@tx`0xf3b6af477112d0a8209506c8f310f4eb0713beebb1911ef5d11162d36d93c0ff`
-  - enabled two provers @tx`???????`
+  - enabled two provers (`0x000000629FBCf27A347d1AEbA658435230D74a5f` and `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) @tx`0xa0b1565473849bc753d395abd982e6899ecdd9e754014eebed67b69edadb61c5`
 
 ## L2 Contracts
 
