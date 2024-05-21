@@ -166,7 +166,7 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @dev Enables or disables proving auto pause.
     /// @param _enable true to enable, false to disable.
-    function enablePausingProvingUponConflictingProofs(bool _enable) external whenNotPaused {
+    function enableProvingAutoPause(bool _enable) external whenNotPaused {
         if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
         provingAutoPauseEnabled = _enable;
 
