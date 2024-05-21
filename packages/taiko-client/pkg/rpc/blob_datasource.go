@@ -61,29 +61,29 @@ func (ds *BlobDataSource) GetBlobs(
 		sidecars []*blob.Sidecar
 		err      error
 	)
-	if ds.client.L1Beacon == nil {
-		sidecars, err = nil, pkg.ErrBeaconNotFound
-	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, meta.Timestamp)
+	// if ds.client.L1Beacon == nil {
+	// 	sidecars, err = nil, pkg.ErrBeaconNotFound
+	// } else {
+	// 	sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, meta.Timestamp)
+	// }
+	// if err != nil {
+	log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+	if ds.blobServerEndpoint == nil {
+		log.Info("No blob server endpoint set")
+		return nil, err
 	}
+	blobs, err := ds.getBlobFromServer(ctx, meta.BlobHash)
 	if err != nil {
-		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
-		if ds.blobServerEndpoint == nil {
-			log.Info("No blob server endpoint set")
-			return nil, err
-		}
-		blobs, err := ds.getBlobFromServer(ctx, meta.BlobHash)
-		if err != nil {
-			return nil, err
-		}
-		sidecars = make([]*blob.Sidecar, len(blobs.Data))
-		for index, value := range blobs.Data {
-			sidecars[index] = &blob.Sidecar{
-				KzgCommitment: value.KzgCommitment,
-				Blob:          value.Blob,
-			}
+		return nil, err
+	}
+	sidecars = make([]*blob.Sidecar, len(blobs.Data))
+	for index, value := range blobs.Data {
+		sidecars[index] = &blob.Sidecar{
+			KzgCommitment: value.KzgCommitment,
+			Blob:          value.Blob,
 		}
 	}
+	// }
 	return sidecars, nil
 }
 
