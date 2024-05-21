@@ -161,7 +161,6 @@
   - register `chain_watchdog` on May 21 @tx `0xaed098ad0c93113e401f61358f963501f40a046c5b5b659a1610f10120a9a86b`
 - todo:
   - register `prover_set`
-  - remove `chain_watchdog`
 
 #### taikoL1
 
