@@ -102,14 +102,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
     /// @param _minGuardians The minimum required to sign
-    function setGuardians(
-        address[] memory _newGuardians,
-        uint8 _minGuardians
-    )
-        external
-        onlyOwner
-        nonReentrant
-    {
+    function setGuardians(address[] memory _newGuardians, uint8 _minGuardians) external onlyOwner {
         // We need at most 255 guardians (so the approval bits fit in a uint256)
         if (_newGuardians.length == 0 || _newGuardians.length > type(uint8).max) {
             revert GP_INVALID_GUARDIAN_SET();
