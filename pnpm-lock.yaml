@@ -554,9 +554,6 @@ importers:
       '@openzeppelin/merkle-tree':
         specifier: ^1.0.6
         version: 1.0.6
-      '@taiko/ui-lib':
-        specifier: workspace:*
-        version: link:../ui-lib
       '@wagmi/cli':
         specifier: ^2.1.4
         version: 2.1.4(bufferutil@4.0.8)(typescript@5.4.5)
