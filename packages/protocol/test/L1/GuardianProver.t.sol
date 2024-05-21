@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract DummyGuardians is GuardianProver {
+contract DummyGuardianProver is GuardianProver {
     uint256 public operationId;
 
     function init() external initializer {
@@ -16,7 +16,7 @@ contract DummyGuardians is GuardianProver {
 }
 
 contract TestGuardianProver is TaikoTest {
-    DummyGuardians target;
+    DummyGuardianProver target;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
         signers = new address[](numGuardians);
@@ -27,11 +27,11 @@ contract TestGuardianProver is TaikoTest {
     }
 
     function setUp() public {
-        target = DummyGuardians(
+        target = DummyGuardianProver(
             deployProxy({
                 name: "guardians",
-                impl: address(new DummyGuardians()),
-                data: abi.encodeCall(DummyGuardians.init, ())
+                impl: address(new DummyGuardianProver()),
+                data: abi.encodeCall(DummyGuardianProver.init, ())
             })
         );
     }
