@@ -159,6 +159,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
+	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
+		return nil, errors.New("empty raiko host endpoint")
+	}
+
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
