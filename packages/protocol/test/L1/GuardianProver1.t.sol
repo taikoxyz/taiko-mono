@@ -66,7 +66,6 @@ contract TestGuardianProver1 is TaikoTest {
         for (uint256 i; i < 6; ++i) {
             vm.prank(signers[0]);
             assertEq(target.approve(hash), false);
-            assertEq(target.isApproved(hash), false);
         }
 
         hash = keccak256("singapore");
@@ -75,13 +74,11 @@ contract TestGuardianProver1 is TaikoTest {
             target.approve(hash);
 
             assertEq(target.approve(hash), i >= 3);
-            assertEq(target.isApproved(hash), i >= 3);
             vm.stopPrank();
         }
 
         // changing the settings will invalid all approval history
         target.setGuardians(signers, 3);
         assertEq(target.version(), 2);
-        assertEq(target.isApproved(hash), false);
     }
 }

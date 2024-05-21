@@ -217,13 +217,6 @@ contract GuardianProver is IVerifier, EssentialContract {
         if (_ctx.msgSender != address(this)) revert GV_PERMISSION_DENIED();
     }
 
-    /// @notice Returns if the hash is approved
-    /// @param _proofHash The hash to check
-    /// @return true if the hash is approved
-    function isApproved(bytes32 _proofHash) public view returns (bool) {
-        return _isApproved(approvals[version][_proofHash]);
-    }
-
     /// @notice Returns the number of guardians
     /// @return The number of guardians
     function numGuardians() public view returns (uint256) {
