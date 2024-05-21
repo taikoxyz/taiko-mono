@@ -150,6 +150,7 @@
   - prover_set: ``
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
+  - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -157,18 +158,18 @@
   - `Init2()` called @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
 - todo:
   - register `prover_set`
+  - register `chain_watchdog` on May 21 @tx ``
 
 #### taikoL1
 
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE`
+- impl: `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - Upgraded from `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501` to `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` @commit `b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called and reset block hash to `0411D9F84A525864E0A7E8BB51667D49C6BF73820AF9E4BC76EA66ADB6BE8903` @tx `0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
-- todo:
-  - upgrade the implementation again
+  - Upgraded from `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` to `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` on May 21 @commit `c817e76d9` @tx``
 
 #### assignment_hook
 
