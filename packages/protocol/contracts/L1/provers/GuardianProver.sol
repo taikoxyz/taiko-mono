@@ -102,6 +102,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
     /// @param _minGuardians The minimum required to sign
+    /// @param _clearData true to invalidate all existing data.
     function setGuardians(
         address[] memory _newGuardians,
         uint8 _minGuardians,
