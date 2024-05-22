@@ -216,16 +216,15 @@ contract GuardianProver is IVerifier, EssentialContract {
         }
     }
 
-    /// @notice Pauses or unpauses the chain proving.
-    /// @param _pause true to pause, false to unpause.
-    function pauseTaikoProving(bool _pause) external whenNotPaused {
+    /// @notice Pauses chain proving and verification.
+    function pauseTaikoProving() external whenNotPaused {
         if (guardianIds[msg.sender] == 0) revert GP_INVALID_GUARDIAN();
 
         if (address(this) != resolve(LibStrings.B_CHAIN_WATCHDOG, true)) {
             revert GV_PERMISSION_DENIED();
         }
 
-        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(_pause);
+        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
     }
 
     /// @inheritdoc IVerifier
