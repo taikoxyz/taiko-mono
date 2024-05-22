@@ -31,7 +31,6 @@ jobs:
             deps
             deps-dev
             docs-site
-            blobstorage
             branding
             bridge-ui
             eventindexer

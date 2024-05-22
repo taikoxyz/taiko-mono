@@ -4,7 +4,10 @@ const fs = require("fs");
 const ConvertCsvToJson = require("convert-csv-to-json");
 
 async function main(network) {
-  const inputFile = path.join(__dirname, `../../../data/taikoon/whitelist/${network}.csv`);
+  const inputFile = path.join(
+    __dirname,
+    `../../../data/taikoon/whitelist/${network}.csv`,
+  );
   const outputFile = path.join(
     __dirname,
     `../../../data/taikoon/whitelist/${network}.json`,
@@ -23,9 +26,9 @@ async function main(network) {
     JSON.stringify({ ...tree.dump(), root: tree.root }, null, 2),
   );
 
-    console.log(`Merkle Root for network ${network}`, tree.root)
+  console.log(`Merkle Root for network ${network}`, tree.root);
 }
 
-main('hardhat')
-main('holesky')
-main('devnet')
+main("hardhat");
+main("holesky");
+main("devnet");

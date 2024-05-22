@@ -125,8 +125,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 
-    /// @notice Pause block proving.
-    /// @param _pause True if paused.
+    /// @inheritdoc ITaikoL1
     function pauseProving(bool _pause) external {
         _authorizePause(msg.sender, _pause);
         LibProving.pauseProving(state, _pause);
