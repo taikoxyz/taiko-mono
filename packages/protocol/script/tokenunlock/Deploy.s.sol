@@ -10,7 +10,7 @@ contract DeployTokenUnlock is DeployCapability {
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
     address public ROLLUP_ADDRESS_MANAGER = 0x579f40D0BE111b823962043702cabe6Aaa290780;
     uint64 public TGE = 1_716_767_999; // Date and time (GMT): Sunday, May 26, 2024 11:59:59 PM
-    address public TOKEN_UNLOCK_IMPL = vm.envAddress("TOKEN_UNLOCK_IMPL");
+    address public TOKEN_UNLOCK_IMPL = 0x035AFfC82612de31E9Db2259B9482D0Dd53B7819;
 
     function setUp() public { }
 

@@ -8,7 +8,6 @@ var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
 	generatorCategory = "GENERATOR"
-	disperserCategory = "DISPERSER"
 	txmgrCategory     = "TX_MANAGER"
 )
 
