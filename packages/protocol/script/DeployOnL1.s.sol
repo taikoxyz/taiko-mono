@@ -105,16 +105,6 @@ contract DeployOnL1 is DeployCapability {
             console2.log("- chainId       : ", block.chainid);
         }
 
-        address proposer = vm.envAddress("PROPOSER");
-        if (proposer != address(0)) {
-            register(rollupAddressManager, "proposer", proposer);
-        }
-
-        address proposerOne = vm.envAddress("PROPOSER_ONE");
-        if (proposerOne != address(0)) {
-            register(rollupAddressManager, "proposer_one", proposerOne);
-        }
-
         // ---------------------------------------------------------------
         // Register L2 addresses
         register(rollupAddressManager, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId);

@@ -77,11 +77,7 @@ library LibProposing {
         }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
-        // However, if the "proposer" address is set to a non-zero value, we
-        // ensure that only that specific address has the authority to propose
-        // blocks.
         TaikoData.SlotB memory b = _state.slotB;
-        if (!_isProposerPermitted(b, _resolver)) revert L1_UNAUTHORIZED();
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
@@ -228,25 +224,5 @@ library LibProposing {
             meta: meta_,
             depositsProcessed: deposits_
         });
-    }
-
-    function _isProposerPermitted(
-        TaikoData.SlotB memory _slotB,
-        IAddressResolver _resolver
-    )
-        private
-        view
-        returns (bool)
-    {
-        if (_slotB.numBlocks == 1) {
-            // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve(LibStrings.B_PROPOSER_ONE, true);
-            if (proposerOne != address(0)) {
-                return msg.sender == proposerOne;
-            }
-        }
-
-        address proposer = _resolver.resolve(LibStrings.B_PROPOSER, true);
-        return proposer == address(0) || msg.sender == proposer;
     }
 }
