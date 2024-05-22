@@ -1,15 +1,20 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-
+	import { browser } from '$app/environment';
 	// This component will help us to programmatically do the same as
 	// CSS media queries. We can use it to show/hide elements or render
 	// different components based on whether or not the size is desktop
 	// or larger
-	const isDesktopMediaQuery = window.matchMedia('(min-width: 1024px)');
-	const isMobileMediaQuery = window.matchMedia('(max-width: 640px)');
+	let isDesktopMediaQuery: MediaQueryList;
+	let isMobileMediaQuery: MediaQueryList;
 
 	let isDesktop: boolean;
 	let isMobile: boolean;
+
+	if (browser) {
+		isDesktopMediaQuery = window.matchMedia('(min-width: 1024px)');
+		isMobileMediaQuery = window.matchMedia('(max-width: 640px)');
+	}
 
 	export let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -24,6 +29,7 @@
 	}
 
 	onMount(() => {
+		if (!browser) return;
 		isDesktop = isDesktopMediaQuery.matches;
 		isMobile = isMobileMediaQuery.matches;
 		isDesktopMediaQuery.addEventListener('change', isDesktopQueryHandler);
@@ -33,6 +39,7 @@
 	});
 
 	onDestroy(() => {
+		if (!browser) return;
 		isDesktopMediaQuery.removeEventListener('change', isDesktopQueryHandler);
 		isMobileMediaQuery.removeEventListener('change', isMobileQueryHandler);
 	});
