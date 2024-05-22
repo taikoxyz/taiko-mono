@@ -178,7 +178,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	// taikoL1 will only be set when initializing a L1 - L2 indexer
 	var taikoL1 *taikol1.TaikoL1
+
 	if cfg.SrcTaikoAddress != ZeroAddress {
+		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
+
 		taikoL1, err = taikol1.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "taikol1.NewTaikoL1")
@@ -186,7 +189,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	}
 
 	var signalService relayer.SignalService
+
 	if cfg.SrcSignalServiceAddress != ZeroAddress {
+		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
+
 		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
