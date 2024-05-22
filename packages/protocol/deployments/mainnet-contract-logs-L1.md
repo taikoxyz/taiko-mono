@@ -61,14 +61,12 @@
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
 - impl: `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D`
 - owner: `admin.taiko.eth`
-- todo:
-  - upgrade contract impl to enable selfeDelegate and remove unused code.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - upgraded from `0x91d593d34f2E1904cDCe3D5290a74563F87bCF6f` to `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-- todos:
-  - upgrade implementation
+- todo:
+  - upgrade contract impl to enable selfeDelegate and remove unused code.
 
 #### quota_manager
 
