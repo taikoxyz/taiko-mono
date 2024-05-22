@@ -20,3 +20,12 @@ description: Network reference page describing Ethereum and Taiko RPC configurat
 | RPC                | See Hekla chainlist [here](https://chainlist.org/chain/167009) |
 | Symbol             | ETH                                                            |
 | Block explorer URL | https://hekla.taikoscan.network                                |
+
+## Taiko (Mainnet)
+
+| Name               | Value                                                          |
+| ------------------ | -------------------------------------------------------------- |
+| Chain ID           | 167000                                                         |
+| RPC                | See Taiko chainlist [here](https://chainlist.org/chain/167000) |
+| Symbol             | ETH                                                            |
+| Block explorer URL | https://blockscoutapi.mainnet.taiko.xyz/                       |

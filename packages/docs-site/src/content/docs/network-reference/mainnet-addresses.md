@@ -1,0 +1,67 @@
+---
+title: Mainnet Addresses
+description: Network reference page describing various important addresses on Taiko.
+---
+
+## Ethereum contracts
+
+| Contract Name (Shared) | Address                                      |
+| ---------------------- | -------------------------------------------- |
+| SharedAddressManager   | `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` |
+| TaikoToken             | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` |
+| SignalService          | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` |
+| Bridge                 | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` |
+| QuotaManager           | `0x91f67118DD47d502B1f0C354D0611997B022f29E` |
+| ERC20Vault             | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` |
+| ERC721Vault            | `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa` |
+| ERC1155Vault           | `0xaf145913EA4a56BE22E120ED9C24589659881702` |
+| BridgedERC20           | `0xcc5d488073FA918cBbd73B9A523F3858C4de7372` |
+| BridgedERC721          | `0xc4096E9ff1526Bd1840B65e9f45695135aC12De7` |
+| BridgedERC1155         | `0x39E4C1214e733639d059979079A151911e42791d` |
+
+| Contract Name (Rollup-Specific) | Address                                      |
+| ------------------------------- | -------------------------------------------- |
+| TaikoL1                         | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` |
+| RollupAddressManager            | `0x579f40D0BE111b823962043702cabe6Aaa290780` |
+| GuardianProver                  | `0xE3D777143Ea25A6E031d1e921F396750885f43aC` |
+| GuardianProverMinority          | `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` |
+| AssignmentHook                  | `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6` |
+| TierProvider                    | `0x4cffe56C947E26D07C14020499776DB3e9AE3a23` |
+| SgxVerifier                     | `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81` |
+| AutomataDcapAttestation         | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` |
+| PemCertChainLib                 | `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169` |
+| P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` |
+| SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` |
+
+## Taiko contracts
+
+| Contract Name (Shared) | Address                                      |
+| ---------------------- | -------------------------------------------- |
+| Bridge                 | `0x1670090000000000000000000000000000000001` |
+| ERC20Vault             | `0x1670090000000000000000000000000000000002` |
+| ERC721Vault            | `0x1670090000000000000000000000000000000003` |
+| ERC1155Vault           | `0x1670090000000000000000000000000000000004` |
+| SignalService          | `0x1670090000000000000000000000000000000005` |
+| SharedAddressManager   | `0x1670090000000000000000000000000000000006` |
+
+| Contract Name (Rollup-Specific) | Address                                      |
+| ------------------------------- | -------------------------------------------- |
+| TaikoL2                         | `0x1670090000000000000000000000000000010001` |
+| RollupAddressManager            | `0x1670090000000000000000000000000000010002` |
+| BridgedTaikoToken               | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
+
+## Rollup contracts owner
+
+The rollup contracts owner is `admin.taiko.eth`, public address is `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`.
+
+## Taiko Labs' proposers and provers addresses
+
+| Name                                                   | Address                                      |
+| ------------------------------------------------------ | -------------------------------------------- |
+| Proposer #1                                            | `0xEd1bA0Ba5661D648c7b3988DAC473F60403aff1e` |
+| Prover #1                                              | `0x7B399987D24FC5951f3E94A4cb16E87414bF2229` |
+| Prover #2 (with `--prover.proveUnassignedBlocks` flag) | `0x8Adb8C4d5214309612b53845E07C3Cb5BB4E8CF0` |
+
+## Taiko Labs' bootnode addresses
+
+Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/main/.env.sample).

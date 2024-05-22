@@ -134,8 +134,12 @@ export default defineConfig({
           label: "Network Reference",
           items: [
             {
-              label: "Addresses",
-              link: "/network-reference/addresses",
+              label: "Mainnet Addresses",
+              link: "/network-reference/mainnet-addresses",
+            },
+            {
+              label: "Testnet Addresses",
+              link: "/network-reference/testnet-addresses",
             },
             {
               label: "Differences from Ethereum",
