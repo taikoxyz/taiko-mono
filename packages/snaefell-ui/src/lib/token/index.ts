@@ -6,7 +6,6 @@ import type { IAddress, IChainId } from '../../types';
 import { balanceOf } from './balanceOf';
 import { canMint } from './canMint';
 import { estimateMintGasCost } from './estimateMintGasCost';
-import { maxSupply } from './maxSupply';
 import { mint } from './mint';
 import { name } from './name';
 import { ownerOf } from './ownerOf';
@@ -32,7 +31,6 @@ const Token = {
   ownerOf,
   balanceOf,
   canMint,
-  maxSupply,
   mint,
   tokenOfOwner,
   estimateMintGasCost,
