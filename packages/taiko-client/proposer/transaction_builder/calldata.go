@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
+	"os"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -105,6 +107,11 @@ func (b *CalldataTransactionBuilder) Build(
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("TaikoL1.proposeBlock:")
+	log.Info("encodedParams", "bytes", common.Bytes2Hex(encodedParams))
+	log.Info("txListBytes", "bytes", common.Bytes2Hex(txListBytes))
+	os.Exit(0)
 
 	// Send the transaction to the L1 node.
 	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
