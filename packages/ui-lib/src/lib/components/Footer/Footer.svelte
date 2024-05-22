@@ -125,8 +125,9 @@
 		'flex-row',
 		'items-center',
 		'justify-center',
+		'uppercase',
 		'gap-5',
-		'text-xs',
+		'text-[12px]/[17.46px]',
 		'font-bold',
 		'font-sans',
 		'text-content-primary'
@@ -278,8 +279,6 @@
 		'text-content-secondary',
 		'font-normal'
 	);
-
-	$: hoveredIcon, console.log({ hoveredIcon });
 </script>
 
 <div class={sectionClasses}>
