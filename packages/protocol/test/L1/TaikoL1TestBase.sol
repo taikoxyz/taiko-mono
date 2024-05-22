@@ -264,7 +264,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
 
-        gp.setGuardians(initMultiSig, 3);
+        gp.setGuardians(initMultiSig, 3, true);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

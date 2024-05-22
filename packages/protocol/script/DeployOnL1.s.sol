@@ -312,11 +312,13 @@ contract DeployOnL1 is DeployCapability {
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
         GuardianProver(guardianProverMinority).setGuardians(
-            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS)
+            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS), true
         );
         GuardianProver(guardianProverMinority).transferOwnership(owner);
 
-        GuardianProver(guardianProver).setGuardians(guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS));
+        GuardianProver(guardianProver).setGuardians(
+            guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS), true
+        );
         GuardianProver(guardianProver).transferOwnership(owner);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
