@@ -30,6 +30,7 @@ type Config struct {
 	TaikoL2Address                          common.Address
 	TaikoTokenAddress                       common.Address
 	AssignmentHookAddress                   common.Address
+	ProverSetAddress                        common.Address
 	L1ProverPrivKey                         *ecdsa.PrivateKey
 	StartingBlockID                         *big.Int
 	Dummy                                   bool
@@ -158,6 +159,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
+	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
+		return nil, errors.New("empty raiko host endpoint")
+	}
+
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
@@ -168,6 +173,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		TaikoL2Address:                          common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
 		TaikoTokenAddress:                       common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		AssignmentHookAddress:                   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
+		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
 		RaikoL1Endpoint:                         raikoL1Endpoint,

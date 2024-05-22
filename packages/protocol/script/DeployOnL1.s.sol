@@ -156,7 +156,7 @@ contract DeployOnL1 is DeployCapability {
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
+                    ),
                 registerTo: sharedAddressManager
             });
         }
@@ -267,7 +267,7 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
@@ -312,11 +312,13 @@ contract DeployOnL1 is DeployCapability {
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
         GuardianProver(guardianProverMinority).setGuardians(
-            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS)
+            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS), true
         );
         GuardianProver(guardianProverMinority).transferOwnership(owner);
 
-        GuardianProver(guardianProver).setGuardians(guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS));
+        GuardianProver(guardianProver).setGuardians(
+            guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS), true
+        );
         GuardianProver(guardianProver).transferOwnership(owner);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
@@ -331,7 +333,7 @@ contract DeployOnL1 is DeployCapability {
             impl: automateDcapV3AttestationImpl,
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
@@ -345,7 +347,7 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new ProverSet()),
             data: abi.encodeCall(
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
-            )
+                )
         });
     }
 
