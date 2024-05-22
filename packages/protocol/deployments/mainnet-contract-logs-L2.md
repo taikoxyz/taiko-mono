@@ -15,6 +15,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 #### bridge
 
@@ -25,6 +26,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 #### erc20_vault
 
@@ -35,6 +37,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 #### erc721_vault
 
@@ -45,6 +48,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 #### erc1155_vault
 
@@ -55,6 +59,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 #### signal_service
 
@@ -65,6 +70,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 ## Rollup Specific
 
@@ -77,7 +83,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
-  - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 #### taikoL2
 
@@ -88,6 +94,7 @@
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
+  - redeployed on May 22, 2024 @commit `b955e0e`
 
 ## Other EOAs/Contracts
 
