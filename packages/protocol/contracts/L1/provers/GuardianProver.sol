@@ -20,7 +20,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     mapping(address guardian => uint256 id) public guardianIds;
 
     /// @notice Mapping to store the approvals for a given hash, for a given version
-    mapping(uint32 version => mapping(bytes32 hash => uint256 approvalBits)) internal _approvals;
+    mapping(uint256 version => mapping(bytes32 proofHash => uint256 approvalBits)) public approvals;
 
     /// @notice The set of guardians
     /// @dev Slot 3
@@ -33,7 +33,14 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice The minimum number of guardians required to approve
     uint32 public minGuardians;
 
-    uint256[46] private __gap;
+    /// @notice True to enable pausing taiko proving upon conflicting proofs
+    bool public provingAutoPauseEnabled;
+
+    /// @notice Mapping from blockId to its latest proof hash
+    /// @dev Slot 5
+    mapping(uint256 version => mapping(uint256 blockId => bytes32 hash)) public latestProofHash;
+
+    uint256[45] private __gap;
 
     /// @notice Emitted when a guardian proof is approved.
     /// @param addr The address of the guardian.
@@ -60,9 +67,28 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param minGuardiansReached If the proof was submitted
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
 
+    /// @notice Emitted when a guardian prover submit a different proof for the same block
+    /// @param blockId The block ID
+    /// @param guardian The guardian prover address
+    /// @param currentProofHash The existing proof hash
+    /// @param newProofHash The new and different proof hash
+    /// @param provingPaused True if TaikoL1's proving is paused.
+    event ConflictingProofs(
+        uint256 indexed blockId,
+        address indexed guardian,
+        bytes32 currentProofHash,
+        bytes32 newProofHash,
+        bool provingPaused
+    );
+
+    /// @notice Emitted when auto pausing is enabled.
+    /// @param enabled True if TaikoL1 proving auto-pause is enabled.
+    event ProvingAutoPauseEnabled(bool indexed enabled);
+
     error GP_INVALID_GUARDIAN();
     error GP_INVALID_GUARDIAN_SET();
     error GP_INVALID_MIN_GUARDIANS();
+    error GP_INVALID_STATUS();
     error GV_PERMISSION_DENIED();
     error GV_ZERO_ADDRESS();
 
@@ -76,13 +102,14 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice Set the set of guardians
     /// @param _newGuardians The new set of guardians
     /// @param _minGuardians The minimum required to sign
+    /// @param _clearData true to invalidate all existing data.
     function setGuardians(
         address[] memory _newGuardians,
-        uint8 _minGuardians
+        uint8 _minGuardians,
+        bool _clearData
     )
         external
         onlyOwner
-        nonReentrant
     {
         // We need at most 255 guardians (so the approval bits fit in a uint256)
         if (_newGuardians.length == 0 || _newGuardians.length > type(uint8).max) {
@@ -113,10 +140,19 @@ contract GuardianProver is IVerifier, EssentialContract {
         }
 
         // Bump the version so previous approvals get invalidated
-        ++version;
+        if (_clearData) ++version;
 
         minGuardians = _minGuardians;
         emit GuardiansUpdated(version, _newGuardians);
+    }
+
+    /// @dev Enables or disables proving auto pause.
+    /// @param _enable true to enable, false to disable.
+    function enableProvingAutoPause(bool _enable) external onlyOwner {
+        if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
+        provingAutoPauseEnabled = _enable;
+
+        emit ProvingAutoPauseEnabled(_enable);
     }
 
     /// @notice Enables unlimited allowance for Taiko L1 contract.
@@ -153,17 +189,50 @@ contract GuardianProver is IVerifier, EssentialContract {
         nonReentrant
         returns (bool approved_)
     {
-        bytes32 hash = keccak256(abi.encode(_meta, _tran, _proof.data));
-        approved_ = _approve(_meta.id, hash);
+        bytes32 proofHash = keccak256(abi.encode(_meta, _tran, _proof.data));
+        uint256 _version = version;
+        bytes32 currProofHash = latestProofHash[_version][_meta.id];
 
-        emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
-
-        if (approved_) {
-            _deleteApproval(hash);
-            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
-                _meta.id, abi.encode(_meta, _tran, _proof)
-            );
+        if (currProofHash == 0) {
+            latestProofHash[_version][_meta.id] = proofHash;
+            currProofHash = proofHash;
         }
+
+        bool conflicting = currProofHash != proofHash;
+        bool pauseProving = conflicting && provingAutoPauseEnabled
+            && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
+
+        if (conflicting) {
+            latestProofHash[_version][_meta.id] = proofHash;
+            emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
+        }
+
+        if (pauseProving) {
+            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
+        } else {
+            approved_ = _approve(_meta.id, proofHash);
+            emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
+
+            if (approved_) {
+                delete approvals[_version][proofHash];
+                delete latestProofHash[_version][_meta.id];
+
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
+                    _meta.id, abi.encode(_meta, _tran, _proof)
+                );
+            }
+        }
+    }
+
+    /// @notice Pauses chain proving and verification.
+    function pauseTaikoProving() external whenNotPaused {
+        if (guardianIds[msg.sender] == 0) revert GP_INVALID_GUARDIAN();
+
+        if (address(this) != resolve(LibStrings.B_CHAIN_WATCHDOG, true)) {
+            revert GV_PERMISSION_DENIED();
+        }
+
+        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
     }
 
     /// @inheritdoc IVerifier
@@ -178,36 +247,25 @@ contract GuardianProver is IVerifier, EssentialContract {
         if (_ctx.msgSender != address(this)) revert GV_PERMISSION_DENIED();
     }
 
-    /// @notice Returns if the hash is approved
-    /// @param _hash The hash to check
-    /// @return true if the hash is approved
-    function isApproved(bytes32 _hash) public view returns (bool) {
-        return _isApproved(_approvals[version][_hash]);
-    }
-
     /// @notice Returns the number of guardians
     /// @return The number of guardians
     function numGuardians() public view returns (uint256) {
         return guardians.length;
     }
 
-    function _approve(uint256 _blockId, bytes32 _hash) internal returns (bool approved_) {
+    function _approve(uint256 _blockId, bytes32 _proofHash) internal returns (bool approved_) {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert GP_INVALID_GUARDIAN();
 
-        uint32 _version = version;
+        uint256 _version = version;
 
         unchecked {
-            _approvals[_version][_hash] |= 1 << (id - 1);
+            approvals[_version][_proofHash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[_version][_hash];
+        uint256 _approval = approvals[_version][_proofHash];
         approved_ = _isApproved(_approval);
         emit Approved(_blockId, _approval, approved_);
-    }
-
-    function _deleteApproval(bytes32 _hash) private {
-        delete _approvals[version][_hash];
     }
 
     function _isApproved(uint256 _approvalBits) private view returns (bool) {
