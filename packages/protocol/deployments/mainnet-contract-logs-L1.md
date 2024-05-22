@@ -59,7 +59,7 @@
 #### bridge
 
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
-- impl: `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D`
+- impl: `0xc71CC3B0a47149878fad337fb2ca54E546A645ba`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -196,7 +196,7 @@
 #### guardian_prover_minority
 
 - proxy: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
-- impl: `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e`
+- impl: `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c`
 - owner: `admin.taiko.eth`
 - guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
@@ -218,7 +218,7 @@
 #### guardian_prover
 
 - proxy: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
-- impl: `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e`
+- impl: `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c`
 - owner: `admin.taiko.eth`
 - guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
