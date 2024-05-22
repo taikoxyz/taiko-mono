@@ -109,9 +109,6 @@ func (p *Prover) initProofSubmitters(
 		case encoding.TierSgxID:
 			producer = &proofProducer.SGXProofProducer{
 				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
 				ProofType:         proofProducer.ProofTypeSgx,
 				Dummy:             p.cfg.Dummy,
 			}
