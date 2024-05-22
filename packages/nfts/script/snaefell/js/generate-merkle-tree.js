@@ -6,11 +6,11 @@ const ConvertCsvToJson = require("convert-csv-to-json");
 async function main(network) {
   const inputFile = path.join(
     __dirname,
-    `../../../data/taikoon/whitelist/${network}.csv`,
+    `../../../data/snaefell/whitelist/${network}.csv`,
   );
   const outputFile = path.join(
     __dirname,
-    `../../../data/taikoon/whitelist/${network}.json`,
+    `../../../data/snaefell/whitelist/${network}.json`,
   );
   const rawJson =
     ConvertCsvToJson.fieldDelimiter(",").getJsonFromCsv(inputFile);
@@ -30,5 +30,4 @@ async function main(network) {
 }
 
 main("hardhat");
-main("holesky");
 main("devnet");
