@@ -117,61 +117,6 @@ func filterFunc(
 		})
 	}
 
-	if i.swaps != nil {
-		for _, s := range i.swaps {
-			swap := s
-
-			wg.Go(func() error {
-				swaps, err := swap.FilterSwap(filterOpts, nil, nil)
-				if err != nil {
-					return errors.Wrap(err, "i.bridge.FilterSwap")
-				}
-
-				// only save ones above 0.01 ETH, this is only for Galaxe
-				// and we dont care about the rest
-				err = i.saveSwapEvents(ctx, chainID, swaps)
-				if err != nil {
-					return errors.Wrap(err, "i.saveSwapEvents")
-				}
-
-				return nil
-			})
-
-			wg.Go(func() error {
-				liquidityAdded, err := swap.FilterMint(filterOpts, nil)
-
-				if err != nil {
-					return errors.Wrap(err, "i.bridge.FilterMint")
-				}
-
-				// only save ones above 0.1 ETH, this is only for Galaxe
-				// and we dont care about the rest
-				err = i.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
-				if err != nil {
-					return errors.Wrap(err, "i.saveLiquidityAddedEvents")
-				}
-
-				return nil
-			})
-		}
-	}
-
-	if i.sgxVerifier != nil {
-		wg.Go(func() error {
-			instancesAdded, err := i.sgxVerifier.FilterInstanceAdded(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.sgxVerifier.FilterInstanceAdded")
-			}
-
-			err = i.saveInstanceAddedEvents(ctx, chainID, instancesAdded)
-			if err != nil {
-				return errors.Wrap(err, "i.saveInstanceAddedEvents")
-			}
-
-			return nil
-		})
-	}
-
 	wg.Go(func() error {
 		if err := i.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
 			return errors.Wrap(err, "i.indexRawBlockData")
