@@ -41,6 +41,12 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
+	RaikoJWTPath = &cli.StringFlag{
+		Name:     "raiko.jwtPath",
+		Usage:    "Path to a JWT secret for the Raiko service",
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_JWT_PATH"},
+	}
 	StartingBlockID = &cli.Uint64Flag{
 		Name:     "prover.startingBlockID",
 		Usage:    "If set, prover will start proving blocks from the block with this ID",
@@ -211,6 +217,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2WSEndpoint,
 	L2HTTPEndpoint,
 	RaikoHostEndpoint,
+	RaikoJWTPath,
 	L1ProverPrivKey,
 	MinOptimisticTierFee,
 	MinSgxTierFee,

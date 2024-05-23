@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"math/big"
 	"net/url"
 	"time"
@@ -58,6 +59,7 @@ type Config struct {
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
+	RaikoJWT                                string
 	L1NodeVersion                           string
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
@@ -66,6 +68,9 @@ type Config struct {
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	var (
+		jwtSecret []byte
+	)
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProverPrivKey.Name)))
 	if err != nil {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
@@ -146,6 +151,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty raiko host endpoint")
 	}
 
+	if c.IsSet(flags.RaikoJWTPath.Name) {
+		jwtSecret, err = jwt.ParseSecretFromFile(c.String(flags.RaikoJWTPath.Name))
+		if err != nil {
+			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
+		}
+	}
+
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
@@ -159,6 +171,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
+		RaikoJWT:                                string(jwtSecret),
 		StartingBlockID:                         startingBlockID,
 		Dummy:                                   c.Bool(flags.Dummy.Name),
 		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),

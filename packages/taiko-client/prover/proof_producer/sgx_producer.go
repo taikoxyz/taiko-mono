@@ -29,6 +29,7 @@ const (
 type SGXProofProducer struct {
 	RaikoHostEndpoint string // a proverd RPC endpoint
 	ProofType         string // Proof type
+	JWT               string // JWT provided by Raiko
 	Dummy             bool
 	DummyProofProducer
 }
@@ -169,12 +170,23 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		},
 	}
 
+	client := &http.Client{}
+
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := http.Post(s.RaikoHostEndpoint+"/v1/proof", "application/json", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequest("POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	//if len(s.JWT) > 0 {
+	//	req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	//}
+
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
