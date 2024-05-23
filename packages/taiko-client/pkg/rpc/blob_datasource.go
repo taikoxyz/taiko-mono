@@ -67,7 +67,7 @@ func (ds *BlobDataSource) GetBlobs(
 	// 	sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, meta.Timestamp)
 	// }
 	// if err != nil {
-	log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+	// log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
 	if ds.blobServerEndpoint == nil {
 		log.Info("No blob server endpoint set")
 		return nil, err
