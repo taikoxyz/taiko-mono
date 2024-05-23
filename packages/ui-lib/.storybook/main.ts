@@ -6,9 +6,7 @@ export const framework = {
 };
 
 export const docs = { autodocs: false };
-export const addons = [
-	'@storybook/addon-essentials'
-];
+export const addons = ['@storybook/addon-essentials'];
 
 const config: StorybookConfig = {
 	stories: ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
