@@ -72,10 +72,14 @@ func (ds *BlobDataSource) GetBlobs(
 		log.Info("No blob server endpoint set")
 		return nil, err
 	}
+
 	blobs, err := ds.getBlobFromServer(ctx, meta.BlobHash)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("got blob sidecars")
+
 	sidecars = make([]*blob.Sidecar, len(blobs.Data))
 
 	log.Info("sidecars", "sidecarsLen", len(blobs.Data))
