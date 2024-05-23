@@ -77,6 +77,8 @@ func (ds *BlobDataSource) GetBlobs(
 		return nil, err
 	}
 	sidecars = make([]*blob.Sidecar, len(blobs.Data))
+
+	log.Info("sidecars", "sidecarsLen", len(blobs.Data))
 	for index, value := range blobs.Data {
 		sidecars[index] = &blob.Sidecar{
 			KzgCommitment: value.KzgCommitment,
