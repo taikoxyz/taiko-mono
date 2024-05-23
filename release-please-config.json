@@ -1,6 +1,5 @@
 {
   "packages": {
-    "packages/blobstorage": {},
     "packages/branding": {},
     "packages/bridge-ui": {},
     "packages/docs-site": {},
@@ -10,10 +9,12 @@
     "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {},
     "packages/relayer": {},
-    "packages/taikoon": {},
+    "packages/nfts": {},
     "packages/taikoon-ui": {},
     "packages/taiko-client": {},
-    "packages/supplementary-contracts": {}
+    "packages/supplementary-contracts": {},
+    "packages/ui-lib": {},
+    "packages/snaefell-ui": {}
   },
   "separate-pull-requests": true
 }

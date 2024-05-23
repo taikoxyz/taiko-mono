@@ -82,7 +82,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
-    error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
@@ -98,11 +97,6 @@ contract Bridge is EssentialContract, IBridge {
 
     modifier diffChain(uint64 _chainId) {
         if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
-        _;
-    }
-
-    modifier nonZeroAddr(address _addr) {
-        if (_addr == address(0)) revert B_INVALID_USER();
         _;
     }
 
@@ -454,9 +448,16 @@ contract Bridge is EssentialContract, IBridge {
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         unchecked {
-            // Message struct takes 7*32=224 bytes + a variable length array.
-            // Since ABI.encode pads data to multiples of 32 bytes, we over-charge 32 bytes
-            return GAS_RESERVE + uint32((dataLength + 256) >> 4);
+            // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
+            // + 32 bytes (A is a dynamic tuple, offset to first elements)
+            // + 32 bytes (offset to last bytes element of Message)
+            // + 32 bytes (padded encoding of length of Message.data + dataLength (padded to 32
+            // bytes)
+            // = 13 * 32 + (dataLength / 32 * 32) + 32.
+            // non-zero calldata cost per byte is 16.
+
+            uint256 dataCost = (dataLength / 32 * 32 + 448) << 4;
+            return SafeCastUpgradeable.toUint32(dataCost + GAS_RESERVE);
         }
     }
 
