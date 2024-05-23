@@ -1,0 +1,23 @@
+---
+title: Node Troubleshooting
+description: This page describes common bugs and potential fixes
+---
+
+ This page describes common bugs and potential fixes.
+
+### `Caught SIGILL in blst_cgo_init`
+
+If you get this error message, chances are you're using an older CPU that blst has trouble compiling on due to instruction differences.
+
+In this case, please set your env as follows and try again.
+
+```bash
+CGO_CFLAGS="-O -D__BLST_PORTABLE__" 
+CGO_CFLAGS_ALLOW="-O -D__BLST_PORTABLE__"
+```
+
+### Failed to decode tx list: beacon client not found
+
+This may mean that you may be missing the `--l1.beacon` flag or have filled it in incorrectly.
+
+Please use an L1 Node that has a blob server configured!

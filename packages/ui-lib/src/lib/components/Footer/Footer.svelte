@@ -110,7 +110,7 @@
 		'flex flex-col',
 		'items-center',
 		'justify-center',
-		'bg-tko-background-elevated',
+		'bg-background-elevated',
 		//'bg-primary',
 		'mt-5',
 		'p-5',
@@ -125,11 +125,12 @@
 		'flex-row',
 		'items-center',
 		'justify-center',
+		'uppercase',
 		'gap-5',
-		'text-xs',
+		'text-[12px]/[17.46px]',
 		'font-bold',
 		'font-sans',
-		'text-tko-content-primary'
+		'text-content-primary'
 	);
 	const socialLinksWrapperClasses = classNames(
 		'w-full',
@@ -145,12 +146,12 @@
 		'flex flex-row',
 		'items-center',
 		'justify-center',
-		'bg-tko-background-neutral',
+		'bg-background-neutral',
 		'lg:p-5',
 		'p-3',
 		'gap-3',
 		'rounded-xl',
-		'text-tko-content-primary',
+		'text-content-primary',
 		'font-medium',
 		'lg:text-2xl',
 		'md:text-base',
@@ -187,14 +188,14 @@
 		'text-4xl',
 		'font-clash-grotesk',
 		'font-medium',
-		'text-tko-content-primary',
+		'text-content-primary',
 		'md:text-left',
 		'text-center',
 		'w-full'
 	);
 
 	const bottomContentClasses = classNames(
-		'text-tko-content-secondary',
+		'text-content-secondary',
 		'font-sans',
 		'text-base',
 		'font-normal',
@@ -213,7 +214,7 @@
 		'pt-6',
 		'font-sans',
 		'text-base',
-		'text-tko-content-secondary',
+		'text-content-secondary',
 		'font-normal'
 	);
 
@@ -222,7 +223,7 @@
 		'flex flex-col',
 		'items-center',
 		'justify-center',
-		'bg-tko-background-neutral',
+		'bg-background-neutral',
 		'rounded-3xl',
 		'p-7'
 	);
@@ -253,14 +254,14 @@
 
 	const textLinkTitleClasses = classNames(
 		'font-bold',
-		'text-tko-content-primary',
+		'text-content-primary',
 		'text-base',
 		'uppercase'
 	);
 
 	const textLinkContentClasses = classNames(
 		'hover:text-primary',
-		'text-tko-content-secondary',
+		'text-content-secondary',
 		'text-base',
 		'cursor-pointer'
 	);
@@ -275,7 +276,7 @@
 		'py-3',
 		'font-sans',
 		'text-base',
-		'text-tko-content-secondary',
+		'text-content-secondary',
 		'font-normal'
 	);
 </script>
@@ -299,22 +300,22 @@
 						size="28"
 						class={classNames(
 							'transition-colors',
-							//'text-primary'
+
 							hoveredIcon === link.label && hoveredIcon === 'youtube'
-								? 'text-tko-red-500'
-								: 'text-tko-content-tertiary',
+								? 'text-red-500'
+								: 'text-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'forum'
-								? 'text-tko-primary'
-								: 'text-tko-content-tertiary',
+								? 'text-primary'
+								: 'text-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'discord'
-								? 'text-tko-discord'
-								: 'text-tko-content-tertiary',
+								? 'text-discord-purple'
+								: 'text-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'twitter'
-								? 'text-tko-icon-primary'
-								: 'text-tko-content-tertiary',
+								? 'text-icon-primary'
+								: 'text-content-tertiary',
 							hoveredIcon === link.label && hoveredIcon === 'mirror'
-								? 'text-tko-icon-primary'
-								: 'text-tko-content-tertiary'
+								? 'text-icon-primary'
+								: 'text-content-tertiary'
 						)}
 					/>
 					{#if windowSize !== 'sm'}
