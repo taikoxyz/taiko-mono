@@ -8,6 +8,7 @@
 
 #### shared_address_manager
 
+- ens: `sam.based.taiko.eth`
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xF1cA1F1A068468E1dcF90dA6add185467de80943`
 - owner: `admin.taiko.eth`
@@ -48,6 +49,7 @@
 
 #### signal_service
 
+- ens: `signals.based.taiko.eth`
 - proxy: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
 - impl: `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d`
 - owner: `admin.taiko.eth`
@@ -58,6 +60,7 @@
 
 #### bridge
 
+- ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
 - impl: `0xc71CC3B0a47149878fad337fb2ca54E546A645ba`
 - owner: `admin.taiko.eth`
@@ -66,6 +69,7 @@
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - upgraded from `0x91d593d34f2E1904cDCe3D5290a74563F87bCF6f` to `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded from `0x4A1091c2fb37D9C4a661c2384Ff539d94CCF853D` to `0xc71CC3B0a47149878fad337fb2ca54E546A645ba` @commit`b955e0e` @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
+  - called `selfDelegate` for Taiko Token @tx`0x740c255322873b3feb62ad1de71b51417053787328eae3aa84557c953463d55f`
 
 #### quota_manager
 
@@ -84,6 +88,7 @@
 
 #### erc20_vault
 
+- ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
 - impl: `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E`
 - owner: `admin.taiko.eth`
@@ -93,6 +98,7 @@
 
 #### erc721_vault
 
+- ens: `v721.based.taiko.eth`
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
 - impl: `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA`
 - owner: `admin.taiko.eth`
@@ -102,6 +108,7 @@
 
 #### erc1155_vault
 
+- ens: `v1155.based.taiko.eth`
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
 - impl: `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE`
 - owner: `admin.taiko.eth`
@@ -131,6 +138,7 @@
 
 #### rollup_address_manager
 
+- ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
 - impl: `0xF1cA1F1A068468E1dcF90dA6add185467de80943`
 - names:
@@ -158,6 +166,7 @@
 
 #### taikoL1
 
+- ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
 - impl: `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF`
 - owner: `admin.taiko.eth`
@@ -195,6 +204,7 @@
 
 #### guardian_prover_minority
 
+- ens: `guardians1.based.taiko.eth`
 - proxy: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
 - impl: `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c`
 - owner: `admin.taiko.eth`
@@ -217,6 +227,7 @@
 
 #### guardian_prover
 
+- ens: `guardians.based.taiko.eth`
 - proxy: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - impl: `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c`
 - owner: `admin.taiko.eth`
@@ -281,8 +292,8 @@
 
 ### labprovers.taiko.eth
 
-- proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
 - ens: `labprovers.taiko.eth`
+- proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
 - impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`

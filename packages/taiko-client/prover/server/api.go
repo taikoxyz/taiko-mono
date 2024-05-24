@@ -108,6 +108,12 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 		"currentUsedCapacity", len(s.proofSubmissionCh),
 	)
 
+	// If the prover set address is set, use it as the prover address.
+	prover := s.proverAddress
+	if s.proverSetAddress != rpc.ZeroAddress {
+		prover = s.proverSetAddress
+	}
+
 	// 1. Check if the request body is valid.
 	if req.BlobHash == (common.Hash{}) {
 		log.Warn("Empty blob hash", "prover", s.proverAddress)
@@ -119,7 +125,7 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 	}
 
 	// 2. Check if the prover has the required minimum on-chain ETH and Taiko token balance.
-	ok, err := s.checkMinEthAndToken(c.Request().Context())
+	ok, err := s.checkMinEthAndToken(c.Request().Context(), prover)
 	if err != nil {
 		log.Error("Failed to check prover's ETH and Taiko token balance", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
@@ -208,12 +214,6 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, err)
 	}
 
-	// If the prover set address is set, use it as the prover address.
-	prover := s.proverAddress
-	if s.proverSetAddress != rpc.ZeroAddress {
-		prover = s.proverSetAddress
-	}
-
 	encoded, err := encoding.EncodeProverAssignmentPayload(
 		s.protocolConfigs.ChainId,
 		s.taikoL1Address,
@@ -247,12 +247,12 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 }
 
 // checkMinEthAndToken checks if the prover has the required minimum on-chain ETH and Taiko token balance.
-func (s *ProverServer) checkMinEthAndToken(ctx context.Context) (bool, error) {
+func (s *ProverServer) checkMinEthAndToken(ctx context.Context, proverAddress common.Address) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
 
 	// 1. Check prover's ETH balance.
-	ethBalance, err := s.rpc.L1.BalanceAt(ctx, s.proverAddress, nil)
+	ethBalance, err := s.rpc.L1.BalanceAt(ctx, proverAddress, nil)
 	if err != nil {
 		return false, err
 	}
@@ -260,13 +260,13 @@ func (s *ProverServer) checkMinEthAndToken(ctx context.Context) (bool, error) {
 	log.Info(
 		"Prover's ETH balance",
 		"balance", utils.WeiToEther(ethBalance),
-		"address", s.proverAddress.Hex(),
+		"address", proverAddress,
 	)
 
 	if ethBalance.Cmp(s.minEthBalance) <= 0 {
 		log.Warn(
 			"Prover does not have required minimum on-chain ETH balance",
-			"providedProver", s.proverAddress.Hex(),
+			"providedProver", proverAddress,
 			"ethBalance", utils.WeiToEther(ethBalance),
 			"minEthBalance", utils.WeiToEther(s.minEthBalance),
 		)
@@ -274,7 +274,7 @@ func (s *ProverServer) checkMinEthAndToken(ctx context.Context) (bool, error) {
 	}
 
 	// 2. Check prover's Taiko token balance.
-	balance, err := s.rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctx}, s.proverAddress)
+	balance, err := s.rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctx}, proverAddress)
 	if err != nil {
 		return false, err
 	}
@@ -282,13 +282,13 @@ func (s *ProverServer) checkMinEthAndToken(ctx context.Context) (bool, error) {
 	log.Info(
 		"Prover's Taiko token balance",
 		"balance", utils.WeiToEther(balance),
-		"address", s.proverAddress.Hex(),
+		"address", proverAddress,
 	)
 
 	if balance.Cmp(s.minTaikoTokenBalance) <= 0 {
 		log.Warn(
 			"Prover does not have required on-chain Taiko token balance",
-			"providedProver", s.proverAddress.Hex(),
+			"providedProver", proverAddress,
 			"taikoTokenBalance", utils.WeiToEther(balance),
 			"minTaikoTokenBalance", utils.WeiToEther(s.minTaikoTokenBalance),
 		)
