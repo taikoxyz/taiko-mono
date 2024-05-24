@@ -246,31 +246,33 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 	})
 }
 
-// checkMinEthAndToken checks if the prover has the required minimum on-chain ETH and Taiko token balance.
+// checkMinEthAndToken checks if the prover has the required minimum on-chain Taiko token balance.
 func (s *ProverServer) checkMinEthAndToken(ctx context.Context, proverAddress common.Address) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
 
-	// 1. Check prover's ETH balance.
-	ethBalance, err := s.rpc.L1.BalanceAt(ctx, proverAddress, nil)
-	if err != nil {
-		return false, err
-	}
+	// 1. Check prover's ETH balance, if it's using proverSet.
+	if proverAddress == s.proverAddress {
+		ethBalance, err := s.rpc.L1.BalanceAt(ctx, proverAddress, nil)
+		if err != nil {
+			return false, err
+		}
 
-	log.Info(
-		"Prover's ETH balance",
-		"balance", utils.WeiToEther(ethBalance),
-		"address", proverAddress,
-	)
-
-	if ethBalance.Cmp(s.minEthBalance) <= 0 {
-		log.Warn(
-			"Prover does not have required minimum on-chain ETH balance",
-			"providedProver", proverAddress,
-			"ethBalance", utils.WeiToEther(ethBalance),
-			"minEthBalance", utils.WeiToEther(s.minEthBalance),
+		log.Info(
+			"Prover's ETH balance",
+			"balance", utils.WeiToEther(ethBalance),
+			"address", proverAddress,
 		)
-		return false, nil
+
+		if ethBalance.Cmp(s.minEthBalance) <= 0 {
+			log.Warn(
+				"Prover does not have required minimum on-chain ETH balance",
+				"providedProver", proverAddress,
+				"ethBalance", utils.WeiToEther(ethBalance),
+				"minEthBalance", utils.WeiToEther(s.minEthBalance),
+			)
+			return false, nil
+		}
 	}
 
 	// 2. Check prover's Taiko token balance.
