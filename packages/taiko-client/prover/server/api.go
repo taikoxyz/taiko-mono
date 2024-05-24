@@ -251,7 +251,31 @@ func (s *ProverServer) checkMinEthAndToken(ctx context.Context, proverAddress co
 	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
 
-	// Check prover's Taiko token balance.
+	// 1. Check prover's ETH balance, if it's using proverSet.
+	if proverAddress == s.proverAddress {
+		ethBalance, err := s.rpc.L1.BalanceAt(ctx, proverAddress, nil)
+		if err != nil {
+			return false, err
+		}
+
+		log.Info(
+			"Prover's ETH balance",
+			"balance", utils.WeiToEther(ethBalance),
+			"address", proverAddress,
+		)
+
+		if ethBalance.Cmp(s.minEthBalance) <= 0 {
+			log.Warn(
+				"Prover does not have required minimum on-chain ETH balance",
+				"providedProver", proverAddress,
+				"ethBalance", utils.WeiToEther(ethBalance),
+				"minEthBalance", utils.WeiToEther(s.minEthBalance),
+			)
+			return false, nil
+		}
+	}
+
+	// 2. Check prover's Taiko token balance.
 	balance, err := s.rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctx}, proverAddress)
 	if err != nil {
 		return false, err
