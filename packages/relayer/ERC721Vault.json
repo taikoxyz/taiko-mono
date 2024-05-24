@@ -971,7 +971,12 @@
   },
   {
     "type": "error",
-    "name": "ZERO_ADDR_MANAGER",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
     "inputs": []
   }
 ]

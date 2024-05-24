@@ -84,6 +84,8 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
+	slog.Info("guardianProverContractAddress", "addr", common.HexToAddress(cfg.GuardianProverContractAddress))
+
 	guardianProverContract, err := guardianprover.NewGuardianProver(
 		common.HexToAddress(cfg.GuardianProverContractAddress),
 		l1EthClient,
