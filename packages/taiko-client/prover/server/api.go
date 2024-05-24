@@ -140,7 +140,7 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 	if ok, err = rpc.CheckProverBalance(
 		c.Request().Context(),
 		s.rpc,
-		s.proverAddress,
+		prover,
 		s.assignmentHookAddress,
 		s.livenessBond,
 	); err != nil {
