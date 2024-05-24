@@ -170,7 +170,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
-		RaikoJWT:                                string(jwtSecret),
+		RaikoJWT:                                common.Bytes2Hex(jwtSecret),
 		StartingBlockID:                         startingBlockID,
 		Dummy:                                   c.Bool(flags.Dummy.Name),
 		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),
