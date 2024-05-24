@@ -135,7 +135,9 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --taikoL2 0x1670090000000000000000000000000000010001 \
             --jwtSecret ./jwt.txt \
             --l2.auth http://localhost:28551/ \
-            --verbosity 3
+            --verbosity 3 \
+            --p2p.sync \
+            --p2p.checkPointSyncUrl https://rpc.hekla.taiko.xyz
     ```
 
     :::note
