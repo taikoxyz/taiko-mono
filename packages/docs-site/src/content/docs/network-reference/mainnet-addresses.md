@@ -33,7 +33,7 @@ description: Network reference page describing various important addresses on Ta
 | P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` |
 | SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` |
 
-## Taiko contracts
+## Taiko (Mainnet) contracts
 
 | Contract Name (Shared) | Address                                      |
 | ---------------------- | -------------------------------------------- |
@@ -45,10 +45,10 @@ description: Network reference page describing various important addresses on Ta
 | SharedAddressManager   | `0x1670090000000000000000000000000000000006` |
 
 | Contract Name (Rollup-Specific) | Address                                      |
-| ------------------------------- | -------------------------------------------- |
+| ------------------------------- | -------------------------------------------- | -------------------------------------------- | ------------------------------- |
 | TaikoL2                         | `0x1670090000000000000000000000000000010001` |
 | RollupAddressManager            | `0x1670090000000000000000000000000000010002` |
-| BridgedTaikoToken               | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
+| <!--                            | BridgedTaikoToken                            | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` | TODO: update this when live --> |
 
 ## Rollup contracts owner
 
@@ -56,11 +56,11 @@ The rollup contracts owner is `admin.taiko.eth`, public address is `0x9CBeE534B5
 
 ## Taiko Labs' proposers and provers addresses
 
-| Name                                                   | Address                                      |
-| ------------------------------------------------------ | -------------------------------------------- |
-| Proposer #1                                            | `0xEd1bA0Ba5661D648c7b3988DAC473F60403aff1e` |
-| Prover #1                                              | `0x7B399987D24FC5951f3E94A4cb16E87414bF2229` |
-| Prover #2 (with `--prover.proveUnassignedBlocks` flag) | `0x8Adb8C4d5214309612b53845E07C3Cb5BB4E8CF0` |
+| Name         | Address                                      |
+| ------------ | -------------------------------------------- |
+| Proposer #1  | `0x000000633b68f5d8d3a86593ebb815b4663bcbe0` |
+| Prover #1    | `0x000000629FBCf27A347d1AEbA658435230D74a5f` |
+| Contester #1 | `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B` |
 
 ## Taiko Labs' bootnode addresses
 

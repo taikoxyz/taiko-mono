@@ -27,9 +27,13 @@ Yes, Taiko is open source under the permissive MIT license (free to access and m
 
 Join the Discord ([`#errors-faq` channel](https://discord.com/channels/984015101017346058/1193975550256107660)) to see the node logs that can be ignored and which are errors.
 
-## Where can I find the deployed contract addresses?
+## Where can I find the deployed contract addresses for Hekla?
 
-See [deployed contracts](/network-reference/addresses) for a list of deployed contract addresses.
+See [deployed contracts](/network-reference/testnet-addresses) for a list of deployed contract addresses.
+
+## Where can I find the deployed contract addresses for Mainnet?
+
+See [deployed contracts](/network-reference/mainnet-addresses) for a list of deployed contract addresses.
 
 ## I ran a node during a previous testnet do I need to do anything different?
 
@@ -45,6 +49,6 @@ You can use the official [Taiko bridge](https://bridge.hekla.taiko.xyz/) to send
 
 # Developer FAQs
 
-## How can I get the L1 block number from L2
+## How can I get the L1 block number from L2 on Testnet?
 
-You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/addresses#taiko-hekla-contracts).
+You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/testnet-addresses#taiko-hekla-contracts). You can do the same for [Mainnet](/network-reference/mainnet-addresses#taiko-mainnet-contracts).
