@@ -125,7 +125,7 @@ func (s *ETHFeeEOASelector) AssignProver(
 				s.protocolConfigs.ChainId,
 				endpoint,
 				expiry,
-				common.HexToAddress("0x19B4F9C381C7927FE33D853e48b560141A380C44"),
+				common.HexToAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"), // vitalik.eth
 				fees,
 				s.taikoL1Address,
 				s.assignmentHookAddress,
