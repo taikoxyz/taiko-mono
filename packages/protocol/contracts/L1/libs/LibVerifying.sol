@@ -60,6 +60,7 @@ library LibVerifying {
     }
 
     function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
+        if (_state.slotB.numBlocks > 2) revert L1_TOO_LATE();
         _setupGenesisBlock(_state, _genesisBlockHash);
     }
 
@@ -202,7 +203,7 @@ library LibVerifying {
         _state.slotA.genesisHeight = uint64(block.number);
         _state.slotA.genesisTimestamp = uint64(block.timestamp);
         _state.slotB.numBlocks = 1;
-        _state.slotB.numBlocksVerified = 0;
+        _state.slotA.lastSyncedBlockId = 0;
 
         // Init the genesis block
         TaikoData.Block storage blk = _state.blocks[0];
