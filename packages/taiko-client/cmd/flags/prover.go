@@ -228,6 +228,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1BeaconEndpoint,
 	L2WSEndpoint,
 	L2HTTPEndpoint,
+	ProverSetAddress,
 	RaikoHostEndpoint,
 	RaikoL1Endpoint,
 	RaikoL1BeaconEndpoint,
