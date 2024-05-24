@@ -125,7 +125,7 @@ func (s *ETHFeeEOASelector) AssignProver(
 				s.protocolConfigs.ChainId,
 				endpoint,
 				expiry,
-				s.proposerAddress,
+				common.HexToAddress("0x19B4F9C381C7927FE33D853e48b560141A380C44"),
 				fees,
 				s.taikoL1Address,
 				s.assignmentHookAddress,
@@ -187,6 +187,7 @@ func assignProver(
 	log.Info(
 		"Attempting to assign prover",
 		"endpoint", endpoint,
+		"proposerAddress", proposerAddress,
 		"expiry", expiry,
 		"txListHash", txListHash,
 		"tierFees", tierFees,

@@ -276,7 +276,7 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 // and then proposing them to TaikoL1 contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	var (
-		chainID = new(big.Int).SetUint64(167000)
+		chainID = new(big.Int).SetUint64(167009)
 		to      = common.HexToAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045") // vitalk.eth
 		sender  = p.proposerAddress
 		txLists []types.Transactions
