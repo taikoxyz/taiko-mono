@@ -3,6 +3,7 @@ package producer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -182,9 +183,9 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	//if len(s.JWT) > 0 {
-	//	req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	//}
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	}
 
 	res, err := client.Do(req)
 	if err != nil {
