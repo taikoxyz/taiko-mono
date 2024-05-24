@@ -67,10 +67,16 @@ contract DeployERC20Airdrop is DeployCapability {
 
     function postDeployment() internal {
         console.log("=== Post deployment ===");
+        console.log("[INFO] Approve Airdrop Contract as Spender of TKO from Airdrop Vault");
+        airdropVault.approveAirdropContractAsSpender(address(airdropContract), 50_000_000_000e18);
+
         if (block.chainid != 167_000) {
             // If testnet, mint 50 Million tokens to the vault
             console.log("[TEST] Minting 50 Million tokens to the vault");
             MockERC20(bridgedTko).mint(vaultAddress, 50_000_000_000e18);
+            console.log("[INFO] Set Merkle Proof, Start Time and End Time");
+            // Set Merkle Proof, Start Time and End Time
+            airdropContract.setConfig(0, 999_999_999_999, bytes32(0));
         } else {
             // Transfer ownership to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be
             // This address will have ownership of the airdrop contract which will have the ability
@@ -123,14 +129,13 @@ contract DeployERC20Airdrop is DeployCapability {
             })
         );
 
-        /// @dev Once the Vault is done, we need to have a contract in that vault through which we
+        /// @dev Once the Vault is done, wep need to have a contract in that vault through which we
         /// authorize the airdrop contract to be a spender of the vault.
         // example:
         //
         // SOME_VAULT_CONTRACT(vaultAddress).approveAirdropContractAsSpender(
         //     bridgedTko, address(ERC20Airdrop), 50_000_000_000e18
         // );
-        airdropVault.approveAirdropContractAsSpender(address(airdropContract), 50_000_000_000e18);
 
         postDeployment();
         vm.stopBroadcast();
