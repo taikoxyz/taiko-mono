@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"math/big"
 	"net/url"
 	"time"
@@ -16,8 +15,8 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
-
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
