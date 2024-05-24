@@ -184,8 +184,6 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if len(s.JWT) > 0 {
-		log.Info("base string", s.JWT)
-		log.Info("encode value", base64.StdEncoding.EncodeToString([]byte(s.JWT)))
 		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
 	}
 
