@@ -46,6 +46,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
+        if (msg.value < _op.fee) revert VAULT_INSURFICIENT_FEE();
+
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
         IBridge.Message memory message = IBridge.Message({

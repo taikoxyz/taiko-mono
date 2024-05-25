@@ -47,6 +47,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
+        if (msg.value < _op.fee) revert VAULT_INSURFICIENT_FEE();
+
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
         // Create a message to send to the destination chain
