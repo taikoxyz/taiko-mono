@@ -11,5 +11,6 @@
   "packages/taiko-client": "0.22.0",
   "packages/nfts": "1.0.0",
   "packages/supplementary-contracts": "1.0.0",
-  "packages/taikoon-ui": "1.0.0"
+  "packages/taikoon-ui": "1.0.0",
+  "packages/ui-lib": "1.0.0"
 }
