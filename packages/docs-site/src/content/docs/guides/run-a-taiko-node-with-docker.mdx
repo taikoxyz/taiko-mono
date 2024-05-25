@@ -3,7 +3,7 @@ title: Run a Taiko node with Docker
 description: This guide will help you start up a Taiko RPC node using simple-taiko-node.
 ---
 
-import { Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 This guide will help you start up a Taiko RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
 
@@ -63,13 +63,13 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
       </TabItem>
     </Tabs>
 
-    :::note
+    <Aside>
     You can use any Holesky L1 endpoint.
 
     The Holesky L1 node is no longer required to be an archive node to run a Taiko L1 node unless you want to prove blocks past the last 128 blocks.
 
     It's recommended to [run a local Holesky node](/guides/run-a-holesky-node) but you browse around for other [Holesky RPC providers](https://chainlist.org/chain/17000). Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
-    :::
+    </Aside>
 
     Next, you will set the L1 node endpoints. If you are running a local Holesky node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545`, `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:
 
@@ -94,9 +94,9 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
 
-    :::note
+    <Aside>
     This only starts the driver and l2 execution engine service, if you'd like to run a prover/proposer please visit those guides.
-    :::
+    </Aside>
 
     ```sh
     docker compose --profile l2_execution_engine up -d

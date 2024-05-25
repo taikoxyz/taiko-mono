@@ -3,7 +3,7 @@ title: Enable a prover
 description: This guide will you help you enable your Taiko node as a prover.
 ---
 
-import { Steps } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
@@ -12,9 +12,9 @@ import { Steps } from "@astrojs/starlight/components";
 
 ## Enable a prover with simple-taiko-node
 
-:::note
+<Aside>
 The SGX registration process now occurs fully onchain! By registering through on-chain RA, TTKOh will be deposited to your prover's L1 Address.
-:::
+</Aside>
 
 <Steps>
 
@@ -30,9 +30,9 @@ The SGX registration process now occurs fully onchain! By registering through on
 
 6. You can then run your prover with `docker compose --profile prover up -d`!
 
-   :::note
+   <Aside>
    These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the .env file as you see fit!
-   :::
+   </Aside>
 
 </Steps>
 

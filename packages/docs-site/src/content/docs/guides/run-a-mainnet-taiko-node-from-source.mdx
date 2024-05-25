@@ -3,7 +3,7 @@ title: Run a Mainnet Taiko Node From Source
 description: This guide will help you start up a Taiko node.
 ---
 
-import { Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 This tutorial explains how to run an Taiko node for Mainnet from source code.
 
@@ -99,9 +99,9 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
 2. Copy the JWT secret
 
-    :::note 
+    <Aside>
     This should be the *same* JWT secret you used in the previous step for `taiko-geth`.
-    :::
+    </Aside>
         
     ```bash
     cp /path/to/jwt.txt .
@@ -140,9 +140,9 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --p2p.checkPointSyncUrl https://rpc.mainnet.taiko.xyz
     ```
 
-    :::note
+    <Aside>
     If you've participated in our old testnets, the L1 Node is no longer required to be an archive node!
-    :::
+    </Aside>
 </Steps>
 
 ### Syncing

@@ -3,7 +3,7 @@ title: Building a Node from Source
 description: Learn how to build your own node without relying on simple-taiko-node or prebuilt images
 ---
 
-import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
 This guide shows you how to build your own node from source code.
 
@@ -79,10 +79,10 @@ First you're going to build `taiko-client`.
     git checkout <release branch>
     ```
 
-    :::note
+    <Aside>
     Make sure to read the releases page carefully to determine the correct branch to check out.
     Some may be specific to testnet or mainnet.
-    :::
+    </Aside>
 
 3. Build `taiko-client`
 
@@ -126,10 +126,10 @@ Next you're going to build `taiko-geth`.
     git checkout <release branch>
     ```
 
-    :::note
+    <Aside>
     Make sure to read the releases page carefully to determine the correct branch to check out.
     Some may be specific to testnet or mainnet.
-    :::
+    </Aside>
 
 3. Build `taiko-geth`
 
@@ -142,6 +142,6 @@ Next you're going to build `taiko-geth`.
 ## What's Next?
     Now that you've built your own node from source, you can run it for Taiko Mainnet or Testnet!
 
-{/* *   Click here to [Run a Mainnet Taiko Node from Source](/guides/run-a-mainnet-taiko-node-from-source) */}
+*   Click here to [Run a Mainnet Taiko Node from Source](/guides/run-a-mainnet-taiko-node-from-source)
 *   Click here to [Run a Testnet Taiko Node from Source](/guides/run-a-testnet-taiko-node-from-source)
 *   If you run into any problems, please visit the [troubleshooting page](/guides/node-troubleshooting) for help.
