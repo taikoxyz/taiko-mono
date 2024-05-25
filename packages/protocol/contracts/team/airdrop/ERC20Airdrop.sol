@@ -62,10 +62,4 @@ contract ERC20Airdrop is MerkleClaimable {
         // Transfer the tokens to owner
         token.transfer(owner(), token.balanceOf(address(this)));
     }
-
-    /// @notice Withdraw ETH from the Vault
-    /// @dev Only the owner can execute this function
-    function withdrawETH() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
-    }
 }
