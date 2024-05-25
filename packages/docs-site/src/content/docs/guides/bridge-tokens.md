@@ -1,17 +1,17 @@
 ---
 title: Bridge tokens
-description: This guide will help you use the bridge to send tokens between Holesky and Taiko.
+description: This guide will help you use the bridge to send tokens between Holesky and Hekla.
 ---
 
 :::note
 Please be aware, bridging back to L1 will take around 24 hours! See [network configuration](/network-reference/network-configuration) for the currently configured cooldown period.
 :::
 
-This guide will help you use the bridge to send tokens between Holesky and Taiko.
+This guide will help you use the bridge to send tokens between Holesky and Hekla.
 
 ## Prerequisites
 
-- A wallet with some testnet ETH on Holesky or Taiko.
+- A wallet with some testnet ETH on Holesky or Hekla.
 
 ## Bridge tokens
 

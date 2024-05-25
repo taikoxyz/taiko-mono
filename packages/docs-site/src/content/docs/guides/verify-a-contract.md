@@ -9,11 +9,11 @@ This guide will help you verify a smart contract on Taiko.
 
 You have a contract deployed on Taiko and the source code available.
 
-### Hekla
+## Hekla
 
 ---
 
-#### Verify a contract with Foundry
+### Verify a contract with Foundry
 
 Replace the contract address and filepath to contract below, and then execute in terminal to verify your contract.
 
@@ -32,15 +32,15 @@ For some users the above command does not work on Blockscout (currently investig
 
 :::
 
-#### Verify a contract with Hardhat or other alternatives
+### Verify a contract with Hardhat or other alternatives
 
 Check out the Blockscout docs [here](https://docs.blockscout.com/for-users/verifying-a-smart-contract)!
 
-### Mainnet
+## Mainnet
 
 ---
 
-#### Verify a contract with Foundry
+### Verify a contract with Foundry
 
 Replace the contract address and filepath to contract below, and then execute in terminal to verify your contract.
 
