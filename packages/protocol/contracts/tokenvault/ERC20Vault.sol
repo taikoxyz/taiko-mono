@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../bridge/IQuotaManager.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
@@ -17,6 +18,7 @@ import "./BaseVault.sol";
 /// @dev Labeled in AddressResolver as "erc20_vault".
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
+    using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -143,6 +145,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
+    error VAULT_INVALID_CTOKEN();
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
@@ -166,8 +169,15 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (address btokenOld_)
     {
-        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
+        if (
+            _btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)
+                || !_btokenNew.isContract()
+        ) {
             revert VAULT_INVALID_NEW_BTOKEN();
+        }
+
+        if (_ctoken.addr == address(0) || _ctoken.chainId == block.chainid) {
+            revert VAULT_INVALID_CTOKEN();
         }
 
         if (btokenBlacklist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
