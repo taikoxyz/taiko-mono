@@ -3,11 +3,12 @@ title: Enable a prover
 description: This guide will you help you enable your Taiko node as a prover.
 ---
 
-import { Steps } from '@astrojs/starlight/components';
+import { Steps } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
 - You are already running a Taiko node [with Docker](/guides/run-a-taiko-node-with-docker) or [from source](/guides/build-a-taiko-node-from-source).
+- You have an [SGX v2 capable machine](https://github.com/ayeks/SGX-hardware#hardware-with-sgx2-support).
 
 ## Enable a prover with simple-taiko-node
 
@@ -29,9 +30,9 @@ The SGX registration process now occurs fully onchain! By registering through on
 
 6. You can then run your prover with `docker compose --profile prover up -d`!
 
-    :::note
-    These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the .env file as you see fit!
-    :::
+   :::note
+   These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the .env file as you see fit!
+   :::
 
 </Steps>
 
@@ -43,7 +44,7 @@ You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the
 
 1. Approve the TaikoL1 contract as a spender.
 
-    Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
+   Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
 
 2. Click the **Connect to Web3** button.
 
@@ -51,7 +52,7 @@ You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the
 
 4. Set the amount to at least the minimum bond amount of 250 TTKOh.
 
-    You will need 250 TTKOh for each bond you sign. After entering 250, you need to set the 18 decimals that the TTKOh contract takes, you can click the plus button and then select 10^18.
+   You will need 250 TTKOh for each bond you sign. After entering 250, you need to set the 18 decimals that the TTKOh contract takes, you can click the plus button and then select 10^18.
 
 5. Finally, click the **Write** button.
 
