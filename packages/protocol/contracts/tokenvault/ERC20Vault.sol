@@ -51,7 +51,7 @@ contract ERC20Vault is BaseVault {
     mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
     /// @notice Mappings from bridged tokens to their blacklist status.
-    mapping(address btoken => bool blacklisted) public btokenBlacklist;
+    mapping(address btoken => bool denied) public btokenDenylist;
 
     /// @notice Mappings from ctoken to its last migration timestamp.
     mapping(uint256 chainId => mapping(address ctoken => uint256 timestamp)) public
@@ -170,7 +170,7 @@ contract ERC20Vault is BaseVault {
             revert VAULT_INVALID_NEW_BTOKEN();
         }
 
-        if (btokenBlacklist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
+        if (btokenDenylist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
 
         uint256 _lastMigrationStart = lastMigrationStart[_ctoken.chainId][_ctoken.addr];
         if (block.timestamp < _lastMigrationStart + MIN_MIGRATION_DELAY) {
@@ -188,7 +188,7 @@ contract ERC20Vault is BaseVault {
             }
 
             delete bridgedToCanonical[btokenOld_];
-            btokenBlacklist[btokenOld_] = true;
+            btokenDenylist[btokenOld_] = true;
 
             // Start the migration
             if (
@@ -229,7 +229,7 @@ contract ERC20Vault is BaseVault {
     {
         if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
-        if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
+        if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(_op);
