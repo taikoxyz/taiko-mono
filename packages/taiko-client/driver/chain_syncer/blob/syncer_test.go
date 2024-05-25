@@ -42,6 +42,7 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
 		nil,
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -57,6 +58,7 @@ func (s *BlobSyncerTestSuite) TestCancelNewSyncer() {
 		s.s.state,
 		s.s.progressTracker,
 		0,
+		nil,
 		nil,
 	)
 	s.Nil(syncer)
