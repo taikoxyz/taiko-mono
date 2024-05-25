@@ -13,7 +13,7 @@ contract PostMainnetLaunch is Script {
     address public bridgedUSDC = address(0); // TODO
 
     address public erc20Vault = 0x1670000000000000000000000000000000000002;
-    address bridge = 0x1670000000000000000000000000000000000001;
+    address public bridge = 0x1670000000000000000000000000000000000001;
 
     function run() external {
         vm.startBroadcast();
