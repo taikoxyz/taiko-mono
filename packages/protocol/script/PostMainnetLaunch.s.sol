@@ -16,8 +16,6 @@ contract PostMainnetLaunch is Script {
     address public bridge = 0x1670000000000000000000000000000000000001;
 
     function run() external {
-        vm.startBroadcast();
-
         ERC20Vault.CanonicalERC20 memory canonical;
         canonical.chainId = 1;
 
@@ -25,16 +23,25 @@ contract PostMainnetLaunch is Script {
         canonical.decimals = 18;
         canonical.symbol = "TKO";
         canonical.name = "Taiko Token";
-        ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedTKO);
+
+        // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedTKO);
+        bytes memory call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedTKO));
+
+        console2.log(erc20Vault);
+        console.logBytes(call);
 
         canonical.addr = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
         canonical.decimals = 6;
         canonical.symbol = "USDC";
         canonical.name = "USD Coin";
-        ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedUSDC);
+        // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedUSDC);
+        call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedUSDC));
+        console2.log(erc20Vault);
+        console.logBytes(call);
 
-        Bridge(bridge).unpause();
-
-        vm.stopBroadcast();
+        // Bridge(bridge).unpause();
+        call = abi.encodeCall(EssentialContract.unpause, ());
+        console2.log(bridge);
+        console.logBytes(call);
     }
 }
