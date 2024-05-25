@@ -3,7 +3,7 @@ title: Building a Node from Source
 description: Learn how to build your own node without relying on simple-taiko-node or prebuilt images
 ---
 
-import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Card, CardGrid, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
 This guide shows you how to build your own node from source code.
 
@@ -142,6 +142,14 @@ Next you're going to build `taiko-geth`.
 ## What's Next?
     Now that you've built your own node from source, you can run it for Taiko Mainnet or Testnet!
 
-*   Click here to [Run a Mainnet Taiko Node from Source](/guides/run-a-mainnet-taiko-node-from-source)
-*   Click here to [Run a Testnet Taiko Node from Source](/guides/run-a-testnet-taiko-node-from-source)
-*   If you run into any problems, please visit the [troubleshooting page](/guides/node-troubleshooting) for help.
+<CardGrid stagger>
+    <Card title="Mainnet Taiko Node" icon="laptop">
+        Click here to [Run a Mainnet Taiko Node from Source](/guides/run-a-mainnet-taiko-node-from-source)!
+    </Card>
+     <Card title="Testnet Taiko Node" icon="laptop">
+        Click here to [Run a Testnet Taiko Node from Source](/guides/run-a-testnet-taiko-node-from-source)!
+    </Card>
+     <Card title="Troubleshooting" icon="error">
+        If you run into any problems, please visit the [troubleshooting page](/guides/node-troubleshooting) for help.
+    </Card>
+</CardGrid>
