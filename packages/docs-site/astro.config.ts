@@ -125,8 +125,8 @@ export default defineConfig({
             { label: "Build a Taiko Node from Source", link: "/guides/build-a-taiko-node-from-source/" },
             { label: "Run a Mainnet Taiko Node from Source", link: "/guides/run-a-mainnet-taiko-node-from-source/" },
             { label: "Run a Testnet Taiko Node from Source", link: "/guides/run-a-testnet-taiko-node-from-source/" },
-            { label: "Enable a proposer", link: "/guides/enable-a-proposer/" },
-            { label: "Enable a prover", link: "/guides/enable-a-prover/" },
+            { label: "Enable a Testnet Proposer", link: "/guides/enable-a-proposer/" },
+            { label: "Enable a Testnet Prover", link: "/guides/enable-a-prover/" },
             { label: "Node Troubleshooting", link:"/guides/node-troubleshooting/" }
           ],
         },

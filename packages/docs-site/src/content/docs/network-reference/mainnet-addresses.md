@@ -45,10 +45,9 @@ description: Network reference page describing various important addresses on Ta
 | SharedAddressManager   | `0x1670090000000000000000000000000000000006` |
 
 | Contract Name (Rollup-Specific) | Address                                      |
-| ------------------------------- | -------------------------------------------- | -------------------------------------------- | ------------------------------- |
+| ------------------------------- | -------------------------------------------- |
 | TaikoL2                         | `0x1670090000000000000000000000000000010001` |
 | RollupAddressManager            | `0x1670090000000000000000000000000000010002` |
-| <!--                            | BridgedTaikoToken                            | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` | TODO: update this when live --> |
 
 ## Rollup contracts owner
 
@@ -64,4 +63,4 @@ The rollup contracts owner is `admin.taiko.eth`, public address is `0x9CBeE534B5
 
 ## Taiko Labs' bootnode addresses
 
-Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/main/.env.sample).
+Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/mainnet/.env.sample).

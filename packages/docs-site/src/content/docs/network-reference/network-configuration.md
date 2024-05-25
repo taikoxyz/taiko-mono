@@ -17,7 +17,7 @@ You can view the full network configuration by visiting the TaikoL1 contract on 
 
 ## Tier configuration (Mainnet)
 
-<!-- ![mainnet proof tiers](~/assets/content/docs/network-reference/proof-tier-config-mn.webp) -->
+![mainnet proof tiers](~/assets/content/docs/network-reference/proof-tier-config-mn.webp)
 
 ## Network configuration (Mainnet)
 
