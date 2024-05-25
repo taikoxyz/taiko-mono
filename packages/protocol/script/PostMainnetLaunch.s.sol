@@ -15,7 +15,7 @@ contract PostMainnetLaunch is Script {
     address public erc20Vault = 0x1670000000000000000000000000000000000002;
     address public bridge = 0x1670000000000000000000000000000000000001;
 
-    function run() external {
+    function run() external view {
         ERC20Vault.CanonicalERC20 memory canonical;
         canonical.chainId = 1;
 
