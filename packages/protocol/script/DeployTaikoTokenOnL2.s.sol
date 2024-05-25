@@ -16,7 +16,7 @@ contract DeployTaikoTokenOnL2 is DeployCapability {
     }
 
     function run() external broadcast {
-        // Change BridgedToken
+        // For correct address manager
         ERC20Vault vault = ERC20Vault(l2Erc20Vault);
 
         // Deploy the TaikoToken contract on L2
