@@ -62,6 +62,9 @@ contract ProverSet is EssentialContract, IERC1271 {
         tko.approve(resolve(LibStrings.B_ASSIGNMENT_HOOK, false), type(uint256).max);
     }
 
+    /// @notice Receives ETH as fees.
+    receive() external payable { }
+
     /// @notice Enables or disables a prover.
     function enableProver(address _prover, bool _isProver) external onlyAuthorized {
         if (isProver[_prover] == _isProver) revert INVALID_STATUS();
