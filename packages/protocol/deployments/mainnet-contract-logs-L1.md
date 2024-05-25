@@ -156,7 +156,7 @@
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - assignment_hook: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
-  - prover_set: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
+  - prover_set: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
   - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
@@ -166,7 +166,8 @@
   - Upgraded from `0xd912aB787624c9eb96a37e658e9596e114360440` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
   - register `chain_watchdog` on May 21 @tx`0xaed098ad0c93113e401f61358f963501f40a046c5b5b659a1610f10120a9a86b`
-  - register`prover_set` to `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` @tx`0x252cd7fcb6e02a71c0770d00f2f2476d5dd469a4fb5df622fe7bf6280d8a4100`
+  - register `prover_set` to `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` @tx`0x252cd7fcb6e02a71c0770d00f2f2476d5dd469a4fb5df622fe7bf6280d8a4100`
+  - register `prover_set` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
 
 #### taikoL1
 
@@ -297,7 +298,7 @@
 ### labprovers.taiko.eth
 
 - ens: `labprovers.taiko.eth`
-- proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
+- proxy: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
 - impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
@@ -305,3 +306,4 @@
 - logs:
   - deployed @commit`bca493f`@tx`0xf3b6af477112d0a8209506c8f310f4eb0713beebb1911ef5d11162d36d93c0ff`
   - enabled two provers (`0x000000629FBCf27A347d1AEbA658435230D74a5f` and `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) @tx`0xa0b1565473849bc753d395abd982e6899ecdd9e754014eebed67b69edadb61c5`
+  - upgraded from `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
