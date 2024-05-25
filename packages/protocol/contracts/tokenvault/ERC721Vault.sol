@@ -38,6 +38,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
+        if (msg.value < _op.fee) revert VAULT_INSURFICIENT_FEE();
+
         for (uint256 i; i < _op.tokenIds.length; ++i) {
             if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
         }
@@ -45,8 +47,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         if (!_op.token.supportsInterface(type(IERC721).interfaceId)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
-
-        if (msg.value < _op.fee) revert VAULT_INSURFICIENT_FEE();
 
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
