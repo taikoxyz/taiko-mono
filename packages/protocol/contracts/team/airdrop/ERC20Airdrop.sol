@@ -13,10 +13,7 @@ contract ERC20Airdrop is MerkleClaimable {
     using SafeERC20 for IERC20;
 
     /// @notice The address of the Taiko token contract.
-    address public token;
-
-    /// @notice The address of the vault contract.
-    address public vault;
+    IERC20 public token;
 
     uint256[48] private __gap;
 
@@ -26,14 +23,12 @@ contract ERC20Airdrop is MerkleClaimable {
     /// @param _claimEnd The end time of the claim period.
     /// @param _merkleRoot The merkle root.
     /// @param _token The address of the token contract.
-    /// @param _vault The address of the vault contract.
     function init(
         address _owner,
         uint64 _claimStart,
         uint64 _claimEnd,
         bytes32 _merkleRoot,
-        address _token,
-        address _vault
+        IERC20 _token
     )
         external
         initializer
@@ -42,7 +37,6 @@ contract ERC20Airdrop is MerkleClaimable {
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
 
         token = _token;
-        vault = _vault;
     }
 
     /// @notice Claims the airdrop for the user.
@@ -53,7 +47,25 @@ contract ERC20Airdrop is MerkleClaimable {
         // Check if this can be claimed
         _verifyClaim(abi.encode(user, amount), proof);
 
-        // Transfer the tokens
-        IERC20(token).safeTransferFrom(vault, user, amount);
+        // Transfer the tokens from contract
+        IERC20(token).transfer(user, amount);
+    }
+
+    /// @notice Withdraw ERC20 tokens from the Vault
+    /// @param _token The ERC20 token address to withdraw
+    /// @dev Only the owner can execute this function
+    function withdrawERC20(IERC20 _token) external onlyOwner {
+        // If token address is address(0), use token
+        if (address(_token) == address(0)) {
+            _token = token;
+        }
+        // Transfer the tokens to owner
+        token.transfer(owner(), token.balanceOf(address(this)));
+    }
+
+    /// @notice Withdraw ETH from the Vault
+    /// @dev Only the owner can execute this function
+    function withdrawETH() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
     }
 }
