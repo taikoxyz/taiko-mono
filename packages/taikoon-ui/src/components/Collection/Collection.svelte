@@ -12,6 +12,8 @@
   export let tokenIds: number[] = [];
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
+  export let disableClick = false;
+
   export let title: string = 'The Collection';
 
   export let isLoading = false;
@@ -45,7 +47,7 @@
     <div class={taikoonsWrapperClasses}>
       {#each tokenIds as tokenId}
         <a
-          href={`#${tokenId}`}
+          href={disableClick ? '#' : `#${tokenId}`}
           class={classNames('w-full', 'rounded-xl', 'lg:rounded-3xl', 'md:rounded-2xl', 'overflow-hidden')}>
           <NftRenderer size="full" {tokenId} />
         </a>
