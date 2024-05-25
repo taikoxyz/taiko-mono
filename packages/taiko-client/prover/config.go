@@ -23,7 +23,6 @@ import (
 type Config struct {
 	L1WsEndpoint                            string
 	L1HttpEndpoint                          string
-	L1BeaconEndpoint                        string
 	L2WsEndpoint                            string
 	L2HttpEndpoint                          string
 	TaikoL1Address                          common.Address
@@ -73,10 +72,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProverPrivKey.Name)))
 	if err != nil {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
-	}
-
-	if !c.IsSet(flags.L1BeaconEndpoint.Name) {
-		return nil, errors.New("empty L1 beacon endpoint")
 	}
 
 	var startingBlockID *big.Int
@@ -160,7 +155,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
-		L1BeaconEndpoint:                        c.String(flags.L1BeaconEndpoint.Name),
 		L2WsEndpoint:                            c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:                          c.String(flags.L2HTTPEndpoint.Name),
 		TaikoL1Address:                          common.HexToAddress(c.String(flags.TaikoL1Address.Name)),

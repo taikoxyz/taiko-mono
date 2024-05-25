@@ -240,6 +240,7 @@ contract ERC20Vault is BaseVault {
         if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
+        if (msg.value < _op.fee) revert VAULT_INSURFICIENT_FEE();
 
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(_op);
