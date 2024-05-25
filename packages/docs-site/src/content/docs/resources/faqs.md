@@ -3,8 +3,6 @@ title: FAQs
 description: Resource page for listing out FAQs.
 ---
 
-This page is divided between [General FAQs](#general-faqs) and [Developer FAQs](#developer-faqs).
-
 ## General FAQs
 
 ### What is Taiko?
