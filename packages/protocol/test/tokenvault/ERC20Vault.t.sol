@@ -607,6 +607,19 @@ contract TestERC20Vault is TaikoTest {
             address(usdc)
         );
 
+        // invalid btoken
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_CTOKEN.selector);
+        erc20Vault.changeBridgedToken(
+            ERC20Vault.CanonicalERC20({
+                chainId: uint64(block.chainid),
+                addr: address(erc20),
+                decimals: 18,
+                symbol: "ERC20TT",
+                name: "ERC20 Test token"
+            }),
+            address(usdc)
+        );
+
         // We cannot use stETH for erc20 (as it is used in connection with another token)
         vm.expectRevert(ERC20Vault.VAULT_INVALID_NEW_BTOKEN.selector);
         erc20Vault.changeBridgedToken(
