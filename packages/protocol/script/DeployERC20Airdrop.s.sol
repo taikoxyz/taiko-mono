@@ -18,16 +18,13 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // 3. Backend retrieves the proof and together with signature in the input params, user fires away
 // the claimAndDelegate() transaction.
 
-import { MockAddressManager } from "../test/mocks/MockAddressManager.sol";
-import { MockERC20Vault } from "../test/mocks/MockERC20Vault.sol";
 import { MockERC20 } from "../test/mocks/MockERC20.sol";
-import { BridgedERC20 } from "../contracts/tokenvault/BridgedERC20.sol";
-import { AirdropVault } from "../contracts/team/airdrop/AirdropVault.sol";
 
 /// @title Deployment script for ERC20 Airdrop
 /// @notice This contract is designed to deploy an ERC20 Airdrop contract
 /// @dev The contract uses environment variables to configure the deployment and sets up necessary
 /// permissions.
+
 contract DeployERC20Airdrop is DeployCapability {
     /// @notice Private key of the deployer used for transactions
     /// @dev This private key must be set in the environment variables and is critical for contract
@@ -39,13 +36,15 @@ contract DeployERC20Airdrop is DeployCapability {
     /// proceed
     address public bridgedTko = vm.envAddress("BRIDGED_TKO_ADDRESS");
 
-    /// @notice Address of the vault where tokens will be stored
-    /// @dev The vault address must be valid for the deployment to proceed
-    address public vaultAddress = vm.envAddress("VAULT_ADDRESS");
+    uint256 public airdropStartTime = vm.envUint("AIRDROP_START_TIME");
 
-    address public airdropContractAddress;
+    uint256 public airdropEndTime = vm.envUint("AIRDROP_END_TIME");
+
+    /// @notice Private key of the deployer used for transactions
+    /// @dev This private key must be set in the environment variables and is critical for contract
+    /// deployment
+    bytes32 public merkleRoot = vm.envBytes32("AIRDROP_MERKLE_ROOT");
     ERC20Airdrop airdropContract;
-    AirdropVault airdropVault;
 
     /// @notice Prepares the contract setup for deployment
     /// @dev This function checks for the presence of the bridgedTko and vaultAddress.
@@ -67,16 +66,19 @@ contract DeployERC20Airdrop is DeployCapability {
 
     function postDeployment() internal {
         console.log("=== Post deployment ===");
-        console.log("[INFO] Approve Airdrop Contract as Spender of TKO from Airdrop Vault");
-        airdropVault.approveAirdropContractAsSpender(address(airdropContract), 50_000_000_000e18);
 
         if (block.chainid != 167_000) {
             // If testnet, mint 50 Million tokens to the vault
-            console.log("[TEST] Minting 50 Million tokens to the vault");
-            MockERC20(bridgedTko).mint(vaultAddress, 50_000_000_000e18);
-            console.log("[INFO] Set Merkle Proof, Start Time and End Time");
+            console.log("[TEST] Minting 50 Million tokens to the airdrop contract");
+            MockERC20(bridgedTko).mint(address(airdropContract), 50_000_000_000e18);
+            console.log("[INFO] Setting Airdrop Config");
+            console.log(" - Airdrop Start Time:", airdropStartTime);
+            console.log(" - Airdrop End Time:", airdropEndTime);
+            console.log(" - Merkle Root:");
+            console.logBytes32(merkleRoot);
+
             // Set Merkle Proof, Start Time and End Time
-            airdropContract.setConfig(0, 999_999_999_999, bytes32(0));
+            airdropContract.setConfig(uint64(airdropStartTime), uint64(airdropEndTime), merkleRoot);
         } else {
             // Transfer ownership to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be
             // This address will have ownership of the airdrop contract which will have the ability
@@ -86,11 +88,12 @@ contract DeployERC20Airdrop is DeployCapability {
                 "[INFO] Transferring Ownership of Airdrop Contract to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be"
             );
             airdropContract.transferOwnership(0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be);
-            console.log(
-                "[INFO] Transferring Ownership of Airdrop Vault to 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be"
-            );
-            airdropVault.transferOwnership(0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be);
         }
+
+        // Print Deployment Addresses
+        console.log("[INFO] Deployment Addresses");
+        console.log("[INFO] Airdrop Contract:", address(airdropContract));
+        console.log("[INFO] TKO:", bridgedTko);
     }
 
     /// @notice Runs the deployment script to deploy the ERC20 Airdrop contract
@@ -107,15 +110,6 @@ contract DeployERC20Airdrop is DeployCapability {
         require(deployerPrivKey != 0, "invalid deployer priv key");
         console.log("[INFO] Deploying from", vm.addr(deployerPrivKey));
 
-        // Deploy AirdropVault if not deployed already
-        if (vaultAddress == address(0)) {
-            console.log("[INFO] VaultAddress is not set, Deploying AirdropVault");
-            // Deploy the vault contract args: owner, tkoToken
-            airdropVault = new AirdropVault(vm.addr(deployerPrivKey), IERC20(bridgedTko));
-            vaultAddress = address(airdropVault);
-        }
-
-        require(vaultAddress != address(0), "invalid vault address");
         require(bridgedTko != address(0), "invalid bridged tko address");
 
         // Deploy the ERC20Airdrop contract with initial parameters
@@ -124,18 +118,17 @@ contract DeployERC20Airdrop is DeployCapability {
                 name: "ERC20Airdrop",
                 impl: address(new ERC20Airdrop()),
                 data: abi.encodeCall(
-                    ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
+                    ERC20Airdrop.init,
+                    (
+                        address(0), // Owner
+                        uint64(airdropStartTime), // Airdrop Start Time
+                        uint64(airdropEndTime), // Airdrop End Time
+                        merkleRoot, // Merkle Root
+                        IERC20(bridgedTko) // TKO Token
+                    )
                 )
             })
         );
-
-        /// @dev Once the Vault is done, wep need to have a contract in that vault through which we
-        /// authorize the airdrop contract to be a spender of the vault.
-        // example:
-        //
-        // SOME_VAULT_CONTRACT(vaultAddress).approveAirdropContractAsSpender(
-        //     bridgedTko, address(ERC20Airdrop), 50_000_000_000e18
-        // );
 
         postDeployment();
         vm.stopBroadcast();
