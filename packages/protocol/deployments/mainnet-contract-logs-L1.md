@@ -113,7 +113,7 @@
 
 - ens: `v1155.based.taiko.eth`
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
-- impl: `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE`
+- impl: `0x097BBBef669AaD66030aB223195D200eF9A47dc3`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
