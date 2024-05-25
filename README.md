@@ -58,9 +58,6 @@ If you find a bug or have a feature request, please [open an issue](https://gith
 
 ## Contributing
 
-> [!WARNING]
-> Please refrain from submitting typo/comment-only pull requests with the expectation of receiving TKO airdrops.
-
 Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [grants.taiko.xyz](https://grants.taiko.xyz).
 
 ## Getting support

@@ -41,23 +41,11 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
-	RaikoL1Endpoint = &cli.StringFlag{
-		Name:     "raiko.l1",
-		Usage:    "L1 RPC endpoint which will be sent to the Raiko service",
+	RaikoJWTPath = &cli.StringFlag{
+		Name:     "raiko.jwtPath",
+		Usage:    "Path to a JWT secret for the Raiko service",
 		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_L1"},
-	}
-	RaikoL1BeaconEndpoint = &cli.StringFlag{
-		Name:     "raiko.l1Beacon",
-		Usage:    "L1 beacon RPC endpoint which will be sent to the Raiko service",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_L1_BEACON"},
-	}
-	RaikoL2Endpoint = &cli.StringFlag{
-		Name:     "raiko.l2",
-		Usage:    "L2 RPC endpoint which will be sent to the Raiko service",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_L2"},
+		EnvVars:  []string{"RAIKO_JWT_PATH"},
 	}
 	StartingBlockID = &cli.Uint64Flag{
 		Name:     "prover.startingBlockID",
@@ -228,10 +216,9 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1BeaconEndpoint,
 	L2WSEndpoint,
 	L2HTTPEndpoint,
+	ProverSetAddress,
 	RaikoHostEndpoint,
-	RaikoL1Endpoint,
-	RaikoL1BeaconEndpoint,
-	RaikoL2Endpoint,
+	RaikoJWTPath,
 	L1ProverPrivKey,
 	MinOptimisticTierFee,
 	MinSgxTierFee,
