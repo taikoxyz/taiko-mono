@@ -15,8 +15,8 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
-
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
@@ -58,9 +58,7 @@ type Config struct {
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
-	RaikoL1Endpoint                         string
-	RaikoL1BeaconEndpoint                   string
-	RaikoL2Endpoint                         string
+	RaikoJWT                                string
 	L1NodeVersion                           string
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
@@ -69,6 +67,9 @@ type Config struct {
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	var (
+		jwtSecret []byte
+	)
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProverPrivKey.Name)))
 	if err != nil {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
@@ -119,20 +120,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return nil, errors.New("--prover.l2NodeVersion flag is required if guardian prover is set")
 		}
 	}
-	var (
-		raikoL1Endpoint       = c.String(flags.RaikoL1Endpoint.Name)
-		raikoL1BeaconEndpoint = c.String(flags.RaikoL1BeaconEndpoint.Name)
-		raikoL2Endpoint       = c.String(flags.RaikoL2Endpoint.Name)
-	)
-	if raikoL1Endpoint == "" {
-		raikoL1Endpoint = c.String(flags.L1HTTPEndpoint.Name)
-	}
-	if raikoL1BeaconEndpoint == "" {
-		raikoL1BeaconEndpoint = c.String(flags.L1BeaconEndpoint.Name)
-	}
-	if raikoL2Endpoint == "" {
-		raikoL2Endpoint = c.String(flags.L2HTTPEndpoint.Name)
-	}
 
 	minOptimisticTierFee, err := utils.GWeiToWei(c.Float64(flags.MinOptimisticTierFee.Name))
 	if err != nil {
@@ -163,6 +150,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty raiko host endpoint")
 	}
 
+	if c.IsSet(flags.RaikoJWTPath.Name) {
+		jwtSecret, err = jwt.ParseSecretFromFile(c.String(flags.RaikoJWTPath.Name))
+		if err != nil {
+			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
+		}
+	}
+
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
@@ -176,9 +170,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
-		RaikoL1Endpoint:                         raikoL1Endpoint,
-		RaikoL1BeaconEndpoint:                   raikoL1BeaconEndpoint,
-		RaikoL2Endpoint:                         raikoL2Endpoint,
+		RaikoJWT:                                common.Bytes2Hex(jwtSecret),
 		StartingBlockID:                         startingBlockID,
 		Dummy:                                   c.Bool(flags.Dummy.Name),
 		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),
