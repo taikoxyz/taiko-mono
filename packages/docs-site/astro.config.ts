@@ -109,25 +109,63 @@ export default defineConfig({
           label: "Guides",
           items: [
             {
-              label: "Set up your wallet",
-              link: "/guides/set-up-your-wallet/",
+              label: "App Developers",
+              collapsed: true,
+              items: [
+                {
+                  label: "Set up your wallet",
+                  link: "/guides/app-developers/set-up-your-wallet/",
+                },
+                { label: "Receive tokens", link: "/guides/app-developers/receive-tokens/" },
+                { label: "Bridge tokens", link: "/guides/app-developers/bridge-tokens/" },
+                {
+                  label: "Deploy a contract",
+                  link: "/guides/app-developers/deploy-a-contract/",
+                },
+                {
+                  label: "Verify a contract",
+                  link: "/guides/app-developers/verify-a-contract/",
+                },
+              ],
             },
-            { label: "Receive tokens", link: "/guides/receive-tokens/" },
-            { label: "Bridge tokens", link: "/guides/bridge-tokens/" },
-            { label: "Swap tokens", link: "/guides/swap-tokens/" },
-            { label: "Deploy a contract", link: "/guides/deploy-a-contract/" },
-            { label: "Verify a contract", link: "/guides/verify-a-contract/" },
             {
-              label: "Run a Holesky node",
-              link: "/guides/run-a-holesky-node/",
+              label: "Node Operators",
+              collapsed: true,
+              items: [
+                {
+                  label: "Run a Holesky node",
+                  link: "/guides/node-operators/run-a-holesky-node/",
+                },
+                {
+                  label: "Run a Taiko node with Docker",
+                  link: "/guides/node-operators/run-a-taiko-node-with-docker/",
+                },
+                {
+                  label: "Build a Taiko node from source",
+                  link: "/guides/node-operators/build-a-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a mainnet Taiko node from source",
+                  link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a testnet Taiko node from source",
+                  link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
+                },
+                {
+                  label: "Enable a testnet proposer",
+                  link: "/guides/node-operators/enable-a-proposer/",
+                },
+                {
+                  label: "Enable a testnet prover",
+                  link: "/guides/node-operators/enable-a-prover/",
+                },
+                {
+                  label: "Node troubleshooting",
+                  link: "/guides/node-operators/node-troubleshooting/",
+                },
+              ],
             },
-            { label: "Run a Taiko Node with Docker", link: "/guides/run-a-taiko-node-with-docker/" },
-            { label: "Build a Taiko Node from Source", link: "/guides/build-a-taiko-node-from-source/" },
-            { label: "Run a Mainnet Taiko Node from Source", link: "/guides/run-a-mainnet-taiko-node-from-source/" },
-            { label: "Run a Testnet Taiko Node from Source", link: "/guides/run-a-testnet-taiko-node-from-source/" },
-            { label: "Enable a Testnet Proposer", link: "/guides/enable-a-proposer/" },
-            { label: "Enable a Testnet Prover", link: "/guides/enable-a-prover/" },
-            { label: "Node Troubleshooting", link:"/guides/node-troubleshooting/" }
           ],
         },
         {
