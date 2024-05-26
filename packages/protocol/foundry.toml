@@ -50,3 +50,19 @@ wrap_comments = true
 
 [profile.genesis]
 test = "genesis"
+
+
+[profile.weth]
+# `src` must be different fot it to work.
+# We also recommend putting all Solidity test files and scripts inside `src*/`.
+src = "contracts/thirdparty/maker"
+out = "out"
+test = "test-maker"                # required so that compiler will not complain about unable to compile
+script = "script-maker"            # required so that compiler will not complain about unable to compile
+
+# The order matters! When using `forge install` with FOUNDRY_PROFILE=0_6_x,
+# it will use the first directory as the installation path.
+# If the library is compatible with all versions,
+# you can install it with the default profile.
+optimizer = false
+solc_version = '0.4.22'
