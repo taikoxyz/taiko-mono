@@ -12,12 +12,8 @@ import "../common/LibStrings.sol";
 contract L1SharedAddressManager is AddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.
     /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// The following names are not cached as they are not used frequently or its address is likely
-    /// to change:
-    /// - B_BRIDGE_WATCHDOG
-    /// - B_BRIDGED_ERC20
-    /// - B_BRIDGED_ERC721
-    /// - B_BRIDGED_ERC1155
+    /// Some names are not cached as they are not used frequently or
+    /// its address is likely to change.
     function _getOverride(
         uint64 _chainId,
         bytes32 _name
