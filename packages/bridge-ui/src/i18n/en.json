@@ -199,12 +199,6 @@
         "recipient": "Recipient",
         "review": "Review"
       }
-    },
-    "welcome_modal": {
-      "body": "Welcome to <span class='font-bold text-primary-brand'>Hekla, our final testnet</span>.<br/>Strengthening security may cause some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
-      "confirm": "I understand",
-      "link": "Find out more",
-      "title": "Important Update"
     }
   },
   "chain_selector": {
