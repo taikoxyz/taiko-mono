@@ -9,7 +9,7 @@ This tutorial explains how to run an Taiko node for our testnet Hekla from sourc
 
 ## Building the Source Code
 
-Please follow the [Building a Node from Source](/guides/build-a-taiko-node-from-source) guide before continuing.
+Please follow the [Building a Node from Source](/guides/node-operators/build-a-taiko-node-from-source) guide before continuing.
 This guide presumes you have built the required images already (`taiko-geth` and `taiko-client`).
 
 ## Hardware Requirements
@@ -102,15 +102,15 @@ If you aren't, you can configure the ports and addresses so that the services ca
     <Aside>
     This should be the *same* JWT secret you used in the previous step for `taiko-geth`.
     </Aside>
-        
+
     ```bash
     cp /path/to/jwt.txt .
     ```
 
 3. Set environment variables
-    
+
     The following URLs should be a Holesky node.
-    
+
     You will need either an RPC provider, or run a full Holesky node yourself.
 
     ```bash
@@ -149,10 +149,10 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
 Once you've started `taiko-geth` and `taiko-client` properly you should see them communicate with each other and start syncing.
 
-Syncing can take several hours, depending on the size of the chain. 
+Syncing can take several hours, depending on the size of the chain.
 
 ## Next Steps
 
 <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [troubleshooting page](/guides/node-troubleshooting) for help.
+        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
 </Card>
