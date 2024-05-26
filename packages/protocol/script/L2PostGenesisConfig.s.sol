@@ -8,6 +8,10 @@ import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/common/AddressManager.sol";
 
+interface USDCProxy {
+    function configureMinter(address minter, uint256 minterAllowedAmount) external;
+}
+
 // Run with:
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisConfig.s.sol
 contract L2PostGenesisConfig is Script {
@@ -58,6 +62,13 @@ contract L2PostGenesisConfig is Script {
             canonical.decimals = 6;
             canonical.symbol = "USDC";
             canonical.name = "USD Coin";
+
+            // FiatTokenProxy(bridgedUSDC).configureMinter(erc20Vault, type(uint256).max);
+            call = abi.encodeCall(USDCProxy.configureMinter, (erc20Vault, type(uint256).max));
+            console2.log("--- grant minterRole to ERC20Vault thru USDC's proxy");
+            console2.log(bridgedUSDC);
+            console.logBytes(call);
+
             // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedUSDC);
             call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedUSDC));
             console2.log("--- erc20 change USDC token");
