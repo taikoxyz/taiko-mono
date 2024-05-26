@@ -177,7 +177,7 @@ func (t *SyncProgressTracker) NeedReSync(newID *big.Int) bool {
 	}
 
 	if t.lastSyncedBlockID == nil {
-		return false
+		return true
 	}
 
 	// If the new block is 64 blocks ahead of the last synced block, we will trigger a new beacon sync.
