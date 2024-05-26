@@ -39,7 +39,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (msg.value < _op.fee) revert VAULT_INSURFICIENT_FEE();
+        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
         for (uint256 i; i < _op.amounts.length; ++i) {
             if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
