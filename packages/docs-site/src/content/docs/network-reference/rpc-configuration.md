@@ -29,5 +29,5 @@ description: Network reference page describing Ethereum and Taiko RPC configurat
 | RPC                | See Taiko chainlist [here](https://chainlist.org/chain/167000) |
 | Symbol             | ETH                                                            |
 | Block explorer URL | https://taikoscan.io                                           |
-| Routescan URL      | taikoscan.network                                              |
+| Routescan URL      | https://taikoscan.network                                      |
 | Socialscan URL     | https://taiko.socialscan.io                                    |
