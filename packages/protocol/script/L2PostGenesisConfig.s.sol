@@ -8,6 +8,8 @@ import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/common/AddressManager.sol";
 
+// Run with:
+//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisConfig.s.sol
 contract L2PostGenesisConfig is Script {
     // All following addresses are L2 addresses
     address public bridgedTKO = address(0); // TODO

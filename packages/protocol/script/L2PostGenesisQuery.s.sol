@@ -5,6 +5,8 @@ import "../test/DeployCapability.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/bridge/Bridge.sol";
 
+// Run with:
+//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisQuery.s.sol
 contract L2PostGenesisQuery is DeployCapability {
     uint64 taiko_id = 167_000;
 
