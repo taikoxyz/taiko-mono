@@ -6,7 +6,7 @@
 
 ## Shared
 
-#### shared_address_manager
+#### shared_address_manager (sam)
 
 - ens: `sam.based.taiko.eth`
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
@@ -24,11 +24,11 @@
   - erc721_vault@167000: `0x1670000000000000000000000000000000000003`
   - erc1155_vault: `0xaf145913EA4a56BE22E120ED9C24589659881702`
   - erc1155_vault@167000: `0x1670000000000000000000000000000000000004`
-  - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
-  - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
   - bridged_erc20: `0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3`
-  - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
+  - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
+  - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
   - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
+  - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -136,7 +136,7 @@
 
 ## Rollup Specific
 
-#### rollup_address_manager
+#### rollup_address_manager (ram)
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`

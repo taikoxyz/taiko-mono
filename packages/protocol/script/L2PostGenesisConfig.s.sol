@@ -16,6 +16,7 @@ contract L2PostGenesisConfig is Script {
     address public erc20Vault = 0x1670000000000000000000000000000000000002;
     address public bridge = 0x1670000000000000000000000000000000000001;
     address public sam = 0x1670000000000000000000000000000000000006;
+    address public ram = 0x1670000000000000000000000000000000010002;
 
     function run() external view {
         require(bridgedTKO != address(0) && bridgedUSDC != address(0), "invalid address");
@@ -88,6 +89,13 @@ contract L2PostGenesisConfig is Script {
         );
         console2.log("--- sam set tko token");
         console2.log(sam);
+        console.logBytes(call);
+
+        call = abi.encodeCall(
+            AddressManager.setAddress, (167_000, LibStrings.B_TAIKO_TOKEN, bridgedTKO)
+        );
+        console2.log("--- ram set tko token");
+        console2.log(ram);
         console.logBytes(call);
 
         // Bridge(bridge).unpause();

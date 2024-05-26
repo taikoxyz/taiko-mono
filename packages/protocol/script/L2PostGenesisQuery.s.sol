@@ -10,11 +10,7 @@ contract L2PostGenesisQuery is DeployCapability {
 
     function run() external view {
         display_general_info();
-        display_shared_address_manager();
-        display_rollup_address_manager();
-    }
 
-    function display_shared_address_manager() internal view {
         console2.log("display_shared_address_manager");
         AddressManager am = AddressManager(0x1670000000000000000000000000000000000006);
         console2.log("- taiko_token:", am.getAddress(taiko_id, "taiko_token"));
@@ -35,13 +31,13 @@ contract L2PostGenesisQuery is DeployCapability {
         console2.log("- bridged_erc1155:", am.getAddress(taiko_id, "bridged_erc1155"));
         console2.log("- quota_manager:", am.getAddress(taiko_id, "quota_manager"));
         console2.log("- bridge_watchdog:", am.getAddress(taiko_id, "bridge_watchdog"));
-    }
 
-    function display_rollup_address_manager() internal view {
         console2.log("display_rollup_address_manager");
-        AddressManager am = AddressManager(0x1670000000000000000000000000000000010002);
+        am = AddressManager(0x1670000000000000000000000000000000010002);
+        console2.log("- taiko_token:", am.getAddress(taiko_id, "taiko_token"));
         console2.log("- signal_service:", am.getAddress(taiko_id, "signal_service"));
         console2.log("- bridge:", am.getAddress(taiko_id, "bridge"));
+        console2.log("- taiko:", am.getAddress(taiko_id, "taiko"));
     }
 
     function display_general_info() internal view {
