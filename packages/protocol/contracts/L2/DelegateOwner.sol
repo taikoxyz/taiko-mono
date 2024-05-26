@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
 import "../libs/LibBytes.sol";
 import "../bridge/IBridge.sol";
 
@@ -41,6 +42,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
+    error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
     error DO_TARGET_CALL_REVERTED();
@@ -105,6 +107,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         Call memory call = abi.decode(_data, (Call));
 
         if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
+
+        // By design, the target must be a contract address.
+        if (!Address.isContract(call.target)) revert DO_INVALID_TARGET();
 
         (bool success, bytes memory result) = call.isDelegateCall //
             ? call.target.delegatecall(call.txdata)

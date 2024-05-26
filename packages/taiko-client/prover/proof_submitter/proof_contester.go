@@ -32,13 +32,14 @@ func NewProofContester(
 	rpcClient *rpc.Client,
 	gasLimit uint64,
 	txmgr *txmgr.SimpleTxManager,
+	proverSetAddress common.Address,
 	graffiti string,
 	builder *transaction.ProveBlockTxBuilder,
 ) *ProofContester {
 	return &ProofContester{
 		rpc:       rpcClient,
 		txBuilder: builder,
-		sender:    transaction.NewSender(rpcClient, txmgr, gasLimit),
+		sender:    transaction.NewSender(rpcClient, txmgr, proverSetAddress, gasLimit),
 		graffiti:  rpc.StringToBytes32(graffiti),
 	}
 }

@@ -22,6 +22,7 @@ import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
@@ -273,7 +274,8 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager))
+            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
 
         deployProxy({
@@ -288,8 +290,7 @@ contract DeployOnL1 is DeployCapability {
         address guardianProverMinority = deployProxy({
             name: "guardian_prover_minority",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
@@ -297,22 +298,27 @@ contract DeployOnL1 is DeployCapability {
         address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
-        register(rollupAddressManager, "tier_provider", address(new TestTierProvider()));
+        register(
+            rollupAddressManager,
+            "tier_provider",
+            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+        );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
         GuardianProver(guardianProverMinority).setGuardians(
-            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS)
+            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS), true
         );
         GuardianProver(guardianProverMinority).transferOwnership(owner);
 
-        GuardianProver(guardianProver).setGuardians(guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS));
+        GuardianProver(guardianProver).setGuardians(
+            guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS), true
+        );
         GuardianProver(guardianProver).transferOwnership(owner);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
@@ -335,6 +341,14 @@ contract DeployOnL1 is DeployCapability {
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
         console2.log("AutomataDcapVaAttestation", automataProxy);
+
+        deployProxy({
+            name: "prover_set",
+            impl: address(new ProverSet()),
+            data: abi.encodeCall(
+                ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
+            )
+        });
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {

@@ -36,7 +36,6 @@ taiko-mono/
 ├── <a href="./LICENSE.md">LICENSE.md</a>
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/blobstorage">blob-storage</a>: Blob storage service.
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI.
 │   ├── <a href="./packages/docs-site">docs-site</a>: End user documentation site.
@@ -48,7 +47,7 @@ taiko-mono/
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
 │   ├── <a href="./packages/supplementary-contracts">supplementary-contracts</a>: Supplementary smart contracts that are not part of the Taiko rollup protocol.
 │   ├── <a href="./packages/taiko-client">taiko-client</a>: Taiko client implementation in Go.
-│   ├── <a href="./packages/taikoon">taikoon</a>: Taikoon NFT contracts.
+│   ├── <a href="./packages/nfts">nfts</a>: Taiko NFTs.
 │   └── <a href="./packages/taikoon-ui">taikoon-ui</a>: Taikoon NFT UI.
 ...
 </pre>
@@ -58,9 +57,6 @@ taiko-mono/
 If you find a bug or have a feature request, please [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
 
 ## Contributing
-
-> [!WARNING]
-> Please refrain from submitting typo/comment-only pull requests with the expectation of receiving TKO airdrops.
 
 Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [grants.taiko.xyz](https://grants.taiko.xyz).
 
