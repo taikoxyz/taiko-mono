@@ -15,6 +15,7 @@ import (
 
 var (
 	syncProgressCheckInterval = 12 * time.Second
+	gapToResync               = new(big.Int).SetUint64(64)
 )
 
 // SyncProgressTracker is responsible for tracking the L2 execution engine's sync progress, after
@@ -162,16 +163,34 @@ func (t *SyncProgressTracker) ClearMeta() {
 	t.outOfSync = false
 }
 
-// HeadChanged checks if a new beacon sync request will be needed.
-func (t *SyncProgressTracker) HeadChanged(newID *big.Int) bool {
+// NeedReSync checks if a new beacon sync request will be needed:
+// 1, if the beacon sync has not been triggered yet
+// 2, if there is 64 blocks gap between the last head to sync and the new block
+// 3, if the last triggered beacon sync is finished, but there are still new blocks
+func (t *SyncProgressTracker) NeedReSync(newID *big.Int) bool {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
+	// If the beacon sync has not been triggered yet, we will simply trigger it.
 	if !t.triggered {
 		return true
 	}
 
-	return t.lastSyncedBlockID != nil && t.lastSyncedBlockID != newID
+	if t.lastSyncedBlockID == nil {
+		return true
+	}
+
+	// If the new block is 64 blocks ahead of the last synced block, we will trigger a new beacon sync.
+	if new(big.Int).Sub(newID, t.lastSyncedBlockID).Cmp(gapToResync) >= 0 {
+		return true
+	}
+
+	// If the last triggered beacon sync is finished, we will trigger a new beacon sync.
+	if t.lastSyncProgress != nil && t.lastSyncProgress.CurrentBlock >= t.lastSyncedBlockID.Uint64() {
+		return true
+	}
+
+	return false
 }
 
 // OutOfSync tells whether the L2 execution engine is marked as out of sync.
