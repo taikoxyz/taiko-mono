@@ -11,7 +11,7 @@ contract L2PostGenesisQuery is DeployCapability {
     function run() external view {
         display_general_info();
 
-        console2.log("display_shared_address_manager");
+        console2.log("sam");
         AddressManager am = AddressManager(0x1670000000000000000000000000000000000006);
         console2.log("- taiko_token:", am.getAddress(taiko_id, "taiko_token"));
         console2.log("- signal_service:", am.getAddress(taiko_id, "signal_service"));
@@ -32,7 +32,7 @@ contract L2PostGenesisQuery is DeployCapability {
         console2.log("- quota_manager:", am.getAddress(taiko_id, "quota_manager"));
         console2.log("- bridge_watchdog:", am.getAddress(taiko_id, "bridge_watchdog"));
 
-        console2.log("display_rollup_address_manager");
+        console2.log("ram");
         am = AddressManager(0x1670000000000000000000000000000000010002);
         console2.log("- taiko_token:", am.getAddress(taiko_id, "taiko_token"));
         console2.log("- signal_service:", am.getAddress(taiko_id, "signal_service"));
