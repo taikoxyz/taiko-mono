@@ -492,7 +492,7 @@
               "title": "What is \"Sufficient funds to claim\"?"
             },
             "quota": {
-              "description": "Currently there is a daily limit of how much ETH can be bridged to L1. If the quota is reached, please try again the next day.",
+              "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
               "title": "What is \"Sufficient daily quota\"?"
             }
           }
