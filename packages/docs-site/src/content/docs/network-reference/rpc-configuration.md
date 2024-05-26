@@ -3,6 +3,8 @@ title: RPC configuration
 description: Network reference page describing Ethereum and Taiko RPC configurations.
 ---
 
+Below are the RPCs maintained by Taiko Labs. You can find additional RPCs at [chainlist](https://chainlist.org).
+
 ## Ethereum (Holesky)
 
 | Name               | Value                                                           |
@@ -14,20 +16,20 @@ description: Network reference page describing Ethereum and Taiko RPC configurat
 
 ## Taiko (Hekla)
 
-| Name               | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| Chain ID           | 167009                                                         |
-| RPC                | See Hekla chainlist [here](https://chainlist.org/chain/167009) |
-| Symbol             | ETH                                                            |
-| Block explorer URL | https://hekla.taikoscan.network                                |
+| Name               | Value                           |
+| ------------------ | ------------------------------- |
+| Chain ID           | 167009                          |
+| RPC                | https://rpc.hekla.taiko.xyz     |
+| Symbol             | ETH                             |
+| Block explorer URL | https://hekla.taikoscan.network |
 
 ## Taiko (Mainnet)
 
-| Name               | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| Chain ID           | 167000                                                         |
-| RPC                | See Taiko chainlist [here](https://chainlist.org/chain/167000) |
-| Symbol             | ETH                                                            |
-| Block explorer URL | https://taikoscan.io                                           |
-| Routescan URL      | https://taikoscan.network                                      |
-| Socialscan URL     | https://taiko.socialscan.io                                    |
+| Name               | Value                         |
+| ------------------ | ----------------------------- |
+| Chain ID           | 167000                        |
+| RPC                | https://rpc.mainnet.taiko.xyz |
+| Symbol             | ETH                           |
+| Block explorer URL | https://taikoscan.io          |
+| Routescan URL      | https://taikoscan.network     |
+| Socialscan URL     | https://taiko.socialscan.io   |

@@ -11,11 +11,11 @@ This guide will help you set up your wallet to start using Taiko.
 
 ## Add chains to your wallet
 
-Click **Connect Wallet** at the links below:
+Click **Connect Wallet** at the links below, we **recommend you choose a Taiko Labs maintained RPC** which ends in `.taiko.xyz` (e.g., https://rpc.mainnet.taiko.xyz):
 
-- Holesky testnet: https://chainlist.org/chain/17000
-- Hekla testnet: https://chainlist.org/chain/167009
-- Mainnet: https://chainlist.org/chain/167000
+- Taiko mainnet: https://chainlist.org/chain/167000
+- Ethereum testnet (Holesky): https://chainlist.org/chain/17000
+- Taiko testnet (Hekla): https://chainlist.org/chain/167009
 
 ## Add mainnet tokens to your wallet
 
