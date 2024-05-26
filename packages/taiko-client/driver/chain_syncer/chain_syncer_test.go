@@ -158,5 +158,5 @@ func (s *ChainSyncerTestSuite) RevertSnapshot() {
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
-	s.True(s.s.AheadOfProtocolVerifiedHead(0))
+	s.True(s.s.AheadOfHeadToSync(0))
 }
