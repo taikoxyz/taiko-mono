@@ -6,8 +6,8 @@ import "../contracts/tko/BridgedTaikoToken.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 
 contract DeployTaikoTokenOnL2 is DeployCapability {
-    address public vaultOwner = vm.envAddress("VAULT_OWNER");
-    address public l2Erc20Vault = vm.envAddress("ERC20_VAULT_ON_L2");
+    address public vaultOwner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be; //vm.envAddress("VAULT_OWNER");
+    address public l2Erc20Vault = 0x1670000000000000000000000000000000000002; //vm.envAddress("ERC20_VAULT_ON_L2");
 
     modifier broadcast() {
         vm.startBroadcast();
