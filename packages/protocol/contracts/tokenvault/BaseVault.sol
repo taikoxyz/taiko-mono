@@ -31,7 +31,7 @@ abstract contract BaseVault is
 
     uint256[50] private __gap;
 
-    error VAULT_INSURFICIENT_FEE();
+    error VAULT_INSUFFICIENT_FEE();
     error VAULT_INVALID_TO_ADDR();
     error VAULT_PERMISSION_DENIED();
 
