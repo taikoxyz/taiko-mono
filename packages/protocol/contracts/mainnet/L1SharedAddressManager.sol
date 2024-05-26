@@ -12,8 +12,12 @@ import "../common/LibStrings.sol";
 contract L1SharedAddressManager is AddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.
     /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// The following names are not cached:
+    /// The following names are not cached as they are not used frequently or its address is likely
+    /// to change:
     /// - B_BRIDGE_WATCHDOG
+    /// - B_BRIDGED_ERC20
+    /// - B_BRIDGED_ERC721
+    /// - B_BRIDGED_ERC1155
     function _getOverride(
         uint64 _chainId,
         bytes32 _name
@@ -41,15 +45,6 @@ contract L1SharedAddressManager is AddressManager {
             }
             if (_name == LibStrings.B_ERC1155_VAULT) {
                 return 0xaf145913EA4a56BE22E120ED9C24589659881702;
-            }
-            if (_name == LibStrings.B_BRIDGED_ERC20) {
-                return 0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3;
-            }
-            if (_name == LibStrings.B_BRIDGED_ERC721) {
-                return 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
-            }
-            if (_name == LibStrings.B_BRIDGED_ERC1155) {
-                return 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
             }
             if (_name == LibStrings.B_QUOTA_MANAGER) {
                 return 0x91f67118DD47d502B1f0C354D0611997B022f29E;
