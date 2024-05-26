@@ -45,6 +45,6 @@ jobs:
       environment: "production"
       flags: "--prod"
     secrets:
-      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA }}
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_HEKLA_MAINNET }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
