@@ -215,7 +215,7 @@ contract TestERC20Vault is TaikoTest {
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
-        vm.expectRevert(BaseVault.VAULT_INSURFICIENT_FEE.selector);
+        vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 destChainId, address(0), Bob, 1, address(erc20), 1_000_000, 1 wei
