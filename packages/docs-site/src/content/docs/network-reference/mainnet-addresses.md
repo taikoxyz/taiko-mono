@@ -33,7 +33,7 @@ description: Network reference page describing various important addresses on Ta
 | P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                        |
 | SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` | N/A                        |
 | TokenUnlock                     | `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819` | N/A                        |
-| ProverSet                       | `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` | N/A                        |
+| ProverSet                       | `0x500735343372Dd6c9B84dBc7a75babf4479742B9` | N/A                        |
 | LabProvers                      | `0x500735343372Dd6c9B84dBc7a75babf4479742B9` | labprovers.taiko.eth       |
 
 ## Taiko (Mainnet) contracts
