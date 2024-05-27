@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"gopkg.in/go-playground/assert.v1"
+	"github.com/go-playground/assert/v2"
 )
 
 func Test_EncodeABISignalProof(t *testing.T) {

@@ -3,7 +3,7 @@ package relayer
 import (
 	"testing"
 
-	"gopkg.in/go-playground/assert.v1"
+	"github.com/go-playground/assert/v2"
 )
 
 func Test_EventStatus_String(t *testing.T) {

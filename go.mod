@@ -14,6 +14,7 @@ require (
 	github.com/ethereum-optimism/optimism v1.7.4
 	github.com/ethereum/go-ethereum v1.13.15
 	github.com/go-git/go-git/v5 v5.12.0
+	github.com/go-playground/assert/v2 v2.2.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gomarkdown/markdown v0.0.0-20231222211730-1d6d20845b47
 	github.com/google/uuid v1.6.0
@@ -37,7 +38,6 @@ require (
 	github.com/urfave/cli/v2 v2.27.2
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	golang.org/x/sync v0.7.0
-	gopkg.in/go-playground/assert.v2 v2.2.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/mysql v1.5.6
