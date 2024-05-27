@@ -96,4 +96,13 @@ contract SnaefellTokenTest is Test {
         assertEq(token.balanceOf(owner), 5);
         assertEq(tokenIds.length, 5);
     }
+
+    function test_revert_tokenCannotBeTransfered() public {
+        vm.startBroadcast(owner);
+        uint256[] memory tokenIds = token.mint(owner, 5);
+
+        vm.expectRevert();
+        token.transferFrom(owner, minters[0], tokenIds[0]);
+        vm.stopBroadcast();
+    }
 }
