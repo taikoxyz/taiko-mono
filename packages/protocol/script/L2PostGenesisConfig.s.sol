@@ -16,8 +16,8 @@ interface USDCProxy {
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisConfig.s.sol
 contract L2PostGenesisConfig is Script {
     // All following addresses are L2 addresses
-    address public bridgedTKO = address(0); // TODO
-    address public bridgedUSDC = address(0); // TODO
+    address public bridgedTKO = address(1); // TODO
+    address public bridgedUSDC = address(2); // TODO
 
     address public erc20Vault = 0x1670000000000000000000000000000000000002;
     address public bridge = 0x1670000000000000000000000000000000000001;
@@ -26,47 +26,6 @@ contract L2PostGenesisConfig is Script {
     function run() external view {
         bytes memory call;
 
-        ERC20Vault.CanonicalERC20 memory canonical;
-        canonical.chainId = 1;
-
-        if (bridgedTKO != address(0)) {
-            canonical.addr = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-            canonical.decimals = 18;
-            canonical.symbol = "TKO";
-            canonical.name = "Taiko Token";
-
-            // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedTKO);
-            call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedTKO));
-            console2.log("--- erc20 change bridged TKO token");
-            console2.log(erc20Vault);
-            console.logBytes(call);
-
-            call = abi.encodeCall(
-                AddressManager.setAddress, (167_000, LibStrings.B_TAIKO_TOKEN, bridgedTKO)
-            );
-            console2.log("--- sam set tko token");
-            console2.log(sam);
-            console.logBytes(call);
-        }
-
-        if (bridgedUSDC != address(0)) {
-            canonical.addr = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-            canonical.decimals = 6;
-            canonical.symbol = "USDC";
-            canonical.name = "USD Coin";
-
-            // FiatTokenProxy(bridgedUSDC).configureMinter(erc20Vault, type(uint256).max);
-            call = abi.encodeCall(USDCProxy.configureMinter, (erc20Vault, type(uint256).max));
-            console2.log("--- grant minterRole to ERC20Vault thru USDC's proxy");
-            console2.log(bridgedUSDC);
-            console.logBytes(call);
-
-            // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedUSDC);
-            call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedUSDC));
-            console2.log("--- erc20 change USDC token");
-            console2.log(erc20Vault);
-            console.logBytes(call);
-        }
         {
             call = abi.encodeCall(
                 AddressManager.setAddress,
@@ -105,6 +64,41 @@ contract L2PostGenesisConfig is Script {
             );
             console2.log("--- sam set erc1155 vault chain_id=1");
             console2.log(sam);
+            console.logBytes(call);
+        }
+
+        ERC20Vault.CanonicalERC20 memory canonical;
+        canonical.chainId = 1;
+
+        if (bridgedTKO != address(0)) {
+            canonical.addr = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
+            canonical.decimals = 18;
+            canonical.symbol = "TKO";
+            canonical.name = "Taiko Token";
+
+            // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedTKO);
+            call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedTKO));
+            console2.log("--- erc20 change bridged TKO token");
+            console2.log(erc20Vault);
+            console.logBytes(call);
+        }
+
+        if (bridgedUSDC != address(0)) {
+            canonical.addr = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+            canonical.decimals = 6;
+            canonical.symbol = "USDC";
+            canonical.name = "USD Coin";
+
+            // FiatTokenProxy(bridgedUSDC).configureMinter(erc20Vault, type(uint256).max);
+            call = abi.encodeCall(USDCProxy.configureMinter, (erc20Vault, type(uint256).max));
+            console2.log("--- grant minterRole to ERC20Vault thru USDC's proxy");
+            console2.log(bridgedUSDC);
+            console.logBytes(call);
+
+            // ERC20Vault(erc20Vault).changeBridgedToken(canonical, bridgedUSDC);
+            call = abi.encodeCall(ERC20Vault.changeBridgedToken, (canonical, bridgedUSDC));
+            console2.log("--- erc20 change USDC token");
+            console2.log(erc20Vault);
             console.logBytes(call);
         }
 
