@@ -17,6 +17,10 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 ## Using simple-taiko-node
 
+<Aside>
+These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the `.env` file as you see fit!
+</Aside>
+
 <Steps>
 
 1. First, you will need to have a prover from <a href="https://dojonode.xyz/tatami" target="_blank">the community marketplace</a> or [run your own SGX prover](/guides/node-operators/enable-a-prover).
@@ -30,9 +34,5 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 5. Finally set `ENABLE_PROPOSER` to `true` in simple-taiko-node `.env`.
 
 6. Now that the proposer is configured properly, you can run it with `docker compose --profile proposer up -d`!
-
-    <Aside>
-    These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the .env file as you see fit!
-    </Aside>
 
 </Steps>
