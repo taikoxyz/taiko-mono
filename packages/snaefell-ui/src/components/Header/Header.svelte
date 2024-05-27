@@ -2,25 +2,27 @@
   import { ResponsiveController } from '@taiko/ui-lib';
   import { zeroAddress } from 'viem';
 
-  import TaikoonsIcon from '$assets/taikoons-icon.png';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
   import { pageScroll } from '$stores/pageScroll';
+  import { Theme, theme } from '$stores/theme';
 
   import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   import {
     baseHeaderClasses,
+    logoClasses,
     rightSectionClasses,
-    taikoonsIconClasses,
     themeButtonSeparatorClasses,
     wrapperClasses,
   } from './classes';
   $: address = zeroAddress as IAddress;
 
   $: isMobileMenuOpen = false;
+
+  $: isDarkTheme = $theme === Theme.DARK;
 
   $: headerClasses = classNames(
     baseHeaderClasses,
@@ -30,14 +32,17 @@
   );
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  $: logoSrc = isDarkTheme ? '/taiko-h-wht.svg' : '/taiko-h-blk.svg';
 </script>
 
 <MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
 
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
-    <a href="/" class={classNames()}>
-      <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
+    <a href="/" class={logoClasses}>
+      <!-- svelte-ignore a11y-missing-attribute -->
+      <img src={logoSrc} />
     </a>
 
     <div class={rightSectionClasses}>
