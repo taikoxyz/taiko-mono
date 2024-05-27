@@ -146,22 +146,31 @@
     });
 
     refreshUserBalance();
-    await pendingTransactions.add(approveTxHash, currentChain);
-    statusTitle = $t('bridge.actions.approve.success.title');
-    statusDescription = $t('bridge.step.confirm.approve.success.message', {
-      values: { url: `${explorer}/tx/${txHash}` },
-    });
+    try {
+      await pendingTransactions.add(approveTxHash, currentChain);
 
-    await getTokenApprovalStatus($selectedToken);
+      statusTitle = $t('bridge.actions.approve.success.title');
+      statusDescription = $t('bridge.step.confirm.approve.success.message', {
+        values: { url: `${explorer}/tx/${txHash}` },
+      });
 
-    successToast({
-      title: $t('bridge.actions.approve.success.title'),
-      message: $t('bridge.actions.approve.success.message', {
-        values: {
-          token: $selectedToken.symbol,
-        },
-      }),
-    });
+      await getTokenApprovalStatus($selectedToken);
+
+      successToast({
+        title: $t('bridge.actions.approve.success.title'),
+        message: $t('bridge.actions.approve.success.message', {
+          values: {
+            token: $selectedToken.symbol,
+          },
+        }),
+      });
+    } catch (error) {
+      if (error instanceof TransactionTimeoutError) {
+        handleTimeout(txHash);
+      } else {
+        handleBridgeError(error as Error);
+      }
+    }
   };
 
   async function approve() {
