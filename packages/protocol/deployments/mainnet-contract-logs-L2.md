@@ -127,6 +127,12 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
 
+#### weth9
+
+- impl: `0xA51894664A773981C6C112C43ce576f315d5b1B6`
+- logs:
+  - deployed on May 27, 2024 @tx`0x704bc67389b2abb316f98091627e980d27fc40e07aff9a869696886960c5d82b`
+
 #### bridged_taiko_token
 
 - proxy: `0xA9d23408b9bA935c230493c40C73824Df71A0975`
