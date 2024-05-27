@@ -155,8 +155,11 @@ library LibProving {
         local.tier =
             ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false)).getTier(_proof.tier);
 
-        local.inProvingWindow =
-            !LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, local.tier.provingWindow);
+        local.inProvingWindow = !LibUtils.isPostDeadline({
+            _tsTimestamp: blk.proposedAt,
+            _lastUnpausedAt: local.b.lastUnpausedAt,
+            _windowMinutes: local.tier.provingWindow
+        });
 
         // Checks if only the assigned prover is permissioned to prove the block.
         // The guardian prover is granted exclusive permission to prove only the first
