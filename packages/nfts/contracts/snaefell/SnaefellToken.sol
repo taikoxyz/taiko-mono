@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import { ERC721EnumerableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-
 import { MerkleWhitelist } from "./MerkleWhitelist.sol";
 
 /// @title TaikoonToken
@@ -21,6 +20,7 @@ contract SnaefellToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
     error MAX_SUPPLY_REACHED();
     error MINTER_NOT_WHITELISTED();
     error TOKEN_NOT_MINTED();
+    error TOKEN_CANNOT_BE_TRANSFERRED();
 
     /// @notice Contract initializer
     /// @param _rootURI Base URI for the token metadata
@@ -99,5 +99,25 @@ contract SnaefellToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
             tokenIds[i] = ++_totalSupply;
             _mint(_to, tokenIds[i]);
         }
+    }
+
+    /// @notice Allow minting, and block all other token transfers
+    /// @param to The address to transfer to
+    /// @param tokenId The token id to transfer
+    /// @param auth The authorizer of the transfer
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    )
+        internal
+        virtual
+        override
+        returns (address)
+    {
+        if (_ownerOf(tokenId) != address(0)) {
+            revert TOKEN_CANNOT_BE_TRANSFERRED();
+        }
+        return super._update(to, tokenId, auth);
     }
 }
