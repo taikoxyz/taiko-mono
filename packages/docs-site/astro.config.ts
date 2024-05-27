@@ -83,11 +83,11 @@ export default defineConfig({
               link: "/core-concepts/based-sequencing/",
             },
             {
-              label: "Contestable rollups",
+              label: "Contestable rollups (BCR)",
               link: "/core-concepts/contestable-rollups/",
             },
             {
-              label: "Booster rollups",
+              label: "Booster rollups (BBR)",
               link: "/core-concepts/booster-rollups/",
             },
             { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
@@ -142,15 +142,15 @@ export default defineConfig({
                   link: "/guides/node-operators/run-an-ethereum-testnet-node/",
                 },
                 {
-                  label: "Build a Taiko node from Source",
+                  label: "Build a Taiko node from source",
                   link: "/guides/node-operators/build-a-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko mainnet node from Source",
+                  label: "Run a Taiko mainnet node from source",
                   link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko testnet node from Source",
+                  label: "Run a Taiko testnet node from source",
                   link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
                 },
                 {
