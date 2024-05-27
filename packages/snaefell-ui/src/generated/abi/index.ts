@@ -447,9 +447,7 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -535,15 +533,15 @@ export const snaefellTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const
+] as const;
 
 /**
  *
  */
 export const snaefellTokenAddress = {
-  31337: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+  31337: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
   167001: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-} as const
+} as const;
 
 /**
  *
@@ -551,4 +549,4 @@ export const snaefellTokenAddress = {
 export const snaefellTokenConfig = {
   address: snaefellTokenAddress,
   abi: snaefellTokenAbi,
-} as const
+} as const;

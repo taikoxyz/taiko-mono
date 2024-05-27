@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Theme, theme } from '$stores/theme';
-  import { AnimatedBackground } from '$ui/AnimatedBackground';
 
   import { classNames } from '../../../lib/util/classNames';
   $: isDarkTheme = $theme === Theme.DARK;
@@ -11,7 +10,6 @@
 
   let elementId: string = '';
   export { elementId as id };
-  export let animated: boolean = false;
 
   $: wrapperClasses = classNames(
     'w-full',
@@ -45,7 +43,6 @@
 </script>
 
 <section id={elementId} class={wrapperClasses}>
-
   <div class={sectionClasses}>
     <slot />
   </div>

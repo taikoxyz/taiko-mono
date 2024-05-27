@@ -1,16 +1,18 @@
 import { classNames } from '$lib/util/classNames';
 export const wrapperClasses = classNames(
   'h-max',
-  'w-full',
+  'w-max',
   'flex',
   'md:flex-row',
   'flex-col',
   'items-center',
   'justify-center',
-  'md:px-5',
-  'p-2',
-  'gap-8',
-  'md:py-16',
+  //'md:px-5',
+  'p-8',
+  'bg-neutral-background',
+  'rounded-3xl',
+  'gap-16',
+  //'md:py-16',
 );
 
 export const halfPanel = classNames(
@@ -20,23 +22,13 @@ export const halfPanel = classNames(
   'items-center',
   'justify-center',
   'gap-2',
-  'bg-neutral-background',
   'rounded-3xl',
-  'p-8',
   'w-full',
-
 );
 
 export const leftHalfPanel = classNames('max-w-[473px]', 'aspect-square');
 
-export const rightHalfPanel = classNames(
-  halfPanel,
-  'md:px-12',
-
-  'my-16',
-  'md:my-[0]',
-  'md:max-w-[500px]',
-);
+export const rightHalfPanel = classNames(halfPanel, 'min-w-[200px]', 'max-w-[400px]', 'w-full');
 
 export const counterClasses = classNames(
   'w-full',
