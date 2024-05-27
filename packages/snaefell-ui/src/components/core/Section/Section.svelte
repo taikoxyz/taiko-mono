@@ -45,7 +45,6 @@
 </script>
 
 <section id={elementId} class={wrapperClasses}>
-  <AnimatedBackground {animated} />
 
   <div class={sectionClasses}>
     <slot />

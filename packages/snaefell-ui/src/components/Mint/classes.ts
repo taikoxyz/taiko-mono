@@ -24,9 +24,10 @@ export const halfPanel = classNames(
   'rounded-3xl',
   'p-8',
   'w-full',
+
 );
 
-export const leftHalfPanel = classNames(halfPanel, 'aspect-square');
+export const leftHalfPanel = classNames('max-w-[473px]', 'aspect-square');
 
 export const rightHalfPanel = classNames(
   halfPanel,

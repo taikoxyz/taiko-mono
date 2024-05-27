@@ -118,9 +118,7 @@
   {#if isReady}
     {#if windowSize !== 'sm'}
       <div class={leftHalfPanel}>
-        <div class={nftRendererWrapperClasses}>
           <NftRenderer />
-        </div>
       </div>
     {/if}
     <div class={rightHalfPanel}>
