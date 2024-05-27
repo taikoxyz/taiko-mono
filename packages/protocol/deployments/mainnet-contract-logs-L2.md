@@ -60,6 +60,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+  - linked bridged TKO to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xe25d05320b95fbc3bffe0b7cbfe351dd5fa6413db307d5c28f7b70983567a43b`
 
 #### erc721_vault
 
@@ -121,6 +122,14 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+
+#### bridged_taiko_token
+
+- proxy: `0xA9d23408b9bA935c230493c40C73824Df71A0975`
+- impl: `0x473dBf07E06f5aE693F0c44b3ce7b5b8fA71d260`
+- owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
+- logs:
+  - deployed @tx`0x3e0c2c3f7593b8af888c2b8fe3af79152426bdf2d0529f058722ae08c80c8991`
 
 ## Other EOAs/Contracts
 
