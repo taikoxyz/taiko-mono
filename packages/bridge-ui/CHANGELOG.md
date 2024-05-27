@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.11.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.10.1...bridge-ui-v2.11.0) (2024-05-27)
+
+
+### Features
+
+* **bridge-ui:** improve token handling ([#17216](https://github.com/taikoxyz/taiko-mono/issues/17216)) ([3875f45](https://github.com/taikoxyz/taiko-mono/commit/3875f45eb4be720464f36c663ddf50b870fdd18e))
+* **bridge-ui:** re-add mobile details ([#17016](https://github.com/taikoxyz/taiko-mono/issues/17016)) ([30aefe1](https://github.com/taikoxyz/taiko-mono/commit/30aefe120dd03d6eca65c6cf08267cbf3004cdb9))
+* **bridge-ui:** smart contract wallet detection ([#17231](https://github.com/taikoxyz/taiko-mono/issues/17231)) ([80ff27e](https://github.com/taikoxyz/taiko-mono/commit/80ff27ed351c02a4b450a33ff0d3bd1bdf08ce6b))
+* **bridge-ui:** update config ([#17347](https://github.com/taikoxyz/taiko-mono/issues/17347)) ([6bc2e26](https://github.com/taikoxyz/taiko-mono/commit/6bc2e2607d2a9c9fe9ae03b0f093442ce8a31643))
+
+
+### Bug Fixes
+
+* **bridge-ui:** quota check  ([#17200](https://github.com/taikoxyz/taiko-mono/issues/17200)) ([b883d34](https://github.com/taikoxyz/taiko-mono/commit/b883d34b791287d0caa58522f50917dc47f40c0e))
+
 ## [2.10.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.10.0...bridge-ui-v2.10.1) (2024-05-13)
 
 
