@@ -6,14 +6,23 @@
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
   import { pageScroll } from '$stores/pageScroll';
+  import { Theme, theme } from '$stores/theme';
 
   import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
-  import { baseHeaderClasses, rightSectionClasses, themeButtonSeparatorClasses, wrapperClasses } from './classes';
+  import {
+    baseHeaderClasses,
+    logoClasses,
+    rightSectionClasses,
+    themeButtonSeparatorClasses,
+    wrapperClasses,
+  } from './classes';
   $: address = zeroAddress as IAddress;
 
   $: isMobileMenuOpen = false;
+
+  $: isDarkTheme = $theme === Theme.DARK;
 
   $: headerClasses = classNames(
     baseHeaderClasses,
@@ -23,12 +32,19 @@
   );
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
+
+  $: logoSrc = isDarkTheme ? '/taiko-h-white.svg' : '/taiko-h-black.svg';
 </script>
 
 <MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
 
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
+    <a href="/" class={logoClasses}>
+      <!-- svelte-ignore a11y-missing-attribute -->
+      <img src={logoSrc} />
+    </a>
+
     <div class={rightSectionClasses}>
       <ConnectButton connected={$account?.isConnected} />
       <div class="inline-flex">

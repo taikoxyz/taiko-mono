@@ -7,6 +7,7 @@
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
+  import { ProgressBar } from '$components/core/ProgressBar';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
@@ -20,13 +21,14 @@
   import { NftRenderer } from '../NftRenderer';
   import {
     counterClasses,
+    currentMintedClasses,
     eligibilityLabelClasses,
     eligibilityValueClasses,
     infoRowClasses,
     leftHalfPanel,
+    maxMintedClasses,
     mintContentClasses,
     mintTitleClasses,
-    nftRendererWrapperClasses,
     nftRendererWrapperMobileClasses,
     rightHalfPanel,
     wrapperClasses,
@@ -37,6 +39,9 @@
   const buttonClasses = classNames('mt-6');
 
   $: canMint = false;
+  $: totalSupply = 0;
+  $: mintMax = 0;
+  $: progress = Math.floor((totalSupply / 888) * 100);
 
   const mintState = getContext<IMint>('mint');
 
@@ -54,6 +59,9 @@
       isCalculating = true;
 
       gasCost = await Token.estimateMintGasCost();
+      mintMax = await Token.maxSupply();
+      totalSupply = await Token.totalSupply();
+
       isCalculating = false;
     } catch (e) {
       console.warn(e);
@@ -118,9 +126,7 @@
   {#if isReady}
     {#if windowSize !== 'sm'}
       <div class={leftHalfPanel}>
-        <div class={nftRendererWrapperClasses}>
-          <NftRenderer />
-        </div>
+        <NftRenderer />
       </div>
     {/if}
     <div class={rightHalfPanel}>
@@ -135,6 +141,14 @@
       <p class={mintContentClasses}>
         {$t('content.mint.text')}
       </p>
+
+      <div class={infoRowClasses}>
+        <div class={counterClasses}>
+          <div class={currentMintedClasses}>#{totalSupply}</div>
+          <div class={maxMintedClasses}>/ {mintMax}</div>
+        </div>
+        <ProgressBar {progress} />
+      </div>
 
       <div class={counterClasses}>
         <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>

@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { Spinner } from '$components/core/Spinner';
+  import { NftRenderer } from '$components/NftRenderer';
   import type { IMint } from '$stores/mint';
   import { Icons } from '$ui/Icons';
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
@@ -39,6 +40,8 @@
     </ModalTitle>
     <ModalBody>
       <div class={bodyWrapperClasses}>
+        <NftRenderer size="xl" />
+
         {#if $mintState.txHash}
           {$t('content.mint.modals.minting.pending')}
         {:else}
