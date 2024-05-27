@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.6.0...docs-site-v1.6.1) (2024-05-27)
+
+
+### Bug Fixes
+
+* **docs-site:** fix broken link ([#17381](https://github.com/taikoxyz/taiko-mono/issues/17381)) ([1d63635](https://github.com/taikoxyz/taiko-mono/commit/1d63635a9f2ae2e1fd8107e3118a03d93b89051d))
+
 ## [1.6.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.5.0...docs-site-v1.6.0) (2024-05-27)
 
 
