@@ -25,14 +25,14 @@ forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol
   --verifier blockscout
 ```
 
-<Aside>
-For some users the above command does not work on Blockscout (currently investigating). You can also try passing a different `--verifier-url`:
+It's also possible to verify the contract through `Taikoscan` API as follows:
 
-```bash "https://blockscoutapi.mainnet.taiko.xyz/api?module=contract&action=verify"
---verifier-url https://blockscoutapi.mainnet.taiko.xyz/api?module=contract&action=verify
+```bash
+forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol:Counter \
+  --watch \
+  --verifier-url https://api.taikoscan.io/api \
+  --etherscan-api-key {YOUR_API_KEY} 
 ```
-
-</Aside>
 
 ## Hekla
 
