@@ -34,3 +34,8 @@
 #### tx`0x60ae1133f660b531c253251228dfa034ce9a5ea2ae9c000abdcc6aca85237c65`
 
 - daniel sent 200ETH to L1 bridge contract `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
+
+#### tx`0x21c603ede4f6be064d281749bf84534c728ab63f99fb30eca782d00219a3c155`
+
+- `labs.taiko.eth` sends 100 ETH to proposer `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
+- `labs.taiko.eth` sends 100 ETH to prover `0x000000629FBCf27A347d1AEbA658435230D74a5f`
