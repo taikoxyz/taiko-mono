@@ -176,7 +176,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF`
+- impl: `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -184,6 +184,7 @@
   - `Init2()` called and reset block hash to `0411D9F84A525864E0A7E8BB51667D49C6BF73820AF9E4BC76EA66ADB6BE8903` @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
   - Upgraded from `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` to `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` on May 21 @commit`c817e76d9` @tx`0xaed098ad0c93113e401f61358f963501f40a046c5b5b659a1610f10120a9a86b`
   - `resetGenesisHash()` called to reset genesis block hash to `0x90bc60466882de9637e269e87abab53c9108cf9113188bc4f80bcfcb10e489b9` on May 22 @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
+  - Upgraded from `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on May 27 @commit`06f97d6` @tx`0x187cc99e9bcf2a94f723cf52d85b74b79bdb3872681e2a3808cadbbc3ba301e2`
 
 #### assignment_hook
 
