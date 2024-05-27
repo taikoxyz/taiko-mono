@@ -1,9 +1,10 @@
 import daisyuiPlugin from 'daisyui'
+import UiLibConfig from '@taiko/ui-lib/tailwind'
 
 /** @type {import('tailwindcss').Config} */
 export default {
     darkMode: ['class', '[data-theme="dark"]'],
-    content: ['./src/**/*.{html,js,svelte,ts}'],
+	content: ['./src/**/*.{html,js,svelte,ts}', './node_modules/@taiko/ui-lib/src/**/*.{html,js,svelte,ts}'],
     theme: {
         extend: {
             fontFamily: {
@@ -48,6 +49,8 @@ export default {
                 'arrows-x-3-reset': 'arrows-x-animation 300ms linear reverse',
             },
             colors: {
+                ...UiLibConfig.theme.extend.colors,
+
                 /***************
                  * Base colors *
                  ***************/
