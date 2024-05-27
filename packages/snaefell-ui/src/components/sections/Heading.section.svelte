@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
+
   import Logo from '$assets/alpha-testnet-contributor.png';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 

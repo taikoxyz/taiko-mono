@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { zeroAddress } from 'viem';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
