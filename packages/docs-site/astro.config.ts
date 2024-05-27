@@ -133,31 +133,32 @@ export default defineConfig({
               collapsed: true,
               items: [
                 {
-                  label: "Run a Holesky node",
-                  link: "/guides/node-operators/run-a-holesky-node/",
-                },
-                {
                   label: "Run a Taiko node with Docker",
                   link: "/guides/node-operators/run-a-taiko-node-with-docker/",
                 },
+
                 {
-                  label: "Build a Taiko node from source",
+                  label: "Run an Ethereum testnet node",
+                  link: "/guides/node-operators/run-an-ethereum-testnet-node/",
+                },
+                {
+                  label: "Build a Taiko node from Source",
                   link: "/guides/node-operators/build-a-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a mainnet Taiko node from source",
+                  label: "Run a Taiko mainnet node from Source",
                   link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a testnet Taiko node from source",
+                  label: "Run a Taiko testnet node from Source",
                   link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
                 },
                 {
-                  label: "Enable a testnet proposer",
+                  label: "Run a Taiko testnet proposer",
                   link: "/guides/node-operators/enable-a-proposer/",
                 },
                 {
-                  label: "Enable a testnet prover",
+                  label: "Run a Taiko testnet prover",
                   link: "/guides/node-operators/enable-a-prover/",
                 },
                 {
