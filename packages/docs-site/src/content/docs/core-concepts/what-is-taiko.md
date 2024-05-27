@@ -5,7 +5,7 @@ description: Core concept page for "What is Taiko?".
 
 Ethereum is too expensive. We believe in Ethereum's core properties (e.g., censorship-resistant, permissionless, secure). We also believe that rollups should **extend** (not augment) these properties.
 
-Thus, we are building a [based rollup](/core-concepts/based-sequencing) which makes Ethereum cheaper while maintaining its properties:
+Taiko is a [based rollup](/core-concepts/based-sequencing) which makes Ethereum cheaper while maintaining its properties:
 
 - [Based contestable rollup](/core-concepts/contestable-rollups): A configurable rollup to reduce transaction fees on Ethereum.
 - [Based booster rollup](/core-concepts/booster-rollups): An innovative approach to **native L1 scaling**.
@@ -29,10 +29,8 @@ Taiko is a **fully open source, permissionless, Ethereum-equivalent ZK-Rollup**.
 
 ### Frontends
 
-- [Bridge UI](https://bridge.hekla.taiko.xyz)
-- [Blockscout block explorer](https://explorer.hekla.taiko.xyz)
-- [Network + Guardian Prover status page](https://status.taiko.xyz)
-- [Fork of Uniswap v3 UI](https://swap.hekla.taiko.xyz)
+- [Bridge UI](https://bridge.taiko.xyz)
+- [Network status page](https://status.taiko.xyz)
 - [Main homepage](https://taiko.xyz) + [this documentation site](https://docs.taiko.xyz)
 - [Geth fork diff page](https://geth.taiko.xyz)
 
@@ -55,5 +53,5 @@ Taiko is a **fully open source, permissionless, Ethereum-equivalent ZK-Rollup**.
 - [Taiko protocol smart contracts](https://github.com/taikoxyz/taiko-mono)
 - [Taiko geth](https://github.com/taikoxyz/taiko-geth)
 - [Taiko client](https://github.com/taikoxyz/taiko-client)
-- [Raiko client](https://github.com/taikoxyz/raiko)
+- [Raiko](https://github.com/taikoxyz/raiko)
 - [Simple taiko node](https://github.com/taikoxyz/simple-taiko-node)
