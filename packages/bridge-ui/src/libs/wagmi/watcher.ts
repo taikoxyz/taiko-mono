@@ -28,7 +28,14 @@ export async function startWatching() {
         const { chainId, address } = data;
 
         if (chainId && address) {
-          connectedSmartContractWallet.set(await isSmartContractWallet(address, Number(chainId)));
+          let smartWallet = false;
+          try {
+            smartWallet = (await isSmartContractWallet(address, Number(chainId))) || false;
+          } catch (error) {
+            console.error('Error checking for smart contract wallet', error);
+          } finally {
+            connectedSmartContractWallet.set(smartWallet);
+          }
         }
 
         // We need to check if the chain is supported, and if not
