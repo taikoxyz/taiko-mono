@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { t } from 'svelte-i18n';
 
-  import { ResponsiveController } from '@taiko/ui-lib';
   import { NftRenderer } from '$components/NftRenderer';
   import { PUBLIC_LAUNCH_DATE } from '$env/static/public';
   import { classNames } from '$lib/util/classNames';

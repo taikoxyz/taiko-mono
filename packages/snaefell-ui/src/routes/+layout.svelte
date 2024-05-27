@@ -2,11 +2,11 @@
   import '../app.css';
   import '../i18n';
 
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { onDestroy, onMount } from 'svelte';
   import { setContext } from 'svelte';
   import { zeroAddress } from 'viem';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MintConfirmationModal, PostMintModal, TaikoonDetailModal } from '$components/modals';
   import { mint } from '$stores/mint';
   import { taikoonDetail } from '$stores/taikoonDetail';

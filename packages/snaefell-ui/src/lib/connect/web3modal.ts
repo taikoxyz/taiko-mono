@@ -8,7 +8,6 @@ import { config } from '$wagmi-config';
 
 import { getChainImages } from '../chain/chains';
 
-
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID || 'walletconnect-project-id';
 const chainImages = getChainImages();
 
@@ -39,5 +38,5 @@ export const web3modal = createWeb3Modal({
     '--w3m-border-radius-master': '9999px',
     '--w3m-accent': 'var(--primary-brand)',
   },
-  themeMode: browser ? (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark' : 'dark'
+  themeMode: browser ? (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark' : 'dark',
 });

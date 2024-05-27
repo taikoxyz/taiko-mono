@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { getContext } from 'svelte';
 
-  import { ResponsiveController } from '@taiko/ui-lib';
   import { classNames } from '$lib/util/classNames';
   import type { ITaikoonDetail } from '$stores/taikoonDetail';
 
