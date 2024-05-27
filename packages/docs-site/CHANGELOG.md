@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.5.0...docs-site-v1.6.0) (2024-05-27)
+
+
+### Features
+
+* **docs-site:** update working on what is taiko ([#17371](https://github.com/taikoxyz/taiko-mono/issues/17371)) ([72a72bd](https://github.com/taikoxyz/taiko-mono/commit/72a72bd4f37b7c6f9761e175a371e0d46abd5169))
+
 ## [1.5.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.4.1...docs-site-v1.5.0) (2024-05-27)
 
 
