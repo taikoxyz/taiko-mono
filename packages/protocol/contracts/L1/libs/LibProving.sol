@@ -162,7 +162,7 @@ library LibProving {
         local.inProvingWindow = !LibUtils.isPostDeadline({
             _tsTimestamp: ts.timestamp,
             _lastUnpausedAt: local.b.lastUnpausedAt,
-            _windowMinutes: local.tier.provingWindow
+            _windowMinutes: local.minTier.provingWindow
         });
 
         // Checks if only the assigned prover is permissioned to prove the block.
