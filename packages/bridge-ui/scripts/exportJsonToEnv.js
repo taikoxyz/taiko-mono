@@ -25,6 +25,7 @@ const isProd = args.includes('--prod');
 const isA7 = args.includes('--a7');
 const isA6 = args.includes('--a6');
 const isA5 = args.includes('--a5');
+const isMainnet = args.includes('--mainnet');
 
 // Determine the environment
 let environment = '';
@@ -44,6 +45,8 @@ if (isA6) {
   version = 'a5';
 } else if (isA7) {
   version = 'a7';
+} else if (isMainnet) {
+  version = 'mainnet';
 }
 
 Logger.info(`Detected ${environment} environment and ${version} version.`);

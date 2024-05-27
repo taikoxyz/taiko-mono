@@ -41,8 +41,8 @@ export default defineConfig({
         {
             name: 'SnaefellToken',
             address: {
-                31337: LocalhostDeployment.AlphaToken as Address,
-                167001: DevnetDeployment.AlphaToken as Address,
+                31337: LocalhostDeployment.SnaefellToken as Address,
+                167001: DevnetDeployment.SnaefellToken as Address,
             },
             abi: SnaefellToken.abi as Abi,
         }

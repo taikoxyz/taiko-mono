@@ -42,6 +42,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		1*time.Hour,
 		0,
 		nil,
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -158,5 +159,5 @@ func (s *ChainSyncerTestSuite) RevertSnapshot() {
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
-	s.True(s.s.AheadOfProtocolVerifiedHead(0))
+	s.True(s.s.AheadOfHeadToSync(0))
 }

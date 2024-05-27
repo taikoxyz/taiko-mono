@@ -3,6 +3,8 @@ title: Multi-proofs
 description: Core concept page for "Multi-proofs".
 ---
 
+Taiko supports multi-proofs through a mixture of zkVMs, TEE, and guardian proofs. Check out our blog post on zkVMs [here](https://taiko.mirror.xyz/e_5GeGGFJIrOxqvXOfzY6HmWcRjCjRyG0NQF1zbNpNQ) and a Twitter thread on our Raiko architecture [here](https://x.com/taikoxyz/status/1791201812768600209).
+
 ## Proving Taiko blocks
 
 The purpose of proving blocks is to give certainty to bridges about the execution that happened in the rollup. To rely on some state that happened inside of the rollup, a bridge will want a proof that everything was done correctly. On Taiko you can run a node as a prover and prove blocks, permissionlessly. This means that you can examine the proposed blocks on the TaikoL1 contract, and generate proofs for them. Currently, any prover can create proofs for proposed blocks. This means that the number of "state transitions" has no upper bound, because we don't know what is the correct state transition yet. Only first prover with a valid proof of the correct state transition will receive the reward of `ETH` (and possibly any `ERC20` or even NFTs if the Prover pool implementation favors it).

@@ -22,6 +22,7 @@ type Config struct {
 	RetryInterval      time.Duration
 	MaxExponent        uint64
 	BlobServerEndpoint *url.URL
+	SocialScanEndpoint *url.URL
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -54,6 +55,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	var socialScanEndpoint *url.URL
+	if c.IsSet(flags.SocialScanEndpoint.Name) {
+		if socialScanEndpoint, err = url.Parse(
+			c.String(flags.SocialScanEndpoint.Name),
+		); err != nil {
+			return nil, err
+		}
+	}
+
 	var timeout = c.Duration(flags.RPCTimeout.Name)
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
@@ -72,5 +82,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		P2PSyncTimeout:     c.Duration(flags.P2PSyncTimeout.Name),
 		MaxExponent:        c.Uint64(flags.MaxExponent.Name),
 		BlobServerEndpoint: blobServerEndpoint,
+		SocialScanEndpoint: socialScanEndpoint,
 	}, nil
 }

@@ -7,6 +7,7 @@
     FooterSection,
     HeadingSection,
     InformationSection,
+    PreviewSection,
   } from '$components/sections';
   import isCountdownActive from '$lib/util/isCountdownActive';
   import { Button } from '$ui/Button';
@@ -41,6 +42,7 @@
     </HeadingSection>
   {/if}
   <InformationSection />
+  <PreviewSection />
   <div bind:this={scrollTarget}>
     <FaqSection />
   </div>
