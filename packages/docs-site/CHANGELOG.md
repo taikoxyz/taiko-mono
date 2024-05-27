@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.4.1...docs-site-v1.5.0) (2024-05-27)
+
+
+### Features
+
+* **docs-site:** add a few more resources ([#17366](https://github.com/taikoxyz/taiko-mono/issues/17366)) ([868b282](https://github.com/taikoxyz/taiko-mono/commit/868b2826e0a0b1bbf748d1628ba74fb065751c50))
+
+
+### Bug Fixes
+
+* **docs-site:** updates to proposer and prover guides ([#17369](https://github.com/taikoxyz/taiko-mono/issues/17369)) ([51ed6a0](https://github.com/taikoxyz/taiko-mono/commit/51ed6a05ab87fb4910941ec2d897aaf29e755458))
+
 ## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.4.0...docs-site-v1.4.1) (2024-05-27)
 
 
