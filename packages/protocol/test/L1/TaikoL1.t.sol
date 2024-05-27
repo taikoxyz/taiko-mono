@@ -61,7 +61,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(meta.id, minTier).cooldownWindow * 60 + 1
+            );
 
             verifyBlock(1);
             parentHash = blockHash;
@@ -93,7 +95,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(
+                block.timestamp + tierProvider().getTier(blockId, minTier).cooldownWindow * 60 + 1
+            );
 
             verifyBlock(2);
 
@@ -178,13 +182,13 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_getTierIds() external {
-        uint16[] memory tiers = cp.getTierIds();
+        uint16[] memory tiers = cp.getTierIds(0);
         assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
         assertEq(tiers[1], LibTiers.TIER_SGX);
         assertEq(tiers[2], LibTiers.TIER_GUARDIAN);
 
         vm.expectRevert();
-        cp.getTier(123);
+        cp.getTier(0, 123);
     }
 
     function proposeButRevert(

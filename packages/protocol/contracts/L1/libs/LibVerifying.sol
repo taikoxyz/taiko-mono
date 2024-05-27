@@ -139,7 +139,7 @@ library LibVerifying {
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow
+                            ITierProvider(tierProvider).getTier(blockId, ts.tier).cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically

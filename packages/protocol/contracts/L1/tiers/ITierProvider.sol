@@ -17,20 +17,23 @@ interface ITierProvider {
     error TIER_NOT_FOUND();
 
     /// @dev Retrieves the configuration for a specified tier.
+    /// @param blockId The block ID.
     /// @param tierId ID of the tier.
     /// @return Tier struct containing the tier's parameters.
-    function getTier(uint16 tierId) external view returns (Tier memory);
+    function getTier(uint256 blockId, uint16 tierId) external view returns (Tier memory);
 
     /// @dev Retrieves the IDs of all supported tiers.
     /// Note that the core protocol requires the number of tiers to be smaller
     /// than 256. In reality, this number should be much smaller.
+    /// @param blockId The block ID.
     /// @return The ids of the tiers.
-    function getTierIds() external view returns (uint16[] memory);
+    function getTierIds(uint256 blockId) external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
+    /// @param blockId The block ID.
     /// @param rand (Semi) random number.
     /// @return The tier id.
-    function getMinTier(uint256 rand) external view returns (uint16);
+    function getMinTier(uint256 blockId, uint256 rand) external view returns (uint16);
 }
 
 /// @dev Tier ID cannot be zero!

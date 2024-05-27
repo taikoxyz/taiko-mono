@@ -8,7 +8,10 @@ import "./ITierProvider.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TierProviderBase is ITierProvider {
     /// @inheritdoc ITierProvider
-    function getTier(uint16 _tierId)
+    function getTier(
+        uint256, /*_blockId*/
+        uint16 _tierId
+    )
         public
         pure
         virtual

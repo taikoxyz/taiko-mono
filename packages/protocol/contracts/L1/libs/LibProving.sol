@@ -152,8 +152,9 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        local.tier =
-            ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false)).getTier(_proof.tier);
+        local.tier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false)).getTier(
+            local.blockId, _proof.tier
+        );
 
         local.inProvingWindow =
             !LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, local.tier.provingWindow);

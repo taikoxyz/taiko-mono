@@ -17,8 +17,8 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(0, LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(0, LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
@@ -128,8 +128,8 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(0, LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(0, LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
