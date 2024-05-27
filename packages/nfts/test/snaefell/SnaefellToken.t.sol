@@ -97,7 +97,7 @@ contract SnaefellTokenTest is Test {
         assertEq(tokenIds.length, 5);
     }
 
-    function test_revert_tokenCannotBeTransfered() public {
+    function test_revert_tokenCannotBeTransferred() public {
         vm.startBroadcast(owner);
         uint256[] memory tokenIds = token.mint(owner, 5);
 
