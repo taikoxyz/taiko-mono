@@ -34,7 +34,7 @@
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
-  - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` @commit`e79a367ad` @tx``
+  - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
 
 #### taiko_token
 
@@ -169,7 +169,7 @@
   - register `chain_watchdog` on May 21 @tx`0xaed098ad0c93113e401f61358f963501f40a046c5b5b659a1610f10120a9a86b`
   - register `prover_set` to `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` @tx`0x252cd7fcb6e02a71c0770d00f2f2476d5dd469a4fb5df622fe7bf6280d8a4100`
   - register `prover_set` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
-  - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` @commit`e79a367ad` @tx``
+  - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
 
 #### taikoL1
 
