@@ -27,6 +27,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+  - upgrade to `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` @tx`0x094dd9452d79cbd74711f2b8065566e4431a05d0727c56d2b38195e40fd62805`
 
 #### erc20_vault
 
@@ -38,6 +39,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+  - upgrade to `0x33fBcde27fBA21e90582Df31DFB427D4dbdBefC1` @tx`0x8a12626b2f2c9464b5f2525edc2010f371397ff12fe00cf49287a9b2a6b7ab99`
 
 #### erc721_vault
 
@@ -49,6 +51,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+  - upgrade to `0xD68BFe63E0f2983D89cbB225BEd068a8f19f5e08` @`0x8705703a93cb4cfc1ae69d1277f4464f807c7615237f2b04ff010c6e45708d34`
 
 #### erc1155_vault
 
@@ -60,6 +63,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+  - upgrade to `0x3918a2910C393A1A2EF7AAc807970EFE47A54b7e` @tx`0x264a2a553672a5480141638c3ca00a7bdf2c54e48c53f41867ca4f64703e16d7`
 
 #### signal_service
 
