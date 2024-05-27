@@ -153,7 +153,6 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-
         ITierProvider tierProvider =
             ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false));
 
