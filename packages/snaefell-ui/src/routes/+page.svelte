@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { ResponsiveController } from '@taiko/ui-lib';
+
   import { Mint } from '$components/Mint';
   import { CountdownSection, FooterSection, HeadingSection } from '$components/sections';
   import isCountdownActive from '$lib/util/isCountdownActive';

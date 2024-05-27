@@ -1,9 +1,9 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { json, t } from 'svelte-i18n';
 
   import Copyright from '$components/core/Copyright/Copyright.svelte';
   import { Icons } from '$components/core/Icons';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 
