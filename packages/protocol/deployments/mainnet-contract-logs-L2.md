@@ -33,6 +33,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
+  - set signal_service@1 to `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` @tx`0xc50b269f961973eafc2e39d4c668efa3f7457632940a2dc74fb627d6feba0680`
 
 #### bridge
 

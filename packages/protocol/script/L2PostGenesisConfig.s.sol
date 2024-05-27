@@ -32,6 +32,7 @@ contract L2PostGenesisConfig is Script {
                 (1, LibStrings.B_SIGNAL_SERVICE, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C)
             );
             console2.log("--- sam set signal service chain_id=1");
+            console2.log(sam);
             console.logBytes(call);
 
             call = abi.encodeCall(
