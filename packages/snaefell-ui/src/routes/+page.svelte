@@ -12,7 +12,11 @@
 </svelte:head>
 
 <SectionContainer>
-  <Section width={windowSize === 'sm' ? 'full' : 'md'} class="items-center justify-center" height={'full'}>
+  <Section
+    width={windowSize === 'sm' ? 'full' : 'md'}
+    background="general"
+    class="items-center justify-center"
+    height={'full'}>
     <Mint />
   </Section>
 

@@ -59,8 +59,8 @@
       isCalculating = true;
 
       gasCost = await Token.estimateMintGasCost();
-      totalSupply = await Token.totalSupply();
       mintMax = await Token.maxSupply();
+      totalSupply = await Token.totalSupply();
 
       isCalculating = false;
     } catch (e) {

@@ -21,6 +21,7 @@ export default {
             backgroundImage: {
                 'footer': "url('/bg/footer-gradient.svg')",
                 'general': "url('/bg/general-gradient.svg')",
+                'custom': "url('/bg/bg.svg')",
             },
             keyframes: {
                 'cell-pulse-animation': {
