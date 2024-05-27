@@ -40,7 +40,7 @@
 
   const mintState = getContext<IMint>('mint');
 
-  $: isReady = false;
+  $: isReady = true;
 
   $: totalMintCount = 0;
 
@@ -50,10 +50,15 @@
   $: totalMintCount, calculateGasCost();
 
   async function calculateGasCost() {
-    isCalculating = true;
+    try {
+      isCalculating = true;
 
-    gasCost = await Token.estimateMintGasCost();
-    isCalculating = false;
+      gasCost = await Token.estimateMintGasCost();
+      isCalculating = false;
+    } catch (e) {
+      console.warn(e);
+      isCalculating = false;
+    }
   }
 
   async function load() {
