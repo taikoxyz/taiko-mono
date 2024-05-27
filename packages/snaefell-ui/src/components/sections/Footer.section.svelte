@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Footer, ResponsiveController } from '@taiko/ui-lib';
   import { t } from 'svelte-i18n';
+
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 
