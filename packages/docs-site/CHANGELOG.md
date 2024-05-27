@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.4.0...docs-site-v1.4.1) (2024-05-27)
+
+
+### Bug Fixes
+
+* **docs-site:** fix addresses ([#17363](https://github.com/taikoxyz/taiko-mono/issues/17363)) ([f4c891e](https://github.com/taikoxyz/taiko-mono/commit/f4c891e37aae7ca1ddcf8f25eb5efc93d4fbb599))
+
+## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.3.0...docs-site-v1.4.0) (2024-05-27)
+
+
+### Features
+
+* **docs-site:** add reference to the community prover marketplace of dojonode ([#17310](https://github.com/taikoxyz/taiko-mono/issues/17310)) ([272c9f6](https://github.com/taikoxyz/taiko-mono/commit/272c9f626d88bb722ff4bd2c3615b2bec28b32db))
+* **docs-site:** introduce developer tools page, refactor prover guide ([#17332](https://github.com/taikoxyz/taiko-mono/issues/17332)) ([0e85144](https://github.com/taikoxyz/taiko-mono/commit/0e85144c6ade6d907f13155e9bfa66e05df69aad))
+* **docs-site:** mainnet docs ([#17339](https://github.com/taikoxyz/taiko-mono/issues/17339)) ([74f1b99](https://github.com/taikoxyz/taiko-mono/commit/74f1b992d941af5a27a763ea185bb2fc40a9f68c))
+* **docs-site:** node from source ([#17208](https://github.com/taikoxyz/taiko-mono/issues/17208)) ([5c7a122](https://github.com/taikoxyz/taiko-mono/commit/5c7a1227e1fed0fe7d0e81caa6cd390b897092eb))
+* **docs-site:** update chain sync process description ([#17207](https://github.com/taikoxyz/taiko-mono/issues/17207)) ([3cc5182](https://github.com/taikoxyz/taiko-mono/commit/3cc5182bbd8e8c079522dff4b836fbddaeddc548))
+
 ## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.2.0...docs-site-v1.3.0) (2024-05-15)
 
 

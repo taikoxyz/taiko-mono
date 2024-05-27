@@ -3,7 +3,7 @@ title: Run a Taiko node with Docker
 description: This guide will help you start up a Taiko RPC node using simple-taiko-node.
 ---
 
-import { Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 This guide will help you start up a Taiko RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
 
@@ -40,13 +40,28 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
       </TabItem>
     </Tabs>
 
-2. Copy the sample .env files
+2. Checkout the release branch you wish to run
+
+    Find the branch you wish to check out in the [repository](https://github.com/taikoxyz/simple-taiko-node/branches). 
+
+    The `main` branch corresponds to our mainnet, and the `hekla` branch corresponds to our current live testnet.
+
+    ```bash
+    git checkout <branch>
+    ```
+
+    <Aside>
+    Make sure to read the releases page carefully to determine the correct branch to check out.
+    Some may be specific to testnet or mainnet.
+    </Aside>
+
+3. Copy the sample .env files
 
     ```sh
     cp .env.sample .env
     ```
 
-3. Set the L1 archive node endpoint
+3. Set the L1 node endpoint
 
     First, open the `.env` in your preferred text editor:
 
@@ -63,20 +78,20 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
       </TabItem>
     </Tabs>
 
-    :::note
-    You can use any Holesky L1 endpoint.
+    <Aside>
+    You can use any L1 endpoint to run a Taiko L1 node unless you want to prove blocks past the last 128 blocks, in which case you will need an archive node.
 
-    The Holesky L1 node is no longer required to be an archive node to run a Taiko L1 node unless you want to prove blocks past the last 128 blocks.
+    It's recommended to [run a local L1 node](/guides/node-operators/run-an-ethereum-testnet-node) but you browse around for other RPC Providers. Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
 
-    It's recommended to [run a local Holesky node](/guides/run-a-holesky-node) but you browse around for other [Holesky RPC providers](https://chainlist.org/chain/17000). Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
-    :::
+    For Mainnet, the L1 Node will need to be an Ethereum node; for Testnet, the L1 Node will need to be a Etherem testnet (Holesky) node.
+    </Aside>
 
-    Next, you will set the L1 node endpoints. If you are running a local Holesky node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545`, `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:
+    Next, you will set the L1 node endpoints. If you are running a local L1 node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545`, `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:
 
     - Using `host.docker.internal` (see: [stack overflow](https://stackoverflow.com/questions/24319662)).
     - Using the private ip address of your machine (use something like `ip addr show` to get this ip address).
 
-    After getting the address of the Holesky node, set the following L1 node endpoints in your `.env` file. Here is an example:
+    After getting the address of the L1 node, set the following L1 node endpoints in your `.env` file. Here is an example:
 
     - `L1_ENDPOINT_HTTP=http://192.168.1.15:8545`
     - `L1_ENDPOINT_WS=ws://192.168.1.15:8546`
@@ -94,9 +109,9 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
 
-    :::note
+    <Aside>
     This only starts the driver and l2 execution engine service, if you'd like to run a prover/proposer please visit those guides.
-    :::
+    </Aside>
 
     ```sh
     docker compose --profile l2_execution_engine up -d

@@ -109,33 +109,76 @@ export default defineConfig({
           label: "Guides",
           items: [
             {
-              label: "Set up your wallet",
-              link: "/guides/set-up-your-wallet/",
+              label: "App Developers",
+              collapsed: true,
+              items: [
+                {
+                  label: "Set up your wallet",
+                  link: "/guides/app-developers/set-up-your-wallet/",
+                },
+                { label: "Receive tokens", link: "/guides/app-developers/receive-tokens/" },
+                { label: "Bridge tokens", link: "/guides/app-developers/bridge-tokens/" },
+                {
+                  label: "Deploy a contract",
+                  link: "/guides/app-developers/deploy-a-contract/",
+                },
+                {
+                  label: "Verify a contract",
+                  link: "/guides/app-developers/verify-a-contract/",
+                },
+              ],
             },
-            { label: "Receive tokens", link: "/guides/receive-tokens/" },
-            { label: "Bridge tokens", link: "/guides/bridge-tokens/" },
-            { label: "Swap tokens", link: "/guides/swap-tokens/" },
-            { label: "Deploy a contract", link: "/guides/deploy-a-contract/" },
-            { label: "Verify a contract", link: "/guides/verify-a-contract/" },
             {
-              label: "Run a Holesky node",
-              link: "/guides/run-a-holesky-node/",
+              label: "Node Operators",
+              collapsed: true,
+              items: [
+                {
+                  label: "Run a Taiko node with Docker",
+                  link: "/guides/node-operators/run-a-taiko-node-with-docker/",
+                },
+
+                {
+                  label: "Run an Ethereum testnet node",
+                  link: "/guides/node-operators/run-an-ethereum-testnet-node/",
+                },
+                {
+                  label: "Build a Taiko node from Source",
+                  link: "/guides/node-operators/build-a-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a Taiko mainnet node from Source",
+                  link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a Taiko testnet node from Source",
+                  link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a Taiko testnet proposer",
+                  link: "/guides/node-operators/enable-a-proposer/",
+                },
+                {
+                  label: "Run a Taiko testnet prover",
+                  link: "/guides/node-operators/enable-a-prover/",
+                },
+                {
+                  label: "Node troubleshooting",
+                  link: "/guides/node-operators/node-troubleshooting/",
+                },
+              ],
             },
-            { label: "Run a Taiko Node with Docker", link: "/guides/run-a-taiko-node-with-docker/" },
-            { label: "Build a Taiko Node from Source", link: "/guides/build-a-taiko-node-from-source/" },
-            // { label: "Run a Mainnet Taiko Node from Source", link: "/guides/run-a-mainnet-taiko-node-from-source/" },
-            { label: "Run a Testnet Taiko Node from Source", link: "/guides/run-a-testnet-taiko-node-from-source/" },
-            { label: "Enable a proposer", link: "/guides/enable-a-proposer/" },
-            { label: "Enable a prover", link: "/guides/enable-a-prover/" },
-            { label: "Node Troubleshooting", link:"/guides/node-troubleshooting/" }
           ],
         },
         {
           label: "Network Reference",
           items: [
             {
-              label: "Addresses",
-              link: "/network-reference/addresses",
+              label: "Mainnet Addresses",
+              link: "/network-reference/mainnet-addresses",
+            },
+            {
+              label: "Testnet Addresses",
+              link: "/network-reference/testnet-addresses",
             },
             {
               label: "Differences from Ethereum",
