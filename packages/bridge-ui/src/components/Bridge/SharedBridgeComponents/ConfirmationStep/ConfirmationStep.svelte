@@ -67,8 +67,8 @@
       await pendingTransactions.add(txHash, currentChain);
 
       successToast({
-        title: $t('bridge.actions.approve.success.title'),
-        message: $t('bridge.actions.approve.success.message', {
+        title: $t('bridge.actions.bridge.success.title'),
+        message: $t('bridge.actions.bridge.success.message', {
           values: {
             token: $selectedToken.symbol,
           },
