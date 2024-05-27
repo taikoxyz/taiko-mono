@@ -61,6 +61,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
   - linked bridged TKO to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xe25d05320b95fbc3bffe0b7cbfe351dd5fa6413db307d5c28f7b70983567a43b`
+  - linked bridged USDC to `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b` @tx`0xf1752ac712779e9ae53d408abdc5eec70e63582433143d6d91a489a1e8fc4778`
 
 #### erc721_vault
 
@@ -130,6 +131,14 @@
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - logs:
   - deployed @tx`0x3e0c2c3f7593b8af888c2b8fe3af79152426bdf2d0529f058722ae08c80c8991`
+
+#### bridged_usdc_token (native)
+
+- proxy: `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b`
+- impl: `0x996a7A32C387Fd83e127A358fBc192e110459f2d`
+- logs:
+  - deployed @tx`0xbd87fc07b1accbce04174c479cf9af6bb9c50b7e4677ec7417c4c6b327c30d01`
+  - set erc20_vault as a minter @tx`0x71cc56f3209b375f5734fb5041e425ce2ba445baa407e0a7019598f46b32993b`
 
 ## Other EOAs/Contracts
 
