@@ -2,7 +2,6 @@
   import { ResponsiveController } from '@taiko/ui-lib';
   import { zeroAddress } from 'viem';
 
-  import TaikoonsIcon from '$assets/taikoons-icon.png';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
@@ -11,13 +10,7 @@
   import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
-  import {
-    baseHeaderClasses,
-    rightSectionClasses,
-    taikoonsIconClasses,
-    themeButtonSeparatorClasses,
-    wrapperClasses,
-  } from './classes';
+  import { baseHeaderClasses, rightSectionClasses, themeButtonSeparatorClasses, wrapperClasses } from './classes';
   $: address = zeroAddress as IAddress;
 
   $: isMobileMenuOpen = false;
@@ -36,10 +29,6 @@
 
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
-    <a href="/" class={classNames()}>
-      <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
-    </a>
-
     <div class={rightSectionClasses}>
       <ConnectButton connected={$account?.isConnected} />
       <div class="inline-flex">
