@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { formatEther } from 'viem';
+  import { formatEther, formatGwei } from 'viem';
 
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
   import { processingFee, processingFeeMethod } from '$components/Bridge/state';
@@ -90,6 +90,10 @@
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
     const { value } = event.target as HTMLInputElement;
+    if (parseToWei(value) <= 0) {
+      // If the user tries to input 0 or less, we set it to 1 gwei
+      inputBox?.setValue(formatGwei(1n));
+    }
     tempprocessingFee = parseToWei(value);
   }
 
