@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.4.0...docs-site-v1.4.1) (2024-05-27)
+
+
+### Bug Fixes
+
+* **docs-site:** fix addresses ([#17363](https://github.com/taikoxyz/taiko-mono/issues/17363)) ([f4c891e](https://github.com/taikoxyz/taiko-mono/commit/f4c891e37aae7ca1ddcf8f25eb5efc93d4fbb599))
+
 ## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.3.0...docs-site-v1.4.0) (2024-05-27)
 
 
