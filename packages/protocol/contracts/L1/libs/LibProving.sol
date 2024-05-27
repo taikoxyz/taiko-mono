@@ -21,6 +21,7 @@ library LibProving {
     struct Local {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
+        ITierProvider.Tier minTier;
         bytes32 metaHash;
         address assignedProver;
         uint64 slot;
@@ -152,13 +153,16 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        local.tier =
-            ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false)).getTier(_proof.tier);
+        ITierProvider tierProvider =
+            ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false));
+
+        local.tier = tierProvider.getTier(_proof.tier);
+        local.minTier = tierProvider.getTier(_meta.minTier);
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
-            _tsTimestamp: blk.proposedAt,
+            _tsTimestamp: ts.timestamp,
             _lastUnpausedAt: local.b.lastUnpausedAt,
-            _windowMinutes: local.tier.provingWindow
+            _windowMinutes: local.minTier.provingWindow
         });
 
         // Checks if only the assigned prover is permissioned to prove the block.
