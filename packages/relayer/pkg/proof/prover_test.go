@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func newTestProver() *Prover {

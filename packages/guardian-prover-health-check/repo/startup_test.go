@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewStartupRepo(t *testing.T) {
