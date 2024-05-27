@@ -33,7 +33,7 @@
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  $: logoSrc = isDarkTheme ? '/taiko-h-wht.svg' : '/taiko-h-blk.svg';
+  $: logoSrc = isDarkTheme ? '/taiko-h-white.svg' : '/taiko-h-black.svg';
 </script>
 
 <MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
