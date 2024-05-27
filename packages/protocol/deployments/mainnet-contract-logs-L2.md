@@ -29,7 +29,6 @@
   - bridge_watchdog: `0x0000000000000000000000000000000000000000`
 - todo:
   - change owner to DelegateOwner
-  - register TKO token to the bridged TKO token?
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
