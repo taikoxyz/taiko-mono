@@ -3,6 +3,7 @@
 	import { signedBlocks, totalGuardianProvers, guardianProvers } from '$stores';
 	import { Spinner } from '$components/Spinner';
 	import { t } from 'svelte-i18n';
+	import type { SignedBlock } from '$lib/types';
 
 	const pageSize = 10;
 	let currentPage = 0;
@@ -14,6 +15,12 @@
 	};
 
 	$: blocksToDisplay = $signedBlocks.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+
+	function isSignedBlock(
+		prover: SignedBlock | { address: string; blockHash: string; signature: string }
+	): prover is SignedBlock {
+		return (prover as SignedBlock).guardianProverAddress !== undefined;
+	}
 </script>
 
 <h1 class="text-left">{$t('headings.blocks')}</h1>
@@ -25,18 +32,22 @@
 		<div class="col-span-3">{$t('blocks.signed')}</div>
 	</div>
 	{#each blocksToDisplay as { blockNumber, blocks }, index (blockNumber)}
-		{@const singedByProvers = blocks.sort((a, b) => a.guardianProverID - b.guardianProverID)}
-		{@const missingProverIDs = Array.from(
-			{ length: $totalGuardianProvers },
-			(_, i) => i + 1
-		).filter((id) => !singedByProvers.find((p) => p.guardianProverID === id))}
-		{@const missingProvers = missingProverIDs.map((id) => ({
-			guardianProverID: id,
-			blockHash: 'N/A',
-			signature: 'N/A'
-		}))}
-		{@const allProvers = [...singedByProvers, ...missingProvers]}
-		{@const displayProvers = allProvers.sort((a, b) => a.guardianProverID - b.guardianProverID)}
+		{@const signedByProvers = blocks.sort((a, b) =>
+			a.guardianProverAddress > b.guardianProverAddress ? 1 : -1
+		)}
+		{@const missingProverAddresses = $guardianProvers
+			.filter((g) => !signedByProvers.find((p) => p.guardianProverAddress === g.address))
+			.map((g) => ({
+				address: g.address,
+				blockHash: 'N/A',
+				signature: 'N/A'
+			}))}
+		{@const allProvers = [...signedByProvers, ...missingProverAddresses]}
+		{@const displayProvers = allProvers.sort((a, b) => {
+			const aAddress = isSignedBlock(a) ? a.guardianProverAddress : a.address;
+			const bAddress = isSignedBlock(b) ? b.guardianProverAddress : b.address;
+			return aAddress > bAddress ? 1 : -1;
+		})}
 		<div class="collapse collapse-arrow bg-base-200 rounded-lg shadow-md">
 			<input type="checkbox" id={`block-${index}`} class="peer" />
 			<label for={`block-${index}`} class="collapse-title font-medium items-center">
@@ -52,7 +63,7 @@
 			<div class="collapse-content bg-white">
 				{#each displayProvers as p}
 					{@const guardianProver = $guardianProvers?.find(
-						(g) => Number(g.id) === Number(p.guardianProverID)
+						(g) => g.address === (isSignedBlock(p) ? p.guardianProverAddress : p.address)
 					)}
 					<div class="grid grid-cols-4 items-center border-b py-[24px]">
 						<div class="f-col">
