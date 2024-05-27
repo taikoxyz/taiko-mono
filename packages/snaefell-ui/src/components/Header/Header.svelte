@@ -2,7 +2,7 @@
   import { zeroAddress } from 'viem';
 
   import TaikoonsIcon from '$assets/taikoons-icon.png';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';

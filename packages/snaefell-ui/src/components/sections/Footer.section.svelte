@@ -3,7 +3,7 @@
 
   import Copyright from '$components/core/Copyright/Copyright.svelte';
   import { Icons } from '$components/core/Icons';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 

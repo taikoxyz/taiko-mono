@@ -4,7 +4,7 @@
   import { formatEther } from 'viem';
   import { zeroAddress } from 'viem';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { Spinner } from '$components/core/Spinner';
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';

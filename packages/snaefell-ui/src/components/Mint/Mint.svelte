@@ -6,7 +6,7 @@
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
