@@ -159,6 +159,7 @@ library LibProving {
 
         local.tier = tierProvider.getTier(_proof.tier);
         local.minTier = tierProvider.getTier(_meta.minTier);
+
         local.inProvingWindow = !LibUtils.isPostDeadline({
             _tsTimestamp: ts.timestamp,
             _lastUnpausedAt: local.b.lastUnpausedAt,
