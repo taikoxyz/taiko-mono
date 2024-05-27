@@ -21,6 +21,7 @@
     'font-bold',
     'font-sans',
     'leading-relaxed',
+    'px-12',
   );
 
   const contentClasses = classNames(
@@ -30,23 +31,46 @@
     'font-medium',
     'font-clash-grotesk',
     'text-4xl',
+    // sm variant
+    'w-full',
+    'px-0',
+    // md variant
+    'md:w-3/4',
+    'md:px-12',
   );
 
   const contentWrapperClasses = classNames('pt-32', 'w-full', 'h-full');
 </script>
 
-<Section height={'full'} background="footer" class={sectionClasses} width="xl">
-  <div class={contentWrapperClasses}>
-    <p class={titleClasses}>
-      {$t('content.sections.information.title')}
-    </p>
+{#if windowSize === 'sm'}
+  <Section height={'min'} class={sectionClasses} width="xl">
+    <div class={contentWrapperClasses}>
+      <p class={titleClasses}>
+        {$t('content.sections.information.title')}
+      </p>
 
-    <div class={contentClasses}>
-      {$t('content.sections.information.text')}
+      <div class={contentClasses}>
+        {$t('content.sections.information.text')}
+      </div>
     </div>
-  </div>
+  </Section>
+  <Section height={'full'} class={sectionClasses} width="xl">
+    <Footer />
+  </Section>
+{:else}
+  <Section height={'full'} background="footer" class={sectionClasses} width="xl">
+    <div class={contentWrapperClasses}>
+      <p class={titleClasses}>
+        {$t('content.sections.information.title')}
+      </p>
 
-  <Footer />
-</Section>
+      <div class={contentClasses}>
+        {$t('content.sections.information.text')}
+      </div>
+    </div>
+
+    <Footer />
+  </Section>
+{/if}
 
 <ResponsiveController bind:windowSize />
