@@ -15,7 +15,7 @@ export const processingFeeComponent = {
 };
 
 export const pendingTransaction = {
-  waitTimeout: 30_000,
+  waitTimeout: 90_000,
 };
 
 export const storageService = {
