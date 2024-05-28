@@ -53,26 +53,24 @@
   $: isCalculating = false;
 
   async function calculateGasCost() {
-    /*
     try {
-
       if (!isReady || isCalculating || !canMint) return;
       isCalculating = true;
 
       gasCost = await Token.estimateMintGasCost();
-      mintMax = await Token.maxSupply();
-      totalSupply = await Token.totalSupply();
 
       isCalculating = false;
     } catch (e) {
       console.warn(e);
       isCalculating = false;
     }
-*/
   }
 
   async function load() {
     canMint = await Token.canMint();
+    mintMax = await Token.maxSupply();
+    totalSupply = await Token.totalSupply();
+
     if (!canMint) {
       isReady = true;
       return;

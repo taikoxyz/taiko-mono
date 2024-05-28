@@ -53,7 +53,7 @@ const chainConfigs: ChainConfigMap = {
     type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
   },
   '167000': {
-    name: 'Mainnet',
+    name: 'Taiko',
     rpcUrls: {
       default: {
         http: ['https://rpc.mainnet.taiko.xyz'],
@@ -64,7 +64,7 @@ const chainConfigs: ChainConfigMap = {
       symbol: 'ETH',
       decimals: 18,
     },
-    icon: '/chains/ethereum.svg',
+    icon: '/chains/taiko.svg',
     type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
   },
 };
