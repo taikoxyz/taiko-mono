@@ -2,10 +2,11 @@ import { getAccount, getChainId, watchAccount, watchChainId } from '@wagmi/core'
 import { createWeb3Modal } from '@web3modal/wagmi';
 import { readable } from 'svelte/store';
 
+import { browser } from '$app/environment';
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 import { config } from '$wagmi-config';
 
-import { getChainImages } from '../../lib/chain';
+import { getChainImages } from '../chain/chains';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID || 'walletconnect-project-id';
 const chainImages = getChainImages();
@@ -37,5 +38,5 @@ export const web3modal = createWeb3Modal({
     '--w3m-border-radius-master': '9999px',
     '--w3m-accent': 'var(--primary-brand)',
   },
-  themeMode: (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark',
+  themeMode: browser ? (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark' : 'dark',
 });
