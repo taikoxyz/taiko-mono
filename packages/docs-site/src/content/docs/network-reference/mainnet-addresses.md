@@ -51,6 +51,7 @@ description: Network reference page describing various important addresses on Ta
 | ------------------------------- | -------------------------------------------- |
 | TaikoL2                         | `0x1670000000000000000000000000000000010001` |
 | RollupAddressManager            | `0x1670000000000000000000000000000000010002` |
+| WETH                            | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
 
 ## Rollup contracts owner
 
