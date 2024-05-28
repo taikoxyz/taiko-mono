@@ -4,6 +4,8 @@ import type { Abi, Address } from 'abitype'
 import { existsSync, mkdirSync,readFileSync, writeFileSync } from 'fs'
 
 import * as DevnetDeployment from '../nfts/deployments/snaefell/devnet.json'
+import * as MainnetDeployment from '../nfts/deployments/snaefell/mainnet.json'
+
 import * as LocalhostDeployment from '../nfts/deployments/snaefell/localhost.json'
 import * as MainnetDeployment from '../nfts/deployments/snaefell/mainnet.json'
 import SnaefellToken from '../nfts/out/SnaefellToken.sol/SnaefellToken.json'
