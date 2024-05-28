@@ -8,5 +8,5 @@ interface ITierRouter {
     /// @dev Retrieves the address of TierProvider for a given block.
     /// @param blockId ID of the blopck.
     /// @return The address of the corresponding TierProvider.
-    function getProvider(uint256 blockId) external pure returns (address);
+    function getProvider(uint256 blockId) external view returns (address);
 }
