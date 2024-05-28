@@ -6,11 +6,14 @@
   import { Page } from '$components/Page';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
+  import Token from '../../lib/token';
 
   $: tokenIds = [] as number[];
 
   onMount(async () => {
-    tokenIds = Array.from({ length: 50 }, (_, i) => i + 1);
+    const maxSupply = await Token.maxSupply();
+    const maxTokenId = maxSupply < 42 ? maxSupply : 42;
+    tokenIds = Array.from({ length: maxTokenId }, (_, i) => i + 1);
   });
 
   const titleClasses = classNames(

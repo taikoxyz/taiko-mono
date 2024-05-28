@@ -19,6 +19,7 @@
     if (tokenId < 0) return '';
     const metadata = await IPFS.getMetadata(id);
     tokenURI = metadata.image;
+
   }
 
   $: wrapperClasses = classNames(

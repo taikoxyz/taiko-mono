@@ -5,8 +5,9 @@
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
 
   import { buttonClasses, buttonRowClasses, textContainerClasses, wrapperClasses } from './classes';
+  import { browser } from '$app/environment';
 
-  export let open: boolean = localStorage.getItem('mintAgreement') !== 'true';
+  export let open: boolean = browser && localStorage.getItem('mintAgreement') !== 'true';
 
   function acceptMintTerms() {
     localStorage.setItem('mintAgreement', 'true');

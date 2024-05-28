@@ -32,6 +32,7 @@
       isModalOpen: true,
     });
   }
+
 </script>
 
 <svelte:window on:hashchange={onRouteChange} />
