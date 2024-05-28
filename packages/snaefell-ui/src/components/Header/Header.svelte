@@ -1,14 +1,11 @@
 <script lang="ts">
   import { ResponsiveController } from '@taiko/ui-lib';
-  import { zeroAddress } from 'viem';
 
-  import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
   import { pageScroll } from '$stores/pageScroll';
   import { Theme, theme } from '$stores/theme';
 
-  import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   import {
@@ -18,9 +15,6 @@
     themeButtonSeparatorClasses,
     wrapperClasses,
   } from './classes';
-  $: address = zeroAddress as IAddress;
-
-  $: isMobileMenuOpen = false;
 
   $: isDarkTheme = $theme === Theme.DARK;
 
@@ -35,8 +29,6 @@
 
   $: logoSrc = isDarkTheme ? '/taiko-h-white.svg' : '/taiko-h-black.svg';
 </script>
-
-<MobileMenu isConnected={$account?.isConnected} {address} bind:open={isMobileMenuOpen} />
 
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
