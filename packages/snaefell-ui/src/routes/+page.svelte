@@ -16,7 +16,7 @@
     width={windowSize === 'sm' ? 'full' : 'md'}
     background="general"
     class="items-center justify-center"
-    height={'full'}>
+    height={'fit'}>
     <Mint />
   </Section>
 
