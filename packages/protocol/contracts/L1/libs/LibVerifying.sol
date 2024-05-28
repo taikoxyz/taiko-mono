@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
 import "../../signal/ISignalService.sol";
+import "../tiers/ITierRouter.sol";
 import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
@@ -132,7 +133,8 @@ library LibVerifying {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve(LibStrings.B_TIER_PROVIDER, false);
+                        address tierRouter = _resolver.resolve(LibStrings.B_TIER_ROUTER, false);
+                        tierProvider = ITierRouter(tierRouter).getProvider(blockId);
                     }
 
                     if (

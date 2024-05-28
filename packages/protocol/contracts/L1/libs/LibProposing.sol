@@ -8,6 +8,7 @@ import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
+import "../tiers/ITierRouter.sol";
 import "../tiers/ITierProvider.sol";
 
 /// @title LibProposing
@@ -155,8 +156,12 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
-            .getMinTier(uint256(meta_.difficulty));
+        {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(b.numBlocks));
+
+            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+        }
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
