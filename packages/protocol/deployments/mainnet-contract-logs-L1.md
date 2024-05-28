@@ -299,15 +299,25 @@
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
 
-### labprovers.taiko.eth
+### labprover.taiko.eth
 
-- ens: `labprovers.taiko.eth`
-- proxy: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
-- impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
+- ens: `labprover.taiko.eth`
+- proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
+- impl: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
-  - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
   - deployed @commit`bca493f`@tx`0xf3b6af477112d0a8209506c8f310f4eb0713beebb1911ef5d11162d36d93c0ff`
   - enabled two provers (`0x000000629FBCf27A347d1AEbA658435230D74a5f` and `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) @tx`0xa0b1565473849bc753d395abd982e6899ecdd9e754014eebed67b69edadb61c5`
   - upgraded from `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
+  - disable a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
+
+### labconster.taiko.eth
+
+- ens: `labconster.taiko.eth`
+- proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
+- impl: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
+- enabled provers:
+  - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
+- logs:
+  - enabled a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`

@@ -16,7 +16,7 @@ contract DeployLabsProverPool is DeployCapability {
 
     function run() external broadcast {
         deployProxy({
-            name: "labprovers.taiko.eth",
+            name: "labprover.taiko.eth",
             impl: 0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F,
             data: abi.encodeCall(ProverSet.init, (owner, owner, addressManager))
         });
