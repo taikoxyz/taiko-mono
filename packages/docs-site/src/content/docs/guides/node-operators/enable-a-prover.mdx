@@ -3,18 +3,18 @@ title: Enable a prover
 description: This guide will you help you enable your Taiko node as a prover.
 ---
 
-import { Steps } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
-- You are already running a Taiko node [with Docker](/guides/run-a-taiko-node-with-docker) or [from source](/guides/build-a-taiko-node-from-source).
+- You are already running a Taiko node [with Docker](/guides/node-operators/run-a-taiko-node-with-docker) or [from source](/guides/node-operators/build-a-taiko-node-from-source).
 - You have an [SGX v2 capable machine](https://github.com/ayeks/SGX-hardware#hardware-with-sgx2-support).
 
 ## Enable a prover with simple-taiko-node
 
-:::note
-The SGX registration process now occurs fully onchain! By registering through on-chain RA, TTKOh will be deposited to your prover's L1 Address.
-:::
+<Aside>
+These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the `.env` file as you see fit!
+</Aside>
 
 <Steps>
 
@@ -30,13 +30,15 @@ The SGX registration process now occurs fully onchain! By registering through on
 
 6. You can then run your prover with `docker compose --profile prover up -d`!
 
-   :::note
-   These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the .env file as you see fit!
-   :::
-
 </Steps>
 
-### Approve TaikoL1 as TTKOh spender
+### Approve TaikoL1 as TKO spender (mainnet)
+
+<Aside>
+Coming soon, once TKO is available.
+</Aside>
+
+### Approve TaikoL1 as TTKOh spender (testnet)
 
 You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the proofs you generate.
 

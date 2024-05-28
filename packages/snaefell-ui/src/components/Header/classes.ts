@@ -58,3 +58,5 @@ export const navButtonClasses = classNames(
   'text-base/[135.5%]',
   'text-content-primary',
 );
+
+export const logoClasses = classNames('flex', 'flex-row', 'justify-center', 'items-center');
