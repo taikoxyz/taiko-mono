@@ -4,7 +4,7 @@ import { readable } from 'svelte/store';
 
 import { browser } from '$app/environment';
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
-import { config } from '$wagmi-config';
+import { config, mainnet } from '$wagmi-config';
 
 import { getChainImages } from '../chain/chains';
 
@@ -19,13 +19,14 @@ export const provider = readable<unknown | undefined>(undefined, (set) =>
   watchAccount(config, {
     onChange: async (account) => {
       if (!account.connector) return set(undefined);
+      console.log({account})
       set(await account.connector?.getProvider());
     },
   }),
 );
 
 export const web3modal = createWeb3Modal({
-  wagmiConfig: config || { projectId, chains: [], connectors: [] },
+  wagmiConfig: config || { projectId, chains: [mainnet], connectors: [] },
   projectId,
   featuredWalletIds: [],
   allowUnsupportedChain: true,

@@ -45,8 +45,7 @@
   const contentWrapperClasses = classNames('pt-32', 'w-full', 'h-full');
 </script>
 
-{#if windowSize === 'sm'}
-  <Section height={'min'} class={sectionClasses} width="xl">
+  <Section height={'max'} class={sectionClasses} width="xl">
     <div class={contentWrapperClasses}>
       <p class={titleClasses}>
         {$t('content.sections.information.title')}
@@ -65,31 +64,8 @@
       </div>
     </div>
   </Section>
-  <Section height={'full'} class={sectionClasses} width="xl">
+  <Section height={'max'} class={sectionClasses} width="xl">
     <Footer />
   </Section>
-{:else}
-  <Section height={'full'} background="footer" class={sectionClasses} width="xl">
-    <div class={contentWrapperClasses}>
-      <p class={titleClasses}>
-        {$t('content.sections.information.title')}
-      </p>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text1')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text2')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text3')}
-      </div>
-    </div>
-
-    <Footer />
-  </Section>
-{/if}
 
 <ResponsiveController bind:windowSize />
