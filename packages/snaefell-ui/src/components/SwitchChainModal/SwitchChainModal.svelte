@@ -3,7 +3,7 @@
   import { t } from 'svelte-i18n';
   import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
 
-  import { config, mainnet } from '$wagmi-config';
+  import { config, taiko } from '$wagmi-config';
 
   import { getChainImage } from '../../lib/chain/chains';
   import { switchChainModal } from '../../stores/modal';
@@ -24,7 +24,7 @@
 
   let switchingNetwork = false;
 
-  $: selectedChains = [mainnet];
+  $: selectedChains = [taiko];
 
   function closeModal() {
     $switchChainModal = false;

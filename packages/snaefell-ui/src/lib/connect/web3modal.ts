@@ -4,7 +4,7 @@ import { readable } from 'svelte/store';
 
 import { browser } from '$app/environment';
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
-import { config, mainnet } from '$wagmi-config';
+import { config, taiko } from '$wagmi-config';
 
 import { getChainImages } from '../chain/chains';
 
@@ -25,7 +25,7 @@ export const provider = readable<unknown | undefined>(undefined, (set) =>
 );
 
 export const web3modal = createWeb3Modal({
-  wagmiConfig: config || { projectId, chains: [mainnet], connectors: [] },
+  wagmiConfig: config || { projectId, chains: [taiko], connectors: [] },
   projectId,
   featuredWalletIds: [],
   allowUnsupportedChain: true,

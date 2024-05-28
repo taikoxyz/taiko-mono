@@ -8,12 +8,12 @@ const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 import { chainIdToChain } from '$lib/chain/chains';
 
 export const devnet = chainIdToChain(167001);
-export const mainnet = chainIdToChain(167000);
+export const taiko = chainIdToChain(167000);
 
 const baseConfig = {
   chains: [
     // hardhat,
-    mainnet,
+    taiko,
     // devnet
   ],
   projectId,
@@ -24,7 +24,7 @@ const baseConfig = {
   transports: {
     // [hardhat.id]: http('http://localhost:8545'),
     //[devnet.id]: http('https://rpc.internal.taiko.xyz'),
-    [mainnet.id]: http('https://rpc.mainnet.taiko.xyz'),
+    [taiko.id]: http('https://rpc.mainnet.taiko.xyz'),
   },
 } as const;
 
