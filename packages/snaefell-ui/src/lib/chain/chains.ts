@@ -5,6 +5,7 @@ import { type ChainConfig, type ChainConfigMap, LayerType } from '../../lib/chai
 //import { chainConfig } from '$chainConfig';
 
 const chainConfigs: ChainConfigMap = {
+  /*
   '1': {
     name: 'Ethereum',
     rpcUrls: {
@@ -20,7 +21,7 @@ const chainConfigs: ChainConfigMap = {
     },
     icon: '/chains/ethereum.svg',
     type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
-  },
+  },*/
   '31337': {
     name: 'Hardhat',
     rpcUrls: {

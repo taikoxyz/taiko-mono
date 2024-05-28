@@ -3,13 +3,8 @@ import { defineConfig } from '@wagmi/cli'
 import type { Abi, Address } from 'abitype'
 import { existsSync, mkdirSync,readFileSync, writeFileSync } from 'fs'
 
-import * as DevnetDeployment from '../nfts/deployments/snaefell/devnet.json'
-import * as MainnetDeployment from '../nfts/deployments/snaefell/mainnet.json'
-
-import * as LocalhostDeployment from '../nfts/deployments/snaefell/localhost.json'
 import * as MainnetDeployment from '../nfts/deployments/snaefell/mainnet.json'
 import SnaefellToken from '../nfts/out/SnaefellToken.sol/SnaefellToken.json'
-
 
 
 function generateNetworkWhitelist(network: string){
@@ -43,9 +38,6 @@ function generateWhitelistJson() {
     if (!existsSync(whitelistDir)) {
         mkdirSync(whitelistDir, { recursive: true });
     }
-
-    generateNetworkWhitelist("hardhat");
-    generateNetworkWhitelist('devnet')
     generateNetworkWhitelist('mainnet')
 }
 
@@ -57,8 +49,6 @@ export default defineConfig({
         {
             name: 'SnaefellToken',
             address: {
-                31337: LocalhostDeployment.SnaefellToken as Address,
-                167001: DevnetDeployment.SnaefellToken as Address,
                 167000: MainnetDeployment.SnaefellToken as Address,
             },
             abi: SnaefellToken.abi as Abi,

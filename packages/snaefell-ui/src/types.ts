@@ -9,9 +9,7 @@ export interface IDropdownItem {
   href: string;
 }
 
-export type IChainId =
-  | 31337 // hardhat
-  | 167001; // devnet;
+export type IChainId = 167000; // taiko;
 
 export interface IBid {
   amount: number;
