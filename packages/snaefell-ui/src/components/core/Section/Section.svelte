@@ -1,9 +1,5 @@
 <script lang="ts">
-  import { Theme, theme } from '$stores/theme';
-  import { AnimatedBackground } from '$ui/AnimatedBackground';
-
   import { classNames } from '../../../lib/util/classNames';
-  $: isDarkTheme = $theme === Theme.DARK;
 
   export let height: 'full' | 'min' | 'fit' = 'full';
   export let width: 'sm' | 'md' | 'lg' | 'xl' | 'full' = 'lg';
@@ -11,7 +7,6 @@
 
   let elementId: string = '';
   export { elementId as id };
-  export let animated: boolean = false;
 
   $: wrapperClasses = classNames(
     'w-full',
@@ -25,8 +20,7 @@
     'justify-center',
     background === 'none' ? 'bg-background-body' : null,
     background !== 'none' ? 'bg-cover bg-center' : null,
-    background === 'general' && isDarkTheme ? 'bg-general' : null,
-    background === 'footer' && isDarkTheme ? 'bg-footer' : null,
+    background === 'general' ? 'bg-custom' : null,
     'carousel-item',
   );
 
@@ -45,8 +39,6 @@
 </script>
 
 <section id={elementId} class={wrapperClasses}>
-  <AnimatedBackground {animated} />
-
   <div class={sectionClasses}>
     <slot />
   </div>

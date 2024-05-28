@@ -4,14 +4,19 @@ import { snaefellTokenAbi, snaefellTokenAddress } from '../../generated/abi';
 import getConfig from '../../lib/wagmi/getConfig';
 
 export async function totalSupply(): Promise<number> {
-  const { config, chainId } = getConfig();
+  try {
+    const { config, chainId } = getConfig();
 
-  const result = await readContract(config, {
-    abi: snaefellTokenAbi,
-    address: snaefellTokenAddress[chainId],
-    functionName: 'totalSupply',
-    chainId,
-  });
+    const result = await readContract(config, {
+      abi: snaefellTokenAbi,
+      address: snaefellTokenAddress[chainId],
+      functionName: 'totalSupply',
+      chainId,
+    });
 
-  return parseInt(result.toString(16), 16);
+    return parseInt(result.toString(16), 16);
+  } catch (e) {
+    console.error(e);
+    return 0;
+  }
 }
