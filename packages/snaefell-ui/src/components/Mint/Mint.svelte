@@ -31,6 +31,8 @@
     rightHalfPanel,
     wrapperClasses,
   } from './classes';
+  import {default as EligibilityPanel} from './EligibilityPanel.svelte';
+  import {default as MintForm} from './MintForm.svelte';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -49,6 +51,8 @@
 
   $: gasCost = 0;
   $: isCalculating = false;
+
+  $: isMinting = false
 
   async function calculateGasCost() {
     try {
@@ -99,34 +103,46 @@
   });
 
   async function mint() {
+    console.log('clicked mint')
+    isMinting = true
+    /*
     mintState.set({
       ...$mintState,
       isModalOpen: true,
 
       isMinting: true,
-    });
+    });*/
 
     // ensure that the input values are numbers
     totalMintCount = parseInt(totalMintCount.toString());
 
-    mintState.set({ ...$mintState, totalMintCount: totalMintCount });
+    //mintState.set({ ...$mintState, totalMintCount: totalMintCount });
     try {
       const tokenIds = await Token.mint({
         freeMintCount: totalMintCount,
         onTransaction: (txHash: string) => {
-          mintState.set({ ...$mintState, txHash });
+          //mintState.set({ ...$mintState, txHash });
         },
       });
-      mintState.set({ ...$mintState, tokenIds });
+     // mintState.set({ ...$mintState, tokenIds });
     } catch (e) {
       console.warn(e);
       //showMintConfirmationModal = false
-      mintState.set({ ...$mintState, isModalOpen: false });
+     // mintState.set({ ...$mintState, isModalOpen: false });
     }
-    mintState.set({ ...$mintState, isMinting: false });
+   // mintState.set({ ...$mintState, isMinting: false });
 
     await load();
+
+    mintStep = 2
+    isMinting = false
   }
+
+  async function view(){
+    window.location.href= "/view"
+  }
+
+  $: mintStep = 0
 </script>
 
 <div class={wrapperClasses}>
@@ -136,43 +152,57 @@
     </div>
   {/if}
   <div class={rightHalfPanel}>
-    <!-- svelte-ignore missing-declaration -->
-    {#if windowSize === 'sm'}
-      <div class={nftRendererWrapperMobileClasses}>
-        <NftRenderer />
-      </div>
-    {/if}
-    <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
+    <!-- proper tree-->
 
-    <p class={mintContentClasses}>
-      {$t('content.mint.textTop')}
-    </p>
-
-    <p class={mintContentClasses}>
-      {$t('content.mint.textBottom')}
-    </p>
-
-    <div class={infoRowClasses}>
-      <div class={counterClasses}>
-        <div class={currentMintedClasses}>#{totalSupply}</div>
-        <div class={maxMintedClasses}>/ {mintMax}</div>
-      </div>
-      <ProgressBar {progress} />
-    </div>
-
-    <Divider />
-
-    <div class={infoRowClasses}>
-      <InfoRow label={$t('content.mint.totalMints')} value={$mintState.totalMintCount.toString()} />
-      <InfoRow label={$t('content.mint.gasFee')} loading={isCalculating} value={`Ξ ${gasCost}`} />
-    </div>
-
-    {#if isReady}
-      <ActionButton priority="primary" disabled={!canMint} on:click={mint} class={buttonClasses} onPopup>
-        {$t('buttons.mint')}
-      </ActionButton>
+    <!--
+      {#if isReady && canMint}
+      <MintForm
+    {totalSupply}
+    {gasCost}
+    {mintMax}
+    {isCalculating}
+    {progress}
+    isReady={isReady} />
+    {:else if isReady && !canMint}
+    <EligibilityPanel step="non-eligible" />
     {:else}
-      <Spinner />
+
+    {/if}
+
+    -->
+
+
+    {#if isReady && canMint}
+
+    <EligibilityPanel step="non-eligible" />
+
+
+    {:else if isReady && !canMint}
+
+    {#if mintStep === 0}
+    <EligibilityPanel disabled={false}
+    on:click={async () => {
+      mintStep = 1;
+    }}
+    step="eligible" />
+    {:else if mintStep === 1}
+    <MintForm
+    on:mint={mint}
+    {totalSupply}
+    {gasCost}
+    {mintMax}
+    {isCalculating}
+    {progress}
+    isReady={isReady && !isMinting} />
+    {:else}
+    <EligibilityPanel
+    on:click={view}
+    disabled={false} step="success" />
+    {/if}
+
+    {:else}
+
+    bla
     {/if}
   </div>
 </div>
