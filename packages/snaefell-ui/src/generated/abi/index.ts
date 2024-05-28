@@ -41,7 +41,9 @@ export const snaefellTokenAbi = [
     type: 'function',
     inputs: [],
     name: 'blacklist',
-    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
+    outputs: [
+      { name: '', internalType: 'contract IMinimalBlacklist', type: 'address' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -491,7 +493,9 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -578,16 +582,16 @@ export const snaefellTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const;
+] as const
 
 /**
  *
  */
 export const snaefellTokenAddress = {
-  31337: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
-  167000: '0xe5d84034f185eC81bD0D6f4Fc400F324792B4D52',
-  167001: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
-} as const;
+  31337: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+  167000: '0xD57b9EE8f597801e82018ed44e07E9065645B0c1',
+  167001: '0x9A676e781A523b5d0C0e43731313A708CB607508',
+} as const
 
 /**
  *
@@ -595,4 +599,4 @@ export const snaefellTokenAddress = {
 export const snaefellTokenConfig = {
   address: snaefellTokenAddress,
   abi: snaefellTokenAbi,
-} as const;
+} as const
