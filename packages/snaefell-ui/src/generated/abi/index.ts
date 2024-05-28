@@ -39,6 +39,13 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'blacklist',
+    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: '_minter', internalType: 'address', type: 'address' },
       { name: '_maxMints', internalType: 'uint256', type: 'uint256' },
@@ -59,6 +66,11 @@ export const snaefellTokenAbi = [
     inputs: [
       { name: '_owner', internalType: 'address', type: 'address' },
       { name: '_root', internalType: 'bytes32', type: 'bytes32' },
+      {
+        name: '_blacklist',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
     ],
     name: 'initialize',
     outputs: [],
@@ -70,6 +82,11 @@ export const snaefellTokenAbi = [
       { name: '_owner', internalType: 'address', type: 'address' },
       { name: '_rootURI', internalType: 'string', type: 'string' },
       { name: '_merkleRoot', internalType: 'bytes32', type: 'bytes32' },
+      {
+        name: '_blacklistAddress',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
     ],
     name: 'initialize',
     outputs: [],
@@ -269,6 +286,19 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      {
+        name: '_blacklist',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
+    ],
+    name: 'updateBlacklist',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [{ name: '_root', internalType: 'bytes32', type: 'bytes32' }],
     name: 'updateRoot',
     outputs: [],
@@ -328,6 +358,19 @@ export const snaefellTokenAbi = [
       { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
     ],
     name: 'ApprovalForAll',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: '_blacklist',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'BlacklistUpdated',
   },
   {
     type: 'event',
@@ -440,6 +483,7 @@ export const snaefellTokenAbi = [
     ],
     name: 'Upgraded',
   },
+  { type: 'error', inputs: [], name: 'ADDRESS_BLACKLISTED' },
   {
     type: 'error',
     inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
@@ -540,7 +584,7 @@ export const snaefellTokenAbi = [
  *
  */
 export const snaefellTokenAddress = {
-  31337: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+  31337: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
   167001: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
 } as const;
 
