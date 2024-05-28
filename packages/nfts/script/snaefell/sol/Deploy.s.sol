@@ -37,7 +37,12 @@ contract DeployScript is Script {
 
         address impl = address(new SnaefellToken());
         address proxy = address(
-            new ERC1967Proxy(impl, abi.encodeCall(SnaefellToken.initialize, (owner, baseURI, root)))
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    SnaefellToken.initialize, (owner, baseURI, root, utils.getBlacklist())
+                )
+            )
         );
 
         SnaefellToken token = SnaefellToken(proxy);

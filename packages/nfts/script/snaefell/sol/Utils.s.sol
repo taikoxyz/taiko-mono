@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import { Script, console } from "forge-std/src/Script.sol";
 import "forge-std/src/StdJson.sol";
+import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
+import { MockBlacklist } from "../../../test/util/Blacklist.sol";
 
 contract UtilsScript is Script {
     using stdJson for string;
@@ -27,6 +29,9 @@ contract UtilsScript is Script {
         } else if (chainId == 167_008) {
             lowercaseNetworkKey = "katla";
             uppercaseNetworkKey = "KATLA";
+        } else if (chainId == 167_000) {
+            lowercaseNetworkKey = "mainnet";
+            uppercaseNetworkKey = "MAINNET";
         } else {
             revert("Unsupported chainId");
         }
@@ -49,6 +54,18 @@ contract UtilsScript is Script {
 
     function getIpfsBaseURI() public view returns (string memory) {
         return vm.envString("IPFS_BASE_URI");
+    }
+
+    function getBlacklist() public returns (IMinimalBlacklist blacklistAddress) {
+        if (block.chainid == 167_000) {
+            // mainnet blacklist address
+            blacklistAddress = IMinimalBlacklist(vm.envAddress("BLACKLIST_ADDRESS"));
+        } else {
+            // deploy a mock blacklist otherwise
+            blacklistAddress = IMinimalBlacklist(new MockBlacklist());
+        }
+
+        return blacklistAddress;
     }
 
     function run() public { }
