@@ -60,7 +60,7 @@
     "@wagmi/core": "^2.8.0",
     "@web3modal/common": "^4.1.1",
     "@web3modal/ui": "^4.1.1",
-    "@web3modal/wagmi": "^4.1.1",
+    "@web3modal/wagmi": "^4.2.2",
     "@zerodevx/svelte-toast": "^0.9.5",
     "autoprefixer": "^10.4.19",
     "daisyui": "^4.10.1",
