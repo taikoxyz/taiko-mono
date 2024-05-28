@@ -5,6 +5,7 @@
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
   import { ProgressBar } from '$components/core/ProgressBar';
@@ -12,7 +13,6 @@
   import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
-  import { Button } from '$ui/Button';
   import { Spinner } from '$ui/Spinner';
 
   import Token from '../../lib/token';
@@ -36,7 +36,7 @@
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  const buttonClasses = classNames('mt-6');
+  const buttonClasses = classNames('mt-6 max-h-[56px]');
 
   $: canMint = false;
   $: totalSupply = 0;
@@ -175,8 +175,9 @@
     </div>
 
     {#if isReady}
-      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
-        {$t('buttons.mint')}</Button>
+      <ActionButton priority="primary" disabled={!canMint} on:click={mint} class={buttonClasses} onPopup>
+        {$t('buttons.mint')}
+      </ActionButton>
     {:else}
       <Spinner />
     {/if}
