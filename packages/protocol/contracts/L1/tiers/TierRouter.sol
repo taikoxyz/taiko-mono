@@ -5,6 +5,7 @@ import "../../common/EssentialContract.sol";
 import "./ITierRouter.sol";
 
 /// @title TierProviderBase
+/// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 abstract contract TierRouter is EssentialContract, ITierRouter {
     uint256[50] private __gap;
