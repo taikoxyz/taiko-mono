@@ -212,13 +212,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             chainId: LibNetwork.TAIKO,
             // Assume the block time is 3s, the protocol will allow ~90 days of
             // new blocks without any verification.
-            blockMaxProposals: 3_000_000,
-            blockRingBufferSize: 3_010_000,
+            blockMaxProposals: 432_000, // = 60*86400/12, 60 days, 12 seconds avg block time
+            blockRingBufferSize: 432_000 + 512,
             // Can be overridden by the tier config.
             maxBlocksToVerifyPerProposal: 10,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
+            // There is 250_000 additional gas for the anchor tx. Therefore, on explorers, you'll
+            // read Taiko's gas limit to be 240_250_000.
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             blockSyncThreshold: 16

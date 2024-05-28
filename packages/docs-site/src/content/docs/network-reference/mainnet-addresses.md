@@ -34,7 +34,7 @@ description: Network reference page describing various important addresses on Ta
 | SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` | N/A                        |
 | TokenUnlock                     | `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819` | N/A                        |
 | ProverSet                       | `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` | N/A                        |
-| LabProvers                      | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprovers.taiko.eth       |
+| labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
 
 ## Taiko (Mainnet) contracts
 
@@ -51,6 +51,7 @@ description: Network reference page describing various important addresses on Ta
 | ------------------------------- | -------------------------------------------- |
 | TaikoL2                         | `0x1670000000000000000000000000000000010001` |
 | RollupAddressManager            | `0x1670000000000000000000000000000000010002` |
+| WETH                            | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
 
 ## Rollup contracts owner
 

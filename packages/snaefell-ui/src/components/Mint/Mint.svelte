@@ -158,8 +158,8 @@
       <Divider />
 
       <div class={infoRowClasses}>
-        <InfoRow label="Total mints" value={$mintState.totalMintCount.toString()} />
-        <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
+        <InfoRow label={$t('content.mint.totalMints')} value={$mintState.totalMintCount.toString()} />
+        <InfoRow label={$t('content.mint.gasFee')} loading={isCalculating} value={`Ξ ${gasCost}`} />
       </div>
 
       <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
