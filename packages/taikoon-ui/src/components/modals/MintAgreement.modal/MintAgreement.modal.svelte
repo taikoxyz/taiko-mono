@@ -1,11 +1,11 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
+  import { browser } from '$app/environment';
   import { Button } from '$ui/Button';
   import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
 
   import { buttonClasses, buttonRowClasses, textContainerClasses, wrapperClasses } from './classes';
-  import { browser } from '$app/environment';
 
   export let open: boolean = browser && localStorage.getItem('mintAgreement') !== 'true';
 

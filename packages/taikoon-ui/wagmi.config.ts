@@ -3,6 +3,7 @@ import { defineConfig } from '@wagmi/cli'
 import type { Abi, Address } from 'abitype'
 import { existsSync, mkdirSync,readFileSync, writeFileSync } from 'fs'
 
+import * as MainnetDeployment from '../nfts/deployments/taikoon/mainnet.json'
 import * as LocalhostDeployment from '../nfts/deployments/taikoon/localhost.json'
 import TaikoonToken from '../nfts/out/TaikoonToken.sol/TaikoonToken.json'
 
@@ -30,6 +31,8 @@ function generateWhitelistJson() {
 
     generateNetworkWhitelist("hardhat");
     generateNetworkWhitelist("holesky");
+    generateNetworkWhitelist("mainnet");
+
 }
 
 generateWhitelistJson();
@@ -42,6 +45,7 @@ export default defineConfig({
             address: {
                 31337: LocalhostDeployment.TaikoonToken as Address,
                 //17000: HoleskyDeployment.TaikoonToken as Address,
+                167000: MainnetDeployment.TaikoonToken as Address,
             },
             abi: TaikoonToken.abi as Abi,
         }

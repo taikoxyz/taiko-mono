@@ -23,8 +23,8 @@ export async function canMint(): Promise<boolean> {
       chainId,
     });
     return result as boolean;
-  } catch (e){
-    console.warn(e)
-    return false
+  } catch (e) {
+    console.warn(e);
+    return false;
   }
 }

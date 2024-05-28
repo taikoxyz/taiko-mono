@@ -6,6 +6,7 @@
   import { Page } from '$components/Page';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
+
   import Token from '../../lib/token';
 
   $: tokenIds = [] as number[];
