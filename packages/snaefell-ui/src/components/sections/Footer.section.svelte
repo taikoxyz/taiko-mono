@@ -25,7 +25,11 @@
 
   const contentClasses = classNames(
     'md:font-normal',
-    'md:text-[57px]/[64px]',
+    //'md:text-[57px]/[64px]',
+    'md:text-3xl',
+    'text-2xl',
+    'my-4',
+    'md:my-6',
     'text-content-primary',
     'font-medium',
     'font-clash-grotesk',
@@ -49,7 +53,15 @@
       </p>
 
       <div class={contentClasses}>
-        {$t('content.sections.information.text')}
+        {$t('content.sections.information.text1')}
+      </div>
+
+      <div class={contentClasses}>
+        {$t('content.sections.information.text2')}
+      </div>
+
+      <div class={contentClasses}>
+        {$t('content.sections.information.text3')}
       </div>
     </div>
   </Section>
@@ -64,7 +76,15 @@
       </p>
 
       <div class={contentClasses}>
-        {$t('content.sections.information.text')}
+        {$t('content.sections.information.text1')}
+      </div>
+
+      <div class={contentClasses}>
+        {$t('content.sections.information.text2')}
+      </div>
+
+      <div class={contentClasses}>
+        {$t('content.sections.information.text3')}
       </div>
     </div>
 

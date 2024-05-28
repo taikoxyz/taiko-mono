@@ -149,8 +149,20 @@
     <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
     <p class={mintContentClasses}>
-      {$t('content.mint.text')}
+      {$t('content.mint.textTop')}
     </p>
+
+    <p class={mintContentClasses}>
+      {$t('content.mint.textBottom')}
+    </p>
+
+    <div class={infoRowClasses}>
+      <div class={counterClasses}>
+        <div class={currentMintedClasses}>#{totalSupply}</div>
+        <div class={maxMintedClasses}>/ {mintMax}</div>
+      </div>
+      <ProgressBar {progress} />
+    </div>
 
     <div class={infoRowClasses}>
       <div class={counterClasses}>
