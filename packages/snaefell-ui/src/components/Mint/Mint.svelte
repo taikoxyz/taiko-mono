@@ -33,10 +33,11 @@
     rightHalfPanel,
     wrapperClasses,
   } from './classes';
+  import ActionButton from '$components/Button/ActionButton.svelte';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  const buttonClasses = classNames('mt-6');
+  const buttonClasses = classNames('mt-6 max-h-[56px]');
 
   $: canMint = false;
   $: totalSupply = 0;
@@ -165,8 +166,9 @@
     </div>
 
     {#if isReady}
-      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
-        {$t('buttons.mint')}</Button>
+      <ActionButton priority="primary" disabled={!canMint} on:click={mint} class={buttonClasses} onPopup>
+        {$t('buttons.mint')}
+      </ActionButton>
     {:else}
       <Spinner />
     {/if}
