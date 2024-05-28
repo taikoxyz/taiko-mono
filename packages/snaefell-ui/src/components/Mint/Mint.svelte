@@ -139,7 +139,11 @@
       <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
       <p class={mintContentClasses}>
-        {$t('content.mint.text')}
+        {$t('content.mint.textTop')}
+      </p>
+
+      <p class={mintContentClasses}>
+        {$t('content.mint.textBottom')}
       </p>
 
       <div class={infoRowClasses}>
