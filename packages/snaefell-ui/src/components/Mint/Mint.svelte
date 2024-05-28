@@ -164,14 +164,6 @@
       <ProgressBar {progress} />
     </div>
 
-    <div class={infoRowClasses}>
-      <div class={counterClasses}>
-        <div class={currentMintedClasses}>#{totalSupply}</div>
-        <div class={maxMintedClasses}>/ {mintMax}</div>
-      </div>
-      <ProgressBar {progress} />
-    </div>
-
     <div class={counterClasses}>
       <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>
       <div class={eligibilityValueClasses}>{$mintState.totalMintCount}</div>
