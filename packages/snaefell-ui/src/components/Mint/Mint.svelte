@@ -2,15 +2,9 @@
   import { ResponsiveController } from '@taiko/ui-lib';
   import { getAccount } from '@wagmi/core';
   import { getContext, onMount } from 'svelte';
-  import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
-  import ActionButton from '$components/Button/ActionButton.svelte';
-  import { Divider } from '$components/core/Divider';
-  import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
-  import { ProgressBar } from '$components/core/ProgressBar';
   import User from '$lib/user';
-  import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
   import { Spinner } from '$ui/Spinner';
@@ -19,22 +13,11 @@
   import getConfig from '../../lib/wagmi/getConfig';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
-  import {
-    counterClasses,
-    currentMintedClasses,
-    infoRowClasses,
-    leftHalfPanel,
-    maxMintedClasses,
-    mintContentClasses,
-    mintTitleClasses,
-    nftRendererWrapperMobileClasses,
-    rightHalfPanel,
-    wrapperClasses,
-  } from './classes';
+  import { leftHalfPanel, rightHalfPanel, wrapperClasses } from './classes';
+  import { default as EligibilityPanel } from './EligibilityPanel.svelte';
+  import { default as MintForm } from './MintForm.svelte';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
-
-  const buttonClasses = classNames('mt-6 max-h-[56px]');
 
   $: canMint = false;
   $: totalSupply = 0;
@@ -49,6 +32,8 @@
 
   $: gasCost = 0;
   $: isCalculating = false;
+
+  $: isMinting = false;
 
   async function calculateGasCost() {
     try {
@@ -99,34 +84,30 @@
   });
 
   async function mint() {
-    mintState.set({
-      ...$mintState,
-      isModalOpen: true,
+    isMinting = true;
 
-      isMinting: true,
-    });
-
-    // ensure that the input values are numbers
     totalMintCount = parseInt(totalMintCount.toString());
 
-    mintState.set({ ...$mintState, totalMintCount: totalMintCount });
     try {
-      const tokenIds = await Token.mint({
+      await Token.mint({
         freeMintCount: totalMintCount,
-        onTransaction: (txHash: string) => {
-          mintState.set({ ...$mintState, txHash });
-        },
+        onTransaction: () => {},
       });
-      mintState.set({ ...$mintState, tokenIds });
     } catch (e) {
       console.warn(e);
-      //showMintConfirmationModal = false
-      mintState.set({ ...$mintState, isModalOpen: false });
+      return;
     }
-    mintState.set({ ...$mintState, isMinting: false });
 
     await load();
+
+    mintStep = 2;
   }
+
+  async function view() {
+    window.location.href = '/view';
+  }
+
+  $: mintStep = 0;
 </script>
 
 <div class={wrapperClasses}>
@@ -136,41 +117,47 @@
     </div>
   {/if}
   <div class={rightHalfPanel}>
-    <!-- svelte-ignore missing-declaration -->
-    {#if windowSize === 'sm'}
-      <div class={nftRendererWrapperMobileClasses}>
-        <NftRenderer />
-      </div>
+    <!-- proper tree-->
+
+    <!--
+      {#if isReady && canMint}
+      <MintForm
+    {totalSupply}
+    {gasCost}
+    {mintMax}
+    {isCalculating}
+    {progress}
+    isReady={isReady} />
+    {:else if isReady && !canMint}
+    <EligibilityPanel step="non-eligible" />
+    {:else}
+
     {/if}
-    <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
-    <p class={mintContentClasses}>
-      {$t('content.mint.textTop')}
-    </p>
+    -->
 
-    <p class={mintContentClasses}>
-      {$t('content.mint.textBottom')}
-    </p>
-
-    <div class={infoRowClasses}>
-      <div class={counterClasses}>
-        <div class={currentMintedClasses}>#{totalSupply}</div>
-        <div class={maxMintedClasses}>/ {mintMax}</div>
-      </div>
-      <ProgressBar {progress} />
-    </div>
-
-    <Divider />
-
-    <div class={infoRowClasses}>
-      <InfoRow label={$t('content.mint.totalMints')} value={$mintState.totalMintCount.toString()} />
-      <InfoRow label={$t('content.mint.gasFee')} loading={isCalculating} value={`Ξ ${gasCost}`} />
-    </div>
-
-    {#if isReady}
-      <ActionButton priority="primary" disabled={!canMint} on:click={mint} class={buttonClasses} onPopup>
-        {$t('buttons.mint')}
-      </ActionButton>
+    {#if isReady && (canMint || mintStep > 0)}
+      {#if mintStep === 0}
+        <EligibilityPanel
+          disabled={false}
+          on:click={async () => {
+            mintStep = 1;
+          }}
+          step="eligible" />
+      {:else if mintStep === 1}
+        <MintForm
+          on:mint={mint}
+          {totalSupply}
+          {gasCost}
+          {mintMax}
+          {isCalculating}
+          {progress}
+          isReady={isReady && !isMinting} />
+      {:else}
+        <EligibilityPanel on:click={view} disabled={false} step="success" />
+      {/if}
+    {:else if isReady && !canMint}
+      <EligibilityPanel step="non-eligible" />
     {:else}
       <Spinner />
     {/if}

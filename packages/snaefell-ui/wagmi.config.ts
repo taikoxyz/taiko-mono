@@ -4,6 +4,7 @@ import type { Abi, Address } from 'abitype'
 import { existsSync, mkdirSync,readFileSync, writeFileSync } from 'fs'
 
 import * as MainnetDeployment from '../nfts/deployments/snaefell/mainnet.json'
+import * as LocalhostDeployment from '../nfts/deployments/snaefell/localhost.json'
 import SnaefellToken from '../nfts/out/SnaefellToken.sol/SnaefellToken.json'
 
 
@@ -39,6 +40,7 @@ function generateWhitelistJson() {
         mkdirSync(whitelistDir, { recursive: true });
     }
     generateNetworkWhitelist('mainnet')
+    generateNetworkWhitelist('hardhat')
 }
 
 generateWhitelistJson();
@@ -50,6 +52,7 @@ export default defineConfig({
             name: 'SnaefellToken',
             address: {
                 167000: MainnetDeployment.SnaefellToken as Address,
+                31337: LocalhostDeployment.SnaefellToken as Address,
             },
             abi: SnaefellToken.abi as Abi,
         }

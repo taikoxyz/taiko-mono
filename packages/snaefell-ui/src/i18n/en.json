@@ -15,6 +15,7 @@
     "seconds": "Seconds"
   },
   "buttons": {
+    "proceedToMint": "Proceed to Mint",
     "mintNow": "Mint Now",
     "learnMore": "FAQs",
     "mint": "Mint",
@@ -22,7 +23,8 @@
     "share": "Share",
     "yourTaikoons": "Your Alpha Tokens",
     "cancel": "Cancel",
-    "agree": "Agree"
+    "agree": "Agree",
+    "view": "View"
   },
   "content": {
     "mint": {
