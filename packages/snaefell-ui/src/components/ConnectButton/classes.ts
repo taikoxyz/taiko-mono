@@ -33,8 +33,10 @@ export const addressClasses = classNames(
 export const chainIconClasses = classNames('w-[24px]', 'mx-2.5');
 
 export const connectButtonClasses = classNames(
-  'w-max',
   'h-[44px]',
+  'w-max',
+  'bg-primary',
+  'hover:bg-secondary',
   'rounded-full',
   'flex flex-row',
   'justify-center',

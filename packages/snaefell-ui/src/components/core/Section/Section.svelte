@@ -21,7 +21,6 @@
     background === 'none' ? '' : null,
     background !== 'none' ? 'bg-cover bg-bottom' : null,
     background === 'general' ? 'bg-custom' : null,
-    'carousel-item',
   );
 
   $: sectionClasses = classNames(
