@@ -27,6 +27,8 @@ jobs:
 
       - name: Frontend build
         working-directory: ./packages/snaefell-ui
+        env:
+          NODE_OPTIONS: --max-old-space-size=32768
         run: pnpm build
 
       - name: Svelte check

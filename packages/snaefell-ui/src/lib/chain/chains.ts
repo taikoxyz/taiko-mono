@@ -37,37 +37,6 @@ const chainConfigs: ChainConfigMap = {
     icon: '/chains/ethereum.svg',
     type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
   },
-  '17000': {
-    name: 'Holesky',
-    rpcUrls: {
-      default: {
-        http: ['https://rpc.holesky.io'],
-        //webSocket: ['wss://mainnet.infura.io/ws/v3/'],
-      },
-    },
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    icon: '/chains/ethereum.svg',
-    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
-  },
-  '11155111': {
-    name: 'Sepolia',
-    rpcUrls: {
-      default: {
-        http: ['https://rpc2.sepolia.org'],
-      },
-    },
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    icon: '/chains/ethereum.svg',
-    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
-  },
   '167001': {
     name: 'Devnet',
     rpcUrls: {
@@ -81,6 +50,21 @@ const chainConfigs: ChainConfigMap = {
       decimals: 18,
     },
     icon: '/chains/ethereum.svg',
+    type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
+  },
+  '167000': {
+    name: 'Taiko',
+    rpcUrls: {
+      default: {
+        http: ['https://rpc.mainnet.taiko.xyz'],
+      },
+    },
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    icon: '/chains/taiko.svg',
     type: 'L1' as LayerType, // Add the missing 'type' property with the value of 'LayerType'
   },
 };
