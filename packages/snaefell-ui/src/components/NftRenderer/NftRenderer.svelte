@@ -16,12 +16,7 @@
     $$props.class,
   );
 
-  const imageClasses = classNames(
-    'object-cover',
-    'object-center',
-    'rounded-full',
-    'w-full h-full',
-  );
+  const imageClasses = classNames('object-cover', 'object-center', 'rounded-full', 'w-full h-full');
 </script>
 
 <div class={wrapperClasses}>

@@ -10,6 +10,7 @@ export default function getConfig() {
   const chainId = selectedNetworkId ? selectedNetworkId : taiko.id;
 
   if (!isSupportedChain(chainId)) {
+    console.warn('returning for unsupported chain', chainId);
     return { config: publicConfig, chainId: taiko.id };
   }
 

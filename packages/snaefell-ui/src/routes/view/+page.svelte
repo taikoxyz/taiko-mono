@@ -1,28 +1,28 @@
 <script lang="ts">
-    import { ResponsiveController } from '@taiko/ui-lib';
+  import { ResponsiveController } from '@taiko/ui-lib';
 
-    import { Mint } from '$components/Mint';
-    import { FooterSection } from '$components/sections';
-    import { Section, SectionContainer } from '$ui/Section';
   import { NftRenderer } from '$components/NftRenderer';
-    let windowSize: 'sm' | 'md' | 'lg' = 'md';
-  </script>
+  import { FooterSection } from '$components/sections';
+  import { Section, SectionContainer } from '$ui/Section';
+  let windowSize: 'sm' | 'md' | 'lg' = 'md';
+</script>
 
-  <svelte:head>
-    <title>Snaefell NFT</title>
-  </svelte:head>
+<svelte:head>
+  <title>Snaefell NFT</title>
+</svelte:head>
 
-  <SectionContainer>
-    <Section
-      width={windowSize === 'sm' ? 'full' : 'md'}
-      background="general"
-      class="items-center justify-center"
-      height={'full'}>
-      <div class="w-[50vw] max-w-[400px]">
-      <NftRenderer/></div>
-    </Section>
+<SectionContainer>
+  <Section
+    width={windowSize === 'sm' ? 'full' : 'md'}
+    background="general"
+    class="items-center justify-center"
+    height={'full'}>
+    <div class="w-[50vw] max-w-[400px]">
+      <NftRenderer />
+    </div>
+  </Section>
 
-    <FooterSection />
-  </SectionContainer>
+  <FooterSection />
+</SectionContainer>
 
-  <ResponsiveController bind:windowSize />
+<ResponsiveController bind:windowSize />

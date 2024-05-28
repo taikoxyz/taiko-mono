@@ -20,7 +20,7 @@ export async function startWatching() {
         refreshUserBalance();
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if ((chain && !isSupportedChain(Number(chain.id))) || (!chain && data.address)) {
+        if ((chain && !isSupportedChain(Number(chain.id))) || (!data.chainId && data.address)) {
           switchChainModal.set(true);
           return;
         } else if (chain) {

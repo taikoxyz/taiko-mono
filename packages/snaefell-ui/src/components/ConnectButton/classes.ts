@@ -30,17 +30,11 @@ export const addressClasses = classNames(
   'border border-divider-border',
 );
 
-export const chainIconClasses = classNames(
-  'w-[24px]',
-  'ml-1',
-  //'md:ml-[0]',
-  'md:mx-2',
-);
+export const chainIconClasses = classNames('w-[24px]', 'mx-2.5');
 
 export const connectButtonClasses = classNames(
   'w-max',
   'h-[44px]',
-  'bg-primary',
   'rounded-full',
   'flex flex-row',
   'justify-center',
