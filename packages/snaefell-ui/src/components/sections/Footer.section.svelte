@@ -45,7 +45,7 @@
   const contentWrapperClasses = classNames('pt-32', 'w-full', 'h-full');
 </script>
 
-<Section height={'max'} class={sectionClasses} width="xl">
+<Section height={'fit'} class={sectionClasses} width="xl">
   <div class={contentWrapperClasses}>
     <p class={titleClasses}>
       {$t('content.sections.information.title')}
@@ -64,7 +64,7 @@
     </div>
   </div>
 </Section>
-<Section height={'max'} class={sectionClasses} width="xl">
+<Section height={'fit'} class={sectionClasses} width="xl">
   <Footer />
 </Section>
 
