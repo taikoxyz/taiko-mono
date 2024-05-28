@@ -19,7 +19,6 @@ export const provider = readable<unknown | undefined>(undefined, (set) =>
   watchAccount(config, {
     onChange: async (account) => {
       if (!account.connector) return set(undefined);
-      console.log({account})
       set(await account.connector?.getProvider());
     },
   }),

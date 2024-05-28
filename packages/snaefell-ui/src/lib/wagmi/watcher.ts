@@ -15,24 +15,18 @@ export async function startWatching() {
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
       onChange(data) {
-        console.warn('Account changed', data);
-
         const { chain } = data;
         account.set(data);
         refreshUserBalance();
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if (chain && !isSupportedChain(Number(chain.id))) {
-          console.warn('Unsupported chain', chain);
+        if ((chain && !isSupportedChain(Number(chain.id))) || (!chain && data.address)) {
           switchChainModal.set(true);
           return;
         } else if (chain) {
           // When we switch networks, we are actually selecting
           // the source chain.
           connectedSourceChain.set(chain);
-          console.log('set connected source')
-        } else {
-          console.log('No chain data')
         }
       },
     });

@@ -45,27 +45,27 @@
   const contentWrapperClasses = classNames('pt-32', 'w-full', 'h-full');
 </script>
 
-  <Section height={'max'} class={sectionClasses} width="xl">
-    <div class={contentWrapperClasses}>
-      <p class={titleClasses}>
-        {$t('content.sections.information.title')}
-      </p>
+<Section height={'max'} class={sectionClasses} width="xl">
+  <div class={contentWrapperClasses}>
+    <p class={titleClasses}>
+      {$t('content.sections.information.title')}
+    </p>
 
-      <div class={contentClasses}>
-        {$t('content.sections.information.text1')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text2')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text3')}
-      </div>
+    <div class={contentClasses}>
+      {$t('content.sections.information.text1')}
     </div>
-  </Section>
-  <Section height={'max'} class={sectionClasses} width="xl">
-    <Footer />
-  </Section>
+
+    <div class={contentClasses}>
+      {$t('content.sections.information.text2')}
+    </div>
+
+    <div class={contentClasses}>
+      {$t('content.sections.information.text3')}
+    </div>
+  </div>
+</Section>
+<Section height={'max'} class={sectionClasses} width="xl">
+  <Footer />
+</Section>
 
 <ResponsiveController bind:windowSize />
