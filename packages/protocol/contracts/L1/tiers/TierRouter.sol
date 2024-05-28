@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../../common/EssentialContract.sol";
 import "./ITierRouter.sol";
 
-/// @title TierProviderBase
+/// @title TierRouter
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract TierRouter is EssentialContract, ITierRouter {
