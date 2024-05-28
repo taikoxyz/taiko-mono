@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ResponsiveController } from '@taiko/ui-lib';
   import { getAccount } from '@wagmi/core';
-  import { getContext } from 'svelte';
+  import { getContext, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
@@ -56,7 +56,7 @@
     /*
     try {
 
-      if (!isReady || isCalculating) return;
+      if (!isReady || isCalculating || !canMint) return;
       isCalculating = true;
 
       gasCost = await Token.estimateMintGasCost();
@@ -74,11 +74,17 @@
   async function load() {
     canMint = await Token.canMint();
     if (!canMint) {
+      isReady = true;
       return;
     }
     totalMintCount = await User.totalWhitelistMintCount();
     isReady = true;
   }
+
+  onMount(async () => {
+    if (isReady) return;
+    await load();
+  });
 
   connectedSourceChain.subscribe(async () => {
     if (isReady) return;
@@ -87,9 +93,11 @@
     const account = getAccount(config);
     if (!account || !account.address) {
       mintState.set({ ...$mintState, address: zeroAddress });
+      isReady = true;
       return;
     }
     await load();
+    if (!canMint) return;
     await calculateGasCost();
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
   });
