@@ -13,7 +13,8 @@ export async function canMint(): Promise<boolean> {
   const accountAddress = account.address as IAddress;
 
   const freeMintCount = await totalWhitelistMintCount();
-
+  if (freeMintCount === 0) return false;
+  return false;
   const result = await readContract(config, {
     abi: snaefellTokenAbi,
     address: snaefellTokenAddress[chainId],

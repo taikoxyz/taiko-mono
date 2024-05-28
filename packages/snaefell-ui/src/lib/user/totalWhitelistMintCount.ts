@@ -1,4 +1,3 @@
-import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { getAccount } from '@wagmi/core';
 
 import getConfig from '../wagmi/getConfig';
@@ -8,15 +7,8 @@ export async function totalWhitelistMintCount(): Promise<number> {
   const { config, chainId } = getConfig();
 
   const account = getAccount(config);
-  if (!account.address) return -1;
+  if (!account.address) return 0;
 
-  const tree = StandardMerkleTree.load(whitelist[chainId]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for (const [_, [address, amount]] of tree.entries()) {
-    if (address.toString().toLowerCase() === account.address.toString().toLowerCase()) {
-      return amount;
-    }
-  }
-
-  return 0;
+  const { allocation } = whitelist[chainId];
+  return allocation[account.address.toLowerCase()] || 0;
 }
