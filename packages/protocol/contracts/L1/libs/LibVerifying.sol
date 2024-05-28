@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
 import "../../signal/ISignalService.sol";
-import "../tiers/ITierRouter.sol";
-import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -100,7 +94,7 @@ library LibVerifying {
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
         bytes32 stateRoot;
         uint64 numBlocksVerified;
-        address tierProvider;
+        ITierProvider tierProvider;
 
         IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
@@ -132,16 +126,15 @@ library LibVerifying {
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    if (tierProvider == address(0)) {
-                        address tierRouter = _resolver.resolve(LibStrings.B_TIER_ROUTER, false);
-                        tierProvider = ITierRouter(tierRouter).getProvider(blockId);
+                    if (tierProvider == ITierProvider(address(0))) {
+                        tierProvider = LibUtils.getTierProvider(_resolver, blockId);
                     }
 
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow
+                            tierProvider.getTier(ts.tier).cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
