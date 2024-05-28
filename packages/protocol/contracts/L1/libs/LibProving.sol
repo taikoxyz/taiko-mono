@@ -167,7 +167,7 @@ library LibProving {
         });
 
         // Checks if only the assigned prover is permissioned to prove the block.
-        // The guardian prover is granted exclusive permission to prove only the first
+        // The assigned prover is granted exclusive permission to prove only the first
         // transition.
         if (
             local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
