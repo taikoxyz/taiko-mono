@@ -39,7 +39,7 @@
 
   const texts: Record<IStep, string> = {
     eligible: 'You are eligible to mint Snaefell NFT',
-    'non-eligible': 'Unfortunately, you were not an Alpha-1 testnet contributors.',
+    'non-eligible': 'Unfortunately, you were not an Alpha-1 testnet contributor.',
     success: 'You’ve successfully minted your Snaefell NFT. Thank you for being here from the start!',
   };
 
