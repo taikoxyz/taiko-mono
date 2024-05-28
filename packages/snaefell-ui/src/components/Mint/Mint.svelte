@@ -13,7 +13,7 @@
   import getConfig from '../../lib/wagmi/getConfig';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
-  import { leftHalfPanel, rightHalfPanel, wrapperClasses } from './classes';
+  import { leftHalfPanel, nftRendererWrapperMobileClasses, rightHalfPanel, wrapperClasses } from './classes';
   import { default as EligibilityPanel } from './EligibilityPanel.svelte';
   import { default as MintForm } from './MintForm.svelte';
 
@@ -117,24 +117,11 @@
     </div>
   {/if}
   <div class={rightHalfPanel}>
-    <!-- proper tree-->
-
-    <!--
-      {#if isReady && canMint}
-      <MintForm
-    {totalSupply}
-    {gasCost}
-    {mintMax}
-    {isCalculating}
-    {progress}
-    isReady={isReady} />
-    {:else if isReady && !canMint}
-    <EligibilityPanel step="non-eligible" />
-    {:else}
-
+    {#if windowSize === 'sm'}
+      <div class={nftRendererWrapperMobileClasses}>
+        <NftRenderer />
+      </div>
     {/if}
-
-    -->
 
     {#if isReady && (canMint || mintStep > 0)}
       {#if mintStep === 0}

@@ -12,7 +12,6 @@
   import type { IMint } from '$stores/mint';
   import { Spinner } from '$ui/Spinner';
 
-  import { NftRenderer } from '../NftRenderer';
   import {
     counterClasses,
     currentMintedClasses,
@@ -20,7 +19,6 @@
     maxMintedClasses,
     mintContentClasses,
     mintTitleClasses,
-    nftRendererWrapperMobileClasses,
   } from './classes';
 
   const dispatch = createEventDispatcher();
@@ -39,11 +37,6 @@
 
 <div class={classNames('w-full', 'h-full')}>
   <!-- svelte-ignore missing-declaration -->
-  {#if windowSize === 'sm'}
-    <div class={nftRendererWrapperMobileClasses}>
-      <NftRenderer />
-    </div>
-  {/if}
 
   <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
