@@ -5,11 +5,14 @@ import { Test, console } from "forge-std/src/Test.sol";
 import { SnaefellToken } from "../../contracts/snaefell/SnaefellToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "forge-std/src/StdJson.sol";
+import { UtilsScript } from "../../script/snaefell/sol/Utils.s.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract UpgradeableTest is Test {
     using stdJson for string;
+
+    UtilsScript public utils;
 
     SnaefellToken public token;
 
@@ -23,6 +26,8 @@ contract UpgradeableTest is Test {
     Merkle tree = new Merkle();
 
     function setUp() public {
+        utils = new UtilsScript();
+        utils.setUp();
         // create whitelist merkle tree
         vm.startPrank(owner);
         bytes32 root = tree.getRoot(leaves);
@@ -31,7 +36,10 @@ contract UpgradeableTest is Test {
         address impl = address(new SnaefellToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(SnaefellToken.initialize, (address(0), "ipfs://", root))
+                impl,
+                abi.encodeCall(
+                    SnaefellToken.initialize, (address(0), "ipfs://", root, utils.getBlacklist())
+                )
             )
         );
 
