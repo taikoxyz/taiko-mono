@@ -23,7 +23,7 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    function init2() public initializer(2) {
+    function init2() public reinitializer(2) {
         __ERC20_init("Taiko Token", "TK");
     }
 }
