@@ -26,21 +26,13 @@
 </svelte:head>
 
 <SectionContainer>
-  {#if isCountdownActive()}
-    <CountdownSection>
-      <div class="bottom-16 left-0 w-full flex justify-center absolute">
-        <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToFaq} class="uppercase"
-          >{$t('buttons.learnMore')}</Button>
-      </div>
-    </CountdownSection>
-  {:else}
+
     <HeadingSection>
       <div class="bottom-16 left-0 w-full flex justify-center absolute">
         <Button type="ghost" size="lg" iconRight="ArrowDown" on:click={scrollToFaq} class="uppercase"
           >{$t('buttons.learnMore')}</Button>
       </div>
     </HeadingSection>
-  {/if}
   <InformationSection />
   <PreviewSection />
   <div bind:this={scrollTarget}>

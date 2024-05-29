@@ -18,7 +18,7 @@
   const imageClasses = classNames('w-full', 'h-auto', 'mb-20');
 
   const mintNowButtonClasses = classNames(
-    'bg-[#E81899]',
+    'bg-[#C8047D]',
     'font-sans',
     'text-[#F3F3F3]',
     'px-3',
@@ -30,7 +30,7 @@
     'text-base',
     'font-bold',
     'gap-2.5',
-    'hover:bg-[#C8047D]',
+    'hover:bg-[#81899]',
   );
 
   $: isHovered = false;
