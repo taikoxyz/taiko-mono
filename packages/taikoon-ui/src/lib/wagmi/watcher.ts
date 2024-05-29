@@ -1,6 +1,6 @@
 import { watchAccount } from '@wagmi/core';
 
-import { config } from '$wagmi-config';
+import { config, taiko } from '$wagmi-config';
 
 import { isSupportedChain } from '../../lib/chain';
 import { refreshUserBalance } from '../../lib/util/balance';
