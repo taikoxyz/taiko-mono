@@ -16,8 +16,9 @@ import "./IQuotaManager.sol";
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
-    uint256 public constant MAX_PROOF_BYTES = 240_000;
-  
+    ///@dev The max proof size for a message to be processable by a relayer.
+    uint256 public constant PROOF_BYTES_THREAHOLD = 240_000;
+
     ///@dev The max message.data size for a message to be processable by a relayer.
     uint256 public constant MESSAGE_DATA_THRESHOLD = 8192;
 
@@ -30,6 +31,7 @@ contract Bridge is EssentialContract, IBridge {
         uint32 gasUsedInFeeCalc;
         uint32 proofSize;
         uint32 numCacheOps;
+        bool processedByRelayer;
     }
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
@@ -228,8 +230,6 @@ contract Bridge is EssentialContract, IBridge {
     {
         uint256 gasStart = gasleft();
 
-        if (_proof.length > MAX_PROOF_BYTES) revert B_PROOF_TOO_LARGE();
-
         // same as `sameChain(_message.destChainId)` but without stack-too-deep
         if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
 
@@ -238,9 +238,13 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CHAINID();
         }
 
+        ProcessingStats memory stats;
+        stats.processedByRelayer = msg.sender != _message.destOwner;
+
         // If the gas limit is set to zero, only the owner can process the message.
-        if (_message.gasLimit == 0 && msg.sender != _message.destOwner) {
-            revert B_PERMISSION_DENIED();
+        if (stats.processedByRelayer) {
+            if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
+            if (_proof.length > PROOF_BYTES_THREAHOLD) revert B_PROOF_TOO_LARGE();
         }
 
         bytes32 msgHash = hashMessage(_message);
@@ -248,13 +252,12 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
-        ProcessingStats memory stats;
         stats.proofSize = uint32(_proof.length);
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         if (!_consumeEtherQuota(_message.value + _message.fee)) {
-            if (msg.sender != _message.destOwner) revert B_OUT_OF_ETH_QUOTA();
+            if (stats.processedByRelayer) revert B_OUT_OF_ETH_QUOTA();
             status_ = Status.RETRIABLE;
             reason_ = StatusReason.OUT_OF_ETH_QUOTA;
         } else {
@@ -266,10 +269,8 @@ contract Bridge is EssentialContract, IBridge {
                 status_ = Status.DONE;
                 reason_ = StatusReason.INVOCATION_PROHIBITED;
             } else {
-                uint256 gasLimit = msg.sender == _message.destOwner
-                    ? gasleft() // ignore _message.gasLimit
-                    : _invocationGasLimit(_message, true);
-
+                uint256 gasLimit =
+                    stats.processedByRelayer ? _invocationGasLimit(_message, true) : gasleft();
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     status_ = Status.DONE;
                     reason_ = StatusReason.INVOCATION_OK;
@@ -282,7 +283,7 @@ contract Bridge is EssentialContract, IBridge {
             if (_message.fee != 0) {
                 refundAmount += _message.fee;
 
-                if (msg.sender != _message.destOwner && _message.gasLimit != 0) {
+                if (stats.processedByRelayer && _message.gasLimit != 0) {
                     unchecked {
                         uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                         stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
