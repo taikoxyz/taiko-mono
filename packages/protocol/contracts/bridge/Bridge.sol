@@ -16,6 +16,9 @@ import "./IQuotaManager.sol";
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
+    ///@dev The max message.data size for this message to be processable by a relayer.
+    uint256 public constant MESSAGE_DATA_THRESHOLD = 1000;
+
     using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
@@ -85,6 +88,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
+    error B_MESSAGE_DATA_TOO_LARGE();
     error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
     error B_RETRY_FAILED();
@@ -134,6 +138,8 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
+        } else if (_message.data.length > MESSAGE_DATA_THRESHOLD) {
+            revert B_MESSAGE_DATA_TOO_LARGE();
         } else if (_invocationGasLimit(_message, false) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
@@ -621,9 +627,51 @@ contract Bridge is EssentialContract, IBridge {
             gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
 
-        if (_checkThe63Over64Rule && (gasleft() * 63) >> 6 < gasLimit_) {
+        if (_checkThe63Over64Rule && !_hasEnoughGas(gasLimit_, _message.data.length)) {
             revert B_INSUFFICIENT_GAS();
         }
+    }
+
+    ///@dev This implementation was suggested by OpenZeppelin in an audit to replace the previous.
+    function _hasEnoughGas(
+        uint256 _minGas,
+        uint256 _dataLength
+    )
+        internal
+        view
+        returns (bool result_)
+    {
+        // The goal of the computation is to ensure that EIP-150 does not silently cap the amount of
+        // gas sent with the external call to be less than A. We note:
+        //
+        // - memory_cost: the amount of gas needed to expand the memory when storing the inputs and
+        //                outputs of the external call.
+        // - access_gas_cost: the gas cost of accessing the message.to account. This currently
+        //                    corresponds to 2600 gas if the account is cold, and 100 otherwise.
+        // - transfer_gas_cost: the cost of transferring a nonzero msg.value. This cost is currently
+        //                      9000, but provides a 2300 gas stipend to the called contract.
+        // - create_gas_cost: the cost of creating a new account, currently 25000. This only applies
+        //                    if message.value != 0, message.to.nounce == 0, message.to.code == b""
+        //                    and message.to.balance == 0. Because message.to is checked to have
+        // code,
+        //                    this cost can be  ignored here.
+
+        // We thus want to check that the following:
+        // 63 / 64 * (gasleft() - memory_cost - access_gas_cost - transfer_gas_cost) is at least as
+        // much as A (reference implementation). The sum of access_gas_cost and transfer_gas_cost
+        // can be upper bounded with 2_600 + 9_000 - 2_300 = 9_300. The memory_cost is cumbersome to
+        // compute in practice, but by estimating the costs through tests, we can upper bound the
+        // cost of memory expansion for up to 10_000 bytes of message.data in the context of the
+        // call with the formula 1_200 + 3 * message.data.length / 32.
+        //
+        // Thus, it would be possible to validate that the call will have enough gas by checking the
+        // following condition right before the external call is made:
+
+        unchecked {
+            result_ = 63 * gasleft() >= 64 * _minGas + 63 * (10_500 + 3 * _dataLength / 32);
+        }
+
+        // The previous implementation is  `return gasleft() * 63) >> 6 >= gasLimit_`.
     }
 
     function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
