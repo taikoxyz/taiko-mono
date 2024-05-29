@@ -35,7 +35,7 @@ export const halfPanel = classNames(
 
 export const leftHalfPanel = classNames('max-w-[473px]', 'aspect-square');
 
-export const rightHalfPanel = classNames(halfPanel, 'min-w-[200px]', 'max-w-[400px]', 'w-full');
+export const rightHalfPanel = classNames(halfPanel, 'min-w-[200px]', 'px-[20px]', 'max-w-[400px]', 'w-full');
 
 export const counterClasses = classNames(
   'w-full',
