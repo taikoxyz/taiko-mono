@@ -37,7 +37,7 @@
   const titles: Record<IStep, string> = {
     eligible: "Congratulations, you're eligible!",
     'non-eligible': "Sorry, you're not eligible",
-    success: 'You got it!',
+    success: 'You\'ve got it!',
   };
 
   const texts: Record<IStep, string> = {
