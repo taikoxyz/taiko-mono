@@ -22,7 +22,11 @@ export async function startWatching() {
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if (!isSupportedChain(Number(data.chainId)) || (!data.chainId && data.address)) {
+        const isLocalHost = window.location.hostname === 'localhost';
+        const isSupportedChainId = isLocalHost ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
+        const isConnected = data.address !== undefined;
+
+        if (!isSupportedChainId && isConnected) {
           console.warn('Unsupported chain', chain);
           switchChainModal.set(true);
           return;
