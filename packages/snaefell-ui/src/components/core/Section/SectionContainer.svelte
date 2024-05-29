@@ -6,7 +6,7 @@
 
   function handleScroll() {
     if (!scrollTarget) return;
-    pageScroll.set(scrollTarget.scrollTop > 100);
+    pageScroll.set(scrollTarget.scrollTop > 0);
   }
 
   const sectionContainerClasses = classNames('w-full', 'overflow-y-scroll', 'h-full', 'z-0', $$props.class);
