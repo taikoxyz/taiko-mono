@@ -8,15 +8,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v4/api/client"
 	"github.com/prysmaticlabs/prysm/v4/api/client/beacon"
 	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
+	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/config"
 )
 
 var (
 	// Request urls.
 	sidecarsRequestURL = "eth/v1/beacon/blob_sidecars/%d"
 	genesisRequestURL  = "eth/v1/beacon/genesis"
+	getConfigSpecPath  = "eth/v1/config/spec"
 )
 
 type ConfigSpec struct {
@@ -66,7 +69,7 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 	log.Info("L1 genesis time", "time", genesisTime)
 
 	// Get the seconds per slot.
-	spec, err := cli.GetConfigSpec(ctx)
+	spec, err := getConfigSpec(ctx, cli)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +82,19 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 	log.Info("L1 seconds per slot", "seconds", secondsPerSlot)
 
 	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot)}, nil
+}
+
+func getConfigSpec(ctx context.Context, client *beacon.Client) (*config.GetSpecResponse, error) {
+	body, err := client.Get(ctx, getConfigSpecPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "error requesting configSpecPath")
+	}
+	fsr := &config.GetSpecResponse{}
+	err = json.Unmarshal(body, fsr)
+	if err != nil {
+		return nil, err
+	}
+	return fsr, nil
 }
 
 // GetBlobs returns the sidecars for a given slot.
