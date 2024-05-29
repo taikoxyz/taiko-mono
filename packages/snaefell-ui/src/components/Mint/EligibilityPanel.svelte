@@ -37,7 +37,7 @@
   const titles: Record<IStep, string> = {
     eligible: "Congratulations, you're eligible!",
     'non-eligible': "Sorry, you're not eligible",
-    success: 'You\'ve got it!',
+    success: "You've got it!",
   };
 
   const texts: Record<IStep, string> = {
@@ -81,7 +81,7 @@
     {#if step === 'success'}
       <!-- use on trailblazers -->
       <ActionButton priority="primary" class={buttonClasses} onPopup>
-        <a class="w-full h-full" href="https://trailblazers.taiko.xyz/" target="_blank">
+        <a href="https://trailblazers.taiko.xyz/" target="_blank">
           {$t('buttons.useOnTrailblazers')}
         </a>
       </ActionButton>
