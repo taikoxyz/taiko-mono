@@ -29,6 +29,7 @@
   export let mintMax = 0;
   export let isCalculating = false;
   export let progress = 0;
+  export let buttonLabel: string | null = null;
   const mintState = getContext<IMint>('mint');
   const buttonClasses = classNames('mt-6 max-h-[56px]');
 
@@ -72,7 +73,11 @@
     class={buttonClasses}
     onPopup>
     {#if isReady}
-      {$t('buttons.mint')}
+      {#if buttonLabel}
+        {buttonLabel}
+      {:else}
+        {$t('buttons.mint')}
+      {/if}
     {:else}
       <Spinner size="sm" />
     {/if}

@@ -5,6 +5,7 @@
   import { zeroAddress } from 'viem';
 
   import { errorToast } from '$components/core/Toast';
+  import { web3modal } from '$lib/connect';
   import User from '$lib/user';
   import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
@@ -12,6 +13,7 @@
 
   import Token from '../../lib/token';
   import getConfig from '../../lib/wagmi/getConfig';
+  import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import { leftHalfPanel, nftRendererWrapperMobileClasses, rightHalfPanel, wrapperClasses } from './classes';
@@ -28,13 +30,15 @@
   const mintState = getContext<IMint>('mint');
 
   $: isReady = false;
-
+  $: isConnected = false;
   $: totalMintCount = 0;
 
   $: gasCost = 0;
   $: isCalculating = false;
 
   $: isMinting = false;
+
+  $: $account, (isConnected = Boolean($account && $account.address));
 
   async function calculateGasCost() {
     try {
@@ -80,11 +84,13 @@
 
     const { config } = getConfig();
     const account = getAccount(config);
+
     if (!account || !account.address) {
       mintState.set({ ...$mintState, address: zeroAddress });
       isReady = true;
       return;
     }
+
     await load();
     if (!canMint) return;
     await calculateGasCost();
@@ -114,6 +120,12 @@
   async function view() {
     window.location.href = '/view';
   }
+  let web3modalOpen = false;
+
+  async function connect() {
+    if (web3modalOpen) return;
+    web3modal.open();
+  }
 
   $: mintStep = 0;
 </script>
@@ -131,7 +143,17 @@
       </div>
     {/if}
 
-    {#if isReady && (canMint || mintStep > 0)}
+    {#if !isConnected}
+      <MintForm
+        on:mint={connect}
+        {totalSupply}
+        {gasCost}
+        {mintMax}
+        {isCalculating}
+        {progress}
+        buttonLabel="Connect Wallet"
+        isReady={isReady && !isMinting} />
+    {:else if isReady && (canMint || mintStep > 0)}
       {#if mintStep === 0}
         <EligibilityPanel
           disabled={false}
