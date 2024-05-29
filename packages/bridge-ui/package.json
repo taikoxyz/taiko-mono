@@ -12,7 +12,7 @@
     "test:unit:debug": "vitest run",
     "test:unit:coverage": "vitest run --silent --coverage",
     "test:unit:watch": "vitest",
-    "svelte:check": "svelte-kit sync",
+    "svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts ./src/generated",
     "svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts --watch",
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
