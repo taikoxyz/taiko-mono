@@ -17,7 +17,7 @@ import "./IQuotaManager.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
     ///@dev The max message.data size for this message to be processable by a relayer.
-    uint256 public constant MESSAGE_DATA_THRESHOLD = 1000;
+    uint256 public constant MESSAGE_DATA_THRESHOLD = 8192;
 
     using Address for address;
     using LibMath for uint256;
