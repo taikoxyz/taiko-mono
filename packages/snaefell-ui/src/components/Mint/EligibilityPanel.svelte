@@ -59,18 +59,29 @@
     {texts[step]}
   </div>
 
-  <ActionButton
-    on:click={async () => {
-      dispatch('click');
-    }}
-    priority="primary"
-    {disabled}
-    class={buttonClasses}
-    onPopup>
+  <div class={classNames('flex', 'gap-4', 'w-full', 'flex-row')}>
+    <ActionButton
+      on:click={async () => {
+        dispatch('click');
+      }}
+      priority="secondary"
+      {disabled}
+      class={buttonClasses}
+      onPopup>
+      {#if step === 'success'}
+        {$t('buttons.view')}
+      {:else}
+        {$t('buttons.proceedToMint')}
+      {/if}
+    </ActionButton>
+
     {#if step === 'success'}
-      {$t('buttons.view')}
-    {:else}
-      {$t('buttons.proceedToMint')}
+      <!-- use on trailblazers -->
+      <ActionButton priority="primary" class={buttonClasses} onPopup>
+        <a class="w-full h-full" href="https://trailblazers.taiko.xyz/" target="_blank">
+          {$t('buttons.useOnTrailblazers')}
+        </a>
+      </ActionButton>
     {/if}
-  </ActionButton>
+  </div>
 </div>
