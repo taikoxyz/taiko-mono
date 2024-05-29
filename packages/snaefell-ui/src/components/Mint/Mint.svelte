@@ -97,6 +97,8 @@
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
   });
 
+  $: txHash = '';
+
   async function mint() {
     isMinting = true;
 
@@ -105,7 +107,9 @@
     try {
       await Token.mint({
         freeMintCount: totalMintCount,
-        onTransaction: () => {},
+        onTransaction: (tx: string) => {
+          txHash = tx;
+        },
       });
     } catch (e) {
       console.warn(e);
@@ -118,7 +122,7 @@
   }
 
   async function view() {
-    window.location.href = '/view';
+    window.location.href = `https://taikoscan.io/tx/${txHash}`;
   }
   let web3modalOpen = false;
 

@@ -31,6 +31,7 @@
   export let isCalculating = false;
   export let progress = 0;
   export let buttonLabel: string | null = null;
+
   const mintState = getContext<IMint>('mint');
   const buttonClasses = classNames('mt-6 max-h-[56px]');
 
