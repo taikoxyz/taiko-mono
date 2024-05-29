@@ -16,6 +16,8 @@ import "./IQuotaManager.sol";
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
+    uint256 public constant MAX_PROOF_BYTES = 240_000;
+
     using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
@@ -87,6 +89,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SENT();
     error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
+    error B_PROOF_TOO_LARGE();
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
@@ -218,6 +221,8 @@ contract Bridge is EssentialContract, IBridge {
         returns (Status status_, StatusReason reason_)
     {
         uint256 gasStart = gasleft();
+
+        if (_proof.length > MAX_PROOF_BYTES) revert B_PROOF_TOO_LARGE();
 
         // same as `sameChain(_message.destChainId)` but without stack-too-deep
         if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
