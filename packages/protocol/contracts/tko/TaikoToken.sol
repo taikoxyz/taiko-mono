@@ -22,8 +22,4 @@ contract TaikoToken is TaikoTokenBase {
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
     }
-
-    function init2() public reinitializer(2) {
-        __ERC20_init("Taiko Token", "TAIKO");
-    }
 }
