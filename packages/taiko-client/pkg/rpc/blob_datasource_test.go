@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
