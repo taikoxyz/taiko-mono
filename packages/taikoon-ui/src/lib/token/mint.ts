@@ -1,3 +1,4 @@
+import type { WriteContractParameters } from '@wagmi/core';
 import { waitForTransactionReceipt, writeContract } from '@wagmi/core';
 import { decodeEventLog } from 'viem';
 
@@ -31,13 +32,15 @@ export async function mint({
 
   if (await canMint()) {
     const proof = getProof();
-    tx = await writeContract(config, {
+    const writeContractConfig: WriteContractParameters = {
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(mintCount)],
-      chainId,
-    });
+      chainId: chainId,
+    };
+
+    tx = await writeContract(config, writeContractConfig);
 
     onTransaction(tx);
   }
