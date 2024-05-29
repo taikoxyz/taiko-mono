@@ -308,19 +308,27 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
+        uint256 amount = _message.value + _message.fee;
+        if (!_consumeEtherQuota(amount)) revert B_OUT_OF_ETH_QUOTA();
 
-        uint256 invocationGasLimit;
-        if (msg.sender != _message.destOwner) {
-            if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-            invocationGasLimit = _invocationGasLimit(_message, true);
+        bool succeeded;
+        if (_unableToInvokeMessageCall(_message, resolve(LibStrings.B_SIGNAL_SERVICE, false))) {
+            succeeded = _message.destOwner.sendEther(amount, _SEND_ETHER_GAS_LIMIT, "");
         } else {
-            // The owner uses all gas left in message invocation
-            invocationGasLimit = gasleft();
+            uint256 invocationGasLimit;
+            if (msg.sender != _message.destOwner) {
+                if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
+                invocationGasLimit = _invocationGasLimit(_message, true);
+            } else {
+                // The owner uses all gas left in message invocation
+                invocationGasLimit = gasleft();
+            }
+
+            // Attempt to invoke the messageCall.
+            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit);
         }
 
-        // Attempt to invoke the messageCall.
-        if (_invokeMessageCall(_message, msgHash, invocationGasLimit)) {
+        if (succeeded) {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
