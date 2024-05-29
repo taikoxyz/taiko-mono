@@ -10,7 +10,7 @@ export const baseHeaderClasses = classNames(
   'relative',
   'z-50',
   'px-6',
-  'mt-2',
+  'py-10',
 );
 
 export const taikoonsIconClasses = classNames('h-full');
