@@ -6,13 +6,18 @@ import { PUBLIC_ENV, PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public'
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
+import { type Chain } from 'viem';
+
 import { chainIdToChain } from '$lib/chain/chains';
 
 export const devnet = chainIdToChain(167001);
 export const taiko = chainIdToChain(167000);
 
+const devChains: [Chain, ...Chain[]] = [devnet, hardhat];
+const prodChains: [Chain, ...Chain[]] = [taiko];
+
 const baseConfig = {
-  chains: [PUBLIC_ENV === 'prod' ? taiko : hardhat],
+  chains: PUBLIC_ENV === 'prod' ? prodChains : ([...devChains, ...prodChains] as [Chain, ...Chain[]]),
   defaultChain: taiko,
   projectId,
   metadata: {},
