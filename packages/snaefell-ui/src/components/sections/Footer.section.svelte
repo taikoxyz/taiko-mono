@@ -7,7 +7,7 @@
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  const sectionClasses = classNames('justify-end align-end', 'mb-5');
+  const sectionClasses = classNames('justify-end align-end', 'mb-5', 'pt-32');
 
   const titleClasses = classNames(
     'w-full',

@@ -1,18 +1,25 @@
 import { classNames } from '$lib/util/classNames';
 export const wrapperClasses = classNames(
   'h-max',
-  'w-max',
   'flex',
-  'md:flex-row',
-  'flex-col',
+
   'items-center',
   'justify-center',
-  //'md:px-5',
-  'p-8',
   'bg-neutral-background',
   'rounded-3xl',
-  'gap-16',
-  //'md:py-16',
+  'gap-12',
+  // mobile
+  'py-4',
+  'px-1',
+  'mt-1.5',
+  'flex-col',
+  'w-[calc(100%-1.5rem)]',
+  // regular
+  'md:flex-row',
+  'md:p-8',
+  'md:mt-32',
+  'md:max-w-[95vw]',
+  'md:w-max',
 );
 
 export const halfPanel = classNames(
