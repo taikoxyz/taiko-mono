@@ -36,7 +36,11 @@ async function main() {
 
     fs.writeFileSync(
       outputFile,
-      JSON.stringify({ ...tree.dump(), root: tree.root }, null, 2),
+      JSON.stringify(
+        Object.assign({}, tree.dump(), { root: tree.root }),
+        null,
+        2,
+      ),
     );
 
     console.log(`Merkle Root for network ${network}`, tree.root);
