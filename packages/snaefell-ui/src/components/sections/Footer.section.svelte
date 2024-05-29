@@ -42,7 +42,7 @@
     'md:px-12',
   );
 
-  const contentWrapperClasses = classNames('pt-32', 'w-full', 'h-full');
+  const contentWrapperClasses = classNames('w-full', 'h-full');
 </script>
 
 <Section height={'fit'} class={sectionClasses} width="xl">
