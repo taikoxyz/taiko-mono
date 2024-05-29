@@ -4,6 +4,7 @@
   import { getContext, onMount } from 'svelte';
   import { zeroAddress } from 'viem';
 
+  import { errorToast } from '$components/core/Toast';
   import User from '$lib/user';
   import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
@@ -50,16 +51,23 @@
   }
 
   async function load() {
-    canMint = await Token.canMint();
-    mintMax = await Token.maxSupply();
-    totalSupply = await Token.totalSupply();
+    try {
+      canMint = await Token.canMint();
+      mintMax = await Token.maxSupply();
+      totalSupply = await Token.totalSupply();
 
-    if (!canMint) {
+      if (!canMint) {
+        isReady = true;
+        return;
+      }
+      totalMintCount = await User.totalWhitelistMintCount();
       isReady = true;
-      return;
+    } catch (e: any) {
+      errorToast({
+        title: 'Load error',
+        message: e.message,
+      });
     }
-    totalMintCount = await User.totalWhitelistMintCount();
-    isReady = true;
   }
 
   onMount(async () => {

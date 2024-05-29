@@ -22,8 +22,9 @@ export async function startWatching() {
         // we present the user with a modal to switch networks.
         const isLocalHost = window.location.hostname === 'localhost';
         const isSupportedChainId = isLocalHost ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
-        const isConnectedToWrongChain = !data.chainId && data.address;
-        if (!isSupportedChainId || isConnectedToWrongChain) {
+        const isConnected = data.address !== undefined;
+
+        if (!isSupportedChainId && isConnected) {
           switchChainModal.set(true);
           return;
         } else if (chain) {
