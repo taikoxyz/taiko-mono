@@ -11,7 +11,7 @@ export const wrapperClasses = classNames(
   // mobile
   'py-4',
   'px-1',
-  'mt-1.5',
+  'mt-2.5',
   'flex-col',
   'w-[calc(100%-1.5rem)]',
   // regular
