@@ -89,9 +89,12 @@
         Connecting
       {/if}
     {:else}
-      <CircleUserIcon size="16" class={classNames('w-[200px] h-12')} />
-      {#if windowSize !== 'sm'}
-        Connect Wallet{/if}
+      <CircleUserIcon size="24" class={classNames('h-12')} />
+      {#if windowSize === 'sm'}
+        Connect
+      {:else}
+        Connect Wallet
+      {/if}
     {/if}
   </button>
 {/if}

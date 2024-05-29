@@ -8,6 +8,7 @@
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
   import { ProgressBar } from '$components/core/ProgressBar';
+  import { Link } from '$components/core/Text';
   import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
   import { Spinner } from '$ui/Spinner';
@@ -29,6 +30,8 @@
   export let mintMax = 0;
   export let isCalculating = false;
   export let progress = 0;
+  export let buttonLabel: string | null = null;
+
   const mintState = getContext<IMint>('mint');
   const buttonClasses = classNames('mt-6 max-h-[56px]');
 
@@ -46,6 +49,8 @@
 
   <p class={mintContentClasses}>
     {$t('content.mint.textBottom')}
+
+    <Link href="https://trailblazers.taiko.xyz/" target="_blank">{$t('content.mint.textTrailblazers')}</Link>
   </p>
 
   <div class={infoRowClasses}>
@@ -72,7 +77,11 @@
     class={buttonClasses}
     onPopup>
     {#if isReady}
-      {$t('buttons.mint')}
+      {#if buttonLabel}
+        {buttonLabel}
+      {:else}
+        {$t('buttons.mint')}
+      {/if}
     {:else}
       <Spinner size="sm" />
     {/if}
