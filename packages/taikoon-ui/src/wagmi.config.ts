@@ -2,7 +2,7 @@ import { injected, walletConnect } from '@wagmi/connectors';
 import { createConfig, http, reconnect } from '@wagmi/core';
 import { hardhat } from '@wagmi/core/chains';
 
-import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
+import { PUBLIC_ENV, PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
@@ -12,7 +12,7 @@ export const devnet = chainIdToChain(167001);
 export const taiko = chainIdToChain(167000);
 
 const baseConfig = {
-  chains: [taiko],
+  chains: [PUBLIC_ENV === 'prod' ? taiko : hardhat],
   defaultChain: taiko,
   projectId,
   metadata: {},
