@@ -13,7 +13,7 @@
     'overflow-hidden',
     height === 'full' ? 'h-screen' : null,
     height === 'min' ? 'h-[50vh] pt-32' : null,
-    height === 'fit' ? 'h-auto pt-32' : null,
+    height === 'fit' ? 'h-auto' : null,
     'relative',
     'flex flex-col',
     'items-center',
