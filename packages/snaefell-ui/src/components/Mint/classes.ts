@@ -16,7 +16,7 @@ export const wrapperClasses = classNames(
 );
 
 export const halfPanel = classNames(
-  'h-full',
+  'h-max',
   'md:w-max',
   'flex flex-col',
   'items-center',
@@ -41,7 +41,7 @@ export const counterClasses = classNames(
 );
 
 export const nftRendererWrapperClasses = 'rounded-3xl overflow-hidden';
-export const nftRendererWrapperMobileClasses = 'rounded-3xl my-8 overflow-hidden';
+export const nftRendererWrapperMobileClasses = 'rounded-3xl lg:my-8 my-4 overflow-hidden aspect-square';
 
 export const mintTitleClasses = classNames(
   'text-[45px]/[52px]',

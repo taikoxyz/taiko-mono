@@ -584,9 +584,8 @@ export const snaefellTokenAbi = [
  *
  */
 export const snaefellTokenAddress = {
-  31337: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+  31337: '0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1',
   167000: '0xD57b9EE8f597801e82018ed44e07E9065645B0c1',
-  167001: '0x9A676e781A523b5d0C0e43731313A708CB607508',
 } as const;
 
 /**

@@ -3,7 +3,7 @@ import { decodeEventLog } from 'viem';
 
 import { FilterLogsError, MintError } from '$lib/error';
 import getProof from '$lib/whitelist/getProof';
-import { config, mainnet } from '$wagmi-config';
+import { config } from '$wagmi-config';
 
 import { snaefellTokenAbi, snaefellTokenAddress } from '../../generated/abi';
 import { web3modal } from '../../lib/connect';
@@ -36,7 +36,7 @@ export async function mint({
       address: snaefellTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(mintCount)],
-      chainId: mainnet.id,
+      chainId,
     });
 
     onTransaction(tx);
