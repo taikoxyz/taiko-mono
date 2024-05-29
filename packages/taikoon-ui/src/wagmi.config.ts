@@ -12,7 +12,8 @@ export const devnet = chainIdToChain(167001);
 export const taiko = chainIdToChain(167000);
 
 const baseConfig = {
-  chains: [hardhat, taiko],
+  chains: [taiko],
+  defaultChain: taiko,
   projectId,
   metadata: {},
   batch: {
