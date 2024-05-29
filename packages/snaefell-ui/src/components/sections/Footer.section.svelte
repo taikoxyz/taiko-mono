@@ -7,7 +7,8 @@
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  const sectionClasses = classNames('justify-end align-end', 'mb-5', 'pt-32');
+  const infoSectionClasses = classNames('justify-center items-center', 'mb-5', 'pt-32');
+  const footerSectionClasses = classNames('justify-end', 'w-full', 'mb-5', 'pt-32');
 
   const titleClasses = classNames(
     'w-full',
@@ -33,10 +34,10 @@
     'font-clash-grotesk',
   );
 
-  const contentWrapperClasses = classNames('w-full', 'h-full');
+  const contentWrapperClasses = classNames('w-full', 'h-full', 'max-w-[1000px]', 'lg:px-2', 'md:px-6', 'px-4');
 </script>
 
-<Section height={'fit'} class={sectionClasses} width={windowSize === 'sm' ? 'lg' : 'sm'}>
+<Section height={'fit'} class={infoSectionClasses} width="xl">
   <div class={contentWrapperClasses}>
     <p class={titleClasses}>
       {$t('content.sections.information.title')}
@@ -55,7 +56,8 @@
     </div>
   </div>
 </Section>
-<Section height={'fit'} class={sectionClasses} width="xl">
+
+<Section height={'fit'} class={footerSectionClasses} width="xl">
   <Footer />
 </Section>
 
