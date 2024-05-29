@@ -15,6 +15,7 @@
     "test:integration": "playwright test",
     "test:unit": "vitest",
     "start": "npm run generate:abi && vite dev --open",
+    "generate": "cd ../nfts && pnpm taikoon:merkle && pnpm compile && cd - && wagmi generate",
     "generate:abi": "cd ../nfts && pnpm compile && cd - && wagmi generate"
   },
   "devDependencies": {
