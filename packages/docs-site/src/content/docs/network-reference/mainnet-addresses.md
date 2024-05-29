@@ -35,6 +35,7 @@ description: Network reference page describing various important addresses on Ta
 | TokenUnlock                     | `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819` | N/A                        |
 | ProverSet                       | `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` | N/A                        |
 | labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
+| labcontester                    | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | labcontester.taiko.eth     |
 
 ## Taiko (Mainnet) contracts
 
