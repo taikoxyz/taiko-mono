@@ -20,7 +20,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     }
 
     function init2() public reinitializer(2) {
-        __ERC20_init("Taiko Token", "TK");
+        __ERC20_init("Taiko Token", "TAIKO");
     }
 
     function mint(
