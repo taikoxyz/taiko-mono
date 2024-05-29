@@ -18,10 +18,9 @@
     'flex flex-col',
     'items-center',
     'justify-center',
-    background === 'none' ? 'bg-background-body' : null,
-    background !== 'none' ? 'bg-cover bg-center' : null,
+    background === 'none' ? '' : null,
+    background !== 'none' ? 'bg-cover bg-bottom' : null,
     background === 'general' ? 'bg-custom' : null,
-    'carousel-item',
   );
 
   $: sectionClasses = classNames(

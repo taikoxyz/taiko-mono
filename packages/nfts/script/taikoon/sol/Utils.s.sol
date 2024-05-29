@@ -35,6 +35,9 @@ contract UtilsScript is Script {
         } else if (chainId == 167_008) {
             lowercaseNetworkKey = "katla";
             uppercaseNetworkKey = "KATLA";
+        } else if (chainId == 167_000) {
+            lowercaseNetworkKey = "mainnet";
+            uppercaseNetworkKey = "MAINNET";
         } else {
             revert("Unsupported chainId");
         }

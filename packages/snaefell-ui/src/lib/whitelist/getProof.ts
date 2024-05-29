@@ -15,6 +15,10 @@ export default function getProof(address?: IAddress): IAddress[] {
     address = account.address;
   }
 
+  if (!whitelist[chainId]) {
+    throw new Error(`No whitelist found for chainId ${chainId}`);
+  }
+
   const tree = StandardMerkleTree.load(whitelist[chainId]);
   for (const [i, [leafAddress]] of tree.entries()) {
     if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
