@@ -64,7 +64,6 @@ contract UtilsScript is Script {
             // deploy a mock blacklist otherwise
             blacklistAddress = IMinimalBlacklist(new MockBlacklist());
         }
-
     }
 
     function run() public { }
