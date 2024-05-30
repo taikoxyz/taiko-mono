@@ -80,10 +80,14 @@
 
     {#if step === 'success'}
       <!-- use on trailblazers -->
-      <ActionButton priority="primary" class={buttonClasses} onPopup>
-        <a href="https://trailblazers.taiko.xyz/" target="_blank">
-          {$t('buttons.useOnTrailblazers')}
-        </a>
+      <ActionButton
+        priority="primary"
+        on:click={() => {
+          window.open('https://trailblazers.taiko.xyz/', '_blank');
+        }}
+        class={buttonClasses}
+        onPopup>
+        {$t('buttons.useOnTrailblazers')}
       </ActionButton>
     {/if}
   </div>
