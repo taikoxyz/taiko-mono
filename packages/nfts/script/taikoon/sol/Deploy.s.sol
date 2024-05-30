@@ -27,7 +27,7 @@ contract DeployScript is Script {
     address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
     bytes32 root = 0x3e2da39414868a8a49c4ee78da50cc4430d88df27060300e553810ab2d23b5bd;
     string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    IMinimalBlacklist blacklist = IMinimalBlacklist(0x464ef62Da3dB46701DF5A0fe81eBD2Cbc933196d);
+    IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     function setUp() public {
         utils = new UtilsScript();
