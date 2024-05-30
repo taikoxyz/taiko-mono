@@ -61,12 +61,14 @@
     <ProgressBar {progress} />
   </div>
 
-  <Divider />
+  {#if !buttonLabel}
+    <Divider />
 
-  <div class={infoRowClasses}>
-    <InfoRow label={$t('content.mint.totalMints')} value={$mintState.totalMintCount.toString()} />
-    <InfoRow label={$t('content.mint.gasFee')} loading={isCalculating} value={`Ξ ${gasCost}`} />
-  </div>
+    <div class={infoRowClasses}>
+      <InfoRow label={$t('content.mint.totalMints')} value={$mintState.totalMintCount.toString()} />
+      <InfoRow label={$t('content.mint.gasFee')} loading={isCalculating} value={`Ξ ${gasCost}`} />
+    </div>
+  {/if}
 
   <ActionButton
     priority="primary"
