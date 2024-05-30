@@ -26,7 +26,7 @@ export async function startWatching() {
         const isSupportedChainId = isLocalHost ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
         const isConnected = data.address !== undefined;
 
-        if (!isLocalHost && (!isSupportedChainId && isConnected)) {
+        if (!isLocalHost && !isSupportedChainId && isConnected) {
           console.warn('Unsupported chain', chain);
           switchChainModal.set(true);
           return;

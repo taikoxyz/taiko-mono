@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xEfBB766f03D9b27e0CD62b9e52A1c23b528bE4CD)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xe0c018615A074967db263abD4a98B4862dB4101f)
  * -
  */
 export const taikoonTokenAbi = [
@@ -42,9 +42,7 @@ export const taikoonTokenAbi = [
     type: 'function',
     inputs: [],
     name: 'blacklist',
-    outputs: [
-      { name: '', internalType: 'contract IMinimalBlacklist', type: 'address' },
-    ],
+    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
     stateMutability: 'view',
   },
   {
@@ -501,9 +499,7 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -589,23 +585,23 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const
+] as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xEfBB766f03D9b27e0CD62b9e52A1c23b528bE4CD)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xe0c018615A074967db263abD4a98B4862dB4101f)
  * -
  */
 export const taikoonTokenAddress = {
-  17000: '0xEfBB766f03D9b27e0CD62b9e52A1c23b528bE4CD',
+  17000: '0xe0c018615A074967db263abD4a98B4862dB4101f',
   31337: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
   167000: '0x391F62EB932Ec227840244fb66DE53c3367A66c1',
-} as const
+} as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xEfBB766f03D9b27e0CD62b9e52A1c23b528bE4CD)
+ * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0xe0c018615A074967db263abD4a98B4862dB4101f)
  * -
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
   abi: taikoonTokenAbi,
-} as const
+} as const;
