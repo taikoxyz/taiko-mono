@@ -2,7 +2,6 @@
   import { goto } from '$app/navigation';
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { Mint } from '$components/Mint';
-  import { MintAgreementModal } from '$components/modals';
   import { Page } from '$components/Page';
   import { FaqSection, FooterSection } from '$components/sections';
   import isCountdownActive from '$lib/util/isCountdownActive';
@@ -33,7 +32,5 @@
     <FooterSection />
   </SectionContainer>
 </Page>
-
-<MintAgreementModal />
 
 <ResponsiveController bind:windowSize />

@@ -69,7 +69,7 @@
 
   $: isHovered = false;
 
-  const collectionWrapperClasses = classNames('w-full', 'mt-32', 'pt-16', 'px-10', 'h-full');
+  const collectionWrapperClasses = classNames('w-full', 'pt-16', 'px-10', 'h-full');
 
   function shuffleArray(array: string[]) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -148,7 +148,7 @@
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 </script>
 
-<Section animated class="relative" height="fit" width="xl">
+<Section class="relative" height="fit" width="xl">
   <div class={collectionWrapperClasses}>
     <div class={classNames('w-full')}>
       <p class={titleClasses}>Explore Taikoons</p>
