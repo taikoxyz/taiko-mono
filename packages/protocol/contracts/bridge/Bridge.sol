@@ -40,6 +40,9 @@ contract Bridge is EssentialContract, IBridge {
     /// This value should be fine-tuned with production data.
     uint32 public constant GAS_OVERHEAD = 120_000;
 
+    ///@dev The max proof size for a message to be processable by a relayer.
+    uint256 public constant RELAYER_MAX_PROOF_BYTES = 240_000;
+
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -88,6 +91,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_MESSAGE_NOT_SENT();
     error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
+    error B_PROOF_TOO_LARGE();
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
@@ -232,8 +236,9 @@ contract Bridge is EssentialContract, IBridge {
         stats.processedByRelayer = msg.sender != _message.destOwner;
 
         // If the gas limit is set to zero, only the owner can process the message.
-        if (_message.gasLimit == 0) {
-            if (stats.processedByRelayer) revert B_PERMISSION_DENIED();
+        if (stats.processedByRelayer) {
+            if (_message.gasLimit == 0) revert B_PERMISSION_DENIED();
+            if (_proof.length > RELAYER_MAX_PROOF_BYTES) revert B_PROOF_TOO_LARGE();
         }
 
         bytes32 msgHash = hashMessage(_message);
