@@ -139,6 +139,69 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
     }
 
+    /// @dev Test if a given transition deadline is based on proposal time
+    function test_L1_in_proving_window_logic() external {
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        giveEthAndTko(Carol, 1e8 ether, 100 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            bytes32 blockHash;
+            bytes32 stateRoot;
+            if (blockId % 2 == 0) {
+                // Stay within proving window
+                vm.warp(block.timestamp + 60);
+
+                blockHash = bytes32(1e10 + blockId);
+                stateRoot = bytes32(1e9 + blockId);
+
+                bytes32 secondTransitionHash = randBytes32();
+
+                // Within window and first transition -> Should revert if not assigned prover or
+                // guardian
+                proveBlock(
+                    Carol,
+                    meta,
+                    parentHash,
+                    secondTransitionHash,
+                    stateRoot,
+                    meta.minTier,
+                    TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
+                );
+
+                // Only guardian or assigned prover is allowed
+                if (blockId % 4 == 0) {
+                    proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+                } else {
+                    proveBlock(
+                        Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
+                    );
+                }
+            } else {
+                // Go into the future, outside of block proposal time + window
+                vm.warp(block.timestamp + 2 days);
+
+                blockHash = bytes32(1e10 + blockId);
+                stateRoot = bytes32(1e9 + blockId);
+
+                bytes32 secondTransitionHash = randBytes32();
+
+                // Carol can prove since it is outside of the window
+                proveBlock(
+                    Carol, meta, parentHash, secondTransitionHash, stateRoot, meta.minTier, ""
+                );
+
+                parentHash = blockHash;
+            }
+            parentHash = blockHash;
+        }
+    }
+
     function test_pauseProving() external {
         L1.pauseProving(true);
 
