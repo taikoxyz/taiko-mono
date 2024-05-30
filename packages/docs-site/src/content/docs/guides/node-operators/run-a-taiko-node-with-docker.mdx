@@ -40,22 +40,11 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
       </TabItem>
     </Tabs>
 
-2. Checkout the release branch you wish to run
+2. Copy the sample .env files
 
-    Find the branch you wish to check out in the [repository](https://github.com/taikoxyz/simple-taiko-node/branches). 
-
-    The `main` branch corresponds to our mainnet, and the `hekla` branch corresponds to our current live testnet.
-
-    ```bash
-    git checkout <branch>
-    ```
-
-    <Aside>
-    Make sure to read the releases page carefully to determine the correct branch to check out.
-    Some may be specific to testnet or mainnet.
+    <Aside type="caution" title="Attention!">
+    We've unified the branches for maintanability, to run a `hekla` Taiko node please copy `.env.sample.hekla` instead of `.env.sample`.
     </Aside>
-
-3. Copy the sample .env files
 
     ```sh
     cp .env.sample .env
@@ -114,6 +103,12 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 6. Start the node
 
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
+
+    <Aside type="caution" title="Attention!">
+    We've unified the branches for maintanability, to run a `hekla` Taiko node please use the following command instead: `docker compose -f docker-compose-hekla.yml up -d`.
+
+    Other commands for viewing logs will remain the same.
+    </Aside>
 
     ```sh
     docker compose up -d
