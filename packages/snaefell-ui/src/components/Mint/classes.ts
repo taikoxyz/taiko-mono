@@ -61,6 +61,7 @@ export const mintTitleClasses = classNames(
 export const mintContentClasses = classNames(
   'font-normal',
   'font-sans',
+  'my-2',
   'text-content-secondary',
   'text-[16px]/[24px]',
 );
