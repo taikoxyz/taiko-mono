@@ -9,22 +9,18 @@ import { whitelist } from './index';
 export default function getProof(address?: IAddress): IAddress[] {
   const { config, chainId } = getConfig();
 
-  try {
-    if (!address) {
-      const account = getAccount(config);
-      if (!account.address) return [];
-      address = account.address;
-    }
+  if (!address) {
+    const account = getAccount(config);
+    if (!account.address) return [];
+    address = account.address;
+  }
 
-    const tree = StandardMerkleTree.load(whitelist[chainId]);
-    for (const [i, [leafAddress]] of tree.entries()) {
-      if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
-        const proof = tree.getProof(i);
-        return proof as IAddress[];
-      }
+  const tree = StandardMerkleTree.load(whitelist[chainId]);
+  for (const [i, [leafAddress]] of tree.entries()) {
+    if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
+      const proof = tree.getProof(i);
+      return proof as IAddress[];
     }
-  } catch (e) {
-    console.error(`Error with getProof chainId ${chainId}:`, e);
   }
 
   return [];

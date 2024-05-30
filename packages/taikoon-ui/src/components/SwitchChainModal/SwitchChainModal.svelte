@@ -3,7 +3,7 @@
   import { t } from 'svelte-i18n';
   import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
 
-  import { config, taiko } from '$wagmi-config';
+  import { config } from '$wagmi-config';
 
   import { chains, getChainImage } from '../../lib/chain';
   import { switchChainModal } from '../../stores/modal';
@@ -24,8 +24,6 @@
   // Or at least share the same base component. There is a lot of code duplication
 
   let switchingNetwork = false;
-
-  $: selectedChains = [taiko];
 
   function closeModal() {
     $switchChainModal = false;
@@ -67,38 +65,36 @@
   }
 </script>
 
-{#if selectedChains}
-  <dialog class={modalDialogClasses} class:modal-open={$switchChainModal}>
-    <div class={modalWrapperClasses}>
-      {#if switchingNetwork}
-        <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
-      {/if}
+<dialog class={modalDialogClasses} class:modal-open={$switchChainModal}>
+  <div class={modalWrapperClasses}>
+    {#if switchingNetwork}
+      <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
+    {/if}
 
-      <h3 class={titleClasses}>{$t('switch_modal.title')}</h3>
-      <p class={textClasses}>{$t('switch_modal.description')}</p>
-      <ul role="menu" class=" w-full">
-        {#if chains !== undefined}
-          {#each selectedChains as chain (chain.id)}
-            {@const icon = getChainImage(Number(chain.id)) || 'Unknown Chain'}
+    <h3 class={titleClasses}>{$t('switch_modal.title')}</h3>
+    <p class={textClasses}>{$t('switch_modal.description')}</p>
+    <ul role="menu" class=" w-full">
+      {#if chains !== undefined}
+        {#each chains as chain (chain.id)}
+          {@const icon = getChainImage(Number(chain.id)) || 'Unknown Chain'}
 
-            <li
-              role="menuitem"
-              tabindex="0"
-              class={chainItemClasses}
-              on:click={() => selectChain(chain)}
-              on:keydown={getChainKeydownHandler(chain)}>
-              <!-- TODO: agree on hover:bg color -->
-              <div class={chainItemContentClasses}>
-                <div class={chainItemContentWrapperClasses}>
-                  <i role="img" aria-label={chain.name}>
-                    <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
-                  </i>
-                  <span class="body-bold">{chain.name}</span>
-                </div>
+          <li
+            role="menuitem"
+            tabindex="0"
+            class={chainItemClasses}
+            on:click={() => selectChain(chain)}
+            on:keydown={getChainKeydownHandler(chain)}>
+            <!-- TODO: agree on hover:bg color -->
+            <div class={chainItemContentClasses}>
+              <div class={chainItemContentWrapperClasses}>
+                <i role="img" aria-label={chain.name}>
+                  <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
+                </i>
+                <span class="body-bold">{chain.name}</span>
               </div>
-            </li>
-          {/each}{/if}
-      </ul>
-    </div>
-  </dialog>
-{/if}
+            </div>
+          </li>
+        {/each}{/if}
+    </ul>
+  </div>
+</dialog>

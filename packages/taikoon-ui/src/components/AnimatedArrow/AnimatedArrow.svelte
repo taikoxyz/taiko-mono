@@ -5,7 +5,7 @@
   const ArrowIcon = Icons.ArrowRightFilled;
 
   const wrapperClasses = classNames(
-    'bg-white',
+    'bg-primary-content',
     'rounded-full',
     'w-[32px]',
     'h-[32px]',
@@ -19,6 +19,7 @@
     'w-full',
     'h-full',
     'relative',
+
     'flex',
     'items-center',
     'justify-center',

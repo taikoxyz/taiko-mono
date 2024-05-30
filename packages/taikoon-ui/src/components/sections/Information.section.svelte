@@ -30,8 +30,8 @@
   $: eyes = Array.from({ length: 12 }, (_, i) => i);
 </script>
 
-<Section height="fit">
-  <div class={classNames('py-32', 'mb-32')}>
+<Section>
+  <div class={classNames('py-32')}>
     <p class={titleClasses}>
       {$t('content.sections.information.title')}
     </p>
@@ -40,7 +40,7 @@
       {$t('content.sections.information.text')}
     </div>
 
-    <div class={classNames('w-full', 'h-min', 'flex', 'absolute', 'left-0', 'mt-12', 'bottom-0')}>
+    <div class={classNames('w-full', 'h-min', 'flex', 'absolute', 'left-0', 'bottom-0')}>
       <!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
       {#each eyes as _}
         <div class={classNames('w-1/12', 'h-max', 'flex', 'justify-center', 'items-center')}>

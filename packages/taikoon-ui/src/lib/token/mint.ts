@@ -36,7 +36,7 @@ export async function mint({
       address: taikoonTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(mintCount)],
-      chainId: chainId as number,
+      chainId,
     });
 
     onTransaction(tx);
