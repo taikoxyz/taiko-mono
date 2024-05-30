@@ -1,6 +1,6 @@
 import { watchAccount } from '@wagmi/core';
 
-import { config } from '$wagmi-config';
+import { config, taiko } from '$wagmi-config';
 
 import { isSupportedChain } from '../../lib/chain';
 import { refreshUserBalance } from '../../lib/util/balance';
@@ -15,15 +15,16 @@ export async function startWatching() {
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
       onChange(data) {
-        console.warn('Account changed', data);
+        const { chain } = data;
         account.set(data);
         refreshUserBalance();
-        const { chain } = data;
-
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if (chain && !isSupportedChain(Number(chain.id))) {
-          console.warn('Unsupported chain', chain);
+        const isLocalHost = window.location.hostname === 'localhost';
+        const isSupportedChainId = isLocalHost ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
+        const isConnected = data.address !== undefined;
+
+        if (!isSupportedChainId && isConnected) {
           switchChainModal.set(true);
           return;
         } else if (chain) {

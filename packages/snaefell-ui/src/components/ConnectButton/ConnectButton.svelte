@@ -59,6 +59,7 @@
   });
 
   import { Icons } from '$components/core/Icons';
+  import { classNames } from '$lib/util/classNames';
   const { CircleUserRegular: CircleUserIcon } = Icons;
 </script>
 
@@ -68,7 +69,7 @@
       alt="chain icon"
       class={chainIconClasses}
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
-    {#if windowSize !== 'md'}
+    {#if windowSize !== 'sm'}
       <span class={buttonContentClasses}
         >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
         <span class={addressClasses}>
@@ -84,13 +85,16 @@
   <button class={connectButtonClasses} on:click={connectWallet}>
     {#if web3modalOpen}
       <Spinner size="sm" />
-      {#if windowSize !== 'md'}
+      {#if windowSize !== 'sm'}
         Connecting
       {/if}
     {:else}
-      <CircleUserIcon size="16" />
-      {#if windowSize !== 'md'}
-        Connect Wallet{/if}
+      <CircleUserIcon size="24" class={classNames('h-12')} />
+      {#if windowSize === 'sm'}
+        Connect
+      {:else}
+        Connect Wallet
+      {/if}
     {/if}
   </button>
 {/if}

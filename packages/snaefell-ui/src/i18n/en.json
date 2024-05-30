@@ -15,6 +15,7 @@
     "seconds": "Seconds"
   },
   "buttons": {
+    "proceedToMint": "Proceed to Mint",
     "mintNow": "Mint Now",
     "learnMore": "FAQs",
     "mint": "Mint",
@@ -22,13 +23,16 @@
     "share": "Share",
     "yourTaikoons": "Your Alpha Tokens",
     "cancel": "Cancel",
-    "agree": "Agree"
+    "agree": "Agree",
+    "view": "View",
+    "useOnTrailblazers": "Use NFT"
   },
   "content": {
     "mint": {
       "title": "Snaefell NFT",
       "textTop": "If you participated in Alpha-1 Testnet (Snæfellsjökull), it's time to connect your wallet and check your eligibility for a special commemorative NFT.",
-      "textBottom": "This unique token not only serves as a memento of your OG involvement but also as a multiplier in the upcoming Trailblazers program.",
+      "textBottom": "This unique token not only serves as a memento of your OG involvement but also as a multiplier in the upcoming",
+      "textTrailblazers": "Trailblazers program",
       "eligibleLabel": "You are eligible to mint:",
       "totalMints": "Total mints",
       "gasFee": "Gas fee",

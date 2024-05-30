@@ -7,89 +7,58 @@
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
-  const sectionClasses = classNames('justify-end align-end', 'mb-5');
+  const infoSectionClasses = classNames('justify-center items-center', 'mb-5', 'pt-32');
+  const footerSectionClasses = classNames('justify-end', 'w-full', 'mb-5', 'pt-32');
 
   const titleClasses = classNames(
     'w-full',
     'text-left',
     'text-primary',
-    'mb-4',
+    'mb-6',
     'uppercase',
     'tracking-normal',
     'text-[16px]/[24px]',
     'font-bold',
     'font-sans',
     'leading-relaxed',
-    'px-12',
   );
 
   const contentClasses = classNames(
     'md:font-normal',
-    //'md:text-[57px]/[64px]',
-    'md:text-3xl',
-    'text-2xl',
+    'md:text-[45px]/[52px]',
+    'text-[32px]/[40px]',
     'my-4',
     'md:my-6',
     'text-content-primary',
     'font-medium',
     'font-clash-grotesk',
-    'text-4xl',
-    // sm variant
-    'w-full',
-    'px-0',
-    // md variant
-    'md:w-3/4',
-    'md:px-12',
   );
 
-  const contentWrapperClasses = classNames('pt-32', 'w-full', 'h-full');
+  const contentWrapperClasses = classNames('w-full', 'h-full', 'max-w-[1000px]', 'lg:px-2', 'md:px-6', 'px-4');
 </script>
 
-{#if windowSize === 'sm'}
-  <Section height={'min'} class={sectionClasses} width="xl">
-    <div class={contentWrapperClasses}>
-      <p class={titleClasses}>
-        {$t('content.sections.information.title')}
-      </p>
+<Section height={'fit'} class={infoSectionClasses} width="xl">
+  <div class={contentWrapperClasses}>
+    <p class={titleClasses}>
+      {$t('content.sections.information.title')}
+    </p>
 
-      <div class={contentClasses}>
-        {$t('content.sections.information.text1')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text2')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text3')}
-      </div>
-    </div>
-  </Section>
-  <Section height={'full'} class={sectionClasses} width="xl">
-    <Footer />
-  </Section>
-{:else}
-  <Section height={'full'} background="footer" class={sectionClasses} width="xl">
-    <div class={contentWrapperClasses}>
-      <p class={titleClasses}>
-        {$t('content.sections.information.title')}
-      </p>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text1')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text2')}
-      </div>
-
-      <div class={contentClasses}>
-        {$t('content.sections.information.text3')}
-      </div>
+    <div class={contentClasses}>
+      {$t('content.sections.information.text1')}
     </div>
 
-    <Footer />
-  </Section>
-{/if}
+    <div class={contentClasses}>
+      {$t('content.sections.information.text2')}
+    </div>
+
+    <div class={contentClasses}>
+      {$t('content.sections.information.text3')}
+    </div>
+  </div>
+</Section>
+
+<Section height={'fit'} class={footerSectionClasses} width="xl">
+  <Footer />
+</Section>
 
 <ResponsiveController bind:windowSize />

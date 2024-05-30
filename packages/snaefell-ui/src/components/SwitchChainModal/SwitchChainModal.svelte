@@ -3,12 +3,11 @@
   import { t } from 'svelte-i18n';
   import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
 
-  import { config } from '$wagmi-config';
+  import { config, taiko } from '$wagmi-config';
 
-  import { chains, getChainImage } from '../../lib/chain';
+  import { getChainImage } from '../../lib/chain/chains';
   import { switchChainModal } from '../../stores/modal';
   import { warningToast } from '../core/Toast';
-  //import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '../LoadingMask';
   import {
     chainItemClasses,
@@ -24,6 +23,8 @@
   // Or at least share the same base component. There is a lot of code duplication
 
   let switchingNetwork = false;
+
+  $: selectedChains = [taiko];
 
   function closeModal() {
     $switchChainModal = false;
@@ -65,7 +66,7 @@
   }
 </script>
 
-{#if chains}
+{#if selectedChains}
   <dialog class={modalDialogClasses} class:modal-open={$switchChainModal}>
     <div class={modalWrapperClasses}>
       {#if switchingNetwork}
@@ -75,7 +76,7 @@
       <h3 class={titleClasses}>{$t('switch_modal.title')}</h3>
       <p class={textClasses}>{$t('switch_modal.description')}</p>
       <ul role="menu" class=" w-full">
-        {#each chains as chain (chain.id)}
+        {#each selectedChains as chain (chain.id)}
           {@const icon = getChainImage(Number(chain.id)) || 'Unknown Chain'}
 
           <li

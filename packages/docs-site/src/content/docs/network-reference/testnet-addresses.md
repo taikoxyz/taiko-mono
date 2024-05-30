@@ -25,22 +25,19 @@ description: Network reference page describing various important addresses on Ta
 | AutomataDcapAttestation         | `0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398` |
 | PemCertChainLib                 | `0x08d7865e7F534d743Aba5874A9AD04bcB223a92E` |
 
-## Taiko (Hekla) contracts
+## Taiko Hekla contracts
 
-| Contract Name (Shared) | Address                                      |
-| ---------------------- | -------------------------------------------- |
-| Bridge                 | `0x1670090000000000000000000000000000000001` |
-| ERC20Vault             | `0x1670090000000000000000000000000000000002` |
-| ERC721Vault            | `0x1670090000000000000000000000000000000003` |
-| ERC1155Vault           | `0x1670090000000000000000000000000000000004` |
-| SignalService          | `0x1670090000000000000000000000000000000005` |
-| SharedAddressManager   | `0x1670090000000000000000000000000000000006` |
-
-| Contract Name (Rollup-Specific) | Address                                      |
-| ------------------------------- | -------------------------------------------- |
-| TaikoL2                         | `0x1670090000000000000000000000000000010001` |
-| RollupAddressManager            | `0x1670090000000000000000000000000000010002` |
-| BridgedTaikoToken               | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
+| Contract Name        | Address                                      |
+| -------------------- | -------------------------------------------- |
+| Bridge               | `0x1670090000000000000000000000000000000001` |
+| ERC20Vault           | `0x1670090000000000000000000000000000000002` |
+| ERC721Vault          | `0x1670090000000000000000000000000000000003` |
+| ERC1155Vault         | `0x1670090000000000000000000000000000000004` |
+| SignalService        | `0x1670090000000000000000000000000000000005` |
+| SharedAddressManager | `0x1670090000000000000000000000000000000006` |
+| TaikoL2              | `0x1670090000000000000000000000000000010001` |
+| RollupAddressManager | `0x1670090000000000000000000000000000010002` |
+| BridgedTaikoToken    | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
 
 ## Rollup contracts owner
 
