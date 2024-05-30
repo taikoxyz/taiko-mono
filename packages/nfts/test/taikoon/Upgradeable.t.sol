@@ -6,6 +6,7 @@ import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "forge-std/src/StdJson.sol";
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
+import { MockBlacklist } from "../util/Blacklist.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -23,11 +24,15 @@ contract UpgradeableTest is Test {
 
     uint256 constant FREE_MINTS = 5;
 
+    MockBlacklist public blacklist;
+
     Merkle tree = new Merkle();
 
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
+        blacklist = new MockBlacklist();
+
         // create whitelist merkle tree
         vm.startPrank(owner);
         bytes32 root = tree.getRoot(leaves);
@@ -37,9 +42,7 @@ contract UpgradeableTest is Test {
         address proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(
-                    TaikoonToken.initialize, (address(0), "ipfs://", root, utils.getBlacklist())
-                )
+                abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root, blacklist))
             )
         );
 
