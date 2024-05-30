@@ -674,14 +674,10 @@ contract Bridge is EssentialContract, IBridge {
             && _message.to.isContract();
     }
 
-    function _invocationGasLimit(Message calldata _message)
-        private
-        pure
-        returns (uint256 gasLimit_)
-    {
+    function _invocationGasLimit(Message calldata _message) private pure returns (uint256) {
+        uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
         unchecked {
-            uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
-            gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
+            return minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
     }
 }
