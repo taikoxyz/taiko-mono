@@ -454,7 +454,6 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         message.destOwner = Alice;
         message.to = address(bridge);
         message.data = abi.encodeWithSignature("sendSignal(bytes32)", hashOfMaliciousMessage);
-        uint256 davidBalance = David.balance;
 
         vm.prank(Alice);
         bridge.processMessage(message, fakeProof);

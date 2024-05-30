@@ -20,7 +20,7 @@ contract DeployTaikoTokenOnL2 is DeployCapability {
         ERC20Vault vault = ERC20Vault(l2Erc20Vault);
 
         // Deploy the TaikoToken contract on L2
-        address deployedTkoProxy = deployProxy({
+        deployProxy({
             name: "taiko_token",
             impl: address(new BridgedTaikoToken()),
             data: abi.encodeCall(BridgedTaikoToken.init, (vaultOwner, vault.addressManager()))
