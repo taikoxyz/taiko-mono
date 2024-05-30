@@ -15,9 +15,9 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    // Please set owner to labs.taiko.eth (0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D) on Mainnnet.
-    address owner = vm.envAddress("OWNER");
-    bytes32 root = vm.envBytes32("MERKLE_ROOT");
+    address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
+    bytes32 root = 0xa7e510d5aed347e65609cf6f0e0738cdd752ffdf5980749057c634489fd09fc3;
+    string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
 
     function setUp() public {
         utils = new UtilsScript();
@@ -37,7 +37,7 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        string memory baseURI = utils.getIpfsBaseURI();
+        //string memory baseURI = utils.getIpfsBaseURI();
 
         // deploy token with empty root
         address impl = address(new TaikoonToken());
