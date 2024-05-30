@@ -134,7 +134,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
-        } else if (_invocationGasLimit(_message) == 0) {
+        } else if (_invocationGasLimit(_message, false) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
 
@@ -257,13 +257,9 @@ contract Bridge is EssentialContract, IBridge {
             } else {
                 uint256 gasLimit = msg.sender == _message.destOwner
                     ? gasleft() // ignore _message.gasLimit
-                    : _invocationGasLimit(_message);
+                    : _invocationGasLimit(_message, true);
 
-                if (
-                    _invokeMessageCall(
-                        _message, msgHash, gasLimit, msg.sender != _message.destOwner
-                    )
-                ) {
+                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     status_ = Status.DONE;
                     reason_ = StatusReason.INVOCATION_OK;
                 } else {
@@ -322,14 +318,14 @@ contract Bridge is EssentialContract, IBridge {
             uint256 invocationGasLimit;
             if (msg.sender != _message.destOwner) {
                 if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-                invocationGasLimit = _invocationGasLimit(_message);
+                invocationGasLimit = _invocationGasLimit(_message, true);
             } else {
                 // The owner uses all gas left in message invocation
                 invocationGasLimit = gasleft();
             }
 
             // Attempt to invoke the messageCall.
-            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit, false);
+            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit);
         }
 
         if (succeeded) {
@@ -486,15 +482,13 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _checkGasleft True to check gasleft is sufficient for target function invocation.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
     function _invokeMessageCall(
         Message calldata _message,
         bytes32 _msgHash,
-        uint256 _gasLimit,
-        bool _checkGasleft
+        uint256 _gasLimit
     )
         private
         returns (bool success_)
@@ -504,9 +498,6 @@ contract Bridge is EssentialContract, IBridge {
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        if (_checkGasleft && _hasInsufficientGas(_gasLimit, _message.data.length)) {
-            revert B_INSUFFICIENT_GAS();
-        }
         success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         _resetContext();
     }
@@ -591,6 +582,20 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
+    /// @notice Consumes a given amount of Ether in Quota Manager
+    /// @param _amount The amount of Ether to consume.
+    /// @return true if the given amount of Ether is consumed or Quota is disabled for Ether.
+    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
+        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
+        if (quotaManager == address(0)) return true;
+
+        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     /// @notice Checks if the signal was received.
     /// This is the 'readonly' version of _proveSignalReceived.
     /// @param _signalService The signal service address.
@@ -617,15 +622,26 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    function _invocationGasLimit(Message calldata _message)
+    function _invocationGasLimit(
+        Message calldata _message,
+        bool _checkThe63Over64Rule
+    )
         private
-        pure
+        view
         returns (uint256 gasLimit_)
     {
         unchecked {
             uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
             gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
+
+        if (_checkThe63Over64Rule && _hasInsufficientGas(gasLimit_, _message.data.length)) {
+            revert B_INSUFFICIENT_GAS();
+        }
+    }
+
+    function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
+        if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
 
     ///@dev This implementation was suggested by OpenZeppelin in an audit to replace the previous.
@@ -642,27 +658,12 @@ contract Bridge is EssentialContract, IBridge {
             uint256 words = _dataLength / 32 + 1;
             uint256 memoryGasCost = words * 3 + words * words / 512;
 
-            // Need to add the gas cost of accessing the message.to account. This currently
-            // corresponds to 2600 gas if the account is cold, and 100 otherwise.
+            // Add the gas cost of accessing the message.to account. This currently corresponds to
+            // 2600 gas if the account is cold, and 100 otherwise.
 
-            // Also need to add the cost of transferring a nonzero msg.value. This cost is currently
-            // 9000, but provides a 2300 gas stipend to the called contract.
+            //  the cost of transferring a nonzero msg.value. This cost is currently 9000, but
+            // provides a 2300 gas stipend to the called contract.
             result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 9300) * 63;
-        }
-    }
-
-    function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
-        if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
-    }
-
-    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
-        if (quotaManager == address(0)) return true;
-
-        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
-            return true;
-        } catch {
-            return false;
         }
     }
 
@@ -670,7 +671,7 @@ contract Bridge is EssentialContract, IBridge {
         Message calldata _message,
         address _signalService
     )
-        internal
+        private
         view
         returns (bool)
     {
