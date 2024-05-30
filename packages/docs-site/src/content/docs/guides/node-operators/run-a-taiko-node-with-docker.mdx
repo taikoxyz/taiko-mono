@@ -105,19 +105,21 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
     docker compose down -v
     ```
 
-5. Start the node
+5. Set the profiles you want to run
+
+    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,proposer,prover` or any combination of the three).
+
+    Note that if you include `proposer` or `prover`, the services will still be disabled if you do not set `ENABLE_PROPOSER=true` or `ENABLE_PROVER=true` respectively.
+
+6. Start the node
 
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
 
-    <Aside>
-    This only starts the driver and l2 execution engine service, if you'd like to run a prover/proposer please visit those guides.
-    </Aside>
-
     ```sh
-    docker compose --profile l2_execution_engine up -d
+    docker compose up -d
     ```
 
-6. Verify node is running
+7. Verify node is running
 
     #### Option 1: Check with the node dashboard
 
@@ -186,13 +188,13 @@ docker compose up -d
 #### Stop node
 
 ```sh
-docker compose --profile {PROFILE} down
+docker compose down
 ```
 
 #### Restart node
 
 ```sh
-docker compose --profile {PROFILE} down && docker compose --profile {PROFILE} up -d
+docker compose down && docker compose up -d
 ```
 
 #### Update node
@@ -204,7 +206,7 @@ git pull origin main && docker compose pull
 #### Remove node
 
 ```sh
-docker compose --profile {PROFILE} down -v
+docker compose down -v
 ```
 
 #### Start and remove orphan containers
@@ -212,7 +214,7 @@ docker compose --profile {PROFILE} down -v
 This command will start and remove containers that are not part of the current docker compose file.
 
 ```sh
-docker compose --profile {PROFILE} up -d --remove-orphans
+docker compose up -d --remove-orphans
 ```
 
 #### View grafana dashboard
@@ -224,7 +226,7 @@ open http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview
 #### View logs
 
 ```sh
-docker compose --profile {PROFILE} logs -f
+docker compose logs -f
 ```
 
 #### View execution logs
