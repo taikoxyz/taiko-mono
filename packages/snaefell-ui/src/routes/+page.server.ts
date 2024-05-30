@@ -50,7 +50,7 @@ const bannedCountryCodes = Object.keys(bannedCountries);
 export function load(event: any) {
   const country = event.request.headers.get('x-vercel-ip-country') ?? false;
   const isDev = event.url.hostname === 'localhost';
-  if (!isDev && (!country || bannedCountryCodes.includes(country))) {
+  if ((!isDev && !country) || bannedCountryCodes.includes(country)) {
     return error(400, {
       message: `The site is not available on the following countries: ${Object.values(bannedCountries).join(', ')}`,
     });

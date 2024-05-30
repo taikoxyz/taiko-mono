@@ -25,7 +25,7 @@
   $: canMint = false;
   $: totalSupply = 0;
   $: mintMax = 0;
-  $: progress = Math.floor((totalSupply / 888) * 100);
+  $: progress = Math.floor((totalSupply / mintMax) * 100);
 
   const mintState = getContext<IMint>('mint');
 
