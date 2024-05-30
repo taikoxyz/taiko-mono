@@ -259,7 +259,11 @@ contract Bridge is EssentialContract, IBridge {
                     ? gasleft() // ignore _message.gasLimit
                     : _invocationGasLimit(_message);
 
-                if (_invokeMessageCall(_message, msgHash, gasLimit)) {
+                if (
+                    _invokeMessageCall(
+                        _message, msgHash, gasLimit, msg.sender != _message.destOwner
+                    )
+                ) {
                     status_ = Status.DONE;
                     reason_ = StatusReason.INVOCATION_OK;
                 } else {
@@ -325,7 +329,7 @@ contract Bridge is EssentialContract, IBridge {
             }
 
             // Attempt to invoke the messageCall.
-            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit);
+            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit, false);
         }
 
         if (succeeded) {
@@ -482,13 +486,15 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
+    /// @param _checkGasleft True to check gasleft is sufficient for target function invocation.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
     function _invokeMessageCall(
         Message calldata _message,
         bytes32 _msgHash,
-        uint256 _gasLimit
+        uint256 _gasLimit,
+        bool _checkGasleft
     )
         private
         returns (bool success_)
@@ -498,7 +504,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        if (_hasInsufficientGas(_gasLimit, _message.data.length)) {
+        if (_checkGasleft && _hasInsufficientGas(_gasLimit, _message.data.length)) {
             revert B_INSUFFICIENT_GAS();
         }
         success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
@@ -613,7 +619,7 @@ contract Bridge is EssentialContract, IBridge {
 
     function _invocationGasLimit(Message calldata _message)
         private
-        view
+        pure
         returns (uint256 gasLimit_)
     {
         unchecked {
@@ -627,7 +633,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 _minGas,
         uint256 _dataLength
     )
-        internal
+        private
         view
         returns (bool result_)
     {
