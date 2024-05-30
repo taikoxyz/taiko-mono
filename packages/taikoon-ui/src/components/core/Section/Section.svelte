@@ -27,7 +27,6 @@
     background !== 'none' ? 'bg-cover bg-center' : null,
     background === 'general' && isDarkTheme ? 'bg-general' : null,
     background === 'footer' && isDarkTheme ? 'bg-footer' : null,
-    'carousel-item',
   );
 
   $: sectionClasses = classNames(

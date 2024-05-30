@@ -2,7 +2,6 @@
   import { ResponsiveController } from '@taiko/ui-lib';
 
   import { AnimatedArrow } from '$components/AnimatedArrow';
-  import { Page } from '$components/Page';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 
@@ -70,7 +69,7 @@
 
   $: isHovered = false;
 
-  const collectionWrapperClasses = classNames('w-full', 'mt-32', 'pt-16', 'px-10', 'overflow-y-scroll', 'h-[90vh]');
+  const collectionWrapperClasses = classNames('w-full', 'mt-32', 'pt-16', 'px-10', 'h-full');
 
   function shuffleArray(array: string[]) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -140,7 +139,7 @@
     'grid-cols-3',
     'lg:grid-cols-8',
     'w-full',
-    'h-full',
+    'h-max',
     'gap-4',
   );
 
@@ -149,48 +148,46 @@
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 </script>
 
-<Page class="z-0">
-  <Section animated class="relative" width="xl">
-    <div class={collectionWrapperClasses}>
-      <div class={classNames('w-full')}>
-        <p class={titleClasses}>Explore Taikoons</p>
+<Section animated class="relative" height="fit" width="xl">
+  <div class={collectionWrapperClasses}>
+    <div class={classNames('w-full')}>
+      <p class={titleClasses}>Explore Taikoons</p>
 
-        <div class={titleRowClasses}>
-          <div class={classNames('font-clash-grotesk', 'text-[57px]/[64px]', 'text-content-primary', 'font-semibold')}>
-            The 888 Collection
-          </div>
-
-          {#if windowSize !== 'sm'}
-            <a
-              href="/collection"
-              on:mouseenter={() => (isHovered = true)}
-              on:mouseleave={() => (isHovered = false)}
-              class={exploreMoreButtonClasses}>
-              Explore More
-              <AnimatedArrow {isHovered} />
-            </a>
-          {/if}
+      <div class={titleRowClasses}>
+        <div class={classNames('font-clash-grotesk', 'text-[57px]/[64px]', 'text-content-primary', 'font-semibold')}>
+          The 888 Collection
         </div>
-      </div>
 
-      <div class={imageGridClasses}>
-        {#each taikoonImageUrls as imageUrl}
-          <img src={imageUrl} alt="Taikoon" class={taikoonPreviewClasses} />
-        {/each}
+        {#if windowSize !== 'sm'}
+          <a
+            href="/collection"
+            on:mouseenter={() => (isHovered = true)}
+            on:mouseleave={() => (isHovered = false)}
+            class={exploreMoreButtonClasses}>
+            Explore More
+            <AnimatedArrow {isHovered} />
+          </a>
+        {/if}
       </div>
     </div>
 
-    <div class={bottomRowClasses}>
-      <a
-        href="/collection"
-        on:mouseenter={() => (isHovered = true)}
-        on:mouseleave={() => (isHovered = false)}
-        class={viewMoreButtonClasses}>
-        View More
-        <AnimatedArrow {isHovered} />
-      </a>
+    <div class={imageGridClasses}>
+      {#each taikoonImageUrls as imageUrl}
+        <img src={imageUrl} alt="Taikoon" class={taikoonPreviewClasses} />
+      {/each}
     </div>
-  </Section>
-</Page>
+  </div>
+
+  <div class={bottomRowClasses}>
+    <a
+      href="/collection"
+      on:mouseenter={() => (isHovered = true)}
+      on:mouseleave={() => (isHovered = false)}
+      class={viewMoreButtonClasses}>
+      View More
+      <AnimatedArrow {isHovered} />
+    </a>
+  </div>
+</Section>
 
 <ResponsiveController bind:windowSize />
