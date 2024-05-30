@@ -549,24 +549,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    /// @notice Loads and returns the call context.
-    /// @return ctx_ The call context.
-    function _loadContext() private view returns (Context memory) {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            bytes32 msgHash;
-            address from;
-            uint64 srcChainId;
-            assembly {
-                msgHash := tload(_CTX_SLOT)
-                from := tload(add(_CTX_SLOT, 1))
-                srcChainId := tload(add(_CTX_SLOT, 2))
-            }
-            return Context(msgHash, from, srcChainId);
-        } else {
-            return __ctx;
-        }
-    }
-
     /// @notice Checks if the signal was received and caches cross-chain data if requested.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
@@ -588,6 +570,39 @@ contract Bridge is EssentialContract, IBridge {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
+        }
+    }
+
+    /// @notice Consumes a given amount of Ether from quota manager.
+    /// @param _amount The amount of Ether to consume.
+    /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
+    /// consumed already.
+    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
+        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
+        if (quotaManager == address(0)) return true;
+
+        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /// @notice Loads and returns the call context.
+    /// @return ctx_ The call context.
+    function _loadContext() private view returns (Context memory) {
+        if (LibNetwork.isDencunSupported(block.chainid)) {
+            bytes32 msgHash;
+            address from;
+            uint64 srcChainId;
+            assembly {
+                msgHash := tload(_CTX_SLOT)
+                from := tload(add(_CTX_SLOT, 1))
+                srcChainId := tload(add(_CTX_SLOT, 2))
+            }
+            return Context(msgHash, from, srcChainId);
+        } else {
+            return __ctx;
         }
     }
 
@@ -614,17 +629,6 @@ contract Bridge is EssentialContract, IBridge {
             return true;
         } catch {
             return false;
-        }
-    }
-
-    function _invocationGasLimit(Message calldata _message)
-        private
-        pure
-        returns (uint256 gasLimit_)
-    {
-        unchecked {
-            uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
-            gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
         }
     }
 
@@ -655,22 +659,11 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
 
-    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
-        if (quotaManager == address(0)) return true;
-
-        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
     function _unableToInvokeMessageCall(
         Message calldata _message,
         address _signalService
     )
-        internal
+        private
         view
         returns (bool)
     {
@@ -681,5 +674,16 @@ contract Bridge is EssentialContract, IBridge {
         return _message.data.length >= 4
             && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
             && _message.to.isContract();
+    }
+
+    function _invocationGasLimit(Message calldata _message)
+        private
+        pure
+        returns (uint256 gasLimit_)
+    {
+        unchecked {
+            uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
+            gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
+        }
     }
 }
