@@ -41,7 +41,7 @@ contract Bridge is EssentialContract, IBridge {
     uint32 public constant GAS_OVERHEAD = 120_000;
 
     ///@dev The max proof size for a message to be processable by a relayer.
-    uint256 public constant RELAYER_MAX_PROOF_BYTES = 240_000;
+    uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
