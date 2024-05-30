@@ -34,6 +34,7 @@
     rightHalfPanel,
     wrapperClasses,
   } from './classes';
+  import { errorToast } from '$components/core/Toast';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
@@ -64,16 +65,22 @@
   }
 
   async function load() {
-    totalSupply = await Token.totalSupply();
-    mintMax = await Token.maxSupply();
-    progress = Math.floor((totalSupply / mintMax) * 100);
-    isReady = true;
+    try {
+      totalSupply = await Token.totalSupply();
+      mintMax = await Token.maxSupply();
+      progress = Math.floor((totalSupply / mintMax) * 100);
+      isReady = true;
 
-    canMint = await Token.canMint();
-    if (!canMint) {
-      return;
+      canMint = await Token.canMint();
+      if (!canMint) {
+        return;
+      }
+      totalMintCount = await User.totalWhitelistMintCount();
+    } catch (e) {
+      console.error(e);
+      errorToast({ message: e?.toString() || 'Error', title: 'Error', closeManually: false });
+      isReady = true;
     }
-    totalMintCount = await User.totalWhitelistMintCount();
   }
 
   connectedSourceChain.subscribe(async () => {

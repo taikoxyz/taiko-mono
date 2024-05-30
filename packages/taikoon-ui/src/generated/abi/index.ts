@@ -3,7 +3,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x391F62EB932Ec227840244fb66DE53c3367A66c1)
  */
 export const taikoonTokenAbi = [
   {
@@ -587,7 +588,8 @@ export const taikoonTokenAbi = [
 ] as const;
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x391F62EB932Ec227840244fb66DE53c3367A66c1)
  */
 export const taikoonTokenAddress = {
   31337: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
@@ -595,7 +597,8 @@ export const taikoonTokenAddress = {
 } as const;
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x391F62EB932Ec227840244fb66DE53c3367A66c1)
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
