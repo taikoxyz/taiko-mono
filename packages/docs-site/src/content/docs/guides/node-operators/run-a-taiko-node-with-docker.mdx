@@ -42,7 +42,9 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
 2. Copy the sample .env files
 
+    <Aside title="Info">
     To run a `hekla` Taiko node please copy `.env.sample.hekla` instead of `.env.sample`.
+    </Aside>
 
     ```sh
     cp .env.sample .env
@@ -99,10 +101,12 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
     Note that if you include `proposer` or `prover`, the services will still be disabled if you do not set `ENABLE_PROPOSER=true` or `ENABLE_PROVER=true` respectively.
 
 6. Start the node
-
+    
+    <Aside title="Info">    
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
 
     To run a `hekla` Taiko node please use the following command instead: `docker compose -f docker-compose-hekla.yml up -d`.
+    </Aside>
 
     ```sh
     docker compose up -d
