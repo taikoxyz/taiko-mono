@@ -40,7 +40,11 @@ func NewSyncer(
 // latest verified block has changed.
 func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	// If we don't need to trigger another beacon sync, just return.
-	if !s.progressTracker.NeedReSync(new(big.Int).SetUint64(blockID)) {
+	needResync, err := s.progressTracker.NeedReSync(new(big.Int).SetUint64(blockID))
+	if err != nil {
+		return err
+	}
+	if !needResync {
 		return nil
 	}
 

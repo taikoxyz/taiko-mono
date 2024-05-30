@@ -36,7 +36,7 @@ export async function mint({
       address: snaefellTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(mintCount)],
-      chainId,
+      chainId: chainId as number,
     });
 
     onTransaction(tx);

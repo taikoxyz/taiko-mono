@@ -1,4 +1,4 @@
-import { holesky } from '@wagmi/core/chains';
+import { hardhat } from '@wagmi/core/chains';
 
 import { config, publicConfig } from '$wagmi-config';
 
@@ -9,7 +9,7 @@ export default function getConfig() {
   const { selectedNetworkId } = web3modal.getState();
   const wagmiConfig = selectedNetworkId ? config : publicConfig;
 
-  const chainId = selectedNetworkId ? selectedNetworkId : holesky.id;
+  const chainId = selectedNetworkId ? selectedNetworkId : hardhat.id;
 
   return {
     config: wagmiConfig,

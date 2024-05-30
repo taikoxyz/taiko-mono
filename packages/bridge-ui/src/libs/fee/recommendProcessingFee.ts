@@ -105,16 +105,16 @@ export async function recommendProcessingFee({
   }
 
   const fee = estimatedMsgGaslimit * gasPrice * BigInt(feeMultiplicator);
-  return roundWeiTo6DecimalPlaces(fee);
+  return fee;
 }
 
-function roundWeiTo6DecimalPlaces(wei: bigint): bigint {
-  const roundingFactor = BigInt('1000000000000'); // 10^12
+// function roundWeiTo6DecimalPlaces(wei: bigint): bigint {
+//   const roundingFactor = BigInt('1000000000000'); // 10^12
 
-  // Calculate how many "10^12 wei" units are in the input
-  const units = wei / roundingFactor;
+//   // Calculate how many "10^12 wei" units are in the input
+//   const units = wei / roundingFactor;
 
-  // Multiply back to get the rounded wei value
-  const roundedWei = units * roundingFactor;
-  return roundedWei;
-}
+//   // Multiply back to get the rounded wei value
+//   const roundedWei = units * roundingFactor;
+//   return roundedWei;
+// }

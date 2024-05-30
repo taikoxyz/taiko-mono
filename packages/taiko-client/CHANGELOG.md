@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.0...taiko-client-v0.23.1) (2024-05-29)
+
+
+### Bug Fixes
+
+* **taiko-client:** fix an url path issue in `BeaconClient` ([#17417](https://github.com/taikoxyz/taiko-mono/issues/17417)) ([012d532](https://github.com/taikoxyz/taiko-mono/commit/012d53272b8e59aed87f7757ec11008a24702f14))
+
 ## [0.23.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.22.0...taiko-client-v0.23.0) (2024-05-26)
 
 

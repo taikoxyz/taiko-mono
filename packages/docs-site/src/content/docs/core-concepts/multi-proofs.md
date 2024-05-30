@@ -60,11 +60,11 @@ Provers within this off-chain proof market come in two primary forms: Externally
 
 Upon a proposer's submission of a block, the signature granted by the chosen provider is subjected to verification. Any deviations result in a reverted transaction.
 
-As an additional incentive for proposers, the system incorporates the issuance of TKO tokens. This serves as an extra motivator, as proposing blocks alone may not always prove profitable, especially when considering Ethereum's on-chain fees plus the proving fee. The issuance of TKO tokens operates on a dynamic 'emission rate per second,' comparing each block proposal to the last.
+As an additional incentive for proposers, the system incorporates the issuance of TAIKO tokens. This serves as an extra motivator, as proposing blocks alone may not always prove profitable, especially when considering Ethereum's on-chain fees plus the proving fee. The issuance of TAIKO tokens operates on a dynamic 'emission rate per second,' comparing each block proposal to the last.
 
 The reward depends on the proof service provider and the agreement. For EOAs and Prover pools that implement the IERC1271 interface, the reward is disbursed in ETH. However, in cases where providers implement the IProver interface, the prover fee can be ETH, any other ERC20 tokens, or even NFTs, based on the negotiated terms.
 
-To add a layer of security and commitment to the process, provers must provide a substantial amount of TKO tokens per block, effectively serving as insurance. In the unfortunate event of a failure to deliver the proof within the given time, a portion, specifically 1/4, is directed to the actual prover, while the remaining 3/4 are permanently burnt. Conversely, successful and timely proof delivery ensures the return of these tokens to the Prover.
+To add a layer of security and commitment to the process, provers must provide a substantial amount of TAIKO tokens per block, effectively serving as insurance. In the unfortunate event of a failure to deliver the proof within the given time, a portion, specifically 1/4, is directed to the actual prover, while the remaining 3/4 are permanently burnt. Conversely, successful and timely proof delivery ensures the return of these tokens to the Prover.
 
 ## Multi-proofs
 

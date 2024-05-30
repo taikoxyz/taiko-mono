@@ -4,6 +4,8 @@
   import { getContext, onMount } from 'svelte';
   import { zeroAddress } from 'viem';
 
+  import { errorToast } from '$components/core/Toast';
+  import { web3modal } from '$lib/connect';
   import User from '$lib/user';
   import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
@@ -11,6 +13,7 @@
 
   import Token from '../../lib/token';
   import getConfig from '../../lib/wagmi/getConfig';
+  import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import { leftHalfPanel, nftRendererWrapperMobileClasses, rightHalfPanel, wrapperClasses } from './classes';
@@ -22,18 +25,20 @@
   $: canMint = false;
   $: totalSupply = 0;
   $: mintMax = 0;
-  $: progress = Math.floor((totalSupply / 888) * 100);
+  $: progress = Math.floor((totalSupply / mintMax) * 100);
 
   const mintState = getContext<IMint>('mint');
 
   $: isReady = false;
-
+  $: isConnected = false;
   $: totalMintCount = 0;
 
   $: gasCost = 0;
   $: isCalculating = false;
 
   $: isMinting = false;
+
+  $: $account, (isConnected = Boolean($account && $account.address));
 
   async function calculateGasCost() {
     try {
@@ -50,16 +55,23 @@
   }
 
   async function load() {
-    canMint = await Token.canMint();
-    mintMax = await Token.maxSupply();
-    totalSupply = await Token.totalSupply();
+    try {
+      canMint = await Token.canMint();
+      mintMax = await Token.maxSupply();
+      totalSupply = await Token.totalSupply();
 
-    if (!canMint) {
+      if (!canMint) {
+        isReady = true;
+        return;
+      }
+      totalMintCount = await User.totalWhitelistMintCount();
       isReady = true;
-      return;
+    } catch (e: any) {
+      errorToast({
+        title: 'Load error',
+        message: e.message,
+      });
     }
-    totalMintCount = await User.totalWhitelistMintCount();
-    isReady = true;
   }
 
   onMount(async () => {
@@ -72,16 +84,20 @@
 
     const { config } = getConfig();
     const account = getAccount(config);
+
     if (!account || !account.address) {
       mintState.set({ ...$mintState, address: zeroAddress });
       isReady = true;
       return;
     }
+
     await load();
     if (!canMint) return;
     await calculateGasCost();
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
   });
+
+  $: txHash = '';
 
   async function mint() {
     isMinting = true;
@@ -91,7 +107,9 @@
     try {
       await Token.mint({
         freeMintCount: totalMintCount,
-        onTransaction: () => {},
+        onTransaction: (tx: string) => {
+          txHash = tx;
+        },
       });
     } catch (e) {
       console.warn(e);
@@ -104,7 +122,13 @@
   }
 
   async function view() {
-    window.location.href = '/view';
+    window.location.href = `https://taikoscan.io/tx/${txHash}`;
+  }
+  let web3modalOpen = false;
+
+  async function connect() {
+    if (web3modalOpen) return;
+    web3modal.open();
   }
 
   $: mintStep = 0;
@@ -123,7 +147,17 @@
       </div>
     {/if}
 
-    {#if isReady && (canMint || mintStep > 0)}
+    {#if !isConnected}
+      <MintForm
+        on:mint={connect}
+        {totalSupply}
+        {gasCost}
+        {mintMax}
+        {isCalculating}
+        {progress}
+        buttonLabel="Connect Wallet"
+        isReady={isReady && !isMinting} />
+    {:else if isReady && (canMint || mintStep > 0)}
       {#if mintStep === 0}
         <EligibilityPanel
           disabled={false}

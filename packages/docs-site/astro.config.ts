@@ -173,11 +173,11 @@ export default defineConfig({
           label: "Network Reference",
           items: [
             {
-              label: "Mainnet Addresses",
+              label: "Mainnet addresses",
               link: "/network-reference/mainnet-addresses",
             },
             {
-              label: "Testnet Addresses",
+              label: "Testnet addresses",
               link: "/network-reference/testnet-addresses",
             },
             {

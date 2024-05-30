@@ -4,12 +4,15 @@
 
   import { ActionButton } from '$components/Button';
   import { classNames } from '$lib/util/classNames';
+  import { Theme, theme } from '$stores/theme';
 
   const dispatch = createEventDispatcher();
 
   type IStep = 'eligible' | 'non-eligible' | 'success';
   export let step: IStep = 'non-eligible';
   export let disabled = true;
+
+  $: isDarkTheme = $theme === Theme.DARK;
 
   $: wrapperClasses = classNames(
     'flex',
@@ -25,16 +28,16 @@
   $: titleClasses = classNames('text-[45px]/[52px]', 'font-clash-grotesk', 'font-[500]', 'my-6');
   $: textClasses = classNames('text-[16px]/[24px]', 'text-content-secondary');
 
-  const icons: Record<IStep, string> = {
-    eligible: '/img/eligible.svg',
-    'non-eligible': '/img/non-eligible.svg',
-    success: '/img/success.svg',
-  };
+  $: icons = {
+    eligible: `/img/eligible-${isDarkTheme ? 'dark' : 'light'}.svg`,
+    'non-eligible': `/img/non-eligible-${isDarkTheme ? 'dark' : 'light'}.svg`,
+    success: `/img/success-${isDarkTheme ? 'dark' : 'light'}.svg`,
+  } as Record<IStep, string>;
 
   const titles: Record<IStep, string> = {
     eligible: "Congratulations, you're eligible!",
     'non-eligible': "Sorry, you're not eligible",
-    success: 'You got it!',
+    success: "You've got it!",
   };
 
   const texts: Record<IStep, string> = {
@@ -59,18 +62,33 @@
     {texts[step]}
   </div>
 
-  <ActionButton
-    on:click={async () => {
-      dispatch('click');
-    }}
-    priority="primary"
-    {disabled}
-    class={buttonClasses}
-    onPopup>
+  <div class={classNames('flex', 'gap-4', 'w-full', 'flex-row')}>
+    <ActionButton
+      on:click={async () => {
+        dispatch('click');
+      }}
+      priority="secondary"
+      {disabled}
+      class={buttonClasses}
+      onPopup>
+      {#if step === 'success'}
+        {$t('buttons.view')}
+      {:else}
+        {$t('buttons.proceedToMint')}
+      {/if}
+    </ActionButton>
+
     {#if step === 'success'}
-      {$t('buttons.view')}
-    {:else}
-      {$t('buttons.proceedToMint')}
+      <!-- use on trailblazers -->
+      <ActionButton
+        priority="primary"
+        on:click={() => {
+          window.open('https://trailblazers.taiko.xyz/', '_blank');
+        }}
+        class={buttonClasses}
+        onPopup>
+        {$t('buttons.useOnTrailblazers')}
+      </ActionButton>
     {/if}
-  </ActionButton>
+  </div>
 </div>
