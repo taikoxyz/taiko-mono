@@ -8,7 +8,7 @@ description: Network reference page describing various important addresses on Ta
 | Contract Name (Shared) | Address                                      | ENS                     |
 | ---------------------- | -------------------------------------------- | ----------------------- |
 | SharedAddressManager   | `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` | sam.based.taiko.eth     |
-| TaikoToken             | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | token.taiko.eth         |
+| TaikoToken (TAIKO)     | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | token.taiko.eth         |
 | SignalService          | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | signals.based.taiko.eth |
 | Bridge                 | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | bridge.based.taiko.eth  |
 | QuotaManager           | `0x91f67118DD47d502B1f0C354D0611997B022f29E` | N/A                     |
@@ -35,10 +35,11 @@ description: Network reference page describing various important addresses on Ta
 | TokenUnlock                     | `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819` | N/A                        |
 | ProverSet                       | `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` | N/A                        |
 | labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
+| labcontester                    | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | labcontester.taiko.eth     |
 
-## Taiko (Mainnet) contracts
+## Taiko Mainnet contracts
 
-| Contract Name (Shared) | Address                                      |
+| Contract Name          | Address                                      |
 | ---------------------- | -------------------------------------------- |
 | Bridge                 | `0x1670000000000000000000000000000000000001` |
 | ERC20Vault             | `0x1670000000000000000000000000000000000002` |
@@ -46,12 +47,11 @@ description: Network reference page describing various important addresses on Ta
 | ERC1155Vault           | `0x1670000000000000000000000000000000000004` |
 | SignalService          | `0x1670000000000000000000000000000000000005` |
 | SharedAddressManager   | `0x1670000000000000000000000000000000000006` |
-
-| Contract Name (Rollup-Specific) | Address                                      |
-| ------------------------------- | -------------------------------------------- |
-| TaikoL2                         | `0x1670000000000000000000000000000000010001` |
-| RollupAddressManager            | `0x1670000000000000000000000000000000010002` |
-| WETH                            | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
+| TaikoL2                | `0x1670000000000000000000000000000000010001` |
+| RollupAddressManager   | `0x1670000000000000000000000000000000010002` |
+| WETH                   | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
+| Taiko Token (Bridged)  | `0xa9d23408b9ba935c230493c40c73824df71a0975` |
+| Safe Singleton Factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
 
 ## Rollup contracts owner
 

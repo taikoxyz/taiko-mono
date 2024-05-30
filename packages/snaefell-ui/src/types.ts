@@ -10,8 +10,8 @@ export interface IDropdownItem {
 }
 
 export type IChainId =
-  | 31337 // hardhat
-  | 167001; // devnet;
+  | 167000 // taiko
+  | 31337; // hardhat
 
 export interface IBid {
   amount: number;

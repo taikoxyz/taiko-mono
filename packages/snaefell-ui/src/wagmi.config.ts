@@ -5,16 +5,17 @@ import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
+// import { hardhat } from 'viem/chains';
+
 import { chainIdToChain } from '$lib/chain/chains';
 
 export const devnet = chainIdToChain(167001);
-export const mainnet = chainIdToChain(167000);
+export const taiko = chainIdToChain(167000);
 
 const baseConfig = {
   chains: [
     // hardhat,
-    mainnet,
-    // devnet
+    taiko,
   ],
   projectId,
   metadata: {},
@@ -22,9 +23,8 @@ const baseConfig = {
     multicall: false,
   },
   transports: {
-    // [hardhat.id]: http('http://localhost:8545'),
-    //[devnet.id]: http('https://rpc.internal.taiko.xyz'),
-    [mainnet.id]: http('https://rpc.mainnet.taiko.xyz'),
+    //  [hardhat.id]: http('http://localhost:8545'),
+    [taiko.id]: http('https://rpc.mainnet.taiko.xyz'),
   },
 } as const;
 

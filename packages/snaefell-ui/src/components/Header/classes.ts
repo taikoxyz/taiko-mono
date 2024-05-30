@@ -9,14 +9,15 @@ export const baseHeaderClasses = classNames(
   'gap-4',
   'relative',
   'z-50',
-  'px-4',
+  'px-6',
+  'py-10',
 );
 
 export const taikoonsIconClasses = classNames('h-full');
 
 export const rightSectionClasses = classNames(
   'md:right-8',
-  'right-4',
+  'right-6',
   'w-max',
   'absolute',
   'flex flex-row justify-center items-center',

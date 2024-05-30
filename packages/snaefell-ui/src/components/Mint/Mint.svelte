@@ -2,55 +2,43 @@
   import { ResponsiveController } from '@taiko/ui-lib';
   import { getAccount } from '@wagmi/core';
   import { getContext, onMount } from 'svelte';
-  import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
-  import ActionButton from '$components/Button/ActionButton.svelte';
-  import { Divider } from '$components/core/Divider';
-  import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
-  import { ProgressBar } from '$components/core/ProgressBar';
+  import { errorToast } from '$components/core/Toast';
+  import { web3modal } from '$lib/connect';
   import User from '$lib/user';
-  import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
   import { connectedSourceChain } from '$stores/network';
   import { Spinner } from '$ui/Spinner';
 
   import Token from '../../lib/token';
   import getConfig from '../../lib/wagmi/getConfig';
+  import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
-  import {
-    counterClasses,
-    currentMintedClasses,
-    eligibilityLabelClasses,
-    eligibilityValueClasses,
-    infoRowClasses,
-    leftHalfPanel,
-    maxMintedClasses,
-    mintContentClasses,
-    mintTitleClasses,
-    nftRendererWrapperMobileClasses,
-    rightHalfPanel,
-    wrapperClasses,
-  } from './classes';
+  import { leftHalfPanel, nftRendererWrapperMobileClasses, rightHalfPanel, wrapperClasses } from './classes';
+  import { default as EligibilityPanel } from './EligibilityPanel.svelte';
+  import { default as MintForm } from './MintForm.svelte';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
-
-  const buttonClasses = classNames('mt-6 max-h-[56px]');
 
   $: canMint = false;
   $: totalSupply = 0;
   $: mintMax = 0;
-  $: progress = Math.floor((totalSupply / 888) * 100);
+  $: progress = Math.floor((totalSupply / mintMax) * 100);
 
   const mintState = getContext<IMint>('mint');
 
   $: isReady = false;
-
+  $: isConnected = false;
   $: totalMintCount = 0;
 
   $: gasCost = 0;
   $: isCalculating = false;
+
+  $: isMinting = false;
+
+  $: $account, (isConnected = Boolean($account && $account.address));
 
   async function calculateGasCost() {
     try {
@@ -67,16 +55,23 @@
   }
 
   async function load() {
-    canMint = await Token.canMint();
-    mintMax = await Token.maxSupply();
-    totalSupply = await Token.totalSupply();
+    try {
+      canMint = await Token.canMint();
+      mintMax = await Token.maxSupply();
+      totalSupply = await Token.totalSupply();
 
-    if (!canMint) {
+      if (!canMint) {
+        isReady = true;
+        return;
+      }
+      totalMintCount = await User.totalWhitelistMintCount();
       isReady = true;
-      return;
+    } catch (e: any) {
+      errorToast({
+        title: 'Load error',
+        message: e.message,
+      });
     }
-    totalMintCount = await User.totalWhitelistMintCount();
-    isReady = true;
   }
 
   onMount(async () => {
@@ -89,46 +84,54 @@
 
     const { config } = getConfig();
     const account = getAccount(config);
+
     if (!account || !account.address) {
       mintState.set({ ...$mintState, address: zeroAddress });
       isReady = true;
       return;
     }
+
     await load();
     if (!canMint) return;
     await calculateGasCost();
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
   });
 
+  $: txHash = '';
+
   async function mint() {
-    mintState.set({
-      ...$mintState,
-      isModalOpen: true,
+    isMinting = true;
 
-      isMinting: true,
-    });
-
-    // ensure that the input values are numbers
     totalMintCount = parseInt(totalMintCount.toString());
 
-    mintState.set({ ...$mintState, totalMintCount: totalMintCount });
     try {
-      const tokenIds = await Token.mint({
+      await Token.mint({
         freeMintCount: totalMintCount,
-        onTransaction: (txHash: string) => {
-          mintState.set({ ...$mintState, txHash });
+        onTransaction: (tx: string) => {
+          txHash = tx;
         },
       });
-      mintState.set({ ...$mintState, tokenIds });
     } catch (e) {
       console.warn(e);
-      //showMintConfirmationModal = false
-      mintState.set({ ...$mintState, isModalOpen: false });
+      return;
     }
-    mintState.set({ ...$mintState, isMinting: false });
 
     await load();
+
+    mintStep = 2;
   }
+
+  async function view() {
+    window.location.href = `https://taikoscan.io/tx/${txHash}`;
+  }
+  let web3modalOpen = false;
+
+  async function connect() {
+    if (web3modalOpen) return;
+    web3modal.open();
+  }
+
+  $: mintStep = 0;
 </script>
 
 <div class={wrapperClasses}>
@@ -138,46 +141,44 @@
     </div>
   {/if}
   <div class={rightHalfPanel}>
-    <!-- svelte-ignore missing-declaration -->
     {#if windowSize === 'sm'}
       <div class={nftRendererWrapperMobileClasses}>
         <NftRenderer />
       </div>
     {/if}
-    <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
-    <p class={mintContentClasses}>
-      {$t('content.mint.textTop')}
-    </p>
-
-    <p class={mintContentClasses}>
-      {$t('content.mint.textBottom')}
-    </p>
-
-    <div class={infoRowClasses}>
-      <div class={counterClasses}>
-        <div class={currentMintedClasses}>#{totalSupply}</div>
-        <div class={maxMintedClasses}>/ {mintMax}</div>
-      </div>
-      <ProgressBar {progress} />
-    </div>
-
-    <div class={counterClasses}>
-      <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>
-      <div class={eligibilityValueClasses}>{$mintState.totalMintCount}</div>
-    </div>
-
-    <Divider />
-
-    <div class={infoRowClasses}>
-      <InfoRow label={$t('content.mint.totalMints')} value={$mintState.totalMintCount.toString()} />
-      <InfoRow label={$t('content.mint.gasFee')} loading={isCalculating} value={`Ξ ${gasCost}`} />
-    </div>
-
-    {#if isReady}
-      <ActionButton priority="primary" disabled={!canMint} on:click={mint} class={buttonClasses} onPopup>
-        {$t('buttons.mint')}
-      </ActionButton>
+    {#if !isConnected}
+      <MintForm
+        on:mint={connect}
+        {totalSupply}
+        {gasCost}
+        {mintMax}
+        {isCalculating}
+        {progress}
+        buttonLabel="Connect Wallet"
+        isReady={isReady && !isMinting} />
+    {:else if isReady && (canMint || mintStep > 0)}
+      {#if mintStep === 0}
+        <EligibilityPanel
+          disabled={false}
+          on:click={async () => {
+            mintStep = 1;
+          }}
+          step="eligible" />
+      {:else if mintStep === 1}
+        <MintForm
+          on:mint={mint}
+          {totalSupply}
+          {gasCost}
+          {mintMax}
+          {isCalculating}
+          {progress}
+          isReady={isReady && !isMinting} />
+      {:else}
+        <EligibilityPanel on:click={view} disabled={false} step="success" />
+      {/if}
+    {:else if isReady && !canMint}
+      <EligibilityPanel step="non-eligible" />
     {:else}
       <Spinner />
     {/if}
