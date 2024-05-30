@@ -20,8 +20,8 @@
 
   $: headerClasses = classNames(
     baseHeaderClasses,
-    $pageScroll ? 'md:glassy-background-lg' : null,
-    $pageScroll ? 'md:border-b-[1px] md:border-border-divider-default' : 'md:border-b-[1px] md:border-transparent',
+    $pageScroll ? 'glassy-background-lg' : null,
+    $pageScroll ? 'border-b-[1px] border-border-divider-default' : 'border-b-[1px] border-transparent',
     $$props.class,
   );
 

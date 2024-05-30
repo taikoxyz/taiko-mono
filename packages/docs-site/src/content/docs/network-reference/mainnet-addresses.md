@@ -8,7 +8,7 @@ description: Network reference page describing various important addresses on Ta
 | Contract Name (Shared) | Address                                      | ENS                     |
 | ---------------------- | -------------------------------------------- | ----------------------- |
 | SharedAddressManager   | `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` | sam.based.taiko.eth     |
-| TaikoToken             | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | token.taiko.eth         |
+| TaikoToken (TAIKO)     | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | token.taiko.eth         |
 | SignalService          | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | signals.based.taiko.eth |
 | Bridge                 | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | bridge.based.taiko.eth  |
 | QuotaManager           | `0x91f67118DD47d502B1f0C354D0611997B022f29E` | N/A                     |
