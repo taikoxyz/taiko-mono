@@ -187,6 +187,8 @@
   - `resetGenesisHash()` called to reset genesis block hash to `0x90bc60466882de9637e269e87abab53c9108cf9113188bc4f80bcfcb10e489b9` on May 22 @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
   - Upgraded from `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on May 27 @commit`06f97d6` @tx`0x187cc99e9bcf2a94f723cf52d85b74b79bdb3872681e2a3808cadbbc3ba301e2`
   - Upgraded from `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` to `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on May 28 @commit`b335b70` @tx`0xa603b6d55457e64e18ddae684bfd14948452cdd7b927dd22bf0b83045e8fd028`
+  - todo:
+    upgrade to enable permissionless block-proposing.
 
 #### assignment_hook
 
