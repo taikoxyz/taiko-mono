@@ -640,11 +640,11 @@ contract Bridge is EssentialContract, IBridge {
             uint256 words = _dataLength / 32 + 1;
             uint256 memoryGasCost = words * 3 + words * words / 512;
 
-            // Add the gas cost of accessing the message.to account. This currently corresponds to
-            // 2600 gas if the account is cold, and 100 otherwise.
+            // Need to add the gas cost of accessing the message.to account. This currently
+            // corresponds to 2600 gas if the account is cold, and 100 otherwise.
 
-            //  the cost of transferring a nonzero msg.value. This cost is currently 9000, but
-            // provides a 2300 gas stipend to the called contract.
+            // Also need to add the cost of transferring a nonzero msg.value. This cost is currently
+            // 9000, but provides a 2300 gas stipend to the called contract.
             result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 9300) * 63;
         }
     }
