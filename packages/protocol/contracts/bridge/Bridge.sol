@@ -134,7 +134,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.gasLimit == 0) {
             if (_message.fee != 0) revert B_INVALID_FEE();
-        } else if (_invocationGasLimit(_message, false) == 0) {
+        } else if (_invocationGasLimit(_message) == 0) {
             revert B_INVALID_GAS_LIMIT();
         }
 
@@ -257,7 +257,7 @@ contract Bridge is EssentialContract, IBridge {
             } else {
                 uint256 gasLimit = msg.sender == _message.destOwner
                     ? gasleft() // ignore _message.gasLimit
-                    : _invocationGasLimit(_message, true);
+                    : _invocationGasLimit(_message);
 
                 if (_invokeMessageCall(_message, msgHash, gasLimit)) {
                     status_ = Status.DONE;
@@ -318,7 +318,7 @@ contract Bridge is EssentialContract, IBridge {
             uint256 invocationGasLimit;
             if (msg.sender != _message.destOwner) {
                 if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-                invocationGasLimit = _invocationGasLimit(_message, true);
+                invocationGasLimit = _invocationGasLimit(_message);
             } else {
                 // The owner uses all gas left in message invocation
                 invocationGasLimit = gasleft();
@@ -498,6 +498,9 @@ contract Bridge is EssentialContract, IBridge {
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
+        if (_hasInsufficientGas(_gasLimit, _message.data.length)) {
+            revert B_INSUFFICIENT_GAS();
+        }
         success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
         _resetContext();
     }
@@ -608,10 +611,7 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    function _invocationGasLimit(
-        Message calldata _message,
-        bool _checkThe63Over64Rule
-    )
+    function _invocationGasLimit(Message calldata _message)
         private
         view
         returns (uint256 gasLimit_)
@@ -619,10 +619,6 @@ contract Bridge is EssentialContract, IBridge {
         unchecked {
             uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
             gasLimit_ = minGasRequired.max(_message.gasLimit) - minGasRequired;
-        }
-
-        if (_checkThe63Over64Rule && _hasInsufficientGas(gasLimit_, _message.data.length)) {
-            revert B_INSUFFICIENT_GAS();
         }
     }
 
