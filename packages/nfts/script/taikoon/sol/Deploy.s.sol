@@ -7,7 +7,6 @@ import { MerkleMintersScript } from "./MerkleMinters.s.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { TaikoonToken } from "../../../contracts/taikoon/TaikoonToken.sol";
-import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
@@ -16,18 +15,9 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    // Taiko Mainnet Values
-    //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
-    // bytes32 root = 0xa7e510d5aed347e65609cf6f0e0738cdd752ffdf5980749057c634489fd09fc3;
-    // string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    //    IMinimalBlacklist blacklist =
-    // IMinimalBlacklist(0x38e48e979b06dD3044C3f7bE8e122328175244e0);
-
-    // Holesky Testnet Values
-    address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
-    bytes32 root = 0x3e2da39414868a8a49c4ee78da50cc4430d88df27060300e553810ab2d23b5bd;
-    string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    IMinimalBlacklist blacklist = IMinimalBlacklist(0x464ef62Da3dB46701DF5A0fe81eBD2Cbc933196d);
+    // Please set owner to labs.taiko.eth (0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D) on Mainnnet.
+    address owner = vm.envAddress("OWNER");
+    bytes32 root = vm.envBytes32("MERKLE_ROOT");
 
     function setUp() public {
         utils = new UtilsScript();
@@ -47,13 +37,16 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        //string memory baseURI = utils.getIpfsBaseURI();
+        string memory baseURI = utils.getIpfsBaseURI();
 
         // deploy token with empty root
         address impl = address(new TaikoonToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(TaikoonToken.initialize, (owner, baseURI, root, blacklist))
+                impl,
+                abi.encodeCall(
+                    TaikoonToken.initialize, (owner, baseURI, root, utils.getBlacklist())
+                )
             )
         );
 

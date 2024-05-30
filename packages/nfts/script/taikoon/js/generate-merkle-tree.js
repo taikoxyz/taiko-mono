@@ -31,4 +31,3 @@ async function main(network) {
 
 main("hardhat");
 main('mainnet')
-main('holesky')
