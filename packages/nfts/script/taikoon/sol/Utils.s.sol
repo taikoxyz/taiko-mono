@@ -68,7 +68,7 @@ contract UtilsScript is Script {
             blacklistAddress = IMinimalBlacklist(vm.envAddress("BLACKLIST_ADDRESS"));
         } else {
             // deploy a mock blacklist otherwise
-            blacklistAddress = IMinimalBlacklist(0xbdEd0D2bf404bdcBa897a74E6657f1f12e5C6fb6);
+            blacklistAddress = IMinimalBlacklist(0x5FbDB2315678afecb367f032d93F642f64180aa3);
         }
 
         return blacklistAddress;
