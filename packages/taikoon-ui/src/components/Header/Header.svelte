@@ -2,7 +2,6 @@
   import { getAccount } from '@wagmi/core';
   import { zeroAddress } from 'viem';
 
-  import TaikoonsIcon from '$assets/taikoons-icon.png';
   import { Icons } from '$components/core/Icons';
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
@@ -66,7 +65,7 @@
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
     <a href="/" class={classNames()}>
-      <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
+      <img alt="taikoons-logo" class={taikoonsIconClasses} src="/taikoons-icon.svg" />
     </a>
 
     {#if windowSize === 'sm'}
