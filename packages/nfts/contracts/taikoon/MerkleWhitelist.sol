@@ -62,7 +62,7 @@ contract MerkleWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpg
     /// @param _maxMints Max amount of free mints
     /// @return Whether the wallet can mint
     function canMint(address _minter, uint256 _maxMints) public view returns (bool) {
-        //if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
+        if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
         bytes32 _leaf = leaf(_minter, _maxMints);
         return !minted[_leaf];
     }
