@@ -24,6 +24,10 @@ remappings = [
   "@taiko/blacklist/=node_modules/@taiko/supplementary-contracts/contracts/blacklist/",
 ]
 
+[profile.taiko]
+gas_price = 13 # 0.000000013 Gwei
+gas_limit = 240_250_000
+
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
 # For mainnet_mock tokenomics test we need a huge value to run lots of iterations.
 # Use 30M for TaikoL2.t.sol related tests, only use this number with mainnet simulation.
@@ -53,3 +57,6 @@ multiline_func_header = "all"
 number_underscore = "thousands"
 wrap_comments = true
 
+[rpc_endpoints]
+taiko = "https://rpc.mainnet.taiko.xyz"
+hekla = "https://rpc.hekla.taiko.xyz"
