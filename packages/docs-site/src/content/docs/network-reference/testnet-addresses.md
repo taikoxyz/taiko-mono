@@ -3,7 +3,7 @@ title: Testnet Addresses
 description: Network reference page describing various important addresses on Taiko.
 ---
 
-## Ethereum (Holesky) contracts
+## Ethereum L1 (Holesky) contracts
 
 | Contract Name (Shared) | Address                                      |
 | ---------------------- | -------------------------------------------- |
@@ -25,7 +25,7 @@ description: Network reference page describing various important addresses on Ta
 | AutomataDcapAttestation         | `0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398` |
 | PemCertChainLib                 | `0x08d7865e7F534d743Aba5874A9AD04bcB223a92E` |
 
-## Taiko Hekla contracts
+## Taiko L2 (Hekla) contracts
 
 | Contract Name        | Address                                      |
 | -------------------- | -------------------------------------------- |
@@ -39,11 +39,18 @@ description: Network reference page describing various important addresses on Ta
 | RollupAddressManager | `0x1670090000000000000000000000000000010002` |
 | BridgedTaikoToken    | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
 
-## Rollup contracts owner
+## Contract owners
 
-The rollup contracts owner can be found on the block explorer for the contracts shown above. The deployers public key is: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`. It is pre-minted with 1 billion TTKOh tokens and max uint128 ether.
+:::caution
+The owner has the ability to upgrade the contracts.
+:::
 
-## Taiko Labs' proposers and provers addresses
+| Network               | Address                                      | ENS |
+| --------------------- | -------------------------------------------- | --- |
+| Ethereum L1 (Holesky) | `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805` | N/A |
+| Taiko L2 (Hekla)      | `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190` | N/A |
+
+## Taiko Labs' proposer and prover addresses
 
 | Name                                                   | Address                                      |
 | ------------------------------------------------------ | -------------------------------------------- |
