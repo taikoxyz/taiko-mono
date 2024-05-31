@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.0...docs-site-v1.7.1) (2024-05-31)
+
+
+### Bug Fixes
+
+* **docs-site:** sentence case and trigger deployment ([#17440](https://github.com/taikoxyz/taiko-mono/issues/17440)) ([c7518dc](https://github.com/taikoxyz/taiko-mono/commit/c7518dc76a3ac585a96b8b793ae7f4bdd8ed07c6))
+
 ## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.6.1...docs-site-v1.7.0) (2024-05-30)
 
 
