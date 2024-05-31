@@ -54,12 +54,14 @@
     }
   }
 
+  $: hasMinted = false;
+
   async function load() {
     try {
       canMint = await Token.canMint();
       mintMax = await Token.maxSupply();
       totalSupply = await Token.totalSupply();
-
+      hasMinted = await Token.hasMinted();
       if (!canMint) {
         isReady = true;
         return;
@@ -177,6 +179,8 @@
       {:else}
         <EligibilityPanel on:click={view} disabled={false} step="success" />
       {/if}
+    {:else if hasMinted}
+      <EligibilityPanel on:click={view} disabled={false} step="success" />
     {:else if isReady && !canMint}
       <EligibilityPanel step="non-eligible" />
     {:else}
