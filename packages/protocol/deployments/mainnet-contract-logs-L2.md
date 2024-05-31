@@ -153,7 +153,6 @@
 ## Other EOAs/Contracts
 
 - safe-singleton-factory: `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7`
-- multicall3: `0x174EB72C7d94a6D7dBAE3e4d20337B57088bB246`
 - `davidcai.eth`:`0x56706F118e42AE069F20c5636141B844D1324AE1`
 - `admin.taiko.eth`: `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`
 - `labs.taiko.eth`: `0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D`

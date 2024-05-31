@@ -39,20 +39,25 @@ description: Network reference page describing various important addresses on Ta
 
 ## Taiko L2 contracts
 
+| Contract Name         | Address                                      |
+| --------------------- | -------------------------------------------- |
+| Bridge                | `0x1670000000000000000000000000000000000001` |
+| ERC20Vault            | `0x1670000000000000000000000000000000000002` |
+| ERC721Vault           | `0x1670000000000000000000000000000000000003` |
+| ERC1155Vault          | `0x1670000000000000000000000000000000000004` |
+| SignalService         | `0x1670000000000000000000000000000000000005` |
+| SharedAddressManager  | `0x1670000000000000000000000000000000000006` |
+| TaikoL2               | `0x1670000000000000000000000000000000010001` |
+| RollupAddressManager  | `0x1670000000000000000000000000000000010002` |
+| Taiko Token (Bridged) | `0xa9d23408b9ba935c230493c40c73824df71a0975` |
+
+## Other L2 contracts
+
 | Contract Name          | Address                                      |
 | ---------------------- | -------------------------------------------- |
-| Bridge                 | `0x1670000000000000000000000000000000000001` |
-| ERC20Vault             | `0x1670000000000000000000000000000000000002` |
-| ERC721Vault            | `0x1670000000000000000000000000000000000003` |
-| ERC1155Vault           | `0x1670000000000000000000000000000000000004` |
-| SignalService          | `0x1670000000000000000000000000000000000005` |
-| SharedAddressManager   | `0x1670000000000000000000000000000000000006` |
-| TaikoL2                | `0x1670000000000000000000000000000000010001` |
-| RollupAddressManager   | `0x1670000000000000000000000000000000010002` |
 | WETH                   | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
-| Taiko Token (Bridged)  | `0xa9d23408b9ba935c230493c40c73824df71a0975` |
 | Safe Singleton Factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
-| Multicall3             | `0x174EB72C7d94a6D7dBAE3e4d20337B57088bB246` |
+| Multicall3             | `0xca11bde05977b3631167028862be2a173976ca11` |
 
 ## Contract owners
 
