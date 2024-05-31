@@ -23,7 +23,8 @@ export async function startWatching() {
         // we present the user with a modal to switch networks.
         const isLocalHost = window.location.hostname === 'localhost';
         const isVercel = window.location.hostname === 'taikoons-dev.vercel.app';
-        const isSupportedChainId = isLocalHost ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
+        const isSupportedChainId =
+          isLocalHost || isVercel ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
         const isConnected = data.address !== undefined;
 
         if (!isVercel && !isLocalHost && !isSupportedChainId && isConnected) {
