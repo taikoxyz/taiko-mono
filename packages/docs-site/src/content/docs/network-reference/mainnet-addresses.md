@@ -1,5 +1,5 @@
 ---
-title: Mainnet Addresses
+title: Mainnet addresses
 description: Network reference page describing various important addresses on Taiko.
 ---
 
