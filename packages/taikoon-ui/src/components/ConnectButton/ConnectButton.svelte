@@ -27,7 +27,10 @@
     connectButtonClasses,
     connectedButtonClasses,
   } from './classes';
+
   export let connected = false;
+  import { Icons } from '$components/core/Icons';
+  const { CircleUserRegular: CircleUserIcon } = Icons;
 
   let web3modalOpen = false;
   let unsubscribeWeb3Modal = noop;
@@ -52,14 +55,21 @@
 
   onDestroy(unsubscribeWeb3Modal);
 
-  connectedSourceChain.subscribe(async () => {
+  $: balanceStr = '0.000';
+
+  async function load() {
     const account = getAccount(config);
     if (!account.address) return;
     balance = await getBalance(account.address);
-  });
 
-  import { Icons } from '$components/core/Icons';
-  const { CircleUserRegular: CircleUserIcon } = Icons;
+    if (parseFloat(formatEther(balance)) > 10) {
+      balanceStr = parseFloat(formatEther(balance)).toFixed(1);
+    } else {
+      balanceStr = parseFloat(formatEther(balance)).toFixed(3);
+    }
+  }
+
+  $: $account, load();
 </script>
 
 {#if connected}
@@ -70,9 +80,9 @@
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
     {#if windowSize !== 'md'}
       <span class={buttonContentClasses}
-        >{`Ξ ${parseFloat(formatEther(balance)).toFixed(3)}`}
+        >{`Ξ ${balanceStr}`}
         <span class={addressClasses}>
-          {#await shortenAddress(accountAddress)}
+          {#await shortenAddress(accountAddress, 5, 2)}
             ...
           {:then displayAddress}
             {displayAddress}
