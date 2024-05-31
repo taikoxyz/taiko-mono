@@ -422,11 +422,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         bridge.processMessage(message, fakeProof);
 
         vm.prank(Alice);
+        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
         bridge.processMessage(message, fakeProof);
-        bytes32 hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
-
-        assertEq(davidBalance, David.balance);
     }
 
     function test_bridge2_processMessage_and_retryMessage_malicious_way()
@@ -457,23 +454,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 davidBalance = David.balance;
 
         vm.prank(Alice);
+        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
         bridge.processMessage(message, fakeProof);
-        bytes32 hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
-
-        // Allow now quota
-        vm.startPrank(owner);
-        addressManager.setAddress(
-            uint64(block.chainid), "quota_manager", address(new AlwaysAvailableQuotaManager())
-        );
-        vm.stopPrank();
-
-        uint256 aliceBalanceBeforeRefund = Alice.balance;
-        vm.prank(message.destOwner);
-        bridge.retryMessage(message, false);
-
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
-        // She could get back the ether but cannot execute the malicious call.
-        assertEq(Alice.balance, aliceBalanceBeforeRefund + message.value + message.fee);
     }
 }
