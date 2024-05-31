@@ -5,4 +5,3 @@ contracts/test/TestLibRLPReader.sol
 /contracts/automata-attestation/
 test/GasComparison.t.sol
 test/TestLn.sol
-contracts/thirdparty/multicall/*.sol
