@@ -15,7 +15,6 @@ export async function startWatching() {
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
       onChange(data) {
-        console.warn('Account changed', data);
         account.set(data);
         refreshUserBalance();
         const { chain } = data;
