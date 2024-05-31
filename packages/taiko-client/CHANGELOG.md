@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.1...taiko-client-v0.24.0) (2024-05-30)
+
+
+### Features
+
+* **taiko-client:** improve chain head check in `NeedReSync` ([#17431](https://github.com/taikoxyz/taiko-mono/issues/17431)) ([4dbe0af](https://github.com/taikoxyz/taiko-mono/commit/4dbe0af09c97d85706325a6bc1a270383930a62c))
+
 ## [0.23.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.0...taiko-client-v0.23.1) (2024-05-29)
 
 

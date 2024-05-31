@@ -250,52 +250,47 @@ contract Bridge is EssentialContract, IBridge {
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
-        if (!_consumeEtherQuota(_message.value + _message.fee)) {
-            if (stats.processedByRelayer) revert B_OUT_OF_ETH_QUOTA();
-            status_ = Status.RETRIABLE;
-            reason_ = StatusReason.OUT_OF_ETH_QUOTA;
+        if (!_consumeEtherQuota(_message.value + _message.fee)) revert B_OUT_OF_ETH_QUOTA();
+
+        uint256 refundAmount;
+        if (_unableToInvokeMessageCall(_message, signalService)) {
+            // Handle special addresses that don't require actual invocation but
+            // mark message as DONE
+            refundAmount = _message.value;
+            status_ = Status.DONE;
+            reason_ = StatusReason.INVOCATION_PROHIBITED;
         } else {
-            uint256 refundAmount;
-            if (_unableToInvokeMessageCall(_message, signalService)) {
-                // Handle special addresses that don't require actual invocation but
-                // mark message as DONE
-                refundAmount = _message.value;
+            uint256 gasLimit = stats.processedByRelayer ? _invocationGasLimit(_message) : gasleft();
+
+            if (_invokeMessageCall(_message, msgHash, gasLimit, stats.processedByRelayer)) {
                 status_ = Status.DONE;
-                reason_ = StatusReason.INVOCATION_PROHIBITED;
+                reason_ = StatusReason.INVOCATION_OK;
             } else {
-                uint256 gasLimit =
-                    stats.processedByRelayer ? _invocationGasLimit(_message) : gasleft();
-
-                if (_invokeMessageCall(_message, msgHash, gasLimit, stats.processedByRelayer)) {
-                    status_ = Status.DONE;
-                    reason_ = StatusReason.INVOCATION_OK;
-                } else {
-                    status_ = Status.RETRIABLE;
-                    reason_ = StatusReason.INVOCATION_FAILED;
-                }
+                status_ = Status.RETRIABLE;
+                reason_ = StatusReason.INVOCATION_FAILED;
             }
-
-            if (_message.fee != 0) {
-                refundAmount += _message.fee;
-
-                if (stats.processedByRelayer && _message.gasLimit != 0) {
-                    unchecked {
-                        uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                        stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
-                        uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
-                        uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
-                        uint256 baseFee = gasCharged * block.basefee;
-                        uint256 fee =
-                            (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
-
-                        refundAmount -= fee;
-                        msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
-                    }
-                }
-            }
-
-            _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
         }
+
+        if (_message.fee != 0) {
+            refundAmount += _message.fee;
+
+            if (stats.processedByRelayer && _message.gasLimit != 0) {
+                unchecked {
+                    uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
+                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
+                    uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
+                    uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
+                    uint256 baseFee = gasCharged * block.basefee;
+                    uint256 fee =
+                        (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
+
+                    refundAmount -= fee;
+                    msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
+                }
+            }
+        }
+
+        _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
         _updateMessageStatus(msgHash, status_);
         emit MessageProcessed(msgHash, _message, stats);
@@ -315,12 +310,11 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        uint256 amount = _message.value + _message.fee;
-        if (!_consumeEtherQuota(amount)) revert B_OUT_OF_ETH_QUOTA();
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         bool succeeded;
         if (_unableToInvokeMessageCall(_message, resolve(LibStrings.B_SIGNAL_SERVICE, false))) {
-            succeeded = _message.destOwner.sendEther(amount, _SEND_ETHER_GAS_LIMIT, "");
+            succeeded = _message.destOwner.sendEther(_message.value, _SEND_ETHER_GAS_LIMIT, "");
         } else {
             uint256 invocationGasLimit;
             if (msg.sender != _message.destOwner) {
