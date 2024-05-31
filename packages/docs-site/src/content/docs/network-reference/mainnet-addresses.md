@@ -3,7 +3,7 @@ title: Mainnet Addresses
 description: Network reference page describing various important addresses on Taiko.
 ---
 
-## Ethereum contracts
+## Ethereum L1 contracts
 
 | Contract Name (Shared) | Address                                      | ENS                     |
 | ---------------------- | -------------------------------------------- | ----------------------- |
@@ -37,7 +37,7 @@ description: Network reference page describing various important addresses on Ta
 | labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
 | labcontester                    | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | labcontester.taiko.eth     |
 
-## Taiko Mainnet contracts
+## Taiko L2 contracts
 
 | Contract Name          | Address                                      |
 | ---------------------- | -------------------------------------------- |
@@ -52,12 +52,20 @@ description: Network reference page describing various important addresses on Ta
 | WETH                   | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
 | Taiko Token (Bridged)  | `0xa9d23408b9ba935c230493c40c73824df71a0975` |
 | Safe Singleton Factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
+| Multicall3             | `0x174EB72C7d94a6D7dBAE3e4d20337B57088bB246` |
 
-## Rollup contracts owner
+## Contract owners
 
-The rollup contracts owner is `admin.taiko.eth`, public address is `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`.
+:::caution
+The owner has the ability to upgrade the contracts.
+:::
 
-## Taiko Labs' proposers and provers addresses
+| Network     | Address                                      | ENS             |
+| ----------- | -------------------------------------------- | --------------- |
+| Ethereum L1 | `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F` | admin.taiko.eth |
+| Taiko L2    | `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be` | N/A             |
+
+## Taiko Labs' proposer and prover addresses
 
 | Name         | Address                                      |
 | ------------ | -------------------------------------------- |
