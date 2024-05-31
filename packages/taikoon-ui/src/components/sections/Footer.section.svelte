@@ -10,7 +10,7 @@
   const sectionClasses = classNames('justify-end align-end', 'mb-5');
 </script>
 
-<Section height={windowSize === 'sm' ? 'fit' : 'min'} background="footer" class={sectionClasses} width="xl">
+<Section height={'fit'} background="footer" class={sectionClasses} width="xl">
   <Footer />
 </Section>
 
