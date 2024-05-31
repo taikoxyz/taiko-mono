@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getAccount } from '@wagmi/core';
-  import { getContext } from 'svelte';
+  import { getContext, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
@@ -64,42 +64,80 @@
     isCalculating = false;
   }
 
+  function reset() {
+    console.log('reset', {
+      totalSupply,
+      mintMax,
+      progress,
+      isReady,
+      account: $account,
+      isConnected: $account && $account.isConnected,
+    });
+
+    canMint = false;
+    totalMintCount = 0;
+    gasCost = 0;
+    mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
+    isReady = true;
+  }
+
   async function load() {
+    console.log('load', {
+      totalSupply,
+      mintMax,
+      progress,
+      isReady,
+      account: $account,
+    });
+
+    if (isReady && (!$account || ($account && !$account.isConnected))) {
+      return reset();
+    }
+
     totalSupply = await Token.totalSupply();
     mintMax = await Token.maxSupply();
     progress = Math.floor((totalSupply / mintMax) * 100);
-    isReady = true;
+
+    if (!$account || !$account.address || $account.address === zeroAddress) {
+      return reset();
+    }
+    const address = $account.address as IAddress;
+
+    mintedTokenIds = await Token.tokenOfOwner(address);
+    hasAlreadyMinted = mintedTokenIds.length > 0;
 
     canMint = await Token.canMint();
     if (!canMint) {
-      return;
-    }
-    totalMintCount = await User.totalWhitelistMintCount();
-  }
+      mintState.set({ ...$mintState, address: address.toLowerCase() as IAddress });
 
-  $: $account, postLoad();
-  $: mintedTokenIds = [] as number[];
-  $: hasAlreadyMinted = false;
-
-  async function postLoad() {
-    await load();
-    isReady = false;
-    const { config } = getConfig();
-    const account = getAccount(config);
-    if (!account || !account.address) {
-      canMint = false;
-      totalMintCount = 0;
-      gasCost = 0;
-      mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
       isReady = true;
       return;
     }
 
-    mintedTokenIds = await Token.tokenOfOwner(account.address);
-    hasAlreadyMinted = mintedTokenIds.length > 0;
-    mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
+    totalMintCount = await User.totalWhitelistMintCount();
+
+    /*
+    if (!$account || !$account.address) {
+      canMint = false;
+      totalMintCount = 0;
+      gasCost = 0;
+      mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
+      return;
+    }
+*/
+
+    mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
+
     isReady = true;
   }
+  /*
+  onMount(async () => {
+    await fff();
+  })*/
+
+  $: $account, load();
+  $: mintedTokenIds = [] as number[];
+  $: hasAlreadyMinted = false;
 
   async function mint() {
     mintState.set({
@@ -131,8 +169,7 @@
       });
     }
     mintState.set({ ...$mintState, isMinting: false });
-
-    await postLoad();
+    await load();
   }
 </script>
 
