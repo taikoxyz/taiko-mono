@@ -45,7 +45,8 @@ contract TestDelegateOwner is TaikoTest {
                 name: "delegate_owner",
                 impl: address(new DelegateOwner()),
                 data: abi.encodeCall(
-                    DelegateOwner.init, (remoteOwner, address(addressManager), remoteChainId)
+                    DelegateOwner.init,
+                    (remoteOwner, address(addressManager), remoteChainId, address(0))
                 ),
                 registerTo: address(addressManager)
             })

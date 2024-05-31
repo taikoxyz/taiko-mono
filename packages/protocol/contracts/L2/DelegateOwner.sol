@@ -14,10 +14,13 @@ import "../bridge/IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice The owner chain ID.
-    uint64 public l1ChainId;
+    uint64 public l1ChainId; // slot 1
+
+    /// @notice The security council who can directly call `invokeCall`.
+    address public securityCouncil;
 
     /// @notice The next transaction ID.
-    uint64 public nextTxId;
+    uint64 public nextTxId; // slot 2
 
     /// @notice The real owner on L1, supposedly the DAO.
     address public realOwner;
@@ -40,6 +43,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
     );
 
+    event SecurityCouncilUpdated(
+        address indexed oldSecurityCouncil, address indexed newSecurityCouncil
+    );
+
     error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
     error DO_INVALID_TARGET();
@@ -50,12 +57,14 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice Initializes the contract.
     /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
-    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The L1 chain's ID.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _securityCouncil The security council address.
     function init(
         address _realOwner,
         address _addressManager,
-        uint64 _l1ChainId
+        uint64 _l1ChainId,
+        address _securityCouncil
     )
         external
         initializer
@@ -67,8 +76,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             revert DO_INVALID_PARAM();
         }
 
-        realOwner = _realOwner;
         l1ChainId = _l1ChainId;
+        realOwner = _realOwner;
+        securityCouncil = _securityCouncil;
     }
 
     /// @inheritdoc IMessageInvocable
@@ -84,6 +94,21 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             revert DO_PERMISSION_DENIED();
         }
         _invokeCall(_data, true);
+    }
+
+    /// @dev Invokes a call by the security council
+    /// @param _data The data for this contract to interpret.
+    function invokeCall(bytes calldata _data) external payable {
+        if (msg.sender != securityCouncil) revert DO_PERMISSION_DENIED();
+        _invokeCall(_data, true);
+    }
+
+    /// @dev Updates the security council address.
+    /// @param _securityCouncil The new security council address.
+    function setSecurityCouncil(address _securityCouncil) external onlyOwner {
+        if (securityCouncil == _securityCouncil) revert DO_INVALID_PARAM();
+        emit SecurityCouncilUpdated(securityCouncil, _securityCouncil);
+        securityCouncil = _securityCouncil;
     }
 
     /// @notice Dryruns a message invocation but always revert.
