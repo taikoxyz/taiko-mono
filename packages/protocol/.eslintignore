@@ -4,4 +4,3 @@ cache
 coverage
 lib
 contracts/automata-attestation/
-contracts/thirdparty/multicall/
