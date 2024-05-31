@@ -36,6 +36,7 @@
           withEvents
           on:click={() => {
             taikoonId = -1;
+            window.location.hash = '';
           }}
           class="my-2 bg-transparent"
           size="14" />

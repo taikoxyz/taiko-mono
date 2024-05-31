@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from 'svelte';
+  import { getContext, onMount } from 'svelte';
 
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
@@ -21,11 +21,14 @@
 
   $: selectedTaikoonId = -1;
 
+  onMount(() => {
+    onRouteChange();
+  });
+
   async function onRouteChange() {
     const hash = location.hash;
     const taikoonId = parseInt(hash.replace('#', ''));
-    if (isNaN(taikoonId)) return;
-    selectedTaikoonId = taikoonId;
+    selectedTaikoonId = isNaN(taikoonId) ? -1 : taikoonId;
     taikoonDetailState.set({
       ...$taikoonDetailState,
       tokenId: taikoonId,
