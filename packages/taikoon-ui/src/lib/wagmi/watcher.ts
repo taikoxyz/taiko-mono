@@ -15,9 +15,9 @@ export async function startWatching() {
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
       onChange(data) {
+        const { chain } = data;
         account.set(data);
         refreshUserBalance();
-        const { chain } = data;
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
