@@ -45,8 +45,8 @@ Taiko is a **fully open source, permissionless, Ethereum-equivalent ZK-Rollup**.
 
 ### Critical backend infrastructure
 
-- [Mainnet Rollup Contracts Owner](/network-reference/mainnet-addresses#rollup-contracts-owner)
-- [Testnet Rollup Contracts Owner](/network-reference/testnet-addresses#rollup-contracts-owner)
+- [Mainnet Contract Owners](/network-reference/mainnet-addresses#contract-owners)
+- [Testnet Contract Owners](/network-reference/testnet-addresses#contract-owners)
 
 ### Open-source software
 
