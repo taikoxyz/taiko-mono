@@ -132,7 +132,7 @@
     }
     mintState.set({ ...$mintState, isMinting: false });
 
-    await load();
+    await postLoad();
   }
 </script>
 
