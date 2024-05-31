@@ -27,7 +27,7 @@ export async function startWatching() {
           isLocalHost || isVercel ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
         const isConnected = data.address !== undefined;
 
-        if (!isVercel && !isLocalHost && !isSupportedChainId && isConnected) {
+        if (!isSupportedChainId && isConnected) {
           switchChainModal.set(true);
           return;
         } else if (chain) {
