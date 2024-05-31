@@ -20,14 +20,6 @@
     unknown: 'bg-neutral-background',
   };
 
-  const alertIconClassMap: Record<TypeToast, string> = {
-    success: 'fill-positive-sentiment',
-    error: 'fill-negative-sentiment',
-    warning: 'fill-warning-sentiment',
-    info: 'fill-pink-50',
-    unknown: 'fill-primary-content',
-  };
-
   const messageClassMap: Record<TypeToast, string> = {
     success: 'text-positive-sentiment',
     error: 'text-negative-sentiment',
