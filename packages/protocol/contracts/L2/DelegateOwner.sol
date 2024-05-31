@@ -16,7 +16,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice The owner chain ID.
     uint64 public l1ChainId; // slot 1
 
-    /// @notice The security council who can directly call `invokeCall`.
+    /// @notice The admin who can directly call `invokeCall`.
     address public admin;
 
     /// @notice The next transaction ID.
@@ -60,7 +60,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// `onMessageInvocation`.
     /// @param _l1ChainId The L1 chain's ID.
     /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _admin The security council address.
+    /// @param _admin The admin address.
     function init(
         address _realOwner,
         address _addressManager,
@@ -97,15 +97,15 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _invokeCall(_data, true);
     }
 
-    /// @dev Invokes a call by the security council
+    /// @dev Invokes a call by the admin
     /// @param _data The data for this contract to interpret.
     function invokeCall(bytes calldata _data) external {
         if (msg.sender != admin) revert DO_PERMISSION_DENIED();
         _invokeCall(_data, true);
     }
 
-    /// @dev Updates the security council address.
-    /// @param _admin The new security council address.
+    /// @dev Updates the admin address.
+    /// @param _admin The new admin address.
     function setAdmin(address _admin) external {
         if (msg.sender != owner() && msg.sender != admin) revert DO_PERMISSION_DENIED();
         if (admin == _admin) revert DO_INVALID_PARAM();
