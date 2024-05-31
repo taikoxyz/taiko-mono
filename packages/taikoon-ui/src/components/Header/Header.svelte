@@ -1,15 +1,14 @@
 <script lang="ts">
-  import { getAccount } from '@wagmi/core';
   import { zeroAddress } from 'viem';
 
   import { Icons } from '$components/core/Icons';
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
+  import Token from '$lib/token';
+  import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
-  import { connectedSourceChain } from '$stores/network';
   import { pageScroll } from '$stores/pageScroll';
-  import { config } from '$wagmi-config';
 
   import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
@@ -31,30 +30,30 @@
 
   $: headerClasses = classNames(
     baseHeaderClasses,
-    $pageScroll ? 'md:glassy-background-lg' : null,
-    $pageScroll ? 'md:border-b-[1px] md:border-border-divider-default' : 'md:border-b-[1px] md:border-transparent',
+    $pageScroll ? 'glassy-background-lg' : null,
+    $pageScroll ? 'border-b-[1px] border-border-divider-default' : 'border-b-[1px] border-transparent',
     $$props.class,
   );
 
-  $: taikoonsOptions = [
-    {
-      icon: 'FileImageRegular',
-      label: 'The 888',
-      href: '/collection/',
-    },
-  ];
+  $: $account, checkYourCollection();
+  $: displayYourTaikoonsButton = false;
+  async function checkYourCollection() {
+    if (!$account || !$account.address || $account.address === zeroAddress) {
+      displayYourTaikoonsButton = false;
+      return;
+    }
 
-  connectedSourceChain.subscribe(async () => {
-    if (address !== zeroAddress) return;
-    const account = getAccount(config);
-    if (!account.address) return;
-    address = account.address;
-    taikoonsOptions.push({
-      icon: 'FileImageRegular',
-      label: 'Collection',
-      href: `/collection/${address.toLowerCase()}`,
-    });
-  });
+    address = $account.address;
+
+    if (!address || address === zeroAddress) {
+      return;
+    }
+
+    const canMint = await Token.canMint();
+    const totalMintCount = await User.totalWhitelistMintCount();
+
+    displayYourTaikoonsButton = !canMint && totalMintCount > 0;
+  }
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 </script>
@@ -82,7 +81,7 @@
         <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
 
         <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
-        {#if address !== zeroAddress}
+        {#if displayYourTaikoonsButton}
           <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
         {/if}
       </div>
