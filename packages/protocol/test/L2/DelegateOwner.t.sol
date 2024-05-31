@@ -95,7 +95,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -128,7 +128,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -192,7 +192,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -226,7 +226,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -246,7 +246,6 @@ contract TestDelegateOwner is TaikoTest {
         assertEq(delegateOwner.securityCouncil(), David);
 
         // David is now the security council
-
         data = abi.encode(
             DelegateOwner.Call(
                 uint64(1),

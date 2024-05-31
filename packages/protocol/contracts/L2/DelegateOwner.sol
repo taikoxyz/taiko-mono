@@ -105,8 +105,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @dev Updates the security council address.
     /// @param _securityCouncil The new security council address.
-    function setSecurityCouncil(address _securityCouncil) external onlyOwner {
+    function setSecurityCouncil(address _securityCouncil) external {
+        if (msg.sender != owner() && msg.sender != securityCouncil) revert DO_PERMISSION_DENIED();
         if (securityCouncil == _securityCouncil) revert DO_INVALID_PARAM();
+
         emit SecurityCouncilUpdated(securityCouncil, _securityCouncil);
         securityCouncil = _securityCouncil;
     }
@@ -115,7 +117,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
     /// Note that this function shall not be used in transaction and is designed for offchain
     /// simulation only.
-    function dryrunMessageInvocation(bytes calldata _data) external payable {
+    function dryrunCall(bytes calldata _data) external payable {
         _invokeCall(_data, false);
         revert DO_DRYRUN_SUCCEEDED();
     }
