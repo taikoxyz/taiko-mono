@@ -55,4 +55,4 @@ You can use the official [Taiko bridge](https://bridge.hekla.taiko.xyz/) to send
 
 ### How can I get the L1 block number from L2 on Testnet?
 
-You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/testnet-addresses#taiko-hekla-contracts). You can do the same for [Mainnet](/network-reference/mainnet-addresses#taiko-mainnet-contracts).
+You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/testnet-addresses#taiko-l2-hekla-contracts). You can do the same for [Mainnet](/network-reference/mainnet-addresses#taiko-l2-contracts).
