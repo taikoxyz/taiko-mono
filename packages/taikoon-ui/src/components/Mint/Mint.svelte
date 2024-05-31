@@ -17,6 +17,7 @@
 
   import Token from '../../lib/token';
   import getConfig from '../../lib/wagmi/getConfig';
+  import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import {
@@ -76,16 +77,24 @@
     totalMintCount = await User.totalWhitelistMintCount();
   }
 
-  connectedSourceChain.subscribe(async () => {
-    await load();
+  $: $account, postLoad();
 
+  function postLoad() {
     const { config } = getConfig();
     const account = getAccount(config);
     if (!account || !account.address) {
-      mintState.set({ ...$mintState, address: zeroAddress });
+      canMint = false;
+      totalMintCount = 0;
+      gasCost = 0;
+      mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
+
       return;
     }
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
+  }
+
+  connectedSourceChain.subscribe(async () => {
+    await load();
   });
 
   async function mint() {
@@ -160,7 +169,13 @@
         <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
       </div>
 
-      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
+      <Button
+        disabled={!canMint || $mintState.totalMintCount === 0}
+        on:click={mint}
+        class={buttonClasses}
+        wide
+        block
+        type="primary">
         {$t('buttons.mint')}</Button>
     </div>
   {:else}
