@@ -99,7 +99,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @dev Invokes a call by the security council
     /// @param _data The data for this contract to interpret.
-    function invokeCall(bytes calldata _data) external payable {
+    function invokeCall(bytes calldata _data) external {
         if (msg.sender != admin) revert DO_PERMISSION_DENIED();
         _invokeCall(_data, true);
     }
