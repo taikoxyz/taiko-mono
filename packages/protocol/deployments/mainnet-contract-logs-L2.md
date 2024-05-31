@@ -37,7 +37,7 @@
   - set erc20_vault@1 to `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` @tx`0x82e4550eadd0d255ab930ef2257d9b8eedf1cec0198eea628661d2a3e1d0c503`
   - set erc721_vault@1 to `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa` @tx`0x3b836123cd6073aff8d441ebf38b9133ba553c4625eb529811b855be67937d69`
   - set erc1155_vault@1 to `0xaf145913EA4a56BE22E120ED9C24589659881702` @tx`0x4a16a8a7d02f696b753208bbf8e7e3501d6b70b9a764fa2b4e115add46c13cb3`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### bridge
 
@@ -51,7 +51,7 @@
   - redeployed on May 22, 2024 @commit `b955e0e`
   - upgrade to `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` @tx`0x094dd9452d79cbd74711f2b8065566e4431a05d0727c56d2b38195e40fd62805`
   - upgraded from `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` to `0x98C5De7670aA7d47C6c0551fAD27Bfe464A6751a..` @commit`` in @tx`0x0b5d6acc9c5b8ef193920246081ec5ce7268111acfc1dce1f058bea06f3953c7`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### erc20_vault
 
@@ -66,7 +66,7 @@
   - upgrade to `0x33fBcde27fBA21e90582Df31DFB427D4dbdBefC1` @tx`0x8a12626b2f2c9464b5f2525edc2010f371397ff12fe00cf49287a9b2a6b7ab99`
   - linked bridged TKO to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xe25d05320b95fbc3bffe0b7cbfe351dd5fa6413db307d5c28f7b70983567a43b`
   - linked bridged USDC to `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b` @tx`0xf1752ac712779e9ae53d408abdc5eec70e63582433143d6d91a489a1e8fc4778`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### erc721_vault
 
@@ -79,7 +79,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
   - upgrade to `0xD68BFe63E0f2983D89cbB225BEd068a8f19f5e08` @`0x8705703a93cb4cfc1ae69d1277f4464f807c7615237f2b04ff010c6e45708d34`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### erc1155_vault
 
@@ -92,7 +92,7 @@
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
   - upgrade to `0x3918a2910C393A1A2EF7AAc807970EFE47A54b7e` @tx`0x264a2a553672a5480141638c3ca00a7bdf2c54e48c53f41867ca4f64703e16d7`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### signal_service
 
@@ -104,7 +104,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 ## Rollup Specific
 
@@ -122,7 +122,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### taikoL2
 
@@ -134,7 +134,7 @@
 - logs:
   - deployed on May 1, 2024 @commit `56dddf2b6`
   - redeployed on May 22, 2024 @commit `b955e0e`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### bridged_taiko_token
 
@@ -143,7 +143,7 @@
 - owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
 - logs:
   - deployed @tx`0x3e0c2c3f7593b8af888c2b8fe3af79152426bdf2d0529f058722ae08c80c8991`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`ACCEPT_TX`
+  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### bridged_usdc_token (native)
 
