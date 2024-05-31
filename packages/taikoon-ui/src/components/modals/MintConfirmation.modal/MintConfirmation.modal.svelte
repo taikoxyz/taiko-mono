@@ -28,14 +28,7 @@
 <Modal open={isModalOpen}>
   <div class={modalContentWrapperClasses}>
     <ModalTitle class={modalTitleClasses}>
-      {$mintState.isMinting
-        ? $t('content.mint.modals.minting.title', {
-            values: {
-              count: $mintState.totalMintCount,
-              plural: $mintState.totalMintCount === 1 ? '' : 's',
-            },
-          })
-        : ''}
+      {$mintState.isMinting ? $t('content.mint.modals.minting.title') : ''}
     </ModalTitle>
     <ModalBody>
       <div class={bodyWrapperClasses}>

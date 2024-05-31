@@ -27,6 +27,7 @@
   "content": {
     "mint": {
       "title": "Taikoons",
+      "alreadyMinted": "You've already minted your NFT.",
       "text": "Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.",
       "eligibleLabel": "You are eligible to mint:",
       "toast": {
@@ -34,7 +35,7 @@
       },
       "modals": {
         "minting": {
-          "title": "Minting {count} NFT{plural}...",
+          "title": "Now minting your Taikoon",
           "pending": "This can take up to a couple of minutes. Feel free to close this message.",
           "confirm": "Please confirm the transaction in your wallet."
         },

@@ -7,6 +7,7 @@
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
   import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { errorToast } from '$components/core/Toast';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
@@ -77,9 +78,12 @@
   }
 
   $: $account, postLoad();
+  $: mintedTokenIds = [] as number[];
+  $: hasAlreadyMinted = false;
 
   async function postLoad() {
     await load();
+    isReady = false;
     const { config } = getConfig();
     const account = getAccount(config);
     if (!account || !account.address) {
@@ -87,10 +91,14 @@
       totalMintCount = 0;
       gasCost = 0;
       mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
-
+      isReady = true;
       return;
     }
+
+    mintedTokenIds = await Token.tokenOfOwner(account.address);
+    hasAlreadyMinted = mintedTokenIds.length > 0;
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
+    isReady = true;
   }
 
   async function mint() {
@@ -113,10 +121,14 @@
         },
       });
       mintState.set({ ...$mintState, tokenIds });
-    } catch (e) {
+    } catch (e: any) {
       console.warn(e);
       //showMintConfirmationModal = false
       mintState.set({ ...$mintState, isModalOpen: false });
+      errorToast({
+        title: 'Mint Error',
+        message: e.message,
+      });
     }
     mintState.set({ ...$mintState, isMinting: false });
 
@@ -153,26 +165,37 @@
         <ProgressBar {progress} />
       </div>
 
-      <div class={counterClasses}>
-        <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>
-        <div class={eligibilityValueClasses}>{$mintState.totalMintCount}</div>
-      </div>
+      {#if hasAlreadyMinted && $account.address}
+        <Divider />
 
-      <Divider />
+        <div class={classNames('text-xl', 'text-center')}>
+          {$t('content.mint.alreadyMinted')}
+        </div>
 
-      <div class={infoRowClasses}>
-        <InfoRow label="Total mints" value={$mintState.totalMintCount.toString()} />
-        <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
-      </div>
+        <Button href={`/collection/${$account.address.toLowerCase()}`} class={buttonClasses} wide block type="primary">
+          {$t('buttons.yourTaikoons')}</Button>
+      {:else}
+        <div class={counterClasses}>
+          <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>
+          <div class={eligibilityValueClasses}>{$mintState.totalMintCount}</div>
+        </div>
 
-      <Button
-        disabled={!canMint || $mintState.totalMintCount === 0}
-        on:click={mint}
-        class={buttonClasses}
-        wide
-        block
-        type="primary">
-        {$t('buttons.mint')}</Button>
+        <Divider />
+
+        <div class={infoRowClasses}>
+          <InfoRow label="Total mints" value={$mintState.totalMintCount.toString()} />
+          <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
+        </div>
+
+        <Button
+          disabled={!canMint || $mintState.totalMintCount === 0}
+          on:click={mint}
+          class={buttonClasses}
+          wide
+          block
+          type="primary">
+          {$t('buttons.mint')}</Button>
+      {/if}
     </div>
   {:else}
     <Spinner size="lg" />
