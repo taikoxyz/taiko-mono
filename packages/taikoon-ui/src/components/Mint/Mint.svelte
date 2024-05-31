@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { getAccount } from '@wagmi/core';
-  import { getContext, onMount } from 'svelte';
+  import { getContext } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
@@ -16,7 +15,6 @@
   import { Spinner } from '$ui/Spinner';
 
   import Token from '../../lib/token';
-  import getConfig from '../../lib/wagmi/getConfig';
   import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
@@ -65,15 +63,6 @@
   }
 
   function reset() {
-    console.log('reset', {
-      totalSupply,
-      mintMax,
-      progress,
-      isReady,
-      account: $account,
-      isConnected: $account && $account.isConnected,
-    });
-
     canMint = false;
     totalMintCount = 0;
     gasCost = 0;
@@ -82,14 +71,6 @@
   }
 
   async function load() {
-    console.log('load', {
-      totalSupply,
-      mintMax,
-      progress,
-      isReady,
-      account: $account,
-    });
-
     if (isReady && (!$account || ($account && !$account.isConnected))) {
       return reset();
     }
@@ -116,24 +97,10 @@
 
     totalMintCount = await User.totalWhitelistMintCount();
 
-    /*
-    if (!$account || !$account.address) {
-      canMint = false;
-      totalMintCount = 0;
-      gasCost = 0;
-      mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
-      return;
-    }
-*/
-
     mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
 
     isReady = true;
   }
-  /*
-  onMount(async () => {
-    await fff();
-  })*/
 
   $: $account, load();
   $: mintedTokenIds = [] as number[];
