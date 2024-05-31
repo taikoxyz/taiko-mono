@@ -213,4 +213,56 @@ contract TestDelegateOwner is TaikoTest {
         assertEq(target2.impl(), impl2);
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
     }
+
+    function test_delegate_owner_update_security_council() public {
+        assertEq(delegateOwner.securityCouncil(), address(0));
+        bytes memory data = abi.encode(
+            DelegateOwner.Call(
+                uint64(0),
+                address(delegateOwner),
+                false, // CALL
+                abi.encodeCall(DelegateOwner.setSecurityCouncil, (David))
+            )
+        );
+
+        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
+        delegateOwner.dryrunMessageInvocation(data);
+
+        IBridge.Message memory message;
+        message.from = remoteOwner;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+        message.destOwner = Bob;
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.to = address(delegateOwner);
+
+        vm.prank(Bob);
+        bridge.processMessage(message, "");
+
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(delegateOwner.nextTxId(), 1);
+        assertEq(delegateOwner.securityCouncil(), David);
+
+        // David is now the security council
+
+        data = abi.encode(
+            DelegateOwner.Call(
+                uint64(1),
+                address(delegateOwner),
+                false, // CALL
+                abi.encodeCall(DelegateOwner.setSecurityCouncil, (Emma))
+            )
+        );
+
+        vm.prank(Bob);
+        vm.expectRevert(DelegateOwner.DO_PERMISSION_DENIED.selector);
+        delegateOwner.invokeCall(data);
+
+        vm.prank(David);
+        delegateOwner.invokeCall(data);
+        assertEq(delegateOwner.nextTxId(), 2);
+        assertEq(delegateOwner.securityCouncil(), Emma);
+    }
 }
