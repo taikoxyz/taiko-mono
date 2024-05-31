@@ -426,51 +426,35 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         bridge.processMessage(message, fakeProof);
     }
 
-    // function test_bridge2_processMessage_and_retryMessage_malicious_way()
-    //     public
-    //     dealEther(Bob)
-    //     dealEther(Alice)
-    //     assertSameTotalBalance
-    // {
-    //     vm.startPrank(owner);
-    //     addressManager.setAddress(
-    //         uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
-    //     );
-    //     vm.stopPrank();
+    function test_bridge2_processMessage_and_retryMessage_malicious_way()
+        public
+        dealEther(Bob)
+        dealEther(Alice)
+        assertSameTotalBalance
+    {
+        vm.startPrank(owner);
+        addressManager.setAddress(
+            uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
+        );
+        vm.stopPrank();
 
-    //     IBridge.Message memory message;
+        IBridge.Message memory message;
 
-    //     message.destChainId = uint64(block.chainid);
-    //     message.srcChainId = remoteChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
-    //     bytes32 hashOfMaliciousMessage =
-    //         0x3c6e0b8a9c15224b7f0a1e5f4c8f7683d5a0a4e32a34c6c7c7e1f4d9a9d9f6b4;
-    //     message.gasLimit = 1_000_000;
-    //     message.fee = 5_000_000;
-    //     message.value = 2 ether;
-    //     message.destOwner = Alice;
-    //     message.to = address(bridge);
-    //     message.data = abi.encodeWithSignature("sendSignal(bytes32)", hashOfMaliciousMessage);
-    //     uint256 davidBalance = David.balance;
+        bytes32 hashOfMaliciousMessage =
+            0x3c6e0b8a9c15224b7f0a1e5f4c8f7683d5a0a4e32a34c6c7c7e1f4d9a9d9f6b4;
+        message.gasLimit = 1_000_000;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = address(bridge);
+        message.data = abi.encodeWithSignature("sendSignal(bytes32)", hashOfMaliciousMessage);
+        uint256 davidBalance = David.balance;
 
-    //     vm.prank(Alice);
-    //     bridge.processMessage(message, fakeProof);
-    //     bytes32 hash = bridge.hashMessage(message);
-    //     assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
-
-    //     // Allow now quota
-    //     vm.startPrank(owner);
-    //     addressManager.setAddress(
-    //         uint64(block.chainid), "quota_manager", address(new AlwaysAvailableQuotaManager())
-    //     );
-    //     vm.stopPrank();
-
-    //     uint256 aliceBalanceBeforeRefund = Alice.balance;
-    //     vm.prank(message.destOwner);
-    //     bridge.retryMessage(message, false);
-
-    //     assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
-    //     // She could get back the ether but cannot execute the malicious call.
-    //     assertEq(Alice.balance, aliceBalanceBeforeRefund + message.value + message.fee);
-    // }
+        vm.prank(Alice);
+        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
+        bridge.processMessage(message, fakeProof);
+    }
 }
