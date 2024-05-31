@@ -54,7 +54,7 @@
           </div>
           <div>
             <div class={textClasses}>Waiting for confirmation</div>
-            <a href={`https://etherscan.io/tx/${$mintState.txHash}`} target="_blank" class={linkClasses}
+            <a href={`https://taikoscan.network/tx/${$mintState.txHash}`} target="_blank" class={linkClasses}
               >{$t('buttons.etherscan')}
               <UpRightArrow size="10" />
             </a>
