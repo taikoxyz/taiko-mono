@@ -1,5 +1,5 @@
 ---
-title: Testnet Addresses
+title: Testnet addresses
 description: Network reference page describing various important addresses on Taiko.
 ---
 
