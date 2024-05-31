@@ -6,7 +6,6 @@
   import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
   import { classNames } from '$lib/util/classNames';
-  import isCountdownActive from '$lib/util/isCountdownActive';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
   import { pageScroll } from '$stores/pageScroll';
@@ -70,33 +69,25 @@
 
     {#if windowSize === 'sm'}
       <div class={rightSectionClasses}>
-        {#if isCountdownActive()}
-          <ThemeButton />
-        {:else}
-          <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
-            {#if isMobileMenuOpen}
-              <CloseMenuIcon size="14" />
-            {:else}
-              <MenuIcon size="14" />
-            {/if}
-          </button>
-        {/if}
+        <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
+          {#if isMobileMenuOpen}
+            <CloseMenuIcon size="14" />
+          {:else}
+            <MenuIcon size="14" />
+          {/if}
+        </button>
       </div>
     {:else}
-      {#if !isCountdownActive()}
-        <div class={menuButtonsWrapperClasses}>
-          <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
+      <div class={menuButtonsWrapperClasses}>
+        <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
 
-          <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
-          {#if address !== zeroAddress}
-            <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
-          {/if}
-        </div>
-      {/if}
-      <div class={rightSectionClasses}>
-        {#if !isCountdownActive()}
-          <ConnectButton connected={$account?.isConnected} />
+        <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
+        {#if address !== zeroAddress}
+          <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
         {/if}
+      </div>
+      <div class={rightSectionClasses}>
+        <ConnectButton connected={$account?.isConnected} />
         <div class="hidden md:inline-flex">
           <div class={themeButtonSeparatorClasses} />
           <ThemeButton />
