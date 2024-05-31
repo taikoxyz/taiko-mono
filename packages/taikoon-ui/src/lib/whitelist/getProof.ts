@@ -1,12 +1,10 @@
-import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { getAccount } from '@wagmi/core';
 
 import getConfig from '$lib/wagmi/getConfig';
 
 import type { IAddress } from '../../types';
-import { whitelist } from './index';
 
-export default function getProof(address?: IAddress): IAddress[] {
+export default async function getProof(address?: IAddress): Promise<IAddress[]> {
   const { config, chainId } = getConfig();
 
   try {
@@ -16,13 +14,13 @@ export default function getProof(address?: IAddress): IAddress[] {
       address = account.address;
     }
 
-    const tree = StandardMerkleTree.load(whitelist[chainId]);
-    for (const [i, [leafAddress]] of tree.entries()) {
-      if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
-        const proof = tree.getProof(i);
-        return proof as IAddress[];
-      }
-    }
+    const url = ['https://qa.trailblazer.taiko.xyz/api/final?address=', address, '&chainId=', chainId].join('');
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const { proof } = data;
+
+    return proof as IAddress[];
   } catch (e) {
     console.error(`Error with getProof chainId ${chainId}:`, e);
   }
