@@ -6,6 +6,7 @@
   import { DynamicImage } from '$components/DynamicImage';
   import IPFS from '$lib/ipfs';
   import { classNames } from '$lib/util/classNames';
+  import { nftCache } from '$stores/nftCache';
   import { Theme, theme } from '$stores/theme';
   import { Spinner } from '$ui/Spinner';
 
@@ -17,7 +18,18 @@
 
   async function getTokenUri(id: number) {
     if (tokenId < 0) return '';
-    const metadata = await IPFS.getMetadata(id);
+
+    const cached = $nftCache[id];
+    let metadata;
+    if (!cached) {
+      metadata = await IPFS.getMetadata(id);
+      nftCache.set({
+        ...$nftCache,
+        [id]: JSON.stringify(metadata),
+      });
+    } else {
+      metadata = JSON.parse(cached);
+    }
     tokenURI = metadata.image;
   }
 
