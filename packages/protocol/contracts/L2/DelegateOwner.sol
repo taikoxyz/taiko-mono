@@ -17,7 +17,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     uint64 public l1ChainId; // slot 1
 
     /// @notice The security council who can directly call `invokeCall`.
-    address public securityCouncil;
+    address public admin;
 
     /// @notice The next transaction ID.
     uint64 public nextTxId; // slot 2
@@ -43,9 +43,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
     );
 
-    event SecurityCouncilUpdated(
-        address indexed oldSecurityCouncil, address indexed newSecurityCouncil
-    );
+    /// @notice Emitted when the admin has been changed.
+    /// @param oldAdmin The old admin address.
+    /// @param newAdmin The new admin address.
+    event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
 
     error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
@@ -59,12 +60,12 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// `onMessageInvocation`.
     /// @param _l1ChainId The L1 chain's ID.
     /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _securityCouncil The security council address.
+    /// @param _admin The security council address.
     function init(
         address _realOwner,
         address _addressManager,
         uint64 _l1ChainId,
-        address _securityCouncil
+        address _admin
     )
         external
         initializer
@@ -78,7 +79,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
         l1ChainId = _l1ChainId;
         realOwner = _realOwner;
-        securityCouncil = _securityCouncil;
+        admin = _admin;
     }
 
     /// @inheritdoc IMessageInvocable
@@ -99,18 +100,18 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @dev Invokes a call by the security council
     /// @param _data The data for this contract to interpret.
     function invokeCall(bytes calldata _data) external payable {
-        if (msg.sender != securityCouncil) revert DO_PERMISSION_DENIED();
+        if (msg.sender != admin) revert DO_PERMISSION_DENIED();
         _invokeCall(_data, true);
     }
 
     /// @dev Updates the security council address.
-    /// @param _securityCouncil The new security council address.
-    function setSecurityCouncil(address _securityCouncil) external {
-        if (msg.sender != owner() && msg.sender != securityCouncil) revert DO_PERMISSION_DENIED();
-        if (securityCouncil == _securityCouncil) revert DO_INVALID_PARAM();
+    /// @param _admin The new security council address.
+    function setAdmin(address _admin) external {
+        if (msg.sender != owner() && msg.sender != admin) revert DO_PERMISSION_DENIED();
+        if (admin == _admin) revert DO_INVALID_PARAM();
 
-        emit SecurityCouncilUpdated(securityCouncil, _securityCouncil);
-        securityCouncil = _securityCouncil;
+        emit AdminUpdated(admin, _admin);
+        admin = _admin;
     }
 
     /// @notice Dryruns a message invocation but always revert.

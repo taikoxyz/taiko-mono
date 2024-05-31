@@ -214,14 +214,14 @@ contract TestDelegateOwner is TaikoTest {
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
     }
 
-    function test_delegate_owner_update_security_council() public {
-        assertEq(delegateOwner.securityCouncil(), address(0));
+    function test_delegate_owner_update_admin() public {
+        assertEq(delegateOwner.admin(), address(0));
         bytes memory data = abi.encode(
             DelegateOwner.Call(
                 uint64(0),
                 address(delegateOwner),
                 false, // CALL
-                abi.encodeCall(DelegateOwner.setSecurityCouncil, (David))
+                abi.encodeCall(DelegateOwner.setAdmin, (David))
             )
         );
 
@@ -243,7 +243,7 @@ contract TestDelegateOwner is TaikoTest {
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(delegateOwner.nextTxId(), 1);
-        assertEq(delegateOwner.securityCouncil(), David);
+        assertEq(delegateOwner.admin(), David);
 
         // David is now the security council
         data = abi.encode(
@@ -251,7 +251,7 @@ contract TestDelegateOwner is TaikoTest {
                 uint64(1),
                 address(delegateOwner),
                 false, // CALL
-                abi.encodeCall(DelegateOwner.setSecurityCouncil, (Emma))
+                abi.encodeCall(DelegateOwner.setAdmin, (Emma))
             )
         );
 
@@ -262,6 +262,6 @@ contract TestDelegateOwner is TaikoTest {
         vm.prank(David);
         delegateOwner.invokeCall(data);
         assertEq(delegateOwner.nextTxId(), 2);
-        assertEq(delegateOwner.securityCouncil(), Emma);
+        assertEq(delegateOwner.admin(), Emma);
     }
 }
