@@ -263,5 +263,10 @@ contract TestDelegateOwner is TaikoTest {
         delegateOwner.invokeCall(data);
         assertEq(delegateOwner.nextTxId(), 2);
         assertEq(delegateOwner.admin(), Emma);
+
+        vm.prank(Emma);
+        delegateOwner.setAdmin(Bob);
+        assertEq(delegateOwner.nextTxId(), 2);
+        assertEq(delegateOwner.admin(), Bob);
     }
 }
