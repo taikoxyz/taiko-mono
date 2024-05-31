@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { Collection } from '$components/Collection';
+  import { Spinner } from '$components/core/Spinner';
   import { Page } from '$components/Page';
   import Token from '$lib/token';
   import { shortenAddress } from '$lib/util/shortenAddress';
@@ -12,7 +13,7 @@
 
   $: tokenIds = [] as number[];
   $: isLoading = false;
-  $: title = 'The Collection';
+  $: title = '';
 
   async function load() {
     isLoading = true;
@@ -37,7 +38,11 @@
 </svelte:head>
 
 <Page class="z-0">
-  <Section animated>
-    <Collection bind:isLoading {tokenIds} {title} />
+  <Section animated class="justify-center items-center">
+    {#if isLoading}
+      <Spinner size="lg" />
+    {:else}
+      <Collection bind:isLoading {tokenIds} {title} />
+    {/if}
   </Section>
 </Page>
