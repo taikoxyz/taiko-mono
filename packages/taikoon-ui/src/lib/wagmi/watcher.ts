@@ -28,7 +28,6 @@ export async function startWatching() {
         const isConnected = data.address !== undefined;
 
         if (!isVercel && !isLocalHost && !isSupportedChainId && isConnected) {
-          console.warn('Unsupported chain', chain);
           switchChainModal.set(true);
           return;
         } else if (chain) {

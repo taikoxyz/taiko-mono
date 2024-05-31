@@ -10,7 +10,6 @@
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
   import type { IMint } from '$stores/mint';
-  import { connectedSourceChain } from '$stores/network';
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
   import { Spinner } from '$ui/Spinner';
@@ -79,7 +78,8 @@
 
   $: $account, postLoad();
 
-  function postLoad() {
+  async function postLoad() {
+    await load();
     const { config } = getConfig();
     const account = getAccount(config);
     if (!account || !account.address) {
@@ -92,10 +92,6 @@
     }
     mintState.set({ ...$mintState, totalMintCount, address: account.address.toLowerCase() as IAddress });
   }
-
-  connectedSourceChain.subscribe(async () => {
-    await load();
-  });
 
   async function mint() {
     mintState.set({
