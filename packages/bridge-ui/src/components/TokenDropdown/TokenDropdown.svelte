@@ -232,6 +232,8 @@
             <i role="img" aria-label={value.name}>
               <svelte:component this={symbolToIconMap[value.symbol]} size={20} />
             </i>
+          {:else if value.logoURI}
+            <img src={value.logoURI} alt={value.name} class="w-[20px] h-[20px] rounded-[50%]" />
           {:else}
             <i role="img" aria-label={value.symbol}>
               <svelte:component this={Erc20} size={20} />

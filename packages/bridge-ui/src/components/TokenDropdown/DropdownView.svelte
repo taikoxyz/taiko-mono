@@ -137,6 +137,8 @@
               <i role="img" aria-label={t.name}>
                 <svelte:component this={symbolToIconMap[t.symbol]} size={28} />
               </i>
+            {:else if t.logoURI}
+              <img src={t.logoURI} alt={t.name} class="w-[28px] h-[28px] rounded-[50%]" />
             {:else}
               <i role="img" aria-label={t.symbol}>
                 <svelte:component this={Erc20} size={28} />
