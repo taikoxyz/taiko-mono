@@ -77,10 +77,16 @@
 
   $: if (enteredTokenName !== '') {
     filteredTokens = tokens.filter((token) => {
-      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+      return (
+        token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
+        token.symbol.toLowerCase().includes(enteredTokenName.toLowerCase())
+      );
     });
     filteredCustomTokens = customTokens.filter((token) => {
-      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+      return (
+        token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
+        token.symbol.includes(enteredTokenName.toLowerCase())
+      );
     });
   } else {
     filteredTokens = tokens;
