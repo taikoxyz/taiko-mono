@@ -46,8 +46,8 @@ export const apiService = {
 };
 
 export const ipfsConfig = {
-  gatewayTimeout: 200,
-  overallTimeout: 5000,
+  gatewayTimeout: 1_000,
+  overallTimeout: 5_000,
 };
 
 export const moralisApiConfig = {
