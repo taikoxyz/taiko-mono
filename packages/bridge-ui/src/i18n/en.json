@@ -381,7 +381,8 @@
     },
     "custom": {
       "label": "Custom",
-      "text": "Customize your processing fee"
+      "text": "Customize your processing fee",
+      "warning": "Setting the processing fee to 'None' requires manual claiming and prevents others from claiming. Fees set below the recommended level may not attract any relayers. Please adjust values only if you understand the consequences."
     },
     "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { formatEther, formatGwei } from 'viem';
+  import { formatEther } from 'viem';
 
+  import Alert from '$components/Alert/Alert.svelte';
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
   import { processingFee, processingFeeMethod } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
@@ -89,12 +90,13 @@
   function inputProcessFee(event: Event) {
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const { value } = event.target as HTMLInputElement;
-    if (parseToWei(value) <= 0) {
-      // If the user tries to input 0 or less, we set it to 1 gwei
-      inputBox?.setValue(formatGwei(1n));
+    const { value: initialValue } = event.target as HTMLInputElement;
+    if (parseToWei(initialValue) <= recommendedAmount) {
+      // If the user tries to input 0 or less, we set it to the current recommended amount
+      inputBox?.setValue(formatEther(recommendedAmount));
     }
-    tempprocessingFee = parseToWei(value);
+    const { value: finalValue } = event.target as HTMLInputElement;
+    tempprocessingFee = parseToWei(finalValue);
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
@@ -289,6 +291,16 @@
               <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
             {/if}
           </div>
+          {#if tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED}
+            <div class="my-5">
+              <Alert type="warning">
+                <span class="body-small">
+                  {$t('processing_fee.custom.warning')}
+                </span>
+              </Alert>
+            </div>
+          {/if}
+
           <div class="grid grid-cols-2 gap-[20px]">
             <ActionButton on:click={cancelModal} priority="secondary">
               <span class="body-bold">{$t('common.cancel')}</span>
