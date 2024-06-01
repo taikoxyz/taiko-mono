@@ -41,7 +41,7 @@
 #### bridge
 
 - proxy: `0x1670000000000000000000000000000000000001`
-- impl: `0x98C5De7670aA7d47C6c0551fAD27Bfe464A6751a.`
+- impl: `0x0893c8821Fa358D5f3630695Ce062204814359A1.`
 - owner: `0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be`
 - todo:
   - change owner to DelegateOwner
@@ -50,6 +50,7 @@
   - redeployed on May 22, 2024 @commit `b955e0e`
   - upgrade to `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` @tx`0x094dd9452d79cbd74711f2b8065566e4431a05d0727c56d2b38195e40fd62805`
   - upgraded from `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` to `0x98C5De7670aA7d47C6c0551fAD27Bfe464A6751a..` @commit`` in @tx`0x0b5d6acc9c5b8ef193920246081ec5ce7268111acfc1dce1f058bea06f3953c7`
+  - upgrade impl to `0x0893c8821Fa358D5f3630695Ce062204814359A1` @tx`0x4605c4ce594e996bdbdb532a9aefe4fab1ea36f7e2ef63eef56a7e8033810df3`
 
 #### erc20_vault
 
