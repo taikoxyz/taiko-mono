@@ -98,7 +98,7 @@
   }
 
   $: menuClasses = classNames(
-    'menu absolute right-0 z-[100] top-[-340px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10  box-shadow-small',
+    'menu absolute right-0 w-[244px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10  box-shadow-small',
     menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
   );
 

@@ -247,34 +247,35 @@
       <Icon type="chevron-down" size={10} />
     {/if}
   </button>
+  {#if isDesktopOrLarger}
+    <DropdownView
+      {id}
+      bind:menuOpen
+      {onlyMintable}
+      {tokens}
+      bind:customTokens
+      {value}
+      {selectToken}
+      {closeMenu}
+      {activeTab}
+      on:tokenRemoved={handleTokenRemoved}
+      on:openCustomTokenModal={handleCustomTokenModal} />
+  {:else}
+    <DialogView
+      {id}
+      bind:menuOpen
+      {onlyMintable}
+      {tokens}
+      bind:customTokens
+      {value}
+      {selectToken}
+      {closeMenu}
+      {activeTab}
+      on:tokenRemoved={handleTokenRemoved}
+      on:openCustomTokenModal={handleCustomTokenModal} />
+  {/if}
 </div>
-{#if isDesktopOrLarger}
-  <DropdownView
-    {id}
-    bind:menuOpen
-    {onlyMintable}
-    {tokens}
-    bind:customTokens
-    {value}
-    {selectToken}
-    {closeMenu}
-    {activeTab}
-    on:tokenRemoved={handleTokenRemoved}
-    on:openCustomTokenModal={handleCustomTokenModal} />
-{:else}
-  <DialogView
-    {id}
-    bind:menuOpen
-    {onlyMintable}
-    {tokens}
-    bind:customTokens
-    {value}
-    {selectToken}
-    {closeMenu}
-    {activeTab}
-    on:tokenRemoved={handleTokenRemoved}
-    on:openCustomTokenModal={handleCustomTokenModal} />
-{/if}
+
 <div data-modal-uuid={id} />
 
 <OnAccount change={onAccountChange} />
