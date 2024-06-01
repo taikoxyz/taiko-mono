@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.1...docs-site-v1.8.0) (2024-06-01)
+
+
+### Features
+
+* **docs-site:** phrasing ([#17461](https://github.com/taikoxyz/taiko-mono/issues/17461)) ([1279732](https://github.com/taikoxyz/taiko-mono/commit/1279732048f0320c2ee65910c9038108bb5e22c4))
+
 ## [1.7.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.0...docs-site-v1.7.1) (2024-05-31)
 
 
