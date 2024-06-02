@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	errL1Reorged         = errors.New("L1 reorged")
+	errL1Reorged         = errors.New("l1 reorged")
 	proofExpirationDelay = 6 * 12 * time.Second // 6 ethereum blocks
 )
 
@@ -212,7 +212,7 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 		)
 
 		return fmt.Errorf(
-			"L1 block hash mismatch due to L1 reorg: %s != %s",
+			"l1 block hash mismatch due to L1 reorg: %s != %s",
 			lastL1OriginHeader.Hash(),
 			e.Meta.L1Hash,
 		)
