@@ -316,9 +316,9 @@
   - upgraded from `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - disable a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
 
-### labconster.taiko.eth
+### labcontester.taiko.eth
 
-- ens: `labconster.taiko.eth`
+- ens: `labcontester.taiko.eth`
 - proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
 - impl: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
 - enabled provers:
