@@ -14,43 +14,15 @@ contract ConfigL1QuotaManager is DeployCapability {
 
         console2.log("0x91f67118DD47d502B1f0C354D0611997B022f29E");
 
-        uint104 amount;
-        bytes memory call;
-        // ETH
-        amount = value * 1 ether / priceETH;
-        call = abi.encodeCall(QuotaManager.updateQuota, (address(0), amount));
-        console.log("ETH", amount);
-        console.logBytes(call);
-
-        // WETH
-        amount = value * 1 ether / priceETH;
-        call = abi.encodeCall(
-            QuotaManager.updateQuota, (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, amount)
-        );
-        console.log("WETH", amount);
-        console.logBytes(call);
+        // WETH and WETH
+        console.log("WETH", address(0), value * 1 ether / priceETH);
+        console.log("WETH", 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, value * 1 ether / priceETH);
 
         // TKO
-        amount = value * 1e18 / priceTKO;
-        call = abi.encodeCall(
-            QuotaManager.updateQuota, (0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, amount)
-        );
-        console.log("TKO", amount);
-        console.logBytes(call);
+        console.log("TKO", 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, value * 1e18 / priceTKO);
 
-        // USDT
-        amount = value * 1e6;
-        call = abi.encodeCall(
-            QuotaManager.updateQuota, (0xdAC17F958D2ee523a2206206994597C13D831ec7, amount)
-        );
-        console.log("USDT", amount);
-        console.logBytes(call);
-
-        // USDC
-        call = abi.encodeCall(
-            QuotaManager.updateQuota, (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, amount)
-        );
-        console.log("USDC", amount);
-        console.logBytes(call);
+        // USDT and USDC
+        console.log("USDT", 0xdAC17F958D2ee523a2206206994597C13D831ec7, value * 1e6);
+        console.log("USDC", 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, value * 1e6);
     }
 }
