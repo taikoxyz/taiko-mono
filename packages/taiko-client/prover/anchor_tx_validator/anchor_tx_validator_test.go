@@ -63,7 +63,7 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 
 	// invalid method selector
 	tx = types.MustSignNewTx(goldenTouchPriKey, signer, dynamicFeeTxTx)
-	s.ErrorContains(s.v.ValidateAnchorTx(tx), "invalid TaikoL2.anchor transaction selector")
+	s.ErrorContains(s.v.ValidateAnchorTx(tx), "failed to get TaikoL2.anchor transaction method")
 }
 
 func TestAnchorTxValidatorTestSuite(t *testing.T) {
