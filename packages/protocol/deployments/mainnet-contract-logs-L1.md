@@ -81,15 +81,10 @@
 - proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - impl: `0x49c5e5F131314Bb24b17E249960F8B12F925ef22`
 - owner: `admin.taiko.eth`
-- quota:
-  - ETH: `64516129032258064516` (`200_000 * 1 ether / 3100`)
-  - WETH(`0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2`): `64516129032258064516` (`200_000 * 1 ether / 3100`)
-  - TKO(`0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`): `40000000000000000000000` (`200_000 * 1e18 / 5`)
-  - USDT(`0xdAC17F958D2ee523a2206206994597C13D831ec7`): `200000000000` (`200_000 * 1e6`)
-  - USDC(`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`): `200000000000` (`200_000 * 1e6`)
 - logs:
   - deployed on May 13, 2024 at commit `b90b932`
   - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
+  - change quota for ETh/WETH/TAIKO/USDT/USDC to 400K per 15 minutes assuming 1ETH = 3775 USD @tx``.
 
 #### erc20_vault
 
