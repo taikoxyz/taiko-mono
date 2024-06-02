@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../test/DeployCapability.sol";
 import "../contracts/bridge/QuotaManager.sol";
 
-// forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/ConfigL1QuotaManager.s.sol
+// forge script  script/ConfigL1QuotaManager.s.sol
 contract ConfigL1QuotaManager is DeployCapability {
     function run() external view {
         // Config L2-to-L1 quota
