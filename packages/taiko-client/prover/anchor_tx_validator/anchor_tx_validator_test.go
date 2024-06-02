@@ -1,7 +1,6 @@
 package anchortxvalidator
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -65,19 +64,6 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 	// invalid method selector
 	tx = types.MustSignNewTx(goldenTouchPriKey, signer, dynamicFeeTxTx)
 	s.ErrorContains(s.v.ValidateAnchorTx(tx), "invalid TaikoL2.anchor transaction selector")
-}
-
-func (s *AnchorTxValidatorTestSuite) TestGetAndValidateAnchorTxReceipt() {
-	tx := types.NewTransaction(
-		100,
-		common.BytesToAddress(testutils.RandomBytes(32)),
-		common.Big1,
-		100000,
-		common.Big1,
-		[]byte{},
-	)
-	_, err := s.v.GetAndValidateAnchorTxReceipt(context.Background(), tx)
-	s.NotNil(err)
 }
 
 func TestAnchorTxValidatorTestSuite(t *testing.T) {
