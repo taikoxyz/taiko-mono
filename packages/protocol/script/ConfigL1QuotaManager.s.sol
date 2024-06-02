@@ -15,7 +15,7 @@ contract ConfigL1QuotaManager is DeployCapability {
         console2.log("0x91f67118DD47d502B1f0C354D0611997B022f29E");
 
         // WETH and WETH
-        console.log("WETH", address(0), value * 1 ether / priceETH);
+        console.log("ETH", address(0), value * 1 ether / priceETH);
         console.log("WETH", 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, value * 1 ether / priceETH);
 
         // TKO
