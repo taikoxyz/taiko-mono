@@ -8,9 +8,11 @@ import "../contracts/bridge/QuotaManager.sol";
 contract ConfigL1QuotaManager is DeployCapability {
     function run() external view {
         // Config L2-to-L1 quota
-        uint104 value = 500_000; // USD
+        uint104 value = 400_000; // USD
         uint104 priceETH = 3775; // USD
         uint104 priceTKO = 5; // USD
+
+        console2.log("0x91f67118DD47d502B1f0C354D0611997B022f29E");
 
         bytes memory call;
         // ETH
