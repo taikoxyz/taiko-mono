@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	errL1Reorged         = errors.New("l1 reorged")
+	errL1Reorged         = errors.New("L1 reorged")
 	proofExpirationDelay = 6 * 12 * time.Second // 6 ethereum blocks
 )
 
