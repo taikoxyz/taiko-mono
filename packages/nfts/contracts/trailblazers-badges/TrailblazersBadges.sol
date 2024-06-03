@@ -6,15 +6,12 @@ import { ERC1155Upgradeable } from
 import { MerkleWhitelist } from "../common/MerkleWhitelist.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
-
 contract TrailblazersBadges is ERC1155Upgradeable, MerkleWhitelist {
     // badgeId => ipfsBadgeURI
 
-
     uint256[48] private __gap;
 
-
-function initialize(
+    function initialize(
         address _owner,
         string memory _rootURI,
         bytes32 _merkleRoot,
