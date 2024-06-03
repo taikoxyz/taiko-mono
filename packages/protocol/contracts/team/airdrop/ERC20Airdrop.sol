@@ -60,6 +60,6 @@ contract ERC20Airdrop is MerkleClaimable {
             _token = token;
         }
         // Transfer the tokens to owner
-        token.transfer(owner(), token.balanceOf(address(this)));
+        _token.transfer(owner(), _token.balanceOf(address(this)));
     }
 }
