@@ -6,7 +6,12 @@ import "../contracts/L2/DelegateOwner.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../test/common/TestMulticall3.sol";
 
-//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployL2DelegateOwner.s.sol
+// forge script \
+// --rpc-url https://mainnet.infura.io/v3/... \
+// --private-key ... \
+// --legacy \
+// --broadcast \
+// script/DeployL2DelegateOwner.s.sol
 contract L2DelegateOwnerBatching is DeployCapability {
     address public l2Admin = 0x8F13E3a9dFf52e282884aA70eAe93F57DD601298; // same
     address public l2DelegateOwner = 0x08c82ab90f86BF8d98440b96754a67411D656130;
