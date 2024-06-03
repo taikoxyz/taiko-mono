@@ -16,8 +16,8 @@ interface USDCProxy {
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisConfig.s.sol
 contract L2PostGenesisConfig is Script {
     // All following addresses are L2 addresses
-    address public bridgedTKO = 0xA9d23408b9bA935c230493c40C73824Df71A0975; // TODO
-    address public bridgedUSDC = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b; // TODO
+    address public bridgedTKO = 0xA9d23408b9bA935c230493c40C73824Df71A0975;
+    address public bridgedUSDC = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;
 
     address public erc20Vault = 0x1670000000000000000000000000000000000002;
     address public bridge = 0x1670000000000000000000000000000000000001;
