@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from 'svelte';
+  import { getContext, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
@@ -138,6 +138,27 @@
     mintState.set({ ...$mintState, isMinting: false });
     await load();
   }
+
+  import { web3modal } from '$lib/connect';
+  import { noop } from '$lib/util/noop';
+
+  let web3modalOpen = false;
+  let unsubscribeWeb3Modal = noop;
+
+  function connectWallet() {
+    if (web3modalOpen) return;
+    web3modal.open();
+  }
+
+  function onWeb3Modal(state: { open: boolean }) {
+    web3modalOpen = state.open;
+  }
+
+  onMount(async () => {
+    unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
+  });
+
+  onDestroy(unsubscribeWeb3Modal);
 </script>
 
 <div class={wrapperClasses}>
@@ -178,6 +199,24 @@
 
         <Button href={`/collection/${$account.address.toLowerCase()}`} class={buttonClasses} wide block type="primary">
           {$t('buttons.yourTaikoons')}</Button>
+      {:else if !$account.isConnected}
+        <Divider />
+
+        <div class={classNames('text-xl', 'text-center')}>
+          {$t('content.mint.connectWallet')}
+        </div>
+
+        <Button class={buttonClasses} on:click={connectWallet} wide block type="primary">
+          {$t('buttons.connectWallet')}</Button>
+      {:else if !canMint || $mintState.totalMintCount === 0}
+        <Divider />
+
+        <div class={classNames('text-xl', 'text-center')}>
+          {$t('content.mint.notEligible')}
+        </div>
+
+        <Button disabled class={buttonClasses} wide block type="primary">
+          {$t('buttons.mint')}</Button>
       {:else}
         <div class={counterClasses}>
           <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>

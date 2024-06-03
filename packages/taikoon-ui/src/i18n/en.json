@@ -22,7 +22,8 @@
     "share": "Share",
     "yourTaikoons": "Your Taikoons",
     "cancel": "Cancel",
-    "agree": "Agree"
+    "agree": "Agree",
+    "connectWallet": "Connect Wallet"
   },
   "content": {
     "mint": {
@@ -30,6 +31,8 @@
       "alreadyMinted": "You've already minted your NFT.",
       "text": "Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.",
       "eligibleLabel": "You are eligible to mint:",
+      "notEligible": "You are not eligible to mint.",
+      "connectWallet": "Connect your wallet to mint your Taikoon.",
       "toast": {
         "clipboardCopy": "Link copied to clipboard"
       },
