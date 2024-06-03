@@ -10,7 +10,7 @@ import type { IAddress, IChainId } from '../../types';
 export async function ownerOf(tokenId: number): Promise<IAddress> {
   const { selectedNetworkId } = web3modal.getState();
   if (!selectedNetworkId) return zeroAddress;
-
+  console.warn('calling ownerOf!');
   const chainId = selectedNetworkId as IChainId;
 
   const result = await readContract(config, {

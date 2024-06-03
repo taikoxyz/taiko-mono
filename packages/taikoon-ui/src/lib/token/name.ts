@@ -9,7 +9,7 @@ import type { IChainId } from '../../types';
 export async function name(): Promise<string> {
   const { selectedNetworkId } = web3modal.getState();
   if (!selectedNetworkId) return '';
-
+  console.warn('calling name');
   const chainId = selectedNetworkId as IChainId;
 
   const result = await readContract(config, {

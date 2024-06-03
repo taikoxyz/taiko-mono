@@ -5,7 +5,7 @@ import getConfig from '../wagmi/getConfig';
 
 export async function maxSupply(): Promise<number> {
   const { config, chainId } = getConfig();
-
+  console.warn('calling maxSupply!');
   const result = await readContract(config, {
     abi: taikoonTokenAbi,
     address: taikoonTokenAddress[chainId],

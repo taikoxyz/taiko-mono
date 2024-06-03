@@ -11,7 +11,7 @@ export async function balanceOf(address: IAddress): Promise<number> {
   if (!selectedNetworkId) return 0;
 
   const chainId = selectedNetworkId as IChainId;
-
+  console.warn('calling balanceOf!');
   const result = await readContract(config, {
     abi: taikoonTokenAbi,
     address: taikoonTokenAddress[chainId],

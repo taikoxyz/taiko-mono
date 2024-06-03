@@ -6,7 +6,7 @@ import { whitelist } from '../whitelist';
 
 export async function totalWhitelistMintCount(): Promise<number> {
   const { config, chainId } = getConfig();
-
+  console.warn('calling totalWhitelistMintCount!');
   try {
     const account = getAccount(config);
     if (!account.address) return -1;

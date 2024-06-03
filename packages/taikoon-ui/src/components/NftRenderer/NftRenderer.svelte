@@ -31,6 +31,7 @@
       metadata = JSON.parse(cached);
     }*/
     const metadata = await IPFS.getMetadata(id);
+    if (!metadata || !metadata.image) return '';
     tokenURI = metadata.image;
   }
 

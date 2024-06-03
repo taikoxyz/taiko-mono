@@ -15,6 +15,7 @@ export async function estimateMintGasCost(): Promise<number> {
   const chainId = selectedNetworkId as IChainId;
 
   const freeMintLeft = await totalWhitelistMintCount();
+  console.warn('calling estimateMintGasCost!');
 
   if (await canMint()) {
     const proof = getProof();

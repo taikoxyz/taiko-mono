@@ -1,8 +1,8 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { zeroAddress } from 'viem';
 
   import { Icons } from '$components/core/Icons';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
   import Token from '$lib/token';
   import User from '$lib/user';

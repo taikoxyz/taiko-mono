@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { getAccount } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { formatEther } from 'viem';
   import { zeroAddress } from 'viem';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { Spinner } from '$components/core/Spinner';
   import { getChainImage } from '$lib/chain';
   import { web3modal } from '$lib/connect';

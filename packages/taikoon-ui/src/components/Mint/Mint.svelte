@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { getContext } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { errorToast } from '$components/core/Toast';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
@@ -192,7 +192,7 @@
 
         <Button href={`/collection/${$account.address.toLowerCase()}`} class={buttonClasses} wide block type="primary">
           {$t('buttons.yourTaikoons')}</Button>
-      {:else if !$account.isConnected}
+      {:else if $account && !$account.isConnected}
         <Divider />
 
         <div class={classNames('text-xl', 'text-center')}>

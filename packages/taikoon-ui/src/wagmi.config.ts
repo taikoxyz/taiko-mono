@@ -16,7 +16,7 @@ const baseConfig = {
   projectId,
   metadata: {},
   batch: {
-    // multicall: false,
+    multicall: true,
   },
   transports: {
     [hardhat.id]: http('http://localhost:8545'),

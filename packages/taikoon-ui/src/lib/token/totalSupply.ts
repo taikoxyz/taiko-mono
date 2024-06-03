@@ -5,7 +5,7 @@ import getConfig from '../../lib/wagmi/getConfig';
 
 export async function totalSupply(): Promise<number> {
   const { config, chainId } = getConfig();
-
+  console.warn('calling totalSupply!');
   const result = await readContract(config, {
     abi: taikoonTokenAbi,
     address: taikoonTokenAddress[chainId],

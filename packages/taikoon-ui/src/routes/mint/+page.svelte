@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { ResponsiveController } from '@taiko/ui-lib';
+
   import { Mint } from '$components/Mint';
   import { Page } from '$components/Page';
   import { FaqSection, FooterSection } from '$components/sections';
