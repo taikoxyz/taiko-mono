@@ -96,12 +96,12 @@
     --toastContainerTop: 77px;
     --toastContainerLeft: calc(50vw - 160px);
     --toastBoxShadow: none;
-    --toastWidth: 500px;
+    --toastWidth: 339px;
 
     /*
-        We need to makes the surroundings disappear in order
-        to fully customize the toast with our own component
-      */
+      We need to makes the surroundings disappear in order
+      to fully customize the toast with our own component
+    */
     --toastBackground: transparent;
     --toastPadding: 0;
     --toastMsgPadding: 0;

@@ -10,7 +10,6 @@ import { maxSupply } from './maxSupply';
 import { mint } from './mint';
 import { name } from './name';
 import { ownerOf } from './ownerOf';
-import { symbol } from './symbol';
 import { tokenOfOwner } from './tokenOfOwner';
 import { tokenURI } from './tokenURI';
 import { totalSupply } from './totalSupply';
@@ -24,7 +23,6 @@ function address(): IAddress {
 }
 
 const Token = {
-  symbol,
   name,
   totalSupply,
   tokenURI,
