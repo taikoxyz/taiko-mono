@@ -261,16 +261,24 @@ export abstract class Bridge {
       estimatedGas = 1_000_000n;
     }
 
-    const { request } = await simulateContract(config, {
+    // const { request } = await simulateContract(config, {
+    //   address: bridgeContract.address,
+    //   abi: bridgeContract.abi,
+    //   functionName: 'processMessage',
+    //   args: [message, proof],
+    //   gas: estimatedGas,
+    // });
+    // log('Simulate contract for processMessage', request);
+
+    // return await writeContract(config, request);
+
+    return await writeContract(config, {
       address: bridgeContract.address,
       abi: bridgeContract.abi,
       functionName: 'processMessage',
       args: [message, proof],
       gas: estimatedGas,
     });
-    log('Simulate contract for processMessage', request);
-
-    return await writeContract(config, request);
   }
 
   private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
