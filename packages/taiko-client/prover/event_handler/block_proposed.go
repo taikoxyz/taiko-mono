@@ -212,7 +212,7 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 		)
 
 		return fmt.Errorf(
-			"l1 block hash mismatch due to L1 reorg: %s != %s",
+			"L1 block hash mismatch due to L1 reorg: %s != %s",
 			lastL1OriginHeader.Hash(),
 			e.Meta.L1Hash,
 		)
