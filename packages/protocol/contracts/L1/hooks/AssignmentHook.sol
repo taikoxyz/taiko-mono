@@ -44,14 +44,6 @@ contract AssignmentHook is EssentialContract, IHook {
 
     uint256[50] private __gap;
 
-    /// @notice Emitted when a block is assigned to a prover.
-    /// @param assignedProver The address of the assigned prover.
-    /// @param meta The metadata of the assigned block.
-    /// @param assignment The prover assignment.
-    event BlockAssigned(
-        address indexed assignedProver, TaikoData.BlockMetadata meta, ProverAssignment assignment
-    );
-
     error HOOK_ASSIGNMENT_EXPIRED();
     error HOOK_ASSIGNMENT_INVALID_SIG();
     error HOOK_TIER_NOT_FOUND();
@@ -139,8 +131,6 @@ contract AssignmentHook is EssentialContract, IHook {
         if (address(this).balance != 0) {
             msg.sender.sendEtherAndVerify(address(this).balance);
         }
-
-        emit BlockAssigned(_blk.assignedProver, _meta, assignment);
     }
 
     /// @notice Hashes the prover assignment.
