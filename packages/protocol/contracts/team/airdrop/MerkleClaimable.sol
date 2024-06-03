@@ -26,6 +26,9 @@ abstract contract MerkleClaimable is EssentialContract {
     /// @param hash Hash of the claim
     event Claimed(bytes32 hash);
 
+    /// @notice Event emitte3d when the config changed.
+    event ConfigChanged(uint64 claimStart, uint64 claimEnd, bytes32_merkleRoot);
+
     error CLAIM_NOT_ONGOING();
     error CLAIMED_ALREADY();
     error INVALID_PARAMS();
@@ -94,5 +97,7 @@ abstract contract MerkleClaimable is EssentialContract {
         claimStart = _claimStart;
         claimEnd = _claimEnd;
         merkleRoot = _merkleRoot;
+
+        ConfigChanged(_claimStart, _claimEnd, _merkleRoot);
     }
 }
