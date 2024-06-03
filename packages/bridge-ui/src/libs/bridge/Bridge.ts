@@ -1,4 +1,4 @@
-import { readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
 import { getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
@@ -231,18 +231,35 @@ export abstract class Bridge {
     if (!message) throw new ProcessMessageError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
 
-    const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
-    log('Estimated gas for processMessage', estimatedGas);
+    const destClient = getPublicClient(config, { chainId: Number(message.destChainId) });
+    if (!destClient) throw new Error('Could not get public client');
 
-    // const wallet = await getConnectedWallet();
+    let estimatedGas;
+    try {
+      const estimation1 = bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
+      const estimation2 = destClient.estimateContractGas({
+        address: bridgeContract.address,
+        abi: bridgeAbi,
+        functionName: 'processMessage',
+        args: [message, proof],
+        account: client.account,
+      });
 
-    // return await wallet.writeContract({
-    //   address: bridgeContract.address,
-    //   abi: bridgeContract.abi,
-    //   functionName: 'processMessage',
-    //   args: [message, proof],
-    //   gas: 1000000n,
-    // });
+      const results = await Promise.allSettled([estimation1, estimation2]);
+      const gasEstimates = results
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => (result as PromiseFulfilledResult<bigint>).value);
+
+      if (gasEstimates.length > 0) {
+        log('Estimated gas for processMessage', ...gasEstimates);
+        estimatedGas = gasEstimates.reduce((min, gas) => (gas < min ? gas : min), gasEstimates[0]);
+      } else {
+        throw new Error('All gas estimations failed');
+      }
+    } catch (error) {
+      console.error('Failed to estimate gas, using fallback', error);
+      estimatedGas = 1_000_000n;
+    }
 
     const { request } = await simulateContract(config, {
       address: bridgeContract.address,
