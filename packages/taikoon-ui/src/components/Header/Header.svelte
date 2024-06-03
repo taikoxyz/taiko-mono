@@ -37,15 +37,22 @@
 
   $: $account, checkYourCollection();
   $: displayYourTaikoonsButton = false;
+  $: isChecking = false;
   async function checkYourCollection() {
+    if (isChecking) return;
+    isChecking = true;
     if (!$account || !$account.address || $account.address === zeroAddress) {
       displayYourTaikoonsButton = false;
+      isChecking = false;
       return;
     }
+
+    if (displayYourTaikoonsButton) return;
 
     address = $account.address;
 
     if (!address || address === zeroAddress) {
+      isChecking = false;
       return;
     }
 
@@ -53,6 +60,7 @@
     const totalMintCount = await User.totalWhitelistMintCount();
 
     displayYourTaikoonsButton = !canMint && totalMintCount > 0;
+    isChecking = false;
   }
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';

@@ -6,7 +6,7 @@
   import { DynamicImage } from '$components/DynamicImage';
   import IPFS from '$lib/ipfs';
   import { classNames } from '$lib/util/classNames';
-  import { nftCache } from '$stores/nftCache';
+  //import { nftCache } from '$stores/nftCache';
   import { Theme, theme } from '$stores/theme';
   import { Spinner } from '$ui/Spinner';
 
@@ -31,7 +31,6 @@
       metadata = JSON.parse(cached);
     }*/
     const metadata = await IPFS.getMetadata(id);
-    console.log(metadata)
     tokenURI = metadata.image;
   }
 

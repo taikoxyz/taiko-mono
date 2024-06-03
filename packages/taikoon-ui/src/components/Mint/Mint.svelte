@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext, onDestroy, onMount } from 'svelte';
+  import { getContext } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
@@ -38,9 +38,9 @@
 
   const buttonClasses = classNames('mt-6');
 
-  $: totalSupply = 0;
-  $: mintMax = 0;
-  $: progress = Math.floor((totalSupply / 888) * 100);
+  $: totalSupply = -1;
+  $: mintMax = -1;
+  $: progress = 0;
 
   $: canMint = false;
 
@@ -48,12 +48,10 @@
 
   $: isReady = false;
 
-  $: totalMintCount = 0;
+  $: totalMintCount = -1;
 
   $: gasCost = 0;
   $: isCalculating = false;
-
-  $: totalMintCount, calculateGasCost();
 
   async function calculateGasCost() {
     isCalculating = true;
@@ -75,9 +73,11 @@
       return reset();
     }
 
-    totalSupply = await Token.totalSupply();
-    mintMax = await Token.maxSupply();
-    progress = Math.floor((totalSupply / mintMax) * 100);
+    if (totalSupply < 0 && mintMax < 0) {
+      totalSupply = await Token.totalSupply();
+      mintMax = await Token.maxSupply();
+      progress = Math.floor((totalSupply / mintMax) * 100);
+    }
 
     if (!$account || !$account.address || $account.address === zeroAddress) {
       return reset();
@@ -87,7 +87,9 @@
     mintedTokenIds = await Token.tokenOfOwner(address);
     hasAlreadyMinted = mintedTokenIds.length > 0;
 
-    canMint = await Token.canMint();
+    if (!hasAlreadyMinted) {
+      canMint = await Token.canMint();
+    }
     if (!canMint) {
       mintState.set({ ...$mintState, address: address.toLowerCase() as IAddress });
 
@@ -95,7 +97,10 @@
       return;
     }
 
-    totalMintCount = await User.totalWhitelistMintCount();
+    if (totalMintCount < 0) {
+      totalMintCount = await User.totalWhitelistMintCount();
+      await calculateGasCost();
+    }
 
     mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
 
@@ -147,8 +152,6 @@
     if (web3modalOpen) return;
     web3modal.open();
   }
-
-
 </script>
 
 <div class={wrapperClasses}>
