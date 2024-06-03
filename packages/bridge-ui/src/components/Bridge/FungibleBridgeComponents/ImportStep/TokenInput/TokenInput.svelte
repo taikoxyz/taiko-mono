@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Address,zeroAddress } from 'viem';
+  import { type Address, zeroAddress } from 'viem';
   import { formatUnits, parseUnits } from 'viem/utils';
 
   import { FlatAlert } from '$components/Alert';
