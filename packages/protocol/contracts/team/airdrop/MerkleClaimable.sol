@@ -26,11 +26,11 @@ abstract contract MerkleClaimable is EssentialContract {
     /// @param hash Hash of the claim
     event Claimed(bytes32 hash);
 
-    /// @notice Event emitted when config is set
+    /// @notice Event emitted when config is changed
     /// @param claimStart Unix timestamp for claim start
     /// @param claimEnd Unix timestamp for claim end
     /// @param merkleRoot Merkle root of the tree
-    event ConfigSet(uint64 claimStart, uint64 claimEnd, bytes32 merkleRoot);
+    event ConfigChanged(uint64 claimStart, uint64 claimEnd, bytes32 merkleRoot);
 
     error CLAIM_NOT_ONGOING();
     error CLAIMED_ALREADY();
@@ -58,7 +58,6 @@ abstract contract MerkleClaimable is EssentialContract {
         onlyOwner
     {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
-        emit ConfigSet(_claimStart, _claimEnd, _merkleRoot);
     }
 
     function __MerkleClaimable_init(
@@ -101,5 +100,6 @@ abstract contract MerkleClaimable is EssentialContract {
         claimStart = _claimStart;
         claimEnd = _claimEnd;
         merkleRoot = _merkleRoot;
+        emit ConfigChanged(_claimStart, _claimEnd, _merkleRoot);
     }
 }
