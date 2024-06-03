@@ -22,6 +22,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
 
     error MINTS_EXCEEDED();
     error ADDRESS_BLACKLISTED();
+    error ONLY_MINT_SIGNER();
 
     address public mintSigner;
     /// @notice Tracker for minted signatures
@@ -30,6 +31,11 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     IMinimalBlacklist public blacklist;
     /// @notice Gap for upgrade safety
     uint256[47] private __gap;
+
+    modifier onlyMintSigner() {
+        if(msg.sender != mintSigner) revert ONLY_MINT_SIGNER();
+        _;
+    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -68,7 +74,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         returns (bool)
     {
         bytes32 _hash = getHash(_minter, _mintId);
-        address _recovered = ECDSA.recover(_hash, _signature);
+        (address _recovered, ECDSA.RecoverError _error, bytes32 _signatureLength) = ECDSA.tryRecover(_hash, _signature);
         return _recovered == mintSigner;
     }
 
@@ -85,6 +91,10 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         if (minted[_signature]) return false;
         return _isSignatureValid(_signature, _minter, _mintId);
     }
+
+    function caMint(
+
+    )
 
     function __ECDSAWhitelist_init(
         address _owner,
