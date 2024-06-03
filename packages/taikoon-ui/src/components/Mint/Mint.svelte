@@ -140,25 +140,15 @@
   }
 
   import { web3modal } from '$lib/connect';
-  import { noop } from '$lib/util/noop';
 
   let web3modalOpen = false;
-  let unsubscribeWeb3Modal = noop;
 
   function connectWallet() {
     if (web3modalOpen) return;
     web3modal.open();
   }
 
-  function onWeb3Modal(state: { open: boolean }) {
-    web3modalOpen = state.open;
-  }
 
-  onMount(async () => {
-    unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
-  });
-
-  onDestroy(unsubscribeWeb3Modal);
 </script>
 
 <div class={wrapperClasses}>

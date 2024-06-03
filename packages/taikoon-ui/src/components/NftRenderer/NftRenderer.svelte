@@ -17,8 +17,8 @@
   let tokenURI = '';
 
   async function getTokenUri(id: number) {
-    if (tokenId < 0) return '';
-
+    if (tokenId <= 0 || Number.isNaN(id)) return '';
+    /*
     const cached = $nftCache[id];
     let metadata;
     if (!cached) {
@@ -29,7 +29,9 @@
       });
     } else {
       metadata = JSON.parse(cached);
-    }
+    }*/
+    const metadata = await IPFS.getMetadata(id);
+    console.log(metadata)
     tokenURI = metadata.image;
   }
 
