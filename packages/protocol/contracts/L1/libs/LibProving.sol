@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
 import "../../verifiers/IVerifier.sol";
-import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -153,9 +148,7 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        ITierProvider tierProvider =
-            ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false));
-
+        ITierProvider tierProvider = LibUtils.getTierProvider(_resolver, local.blockId);
         local.tier = tierProvider.getTier(_proof.tier);
         local.minTier = tierProvider.getTier(_meta.minTier);
 
@@ -166,7 +159,7 @@ library LibProving {
         });
 
         // Checks if only the assigned prover is permissioned to prove the block.
-        // The guardian prover is granted exclusive permission to prove only the first
+        // The assigned prover is granted exclusive permission to prove only the first
         // transition.
         if (
             local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
