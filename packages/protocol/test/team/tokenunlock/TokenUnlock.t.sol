@@ -270,7 +270,7 @@ contract TestTokenUnlock is TaikoTest {
         vm.expectRevert(TokenUnlock.NOT_PROVER_SET.selector);
         target.depositToProverSet(vm.addr(0x1234), 1 ether);
 
-        ProverSet set1 = ProverSet(target.createProverSet());
+        ProverSet set1 = ProverSet(payable(target.createProverSet()));
         assertEq(set1.owner(), target.owner());
         assertEq(set1.admin(), address(target));
 

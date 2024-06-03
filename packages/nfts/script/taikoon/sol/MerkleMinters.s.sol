@@ -75,35 +75,4 @@ contract MerkleMintersScript is Script {
             revert("Unsupported chainId");
         }
     }
-
-    function run() public {
-        vm.startBroadcast(deployerPrivateKey);
-        uint256 chainId = block.chainid;
-
-        bytes32 root = getMerkleRoot();
-        bytes32[] memory leaves;
-        if (chainId == 31_337) {
-            // hardhat/localhost
-            bytes memory treeRaw = hardhatTreeJson.parseRaw(".tree");
-            leaves = abi.decode(treeRaw, (bytes32[]));
-        } else if (chainId == 17_000) {
-            // holesky
-            bytes memory treeRaw = holeskyTreeJson.parseRaw(".tree");
-            leaves = abi.decode(treeRaw, (bytes32[]));
-        } else if (chainId == 167_001) {
-            // devnet
-            bytes memory treeRaw = devnetTreeJson.parseRaw(".tree");
-            leaves = abi.decode(treeRaw, (bytes32[]));
-        } else {
-            revert("Unsupported chainId");
-        }
-
-        Merkle tree = new Merkle();
-
-        root = tree.getRoot(leaves);
-
-        token.updateRoot(root);
-
-        vm.stopBroadcast();
-    }
 }

@@ -6,8 +6,11 @@ import { Test } from "forge-std/src/Test.sol";
 import { SnaefellToken } from "../../contracts/snaefell/SnaefellToken.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { UtilsScript } from "../../script/snaefell/sol/Utils.s.sol";
 
 contract SnaefellTokenTest is Test {
+    UtilsScript public utils;
+
     SnaefellToken public token;
 
     address public owner = vm.addr(0x5);
@@ -20,6 +23,8 @@ contract SnaefellTokenTest is Test {
     Merkle tree = new Merkle();
 
     function setUp() public {
+        utils = new UtilsScript();
+        utils.setUp();
         // create whitelist merkle tree
         vm.startBroadcast(owner);
         bytes32 root = tree.getRoot(leaves);
@@ -28,7 +33,10 @@ contract SnaefellTokenTest is Test {
         address impl = address(new SnaefellToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(SnaefellToken.initialize, (address(0), "ipfs://", root))
+                impl,
+                abi.encodeCall(
+                    SnaefellToken.initialize, (address(0), "ipfs://", root, utils.getBlacklist())
+                )
             )
         );
 
@@ -95,5 +103,14 @@ contract SnaefellTokenTest is Test {
 
         assertEq(token.balanceOf(owner), 5);
         assertEq(tokenIds.length, 5);
+    }
+
+    function test_revert_tokenCannotBeTransferred() public {
+        vm.startBroadcast(owner);
+        uint256[] memory tokenIds = token.mint(owner, 5);
+
+        vm.expectRevert();
+        token.transferFrom(owner, minters[0], tokenIds[0]);
+        vm.stopBroadcast();
     }
 }

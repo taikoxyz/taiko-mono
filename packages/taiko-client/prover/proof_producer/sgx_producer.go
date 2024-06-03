@@ -3,6 +3,7 @@ package producer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,25 +29,20 @@ const (
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
 	RaikoHostEndpoint string // a proverd RPC endpoint
-	L1Endpoint        string // a L1 node RPC endpoint
-	L1BeaconEndpoint  string // a L1 beacon node RPC endpoint
-	L2Endpoint        string // a L2 execution engine's RPC endpoint
 	ProofType         string // Proof type
+	JWT               string // JWT provided by Raiko
 	Dummy             bool
 	DummyProofProducer
 }
 
 // RaikoRequestProofBody represents the JSON body for requesting the proof.
 type RaikoRequestProofBody struct {
-	L2RPC       string                     `json:"rpc"`
-	L1RPC       string                     `json:"l1_rpc"`
-	L1BeaconRPC string                     `json:"beacon_rpc"`
-	Block       *big.Int                   `json:"block_number"`
-	Prover      string                     `json:"prover"`
-	Graffiti    string                     `json:"graffiti"`
-	Type        string                     `json:"proof_type"`
-	SGX         *SGXRequestProofBodyParam  `json:"sgx"`
-	RISC0       RISC0RequestProofBodyParam `json:"risc0"`
+	Block    *big.Int                   `json:"block_number"`
+	Prover   string                     `json:"prover"`
+	Graffiti string                     `json:"graffiti"`
+	Type     string                     `json:"proof_type"`
+	SGX      *SGXRequestProofBodyParam  `json:"sgx"`
+	RISC0    RISC0RequestProofBodyParam `json:"risc0"`
 }
 
 // SGXRequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sgx` field.
@@ -164,13 +160,10 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 // requestProof sends a RPC request to proverd to try to get the requested proof.
 func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoRequestProofBodyResponse, error) {
 	reqBody := RaikoRequestProofBody{
-		Type:        s.ProofType,
-		Block:       opts.BlockID,
-		L2RPC:       s.L2Endpoint,
-		L1RPC:       s.L1Endpoint,
-		L1BeaconRPC: s.L1BeaconEndpoint,
-		Prover:      opts.ProverAddress.Hex()[2:],
-		Graffiti:    opts.Graffiti,
+		Type:     s.ProofType,
+		Block:    opts.BlockID,
+		Prover:   opts.ProverAddress.Hex()[2:],
+		Graffiti: opts.Graffiti,
 		SGX: &SGXRequestProofBodyParam{
 			Setup:     false,
 			Bootstrap: false,
@@ -178,12 +171,23 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		},
 	}
 
+	client := &http.Client{}
+
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := http.Post(s.RaikoHostEndpoint+"/v1/proof", "application/json", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequest("POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	}
+
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

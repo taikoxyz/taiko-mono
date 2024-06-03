@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -18,6 +19,7 @@ type BlobDataSource struct {
 	ctx                context.Context
 	client             *Client
 	blobServerEndpoint *url.URL
+	socialScanEndpoint *url.URL
 }
 
 type BlobData struct {
@@ -40,12 +42,34 @@ func NewBlobDataSource(
 	ctx context.Context,
 	client *Client,
 	blobServerEndpoint *url.URL,
+	socialScanEndpoint *url.URL,
 ) *BlobDataSource {
 	return &BlobDataSource{
 		ctx:                ctx,
 		client:             client,
 		blobServerEndpoint: blobServerEndpoint,
+		socialScanEndpoint: socialScanEndpoint,
 	}
+}
+
+// UnmarshalJSON overwrites to parse data based on different json keys
+func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
+	var tempMap map[string]interface{}
+	if err := json.Unmarshal(data, &tempMap); err != nil {
+		return err
+	}
+
+	// Parsing data based on different keys
+	if versionedHash, ok := tempMap["versionedHash"]; ok {
+		p.VersionedHash = versionedHash.(string)
+	} else if versionedHash, ok := tempMap["versioned_hash"]; ok {
+		p.VersionedHash = versionedHash.(string)
+	}
+
+	p.Commitment = tempMap["commitment"].(string)
+	p.Data = tempMap["data"].(string)
+
+	return nil
 }
 
 // GetBlobs get blob sidecar by meta
@@ -68,7 +92,7 @@ func (ds *BlobDataSource) GetBlobs(
 	}
 	if err != nil {
 		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
-		if ds.blobServerEndpoint == nil {
+		if ds.blobServerEndpoint == nil && ds.socialScanEndpoint == nil {
 			log.Info("No blob server endpoint set")
 			return nil, err
 		}
@@ -89,8 +113,18 @@ func (ds *BlobDataSource) GetBlobs(
 
 // getBlobFromServer get blob data from server path `/getBlob`.
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common.Hash) (*BlobDataSeq, error) {
-	route := "/blobs/" + blobHash.String()
-	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), route)
+	var (
+		route      string
+		requestURL string
+		err        error
+	)
+	if ds.socialScanEndpoint != nil {
+		route = "/blob/" + blobHash.String()
+		requestURL, err = url.JoinPath(ds.socialScanEndpoint.String(), route)
+	} else {
+		route = "/blobs/" + blobHash.String()
+		requestURL, err = url.JoinPath(ds.blobServerEndpoint.String(), route)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,258 @@
+---
+title: Run a Taiko node with Docker
+description: This guide will help you start up a Taiko RPC node using simple-taiko-node.
+---
+
+import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+
+This guide will help you start up a Taiko RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
+
+## Software Dependencies
+
+| Dependency                                                    | Version  | Version Check Command |
+| ------------------------------------------------------------- | -------- | --------------------- |
+| [git](https://git-scm.com/)                                   | `^2`     | `git --version`       |
+| [Docker](https://docs.docker.com/engine/install/)             | `^24.0`  | `docker --version`    |
+
+## Prerequisites
+
+- If using Windows, you should install [Git BASH](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) to use as your terminal.
+- Meet the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements) except for the storage requirement because Taiko nodes will require less storage (at the time of writing).
+
+## Run a Taiko node with simple-taiko-node
+
+<Steps>
+
+1. Clone simple-taiko-node
+
+    <Tabs>
+      <TabItem label="Mac/Linux">
+        ```sh
+        git clone https://github.com/taikoxyz/simple-taiko-node.git
+        cd simple-taiko-node
+        ```
+      </TabItem>
+      <TabItem label="Windows">
+        ```sh
+        git clone https://github.com/taikoxyz/simple-taiko-node.git
+        cd simple-taiko-node && git config core.autocrlf false
+        ```
+      </TabItem>
+    </Tabs>
+
+2. Copy the sample .env files
+
+    <Aside title="Info">
+    To run a `hekla` Taiko node please copy `.env.sample.hekla` instead of `.env.sample`.
+    </Aside>
+
+    ```sh
+    cp .env.sample .env
+    ```
+
+3. Set the L1 node endpoint
+
+    First, open the `.env` in your preferred text editor:
+
+    <Tabs>
+      <TabItem label="Mac/Linux">
+        ```sh
+        nano .env
+        ```
+      </TabItem>
+      <TabItem label="Windows">
+        ```sh
+        notepad .env
+        ```
+      </TabItem>
+    </Tabs>
+
+    <Aside>
+    You can use any L1 endpoint to run a Taiko L1 node unless you want to prove blocks past the last 128 blocks, in which case you will need an archive node.
+
+    It's recommended to [run a local L1 node](/guides/node-operators/run-an-ethereum-testnet-node) but you browse around for other RPC Providers. Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
+
+    For Mainnet, the L1 Node will need to be an Ethereum node; for Testnet, the L1 Node will need to be a Etherem testnet (Holesky) node.
+    </Aside>
+
+    Next, you will set the L1 node endpoints. If you are running a local L1 node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545`, `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:
+
+    - Using `host.docker.internal` (see: [stack overflow](https://stackoverflow.com/questions/24319662)).
+    - Using the private ip address of your machine (use something like `ip addr show` to get this ip address).
+
+    After getting the address of the L1 node, set the following L1 node endpoints in your `.env` file. Here is an example:
+
+    - `L1_ENDPOINT_HTTP=http://192.168.1.15:8545`
+    - `L1_ENDPOINT_WS=ws://192.168.1.15:8546`
+    - `L1_BEACON_HTTP=http://192.168.1.15:5052`
+
+4. Remove old testnet volumes
+
+    If you ran a testnet node previously, make sure to first remove the old volumes:
+
+    ```sh
+    docker compose down -v
+    ```
+
+5. Set the profiles you want to run
+
+    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,proposer,prover` or any combination of the three).
+
+    Note that if you include `proposer` or `prover`, the services will still be disabled if you do not set `ENABLE_PROPOSER=true` or `ENABLE_PROVER=true` respectively.
+
+6. Start the node
+    
+    <Aside title="Info">    
+    Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
+
+    To run a `hekla` Taiko node please use the following command instead: `docker compose -f docker-compose-hekla.yml up -d`.
+    </Aside>
+
+    ```sh
+    docker compose up -d
+    ```
+
+7. Verify node is running
+
+    #### Option 1: Check with the node dashboard
+
+    A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
+
+    You can verify that your node is syncing by checking that the **chain head** on the dashboard is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
+
+    #### Option 2: Check with curl commands
+
+    <Steps>
+
+    1. Check if the Execution Layer client is connected to Taiko L2:
+
+        ```bash
+        curl http://localhost:8547 \
+          -X POST \
+          -H "Content-Type: application/json" \
+          --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
+        ```
+
+        which should return the chainId as `0x28c61` (167009):
+
+        ```json
+        { "jsonrpc": "2.0", "id": 1, "result": "0x28c61" }
+        ```
+
+    2. Check if the Execution Layer client is synced by requesting the latest Taiko L2 / L3 block from the Execution Layer client:
+
+        ```bash
+        curl http://localhost:8547 \
+          -X POST \
+          -H "Content-Type: application/json" \
+          --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
+        ```
+
+    3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
+
+        ```bash
+        docker compose logs -f
+        ```
+
+        > Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
+
+    </Steps>
+
+</Steps>
+
+## Video tutorial
+
+See the video tutorial [Run a Taiko L2 node (YouTube)](https://www.youtube.com/watch?v=l_tVvDcuK5o). It's for a previous testnet but the overall steps are the same!
+
+## Full simple-taiko-node CLI reference
+
+Make sure you are in the simple-taiko-node folder. If you are not:
+
+```sh
+cd simple-taiko-node
+```
+
+#### Start node
+
+```sh
+docker compose up -d
+```
+
+#### Stop node
+
+```sh
+docker compose down
+```
+
+#### Restart node
+
+```sh
+docker compose down && docker compose up -d
+```
+
+#### Update node
+
+```sh
+git pull origin main && docker compose pull
+```
+
+#### Remove node
+
+```sh
+docker compose down -v
+```
+
+#### Start and remove orphan containers
+
+This command will start and remove containers that are not part of the current docker compose file.
+
+```sh
+docker compose up -d --remove-orphans
+```
+
+#### View grafana dashboard
+
+```sh
+open http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview
+```
+
+#### View logs
+
+```sh
+docker compose logs -f
+```
+
+#### View execution logs
+
+```sh
+docker compose logs -f l2_execution_engine
+```
+
+#### View client driver logs
+
+```sh
+docker compose logs -f taiko_client_driver
+```
+
+#### View client proposer logs
+
+```sh
+docker compose logs -f taiko_client_proposer
+```
+
+#### View system resource usage stats
+
+```sh
+docker stats
+```
+
+#### Compare .env and .env.sample
+
+```sh
+sdiff .env .env.sample
+```
+
+## Troubleshooting
+
+- Visit the Discord for help on any common error codes / issues.
+- View the logs of the node (see above).

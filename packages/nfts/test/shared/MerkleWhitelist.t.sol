@@ -7,6 +7,7 @@ import { Merkle } from "murky/Merkle.sol";
 import { MerkleWhitelist } from "../../contracts/taikoon/MerkleWhitelist.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
+import { MockBlacklist } from "../util/Blacklist.sol";
 
 /// @custom:oz-upgrades-from MerkleWhitelist
 contract MerkleWhitelistForTest is MerkleWhitelist {
@@ -32,6 +33,7 @@ contract MerkleWhitelistTest is Test {
     MerkleWhitelistForTest whitelist;
 
     uint256 constant MAX_MINTS = 5;
+    MockBlacklist public blacklist;
 
     function createLeaf(address _minter, uint256 _freeMints) public pure returns (bytes32) {
         return keccak256(bytes.concat(keccak256(abi.encode(_minter, _freeMints))));
@@ -42,7 +44,9 @@ contract MerkleWhitelistTest is Test {
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
+
         vm.startBroadcast(owner);
+        blacklist = new MockBlacklist();
 
         tree = new Merkle();
 
@@ -56,8 +60,7 @@ contract MerkleWhitelistTest is Test {
         address impl = address(new MerkleWhitelistForTest());
         address proxy = address(
             new ERC1967Proxy(
-                impl,
-                abi.encodeCall(MerkleWhitelist.initialize, (address(0), root, utils.getBlacklist()))
+                impl, abi.encodeCall(MerkleWhitelist.initialize, (address(0), root, blacklist))
             )
         );
 

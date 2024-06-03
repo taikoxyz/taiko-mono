@@ -12,10 +12,8 @@ import "../common/LibStrings.sol";
 contract L1RollupAddressManager is AddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.
     /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// The following names are not cached:
-    /// - B_PROPOSER
-    /// - B_PROPOSER_ONE
-    /// - B_TIER_PROVIDER
+    /// Some names are not cached as they are not used frequently or
+    /// its address is likely to change.
     function _getOverride(
         uint64 _chainId,
         bytes32 _name
@@ -49,9 +47,6 @@ contract L1RollupAddressManager is AddressManager {
             }
             if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
                 return 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
-            }
-            if (_name == LibStrings.B_ASSIGNMENT_HOOK) {
-                return 0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6;
             }
         }
         return address(0);

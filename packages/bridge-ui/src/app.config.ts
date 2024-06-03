@@ -15,7 +15,7 @@ export const processingFeeComponent = {
 };
 
 export const pendingTransaction = {
-  waitTimeout: 30_000,
+  waitTimeout: 90_000,
 };
 
 export const storageService = {
@@ -28,7 +28,7 @@ export const bridgeTransactionPoller = {
 };
 
 export const claimConfig = {
-  minimumEthToClaim: 0.001,
+  minimumEthToClaim: 0.0015, // 1M gas * 1.5 gwei (lowest gasPrice)
 };
 
 export const transactionConfig = {
