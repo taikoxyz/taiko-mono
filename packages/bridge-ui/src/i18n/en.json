@@ -70,6 +70,7 @@
       }
     },
     "errors": {
+      "amount_exceeds_quota": "This amount exceeds the quota. Please lower the amount.",
       "approve_error": {
         "message": "We encountered an issue while trying to approve this token.",
         "title": "Approval failed"

@@ -15,6 +15,8 @@
   export let needsManualRecipientConfirmation: boolean;
   export let bridgingStatus: BridgingStatus;
 
+  export let exceedsQuota: boolean;
+
   let nextStepButtonText: string;
   let manuallyConfirmedReviewStep = false;
   let manuallyConfirmedRecipientStep = false;
@@ -77,7 +79,7 @@
     <div class="h-sep mt-0" />
     <ActionButton
       priority="primary"
-      disabled={!$importDone || disabled}
+      disabled={!$importDone || disabled || exceedsQuota}
       loading={validatingImport}
       on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>

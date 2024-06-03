@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { type Address,zeroAddress } from 'viem';
   import { formatUnits, parseUnits } from 'viem/utils';
 
   import { FlatAlert } from '$components/Alert';
@@ -22,10 +23,12 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { getMaxAmountToBridge } from '$libs/bridge';
-  import { fetchBalance, tokens } from '$libs/token';
+  import { ContractType, getMaxAmountToBridge } from '$libs/bridge';
+  import { exceedsQuota as checkQuota } from '$libs/bridge/checkBridgeQuota';
+  import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
+  import { ETHToken, fetchBalance, tokens } from '$libs/token';
+  import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { isToken } from '$libs/token/isToken';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
@@ -35,11 +38,13 @@
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
+  import type { TokenInfo } from '$stores/tokenInfo';
 
   const log = getLogger('TokenInput');
 
   export let validInput = false;
   export let hasEnoughEth: boolean = false;
+  export let exceedsQuota: boolean = false;
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
@@ -134,6 +139,54 @@
     $computingBalance = false;
   };
 
+  const checkIfAmountExceedsQuota = async () => {
+    log('checking if amount exceeds quota');
+    if (!$selectedToken || !$connectedSourceChain || !$destNetwork) return false;
+
+    let tokenAddress: Address = zeroAddress;
+    if ($selectedToken === ETHToken) {
+      // ETH does not have a token address
+    } else {
+      // fetch the correct token address for the destination chain
+      const tokenInfo = await getTokenAddresses({
+        token: $selectedToken,
+        srcChainId: $connectedSourceChain.id,
+        destChainId: $destNetwork.id,
+      });
+      if (!tokenInfo) return false;
+      log('tokenInfo', tokenInfo);
+      // get address that matches destination chain
+      const getAddressForChain = (tokenInfo: TokenInfo, chainId: number): Address | null => {
+        if (tokenInfo.canonical?.chainId === chainId) {
+          return tokenInfo.canonical.address;
+        }
+        if (tokenInfo.bridged?.chainId === chainId) {
+          return tokenInfo.bridged.address;
+        }
+        return null;
+      };
+
+      const destChainAddress = getAddressForChain(tokenInfo, $destNetwork.id);
+      log('destChainAddress', destChainAddress);
+      if (!destChainAddress) return false;
+      tokenAddress = destChainAddress;
+    }
+    const quotaManagerAddress = getContractAddressByType({
+      srcChainId: Number($destNetwork.id),
+      destChainId: Number($connectedSourceChain.id),
+      contractType: ContractType.QUOTAMANAGER,
+    });
+
+    log('quotaManagerAddress', quotaManagerAddress);
+    exceeds = await checkQuota({
+      tokenAddress,
+      amount: $enteredAmount,
+      quotaManagerAddress,
+      chainId: $destNetwork.id,
+    });
+    log('exceedsQuota', exceeds);
+  };
+
   let previousSelectedToken = $selectedToken;
 
   $: if ($selectedToken !== previousSelectedToken) {
@@ -143,7 +196,18 @@
 
   $: disabled = !$account || !$account.isConnected;
 
-  $: validAmount = $enteredAmount > BigInt(0);
+  $: validAmount = $enteredAmount > BigInt(0) && !exceeds;
+
+  $: exceeds = false;
+  $: if (exceeds) {
+    exceedsQuota = true;
+  } else {
+    exceedsQuota = false;
+  }
+
+  $: if ($enteredAmount > 0n) {
+    checkIfAmountExceedsQuota();
+  }
 
   $: skipValidate =
     !$connectedSourceChain ||
@@ -156,7 +220,7 @@
   let invalidInput: boolean;
   $: {
     if ($enteredAmount !== 0n) {
-      invalidInput = $errorComputingBalance || $insufficientBalance || $insufficientAllowance;
+      invalidInput = $errorComputingBalance || $insufficientBalance || $insufficientAllowance || exceeds;
     } else {
       invalidInput = false;
     }
@@ -238,12 +302,14 @@
   </div>
 
   <div class="flex mt-[8px] min-h-[24px]">
-    {#if displayFeeMsg}
+    {#if displayFeeMsg && !exceedsQuota}
       <div class="f-row items-center gap-1">
         <Icon type="info-circle" size={15} fillClass="fill-tertiary-content" /><span
           class="text-sm text-tertiary-content"
           >{$t('recipient.label')} <ProcessingFee textOnly class="text-tertiary-content" bind:hasEnoughEth /></span>
       </div>
+    {:else if exceedsQuota}
+      <FlatAlert type="error" message={$t('bridge.errors.amount_exceeds_quota')} class="relative" />
     {:else if showInsufficientBalanceAlert}
       <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative" />
     {:else if showInvalidTokenAlert}
@@ -254,7 +320,6 @@
   </div>
 </div>
 
-<OnNetwork change={reset} />
 <OnAccount change={reset} />
 
 <style>
