@@ -3,14 +3,20 @@ pragma solidity 0.8.24;
 
 import "../../contracts/common/LibStrings.sol";
 import "../../contracts/L1/tiers/ITierProvider.sol";
+import "../../contracts/L1/tiers/ITierRouter.sol";
 
 /// @title TestTierProvider
-/// @dev Labeled in AddressResolver as "tier_provider"
+/// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
-contract TestTierProvider is ITierProvider {
+contract TestTierProvider is ITierProvider, ITierRouter {
     uint256[50] private __gap;
 
+    /// @inheritdoc ITierRouter
+    function getProvider(uint256) external view returns (address) {
+        return address(this);
+    }
     /// @inheritdoc ITierProvider
+
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
