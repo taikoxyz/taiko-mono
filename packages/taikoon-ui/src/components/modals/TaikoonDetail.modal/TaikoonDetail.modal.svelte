@@ -15,7 +15,7 @@
   const taikoonDetailState = getContext<ITaikoonDetail>('taikoonDetail');
 
   async function updateShortenedAddress() {
-    if ($taikoonDetailState.tokenId < 0) return;
+    if ($taikoonDetailState.tokenId < 0 || Number.isNaN($taikoonDetailState.tokenId)) return;
     const owner = await Token.ownerOf($taikoonDetailState.tokenId);
     shortenedAddress = await shortenAddress(owner);
   }
@@ -25,9 +25,14 @@
   const modalClasses = classNames('items-center', 'justify-center');
 
   const nftWrapperClasses = 'rounded-3xl m-6 overflow-hidden';
+
+  function onModalClose() {
+    window.location.hash = '';
+    taikoonDetailState.set({ ...$taikoonDetailState, isModalOpen: false });
+  }
 </script>
 
-<Modal open={$taikoonDetailState.isModalOpen} class={modalClasses}>
+<Modal on:close={onModalClose} open={$taikoonDetailState.isModalOpen} class={modalClasses}>
   <ModalTitle class="px-10">Taikoon #{$taikoonDetailState.tokenId}</ModalTitle>
 
   <ModalBody>

@@ -29,10 +29,11 @@
     const hash = location.hash;
     const taikoonId = parseInt(hash.replace('#', ''));
     selectedTaikoonId = isNaN(taikoonId) ? -1 : taikoonId;
+
     taikoonDetailState.set({
       ...$taikoonDetailState,
       tokenId: taikoonId,
-      isModalOpen: true,
+      isModalOpen: taikoonId > 0,
     });
   }
 </script>
