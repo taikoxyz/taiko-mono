@@ -125,7 +125,7 @@
     bind:value={enteredTokenName}
     on:input={searchToken}
     class="p-[12px] my-[20px]" />
-  <ul role="listbox" {id} class="gap-2 overflow-scroll h-[180px]">
+  <ul role="listbox" {id} class="gap-2 overflow-y-scroll h-[180px]">
     {#if activeTab === TabTypes.TOKEN}
       {#each filteredTokens as t (t.symbol)}
         {@const selected = deepEqual(t, value)}
