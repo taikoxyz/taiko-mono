@@ -24,7 +24,7 @@ library LibStrings {
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
     bytes32 internal constant B_TIER_GUARDIAN = bytes32("tier_guardian");
     bytes32 internal constant B_TIER_GUARDIAN_MINORITY = bytes32("tier_guardian_minority");
-    bytes32 internal constant B_TIER_PROVIDER = bytes32("tier_provider");
+    bytes32 internal constant B_TIER_ROUTER = bytes32("tier_router");
     bytes32 internal constant B_TIER_SGX = bytes32("tier_sgx");
     bytes32 internal constant B_TIER_SGX_ZKVM = bytes32("tier_sgx_zkvm");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
