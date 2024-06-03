@@ -15,8 +15,6 @@ export async function canMint(): Promise<boolean> {
 
     const freeMintCount = await totalWhitelistMintCount();
 
-    console.warn('calling canMint!');
-
     const result = await readContract(config, {
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],
