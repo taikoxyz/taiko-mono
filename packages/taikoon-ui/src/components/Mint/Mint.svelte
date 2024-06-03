@@ -154,21 +154,22 @@
 </script>
 
 <div class={wrapperClasses}>
-  {#if isReady}
-    {#if windowSize !== 'sm'}
-      <div class={leftHalfPanel}>
-        <div class={nftRendererWrapperClasses}>
-          <NftRenderer />
-        </div>
+  {#if windowSize !== 'sm'}
+    <div class={leftHalfPanel}>
+      <div class={nftRendererWrapperClasses}>
+        <NftRenderer />
+      </div>
+    </div>
+  {/if}
+
+  <div class={rightHalfPanel}>
+    <!-- svelte-ignore missing-declaration -->
+    {#if windowSize === 'sm'}
+      <div class={nftRendererWrapperMobileClasses}>
+        <NftRenderer />
       </div>
     {/if}
-    <div class={rightHalfPanel}>
-      <!-- svelte-ignore missing-declaration -->
-      {#if windowSize === 'sm'}
-        <div class={nftRendererWrapperMobileClasses}>
-          <NftRenderer />
-        </div>
-      {/if}
+    {#if isReady}
       <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
       <p class={mintContentClasses}>
@@ -231,10 +232,10 @@
           type="primary">
           {$t('buttons.mint')}</Button>
       {/if}
-    </div>
-  {:else}
-    <Spinner size="lg" />
-  {/if}
+    {:else}
+      <Spinner size="lg" />
+    {/if}
+  </div>
 </div>
 
 <ResponsiveController bind:windowSize />
