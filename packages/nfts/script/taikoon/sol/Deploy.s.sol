@@ -20,7 +20,7 @@ contract DeployScript is Script {
     address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
     bytes32 root = 0xa7e510d5aed347e65609cf6f0e0738cdd752ffdf5980749057c634489fd09fc3;
     string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    IMinimalBlacklist blacklist = IMinimalBlacklist(0x38e48e979b06dD3044C3f7bE8e122328175244e0);
+    IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
     // Holesky Testnet Values
     // address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
