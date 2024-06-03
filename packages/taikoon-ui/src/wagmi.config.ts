@@ -13,9 +13,9 @@ export const taiko = chainIdToChain(167000);
 
 const baseConfig = {
   chains: [
-   // hardhat,
+    // hardhat,
     taiko,
-   // holesky
+    // holesky
   ],
   projectId,
   metadata: {},
@@ -23,9 +23,9 @@ const baseConfig = {
     multicall: true,
   },
   transports: {
-  //  [hardhat.id]: http('http://localhost:8545'),
+    //  [hardhat.id]: http('http://localhost:8545'),
     [taiko.id]: http('https://rpc.mainnet.taiko.xyz'),
- //   [holesky.id]: http('https://1rpc.io/holesky'),
+    //   [holesky.id]: http('https://1rpc.io/holesky'),
   },
 } as const;
 
