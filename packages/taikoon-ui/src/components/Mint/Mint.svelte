@@ -84,8 +84,8 @@
     }
     const address = $account.address as IAddress;
 
-    mintedTokenIds = await Token.tokenOfOwner(address);
-    hasAlreadyMinted = mintedTokenIds.length > 0;
+    const balance = await Token.balanceOf(address);
+    hasAlreadyMinted = balance > 0;
 
     if (!hasAlreadyMinted) {
       canMint = await Token.canMint();
@@ -108,7 +108,6 @@
   }
 
   $: $account, load();
-  $: mintedTokenIds = [] as number[];
   $: hasAlreadyMinted = false;
 
   async function mint() {
