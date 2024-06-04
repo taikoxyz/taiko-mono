@@ -57,7 +57,6 @@
   - upgrade impl to `0x0893c8821Fa358D5f3630695Ce062204814359A1` @commit`1bd3285` @tx`0x4605c4ce594e996bdbdb532a9aefe4fab1ea36f7e2ef63eef56a7e8033810df3`
   - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit`3ae25fd` @tx`0xc77434f4e37959cdc0eac125303b78dd192d8727173373cc7a6158ca7d829dad`
 
-
 #### erc20_vault
 
 - proxy: `0x1670000000000000000000000000000000000002`
@@ -161,6 +160,11 @@
   - set erc20_vault as a minter @tx`0x71cc56f3209b375f5734fb5041e425ce2ba445baa407e0a7019598f46b32993b`
   - updated master minter to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0x6d8019683b10e59259610d57063c19d7a38b6f3de51eb94cce97818a7e0b9cc4`
   - transferred ownership to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0x55ed56d6c30e366566436f8341cd2f54d14c94790398a24633068d08c8972d45`
+
+#### airdrop contract
+
+- proxy: `0x30A0EE3f0F2C76Ad9f0731a4C1c89d9e2cB10930`
+- owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
 
 ## Other EOAs/Contracts
 
