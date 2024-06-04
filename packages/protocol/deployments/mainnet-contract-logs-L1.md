@@ -75,6 +75,8 @@
   - unpaused on 27 May, 2024 @tx`0x71ce1e61f1e42e34c9a51f5671ac260f2ac398e016ae645f2661f074e7f230ce`
   - upgraded from `0x02F21B4C3d4dbfF70cE851741175a727c8D782Be` to `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0.` @commit`` in @tx`0x8a380a25d03a740d9535dfc3e2fc4f6960e22d49ad88b8d85f59af4013aedf87`
   - upgrade impl to `0x951B7Ae1bB26d12dB37f01748e8fB62FEf45A8B5` @commit`1bd3285` @tx`0xf21f6bf720767db3bc9b63ef69cacb20340bdedfb6589e6a4d11fe082dfa7bd6`
+- todo:
+  - upgrade bridge for improvements based on OZ's feedback.
 
 #### quota_manager
 
@@ -173,6 +175,8 @@
   - register `prover_set` to `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` @tx`0x252cd7fcb6e02a71c0770d00f2f2476d5dd469a4fb5df622fe7bf6280d8a4100`
   - register `prover_set` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
+- todo:
+  - register "tier_router" and remove "tier_provider"
 
 #### taikoL1
 
@@ -188,6 +192,9 @@
   - `resetGenesisHash()` called to reset genesis block hash to `0x90bc60466882de9637e269e87abab53c9108cf9113188bc4f80bcfcb10e489b9` on May 22 @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
   - Upgraded from `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on May 27 @commit`06f97d6` @tx`0x187cc99e9bcf2a94f723cf52d85b74b79bdb3872681e2a3808cadbbc3ba301e2`
   - Upgraded from `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` to `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on May 28 @commit`b335b70` @tx`0xa603b6d55457e64e18ddae684bfd14948452cdd7b927dd22bf0b83045e8fd028`
+  - todo:
+    - upgrade to enable permissionless block-proposing
+    - upgrade to use "tier_router"
 
 #### assignment_hook
 
