@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "./TierProviderBase.sol";
 
 /// @title DevnetTierProvider
-/// @dev Labeled in AddressResolver as "tier_provider"
 /// @custom:security-contact security@taiko.xyz
 contract DevnetTierProvider is TierProviderBase {
     /// @inheritdoc ITierProvider

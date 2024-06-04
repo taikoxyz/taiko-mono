@@ -9,6 +9,7 @@
   import { Spinner } from '$ui/Spinner';
 
   import Token from '../../lib/token';
+  import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import { chipWrapperClasses, detailClasses, detailContainerClasses, detailTitleClasses } from './classes';
 
@@ -16,10 +17,10 @@
   export let taikoonId: number = -1;
 
   $: shortenedAddress = '...';
-
+  $: owner = '0x0' as IAddress;
   async function updateShortenedAddress() {
     if (taikoonId < 0) return;
-    const owner = await Token.ownerOf(taikoonId);
+    owner = await Token.ownerOf(taikoonId);
     shortenedAddress = await shortenAddress(owner);
   }
 
@@ -36,6 +37,7 @@
           withEvents
           on:click={() => {
             taikoonId = -1;
+            window.location.hash = '';
           }}
           class="my-2 bg-transparent"
           size="14" />
@@ -51,10 +53,7 @@
       </p>
 
       <div class={detailContainerClasses}>
-        <InfoRow
-          label={$t('content.collection.ownedBy')}
-          value={shortenedAddress}
-          href={'/collection/${taikoon.owner}'} />
+        <InfoRow label={$t('content.collection.ownedBy')} value={shortenedAddress} href={`/collection/${owner}`} />
       </div>
     {/if}
   </div>

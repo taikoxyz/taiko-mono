@@ -34,7 +34,7 @@
   $: innerHeight = 0;
 
   $: rows = Math.ceil(outerWidth / 40) * 1.1;
-  $: cols = Math.ceil(outerHeight / 40);
+  $: cols = Math.ceil(outerHeight / 40) * 6;
 
   const animationClasses = [
     'animate-cell-pulse-5',

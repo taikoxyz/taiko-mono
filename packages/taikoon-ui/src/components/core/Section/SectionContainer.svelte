@@ -9,7 +9,7 @@
     pageScroll.set(scrollTarget.scrollTop > 100);
   }
 
-  const sectionContainerClasses = classNames('w-full', 'h-full', 'z-0', 'carousel', 'carousel-vertical', $$props.class);
+  const sectionContainerClasses = classNames('w-full', 'h-full', 'z-0', 'overflow-y-scroll', $$props.class);
 </script>
 
 <div bind:this={scrollTarget} on:scroll={handleScroll} class={sectionContainerClasses}>

@@ -16,5 +16,20 @@
     "packages/ui-lib": {},
     "packages/snaefell-ui": {}
   },
-  "separate-pull-requests": true
+  "separate-pull-requests": true,
+  "default": {
+    "changelog-sections": [
+      { "type": "feat", "section": "Features" },
+      { "type": "fix", "section": "Bug Fixes" },
+      { "type": "chore", "section": "Chores" },
+      { "type": "docs", "section": "Documentation" },
+      { "type": "style", "section": "Styles" },
+      { "type": "refactor", "section": "Code Refactoring" },
+      { "type": "perf", "section": "Performance Improvements" },
+      { "type": "test", "section": "Tests" },
+      { "type": "ci", "section": "Workflow" },
+      { "type": "revert", "section": "Reverted Commits" },
+      { "type": "build", "section": "Build" }
+    ]
+  }
 }
