@@ -21,6 +21,14 @@ export default async function getProof(address?: IAddress): Promise<IAddress[]> 
     const { proof } = data;
 
     return proof as IAddress[];
+    /*
+    const tree = StandardMerkleTree.load(whitelist[chainId]);
+    for (const [i, [leafAddress]] of tree.entries()) {
+      if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
+        const proof = tree.getProof(i);
+        return proof as IAddress[];
+      }
+    }*/
   } catch (e) {
     console.error(`Error with getProof chainId ${chainId}:`, e);
   }

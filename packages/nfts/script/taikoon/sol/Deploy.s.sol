@@ -17,17 +17,22 @@ contract DeployScript is Script {
     address public deployerAddress;
 
     // Taiko Mainnet Values
-    //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
+  // address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
     // bytes32 root = 0xa7e510d5aed347e65609cf6f0e0738cdd752ffdf5980749057c634489fd09fc3;
     // string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    //    IMinimalBlacklist blacklist =
-    // IMinimalBlacklist(0x38e48e979b06dD3044C3f7bE8e122328175244e0);
+    // IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
     // Holesky Testnet Values
     address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
     bytes32 root = 0x3e2da39414868a8a49c4ee78da50cc4430d88df27060300e553810ab2d23b5bd;
     string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
+
+    // Hardhat Testnet Values
+    //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
+    //bytes32 root = 0x1c3b504b4d5640d26ad1aa3b57a9df9ec034f19239768e734b849c306d10b110;
+    //string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
+    //IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     function setUp() public {
         utils = new UtilsScript();

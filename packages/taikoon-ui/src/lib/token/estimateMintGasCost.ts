@@ -25,7 +25,8 @@ export async function estimateMintGasCost(): Promise<number> {
       functionName: 'mint',
       args: [proof, BigInt(freeMintLeft)],
     });
-    return parseFloat(formatGwei(gasEstimate));
+    // proper parsing for 0-valued gas estimates
+    return parseFloat(formatGwei(gasEstimate === 0 ? BigInt(0) : gasEstimate));
   }
   return 0;
 }

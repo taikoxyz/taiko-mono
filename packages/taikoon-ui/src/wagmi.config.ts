@@ -2,6 +2,7 @@ import { injected, walletConnect } from '@wagmi/connectors';
 import { createConfig, http, reconnect } from '@wagmi/core';
 import { hardhat, holesky } from '@wagmi/core/chains';
 
+//import { hardhat, holesky } from '@wagmi/core/chains';
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
@@ -16,10 +17,10 @@ const baseConfig = {
   projectId,
   metadata: {},
   batch: {
-    multicall: false,
+    multicall: true,
   },
   transports: {
-    [hardhat.id]: http('http://localhost:8545'),
+    //  [hardhat.id]: http('http://localhost:8545'),
     [taiko.id]: http('https://rpc.mainnet.taiko.xyz'),
     [holesky.id]: http('https://1rpc.io/holesky'),
   },

@@ -18,23 +18,27 @@
     "mintNow": "Mint Now",
     "learnMore": "FAQs",
     "mint": "Mint",
-    "etherscan": "View on Etherscan",
+    "etherscan": "View on Chain Explorer",
     "share": "Share",
     "yourTaikoons": "Your Taikoons",
     "cancel": "Cancel",
-    "agree": "Agree"
+    "agree": "Agree",
+    "connectWallet": "Connect Wallet"
   },
   "content": {
     "mint": {
       "title": "Taikoons",
+      "alreadyMinted": "You've already minted your NFT.",
       "text": "Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.",
       "eligibleLabel": "You are eligible to mint:",
+      "notEligible": "You are not eligible to mint.",
+      "connectWallet": "Connect your wallet to mint your Taikoon.",
       "toast": {
         "clipboardCopy": "Link copied to clipboard"
       },
       "modals": {
         "minting": {
-          "title": "Minting {count} NFT{plural}...",
+          "title": "Now minting your Taikoon",
           "pending": "This can take up to a couple of minutes. Feel free to close this message.",
           "confirm": "Please confirm the transaction in your wallet."
         },
@@ -65,7 +69,7 @@
     "sections": {
       "information": {
         "title": "The Collection",
-        "text": "The 888 Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem, designed to foster community growth and establish unique on-chain identities."
+        "text": "Get ready to dive into the world of Taikoons! This collection boasts 888 one-of-a-kind NFTs that are living on the Taiko-based rollup. And that's not all - your mighty Taikoons will supercharge holders with a thrilling 2x XP boost throughout the exhilarating Trailblazer program! Are you ready to unleash the power of these unique digital collectibles? Let the adventure begin!"
       },
       "faq": {
         "title": "FAQs",

@@ -1,6 +1,7 @@
 import { getAccount, getChainId, watchAccount, watchChainId } from '@wagmi/core';
 import { createWeb3Modal } from '@web3modal/wagmi';
 import { readable } from 'svelte/store';
+import { holesky } from 'viem/chains';
 
 import { browser } from '$app/environment';
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
@@ -25,11 +26,11 @@ export const provider = readable<unknown | undefined>(undefined, (set) =>
 );
 
 export const web3modal = createWeb3Modal({
-  wagmiConfig: config || { projectId, chains: [], connectors: [] },
+  wagmiConfig: config || { projectId, chains: [holesky], connectors: [] },
   projectId,
   featuredWalletIds: [],
   allowUnsupportedChain: true,
-  excludeWalletIds: ['c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96'],
+  excludeWalletIds: [],
   chainImages,
   themeVariables: {
     '--w3m-color-mix': 'var(--neutral-background)',

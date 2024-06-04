@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { t } from 'svelte-i18n';
 
   import LogoBlack from '$assets/taikoons-big-black.png';
   import LogoWhite from '$assets/taikoons-big-white.png';
   import { AnimatedArrow } from '$components/AnimatedArrow';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
   import { Theme, theme } from '$stores/theme';
   import { Section } from '$ui/Section';

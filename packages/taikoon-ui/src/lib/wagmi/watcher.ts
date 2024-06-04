@@ -15,19 +15,19 @@ export async function startWatching() {
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
       onChange(data) {
-        console.warn('Account changed', data);
+        const { chain } = data;
         account.set(data);
         refreshUserBalance();
-        const { chain } = data;
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        const isLocalHost = window.location.hostname === 'localhost';
-        const isSupportedChainId = isLocalHost ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
+        const isLocalHost = false; // window.location.hostname === 'localhost';
+        const isVercel = false; // window.location.hostname === 'taikoons-dev.vercel.app';
+        const isSupportedChainId =
+          isLocalHost || isVercel ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
         const isConnected = data.address !== undefined;
 
-        if (!isLocalHost && !isSupportedChainId && isConnected) {
-          console.warn('Unsupported chain', chain);
+        if (!isSupportedChainId && isConnected) {
           switchChainModal.set(true);
           return;
         } else if (chain) {

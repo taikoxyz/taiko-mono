@@ -6,6 +6,7 @@ import type { IAddress, IChainId } from '../../types';
 import { balanceOf } from './balanceOf';
 import { canMint } from './canMint';
 import { estimateMintGasCost } from './estimateMintGasCost';
+import { hasMinted } from './hasMinted';
 import { maxSupply } from './maxSupply';
 import { mint } from './mint';
 import { name } from './name';
@@ -14,7 +15,6 @@ import { symbol } from './symbol';
 import { tokenOfOwner } from './tokenOfOwner';
 import { tokenURI } from './tokenURI';
 import { totalSupply } from './totalSupply';
-
 function address(): IAddress {
   const { selectedNetworkId } = web3modal.getState();
   if (!selectedNetworkId) return zeroAddress;
@@ -29,6 +29,7 @@ const Token = {
   totalSupply,
   tokenURI,
   address,
+  hasMinted,
   ownerOf,
   maxSupply,
   balanceOf,

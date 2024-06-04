@@ -2,13 +2,10 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../hooks/IHook.sol";
-import "../tiers/ITierProvider.sol";
+import "./LibUtils.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -44,7 +41,6 @@ library LibProposing {
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
-    error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes a Taiko L2 block.
@@ -77,11 +73,7 @@ library LibProposing {
         }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
-        // However, if the "proposer" address is set to a non-zero value, we
-        // ensure that only that specific address has the authority to propose
-        // blocks.
         TaikoData.SlotB memory b = _state.slotB;
-        if (!_isProposerPermitted(b, _resolver)) revert L1_UNAUTHORIZED();
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
@@ -140,7 +132,7 @@ library LibProposing {
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
             if (
-                _checkEOAForCalldataDA && meta_.id != 1
+                _checkEOAForCalldataDA
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();
@@ -155,8 +147,8 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
-            .getMinTier(uint256(meta_.difficulty));
+        meta_.minTier =
+            LibUtils.getTierProvider(_resolver, b.numBlocks).getMinTier(uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -228,25 +220,5 @@ library LibProposing {
             meta: meta_,
             depositsProcessed: deposits_
         });
-    }
-
-    function _isProposerPermitted(
-        TaikoData.SlotB memory _slotB,
-        IAddressResolver _resolver
-    )
-        private
-        view
-        returns (bool)
-    {
-        if (_slotB.numBlocks == 1) {
-            // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve(LibStrings.B_PROPOSER_ONE, true);
-            if (proposerOne != address(0)) {
-                return msg.sender == proposerOne;
-            }
-        }
-
-        address proposer = _resolver.resolve(LibStrings.B_PROPOSER, true);
-        return proposer == address(0) || msg.sender == proposer;
     }
 }
