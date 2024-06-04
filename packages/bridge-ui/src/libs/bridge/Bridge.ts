@@ -258,27 +258,27 @@ export abstract class Bridge {
       }
     } catch (error) {
       console.error('Failed to estimate gas, using fallback', error);
-      estimatedGas = 1_000_000n;
+      estimatedGas = 1_300_000n;
     }
 
-    // const { request } = await simulateContract(config, {
-    //   address: bridgeContract.address,
-    //   abi: bridgeContract.abi,
-    //   functionName: 'processMessage',
-    //   args: [message, proof],
-    //   gas: estimatedGas,
-    // });
-    // log('Simulate contract for processMessage', request);
-
-    // return await writeContract(config, request);
-
-    return await writeContract(config, {
+    const { request } = await simulateContract(config, {
       address: bridgeContract.address,
       abi: bridgeContract.abi,
       functionName: 'processMessage',
       args: [message, proof],
       gas: estimatedGas,
     });
+    log('Simulate contract for processMessage', request);
+
+    return await writeContract(config, request);
+
+    // return await writeContract(config, {
+    //   address: bridgeContract.address,
+    //   abi: bridgeContract.abi,
+    //   functionName: 'processMessage',
+    //   args: [message, proof],
+    //   gas: estimatedGas,
+    // });
   }
 
   private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
