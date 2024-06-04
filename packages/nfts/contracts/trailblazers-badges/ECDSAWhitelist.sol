@@ -5,7 +5,6 @@ import { UUPSUpgradeable } from
     "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { Ownable2StepUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { ContextUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
@@ -33,7 +32,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     uint256[47] private __gap;
 
     modifier onlyMintSigner() {
-        if(msg.sender != mintSigner) revert ONLY_MINT_SIGNER();
+        if (msg.sender != mintSigner) revert ONLY_MINT_SIGNER();
         _;
     }
 
@@ -74,7 +73,8 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         returns (bool)
     {
         bytes32 _hash = getHash(_minter, _mintId);
-        (address _recovered, ECDSA.RecoverError _error, bytes32 _signatureLength) = ECDSA.tryRecover(_hash, _signature);
+        (address _recovered,,) = ECDSA.tryRecover(_hash, _signature);
+
         return _recovered == mintSigner;
     }
 
@@ -91,10 +91,6 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         if (minted[_signature]) return false;
         return _isSignatureValid(_signature, _minter, _mintId);
     }
-
-    function caMint(
-
-    )
 
     function __ECDSAWhitelist_init(
         address _owner,

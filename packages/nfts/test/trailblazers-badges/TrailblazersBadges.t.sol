@@ -25,7 +25,6 @@ contract TrailblazersBadgesTest is Test {
 
     Merkle tree = new Merkle();
 
-
     address mintSigner;
     uint256 mintSignerPk;
 
@@ -36,16 +35,16 @@ contract TrailblazersBadgesTest is Test {
         // create whitelist merkle tree
         vm.startBroadcast(owner);
 
-            (mintSigner, mintSignerPk) = makeAddrAndKey("mintSigner");
-
+        (mintSigner, mintSignerPk) = makeAddrAndKey("mintSigner");
 
         // deploy token with empty root
         address impl = address(new TrailblazersBadges());
         address proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(TrailblazersBadges.initialize, (
-                    owner, "ipfs://", mintSigner, blacklist))
+                abi.encodeCall(
+                    TrailblazersBadges.initialize, (owner, "ipfs://", mintSigner, blacklist)
+                )
             )
         );
 
@@ -54,47 +53,66 @@ contract TrailblazersBadgesTest is Test {
         vm.stopBroadcast();
     }
 
-    function test_metadata() public view {
+    function test_metadata() public view { }
 
-    }
+    function test_canMint_true() public view {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
 
-    function test_canMint() public view {
-        bytes32 _hash = token.getHash(
-            minters[0],
-            BADGE_ID
-        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
-        (uint8 v, bytes32 r, bytes32 s)  = vm.sign(mintSignerPk, _hash);
-
-        bool canMint = token.canMint(
-            abi.encodePacked(v, r, s),
-            minters[0],
-            BADGE_ID
-        );
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
         assertTrue(canMint);
     }
 
-    function test_mint() public {
-        /*
-        address user = minters[0];
+    // send the signature for minters[0] but check for minters[1]
+    function test_canMint_false() public view {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
 
-        bytes32[] memory proof = tree.getProof(leaves, 0);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
-        bool canMint = token.canMint(user, MAX_MINTS);
-        assertEq(canMint, true);
-
-        vm.startPrank(user);
-        uint256[] memory tokenIds = token.mint(proof, MAX_MINTS);
-        vm.stopPrank();
-
-        assertEq(token.balanceOf(user), MAX_MINTS);
-        assertEq(tokenIds.length, MAX_MINTS);
-        assertFalse(token.canMint(user, MAX_MINTS));
-
-        string memory tokenURI = token.tokenURI(tokenIds[0]);
-        assertEq(tokenURI, "ipfs:///1.json");
-        */
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[1], BADGE_ID);
+        assertFalse(canMint);
     }
 
+    function test_mint() public {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
 
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        assertTrue(canMint);
+
+        vm.startPrank(minters[0]);
+        token.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(minters[0], BADGE_ID), 1);
+    }
+
+    function test_mint_revert_notAuthorized() public {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        assertTrue(canMint);
+
+        vm.expectRevert();
+        token.mint(abi.encodePacked(r, s, v), minters[1], BADGE_ID);
+    }
+
+    function test_mint_owner() public {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        assertTrue(canMint);
+
+        vm.startPrank(owner);
+        token.mint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(minters[0], BADGE_ID), 1);
+    }
 }
