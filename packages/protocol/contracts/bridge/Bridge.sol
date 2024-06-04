@@ -471,7 +471,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
-        // Owenr and chain_pauser can pause/unpause the bridge.
+        // Owner and chain_pauser can pause/unpause the bridge.
         if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
