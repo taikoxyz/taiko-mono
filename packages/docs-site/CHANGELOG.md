@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.8.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.0...docs-site-v1.8.1) (2024-06-03)
+
+
+### Bug Fixes
+
+* **docs-site:** update rpc call ([#17469](https://github.com/taikoxyz/taiko-mono/issues/17469)) ([bb2a023](https://github.com/taikoxyz/taiko-mono/commit/bb2a023fec3932bfbe2f8fe6c3130332c763d24f))
+
+## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.1...docs-site-v1.8.0) (2024-06-01)
+
+
+### Features
+
+* **docs-site:** phrasing ([#17461](https://github.com/taikoxyz/taiko-mono/issues/17461)) ([1279732](https://github.com/taikoxyz/taiko-mono/commit/1279732048f0320c2ee65910c9038108bb5e22c4))
+
+## [1.7.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.0...docs-site-v1.7.1) (2024-05-31)
+
+
+### Bug Fixes
+
+* **docs-site:** sentence case and trigger deployment ([#17440](https://github.com/taikoxyz/taiko-mono/issues/17440)) ([c7518dc](https://github.com/taikoxyz/taiko-mono/commit/c7518dc76a3ac585a96b8b793ae7f4bdd8ed07c6))
+
+## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.6.1...docs-site-v1.7.0) (2024-05-30)
+
+
+### Features
+
+* **docs-site:** add labcontester address ([#17410](https://github.com/taikoxyz/taiko-mono/issues/17410)) ([32cde32](https://github.com/taikoxyz/taiko-mono/commit/32cde322788340a2c0fad1154692c6e082a1d5f3))
+* **docs-site:** add weth address ([#17384](https://github.com/taikoxyz/taiko-mono/issues/17384)) ([6d64cad](https://github.com/taikoxyz/taiko-mono/commit/6d64cadde73b559635a82dcd919b4ac9ea019026))
+* **docs-site:** clarify contract addresses ([#17436](https://github.com/taikoxyz/taiko-mono/issues/17436)) ([3218e61](https://github.com/taikoxyz/taiko-mono/commit/3218e61e68312ca97bfe38f37a41852701e9a9f8))
+* **docs-site:** update run with docker guide ([#17435](https://github.com/taikoxyz/taiko-mono/issues/17435)) ([a4b727e](https://github.com/taikoxyz/taiko-mono/commit/a4b727ec266b68ab6e89a6aff16f3cfb9a91d650))
+
 ## [1.6.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.6.0...docs-site-v1.6.1) (2024-05-27)
 
 

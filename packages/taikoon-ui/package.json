@@ -14,7 +14,7 @@
     "format": "prettier --write ./src",
     "test:integration": "playwright test",
     "test:unit": "vitest",
-    "start": "npm run generate:abi && vite dev --open",
+    "start": "npm run generate:abi && vite dev --open --host 0.0.0.0",
     "generate:abi": "cd ../nfts && pnpm compile && cd - && wagmi generate"
   },
   "devDependencies": {

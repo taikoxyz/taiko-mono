@@ -91,6 +91,7 @@ export default defineConfig({
               link: "/core-concepts/booster-rollups/",
             },
             { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
+            { label: "Block states", link: "/core-concepts/block-states" },
             {
               label: "Taiko nodes",
               link: "/core-concepts/taiko-nodes/",
@@ -173,11 +174,11 @@ export default defineConfig({
           label: "Network Reference",
           items: [
             {
-              label: "Mainnet Addresses",
+              label: "Mainnet addresses",
               link: "/network-reference/mainnet-addresses",
             },
             {
-              label: "Testnet Addresses",
+              label: "Testnet addresses",
               link: "/network-reference/testnet-addresses",
             },
             {

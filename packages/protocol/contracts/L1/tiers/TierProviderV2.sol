@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "./TierProviderBase.sol";
 
 /// @title TierProviderV2
-/// @dev Labeled in AddressResolver as "tier_provider"
 /// @custom:security-contact security@taiko.xyz
 contract TierProviderV2 is TierProviderBase {
     /// @inheritdoc ITierProvider

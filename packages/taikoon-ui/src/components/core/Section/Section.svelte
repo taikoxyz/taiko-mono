@@ -7,7 +7,7 @@
 
   export let height: 'full' | 'min' | 'fit' = 'full';
   export let width: 'sm' | 'md' | 'lg' | 'xl' | 'full' = 'lg';
-  export let background: 'general' | 'footer' | 'none' = 'none';
+  export let background: 'general' | 'footer' | 'none' | false = 'none';
 
   let elementId: string = '';
   export { elementId as id };
@@ -27,7 +27,6 @@
     background !== 'none' ? 'bg-cover bg-center' : null,
     background === 'general' && isDarkTheme ? 'bg-general' : null,
     background === 'footer' && isDarkTheme ? 'bg-footer' : null,
-    'carousel-item',
   );
 
   $: sectionClasses = classNames(
@@ -46,7 +45,6 @@
 
 <section id={elementId} class={wrapperClasses}>
   <AnimatedBackground {animated} />
-
   <div class={sectionClasses}>
     <slot />
   </div>

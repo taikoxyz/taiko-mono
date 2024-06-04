@@ -45,6 +45,7 @@ export const wrapperClasses = classNames('w-full', 'z-0', 'fixed', 'top-0');
 export const themeButtonSeparatorClasses = 'v-sep my-auto ml-0 mr-4 h-[24px]';
 
 export const navButtonClasses = classNames(
+  'btn btn-neutral',
   'w-[140px]',
   'h-[44px]',
   'bg-nav-button',
