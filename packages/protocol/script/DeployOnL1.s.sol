@@ -305,7 +305,7 @@ contract DeployOnL1 is DeployCapability {
         register(rollupAddressManager, "tier_guardian", guardianProver);
         register(
             rollupAddressManager,
-            "tier_provider",
+            "tier_router",
             address(deployTierProvider(vm.envString("TIER_PROVIDER")))
         );
 
