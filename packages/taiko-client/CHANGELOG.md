@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.24.0...taiko-client-v0.25.0) (2024-06-04)
+
+
+### Features
+
+* **taiko-client:** remove useless function and correct erorr handling ([#17463](https://github.com/taikoxyz/taiko-mono/issues/17463)) ([4e93a57](https://github.com/taikoxyz/taiko-mono/commit/4e93a57e11980c199be7d38aaefcd64dacb96131))
+* **taiko-client:** update bindings based on protocol `TierRouter` update ([#17475](https://github.com/taikoxyz/taiko-mono/issues/17475)) ([0e9d160](https://github.com/taikoxyz/taiko-mono/commit/0e9d1608635fefaa34b1a07900978b22efe14712))
+
 ## [0.24.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.1...taiko-client-v0.24.0) (2024-05-30)
 
 
