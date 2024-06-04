@@ -7,6 +7,7 @@
   export let value = 'value';
   export let href = '#';
   export let loading = false;
+  export let target = '_blank';
 
   const wrapperClasses = classNames('flex', 'flex-row', 'items-center', 'justify-between', 'w-full', $$props.class);
 
@@ -16,7 +17,7 @@
 
 <div class={wrapperClasses}>
   <P class={textClasses}>{label}</P>
-  <Link {href} class={linkClasses}>
+  <Link {target} {href} class={linkClasses}>
     {#if loading}
       <Spinner size="xs" />
     {:else}
