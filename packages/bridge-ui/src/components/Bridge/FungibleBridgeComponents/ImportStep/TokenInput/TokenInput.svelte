@@ -171,20 +171,26 @@
       if (!destChainAddress) return false;
       tokenAddress = destChainAddress;
     }
-    const quotaManagerAddress = getContractAddressByType({
-      srcChainId: Number($destNetwork.id),
-      destChainId: Number($connectedSourceChain.id),
-      contractType: ContractType.QUOTAMANAGER,
-    });
 
-    log('quotaManagerAddress', quotaManagerAddress);
-    exceeds = await checkQuota({
-      tokenAddress,
-      amount: $enteredAmount,
-      quotaManagerAddress,
-      chainId: $destNetwork.id,
-    });
-    log('exceedsQuota', exceeds);
+    try {
+      const quotaManagerAddress = getContractAddressByType({
+        srcChainId: Number($destNetwork.id),
+        destChainId: Number($connectedSourceChain.id),
+        contractType: ContractType.QUOTAMANAGER,
+      });
+
+      log('quotaManagerAddress', quotaManagerAddress);
+      exceeds = await checkQuota({
+        tokenAddress,
+        amount: $enteredAmount,
+        quotaManagerAddress,
+        chainId: $destNetwork.id,
+      });
+      log('exceedsQuota', exceeds);
+    } catch (error) {
+      // Likely no quota manager for this chain
+      log('Error checking if amount exceeds quota: ', error);
+    }
   };
 
   let previousSelectedToken = $selectedToken;

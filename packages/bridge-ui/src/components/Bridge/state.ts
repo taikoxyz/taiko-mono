@@ -49,7 +49,6 @@ export const insufficientBalance = writable<boolean>(false);
 export const insufficientAllowance = writable<boolean>(false);
 
 export const allApproved = writable(<boolean>false);
-export const selectedTokenIsBridged = writable(<boolean>false);
 
 // Derived state
 export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));

@@ -85,6 +85,7 @@
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
   {/if}
+
   {#if activeStep === BridgeSteps.REVIEW}
     {#if needsManualReviewConfirmation}
       <ActionButton
