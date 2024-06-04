@@ -70,6 +70,7 @@
     "axios": "^1.6.7",
     "buffer": "^6.0.3",
     "debug": "^4.3.4",
+    "ethers": "^5.7.2",
     "events": "^3.3.0",
     "moralis": "^2.26.1",
     "object-hash": "^3.0.0",

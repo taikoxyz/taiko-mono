@@ -51,6 +51,9 @@ importers:
       debug:
         specifier: ^4.3.4
         version: 4.3.4
+      ethers:
+        specifier: ^5.7.2
+        version: 5.7.2(bufferutil@4.0.8)(utf-8-validate@6.0.3)
       events:
         specifier: ^3.3.0
         version: 3.3.0

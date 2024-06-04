@@ -1,4 +1,5 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
+import { Contract, utils } from 'ethers';
 import { getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
@@ -230,30 +231,80 @@ export abstract class Bridge {
     const { message } = bridgeTx;
     if (!message) throw new ProcessMessageError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    log('client', client);
+    // const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
+    // log('Estimated gas for processMessage', estimatedGas);
 
-    const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
-    log('Estimated gas for processMessage', estimatedGas);
+    // // const wallet = await getConnectedWallet();
 
-    // const wallet = await getConnectedWallet();
+    // // return await wallet.writeContract({
+    // //   address: bridgeContract.address,
+    // //   abi: bridgeContract.abi,
+    // //   functionName: 'processMessage',
+    // //   args: [message, proof],
+    // //   gas: 1000000n,
+    // // });
 
-    // return await wallet.writeContract({
+    // const { request } = await simulateContract(config, {
     //   address: bridgeContract.address,
     //   abi: bridgeContract.abi,
     //   functionName: 'processMessage',
     //   args: [message, proof],
-    //   gas: 1000000n,
+    //   gas: estimatedGas,
     // });
+    // log('Simulate contract for processMessage', request);
 
-    const { request } = await simulateContract(config, {
-      address: bridgeContract.address,
-      abi: bridgeContract.abi,
-      functionName: 'processMessage',
-      args: [message, proof],
-      gas: estimatedGas,
-    });
-    log('Simulate contract for processMessage', request);
+    // return await writeContract(config, request);
 
-    return await writeContract(config, request);
+    // const estimatedGas = await bridgeContract.estimateGas.processMessage(message, proof, { from: client.account });
+    // console.log('Estimated gas for processMessage', estimatedGas.toString());
+
+    // Ensure proof is a valid bytes-like value
+    if (!proof || typeof proof !== 'string' || !proof.startsWith('0x')) {
+      throw new ProcessMessageError('Invalid proof format');
+    }
+
+    // Simplified proof handling (just for testing)
+    const simplifiedProof = utils.arrayify(proof);
+    log('Simplified Proof:', simplifiedProof);
+
+    const estimatedGas = 1_300_000;
+    log('Estimated gas for processMessage', estimatedGas.toString());
+
+    const signer = await getEthersSigner(config, { chainId: Number(bridgeTx.destChainId) });
+
+    // Instantiate the ethers contract using ABI and address from bridgeContract
+    const ethersBridgeContract = new Contract(bridgeContract.address, bridgeAbi, signer);
+
+    // Dummy values for testing
+    const dummyMessage = {
+      id: BigInt(1),
+      fee: BigInt(1000),
+      gasLimit: 3000000,
+      from: '0x0000000000000000000000000000000000000001',
+      srcChainId: BigInt(1),
+      srcOwner: '0x0000000000000000000000000000000000000001',
+      destChainId: BigInt(2),
+      destOwner: '0x0000000000000000000000000000000000000002',
+      to: '0x0000000000000000000000000000000000000003',
+      value: BigInt(0),
+      data: '0x',
+    };
+
+    const dummyProof = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+    try {
+      const tx = await ethersBridgeContract.processMessage(dummyMessage, dummyProof, {
+        gasLimit: estimatedGas,
+      });
+
+      const response = await tx.wait();
+
+      return response.transactionHash;
+    } catch (error) {
+      console.error('Transaction error:', error);
+      throw new ProcessMessageError('Transaction failed');
+    }
   }
 
   private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
@@ -305,4 +356,52 @@ export abstract class Bridge {
 
     return await writeContract(config, request);
   }
+}
+
+import { type Config, getClient } from '@wagmi/core';
+import { providers } from 'ethers';
+import type { Chain, Client, Transport } from 'viem';
+
+export function clientToProvider(client: Client<Transport, Chain>) {
+  const { chain, transport } = client;
+  const network = {
+    chainId: chain.id,
+    name: chain.name,
+    ensAddress: chain.contracts?.ensRegistry?.address,
+  };
+  if (transport.type === 'fallback')
+    return new providers.FallbackProvider(
+      (transport.transports as ReturnType<Transport>[]).map(
+        ({ value }) => new providers.JsonRpcProvider(value?.url, network),
+      ),
+    );
+  return new providers.JsonRpcProvider(transport.url, network);
+}
+
+/** Action to convert a viem Public Client to an ethers.js Provider. */
+export function getEthersProvider(config: Config, { chainId }: { chainId?: number } = {}) {
+  const client = getClient(config, { chainId });
+  if (!client) return;
+  return clientToProvider(client);
+}
+
+import { getConnectorClient } from '@wagmi/core';
+import type { Account } from 'viem';
+
+export function clientToSigner(client: Client<Transport, Chain, Account>) {
+  const { account, chain, transport } = client;
+  const network = {
+    chainId: chain.id,
+    name: chain.name,
+    ensAddress: chain.contracts?.ensRegistry?.address,
+  };
+  const provider = new providers.Web3Provider(transport, network);
+  const signer = provider.getSigner(account.address);
+  return signer;
+}
+
+/** Action to convert a Viem Client to an ethers.js Signer. */
+export async function getEthersSigner(config: Config, { chainId }: { chainId?: number } = {}) {
+  const client = await getConnectorClient(config, { chainId });
+  return clientToSigner(client);
 }
