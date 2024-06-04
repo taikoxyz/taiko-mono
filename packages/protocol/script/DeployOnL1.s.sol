@@ -307,6 +307,11 @@ contract DeployOnL1 is DeployCapability {
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
+        register(
+            rollupAddressManager,
+            "tier_router",
+            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+        );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
