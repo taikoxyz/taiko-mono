@@ -63,7 +63,7 @@
 
 - ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
-- impl: `0x951B7Ae1bB26d12dB37f01748e8fB62FEf45A8B5`
+- impl: `0x3c326483EBFabCf3252205f26dF632FE83d11108`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -75,6 +75,7 @@
   - unpaused on 27 May, 2024 @tx`0x71ce1e61f1e42e34c9a51f5671ac260f2ac398e016ae645f2661f074e7f230ce`
   - upgraded from `0x02F21B4C3d4dbfF70cE851741175a727c8D782Be` to `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0.` @commit`` in @tx`0x8a380a25d03a740d9535dfc3e2fc4f6960e22d49ad88b8d85f59af4013aedf87`
   - upgrade impl to `0x951B7Ae1bB26d12dB37f01748e8fB62FEf45A8B5` @commit`1bd3285` @tx`0xf21f6bf720767db3bc9b63ef69cacb20340bdedfb6589e6a4d11fe082dfa7bd6`
+  - upgrade impl to `0x3c326483EBFabCf3252205f26dF632FE83d11108` @commit`3ae25fd` @tx``
 
 #### quota_manager
 
