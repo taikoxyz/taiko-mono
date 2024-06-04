@@ -53,7 +53,16 @@ contract TrailblazersBadgesTest is Test {
         vm.stopBroadcast();
     }
 
-    function test_metadata() public view { }
+    function test_metadata_badges() public view {
+        assertEq(token.BADGE_RAVERS(), 0);
+        assertEq(token.BADGE_ROBOTS(), 1);
+        assertEq(token.BADGE_BOUNCERS(), 2);
+        assertEq(token.BADGE_MASTERS(), 3);
+        assertEq(token.BADGE_MONKS(), 4);
+        assertEq(token.BADGE_DRUMMERS(), 5);
+        assertEq(token.BADGE_ANDROIDS(), 6);
+        assertEq(token.BADGE_SHINTO(), 7);
+    }
 
     function test_canMint_true() public view {
         bytes32 _hash = token.getHash(minters[0], BADGE_ID);
@@ -99,6 +108,18 @@ contract TrailblazersBadgesTest is Test {
 
         vm.expectRevert();
         token.mint(abi.encodePacked(r, s, v), minters[1], BADGE_ID);
+    }
+
+    function test_mint_revert_invalidBadgeId() public {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        assertTrue(canMint);
+
+        vm.expectRevert();
+        token.mint(abi.encodePacked(r, s, v), minters[0], 8);
     }
 
     function test_mint_owner() public {

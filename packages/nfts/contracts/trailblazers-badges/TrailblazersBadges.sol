@@ -12,8 +12,20 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     /// @notice Base URI required to interact with IPFS
     string private _baseURIExtended;
 
+    uint256 public constant BADGE_RAVERS = 0;
+    uint256 public constant BADGE_ROBOTS = 1;
+    uint256 public constant BADGE_BOUNCERS = 2;
+    uint256 public constant BADGE_MASTERS = 3;
+    uint256 public constant BADGE_MONKS = 4;
+    uint256 public constant BADGE_DRUMMERS = 5;
+    uint256 public constant BADGE_ANDROIDS = 6;
+    uint256 public constant BADGE_SHINTO = 7;
+
     error MINTER_NOT_WHITELISTED();
     error INVALID_INPUT();
+    error INVALID_BADGE_ID();
+
+    event BadgeCreated(uint256 _badgeId, string _badgeName);
 
     function initialize(
         address _owner,
@@ -35,19 +47,22 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
 
     function mint(bytes memory _signature, uint256 _badgeId) public {
         if (!canMint(_signature, _msgSender(), _badgeId)) revert MINTER_NOT_WHITELISTED();
-        _mintBadgeTo(_msgSender(), _badgeId);
+        _mintBadgeTo(_signature, _msgSender(), _badgeId);
     }
 
     function mint(bytes memory _signature, address _minter, uint256 _badgeId) public onlyOwner {
         if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
 
-        _mintBadgeTo(_minter, _badgeId);
+        _mintBadgeTo(_signature, _minter, _badgeId);
     }
 
-    function _mintBadgeTo(address _to, uint256 _id) internal {
+    function _mintBadgeTo(bytes memory _signature, address _minter, uint256 _badgeId) internal {
+        if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
+        if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
+
         _mint(
-            _to,
-            _id,
+            _minter,
+            _badgeId,
             1, // amount
             "" // empty data
         );
