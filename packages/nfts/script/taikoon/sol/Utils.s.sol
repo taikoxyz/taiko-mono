@@ -58,10 +58,6 @@ contract UtilsScript is Script {
         return string.concat(root, "/deployments/taikoon/", lowercaseNetworkKey, ".json");
     }
 
-    function getIpfsBaseURI() public view returns (string memory) {
-        return vm.envString("IPFS_BASE_URI");
-    }
-
     function getBlacklist() public view returns (IMinimalBlacklist blacklistAddress) {
         if (block.chainid == 167_000) {
             // mainnet blacklist address
