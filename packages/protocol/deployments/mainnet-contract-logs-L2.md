@@ -39,6 +39,7 @@
   - set erc721_vault@1 to `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa` @tx`0x3b836123cd6073aff8d441ebf38b9133ba553c4625eb529811b855be67937d69`
   - set erc1155_vault@1 to `0xaf145913EA4a56BE22E120ED9C24589659881702` @tx`0x4a16a8a7d02f696b753208bbf8e7e3501d6b70b9a764fa2b4e115add46c13cb3`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
+  - register `taiko_token` to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xc77434f4e37959cdc0eac125303b78dd192d8727173373cc7a6158ca7d829dad`
 
 #### bridge
 
@@ -54,7 +55,7 @@
   - upgraded from `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` to `0x98C5De7670aA7d47C6c0551fAD27Bfe464A6751a..` @commit`` in @tx`0x0b5d6acc9c5b8ef193920246081ec5ce7268111acfc1dce1f058bea06f3953c7`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0x0893c8821Fa358D5f3630695Ce062204814359A1` @commit`1bd3285` @tx`0x4605c4ce594e996bdbdb532a9aefe4fab1ea36f7e2ef63eef56a7e8033810df3`
-  - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit`3ae25fd` @tx`??????????`
+  - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit`3ae25fd` @tx`0xc77434f4e37959cdc0eac125303b78dd192d8727173373cc7a6158ca7d829dad`
 
 #### erc20_vault
 
