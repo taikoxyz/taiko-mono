@@ -31,8 +31,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - set signal_service@1 to `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` @tx`0xc50b269f961973eafc2e39d4c668efa3f7457632940a2dc74fb627d6feba0680`
   - set bridge@1 to `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` @tx`0xca295b7251c1e812e4d07145f061f18ccee62c6c4ee175483ec9f134c537a6e8`
   - set erc20_vault@1 to `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` @tx`0x82e4550eadd0d255ab930ef2257d9b8eedf1cec0198eea628661d2a3e1d0c503`
@@ -48,13 +48,13 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - upgrade to `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` @tx`0x094dd9452d79cbd74711f2b8065566e4431a05d0727c56d2b38195e40fd62805`
   - upgraded from `0xf961854D68368cFFc86d90AEe8a19E9781dACA3e` to `0x98C5De7670aA7d47C6c0551fAD27Bfe464A6751a..` @commit`` in @tx`0x0b5d6acc9c5b8ef193920246081ec5ce7268111acfc1dce1f058bea06f3953c7`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0x0893c8821Fa358D5f3630695Ce062204814359A1` @commit`1bd3285` @tx`0x4605c4ce594e996bdbdb532a9aefe4fab1ea36f7e2ef63eef56a7e8033810df3`
-  - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit `3ae25fd` @tx`??????????`
+  - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit`3ae25fd` @tx`??????????`
 
 #### erc20_vault
 
@@ -64,8 +64,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - upgrade to `0x33fBcde27fBA21e90582Df31DFB427D4dbdBefC1` @tx`0x8a12626b2f2c9464b5f2525edc2010f371397ff12fe00cf49287a9b2a6b7ab99`
   - linked bridged TKO to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xe25d05320b95fbc3bffe0b7cbfe351dd5fa6413db307d5c28f7b70983567a43b`
   - linked bridged USDC to `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b` @tx`0xf1752ac712779e9ae53d408abdc5eec70e63582433143d6d91a489a1e8fc4778`
@@ -79,8 +79,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - upgrade to `0xD68BFe63E0f2983D89cbB225BEd068a8f19f5e08` @`0x8705703a93cb4cfc1ae69d1277f4464f807c7615237f2b04ff010c6e45708d34`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
@@ -92,8 +92,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - upgrade to `0x3918a2910C393A1A2EF7AAc807970EFE47A54b7e` @tx`0x264a2a553672a5480141638c3ca00a7bdf2c54e48c53f41867ca4f64703e16d7`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
@@ -105,8 +105,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 ## Rollup Specific
@@ -123,8 +123,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### taikoL2
@@ -135,8 +135,8 @@
 - todo:
   - change owner to DelegateOwner
 - logs:
-  - deployed on May 1, 2024 @commit `56dddf2b6`
-  - redeployed on May 22, 2024 @commit `b955e0e`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
 #### bridged_taiko_token
