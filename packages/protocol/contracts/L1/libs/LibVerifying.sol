@@ -122,6 +122,8 @@ library LibVerifying {
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
+                uint16 tier = ts.tier;
+
                 if (ts.contester != address(0)) {
                     break;
                 } else {
@@ -133,7 +135,7 @@ library LibVerifying {
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            tierProvider.getTier(ts.tier).cooldownWindow
+                            tierProvider.getTier(tier).cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
@@ -149,7 +151,8 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                tko.transfer(ts.prover, ts.validityBond);
+                address prover = ts.prover;
+                tko.transfer(prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -160,10 +163,10 @@ library LibVerifying {
 
                 emit BlockVerified({
                     blockId: blockId,
-                    prover: ts.prover,
+                    prover: prover,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    tier: ts.tier
+                    tier: tier
                 });
 
                 ++blockId;
