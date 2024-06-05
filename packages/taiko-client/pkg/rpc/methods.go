@@ -679,12 +679,22 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	tierProviderAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_provider"), false)
+	tierRouterAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
 	if err != nil {
 		return nil, err
 	}
 
-	tierProvider, err := bindings.NewTierProvider(tierProviderAddress, c.L1)
+	tierRouter, err := bindings.NewTierProvider(tierRouterAddress, c.L1)
+	if err != nil {
+		return nil, err
+	}
+
+	providerAddress, err := tierRouter.GetProvider(&bind.CallOpts{Context: ctxWithTimeout}, common.Big0)
+	if err != nil {
+		return nil, err
+	}
+
+	tierProvider, err := bindings.NewTierProvider(providerAddress, c.L1)
 	if err != nil {
 		return nil, err
 	}

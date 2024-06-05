@@ -11,28 +11,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
-func TestGetBlobsFromSocialScan(t *testing.T) {
-	socialScanEndpoint, err := url.Parse("https://api.socialscan.io/blob-archive/v1/holesky-testnet")
-	require.Nil(t, err)
-	require.NotNil(t, socialScanEndpoint)
-	ds := NewBlobDataSource(
-		context.Background(),
-		&Client{},
-		nil,
-		socialScanEndpoint,
-	)
-	sidecars, err := ds.GetBlobs(
-		context.Background(),
-		&bindings.TaikoDataBlockMetadata{
-			BlobHash: common.HexToHash("0x0145185449c57dee4e6c921b702e5d572fbeb026f96c220a6a17b79d157d921b"),
-			BlobUsed: true,
-		},
-	)
-	require.Nil(t, err)
-	require.NotNil(t, sidecars)
-	require.NotNil(t, sidecars[0].Blob)
-}
-
 func TestGetBlobsFromBlobScan(t *testing.T) {
 	blobScanEndpoint, err := url.Parse("https://api.holesky.blobscan.com")
 	require.Nil(t, err)

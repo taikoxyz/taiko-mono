@@ -34,8 +34,6 @@ contract AssignmentHook is EssentialContract, IHook {
         uint256 tip; // A tip to L1 block builder
     }
 
-    event EtherPaymentFailed(address to, uint256 maxGas);
-
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
@@ -103,23 +101,26 @@ contract AssignmentHook is EssentialContract, IHook {
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
         // as `assignedProver` has provided a signature above to authorize this hook.
-        tko.safeTransferFrom(_blk.assignedProver, msg.sender, _blk.livenessBond);
+        tko.transferFrom(_blk.assignedProver, msg.sender, _blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, _meta.minTier);
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        if (assignment.feeToken == address(0)) {
-            // Paying Ether even when proverFee is 0 to trigger a potential receive() function call.
-            // Note that this payment may fail if it cost more gas
-            bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
-            if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
-        } else if (proverFee != 0 && _meta.sender != _blk.assignedProver) {
-            // Paying ERC20 tokens
-            IERC20(assignment.feeToken).safeTransferFrom(
-                _meta.sender, _blk.assignedProver, proverFee
-            );
+        if (proverFee != 0 && _meta.sender != _blk.assignedProver) {
+            if (assignment.feeToken == address(0)) {
+                // Paying Ether
+                _blk.assignedProver.sendEtherAndVerify(proverFee);
+            } else if (assignment.feeToken == address(tko)) {
+                // Paying TKO
+                tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee);
+            } else {
+                // Other ERC20
+                IERC20(assignment.feeToken).safeTransferFrom(
+                    _meta.sender, _blk.assignedProver, proverFee
+                );
+            }
         }
 
         // block.coinbase can be address(0) in tests
