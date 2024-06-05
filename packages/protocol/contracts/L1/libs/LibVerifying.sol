@@ -126,9 +126,7 @@ library LibVerifying {
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    if (tierProvider == ITierProvider(address(0))) {
-                        tierProvider = LibUtils.getTierProvider(_resolver, blockId);
-                    }
+                    tierProvider = LibUtils.getTierProvider(_resolver, blockId);
 
                     if (
                         !LibUtils.isPostDeadline(
