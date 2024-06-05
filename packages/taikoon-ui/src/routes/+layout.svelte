@@ -7,7 +7,7 @@
   import { setContext } from 'svelte';
   import { zeroAddress } from 'viem';
 
-  import { MintConfirmationModal, PostMintModal, TaikoonDetailModal } from '$components/modals';
+  import { MintConfirmationModal, MintDisclaimerModal, PostMintModal, TaikoonDetailModal } from '$components/modals';
   import { mint } from '$stores/mint';
   import { taikoonDetail } from '$stores/taikoonDetail';
 
@@ -78,5 +78,7 @@
 {#if windowSize === 'sm'}
   <TaikoonDetailModal />
 {/if}
+
+<MintDisclaimerModal />
 
 <ResponsiveController bind:windowSize />
