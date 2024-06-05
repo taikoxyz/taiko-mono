@@ -9,7 +9,6 @@ import "./LibUtils.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerifying {
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
@@ -150,7 +149,7 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                tko.safeTransfer(ts.prover, ts.validityBond);
+                tko.transfer(ts.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
