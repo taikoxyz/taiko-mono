@@ -147,10 +147,11 @@ library LibProposing {
         // number as the L2 mixHash.
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
-        // Use the difficulty as a random number
         {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(b.numBlocks));
+
+            // Use the difficulty as a random number
             meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
         }
 
