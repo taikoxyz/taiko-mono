@@ -10,7 +10,6 @@ import "./LibUtils.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
@@ -253,7 +252,7 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                tko.safeTransferFrom(msg.sender, address(this), local.tier.contestBond);
+                tko.transferFrom(msg.sender, address(this), local.tier.contestBond);
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -391,13 +390,13 @@ library LibProving {
                 reward = _rewardAfterFriction(_ts.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                _tko.safeTransfer(_ts.prover, _ts.validityBond);
+                _tko.transfer(_ts.prover, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
 
-                _tko.safeTransfer(_ts.contester, _ts.contestBond + reward * 3);
+                _tko.transfer(_ts.contester, _ts.contestBond + reward * 3);
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -417,7 +416,7 @@ library LibProving {
                     if (_blk.assignedProver == msg.sender) {
                         reward += livenessBond;
                     } else {
-                        _tko.safeTransfer(_blk.assignedProver, livenessBond);
+                        _tko.transfer(_blk.assignedProver, livenessBond);
                     }
                 }
             }
@@ -425,9 +424,9 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                _tko.safeTransfer(msg.sender, reward - _local.tier.validityBond);
+                _tko.transfer(msg.sender, reward - _local.tier.validityBond);
             } else if (reward < _local.tier.validityBond) {
-                _tko.safeTransferFrom(msg.sender, address(this), _local.tier.validityBond - reward);
+                _tko.transferFrom(msg.sender, address(this), _local.tier.validityBond - reward);
             }
         }
 
