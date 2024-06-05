@@ -171,7 +171,7 @@ export class RelayerAPIService {
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
-        data = '' as Hex;
+        data = '0x' as Hex;
       } else if (data !== '0x') {
         const buffer = Buffer.from(data, 'base64');
         data = `0x${buffer.toString('hex')}`;
