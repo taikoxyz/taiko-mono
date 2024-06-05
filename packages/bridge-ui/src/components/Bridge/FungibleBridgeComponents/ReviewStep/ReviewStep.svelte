@@ -9,14 +9,14 @@
   import { destNetwork as destChain, enteredAmount, processingFee, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
-  import { isStablecoin, isSupported, isWrapped, type Token, TokenType } from '$libs/token';
+  import { isStablecoin, isSupported, isWrapped, type Token,TokenType } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
   export let needsManualReviewConfirmation = false;
-  export let hasEnoughFundsToContinue: boolean = false;
+  export let hasEnoughFundsToContinue: boolean = true;
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
@@ -40,13 +40,18 @@
     needsManualReviewConfirmation = false;
   }
 
-  $: {
-    if ($selectedToken?.type === TokenType.ETH) {
-      hasEnoughFundsToContinue = $processingFee + $enteredAmount <= $ethBalance && hasEnoughEth;
+  $: if ($selectedToken?.type === TokenType.ETH) {
+    if ($processingFee + $enteredAmount > $ethBalance || !hasEnoughEth) {
+      hasEnoughFundsToContinue = false;
     } else {
-      hasEnoughFundsToContinue = hasEnoughEth;
+      hasEnoughFundsToContinue = true;
     }
   }
+  //  else if (hasEnoughEth && $processingFee !== 0n) {
+  //   hasEnoughFundsToContinue = true;
+  // } else {
+  //   hasEnoughFundsToContinue = false;
+  // }
 
   const dispatch = createEventDispatcher();
 
