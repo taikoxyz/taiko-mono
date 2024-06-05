@@ -150,7 +150,8 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        local.tierProvider = LibUtils.getTierProvider(_resolver, local.blockId);
+        local.tierProvider =
+            LibUtils.getTierProvider(_resolver, LibUtils.blockIdToGroup(local.blockId));
         local.tier = local.tierProvider.getTier(_proof.tier);
         local.minTier = local.tierProvider.getTier(_meta.minTier);
 

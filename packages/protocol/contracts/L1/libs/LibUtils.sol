@@ -126,13 +126,17 @@ library LibUtils {
 
     function getTierProvider(
         IAddressResolver _resolver,
-        uint256 _blockId
+        uint256 _blockGroup
     )
         internal
         view
         returns (ITierProvider)
     {
         ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-        return ITierProvider(tierRouter.getProvider(_blockId));
+        return ITierProvider(tierRouter.getProvider(_blockGroup));
+    }
+
+    function blockIdToGroup(uint256 _blockId) internal pure returns (uint256) {
+        return _blockId / 1000;
     }
 }

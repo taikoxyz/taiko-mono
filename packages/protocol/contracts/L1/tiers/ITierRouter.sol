@@ -6,7 +6,7 @@ pragma solidity 0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface ITierRouter {
     /// @dev Returns the address of the TierProvider for a given block.
-    /// @param blockId ID of the block.
+    /// @param blockGroup ID of the block group.
     /// @return The address of the corresponding TierProvider.
-    function getProvider(uint256 blockId) external view returns (address);
+    function getProvider(uint256 blockGroup) external view returns (address);
 }
