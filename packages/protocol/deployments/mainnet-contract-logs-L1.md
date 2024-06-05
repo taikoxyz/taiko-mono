@@ -203,7 +203,7 @@
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
 - todo:
-  - upgrade assignment hook
+  - upgrade assignment hook again for signature check improvement
 
 #### tier_provider
 
