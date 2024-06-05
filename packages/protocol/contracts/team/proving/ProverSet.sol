@@ -61,6 +61,10 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Receives ETH as fees.
     receive() external payable { }
 
+    function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
+        IERC20(getTaikoTokenAddress()).approve(_address, _allowance);
+    }
+
     /// @notice Enables or disables a prover.
     function enableProver(address _prover, bool _isProver) external onlyAuthorized {
         if (isProver[_prover] == _isProver) revert INVALID_STATUS();
