@@ -27,9 +27,9 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    function delegates(address account) public view virtual returns (address) {
+    function delegates(address account) public view virtual override returns (address) {
         // Special check to avoid reading from storage slots
         if (account == _TAIKO_L1 || account == _ERC20_VAULT) return address(0);
-        else return _delegates[account];
+        else return super.delegates(account);
     }
 }
