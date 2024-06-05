@@ -210,7 +210,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev This transaction's gas limit must not be smaller than:
+    /// @dev To ensure successful execution, we recommend this transaction's gas limit not to be
+    /// smaller than:
     /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
     /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
     function processMessage(
@@ -254,8 +255,8 @@ contract Bridge is EssentialContract, IBridge {
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
+            // Handle special addresses and message.data encoded function calldata that don't
+            // require or cannot proceed with actual invocation and mark message as DONE
             refundAmount = _message.value;
             status_ = Status.DONE;
             reason_ = StatusReason.INVOCATION_PROHIBITED;
@@ -276,6 +277,14 @@ contract Bridge is EssentialContract, IBridge {
 
             if (stats.processedByRelayer && _message.gasLimit != 0) {
                 unchecked {
+                    // The relayer (=message processor) needs to get paid from the fee, and below it
+                    // the calculation mechanism of that.
+                    // The high level overview is: "gasCharged * block.basefee" with some caveat.
+                    // Sometimes over or under estimated and it has different reasons:
+                    // - a rational relayer shall simulate transactions off-chain so he/she would
+                    // exactly know if the txn is profitable or not.
+                    // - need to have a buffer/small revenue to the realyer since it consumes
+                    // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;

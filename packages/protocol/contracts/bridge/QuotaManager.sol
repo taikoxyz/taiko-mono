@@ -48,7 +48,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     /// @notice Updates the daily quota for a given address.
     /// @param _token The token address with Ether represented by address(0).
-    /// @param _quota The new daily quota.
+    /// @param _quota The new quota for the defined period.
     function updateQuota(address _token, uint104 _quota) external onlyOwner whenNotPaused {
         uint104 currQuota = tokenQuota[_token].quota;
         if (_quota == currQuota) revert QM_INVALID_PARAM();

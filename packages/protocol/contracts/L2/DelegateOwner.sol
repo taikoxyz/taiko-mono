@@ -71,8 +71,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     /// @inheritdoc IMessageInvocable
-    /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
-    /// represents calls to address(this).
     function onMessageInvocation(bytes calldata _data)
         external
         payable
