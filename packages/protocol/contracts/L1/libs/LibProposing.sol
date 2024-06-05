@@ -45,6 +45,7 @@ library LibProposing {
 
     /// @dev Proposes a Taiko L2 block.
     /// @param _state Current TaikoData.State.
+    /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
@@ -52,6 +53,7 @@ library LibProposing {
     /// @return meta_ The constructed block's metadata.
     function proposeBlock(
         TaikoData.State storage _state,
+        IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
@@ -175,8 +177,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-            uint256 tkoBalance = tko.balanceOf(address(this));
+            uint256 tkoBalance = _tko.balanceOf(address(this));
 
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
@@ -206,7 +207,7 @@ library LibProposing {
             // have increased by the same amount as _config.livenessBond (to prevent)
             // multiple draining payments by a malicious proposer nesting the same
             // hook.
-            if (tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
+            if (_tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
         }

@@ -62,6 +62,7 @@ library LibVerifying {
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
+        IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
@@ -94,8 +95,6 @@ library LibVerifying {
         bytes32 stateRoot;
         uint64 numBlocksVerified;
         ITierProvider tierProvider;
-
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -152,7 +151,7 @@ library LibVerifying {
                 stateRoot = ts.stateRoot;
 
                 address prover = ts.prover;
-                tko.transfer(prover, ts.validityBond);
+                _tko.transfer(prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist

@@ -83,10 +83,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+
+        (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (!state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
         }
     }
 
@@ -110,10 +112,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
-
-        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
+        uint8 maxBlocksToVerify = LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
+        LibVerifying.verifyBlocks(state, tko, config, this, maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
@@ -124,7 +126,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+
+        LibVerifying.verifyBlocks(state, tko, getConfig(), this, _maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
