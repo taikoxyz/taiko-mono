@@ -96,9 +96,7 @@ contract AssignmentHook is EssentialContract, IHook {
                 revert HOOK_ASSIGNMENT_INVALID_SIG();
             }
         } else {
-            (address recovered, ECDSA.RecoverError error) =
-                ECDSA.tryRecover(hash, assignment.signature);
-            if (recovered != _blk.assignedProver || error != ECDSA.RecoverError.NoError) {
+            if (_blk.assignedProver != ECDSA.recover(hash, assignment.signature)) {
                 revert HOOK_ASSIGNMENT_INVALID_SIG();
             }
         }
