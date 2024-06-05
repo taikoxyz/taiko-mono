@@ -11,6 +11,7 @@
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
 
+  export let hasEnoughFundsToContinue: boolean;
   export let needsManualReviewConfirmation: boolean;
   export let needsManualRecipientConfirmation: boolean;
   export let bridgingStatus: BridgingStatus;
@@ -100,7 +101,10 @@
       </ActionButton>
     {/if}
 
-    <ActionButton priority="primary" disabled={disabled || !reviewConfirmed} on:click={() => handleNextStep()}>
+    <ActionButton
+      priority="primary"
+      disabled={disabled || !reviewConfirmed || !hasEnoughFundsToContinue}
+      on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
 

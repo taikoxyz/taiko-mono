@@ -6,15 +6,17 @@
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
-  import { destNetwork as destChain, enteredAmount, selectedToken } from '$components/Bridge/state';
+  import { destNetwork as destChain, enteredAmount, processingFee, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
   import { isStablecoin, isSupported, isWrapped, type Token } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
+  import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
 
   export let hasEnoughEth: boolean = false;
   export let needsManualReviewConfirmation = false;
+  export let hasEnoughFundsToContinue: boolean = false;
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
@@ -36,6 +38,12 @@
     needsManualReviewConfirmation = true;
   } else {
     needsManualReviewConfirmation = false;
+  }
+
+  $: if ($processingFee + $enteredAmount > $ethBalance || !hasEnoughEth) {
+    hasEnoughFundsToContinue = false;
+  } else {
+    hasEnoughFundsToContinue = true;
   }
 
   const dispatch = createEventDispatcher();
@@ -85,6 +93,7 @@
 <!-- 
 Recipient & Processing Fee
 -->
+
 <div class="f-col">
   <div class="f-between-center mb-[10px]">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.recipient_details')}</div>
@@ -95,7 +104,9 @@ Recipient & Processing Fee
 </div>
 
 <div class="h-sep" />
-
+{#if !hasEnoughFundsToContinue}
+  <Alert type="error">{$t('bridge.alerts.not_enough_funds')}</Alert>
+{/if}
 {#if wrapped}
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   <Alert type="warning">{@html wrappedAssetWarning}</Alert>

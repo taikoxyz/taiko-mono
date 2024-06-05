@@ -19,6 +19,7 @@
   let stepDescription: string;
 
   let hasEnoughEth: boolean = false;
+  let hasEnoughFundsToContinue: boolean = false;
   let exceedsQuota: boolean = false;
   let bridgingStatus: BridgingStatus;
   let needsManualReviewConfirmation: boolean;
@@ -58,7 +59,8 @@
           on:editTransactionDetails={handleTransactionDetailsClick}
           on:goBack={handleBackClick}
           bind:needsManualReviewConfirmation
-          bind:hasEnoughEth />
+          bind:hasEnoughEth
+          bind:hasEnoughFundsToContinue />
       {:else if activeStep === BridgeSteps.RECIPIENT}
         <!-- RECIPIENT STEP -->
         <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth bind:needsManualRecipientConfirmation />
@@ -70,6 +72,7 @@
       <StepNavigation
         bind:activeStep
         bind:exceedsQuota
+        bind:hasEnoughFundsToContinue
         {bridgingStatus}
         bind:needsManualReviewConfirmation
         bind:needsManualRecipientConfirmation />
