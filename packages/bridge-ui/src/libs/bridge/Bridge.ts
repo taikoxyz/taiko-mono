@@ -232,6 +232,8 @@ export abstract class Bridge {
     if (!message) throw new ProcessMessageError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
     log('client', client);
+
+    log('processing message', message, proof);
     // const estimatedGas = await bridgeContract.estimateGas.processMessage([message, proof], { account: client.account });
     // log('Estimated gas for processMessage', estimatedGas);
 
@@ -275,26 +277,11 @@ export abstract class Bridge {
 
     // Instantiate the ethers contract using ABI and address from bridgeContract
     const ethersBridgeContract = new Contract(bridgeContract.address, bridgeAbi, signer);
-
-    // Dummy values for testing
-    const dummyMessage = {
-      id: BigInt(1),
-      fee: BigInt(1000),
-      gasLimit: 3000000,
-      from: '0x0000000000000000000000000000000000000001',
-      srcChainId: BigInt(1),
-      srcOwner: '0x0000000000000000000000000000000000000001',
-      destChainId: BigInt(2),
-      destOwner: '0x0000000000000000000000000000000000000002',
-      to: '0x0000000000000000000000000000000000000003',
-      value: BigInt(0),
-      data: '0x',
-    };
-
-    const dummyProof = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    log('message', message);
+    log('message.data', message.data);
 
     try {
-      const tx = await ethersBridgeContract.processMessage(dummyMessage, dummyProof, {
+      const tx = await ethersBridgeContract.processMessage(message, proof, {
         gasLimit: estimatedGas,
       });
 
