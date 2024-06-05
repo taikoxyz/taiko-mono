@@ -198,7 +198,7 @@ export class RelayerAPIService {
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
           gasLimit: Number(tx.data.Message.GasLimit),
-          value: BigInt(tx.data.Message.Value),
+          value: BigInt(tx.amount),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
           fee: BigInt(tx.data.Message.Fee),
