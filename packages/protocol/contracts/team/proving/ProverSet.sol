@@ -99,7 +99,8 @@ contract ProverSet is EssentialContract, IERC1271 {
         view
         returns (bytes4 magicValue_)
     {
-        if (isProver[ECDSA.recover(_hash, _signature)]) {
+        (address recovered, ECDSA.RecoverError error) = ECDSA.tryRecover(_hash, _signature);
+        if (error == ECDSA.RecoverError.NoError && isProver[recovered]) {
             magicValue_ = _EIP1271_MAGICVALUE;
         }
     }
