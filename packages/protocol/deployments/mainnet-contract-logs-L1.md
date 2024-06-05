@@ -197,13 +197,12 @@
 #### assignment_hook
 
 - proxy: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
-- impl: `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d`
+- impl: `0x25206Cbd98EDAea26e8eadd285c66C951aADa046`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-- todo:
-  - upgrade assignment hook
+  - Upgraded from `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` to `0x25206Cbd98EDAea26e8eadd285c66C951aADa046` @commit`8a27cbe` @tx``
 
 #### tier_provider
 
@@ -225,7 +224,7 @@
 
 - ens: `guardians1.based.taiko.eth`
 - proxy: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
-- impl: `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c`
+- impl: `0x7E717FFD6f7dD1008192bDC7193904FaB25BC8A4.`
 - owner: `admin.taiko.eth`
 - guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
@@ -243,14 +242,13 @@
   - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - Upgraded from `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` to `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e` @commit`cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
   - Upgraded from `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e` to `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c` @commit`b955e0e` @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
-- todo:
-  - upgrade for gas optimizaiton
+  - Upgraded from `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c` to `0x7E717FFD6f7dD1008192bDC7193904FaB25BC8A4.` @commit`8a27cbe` @tx``
 
 #### guardian_prover
 
 - ens: `guardians.based.taiko.eth`
 - proxy: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
-- impl: `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c`
+- impl: `0x7E717FFD6f7dD1008192bDC7193904FaB25BC8A4`
 - owner: `admin.taiko.eth`
 - guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
@@ -267,8 +265,7 @@
   - Upgraded from `0x717DC5E3814591790BcB1fD9259eEdA7c14ce9CF` to `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - Upgraded from `0x750221E951b77a2Cb4046De41Ec5F6d1aa7942D2` to `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e` @commit`cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
   - Upgraded from `0x253E47F2b1e91F2001d3578aeB24C0ccF464b65e` to `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c` @commit`b955e0e` @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
-- todo:
-  - upgrade for gas optimizaiton
+  - Upgraded from `0x468F6A9C0ad2e9C8370687D2844A9e70fE942d5c` to `0x7E717FFD6f7dD1008192bDC7193904FaB25BC8A4.` @commit`8a27cbe` @tx``
 
 #### p256_verifier
 
