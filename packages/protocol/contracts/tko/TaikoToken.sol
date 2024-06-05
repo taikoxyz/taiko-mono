@@ -11,9 +11,11 @@ import "./TaikoTokenBase.sol";
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
+    address private constant _TAIKO_L1 = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _recipient The address to receive initial token minting.
+
     function init(address _owner, address _recipient) public initializer {
         __Essential_init(_owner);
         __ERC20_init("Taiko Token", "TKO");
@@ -21,5 +23,13 @@ contract TaikoToken is TaikoTokenBase {
         __ERC20Permit_init("Taiko Token");
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
+    }
+
+    /**
+     * @dev Get the address `account` is currently delegating to.
+     */
+    function delegates(address account) public view virtual returns (address) {
+        if (account == _TAIKO_L1) return address(0);
+        else return _delegates[account];
     }
 }
