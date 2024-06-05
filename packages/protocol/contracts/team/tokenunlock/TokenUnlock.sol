@@ -27,7 +27,7 @@ contract TokenUnlock is EssentialContract {
 
     uint256 public amountVested; // slot 1
     address public recipient; // slot 2
-    uint64 public tgeTimestamp;
+    uint64 public tgeTimestamp; // 1717588800
 
     mapping(address proverSet => bool valid) public isProverSet; // slot 3
 
