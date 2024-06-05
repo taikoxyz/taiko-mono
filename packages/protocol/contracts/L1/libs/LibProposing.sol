@@ -148,8 +148,11 @@ library LibProposing {
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
-        meta_.minTier =
-            LibUtils.getTierProvider(_resolver, b.numBlocks).getMinTier(uint256(meta_.difficulty));
+        {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(b.numBlocks));
+            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+        }
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({

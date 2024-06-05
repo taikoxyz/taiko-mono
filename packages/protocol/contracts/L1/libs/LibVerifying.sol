@@ -94,7 +94,7 @@ library LibVerifying {
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
         bytes32 stateRoot;
         uint64 numBlocksVerified;
-        ITierProvider tierProvider;
+        ITierRouter tierRouter;
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -126,8 +126,11 @@ library LibVerifying {
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    tierProvider = LibUtils.getTierProvider(_resolver, blockId);
+                    if (tierRouter == ITierRouter(address(0))) {
+                        tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+                    }
 
+                    ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(blockId));
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
