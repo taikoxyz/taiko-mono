@@ -36,7 +36,7 @@ abstract contract BaseNFTVault is BaseVault {
         uint32 gasLimit;
         // Token Id array
         uint256[] tokenIds;
-        // Respecitve amounts per given token Ids.
+        // Respective amounts per given token Ids.
         uint256[] amounts;
     }
 
