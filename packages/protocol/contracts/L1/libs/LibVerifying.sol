@@ -130,12 +130,12 @@ library LibVerifying {
                         tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
                     }
 
-                    ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(blockId));
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            tierProvider.getTier(tier).cooldownWindow
+                            ITierProvider(tierRouter.getProvider(blockId)).getTier(tier)
+                                .cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
