@@ -23,9 +23,16 @@
     "yourTaikoons": "Your Taikoons",
     "cancel": "Cancel",
     "agree": "Agree",
+    "accept": "Accept",
     "connectWallet": "Connect Wallet"
   },
   "content": {
+    "legal": {
+      "title": "Token claim",
+      "textPre": "By confirming your claim, you agree to the ",
+      "link": "terms and conditions",
+      "textPost": " of the token distribution and authorize the transfer of tokens directly to your wallet."
+    },
     "mint": {
       "title": "Taikoons",
       "alreadyMinted": "You've already minted your NFT.",
