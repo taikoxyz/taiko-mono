@@ -26,6 +26,10 @@ contract ProxylessAssignmentHook is ReentrancyGuard, AssignmentHookBase, IHook {
         return 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     }
 
+    function taikoChainId() internal pure virtual override returns (uint64) {
+        return 167_000;
+    }
+
     function tkoToken() internal pure virtual override returns (address) {
         return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
     }

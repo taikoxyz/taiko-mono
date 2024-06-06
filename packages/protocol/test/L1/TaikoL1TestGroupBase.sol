@@ -45,7 +45,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         bytes memory txList = new bytes(10);
         assignment.signature =
-            _signAssignment(assignedProver, assignment, address(L1), proposer, keccak256(txList));
+            _signAssignment(assignedProver, assignment, proposer, keccak256(txList));
 
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
         hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));

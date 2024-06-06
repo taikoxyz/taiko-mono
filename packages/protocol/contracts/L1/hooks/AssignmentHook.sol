@@ -34,6 +34,10 @@ contract AssignmentHook is EssentialContract, AssignmentHookBase, IHook {
         return resolve(LibStrings.B_TAIKO, false);
     }
 
+    function taikoChainId() internal view virtual override returns (uint64) {
+        return ITaikoL1(taikoL1()).getConfig().chainId;
+    }
+
     function tkoToken() internal view virtual override returns (address) {
         return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }

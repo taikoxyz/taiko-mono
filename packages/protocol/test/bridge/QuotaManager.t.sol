@@ -72,7 +72,7 @@ contract QuotaManagerTest is TaikoTest {
         assertEq(qm.availableQuota(token, 0), type(uint256).max);
     }
 
-    function test_calc_quota() public {
+    function test_calc_quota() public pure {
         uint24 quotaPeriod = 24 hours;
         uint104 value = 4_000_000; // USD
         uint104 priceETH = 4000; // USD

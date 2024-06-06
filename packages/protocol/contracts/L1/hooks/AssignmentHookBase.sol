@@ -33,8 +33,6 @@ abstract contract AssignmentHookBase {
         uint256 tip; // A tip to L1 block builder
     }
 
-    event EtherPaymentFailed(address to, uint256 maxGas);
-
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
@@ -45,6 +43,49 @@ abstract contract AssignmentHookBase {
     error HOOK_ASSIGNMENT_INVALID_SIG();
     error HOOK_PERMISSION_DENIED();
     error HOOK_TIER_NOT_FOUND();
+
+    /// @notice Hashes the prover assignment.
+    /// @param _assignment The prover assignment.
+    /// @param _blockProposer The block proposer address.
+    /// @param _assignedProver The assigned prover address.
+    /// @param _blobHash The blob hash.
+    /// @return The hash of the prover assignment.
+    function hashAssignment(
+        ProverAssignment memory _assignment,
+        address _blockProposer,
+        address _assignedProver,
+        bytes32 _blobHash
+    )
+        public
+        view
+        returns (bytes32)
+    {
+        // split up into two parts otherwise stack is too deep
+        bytes32 hash = keccak256(
+            abi.encode(
+                _assignment.metaHash,
+                _assignment.parentMetaHash,
+                _assignment.feeToken,
+                _assignment.expiry,
+                _assignment.maxBlockId,
+                _assignment.maxProposedIn,
+                _assignment.tierFees
+            )
+        );
+
+        return keccak256(
+            abi.encodePacked(
+                LibStrings.B_PROVER_ASSIGNMENT,
+                taikoChainId(),
+                taikoL1(),
+                _blockProposer,
+                _assignedProver,
+                _blobHash,
+                hash,
+                address(this)
+            )
+        );
+    }
 
     function _onBlockProposed(
         TaikoData.Block calldata _blk,
@@ -77,9 +118,7 @@ abstract contract AssignmentHookBase {
         // the prover, therefore, we add a string as a prefix.
 
         // msg.sender is taikoL1Address
-        bytes32 hash = hashAssignment(
-            assignment, msg.sender, _meta.sender, _blk.assignedProver, _meta.blobHash
-        );
+        bytes32 hash = hashAssignment(assignment, _meta.sender, _blk.assignedProver, _meta.blobHash);
 
         if (Address.isContract(_blk.assignedProver)) {
             if (!_blk.assignedProver.isValidERC1271SignatureNow(hash, assignment.signature)) {
@@ -110,8 +149,7 @@ abstract contract AssignmentHookBase {
             if (assignment.feeToken == address(0)) {
                 // Do not check `_meta.sender != _blk.assignedProver` as Ether has been forwarded
                 // from TaikoL1 to this hook.
-                bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
-                if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
+                _blk.assignedProver.sendEtherAndVerify(proverFee);
             } else if (_meta.sender != _blk.assignedProver) {
                 if (assignment.feeToken == address(tko)) {
                     tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee); // Paying TKO
@@ -135,51 +173,6 @@ abstract contract AssignmentHookBase {
         }
     }
 
-    /// @notice Hashes the prover assignment.
-    /// @param _assignment The prover assignment.
-    /// @param _taikoL1Address The address of the TaikoL1 contract.
-    /// @param _blockProposer The block proposer address.
-    /// @param _assignedProver The assigned prover address.
-    /// @param _blobHash The blob hash.
-    /// @return The hash of the prover assignment.
-    function hashAssignment(
-        ProverAssignment memory _assignment,
-        address _taikoL1Address,
-        address _blockProposer,
-        address _assignedProver,
-        bytes32 _blobHash
-    )
-        public
-        view
-        returns (bytes32)
-    {
-        // split up into two parts otherwise stack is too deep
-        bytes32 hash = keccak256(
-            abi.encode(
-                _assignment.metaHash,
-                _assignment.parentMetaHash,
-                _assignment.feeToken,
-                _assignment.expiry,
-                _assignment.maxBlockId,
-                _assignment.maxProposedIn,
-                _assignment.tierFees
-            )
-        );
-
-        return keccak256(
-            abi.encodePacked(
-                LibStrings.B_PROVER_ASSIGNMENT,
-                ITaikoL1(_taikoL1Address).getConfig().chainId,
-                _taikoL1Address,
-                _blockProposer,
-                _assignedProver,
-                _blobHash,
-                hash,
-                address(this)
-            )
-        );
-    }
-
     function _getProverFee(
         TaikoData.TierFee[] memory _tierFees,
         uint16 _tierId
@@ -195,5 +188,6 @@ abstract contract AssignmentHookBase {
     }
 
     function taikoL1() internal view virtual returns (address);
+    function taikoChainId() internal view virtual returns (uint64);
     function tkoToken() internal view virtual returns (address);
 }
