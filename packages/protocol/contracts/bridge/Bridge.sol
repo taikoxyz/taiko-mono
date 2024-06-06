@@ -43,6 +43,9 @@ contract Bridge is EssentialContract, IBridge {
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
+    ///@dev The 32bytes padded 11 fields in Message struct (11 * 32)
+    uint256 public constant CALLDATA_MESSAGE_SIZE_BYTES = 352;
+
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -288,9 +291,11 @@ contract Bridge is EssentialContract, IBridge {
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     // Taking into account the encoded message calldata cost, and can count with 16
                     // gas per bytes (vs. checking each and every byte if zero or non-zero)
-                    uint32 msgCalldataGas = uint32(abi.encode(_message).length) << 4;
-                    stats.gasUsedInFeeCalc =
-                        uint32(GAS_OVERHEAD + gasStart + msgCalldataGas - gasleft());
+                    stats.gasUsedInFeeCalc = uint32(
+                        GAS_OVERHEAD + gasStart
+                            + (uint32(_message.data.length + CALLDATA_MESSAGE_SIZE_BYTES) << 4)
+                            - gasleft()
+                    );
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
