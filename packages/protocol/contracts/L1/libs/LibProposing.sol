@@ -45,6 +45,7 @@ library LibProposing {
 
     /// @dev Proposes a Taiko L2 block.
     /// @param _state Current TaikoData.State.
+    /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
@@ -52,11 +53,11 @@ library LibProposing {
     /// @return meta_ The constructed block's metadata.
     function proposeBlock(
         TaikoData.State storage _state,
+        IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList,
-        bool _checkEOAForCalldataDA
+        bytes calldata _txList
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
@@ -132,7 +133,7 @@ library LibProposing {
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
             if (
-                _checkEOAForCalldataDA
+                _config.checkEOAForCalldataDA
                     && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();
@@ -146,9 +147,13 @@ library LibProposing {
         // number as the L2 mixHash.
         meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
-        // Use the difficulty as a random number
-        meta_.minTier =
-            LibUtils.getTierProvider(_resolver, b.numBlocks).getMinTier(uint256(meta_.difficulty));
+        {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(b.numBlocks));
+
+            // Use the difficulty as a random number
+            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+        }
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
@@ -176,8 +181,7 @@ library LibProposing {
         }
 
         {
-            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-            uint256 tkoBalance = tko.balanceOf(address(this));
+            uint256 tkoBalance = _tko.balanceOf(address(this));
 
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
@@ -207,7 +211,7 @@ library LibProposing {
             // have increased by the same amount as _config.livenessBond (to prevent)
             // multiple draining payments by a malicious proposer nesting the same
             // hook.
-            if (tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
+            if (_tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
         }

@@ -34,6 +34,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The max number of L2 blocks that can stay unsynced on L1
         uint8 blockSyncThreshold;
+        bool checkEOAForCalldataDA;
     }
 
     /// @dev Struct representing prover fees per given tier
