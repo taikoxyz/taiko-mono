@@ -44,49 +44,6 @@ abstract contract AssignmentHookBase {
     error HOOK_PERMISSION_DENIED();
     error HOOK_TIER_NOT_FOUND();
 
-    /// @notice Hashes the prover assignment.
-    /// @param _assignment The prover assignment.
-    /// @param _blockProposer The block proposer address.
-    /// @param _assignedProver The assigned prover address.
-    /// @param _blobHash The blob hash.
-    /// @return The hash of the prover assignment.
-    function hashAssignment(
-        ProverAssignment memory _assignment,
-        address _blockProposer,
-        address _assignedProver,
-        bytes32 _blobHash
-    )
-        public
-        view
-        returns (bytes32)
-    {
-        // split up into two parts otherwise stack is too deep
-        bytes32 hash = keccak256(
-            abi.encode(
-                _assignment.metaHash,
-                _assignment.parentMetaHash,
-                _assignment.feeToken,
-                _assignment.expiry,
-                _assignment.maxBlockId,
-                _assignment.maxProposedIn,
-                _assignment.tierFees
-            )
-        );
-
-        return keccak256(
-            abi.encodePacked(
-                LibStrings.B_PROVER_ASSIGNMENT,
-                taikoChainId(),
-                taikoL1(),
-                _blockProposer,
-                _assignedProver,
-                _blobHash,
-                hash,
-                address(this)
-            )
-        );
-    }
-
     function _onBlockProposed(
         TaikoData.Block calldata _blk,
         TaikoData.BlockMetadata calldata _meta,
@@ -171,6 +128,49 @@ abstract contract AssignmentHookBase {
         if (address(this).balance != 0) {
             msg.sender.sendEtherAndVerify(address(this).balance);
         }
+    }
+
+    /// @notice Hashes the prover assignment.
+    /// @param _assignment The prover assignment.
+    /// @param _blockProposer The block proposer address.
+    /// @param _assignedProver The assigned prover address.
+    /// @param _blobHash The blob hash.
+    /// @return The hash of the prover assignment.
+    function hashAssignment(
+        ProverAssignment memory _assignment,
+        address _blockProposer,
+        address _assignedProver,
+        bytes32 _blobHash
+    )
+        public
+        view
+        returns (bytes32)
+    {
+        // split up into two parts otherwise stack is too deep
+        bytes32 hash = keccak256(
+            abi.encode(
+                _assignment.metaHash,
+                _assignment.parentMetaHash,
+                _assignment.feeToken,
+                _assignment.expiry,
+                _assignment.maxBlockId,
+                _assignment.maxProposedIn,
+                _assignment.tierFees
+            )
+        );
+
+        return keccak256(
+            abi.encodePacked(
+                LibStrings.B_PROVER_ASSIGNMENT,
+                taikoChainId(),
+                taikoL1(),
+                _blockProposer,
+                _assignedProver,
+                _blobHash,
+                hash,
+                address(this)
+            )
+        );
     }
 
     function _getProverFee(
