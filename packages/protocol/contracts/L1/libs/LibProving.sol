@@ -312,6 +312,7 @@ library LibProving {
             }
 
             ts_.timestamp = _blk.proposedAt;
+            ts_.contestBond = 1; // to save gas
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -339,6 +340,8 @@ library LibProving {
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
                 _state.transitionIds[_local.blockId][_tran.parentHash] = tid_;
+
+                // There is no need to initialize ts.key here because it's only used when tid == 1
             }
         } else {
             // A transition with the provided parentHash has been located.
