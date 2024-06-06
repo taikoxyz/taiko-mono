@@ -105,8 +105,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
         if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
 
-        // By design, the target must be a contract address.
-        if (!Address.isContract(call.target)) revert DO_INVALID_TARGET();
+        // By design, the target must be a contract address if the txdata is not empty
+        if (call.txdata.length != 0 && !Address.isContract(call.target)) revert DO_INVALID_TARGET();
 
         (bool success, bytes memory result) = call.isDelegateCall //
             ? call.target.delegatecall(call.txdata)
