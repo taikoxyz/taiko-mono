@@ -316,7 +316,9 @@
 
 ### proxyless assignment hook
 
-- impl: `0x138afa87bee3c812778bda93a0978ad822f1c7ad`
+- impl1: `0x138afa87bee3c812778bda93a0978ad822f1c7ad`
+- todo:
+  - deploy another version
 
 ### labprover.taiko.eth
 
