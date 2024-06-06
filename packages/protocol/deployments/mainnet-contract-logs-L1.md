@@ -52,14 +52,13 @@
 
 - ens: `signals.based.taiko.eth`
 - proxy: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
-- impl: `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d`
+- impl: `0x3d59c18b31A7D950EF9bd15eD285b6c182E0f0bb`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - upgraded from `0xE1d91bAE44B70bD66e8b688B8421fD62dcC33c72` to `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-- todo:
-  - update signal service
+  - upgraded from `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d` to `0x3d59c18b31A7D950EF9bd15eD285b6c182E0f0bb` @commit`a3faee0` @tx``
 
 #### bridge
 
@@ -82,7 +81,7 @@
 #### quota_manager
 
 - proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
-- impl: `0x49c5e5F131314Bb24b17E249960F8B12F925ef22`
+- impl: `0xdb627bfD79e81fE42138Eb875287F94FAd5BBc64`
 - owner: `admin.taiko.eth`
 - quota:
   - ETH: `64516129032258064516` (`200_000 * 1 ether / 3100`)
@@ -91,11 +90,13 @@
   - USDT(`0xdAC17F958D2ee523a2206206994597C13D831ec7`): `200000000000` (`200_000 * 1e6`)
   - USDC(`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`): `200000000000` (`200_000 * 1e6`)
 - logs:
+
   - deployed on May 13, 2024 at commit `b90b932`
   - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
+  - upgraded from `0x49c5e5F131314Bb24b17E249960F8B12F925ef22` to `0xdb627bfD79e81fE42138Eb875287F94FAd5BBc64` @commit`a3faee0` @tx``
+
 - todo:
 
-  - upgrade the contract
   - set quota_period to 86400 and:
 
     ```
@@ -163,7 +164,7 @@
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
-- impl: `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a`
+- impl: `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6`
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
@@ -189,15 +190,15 @@
   - register `prover_set` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
   - register `tier_router` to `0xa8e5D3a2E2052bea7f10bE6a0386454b721d1f9F` and unregister `tier_provider` @tx`0x2c455ae888a23c232bb5c7603657eda010ffadc602a74e626332bc06eaaa3b78`
+  - upgraded from `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` to `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6` @commit`a3faee0` @tx``
 - todo:
   - change `prover_set` to a deployment of `new ProverSet` then unregisgter `assignment_hook`.
-  - update the contract using latest L1RollupAddressManager.sol
 
 #### taikoL1
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xE84DC8E2a21e59426542Ab040D77f81d6dB881eE`
+- impl: `0x4b2743B869b85d5F7D8020566f92664995E4f3c5`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -208,20 +209,13 @@
   - Upgraded from `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on May 27 @commit`06f97d6` @tx`0x187cc99e9bcf2a94f723cf52d85b74b79bdb3872681e2a3808cadbbc3ba301e2`
   - Upgraded from `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` to `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on May 28 @commit`b335b70` @tx`0xa603b6d55457e64e18ddae684bfd14948452cdd7b927dd22bf0b83045e8fd028`
   - Upgrade to `0xE84DC8E2a21e59426542Ab040D77f81d6dB881eE` @commit`3ae25fd` @tx`0x2c455ae888a23c232bb5c7603657eda010ffadc602a74e626332bc06eaaa3b78`
-  - todo:
-    - upgrade to enable permissionless block-proposing and apply gas optimization changes
+  - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx``
 
-#### assignment_hook
+#### proxyless_assignment_hook
 
-- proxy: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
-- impl: `0x25206Cbd98EDAea26e8eadd285c66C951aADa046`
-- owner: `admin.taiko.eth`
+- impl: `0xA641a2d6C0112E5eC6BAF2FA40d519323A085248`
 - logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - Upgraded from `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` to `0x25206Cbd98EDAea26e8eadd285c66C951aADa046` @commit`8a27cbe` @tx``
-- todo:
-  - upgrade assignment hook again for signature check improvement
+  - deployed on Jun 6, 2024 @commit`a3faee0` @tx``
 
 #### tier_provider
 
@@ -233,11 +227,12 @@
 #### tier_sgx
 
 - proxy: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-- impl: `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9`
+- impl: `0xB0b782cf0fCEce896E0C041F8e54f86cA4cC8e9F`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0x3f54067EF5d8B414Bdb1945cdF482BD158Aad175` to `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - Upgraded from `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9` to `0xB0b782cf0fCEce896E0C041F8e54f86cA4cC8e9F` @commit`a3faee0` @tx``
 
 #### guardian_prover_minority
 
@@ -334,7 +329,7 @@
 
 - ens: `labprover.taiko.eth`
 - proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
-- impl: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
+- impl: `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
 - logs:
@@ -342,19 +337,19 @@
   - enabled two provers (`0x000000629FBCf27A347d1AEbA658435230D74a5f` and `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) @tx`0xa0b1565473849bc753d395abd982e6899ecdd9e754014eebed67b69edadb61c5`
   - upgraded from `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - disable a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
+  - upgraded from `0x500735343372Dd6c9B84dBc7a75babf4479742B9` to `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` @commit`a3faee0` @tx``
 - todo:
-  - upgrade to the a newly deployed `new ProverSet`
   - set up allowance for a new deployment of `ProxylessAssignmentHook`
 
 ### labcontester.taiko.eth
 
 - ens: `labcontester.taiko.eth`
 - proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
-- impl: `0x500735343372Dd6c9B84dBc7a75babf4479742B9`
+- impl: `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F`
 - enabled provers:
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
   - enabled a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
+  - upgraded from `0x500735343372Dd6c9B84dBc7a75babf4479742B9` to `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` @commit`a3faee0` @tx``
 - todo:
-  - upgrade to the a newly deployed `new ProverSet`
   - set up allowance for a new deployment of `ProxylessAssignmentHook`
