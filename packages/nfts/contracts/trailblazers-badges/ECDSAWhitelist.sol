@@ -11,18 +11,18 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title ECDSAWhitelist
-/// @dev Merkle Tree Whitelist
+/// @dev Signature-driven mint whitelist
 /// @custom:security-contact security@taiko.xyz
 contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgradeable {
     event MintSignerUpdated(address _mintSigner);
-
-    event MintConsumed(address _minter, uint256 _mintId);
+    event MintConsumed(address _minter, uint256 _tokenId);
     event BlacklistUpdated(address _blacklist);
 
     error MINTS_EXCEEDED();
     error ADDRESS_BLACKLISTED();
     error ONLY_MINT_SIGNER();
 
+    /// @notice Mint signer address
     address public mintSigner;
     /// @notice Tracker for minted signatures
     mapping(bytes signature => bool hasMinted) public minted;
@@ -31,14 +31,15 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     /// @notice Gap for upgrade safety
     uint256[47] private __gap;
 
-    modifier onlyMintSigner() {
-        if (msg.sender != mintSigner) revert ONLY_MINT_SIGNER();
-        _;
-    }
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+    }
+
+    /// @notice Modifier to restrict access to the mint signer
+    modifier onlyMintSigner() {
+        if (msg.sender != mintSigner) revert ONLY_MINT_SIGNER();
+        _;
     }
 
     /// @notice Update the blacklist address
@@ -48,6 +49,17 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         emit BlacklistUpdated(address(_blacklist));
     }
 
+    /// @notice Update the mint signer address
+    /// @param _mintSigner The new mint signer address
+    function updateMintSigner(address _mintSigner) public onlyOwner {
+        mintSigner = _mintSigner;
+        emit MintSignerUpdated(_mintSigner);
+    }
+
+    /// @notice Contract initializer
+    /// @param _owner Contract owner
+    /// @param _mintSigner Mint signer address
+    /// @param _blacklist Blacklist address
     function initialize(
         address _owner,
         address _mintSigner,
@@ -59,29 +71,40 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         __ECDSAWhitelist_init(_owner, _mintSigner, _blacklist);
     }
 
-    function getHash(address _minter, uint256 _mintId) public pure returns (bytes32) {
-        return keccak256(bytes.concat(keccak256(abi.encode(_minter, _mintId))));
+    /// @notice Generate a standarized hash for externally signing
+    /// @param _minter Address of the minter
+    /// @param _tokenId ID for the token to mint
+    function getHash(address _minter, uint256 _tokenId) public pure returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(_minter, _tokenId))));
     }
 
+    /// @notice Internal method to verify valid signatures
+    /// @param _signature Signature to verify
+    /// @param _minter Address of the minter
+    /// @param _tokenId ID for the token to mint
     function _isSignatureValid(
         bytes memory _signature,
         address _minter,
-        uint256 _mintId
+        uint256 _tokenId
     )
         internal
         view
         returns (bool)
     {
-        bytes32 _hash = getHash(_minter, _mintId);
+        bytes32 _hash = getHash(_minter, _tokenId);
         (address _recovered,,) = ECDSA.tryRecover(_hash, _signature);
 
         return _recovered == mintSigner;
     }
 
+    /// @notice Check if a wallet can mint
+    /// @param _signature Signature to verify
+    /// @param _minter Address of the minter
+    /// @param _tokenId ID for the token to mint
     function canMint(
         bytes memory _signature,
         address _minter,
-        uint256 _mintId
+        uint256 _tokenId
     )
         public
         view
@@ -89,9 +112,13 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     {
         if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
         if (minted[_signature]) return false;
-        return _isSignatureValid(_signature, _minter, _mintId);
+        return _isSignatureValid(_signature, _minter, _tokenId);
     }
 
+    /// @notice Internal initializer
+    /// @param _owner Contract owner
+    /// @param _mintSigner Mint signer address
+    /// @param _blacklist Blacklist address
     function __ECDSAWhitelist_init(
         address _owner,
         address _mintSigner,
@@ -106,15 +133,14 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         blacklist = _blacklist;
     }
 
-    function _updateMintSigner(address _mintSigner) internal {
-        mintSigner = _mintSigner;
-        emit MintSignerUpdated(_mintSigner);
-    }
-
-    function _consumeMint(bytes memory _signature, address _minter, uint256 _mintId) internal {
-        if (!canMint(_signature, _minter, _mintId)) revert MINTS_EXCEEDED();
+    /// @notice Internal method to consume a mint
+    /// @param _signature Signature to verify
+    /// @param _minter Address of the minter
+    /// @param _tokenId ID for the token to mint
+    function _consumeMint(bytes memory _signature, address _minter, uint256 _tokenId) internal {
+        if (!canMint(_signature, _minter, _tokenId)) revert MINTS_EXCEEDED();
         minted[_signature] = true;
-        emit MintConsumed(_minter, _mintId);
+        emit MintConsumed(_minter, _tokenId);
     }
 
     /// @notice Internal method to authorize an upgrade
