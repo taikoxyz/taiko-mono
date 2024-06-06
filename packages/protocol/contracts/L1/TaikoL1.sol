@@ -126,9 +126,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-
-        LibVerifying.verifyBlocks(state, tko, getConfig(), this, _maxBlocksToVerify);
+        LibVerifying.verifyBlocks(
+            state,
+            IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)),
+            getConfig(),
+            this,
+            _maxBlocksToVerify
+        );
     }
 
     /// @inheritdoc ITaikoL1

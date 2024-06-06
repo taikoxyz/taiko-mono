@@ -94,7 +94,7 @@ library LibVerifying {
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
         bytes32 stateRoot;
         uint64 numBlocksVerified;
-        ITierProvider tierProvider;
+        ITierRouter tierRouter;
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -126,15 +126,16 @@ library LibVerifying {
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    if (tierProvider == ITierProvider(address(0))) {
-                        tierProvider = LibUtils.getTierProvider(_resolver, blockId);
+                    if (tierRouter == ITierRouter(address(0))) {
+                        tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
                     }
 
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            tierProvider.getTier(tier).cooldownWindow
+                            ITierProvider(tierRouter.getProvider(blockId)).getTier(tier)
+                                .cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically

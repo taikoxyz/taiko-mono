@@ -14,7 +14,6 @@ library LibProving {
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
         TaikoData.SlotB b;
-        ITierProvider tierProvider;
         ITierProvider.Tier tier;
         ITierProvider.Tier minTier;
         bytes32 metaHash;
@@ -150,9 +149,13 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        local.tierProvider = LibUtils.getTierProvider(_resolver, local.blockId);
-        local.tier = local.tierProvider.getTier(_proof.tier);
-        local.minTier = local.tierProvider.getTier(_meta.minTier);
+        {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
+
+            local.tier = tierProvider.getTier(_proof.tier);
+            local.minTier = tierProvider.getTier(_meta.minTier);
+        }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
             _tsTimestamp: ts.timestamp,
