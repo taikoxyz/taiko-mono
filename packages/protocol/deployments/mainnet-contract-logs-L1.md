@@ -224,7 +224,7 @@
 
 - ens: `guardians1.based.taiko.eth`
 - proxy: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
-- impl: `0x7E717FFD6f7dD1008192bDC7193904FaB25BC8A4.`
+- impl: `0x7E717FFD6f7dD1008192bDC7193904FaB25BC8A4`
 - owner: `admin.taiko.eth`
 - guardianProvers:
   - `0x000012dd12a6d9dd2045f5e2594f4996b99a5d33`
