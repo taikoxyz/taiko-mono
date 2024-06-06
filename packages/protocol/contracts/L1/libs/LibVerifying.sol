@@ -233,10 +233,10 @@ library LibVerifying {
         ISignalService signalService =
             ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
-        uint64 largestSyncedBlock =
-            signalService.getLargestSyncedBlockId(_config.chainId, LibStrings.H_STATE_ROOT);
+        uint64 lastSyncedBlock =
+            signalService.getSyncedChainHeight(_config.chainId, LibStrings.H_STATE_ROOT);
 
-        if (_lastVerifiedBlockId > largestSyncedBlock + _config.blockSyncThreshold) {
+        if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
             _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
             _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
