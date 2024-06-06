@@ -45,7 +45,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
-    error DO_TARGET_CALL_REVERTED();
 
     /// @notice Initializes the contract.
     /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
@@ -72,8 +71,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     /// @inheritdoc IMessageInvocable
-    /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
-    /// represents calls to address(this).
     function onMessageInvocation(bytes calldata _data)
         external
         payable

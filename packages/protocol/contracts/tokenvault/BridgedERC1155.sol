@@ -31,7 +31,6 @@ contract BridgedERC1155 is
     uint256[46] private __gap;
 
     error BTOKEN_INVALID_PARAMS();
-    error BTOKEN_INVALID_TO_ADDR();
 
     /// @inheritdoc IBridgedERC1155Initializable
     function init(
