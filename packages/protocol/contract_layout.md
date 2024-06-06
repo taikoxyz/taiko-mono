@@ -58,7 +58,7 @@
 | __paused       | uint8                                         | 201  | 1      | 1     | contracts/signal/SignalService.sol:SignalService |
 | lastUnpausedAt | uint64                                        | 201  | 2      | 8     | contracts/signal/SignalService.sol:SignalService |
 | __gap          | uint256[49]                                   | 202  | 0      | 1568  | contracts/signal/SignalService.sol:SignalService |
-| _topBlockId    | mapping(uint64 => mapping(bytes32 => uint64)) | 251  | 0      | 32    | contracts/signal/SignalService.sol:SignalService |
+| topBlockId     | mapping(uint64 => mapping(bytes32 => uint64)) | 251  | 0      | 32    | contracts/signal/SignalService.sol:SignalService |
 | isAuthorized   | mapping(address => bool)                      | 252  | 0      | 32    | contracts/signal/SignalService.sol:SignalService |
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/signal/SignalService.sol:SignalService |
 
