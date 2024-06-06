@@ -286,7 +286,11 @@ contract Bridge is EssentialContract, IBridge {
                     // - need to have a buffer/small revenue to the realyer since it consumes
                     // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
+                    // Taking into account the encoded message calldata cost, and can count with 16
+                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
+                    uint32 msgCalldataGas = uint32(abi.encode(_message).length) << 4;
+                    stats.gasUsedInFeeCalc =
+                        uint32(GAS_OVERHEAD + gasStart + msgCalldataGas - gasleft());
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
