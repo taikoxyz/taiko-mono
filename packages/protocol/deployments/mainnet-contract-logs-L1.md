@@ -343,7 +343,7 @@
   - disable a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
 - todo:
   - upgrade to the a newly deployed `new ProverSet`
-  - set up allowance for a new deployment of `AssignmentHook2`
+  - set up allowance for a new deployment of `ProxylessAssignmentHook`
 
 ### labcontester.taiko.eth
 
@@ -356,4 +356,4 @@
   - enabled a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
 - todo:
   - upgrade to the a newly deployed `new ProverSet`
-  - set up allowance for a new deployment of `AssignmentHook2`
+  - set up allowance for a new deployment of `ProxylessAssignmentHook`
