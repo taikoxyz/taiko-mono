@@ -71,7 +71,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         __ECDSAWhitelist_init(_owner, _mintSigner, _blacklist);
     }
 
-    /// @notice Generate a standarized hash for externally signing
+    /// @notice Generate a standardized hash for externally signing
     /// @param _minter Address of the minter
     /// @param _tokenId ID for the token to mint
     function getHash(address _minter, uint256 _tokenId) public pure returns (bytes32) {
@@ -82,6 +82,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     /// @param _signature Signature to verify
     /// @param _minter Address of the minter
     /// @param _tokenId ID for the token to mint
+    /// @return Whether the signature is valid
     function _isSignatureValid(
         bytes memory _signature,
         address _minter,
@@ -101,6 +102,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     /// @param _signature Signature to verify
     /// @param _minter Address of the minter
     /// @param _tokenId ID for the token to mint
+    /// @return Whether the wallet can mint
     function canMint(
         bytes memory _signature,
         address _minter,
