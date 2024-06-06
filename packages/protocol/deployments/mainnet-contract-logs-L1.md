@@ -331,6 +331,10 @@
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
 
+### proxyless assignment hook
+
+- impl: `0x138afa87bee3c812778bda93a0978ad822f1c7ad`
+
 ### labprover.taiko.eth
 
 - ens: `labprover.taiko.eth`
