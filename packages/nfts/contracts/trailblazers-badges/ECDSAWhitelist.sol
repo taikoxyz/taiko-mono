@@ -119,6 +119,4 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
 
     /// @notice Internal method to authorize an upgrade
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
-
-
 }
