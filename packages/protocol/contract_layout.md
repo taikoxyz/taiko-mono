@@ -375,7 +375,6 @@
 | __paused       | uint8       | 201  | 1      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
 | lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
 | __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
 
 ## ERC20Airdrop
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                             |
