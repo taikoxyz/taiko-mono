@@ -316,7 +316,7 @@
 
 ### proxyless assignment hook
 
-- impl1: `0x138afa87bee3c812778bda93a0978ad822f1c7ad`
+- impl1: `0x138afa87bee3c812778bda93a0978ad822f1c7ad` @commit`3dc3d14`
 - todo:
   - deploy another version
 
