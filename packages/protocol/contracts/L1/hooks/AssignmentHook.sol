@@ -8,7 +8,7 @@ import "./AssignmentHookBase.sol";
 /// @notice A hook that handles prover assignment verification and fee processing.
 /// @custom:security-contact security@taiko.xyz
 contract AssignmentHook is EssentialContract, AssignmentHookBase, IHook {
-    uint256[50] private __gap;
+    // uint256[50] private __gap;
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
