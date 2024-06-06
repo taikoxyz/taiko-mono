@@ -138,12 +138,13 @@ library LibProving {
         // blockHash and stateRoot open for later updates as higher-tier proofs
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
-        TaikoData.TransitionState storage ts;
-        (local.tid, ts) = _fetchOrCreateTransition(_state, blk, _tran, local);
+        TaikoData.TransitionState storage tsStorage;
+        TaikoData.TransitionState memory tsMemory;
+        (local.tid, tsMemory, tsStorage) = _fetchOrCreateTransition(_state, blk, _tran, local);
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < tsMemory.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -158,7 +159,7 @@ library LibProving {
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
-            _tsTimestamp: ts.timestamp,
+            _tsTimestamp: tsMemory.timestamp,
             _lastUnpausedAt: local.b.lastUnpausedAt,
             _windowMinutes: local.minTier.provingWindow
         });
@@ -167,8 +168,8 @@ library LibProving {
         // The assigned prover is granted exclusive permission to prove only the first
         // transition.
         if (
-            local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
-                && ts.tier == 0 && local.inProvingWindow
+            local.tier.contestBond != 0 && tsMemory.contester == address(0) && local.tid == 1
+                && tsMemory.tier == 0 && local.inProvingWindow
         ) {
             if (msg.sender != local.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
         }
@@ -188,7 +189,7 @@ library LibProving {
         // Taiko's core protocol.
         if (local.tier.verifierName != "") {
             address verifier = _resolver.resolve(local.tier.verifierName, false);
-            bool isContesting = _proof.tier == ts.tier && local.tier.contestBond != 0;
+            bool isContesting = _proof.tier == tsMemory.tier && local.tier.contestBond != 0;
 
             IVerifier.Context memory ctx = IVerifier.Context({
                 metaHash: local.metaHash,
@@ -205,13 +206,14 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
+        local.sameTransition =
+            _tran.blockHash == tsMemory.blockHash && _tran.stateRoot == tsMemory.stateRoot;
 
-        if (_proof.tier > ts.tier) {
+        if (_proof.tier > tsMemory.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _tran, _proof, local, _tko);
+            _overrideWithHigherProof(blk, tsMemory, _tran, _proof, local, _tko);
 
             emit TransitionProved({
                 blockId: local.blockId,
@@ -228,11 +230,11 @@ library LibProving {
             if (local.isTopTier) {
                 // The top tier prover re-proves.
                 assert(local.tier.validityBond == 0);
-                assert(ts.validityBond == 0 && ts.contester == address(0));
+                assert(tsMemory.validityBond == 0 && tsMemory.contester == address(0));
 
-                ts.prover = msg.sender;
-                ts.blockHash = _tran.blockHash;
-                ts.stateRoot = _tran.stateRoot;
+                tsMemory.prover = msg.sender;
+                tsMemory.blockHash = _tran.blockHash;
+                tsMemory.stateRoot = _tran.stateRoot;
 
                 emit TransitionProved({
                     blockId: local.blockId,
@@ -243,19 +245,20 @@ library LibProving {
                 });
             } else {
                 // Contesting but not on the highest tier
-                if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
+                if (tsMemory.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
-                // Making it a non-sliding window, relative when ts.timestamp was registered (or to
+                // Making it a non-sliding window, relative when tsMemory.timestamp was registered
+                // (or to
                 // lastUnpaused if that one is bigger)
                 if (
                     LibUtils.isPostDeadline(
-                        ts.timestamp, local.b.lastUnpausedAt, local.tier.cooldownWindow
+                        tsMemory.timestamp, local.b.lastUnpausedAt, local.tier.cooldownWindow
                     )
                 ) {
                     revert L1_CANNOT_CONTEST();
                 }
 
-                // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
+                // _checkIfContestable(/*_state,*/ tier.cooldownWindow, tsMemory.timestamp);
                 // Burn the contest bond from the prover.
                 _tko.transferFrom(msg.sender, address(this), local.tier.contestBond);
 
@@ -263,10 +266,10 @@ library LibProving {
                 // case this configuration is altered to a different value
                 // before the contest is resolved.
                 //
-                // It's worth noting that the previous value of ts.contestBond
+                // It's worth noting that the previous value of tsMemory.contestBond
                 // doesn't have any significance.
-                ts.contestBond = local.tier.contestBond;
-                ts.contester = msg.sender;
+                tsMemory.contestBond = local.tier.contestBond;
+                tsMemory.contester = msg.sender;
 
                 emit TransitionContested({
                     blockId: local.blockId,
@@ -278,7 +281,8 @@ library LibProving {
             }
         }
 
-        ts.timestamp = uint64(block.timestamp);
+        tsMemory.timestamp = uint64(block.timestamp);
+        tsStorage = tsMemory;
         return local.tier.maxBlocksToVerifyPerProof;
     }
 
@@ -290,7 +294,11 @@ library LibProving {
         Local memory _local
     )
         private
-        returns (uint32 tid_, TaikoData.TransitionState storage ts_)
+        returns (
+            uint32 tid_,
+            TaikoData.TransitionState memory tsMemory_,
+            TaikoData.TransitionState storage tsStorage_
+        )
     {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 
@@ -310,19 +318,8 @@ library LibProving {
                 tid_ = _blk.nextTransitionId++;
             }
 
-            // Keep in mind that state.transitions are also reusable storage
-            // slots, so it's necessary to reinitialize all transition fields
-            // below.
-            ts_ = _state.transitions[_local.slot][tid_];
-            // TODO: can we not set to 0???
-            // ts_.blockHash = 0;
-            // ts_.stateRoot = 0;
-            ts_.validityBond = 0;
-            ts_.contester = address(0);
-            ts_.contestBond = 1; // to save gas
-            ts_.timestamp = _blk.proposedAt;
-            ts_.tier = 0;
-            ts_.__reserved1 = 0;
+            tsMemory_.timestamp = _blk.proposedAt;
+            tsStorage_ = _state.transitions[_local.slot][tid_];
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -330,7 +327,7 @@ library LibProving {
                 // be the correct one. Writing to `transitions` is more economical
                 // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
-                ts_.key = _tran.parentHash;
+                tsMemory_.key = _tran.parentHash;
 
                 // In the case of this first transition, the block's assigned
                 // prover has the privilege to re-prove it, but only when the
@@ -342,25 +339,19 @@ library LibProving {
                 //
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
-                ts_.prover = _local.assignedProver;
+                tsMemory_.prover = _local.assignedProver;
             } else {
-                // In scenarios where this transition is not the first one, we
-                // straightforwardly reset the transition prover to address
-                // zero.
-                ts_.prover = address(0);
-
                 // Furthermore, we index the transition for future retrieval.
                 // It's worth emphasizing that this mapping for indexing is not
                 // reusable. However, given that the majority of blocks will
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
                 _state.transitionIds[_local.blockId][_tran.parentHash] = tid_;
-
-                // There is no need to initialize ts.key here because it's only used when tid == 1
             }
         } else {
             // A transition with the provided parentHash has been located.
-            ts_ = _state.transitions[_local.slot][tid_];
+            tsStorage_ = _state.transitions[_local.slot][tid_];
+            tsMemory_ = tsStorage_;
         }
     }
 
@@ -377,7 +368,7 @@ library LibProving {
     // 6.5625.
     function _overrideWithHigherProof(
         TaikoData.Block storage _blk,
-        TaikoData.TransitionState storage _ts,
+        TaikoData.TransitionState memory _tsMemory,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
         Local memory _local,
@@ -388,21 +379,21 @@ library LibProving {
         // Higher tier proof overwriting lower tier proof
         uint256 reward; // reward to the new (current) prover
 
-        if (_ts.contester != address(0)) {
+        if (_tsMemory.contester != address(0)) {
             // assert(_blk.livenessBond == 0);
 
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
-                reward = _rewardAfterFriction(_ts.contestBond);
+                reward = _rewardAfterFriction(_tsMemory.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                _tko.transfer(_ts.prover, _ts.validityBond);
+                _tko.transfer(_tsMemory.prover, _tsMemory.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
-                reward = _rewardAfterFriction(_ts.validityBond) >> 2;
+                reward = _rewardAfterFriction(_tsMemory.validityBond) >> 2;
 
-                _tko.transfer(_ts.contester, _ts.contestBond + reward * 3);
+                _tko.transfer(_tsMemory.contester, _tsMemory.contestBond + reward * 3);
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -410,7 +401,7 @@ library LibProving {
             // The code below will be executed if
             // - 1) the transition is proved for the fist time, or
             // - 2) the transition is contested.
-            reward = _rewardAfterFriction(_ts.validityBond);
+            reward = _rewardAfterFriction(_tsMemory.validityBond);
 
             uint256 livenessBond = _blk.livenessBond;
             if (livenessBond != 0) {
@@ -436,15 +427,15 @@ library LibProving {
             }
         }
 
-        _ts.validityBond = _local.tier.validityBond;
-        _ts.contestBond = 1; // to save gas
-        _ts.contester = address(0);
-        _ts.prover = msg.sender;
-        _ts.tier = _proof.tier;
+        _tsMemory.validityBond = _local.tier.validityBond;
+        _tsMemory.contestBond = 1; // to save gas
+        _tsMemory.contester = address(0);
+        _tsMemory.prover = msg.sender;
+        _tsMemory.tier = _proof.tier;
 
         if (!_local.sameTransition) {
-            _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _tran.stateRoot;
+            _tsMemory.blockHash = _tran.blockHash;
+            _tsMemory.stateRoot = _tran.stateRoot;
         }
     }
 
