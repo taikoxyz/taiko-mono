@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 /// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
-    bytes32 internal constant B_ASSIGNMENT_HOOK = bytes32("assignment_hook");
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");

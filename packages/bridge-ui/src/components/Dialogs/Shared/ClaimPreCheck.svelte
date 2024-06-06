@@ -10,7 +10,7 @@
   import { Tooltip } from '$components/Tooltip';
   import { claimConfig } from '$config';
   import { type BridgeTransaction } from '$libs/bridge';
-  import { checkBridgeQuota } from '$libs/bridge/checkBridgeQuota';
+  import { checkEnoughBridgeQuotaForClaim } from '$libs/bridge/checkBridgeQuota';
   import { getChainName, isL2Chain } from '$libs/chain';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -51,7 +51,7 @@
 
     const results = await Promise.allSettled([
       checkEnoughBalance($account.address, Number(tx.destChainId)),
-      checkBridgeQuota({
+      checkEnoughBridgeQuotaForClaim({
         transaction: tx,
         amount: tx.amount,
       }),

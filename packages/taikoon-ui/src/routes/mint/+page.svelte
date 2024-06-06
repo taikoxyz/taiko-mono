@@ -2,6 +2,7 @@
   import { ResponsiveController } from '@taiko/ui-lib';
 
   import { Mint } from '$components/Mint';
+  import { MintDisclaimerModal } from '$components/modals';
   import { Page } from '$components/Page';
   import { FaqSection, FooterSection } from '$components/sections';
   import { Section, SectionContainer } from '$ui/Section';
@@ -27,5 +28,7 @@
     <FooterSection />
   </SectionContainer>
 </Page>
+
+<MintDisclaimerModal />
 
 <ResponsiveController bind:windowSize />

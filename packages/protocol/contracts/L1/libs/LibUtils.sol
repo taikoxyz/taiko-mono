@@ -123,16 +123,4 @@ library LibUtils {
             return block.timestamp >= deadline;
         }
     }
-
-    function getTierProvider(
-        IAddressResolver _resolver,
-        uint256 _blockId
-    )
-        internal
-        view
-        returns (ITierProvider)
-    {
-        ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-        return ITierProvider(tierRouter.getProvider(_blockId));
-    }
 }
