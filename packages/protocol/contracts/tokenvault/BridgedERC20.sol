@@ -55,7 +55,6 @@ contract BridgedERC20 is
     event MigratedFrom(address indexed migratedFrom, address indexed account, uint256 amount);
 
     error BTOKEN_INVALID_PARAMS();
-    error BTOKEN_INVALID_TO_ADDR();
     error BTOKEN_MINT_DISALLOWED();
 
     /// @inheritdoc IBridgedERC20Initializable

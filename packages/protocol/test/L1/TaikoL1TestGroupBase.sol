@@ -9,10 +9,7 @@ contract TaikoL1New is TaikoL1 {
         config.maxBlocksToVerifyPerProposal = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
-    }
-
-    function _checkEOAForCalldataDA() internal pure override returns (bool) {
-        return true;
+        config.checkEOAForCalldataDA = true;
     }
 }
 
@@ -35,7 +32,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
         tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 2 ether);
 
-        AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
+        AssignmentHookBase.ProverAssignment memory assignment = AssignmentHookBase.ProverAssignment({
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),

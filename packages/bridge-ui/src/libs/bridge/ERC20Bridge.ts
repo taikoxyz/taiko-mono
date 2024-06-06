@@ -1,8 +1,10 @@
 import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi, erc20Abi, erc20VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import { gasLimitZero } from '$components/Bridge/state';
 import { gasLimitConfig } from '$config';
 import {
   ApproveError,
@@ -59,12 +61,15 @@ export class ERC20Bridge extends Bridge {
 
     const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
 
-    const gasLimit =
-      fee === 0n
-        ? BigInt(0) // user wants to claim
-        : !isTokenAlreadyDeployed
-          ? BigInt(minGasLimit) + gasLimitConfig.erc20NotDeployedGasLimit // Token is not deployed
-          : BigInt(minGasLimit) + gasLimitConfig.erc20DeployedGasLimit; // Token is deployed
+    let gasLimit: number;
+    if (get(gasLimitZero)) {
+      log('Gas limit is set to 0');
+      gasLimit = 0;
+    } else {
+      gasLimit = !isTokenAlreadyDeployed
+        ? minGasLimit + gasLimitConfig.erc20NotDeployedGasLimit // Token is not deployed
+        : minGasLimit + gasLimitConfig.erc20DeployedGasLimit; // Token is deployed
+    }
 
     log('Calculated gasLimit for message', gasLimit);
 
@@ -92,7 +97,7 @@ export class ERC20Bridge extends Bridge {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
 
-    const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
+    const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args as ERC20BridgeArgs);
     const { fee } = sendERC20Args;
 
     const value = fee;

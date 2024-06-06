@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
@@ -123,17 +122,5 @@ library LibUtils {
             uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
             return block.timestamp >= deadline;
         }
-    }
-
-    function getTierProvider(
-        IAddressResolver _resolver,
-        uint256 _blockId
-    )
-        internal
-        view
-        returns (ITierProvider)
-    {
-        ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-        return ITierProvider(tierRouter.getProvider(_blockId));
     }
 }

@@ -11,7 +11,52 @@ import { getContractAddressByType } from './getContractAddressByType';
 
 const log = getLogger('bridge:checkBridgeQuota');
 
-export const checkBridgeQuota = async ({
+/**
+ * Checks if the specified amount exceeds the quota for a given token address and chain ID.
+ * If the token address is not provided, the zero address (ETH) is used.
+ *
+ * @param {Object} params - The parameters for checking the quota.
+ * @param {Address} params.tokenAddress - The token address (optional).
+ * @param {bigint} params.amount - The amount to check.
+ * @param {Address} params.quotaManagerAddress - The quota manager address.
+ * @param {number} params.chainId - The chain ID of the quota manager.
+ * @returns {Promise<boolean>} - A promise that resolves to `true` if the amount exceeds the quota, `false` otherwise.
+ */
+export const exceedsQuota = async ({
+  tokenAddress,
+  amount,
+  quotaManagerAddress,
+  chainId,
+}: {
+  tokenAddress?: Address;
+  amount: bigint;
+  quotaManagerAddress: Address;
+  chainId: number;
+}) => {
+  try {
+    const address = tokenAddress || zeroAddress; // if tokenAddress is not provided, use zero address (=ETH)
+
+    const quota = await getQuotaForAddress(quotaManagerAddress, address, chainId);
+    log('Quota:', quota, 'Amount:', amount, 'Has enough quota:', amount <= quota);
+    if (amount > quota) {
+      log('Not enough quota', quota, amount);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    log('Error getting quota manager address', e);
+    return false;
+  }
+};
+
+/**
+ * Checks if there is enough bridge quota for a claim transaction.
+ * @param {Object} options - The options for checking bridge quota.
+ * @param {BridgeTransaction} options.transaction - The bridge transaction.
+ * @param {bigint} options.amount - The amount of tokens to be claimed.
+ * @returns {Promise<boolean>} - A promise that resolves to `true` if there is enough quota, or `false` otherwise.
+ */
+export const checkEnoughBridgeQuotaForClaim = async ({
   transaction,
   amount,
 }: {
@@ -46,13 +91,7 @@ export const checkBridgeQuota = async ({
       contractType: ContractType.QUOTAMANAGER,
     });
 
-    const quota = await readContract(config, {
-      address: quotaManagerAddress,
-      abi: quotaManagerAbi,
-      chainId: Number(transaction.destChainId),
-      functionName: 'availableQuota',
-      args: [tokenAddress, 0n],
-    });
+    const quota = await getQuotaForAddress(quotaManagerAddress, tokenAddress, Number(transaction.destChainId));
 
     if (amount > quota) {
       log('Not enough quota', quota, amount);
@@ -65,4 +104,15 @@ export const checkBridgeQuota = async ({
     log('Error checking quota', e);
     return true;
   }
+};
+
+const getQuotaForAddress = async (quotaManagerAddress: Address, address: Address, chainId: number) => {
+  const quota = await readContract(config, {
+    address: quotaManagerAddress,
+    abi: quotaManagerAbi,
+    chainId: chainId,
+    functionName: 'availableQuota',
+    args: [address, 0n],
+  });
+  return quota;
 };
