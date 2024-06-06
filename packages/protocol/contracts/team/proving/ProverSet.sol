@@ -55,14 +55,14 @@ contract ProverSet is EssentialContract, IERC1271 {
     {
         __Essential_init(_owner, _addressManager);
         admin = _admin;
-        IERC20(getTaikoTokenAddress()).approve(getTaikoL1Address(), type(uint256).max);
+        IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
     }
 
     /// @notice Receives ETH as fees.
     receive() external payable { }
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        IERC20(getTaikoTokenAddress()).approve(_address, _allowance);
+        IERC20(tkoToken()).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
@@ -75,19 +75,19 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        IERC20(getTaikoTokenAddress()).transfer(admin, _amount);
+        IERC20(tkoToken()).transfer(admin, _amount);
     }
 
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
         emit BlockProvenBy(msg.sender, _blockId);
-        ITaikoL1(getTaikoL1Address()).proveBlock(_blockId, _input);
+        ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyAuthorized nonReentrant {
-        ERC20VotesUpgradeable(getTaikoTokenAddress()).delegate(_delegatee);
+        ERC20VotesUpgradeable(tkoToken()).delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.
@@ -105,11 +105,11 @@ contract ProverSet is EssentialContract, IERC1271 {
         }
     }
 
-    function getTaikoL1Address() internal view virtual returns (address) {
+    function taikoL1() internal view virtual returns (address) {
         return resolve(LibStrings.B_TAIKO, false);
     }
 
-    function getTaikoTokenAddress() internal view virtual returns (address) {
+    function tkoToken() internal view virtual returns (address) {
         return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }
 }
