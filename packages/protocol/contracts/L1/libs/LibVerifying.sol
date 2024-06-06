@@ -236,9 +236,8 @@ library LibVerifying {
         ISignalService signalService =
             ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
-        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibStrings.H_STATE_ROOT, 0 /* latest block Id*/
-        );
+        uint64 lastSyncedBlock =
+            signalService.getSyncedChainHeight(_config.chainId, LibStrings.H_STATE_ROOT);
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
             _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
