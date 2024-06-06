@@ -12,7 +12,6 @@
     insufficientBalance,
     recipientAddress,
     selectedToken,
-    selectedTokenIsBridged,
     tokenBalance,
     validatingAmount,
   } from '$components/Bridge/state';
@@ -52,12 +51,8 @@
     if ($selectedToken) {
       $allApproved = false;
       checking = true;
-      if ($selectedTokenIsBridged) {
-        $allApproved = true;
-        $insufficientAllowance = false;
-      } else {
-        await getTokenApprovalStatus($selectedToken);
-      }
+
+      await getTokenApprovalStatus($selectedToken);
       checking = false;
     }
   });
@@ -75,21 +70,20 @@
   // Conditions to disable/enable buttons
   $: disableApprove =
     checking ||
-    (!$selectedTokenIsBridged &&
-      (isERC20
-        ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
-        : isERC721
+    (isERC20
+      ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
+      : isERC721
+        ? $allApproved || approving
+        : isERC1155
           ? $allApproved || approving
-          : isERC1155
-            ? $allApproved || approving
-            : approving));
+          : approving);
 
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
   $: isERC1155 = $selectedToken?.type === TokenType.ERC1155;
   $: isETH = $selectedToken?.type === TokenType.ETH;
 
-  $: validApprovalStatus = $selectedTokenIsBridged ? true : $allApproved;
+  $: validApprovalStatus = $allApproved;
 
   $: commonConditions =
     validApprovalStatus &&
@@ -124,7 +118,7 @@
 </script>
 
 <div class="f-col w-full gap-4">
-  {#if $selectedToken && !isETH && !$selectedTokenIsBridged}
+  {#if $selectedToken && !isETH}
     <ActionButton
       priority="primary"
       disabled={disableApprove}

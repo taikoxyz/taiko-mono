@@ -60,31 +60,31 @@ export async function recommendProcessingFee({
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
 
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20DeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc20DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20NotDeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc20NotDeployedGasLimit;
       }
     } else if (token.type === TokenType.ERC721) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc721DeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc721DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc721NotDeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc721NotDeployedGasLimit;
       }
     } else if (token.type === TokenType.ERC1155) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc1155DeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc1155DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc1155NotDeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc1155NotDeployedGasLimit;
       }
     }
   } else {
     log(`Fee for ETH bridging`);
-    estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE);
+    estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE;
   }
   if (!estimatedMsgGaslimit) throw new Error('Unable to calculate fee');
 
@@ -104,8 +104,8 @@ export async function recommendProcessingFee({
     log(`gasPrice ${formatGwei(gasPrice)} is more than 0.1 gwei, setting feeMultiplicator to 2`);
   }
 
-  const fee = estimatedMsgGaslimit * gasPrice * BigInt(feeMultiplicator);
-  return fee;
+  const fee = estimatedMsgGaslimit * Number(gasPrice) * feeMultiplicator;
+  return BigInt(fee);
 }
 
 // function roundWeiTo6DecimalPlaces(wei: bigint): bigint {
