@@ -9,10 +9,7 @@ contract TaikoL1New is TaikoL1 {
         config.maxBlocksToVerifyPerProposal = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
-    }
-
-    function _checkEOAForCalldataDA() internal pure override returns (bool) {
-        return true;
+        config.checkEOAForCalldataDA = true;
     }
 }
 

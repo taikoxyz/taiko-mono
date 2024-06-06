@@ -189,6 +189,7 @@
   - register `tier_router` to `0xa8e5D3a2E2052bea7f10bE6a0386454b721d1f9F` and unregister `tier_provider` @tx`0x2c455ae888a23c232bb5c7603657eda010ffadc602a74e626332bc06eaaa3b78`
 - todo:
   - change `prover_set` to a deployment of `new ProverSet` then unregisgter `assignment_hook`.
+  - update the contract using latest L1RollupAddressManager.sol
 
 #### taikoL1
 
