@@ -3,9 +3,9 @@ pragma solidity 0.8.24;
 
 /// @title IBridgedERC20
 /// @notice Interface for all bridged tokens.
-/// @dev To facilitate compatibility with third-party bridged tokens, such as USDC's native
-/// standard, it's necessary to implement an intermediary adapter contract which should conform to
-/// this interface, enabling effective interaction with third-party contracts.
+/// @dev To facilitate compatibility with third-party bridged tokens, sometimes it might be
+/// necessary to implement an intermediary adapter contract which should conform to this interface,
+/// enabling effective interaction with third-party contracts.
 /// @custom:security-contact security@taiko.xyz
 interface IBridgedERC20 {
     /// @notice Mints `amount` tokens and assigns them to the `account` address.
