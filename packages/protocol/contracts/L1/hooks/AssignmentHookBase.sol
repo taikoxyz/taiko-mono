@@ -33,12 +33,6 @@ abstract contract AssignmentHookBase {
         uint256 tip; // A tip to L1 block builder
     }
 
-    /// @notice Max gas paying the prover.
-    /// @dev This should be large enough to prevent the worst cases for the prover.
-    /// To assure a trustless relationship between the proposer and the prover it's
-    /// the prover's job to make sure it can get paid within this limit.
-    uint256 public constant MAX_GAS_PAYING_PROVER = 50_000;
-
     error HOOK_ASSIGNMENT_EXPIRED();
     error HOOK_ASSIGNMENT_INVALID_SIG();
     error HOOK_TIER_NOT_FOUND();
