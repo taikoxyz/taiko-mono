@@ -219,7 +219,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // Assume the block time is 3s, the protocol will allow ~90 days of
             // new blocks without any verification.
             blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
-            blockRingBufferSize: 324_000 + 512,
+            blockRingBufferSize: 324_512,
             // Can be overridden by the tier config.
             maxBlocksToVerifyPerProposal: 10,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
