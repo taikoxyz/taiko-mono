@@ -94,18 +94,20 @@ abstract contract AssignmentHookBase {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        if (proverFee != 0 && _meta.sender != _blk.assignedProver) {
+        if (proverFee != 0) {
             if (assignment.feeToken == address(0)) {
-                // Paying Ether
+                // Do not check `_meta.sender != _blk.assignedProver` as Ether has been forwarded
+                // from TaikoL1 to this hook.
                 _blk.assignedProver.sendEtherAndVerify(proverFee);
-            } else if (assignment.feeToken == address(tko)) {
-                // Paying TKO
-                tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee);
-            } else {
-                // Other ERC20
-                IERC20(assignment.feeToken).safeTransferFrom(
-                    _meta.sender, _blk.assignedProver, proverFee
-                );
+            } else if (_meta.sender != _blk.assignedProver) {
+                if (assignment.feeToken == address(tko)) {
+                    tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee); // Paying TKO
+                } else {
+                    // Other ERC20
+                    IERC20(assignment.feeToken).safeTransferFrom(
+                        _meta.sender, _blk.assignedProver, proverFee
+                    );
+                }
             }
         }
 
