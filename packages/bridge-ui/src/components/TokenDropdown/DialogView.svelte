@@ -77,10 +77,16 @@
 
   $: if (enteredTokenName !== '') {
     filteredTokens = tokens.filter((token) => {
-      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+      return (
+        token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
+        token.symbol.toLowerCase().includes(enteredTokenName.toLowerCase())
+      );
     });
     filteredCustomTokens = customTokens.filter((token) => {
-      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+      return (
+        token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
+        token.symbol.includes(enteredTokenName.toLowerCase())
+      );
     });
   } else {
     filteredTokens = tokens;
@@ -130,6 +136,8 @@
                   <i role="img" aria-label={token.name}>
                     <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
                   </i>
+                {:else if token.logoURI}
+                  <img src={token.logoURI} alt={token.name} class="w-[28px] h-[28px] rounded-[50%]" />
                 {:else}
                   <i role="img" aria-label={token.symbol}>
                     <svelte:component this={Erc20} size={28} />
