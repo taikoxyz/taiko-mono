@@ -151,6 +151,18 @@ interface ISignalService {
     /// @notice Returns the given block's  chain data.
     /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.
+    /// @return blockId_ The largest synced block id.
+    function getLargestSyncedBlockId(
+        uint64 _chainId,
+        bytes32 _kind
+    )
+        external
+        view
+        returns (uint64 blockId_);
+
+    /// @notice Returns the given block's  chain data.
+    /// @param _chainId Identifier of the chainId.
+    /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding block id. If this value is 0, use the top
     /// block id.
     /// @return blockId_ The actual block id.
