@@ -41,17 +41,16 @@
   }
 
   $: if ($selectedToken?.type === TokenType.ETH) {
-    if ($processingFee + $enteredAmount > $ethBalance || !hasEnoughEth) {
+    if ($processingFee + $enteredAmount > $ethBalance) {
       hasEnoughFundsToContinue = false;
     } else {
       hasEnoughFundsToContinue = true;
     }
+  } else if ($processingFee > $ethBalance) {
+    hasEnoughFundsToContinue = false;
+  } else {
+    hasEnoughFundsToContinue = true;
   }
-  //  else if (hasEnoughEth && $processingFee !== 0n) {
-  //   hasEnoughFundsToContinue = true;
-  // } else {
-  //   hasEnoughFundsToContinue = false;
-  // }
 
   const dispatch = createEventDispatcher();
 
