@@ -246,8 +246,7 @@ library LibProving {
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
                 // Making it a non-sliding window, relative when ts.timestamp was registered
-                // (or to
-                // lastUnpaused if that one is bigger)
+                // (or to lastUnpaused if that one is bigger)
                 if (
                     LibUtils.isPostDeadline(
                         ts.timestamp, local.b.lastUnpausedAt, local.tier.cooldownWindow
