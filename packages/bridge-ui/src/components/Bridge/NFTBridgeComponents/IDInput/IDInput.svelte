@@ -14,7 +14,7 @@
   export let limit = 1;
   // export let state: State = State.DEFAULT;
 
-  let typeClass = '';
+  let typeClass: string | null;
 
   export const clearIds = () => {
     enteredIds = [];
@@ -51,7 +51,7 @@
 
   $: state = State.DEFAULT;
 
-  $: typeClass = state === State.INVALID ? 'error' : '';
+  $: typeClass = state === State.INVALID ? 'error' : null;
 
   onDestroy(() => {
     clearIds();

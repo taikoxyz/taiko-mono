@@ -62,34 +62,21 @@
     }
   });
 
-  $: isValidBalance =
-    isETH || isERC20 || isERC1155 ? $tokenBalance && $tokenBalance.value > 0n : isERC721 ? true : false;
+  $: isValidBalance = isETH || isERC20 || isERC1155 ? $tokenBalance && $tokenBalance.value > 0n : isERC721;
 
   // Basic conditions so we can even start the bridging process
-  $: hasAddress = $recipientAddress || $account?.address ? true : false;
+  $: hasAddress = $recipientAddress || Boolean($account?.address);
   $: hasNetworks = $connectedSourceChain?.id && $destNetwork?.id;
   $: hasBalance = !$insufficientBalance && !$computingBalance && !$errorComputingBalance && isValidBalance;
 
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;
-
-  // Conditions to disable/enable buttons
-  $: disableApprove =
-    checking ||
-    (!$selectedTokenIsBridged &&
-      (isERC20
-        ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
-        : isERC721
-          ? $allApproved || approving
-          : isERC1155
-            ? $allApproved || approving
-            : approving));
 
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
   $: isERC1155 = $selectedToken?.type === TokenType.ERC1155;
   $: isETH = $selectedToken?.type === TokenType.ETH;
 
-  $: validApprovalStatus = $selectedTokenIsBridged ? true : $allApproved;
+  $: validApprovalStatus = $selectedTokenIsBridged || $allApproved;
 
   $: commonConditions =
     validApprovalStatus &&
@@ -103,24 +90,61 @@
     $allApproved &&
     !paused;
 
-  $: erc20ConditionsSatisfied =
-    commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount;
+  // Conditions to disable/enable buttons
+  $: disableApprove = true;
+  $: disableBridge = true;
 
-  $: erc721ConditionsSatisfied = commonConditions;
+  // Conditions to disable/enable Approve button
+  $: {
+    const isERC20ApprovalDisabled = () => {
+      return canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount;
+    };
 
-  $: erc1155ConditionsSatisfied = commonConditions && $enteredAmount && $enteredAmount > 0;
+    const isERC721ApprovalDisabled = () => {
+      return $allApproved || approving;
+    };
 
-  $: ethConditionsSatisfied = commonConditions && $enteredAmount && $enteredAmount > 0;
+    const isERC1155ApprovalDisabled = () => {
+      return $allApproved || approving;
+    };
 
-  $: disableBridge = isERC20
-    ? !erc20ConditionsSatisfied
-    : isERC721
-      ? !erc721ConditionsSatisfied
-      : isERC1155
-        ? !erc1155ConditionsSatisfied
-        : isETH
-          ? !ethConditionsSatisfied
-          : commonConditions;
+    const isDisableApprove = () => {
+      if (checking) return true;
+      if (!$selectedTokenIsBridged) {
+        switch (true) {
+          case isERC20:
+            return isERC20ApprovalDisabled();
+          case isERC721:
+            return isERC721ApprovalDisabled();
+          case isERC1155:
+            return isERC1155ApprovalDisabled();
+        }
+      }
+      return approving;
+    };
+
+    disableApprove = isDisableApprove();
+  }
+
+  // Conditions to disable/enable Bridge button
+  $: {
+    const isDisableBridge = () => {
+      switch (true) {
+        case isERC20:
+          return !(commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount);
+        case isERC721:
+          return !commonConditions;
+        case isERC1155:
+          return !(commonConditions && $enteredAmount && $enteredAmount > 0);
+        case isETH:
+          return !(commonConditions && $enteredAmount && $enteredAmount > 0);
+        default:
+          return !commonConditions;
+      }
+    };
+
+    disableBridge = isDisableBridge();
+  }
 </script>
 
 <div class="f-col w-full gap-4">

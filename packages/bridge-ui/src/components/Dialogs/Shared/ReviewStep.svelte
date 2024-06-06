@@ -34,7 +34,7 @@
         <img
           alt="nft"
           src={imageUrl || ''}
-          class="rounded-[20px] bg-white max-w-[200px] {!imageLoaded || imageUrl === '' ? 'hidden' : ''}"
+          class="rounded-[20px] bg-white max-w-[200px] {!imageLoaded || imageUrl === '' ? 'hidden' : null}"
           on:load={handleImageLoad} />
       </div>
     {/if}

@@ -7,8 +7,8 @@
 <li
   data-content=""
   class="step
-  {isActive ? 'step-primary' : ''} 
-  {stepIndex < currentStepIndex && !isActive ? 'step-previous' : ''}">
+  {isActive ? 'step-primary' : null} 
+  {stepIndex < currentStepIndex && (!isActive ? 'step-previous' : null)}">
   <slot />
 </li>
 

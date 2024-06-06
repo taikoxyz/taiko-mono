@@ -99,7 +99,7 @@
       <img
         alt="nft"
         src={imageUrl || ''}
-        class="rounded-[20px] self-center bg-white {!imageLoaded || imageUrl === '' ? 'hidden' : ''}"
+        class="rounded-[20px] self-center bg-white {!imageLoaded || imageUrl === '' ? 'hidden' : null}"
         on:load={handleImageLoad} />
       <div id="metadata">
         <div class="f-between-center">

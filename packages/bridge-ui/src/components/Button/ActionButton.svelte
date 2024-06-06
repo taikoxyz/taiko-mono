@@ -18,7 +18,7 @@
     state = ButtonState.DEFAULT;
   }
 
-  $: disabledColor = onPopup && $$restProps.disabled ? '!bg-dialog-interactive-disabled' : '';
+  $: disabledColor = onPopup && $$restProps.disabled ? '!bg-dialog-interactive-disabled' : null;
 
   $: commonClasses = classNames(
     'btn size-[56px] px-[28px] py-[14px] rounded-full flex-1 w-full items-center',
