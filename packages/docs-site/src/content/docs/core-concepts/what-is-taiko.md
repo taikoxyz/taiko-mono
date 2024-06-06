@@ -10,7 +10,9 @@ Taiko is a [based rollup](/core-concepts/based-sequencing) which makes Ethereum 
 - [Based contestable rollup](/core-concepts/contestable-rollups): A configurable rollup to reduce transaction fees on Ethereum.
 - [Based booster rollup](/core-concepts/booster-rollups): An innovative approach to **native L1 scaling**.
 
-Taiko is a **highly configurable, fully open source, permissionless (based), Ethereum-equivalent rollup**. It can be easily configured as a fully ZK rollup, optimistic rollup, or anything in between. Using Taiko feels the same as using Ethereum. There are no centralized actors that operate the network; all operations are permissionlessly run by the community.
+Taiko is a **highly configurable, fully open source, permissionless (based), Ethereum-equivalent rollup**.
+
+It can be easily configured as a fully ZK rollup, optimistic rollup, or anything in between. There are no centralized actors that operate the network; all operations are permissionlessly run by the community.
 
 ## The Taiko protocol
 
@@ -21,7 +23,7 @@ Taiko is a **highly configurable, fully open source, permissionless (based), Eth
 - **Taiko Community**: Social groups/accounts run by anyone interested, including Taiko Discord, Taiko Twitter, etc.
 - **Taiko Labs**: Research & development group for the Taiko protocol.
 - **Taiko Treasury**: Funded by income from the Taiko protocol (L2 EIP-1559 congestion MEV).
-- **Taiko DAO (in progress)**: Governing body of Taiko Token (TAIKO) holders with voting rights over smart contract upgrades, network parameters, and more. Controls all aspects of the Taiko protocol smart contracts. **Note: this does not exist yet.**
+- **Taiko DAO (in progress)**: Governing body of Taiko Token (TAIKO) holders with voting rights over smart contract upgrades, network parameters, and more. Controls all aspects of the Taiko protocol smart contracts.
 - **Taiko Foundation**: Stewards growth and development of the Taiko protocol and ecosystem. Works for the Taiko DAO and token holders, financing technical developments, ecosystem growth, partnerships, events, and more with full transparency.
 - **Taiko Security Council**: Elected by the Taiko DAO to handle emergency actions. Ensures the safety of the Taiko protocol, implementing necessary upgrades or changes, and controls the Guardian Provers.
 
@@ -30,7 +32,7 @@ Taiko is a **highly configurable, fully open source, permissionless (based), Eth
 ### Non-critical infrastructure
 
 :::note
-By **non-critical** we mean anyone can run these components, not just Taiko Labs. Yes you can sequence blocks on Taiko, host your own bridge using our [signal service](/core-concepts/bridging#the-signal-service), etc.
+Anyone can run these components, not just Taiko Labs. Yes you can sequence blocks on Taiko, host your own bridge using our [signal service](/core-concepts/bridging#the-signal-service), etc.
 :::
 
 #### Frontends
@@ -52,7 +54,7 @@ By **non-critical** we mean anyone can run these components, not just Taiko Labs
 ### Critical infrastructure
 
 :::caution
-By **critical** we mean this is a vital concern for rollup users. The smart contracts are upgradeable via a multi-sig, this is a **trusted component** until handed over to the DAO. Please look at a third party source regarding any rollup's safety, such as [L2Beat](https://l2beat.com/scaling/projects/taiko).
+This is a vital concern for rollup users. The smart contracts are upgradeable via a multi-sig, which is a **trusted component** until handed over to the DAO. Please look at a third party source regarding any rollup's safety, such as [L2Beat](https://l2beat.com/scaling/projects/taiko).
 :::
 
 - [Mainnet contract owners (multi-sig)](/network-reference/mainnet-addresses#contract-owners)
