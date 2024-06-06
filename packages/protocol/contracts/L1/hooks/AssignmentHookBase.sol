@@ -41,6 +41,7 @@ abstract contract AssignmentHookBase {
 
     error HOOK_ASSIGNMENT_EXPIRED();
     error HOOK_ASSIGNMENT_INVALID_SIG();
+    error HOOK_PERMISSION_DENIED();
     error HOOK_TIER_NOT_FOUND();
 
     function _onBlockProposed(
@@ -50,6 +51,7 @@ abstract contract AssignmentHookBase {
     )
         internal
     {
+        if (msg.sender != taikoL1()) revert HOOK_PERMISSION_DENIED();
         // Note that
         // - 'msg.sender' is the TaikoL1 contract address
         // - 'block.coinbase' is the L1 block builder
@@ -90,7 +92,7 @@ abstract contract AssignmentHookBase {
         }
 
         // Send the liveness bond to the Taiko contract
-        IERC20 tko = IERC20(_getTaikoTokenAddress());
+        IERC20 tko = IERC20(tkoToken());
 
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
@@ -189,5 +191,6 @@ abstract contract AssignmentHookBase {
         revert HOOK_TIER_NOT_FOUND();
     }
 
-    function _getTaikoTokenAddress() internal view virtual returns (address);
+    function taikoL1() internal view virtual returns (address);
+    function tkoToken() internal view virtual returns (address);
 }

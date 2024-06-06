@@ -25,13 +25,16 @@ contract AssignmentHook is EssentialContract, AssignmentHookBase, IHook {
     )
         external
         payable
-        onlyFromNamed(LibStrings.B_TAIKO)
         nonReentrant
     {
         _onBlockProposed(_blk, _meta, _data);
     }
 
-    function _getTaikoTokenAddress() internal view virtual override returns (address) {
+    function taikoL1() internal view virtual override returns (address) {
+        return resolve(LibStrings.B_TAIKO, false);
+    }
+
+    function tkoToken() internal view virtual override returns (address) {
         return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }
 }
