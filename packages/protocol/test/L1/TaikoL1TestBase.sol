@@ -143,7 +143,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // anyways
         uint256 msgValue = 2 ether;
 
-        AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
+        AssignmentHookBase.ProverAssignment memory assignment = AssignmentHookBase.ProverAssignment({
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
