@@ -13,7 +13,7 @@ import "./ISignalService.sol";
 contract SignalService is EssentialContract, ISignalService {
     /// @notice Mapping to store the top blockId.
     /// @dev Slot 1.
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) private _topBlockId;
+    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
 
     /// @notice Mapping to store the authorized addresses.
     /// @dev Slot 2.
@@ -134,7 +134,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function getSyncedChainHeight(uint64 _chainId, bytes32 _kind) external view returns (uint64) {
-        return _topBlockId[_chainId][_kind];
+        return topBlockId[_chainId][_kind];
     }
 
     /// @inheritdoc ISignalService
@@ -147,7 +147,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (uint64 blockId_, bytes32 chainData_)
     {
-        blockId_ = _blockId != 0 ? _blockId : _topBlockId[_chainId][_kind];
+        blockId_ = _blockId != 0 ? _blockId : topBlockId[_chainId][_kind];
 
         if (blockId_ != 0) {
             bytes32 signal = signalForChainData(_chainId, _kind, blockId_);
@@ -226,8 +226,8 @@ contract SignalService is EssentialContract, ISignalService {
         signal_ = signalForChainData(_chainId, _kind, _blockId);
         _sendSignal(address(this), signal_, _chainData);
 
-        if (_topBlockId[_chainId][_kind] < _blockId) {
-            _topBlockId[_chainId][_kind] = _blockId;
+        if (topBlockId[_chainId][_kind] < _blockId) {
+            topBlockId[_chainId][_kind] = _blockId;
         }
         emit ChainDataSynced(_chainId, _blockId, _kind, _chainData, signal_);
     }
