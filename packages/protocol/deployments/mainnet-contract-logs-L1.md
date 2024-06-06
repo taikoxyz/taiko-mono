@@ -58,6 +58,8 @@
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
   - upgraded from `0xE1d91bAE44B70bD66e8b688B8421fD62dcC33c72` to `0xB11Cd7bA46a12F238b4Ad831f6F296262C1e652d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+- todo:
+  - update signal service
 
 #### bridge
 
@@ -91,6 +93,18 @@
 - logs:
   - deployed on May 13, 2024 at commit `b90b932`
   - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
+- todo:
+
+  - upgrade the contract
+  - set quota_period to 86400 and:
+
+    ```
+     ETH  0x0000000000000000000000000000000000000000 1000000000000000000000
+     WETH  0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 1000000000000000000000
+     TAIKO 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 2000000000000000000000000
+     USDT  0xdAC17F958D2ee523a2206206994597C13D831ec7 4000000000000
+     USDC  0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 4000000000000
+    ```
 
 #### erc20_vault
 
@@ -175,6 +189,9 @@
   - register `prover_set` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
   - register `tier_router` to `0xa8e5D3a2E2052bea7f10bE6a0386454b721d1f9F` and unregister `tier_provider` @tx`0x2c455ae888a23c232bb5c7603657eda010ffadc602a74e626332bc06eaaa3b78`
+- todo:
+  - change `prover_set` to a deployment of `new ProverSet` then unregisgter `assignment_hook`.
+  - update the contract using latest L1RollupAddressManager.sol
 
 #### taikoL1
 
@@ -203,7 +220,7 @@
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
 - todo:
-  - upgrade assignment hook
+  - upgrade assignment hook again for signature check improvement
 
 #### tier_provider
 
@@ -326,6 +343,9 @@
   - enabled two provers (`0x000000629FBCf27A347d1AEbA658435230D74a5f` and `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) @tx`0xa0b1565473849bc753d395abd982e6899ecdd9e754014eebed67b69edadb61c5`
   - upgraded from `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` to `0x500735343372Dd6c9B84dBc7a75babf4479742B9` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - disable a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
+- todo:
+  - upgrade to the a newly deployed `new ProverSet`
+  - set up allowance for a new deployment of `ProxylessAssignmentHook`
 
 ### labcontester.taiko.eth
 
@@ -336,3 +356,6 @@
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
   - enabled a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
+- todo:
+  - upgrade to the a newly deployed `new ProverSet`
+  - set up allowance for a new deployment of `ProxylessAssignmentHook`

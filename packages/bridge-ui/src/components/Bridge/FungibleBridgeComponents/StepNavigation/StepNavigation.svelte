@@ -11,9 +11,12 @@
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
 
+  export let hasEnoughFundsToContinue: boolean;
   export let needsManualReviewConfirmation: boolean;
   export let needsManualRecipientConfirmation: boolean;
   export let bridgingStatus: BridgingStatus;
+
+  export let exceedsQuota: boolean;
 
   let nextStepButtonText: string;
   let manuallyConfirmedReviewStep = false;
@@ -77,12 +80,13 @@
     <div class="h-sep mt-0" />
     <ActionButton
       priority="primary"
-      disabled={!$importDone || disabled}
+      disabled={!$importDone || disabled || exceedsQuota}
       loading={validatingImport}
       on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
   {/if}
+
   {#if activeStep === BridgeSteps.REVIEW}
     {#if needsManualReviewConfirmation}
       <ActionButton
@@ -97,7 +101,10 @@
       </ActionButton>
     {/if}
 
-    <ActionButton priority="primary" disabled={disabled || !reviewConfirmed} on:click={() => handleNextStep()}>
+    <ActionButton
+      priority="primary"
+      disabled={disabled || !reviewConfirmed || !hasEnoughFundsToContinue}
+      on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
 
