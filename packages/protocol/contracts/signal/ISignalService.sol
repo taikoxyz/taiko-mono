@@ -70,7 +70,8 @@ interface ISignalService {
     /// @param authorized True if authorized, false otherwise.
     event Authorized(address indexed addr, bool authorized);
 
-    /// @notice Send a signal (message) by setting the storage slot to a value of 1.
+    /// @notice Send a signal (message) by setting the storage slot to the same value as the signal
+    /// itself.
     /// @param _signal The signal (message) to send.
     /// @return slot_ The location in storage where this signal is stored.
     function sendSignal(bytes32 _signal) external returns (bytes32 slot_);
@@ -132,7 +133,6 @@ interface ISignalService {
     function isSignalSent(address _app, bytes32 _signal) external view returns (bool);
 
     /// @notice Checks if a chain data has been synced.
-    /// uniquely from chainId, kind, and data.
     /// @param _chainId The remote chainId.
     /// @param _kind A value to mark the data type.
     /// @param _blockId The chain data's corresponding blockId

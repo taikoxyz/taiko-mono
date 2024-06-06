@@ -91,8 +91,16 @@ contract AssignmentHook is EssentialContract, IHook {
             assignment, msg.sender, _meta.sender, _blk.assignedProver, _meta.blobHash
         );
 
-        if (!_blk.assignedProver.isValidSignatureNow(hash, assignment.signature)) {
-            revert HOOK_ASSIGNMENT_INVALID_SIG();
+        if (Address.isContract(_blk.assignedProver)) {
+            if (!_blk.assignedProver.isValidERC1271SignatureNow(hash, assignment.signature)) {
+                revert HOOK_ASSIGNMENT_INVALID_SIG();
+            }
+        } else {
+            (address recovered, ECDSA.RecoverError error) =
+                ECDSA.tryRecover(hash, assignment.signature);
+            if (recovered != _blk.assignedProver || error != ECDSA.RecoverError.NoError) {
+                revert HOOK_ASSIGNMENT_INVALID_SIG();
+            }
         }
 
         // Send the liveness bond to the Taiko contract
@@ -108,18 +116,20 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        if (proverFee != 0 && _meta.sender != _blk.assignedProver) {
+        if (proverFee != 0) {
             if (assignment.feeToken == address(0)) {
-                // Paying Ether
+                // Do not check `_meta.sender != _blk.assignedProver` as Ether has been forwarded
+                // from TaikoL1 to this hook.
                 _blk.assignedProver.sendEtherAndVerify(proverFee);
-            } else if (assignment.feeToken == address(tko)) {
-                // Paying TKO
-                tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee);
-            } else {
-                // Other ERC20
-                IERC20(assignment.feeToken).safeTransferFrom(
-                    _meta.sender, _blk.assignedProver, proverFee
-                );
+            } else if (_meta.sender != _blk.assignedProver) {
+                if (assignment.feeToken == address(tko)) {
+                    tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee); // Paying TKO
+                } else {
+                    // Other ERC20
+                    IERC20(assignment.feeToken).safeTransferFrom(
+                        _meta.sender, _blk.assignedProver, proverFee
+                    );
+                }
             }
         }
 

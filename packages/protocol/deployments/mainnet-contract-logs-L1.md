@@ -93,6 +93,18 @@
 - logs:
   - deployed on May 13, 2024 at commit `b90b932`
   - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
+- todo:
+
+  - upgrade the contract
+  - set quota_period to 86400 and:
+
+    ```
+     ETH  0x0000000000000000000000000000000000000000 1000000000000000000000
+     WETH  0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 1000000000000000000000
+     TAIKO 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 2000000000000000000000000
+     USDT  0xdAC17F958D2ee523a2206206994597C13D831ec7 4000000000000
+     USDC  0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 4000000000000
+    ```
 
 #### erc20_vault
 
@@ -205,7 +217,7 @@
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
 - todo:
-  - upgrade assignment hook
+  - upgrade assignment hook again for signature check improvement
 
 #### tier_provider
 
