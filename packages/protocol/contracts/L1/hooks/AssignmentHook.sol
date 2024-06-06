@@ -91,8 +91,16 @@ contract AssignmentHook is EssentialContract, IHook {
             assignment, msg.sender, _meta.sender, _blk.assignedProver, _meta.blobHash
         );
 
-        if (!_blk.assignedProver.isValidSignatureNow(hash, assignment.signature)) {
-            revert HOOK_ASSIGNMENT_INVALID_SIG();
+        if (Address.isContract(_blk.assignedProver)) {
+            if (!_blk.assignedProver.isValidERC1271SignatureNow(hash, assignment.signature)) {
+                revert HOOK_ASSIGNMENT_INVALID_SIG();
+            }
+        } else {
+            (address recovered, ECDSA.RecoverError error) =
+                ECDSA.tryRecover(hash, assignment.signature);
+            if (recovered != _blk.assignedProver || error != ECDSA.RecoverError.NoError) {
+                revert HOOK_ASSIGNMENT_INVALID_SIG();
+            }
         }
 
         // Send the liveness bond to the Taiko contract
