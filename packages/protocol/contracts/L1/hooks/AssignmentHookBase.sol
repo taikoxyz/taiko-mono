@@ -33,6 +33,8 @@ abstract contract AssignmentHookBase {
         uint256 tip; // A tip to L1 block builder
     }
 
+    event EtherPaymentFailed(address to, uint256 maxGas);
+
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
@@ -108,7 +110,8 @@ abstract contract AssignmentHookBase {
             if (assignment.feeToken == address(0)) {
                 // Do not check `_meta.sender != _blk.assignedProver` as Ether has been forwarded
                 // from TaikoL1 to this hook.
-                _blk.assignedProver.sendEtherAndVerify(proverFee);
+                bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+                if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
             } else if (_meta.sender != _blk.assignedProver) {
                 if (assignment.feeToken == address(tko)) {
                     tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee); // Paying TKO
