@@ -179,8 +179,7 @@ library LibVerifying {
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Sync chain data
-
+                // Sync chain data when necessary
                 if (
                     lastVerifiedBlockId
                         > _state.slotA.lastSyncedBlockId + _config.blockSyncThreshold
