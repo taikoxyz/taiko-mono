@@ -48,8 +48,11 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 	ERC20BalanceRepo, err := NewERC20BalanceRepository(db)
 	assert.Equal(t, nil, err)
 
+	pk, _ := ERC20BalanceRepo.CreateMetadata(context.Background(), 1, "0x123", "SYMBOL")
+
 	bal1, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateERC20BalanceOpts{
+			ERC20MetadataID: int64(pk),
 			ChainID:         1,
 			Address:         "0x123",
 			ContractAddress: "0x123",
@@ -60,6 +63,7 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 
 	bal2, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateERC20BalanceOpts{
+			ERC20MetadataID: int64(pk),
 			ChainID:         1,
 			Address:         "0x123",
 			ContractAddress: "0x123456",
@@ -77,12 +81,14 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 		{
 			"success",
 			eventindexer.UpdateERC20BalanceOpts{
+				ERC20MetadataID: int64(pk),
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123456789",
 				Amount:          1,
 			},
 			eventindexer.UpdateERC20BalanceOpts{
+				ERC20MetadataID: int64(pk),
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123",
@@ -93,12 +99,14 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 		{
 			"one left",
 			eventindexer.UpdateERC20BalanceOpts{
+				ERC20MetadataID: int64(pk),
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123456789",
 				Amount:          1,
 			},
 			eventindexer.UpdateERC20BalanceOpts{
+				ERC20MetadataID: int64(pk),
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123456",
