@@ -206,10 +206,6 @@ library LibProposing {
 
                 prevHook = params.hookCalls[i].hook;
             }
-            // Refund Ether
-            if (address(this).balance != 0) {
-                msg.sender.sendEtherAndVerify(address(this).balance);
-            }
 
             // Check that after hooks, the Taiko Token balance of this contract
             // have increased by the same amount as _config.livenessBond (to prevent)
@@ -218,6 +214,11 @@ library LibProposing {
             if (_tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
+        }
+
+        // Refund Ether
+        if (address(this).balance != 0) {
+            msg.sender.sendEtherAndVerify(address(this).balance);
         }
 
         deposits_ = new TaikoData.EthDeposit[](0);
