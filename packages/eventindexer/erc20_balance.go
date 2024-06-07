@@ -7,14 +7,22 @@ import (
 	"github.com/morkid/paginate"
 )
 
+type ERC20Metadata struct {
+	ID              int    `json:"id"`
+	ChainID         int64  `json:"chainID"`
+	ContractAddress string `json:"contractAddress"`
+	Symbol          string `json:"symbol"`
+}
+
 // ERC20Balance
 type ERC20Balance struct {
-	ID              int    `json:"id"`
-	ERC20MetadataID int64  `json:"erc20MetadataID"`
-	ChainID         int64  `json:"chainID"`
-	Address         string `json:"address"`
-	Amount          int64  `json:"amount"`
-	ContractAddress string `json:"contractAddress"`
+	ID              int            `json:"id"`
+	ERC20MetadataID int64          `json:"erc20MetadataID"`
+	ChainID         int64          `json:"chainID"`
+	Address         string         `json:"address"`
+	Amount          int64          `json:"amount"`
+	ContractAddress string         `json:"contractAddress"`
+	Metadata        *ERC20Metadata `json:"metadata" gorm:"foreignKey:ERC20MetadataID"`
 }
 
 type UpdateERC20BalanceOpts struct {
@@ -37,7 +45,7 @@ type ERC20BalanceRepository interface {
 		address string,
 		chainID string,
 	) (paginate.Page, error)
-	FindMetadata(ctx context.Context, chainID int64, contractAddress string) (int, error)
+	FindMetadata(ctx context.Context, chainID int64, contractAddress string) (*ERC20Metadata, error)
 	CreateMetadata(
 		ctx context.Context,
 		chainID int64,

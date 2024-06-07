@@ -150,23 +150,23 @@ func (r *ERC20BalanceRepository) FindMetadata(
 	ctx context.Context,
 	chainID int64,
 	contractAddress string,
-) (int, error) {
-	var id int
+) (*eventindexer.ERC20Metadata, error) {
+	md := eventindexer.ERC20Metadata{}
 
 	result := r.db.GormDB().WithContext(ctx).Raw(
-		"SELECT id FROM erc20_metadata WHERE contract_address = ? AND chain_id = ?",
+		"SELECT * FROM erc20_metadata WHERE contract_address = ? AND chain_id = ?",
 		contractAddress, chainID,
-	).Scan(&id)
+	).Scan(&md)
 
 	if result.Error != nil {
-		return 0, result.Error
+		return nil, result.Error
 	}
 
 	if result.RowsAffected == 0 {
-		return 0, nil
+		return nil, nil
 	}
 
-	return id, nil
+	return &md, nil
 }
 
 func (r *ERC20BalanceRepository) CreateMetadata(
