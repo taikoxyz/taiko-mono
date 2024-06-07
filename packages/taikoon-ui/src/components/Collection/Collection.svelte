@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { getContext } from 'svelte';
+  import { ResponsiveController } from '@taiko/ui-lib';
+  import { getContext, onMount } from 'svelte';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
   import type { ITaikoonDetail } from '$stores/taikoonDetail';
 
@@ -12,6 +12,8 @@
   export let tokenIds: number[] = [];
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
+  export let disableClick = false;
+
   export let title: string = 'The Collection';
 
   export let isLoading = false;
@@ -19,15 +21,19 @@
 
   $: selectedTaikoonId = -1;
 
+  onMount(() => {
+    onRouteChange();
+  });
+
   async function onRouteChange() {
     const hash = location.hash;
     const taikoonId = parseInt(hash.replace('#', ''));
-    if (isNaN(taikoonId)) return;
-    selectedTaikoonId = taikoonId;
+    selectedTaikoonId = isNaN(taikoonId) ? -1 : taikoonId;
+
     taikoonDetailState.set({
       ...$taikoonDetailState,
       tokenId: taikoonId,
-      isModalOpen: true,
+      isModalOpen: taikoonId > 0,
     });
   }
 </script>
@@ -45,7 +51,7 @@
     <div class={taikoonsWrapperClasses}>
       {#each tokenIds as tokenId}
         <a
-          href={`#${tokenId}`}
+          href={disableClick ? '#' : `#${tokenId}`}
           class={classNames('w-full', 'rounded-xl', 'lg:rounded-3xl', 'md:rounded-2xl', 'overflow-hidden')}>
           <NftRenderer size="full" {tokenId} />
         </a>

@@ -28,7 +28,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function tierProvider() internal view returns (ITierProvider) {
-        return ITierProvider(L1.resolve(LibStrings.B_TIER_PROVIDER, false));
+        ITierRouter tierRouter = ITierRouter(L1.resolve(LibStrings.B_TIER_ROUTER, false));
+        return ITierProvider(tierRouter.getProvider(0));
     }
 
     function setUp() public virtual {
@@ -98,7 +99,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         registerAddress("taiko", address(L1));
         registerAddress("tier_sgx", address(sv));
         registerAddress("tier_guardian", address(gp));
-        registerAddress("tier_provider", address(cp));
+        registerAddress("tier_router", address(cp));
         registerAddress("signal_service", address(ss));
         registerL2Address("taiko", address(L2));
         registerL2Address("signal_service", address(L2SS));
@@ -171,10 +172,13 @@ abstract contract TaikoL1TestBase is TaikoTest {
         meta.difficulty = bytes32(_difficulty);
         meta.gasLimit = gasLimit;
 
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
-
-        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
-
+        TaikoData.HookCall[] memory hookcalls;
+        if (prover != proposer) {
+            hookcalls = new TaikoData.HookCall[](1);
+            hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
+        } else {
+            hookcalls = new TaikoData.HookCall[](0);
+        }
         vm.prank(proposer, proposer);
         (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
             abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),

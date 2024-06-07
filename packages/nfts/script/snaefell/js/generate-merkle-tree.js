@@ -31,3 +31,4 @@ async function main(network) {
 
 main("hardhat");
 main("devnet");
+main('mainnet')

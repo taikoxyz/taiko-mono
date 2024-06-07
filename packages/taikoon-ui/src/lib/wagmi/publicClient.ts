@@ -1,14 +1,10 @@
 import { createPublicClient, http } from 'viem';
-
-import { chainIdToChain } from '$lib/chain/chains';
-
-const devnet = chainIdToChain(167001);
+import { holesky } from 'viem/chains';
 
 export default async function publicClient() {
   const client = createPublicClient({
-    chain: devnet,
-    transport: http('https://rpc.internal.taiko.xyz'),
+    chain: holesky,
+    transport: http('https://1rpc.io/holesky'),
   });
-
   return client;
 }

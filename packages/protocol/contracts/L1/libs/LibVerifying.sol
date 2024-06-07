@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
 import "../../signal/ISignalService.sol";
-import "../tiers/ITierProvider.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -14,7 +9,6 @@ import "./LibUtils.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerifying {
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
@@ -68,6 +62,7 @@ library LibVerifying {
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
+        IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
@@ -99,9 +94,7 @@ library LibVerifying {
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
         bytes32 stateRoot;
         uint64 numBlocksVerified;
-        address tierProvider;
-
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+        ITierRouter tierRouter;
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -128,18 +121,21 @@ library LibVerifying {
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
+                uint16 tier = ts.tier;
+
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    if (tierProvider == address(0)) {
-                        tierProvider = _resolver.resolve(LibStrings.B_TIER_PROVIDER, false);
+                    if (tierRouter == ITierRouter(address(0))) {
+                        tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
                     }
 
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow
+                            ITierProvider(tierRouter.getProvider(blockId)).getTier(tier)
+                                .cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
@@ -155,7 +151,8 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                tko.safeTransfer(ts.prover, ts.validityBond);
+                address prover = ts.prover;
+                _tko.transfer(prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -166,10 +163,10 @@ library LibVerifying {
 
                 emit BlockVerified({
                     blockId: blockId,
-                    prover: ts.prover,
+                    prover: prover,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    tier: ts.tier
+                    tier: tier
                 });
 
                 ++blockId;
@@ -239,9 +236,8 @@ library LibVerifying {
         ISignalService signalService =
             ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
-        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibStrings.H_STATE_ROOT, 0 /* latest block Id*/
-        );
+        uint64 lastSyncedBlock =
+            signalService.getSyncedChainHeight(_config.chainId, LibStrings.H_STATE_ROOT);
 
         if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
             _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;

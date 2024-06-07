@@ -3,7 +3,7 @@ title: Bridging
 description: Core concept page for "Bridging".
 ---
 
-Bridges are foundational for cross-chain users and applications. Users might come to another chain, such as Taiko (a ZK-rollup). To do this, they need to bridge over funds. Notoriously, bridging has been a dangerous operation. How do you make sure that this bridge is secure?
+Bridges are foundational for cross-chain users and applications. Users might come to another chain, such as Taiko. To do this, they need to bridge over funds. Notoriously, bridging has been a dangerous operation. How do you make sure that this bridge is secure?
 
 Let's explain bridging on Taiko. We will answer the following questions:
 

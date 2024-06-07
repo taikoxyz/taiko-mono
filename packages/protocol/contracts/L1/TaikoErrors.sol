@@ -27,13 +27,13 @@ abstract contract TaikoErrors {
     error L1_INVALID_TRANSITION();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_NOT_ASSIGNED_PROVER();
+    error L1_NO_HOOKS();
     error L1_PROVING_PAUSED();
     error L1_RECEIVE_DISABLED();
     error L1_TOO_LATE();
     error L1_TOO_MANY_BLOCKS();
     error L1_TRANSITION_ID_ZERO();
     error L1_TRANSITION_NOT_FOUND();
-    error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
     error L1_UNEXPECTED_TRANSITION_ID();
 }

@@ -35,6 +35,9 @@ contract UtilsScript is Script {
         } else if (chainId == 167_008) {
             lowercaseNetworkKey = "katla";
             uppercaseNetworkKey = "KATLA";
+        } else if (chainId == 167_000) {
+            lowercaseNetworkKey = "mainnet";
+            uppercaseNetworkKey = "MAINNET";
         } else {
             revert("Unsupported chainId");
         }
@@ -55,17 +58,13 @@ contract UtilsScript is Script {
         return string.concat(root, "/deployments/taikoon/", lowercaseNetworkKey, ".json");
     }
 
-    function getIpfsBaseURI() public view returns (string memory) {
-        return vm.envString("IPFS_BASE_URI");
-    }
-
-    function getBlacklist() public returns (IMinimalBlacklist blacklistAddress) {
-        if (block.chainid == 1) {
+    function getBlacklist() public view returns (IMinimalBlacklist blacklistAddress) {
+        if (block.chainid == 167_000) {
             // mainnet blacklist address
-            blacklistAddress = IMinimalBlacklist(0x97044531D0fD5B84438499A49629488105Dc58e6);
+            blacklistAddress = IMinimalBlacklist(vm.envAddress("BLACKLIST_ADDRESS"));
         } else {
             // deploy a mock blacklist otherwise
-            blacklistAddress = IMinimalBlacklist(new MockBlacklist());
+            blacklistAddress = IMinimalBlacklist(0xbdEd0D2bf404bdcBa897a74E6657f1f12e5C6fb6);
         }
 
         return blacklistAddress;

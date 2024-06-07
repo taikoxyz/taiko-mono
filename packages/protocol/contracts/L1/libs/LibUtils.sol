@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import "../../common/IAddressResolver.sol";
+import "../../common/LibStrings.sol";
 import "../../libs/LibMath.sol";
+import "../tiers/ITierProvider.sol";
+import "../tiers/ITierRouter.sol";
 import "../TaikoData.sol";
 
 /// @title LibUtils
@@ -96,11 +102,11 @@ library LibUtils {
     {
         if (_state.transitions[_slot][1].key == _parentHash) {
             tid_ = 1;
+            if (tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
         } else {
             tid_ = _state.transitionIds[_blk.blockId][_parentHash];
+            if (tid_ != 0 && tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
         }
-
-        if (tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
     }
 
     function isPostDeadline(

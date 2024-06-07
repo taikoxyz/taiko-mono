@@ -1,0 +1,158 @@
+---
+title: Run a Mainnet Taiko Node From Source
+description: This guide will help you start up a Taiko node.
+---
+
+import { Aside, Card, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+
+This tutorial explains how to run an Taiko node for Mainnet from source code.
+
+## Building the Source Code
+
+Please follow the [Building a Node from Source](/guides/node-operators/build-a-taiko-node-from-source) guide before continuing.
+This guide presumes you have built the required images already (`taiko-geth` and `taiko-client`).
+
+## Hardware Requirements
+
+These are the recommended specs of a [mainnet Geth node](https://geth.ethereum.org/docs/getting-started/hardware-requirements); the actual requirements may be lower.
+
+*       16GB RAM
+*       2TB SSD
+*       Quad-core CPU
+
+Node operators should plan for future storage needs as the requirements will grow continuously.
+
+### Create a JWT Secret
+
+`taiko-geth` and `taiko-client` communicate over the standard Ethereum engine API authrpc. This communication is secured using a shared secret.
+
+You will need to generate a shared secret in the form of a 32 byte hex string.
+
+```bash
+openssl rand -hex 32 > jwt.txt
+```
+
+### Start `taiko-geth`
+
+It's generally better to start `taiko-geth` before you start `taiko-client` as you will encounter less error messages.
+
+`taiko-geth` can be started without `taiko-client` and will wait until `taiko-client` begins communicating.
+
+<Steps>
+
+1. Navigate to your `taiko-geth` directory
+
+    Find the directory where you built the `taiko-geth` binary.
+
+2. Copy the JWT secret you generated into the `taiko-geth` directory.
+
+    ```bash
+    cp /path/to/jwt.txt .
+    ```
+
+3. Start taiko-geth
+
+    Use the following command to start `taiko-geth` in a default configuration.
+    The JSON-RPC API will become available on port 28545.
+
+    ```bash
+        ./build/bin/geth \
+            --taiko \
+            --networkid 167000 \
+            --gcmode archive \
+            --datadir ./data/taiko-geth \
+            --metrics \
+            --metrics.expensive \
+            --metrics.addr "0.0.0.0" \
+            --bootnodes enode://7a8955b27eda2ddf361b59983fce9c558b18ad60d996ac106629f7f913247ef13bc842c7cf6ec6f87096a3ea8048b04873c40d3d873c0276d38e222bddd72e88@43.153.44.186:30303,enode://704a50da7e727aa10c45714beb44ece04ca1280ad63bb46bb238a01bf55c19c9702b469fb12c63824fa90f5051f7091b1c5069df1ec9a0ba1e943978c09d270f@49.51.202.127:30303,enode://f52e4e212a15cc4f68df27282e616d51d7823596c83c8c8e3b3416d7ab531cefc7b8a493d01964e1918315e6b0c7a4806634aeabb9013642a9159a53f4ebc094@43.153.16.47:30303,enode://57f4b29cd8b59dc8db74be51eedc6425df2a6265fad680c843be113232bbe632933541678783c2a5759d65eac2e2241c45a34e1c36254bccfe7f72e52707e561@104.197.107.1:30303,enode://87a68eef46cc1fe862becef1185ac969dfbcc050d9304f6be21599bfdcb45a0eb9235d3742776bc4528ac3ab631eba6816e9b47f6ee7a78cc5fcaeb10cd32574@35.232.246.122:30303 \
+            --authrpc.addr "0.0.0.0" \
+            --authrpc.port 28551 \
+            --authrpc.vhosts "*" \
+            --authrpc.jwtsecret ./jwt.txt \
+            --http \
+            --http.api admin,debug,eth,net,web3,txpool,miner,taiko \
+            --http.addr "0.0.0.0" \
+            --http.port 28545 \
+            --http.vhosts "*" \
+            --ws \
+            --ws.api admin,debug,eth,net,web3,txpool,miner,taiko \
+            --ws.addr "0.0.0.0" \
+            --ws.port 28546 \
+            --ws.origins "*" \
+            --gpo.defaultprice "10000000" \
+            --port 30304 \
+            --syncmode full \
+            --state.scheme=path
+    ```
+</Steps>
+
+### Start `taiko-client`
+
+This guide assumes you are running both `taiko-geth` and `taiko-client` on the same machine.
+
+If you aren't, you can configure the ports and addresses so that the services can access each other.
+
+<Steps>
+1. Navigate to your `taiko-client` directory
+
+    Find the directory where you built the `taiko-client` binary.
+
+2. Copy the JWT secret
+
+    <Aside>
+    This should be the *same* JWT secret you used in the previous step for `taiko-geth`.
+    </Aside>
+
+    ```bash
+    cp /path/to/jwt.txt .
+    ```
+
+3. Set environment variables
+
+    The following URLs should be a Ethereum node.
+
+    You will need either an RPC provider, or run a full Ethereum node yourself.
+
+    ```bash
+    export L1_WS=...  # the WS address for the node to sync from.
+    export L1_BEACON_URL=... # URL address for the L1 Beacon-node HTTP endpoint to use.
+    ```
+
+4. Start taiko-client
+
+    Use the following command to start `taiko-client` in a default configuration.
+
+    You can find all other configurable flags by running `./bin/taiko-client driver`.
+
+    This command assumes you've run the `taiko-geth` command as is, if you've changed ports please change them accordingly.
+
+    ```bash
+        ./bin/taiko-client driver \
+            --l1.ws ${L1_WS} \
+            --l1.beacon ${L1_BEACON_URL} \
+            --l2.ws ws://localhost:28546 \
+            --taikoL1 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a \
+            --taikoL2 0x1670000000000000000000000000000000010001 \
+            --jwtSecret ./jwt.txt \
+            --l2.auth http://localhost:28551/ \
+            --verbosity 3 \
+            --p2p.sync \
+            --p2p.checkPointSyncUrl https://rpc.mainnet.taiko.xyz
+    ```
+
+    <Aside>
+    If you've participated in our old testnets, the L1 Node is no longer required to be an archive node!
+    </Aside>
+</Steps>
+
+### Syncing
+
+Once you've started `taiko-geth` and `taiko-client` properly you should see them communicate with each other and start syncing.
+
+Syncing can take several hours, depending on the size of the chain.
+
+## Next Steps
+
+<Card title="Troubleshooting" icon="error">
+        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+</Card>

@@ -39,9 +39,10 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
-      "stable_coin": "You are bridging a stable coin. Currently we are not supporting a native 1:1 conversion. Please use the <a href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> instead. Your bridged asset might not be of any use.",
+      "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
@@ -70,6 +71,7 @@
       }
     },
     "errors": {
+      "amount_exceeds_quota": "This amount exceeds the quota. Please lower the amount.",
       "approve_error": {
         "message": "We encountered an issue while trying to approve this token.",
         "title": "Approval failed"
@@ -116,6 +118,10 @@
       "send_message_error": {
         "message": "Please try again",
         "title": "Failed to send"
+      },
+      "transaction_timeout": {
+        "message": "Transaction timed out. Try refreshing the page and retry",
+        "title": "Timed out"
       },
       "unknown_error": {
         "message": "An unexpected error has occurred. Please try again.",
@@ -199,12 +205,6 @@
         "recipient": "Recipient",
         "review": "Review"
       }
-    },
-    "welcome_modal": {
-      "body": "Welcome to <span class='font-bold text-primary-brand'>Hekla, our final testnet</span>.<br/>Strengthening security may cause some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
-      "confirm": "I understand",
-      "link": "Find out more",
-      "title": "Important Update"
     }
   },
   "chain_selector": {
@@ -383,12 +383,21 @@
     },
     "custom": {
       "label": "Custom",
-      "text": "Customize your processing fee"
+      "text": "Customize your processing fee",
+      "warning": "Fees set below the recommended level may not attract any relayers. Please adjust values only if you understand the consequences."
     },
     "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
+    "gasLimit": {
+      "message": "No other account can pay your gas fees when claiming",
+      "title": "Only allow sender to claim",
+      "warning": {
+        "message": "This will prevent any relayer from claiming for you, you will have to claim manually. Do not use this option if you are not 100% sure what you are doing. "
+      }
+    },
     "link": "Customize fee",
     "none": {
+      "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
       "warning": "Insufficient ETH to cover the gas fees for claiming."
@@ -492,7 +501,7 @@
               "title": "What is \"Sufficient funds to claim\"?"
             },
             "quota": {
-              "description": "Currently there is a daily limit of how much ETH can be bridged to L1. If the quota is reached, please try again the next day.",
+              "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
               "title": "What is \"Sufficient daily quota\"?"
             }
           }

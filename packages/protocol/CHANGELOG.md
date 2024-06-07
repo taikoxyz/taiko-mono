@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.6.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.5.0...protocol-v1.6.0) (2024-06-07)
+
+
+### Features
+
+* **protocol,supplementary-contracts:** relocate & allow TokenUnlock to deploy and own ProverSets ([#17251](https://github.com/taikoxyz/taiko-mono/issues/17251)) ([f3d6ca1](https://github.com/taikoxyz/taiko-mono/commit/f3d6ca1be680f5acb3ca5553954f46bbbfe253ca))
+* **protocol:** add `ITierRouter` interface to `DevnetTierProvider` ([#17474](https://github.com/taikoxyz/taiko-mono/issues/17474)) ([d9dd337](https://github.com/taikoxyz/taiko-mono/commit/d9dd337cef43d281173d3484362c09cd4c9f2c79))
+* **protocol:** add ProverSet to hold TKO tokens ([#17230](https://github.com/taikoxyz/taiko-mono/issues/17230)) ([b7802b1](https://github.com/taikoxyz/taiko-mono/commit/b7802b15f27a2e8e10a087d04aa1aa131705cca5))
+* **protocol:** allow getTransition to be called for all blocks ([#17268](https://github.com/taikoxyz/taiko-mono/issues/17268)) ([bca493f](https://github.com/taikoxyz/taiko-mono/commit/bca493f686181a9bbe9b6722742efa3fa98eaf99))
+* **protocol:** allow guardian prover to pause block proving & verification ([#17286](https://github.com/taikoxyz/taiko-mono/issues/17286)) ([b955e0e](https://github.com/taikoxyz/taiko-mono/commit/b955e0e5d592b47f019099043c9e17b88bbd6ae7))
+* **protocol:** allow hooks to be empty if prover and proposer are the same addr ([#17511](https://github.com/taikoxyz/taiko-mono/issues/17511)) ([18b1abb](https://github.com/taikoxyz/taiko-mono/commit/18b1abb69f9cbbc1cce2ea01b5e1702f5b9cce46))
+* **protocol:** allow L1 bridge to self-delegate any token's voting power ([#17204](https://github.com/taikoxyz/taiko-mono/issues/17204)) ([9bd5efa](https://github.com/taikoxyz/taiko-mono/commit/9bd5efabd8f77d6048517d798fd50595e0b739e6))
+* **protocol:** allow QuotaManager to set quota period ([#17497](https://github.com/taikoxyz/taiko-mono/issues/17497)) ([1655aef](https://github.com/taikoxyz/taiko-mono/commit/1655aefee4ef94d4e7380ecee3cb33e8ff65cff8))
+* **protocol:** allow tier configuration based on block numbers. ([#17399](https://github.com/taikoxyz/taiko-mono/issues/17399)) ([3e50e1c](https://github.com/taikoxyz/taiko-mono/commit/3e50e1cde3b39f067a3ed1815f2cc94b3dd10ef4))
+* **protocol:** change blockMaxProposals from 432_000 to 324000 ([#17499](https://github.com/taikoxyz/taiko-mono/issues/17499)) ([c6d184a](https://github.com/taikoxyz/taiko-mono/commit/c6d184a6d0858860b6c8c258830814452bac6d04))
+* **protocol:** deploy `ProverSet` in `DeployOnL1` script ([#17272](https://github.com/taikoxyz/taiko-mono/issues/17272)) ([6e56475](https://github.com/taikoxyz/taiko-mono/commit/6e56475413c3240d56d70d413ca5195cd1ced4cc))
+* **protocol:** enable AddressManager not to load from storage ([#17250](https://github.com/taikoxyz/taiko-mono/issues/17250)) ([c8207d3](https://github.com/taikoxyz/taiko-mono/commit/c8207d38bf3356ecbb629e36831de021afb582c5))
+* **protocol:** enable permissionless block-proposing ([#17303](https://github.com/taikoxyz/taiko-mono/issues/17303)) ([62dd749](https://github.com/taikoxyz/taiko-mono/commit/62dd74915c61fb9f2c2797c6beb5fdb1f15d6726))
+* **protocol:** improve Bridge `gasleft()` validation ([#17422](https://github.com/taikoxyz/taiko-mono/issues/17422)) ([0febafe](https://github.com/taikoxyz/taiko-mono/commit/0febafecafc9d83bed3232db09444ae345798606))
+* **protocol:** make AutomataDcapV3Attestation state variables public and emit events ([#17193](https://github.com/taikoxyz/taiko-mono/issues/17193)) ([3740dc0](https://github.com/taikoxyz/taiko-mono/commit/3740dc070ae57ab66051f4ba1c046dd732e90dab))
+* **protocol:** optimize assignment hook and prover set for gas  ([#17481](https://github.com/taikoxyz/taiko-mono/issues/17481)) ([984e778](https://github.com/taikoxyz/taiko-mono/commit/984e7782c230fb08afe43230e8215336eb9b9aab))
+* **protocol:** reduce gas cost by skipping reading storage for `delegates()` ([#17487](https://github.com/taikoxyz/taiko-mono/issues/17487)) ([f58d22f](https://github.com/taikoxyz/taiko-mono/commit/f58d22f6d0f6bd9bc53492b8efe7de3c642cdcde))
+* **protocol:** reduce ring-buffer size to reduce proposer cost ([#17383](https://github.com/taikoxyz/taiko-mono/issues/17383)) ([b335b70](https://github.com/taikoxyz/taiko-mono/commit/b335b7043994cefe75ed56e1ddb658c882655298))
+* **protocol:** refactor tier providers and added minority-guardian provers to all providers ([#17169](https://github.com/taikoxyz/taiko-mono/issues/17169)) ([cd51442](https://github.com/taikoxyz/taiko-mono/commit/cd514425511e48b9085cd8fe030d720ca73c0ba2))
+* **protocol:** remove a few cached addresses ([#17346](https://github.com/taikoxyz/taiko-mono/issues/17346)) ([e79a367](https://github.com/taikoxyz/taiko-mono/commit/e79a367adb1491dfedd6f85dda87f1818f2bba23))
+* **protocol:** update L2 deployment ([#17360](https://github.com/taikoxyz/taiko-mono/issues/17360)) ([e56e290](https://github.com/taikoxyz/taiko-mono/commit/e56e2907651c554b2b4408a304733605fcf2d46b))
+
+
+### Bug Fixes
+
+* **protocol:** add `receive` function to ProverSet ([#17334](https://github.com/taikoxyz/taiko-mono/issues/17334)) ([161fd8b](https://github.com/taikoxyz/taiko-mono/commit/161fd8bc58872f323e849f755b2a3c4137f865d2))
+* **protocol:** be more strict with `changeBridgedToken` ([#17333](https://github.com/taikoxyz/taiko-mono/issues/17333)) ([8d14e84](https://github.com/taikoxyz/taiko-mono/commit/8d14e84e8a9be6816042f04f4f725a1d4ede65fc))
+* **protocol:** check special addresses in recallMessage ([#17411](https://github.com/taikoxyz/taiko-mono/issues/17411)) ([304aec2](https://github.com/taikoxyz/taiko-mono/commit/304aec216b605e597b2d11201665adba20a35c2f))
+* **protocol:** fix a proving window check bug ([#17376](https://github.com/taikoxyz/taiko-mono/issues/17376)) ([06f97d6](https://github.com/taikoxyz/taiko-mono/commit/06f97d69aeb2ad5526c4f9ddaffacc4ff20ebf70))
+* **protocol:** fix AssignmentHook Ether payment issue ([#17495](https://github.com/taikoxyz/taiko-mono/issues/17495)) ([0b1ab18](https://github.com/taikoxyz/taiko-mono/commit/0b1ab18b02d90fe12a39cf6249cb6930716d00fb))
+* **protocol:** fix bridge bugs in `getMessageMinGasLimit` ([#17284](https://github.com/taikoxyz/taiko-mono/issues/17284)) ([859f854](https://github.com/taikoxyz/taiko-mono/commit/859f854a6eede02e51da416d210cd0d8809ee226))
+* **protocol:** fix Bridge message.fee double spending bug ([#17446](https://github.com/taikoxyz/taiko-mono/issues/17446)) ([1bd3285](https://github.com/taikoxyz/taiko-mono/commit/1bd32850f1014a53be0a67b1d9118c6e9c87442b))
+* **protocol:** fix getTierProvider and apply additional gas optimization ([#17488](https://github.com/taikoxyz/taiko-mono/issues/17488)) ([daa7aa7](https://github.com/taikoxyz/taiko-mono/commit/daa7aa73f26b8375f011ba8715a3378cd6be853b))
+* **protocol:** fix proving window logic ([#17378](https://github.com/taikoxyz/taiko-mono/issues/17378)) ([9ad6691](https://github.com/taikoxyz/taiko-mono/commit/9ad66915ed47d1eedb0a13f13213eb4d8dffe28f))
+* **protocol:** fix tier ID check issue in `GuardianProver.approve()` ([#17170](https://github.com/taikoxyz/taiko-mono/issues/17170)) ([f3dc402](https://github.com/taikoxyz/taiko-mono/commit/f3dc402c798ed7c15a2664e129ef47b3c345f168))
+* **protocol:** remove receive function from Bridge ([#17330](https://github.com/taikoxyz/taiko-mono/issues/17330)) ([4ef2847](https://github.com/taikoxyz/taiko-mono/commit/4ef28475dfc61d6a6c877f5d4e2ddee4932d0726))
+* **protocol:** resolve conflict ([#17504](https://github.com/taikoxyz/taiko-mono/issues/17504)) ([a2daec6](https://github.com/taikoxyz/taiko-mono/commit/a2daec6c0769512b3dabf206295330280243366a))
+* **protocol:** take calldata into account when calculating gas charge ([#17503](https://github.com/taikoxyz/taiko-mono/issues/17503)) ([b41faac](https://github.com/taikoxyz/taiko-mono/commit/b41faac6ef71c0d9588136ea20fbb41de060ccfe))
+* **protocol:** verify target address is a contract address in DelegateOwner ([#17328](https://github.com/taikoxyz/taiko-mono/issues/17328)) ([0c3c0e1](https://github.com/taikoxyz/taiko-mono/commit/0c3c0e1b514a6a417d9c8a9e26ac057ef1f3c6e2))
+
+
+### Reverts
+
+* **protocol:** revert AssignmentHook to production version with only an event removed ([#17512](https://github.com/taikoxyz/taiko-mono/issues/17512)) ([a4a9b98](https://github.com/taikoxyz/taiko-mono/commit/a4a9b986e0f2c1672ba0aed038cca808a6939f12))
+
 ## [1.5.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.4.0...protocol-v1.5.0) (2024-05-10)
 
 

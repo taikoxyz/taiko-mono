@@ -145,7 +145,9 @@ V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
 forge script script/SetDcapParams.s.sol:SetDcapParams \
     --fork-url $FORK_URL \
     --broadcast \
+    --evm-version cancun \
     --ffi \
     -vvvv \
     --block-gas-limit 100000000 \
-    --private-key ${PRIVATE_KEY}
+    --private-key ${PRIVATE_KEY} \
+    --legacy

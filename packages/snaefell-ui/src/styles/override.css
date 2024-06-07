@@ -1,0 +1,85 @@
+/**************************
+ * Remove Arrows/Spinners *
+ **************************/
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  @apply appearance-none m-0;
+}
+
+/* Firefox */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/**
+ * Overrides the default color for the overlay component used
+ * in DaisyUI's drawer. Unfortunately cannot be done via variables
+ */
+.drawer-toggle:checked ~ .drawer-side > .drawer-overlay {
+  background-color: var(--primary-background);
+}
+
+/**
+ * By design we don't have any opacity on disabled buttons,
+ * also font color is tertiary-content
+ */
+.btn.btn-disabled,
+.btn[disabled],
+.btn:disabled {
+  --tw-border-opacity: 1;
+  --tw-bg-opacity: 1;
+  --tw-text-opacity: 1;
+  @apply text-tertiary-content;
+}
+
+.title-body-bold {
+  color: var(--primary-content);
+  text-align: left;
+  font-size: 18px;
+  letter-spacing: 0.09px;
+}
+
+.modal-box {
+  @apply z-40;
+  display: inline-flex;
+  padding: 35px 24px 45px 24px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step:after {
+  height: 0px !important;
+  width: 0px !important;
+}
+
+.step-primary:after {
+  height: 8px !important;
+  width: 8px !important;
+}
+
+.step:before {
+  background-color: rgba(255, 198, 233, 0.2) !important;
+  height: 2px !important;
+}
+
+.step-primary:before {
+  background-color: var(--primary-interactive-accent) !important;
+  height: 2px !important;
+}
+
+.step-previous:before {
+  background-color: var(--primary-interactive-accent) !important;
+  height: 2px !important;
+}
+
+.step-previous:after {
+  @apply step-primary;
+  height: 0px !important;
+  width: 0px !important;
+}
+
+.label {
+  padding: 0;
+}

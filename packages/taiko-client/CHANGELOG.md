@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.25.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.24.0...taiko-client-v0.25.0) (2024-06-04)
+
+
+### Features
+
+* **taiko-client:** remove useless function and correct erorr handling ([#17463](https://github.com/taikoxyz/taiko-mono/issues/17463)) ([4e93a57](https://github.com/taikoxyz/taiko-mono/commit/4e93a57e11980c199be7d38aaefcd64dacb96131))
+* **taiko-client:** update bindings based on protocol `TierRouter` update ([#17475](https://github.com/taikoxyz/taiko-mono/issues/17475)) ([0e9d160](https://github.com/taikoxyz/taiko-mono/commit/0e9d1608635fefaa34b1a07900978b22efe14712))
+
+## [0.24.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.1...taiko-client-v0.24.0) (2024-05-30)
+
+
+### Features
+
+* **taiko-client:** improve chain head check in `NeedReSync` ([#17431](https://github.com/taikoxyz/taiko-mono/issues/17431)) ([4dbe0af](https://github.com/taikoxyz/taiko-mono/commit/4dbe0af09c97d85706325a6bc1a270383930a62c))
+
+## [0.23.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.0...taiko-client-v0.23.1) (2024-05-29)
+
+
+### Bug Fixes
+
+* **taiko-client:** fix an url path issue in `BeaconClient` ([#17417](https://github.com/taikoxyz/taiko-mono/issues/17417)) ([012d532](https://github.com/taikoxyz/taiko-mono/commit/012d53272b8e59aed87f7757ec11008a24702f14))
+
+## [0.23.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.22.0...taiko-client-v0.23.0) (2024-05-26)
+
+
+### Features
+
+* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
+* **taiko-client:** bump Go contract bindings ([#17068](https://github.com/taikoxyz/taiko-mono/issues/17068)) ([f1462c2](https://github.com/taikoxyz/taiko-mono/commit/f1462c28aa72104a20a2bcdf805092eab35f62a7))
+* **taiko-client:** change guardian provers  to directly submit proofs instead of contests ([#17069](https://github.com/taikoxyz/taiko-mono/issues/17069)) ([d669263](https://github.com/taikoxyz/taiko-mono/commit/d66926308681893aa7e7342288d157d9a5e1b392))
+* **taiko-client:** fix a prover flag ([#17315](https://github.com/taikoxyz/taiko-mono/issues/17315)) ([5806fcc](https://github.com/taikoxyz/taiko-mono/commit/5806fccea1f595c2db71ba438a324fbfd8e464ed))
+* **taiko-client:** improve progress tracker ([#17281](https://github.com/taikoxyz/taiko-mono/issues/17281)) ([5d05226](https://github.com/taikoxyz/taiko-mono/commit/5d0522601a4343c930322d448e4989129561f38b))
+* **taiko-client:** integrate `ProverSet` in client ([#17253](https://github.com/taikoxyz/taiko-mono/issues/17253)) ([f086850](https://github.com/taikoxyz/taiko-mono/commit/f086850906920ffad604805678c7813097f57719))
+* **taiko-client:** integrate new Raiko APIs (openAPI) ([#17039](https://github.com/taikoxyz/taiko-mono/issues/17039)) ([e36d5b7](https://github.com/taikoxyz/taiko-mono/commit/e36d5b7708b11b14e811f066fb7302a15fd7c24a))
+* **taiko-client:** integrate new Raiko APIs (openAPI) ([#17254](https://github.com/taikoxyz/taiko-mono/issues/17254)) ([fea1cbe](https://github.com/taikoxyz/taiko-mono/commit/fea1cbe594460365d63f6d08815bc95b50bb4af1))
+* **taiko-client:** integrate SocialScan blob storage service ([#17297](https://github.com/taikoxyz/taiko-mono/issues/17297)) ([0aaa6ce](https://github.com/taikoxyz/taiko-mono/commit/0aaa6ce56fd6a7e4497c97c68257bba8ac770e2e))
+* **taiko-client:** only invalid status need to return error ([#17266](https://github.com/taikoxyz/taiko-mono/issues/17266)) ([e7111e0](https://github.com/taikoxyz/taiko-mono/commit/e7111e0a84dcdad0a695c62be69304a02763e4a0))
+* **taiko-client:** private key both with and without the hex prefix ([#17098](https://github.com/taikoxyz/taiko-mono/issues/17098)) ([f80504a](https://github.com/taikoxyz/taiko-mono/commit/f80504aa167ea8593e2e184f2a44355f9159d7f9))
+* **taiko-client:** remove `raiko` from guardian prover ([#17289](https://github.com/taikoxyz/taiko-mono/issues/17289)) ([bed6414](https://github.com/taikoxyz/taiko-mono/commit/bed641486e79e346c7ca49190cb77c18859621bf))
+* **taiko-client:** remove an unused file ([#17166](https://github.com/taikoxyz/taiko-mono/issues/17166)) ([5a9b0ec](https://github.com/taikoxyz/taiko-mono/commit/5a9b0ecb0e1a7740c80d7fa1dff98266347bc337))
+* **taiko-client:** remove useless flags about raiko ([#17302](https://github.com/taikoxyz/taiko-mono/issues/17302)) ([7945142](https://github.com/taikoxyz/taiko-mono/commit/794514227afee296e1e2fed82e85769cc5efe1d0))
+* **taiko-client:** revert the change of handling forkchoiceupdate status ([#17288](https://github.com/taikoxyz/taiko-mono/issues/17288)) ([140aa25](https://github.com/taikoxyz/taiko-mono/commit/140aa251f70c7985782d7a141c1839f19374acc2))
+* **taiko-client:** switching from blobstorage server to blobscan-api ([#17244](https://github.com/taikoxyz/taiko-mono/issues/17244)) ([fbdb7c0](https://github.com/taikoxyz/taiko-mono/commit/fbdb7c078e738cb2c170299ac2bee0f72ec3601b))
+* **taiko-client:** temp log ([#17324](https://github.com/taikoxyz/taiko-mono/issues/17324)) ([c96c6ee](https://github.com/taikoxyz/taiko-mono/commit/c96c6eee4f43d1aab284c60287b2928d382275ef))
+* **taiko-client:** update Go contract bindings ([#17086](https://github.com/taikoxyz/taiko-mono/issues/17086)) ([14ebeff](https://github.com/taikoxyz/taiko-mono/commit/14ebeffd8cb4ed148d79789009444b54359bf77f))
+* **taiko-client:** use taiko-geth params ([#17044](https://github.com/taikoxyz/taiko-mono/issues/17044)) ([9e85e2f](https://github.com/taikoxyz/taiko-mono/commit/9e85e2fe3ba15f72fb3bbc6fa165a71a7aaee845))
+
+
+### Bug Fixes
+
+* **taiko-client:** `config.LProposerPrivKey` loads an incorrect flag value ([#17107](https://github.com/taikoxyz/taiko-mono/issues/17107)) ([8f69963](https://github.com/taikoxyz/taiko-mono/commit/8f699634ecd953e7b159d72c3676e08e58a81460))
+* **taiko-client:** fix a JWT parsing issue ([#17325](https://github.com/taikoxyz/taiko-mono/issues/17325)) ([6c30f93](https://github.com/taikoxyz/taiko-mono/commit/6c30f9351d215748903a517fff59138d3ccf3f39))
+* **taiko-client:** fix a prover balance check issue ([#17318](https://github.com/taikoxyz/taiko-mono/issues/17318)) ([f0b26b9](https://github.com/taikoxyz/taiko-mono/commit/f0b26b90847f6652793807a6bd8897b0d994bca0))
+* **taiko-client:** fix an issue in `BlockProposed` event handler && remove some unused code ([#17065](https://github.com/taikoxyz/taiko-mono/issues/17065)) ([5c4a025](https://github.com/taikoxyz/taiko-mono/commit/5c4a0251b6a52300a460acd82bd98b23adaeefa5))
+* **taiko-client:** fix an issue in `checkMinEthAndToken` ([#17320](https://github.com/taikoxyz/taiko-mono/issues/17320)) ([e007150](https://github.com/taikoxyz/taiko-mono/commit/e0071506e1e64e97c4f3474c765be3ba93e7b57a))
+* **taiko-client:** fix an issue in `CreateAssignment` ([#17323](https://github.com/taikoxyz/taiko-mono/issues/17323)) ([5ddb4c5](https://github.com/taikoxyz/taiko-mono/commit/5ddb4c56994fbf7336dd4fa6e096e9a699ce4a5f))
+* **taiko-client:** remove useless config in prover ([#17335](https://github.com/taikoxyz/taiko-mono/issues/17335)) ([3c37890](https://github.com/taikoxyz/taiko-mono/commit/3c37890cadb15bcc28d0de22b139a7c681e4d08d))
+
 ## [0.22.0](https://github.com/taikoxyz/taiko-client/compare/v0.21.0...v0.22.0) (2024-04-19)
 
 
