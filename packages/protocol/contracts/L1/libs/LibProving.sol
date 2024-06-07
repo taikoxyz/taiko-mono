@@ -108,7 +108,10 @@ library LibProving {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
         // the blockHash and stateRoot.
-        if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
+        if (
+            _tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0
+                || _tran.stateRoot == 1
+        ) {
             revert L1_INVALID_TRANSITION();
         }
 
@@ -315,13 +318,12 @@ library LibProving {
             // below.
             ts_ = _state.transitions[_local.slot][tid_];
             // ts_.blockHash = 0;
-            // ts_.stateRoot = 0;
+            ts_.stateRoot = 1;
             ts_.validityBond = 0;
             ts_.contester = address(0);
             ts_.contestBond = 1; // to save gas
             ts_.timestamp = _blk.proposedAt;
             ts_.tier = 0;
-            ts_.__reserved1 = 0;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
