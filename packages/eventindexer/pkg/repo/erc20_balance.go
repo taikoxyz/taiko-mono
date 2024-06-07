@@ -199,5 +199,6 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 	}
 
 	tx.Commit()
+
 	return id, nil
 }

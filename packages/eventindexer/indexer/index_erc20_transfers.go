@@ -16,8 +16,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
+// nolint: lll
 const erc20ABI = `[{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"}]`
 
+// nolint: lll
 const transferEventABI = `[{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]`
 
 // indexERc20Transfers indexes from a given starting block to a given end block and parses all event logs
@@ -168,14 +170,13 @@ func getERC20Symbol(ctx context.Context, client *ethclient.Client, contractAddre
 		Data: callData,
 	}
 
-	// Call the contract
 	result, err := client.CallContract(ctx, msg, nil)
 	if err != nil {
 		return "", err
 	}
 
-	// Parse the result
 	var symbol string
+
 	err = parsedABI.UnpackIntoInterface(&symbol, "symbol", result)
 	if err != nil {
 		return "", err
