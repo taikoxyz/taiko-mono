@@ -44,10 +44,6 @@
   }
 
   export const claim = async (action: ClaimAction, force: boolean = false) => {
-    if (!force) {
-      dispatch('error', { error: 'test', action });
-      return;
-    }
     if (!$account.address) {
       throw new NotConnectedError('User is not connected');
     }
@@ -67,9 +63,6 @@
 
       // Step 3: get the user's wallet
       const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
-
-      // eslint-disable-next-line no-console
-      console.log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 4: Call claim() method on the bridge
       let txHash: Hash;
