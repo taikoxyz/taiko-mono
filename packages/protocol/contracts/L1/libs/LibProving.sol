@@ -11,7 +11,9 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
-    bytes32 private constant _NEW_TRANSITION_MARKER = bytes32(uint256(1));
+    // keccak256("NEW_TRANSITION_MARKER")
+    bytes32 private constant _NEW_TRANSITION_MARKER =
+        0x7562ed105c59d587cd1f4b3a1c255c1bda29f6a5ca891131dde2bfebe4fee4c7;
 
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
