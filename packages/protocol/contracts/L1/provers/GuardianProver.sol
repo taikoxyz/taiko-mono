@@ -12,8 +12,6 @@ import "../ITaikoL1.sol";
 /// This prover uses itself as the verifier.
 /// @custom:security-contact security@taiko.xyz
 contract GuardianProver is IVerifier, EssentialContract {
-    using SafeERC20 for IERC20;
-
     /// @notice Contains the index of the guardian in `guardians` plus one (zero means not a
     /// guardian)
     /// @dev Slot 1
@@ -160,7 +158,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     function enableTaikoTokenAllowance(bool _enable) external onlyOwner {
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, false);
         address taiko = resolve(LibStrings.B_TAIKO, false);
-        IERC20(tko).safeApprove(taiko, _enable ? type(uint256).max : 0);
+        IERC20(tko).approve(taiko, _enable ? type(uint256).max : 0);
     }
 
     /// @dev Withdraws Taiko Token to a given address.
@@ -171,7 +169,7 @@ contract GuardianProver is IVerifier, EssentialContract {
 
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
         uint256 amount = _amount == 0 ? tko.balanceOf(address(this)) : _amount;
-        tko.safeTransfer(_to, amount);
+        tko.transfer(_to, amount);
     }
 
     /// @dev Called by guardians to approve a guardian proof

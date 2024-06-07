@@ -32,9 +32,9 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
-        // syncing)
+        // The max number of L2 blocks that can stay unsynced on L1
         uint8 blockSyncThreshold;
+        bool checkEOAForCalldataDA;
     }
 
     /// @dev Struct representing prover fees per given tier

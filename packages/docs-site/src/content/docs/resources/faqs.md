@@ -11,9 +11,7 @@ This page is divided between [General FAQs](#general-faqs) and [Developer FAQs](
 
 ### What is Taiko?
 
-Taiko is a fully permissionless and decentralized Ethereum-equivalent ZK-Rollup. This means using Taiko is exactly the same as using Ethereum. Not only does Taiko support all EVM opcodes, but it supports the full JSON-RPC execution client API.
-
-Taiko is an L2 that derives it's security from Ethereum. There is no centralized sequencer or provers, all operations are permissionless and community driven. Learn more about Taiko under our core concepts in the sidebar.
+See [What is Taiko?](/core-concepts/what-is-taiko).
 
 ### What is a Type 1 ZK-EVM?
 

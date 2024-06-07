@@ -43,6 +43,9 @@ contract Bridge is EssentialContract, IBridge {
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
+    ///@dev The 32bytes padded 11 fields in Message struct (11 * 32)
+    uint256 public constant CALLDATA_MESSAGE_SIZE_BYTES = 352;
+
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -210,7 +213,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev This transaction's gas limit must not be smaller than:
+    /// @dev To ensure successful execution, we recommend this transaction's gas limit not to be
+    /// smaller than:
     /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
     /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
     function processMessage(
@@ -254,8 +258,8 @@ contract Bridge is EssentialContract, IBridge {
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
+            // Handle special addresses and message.data encoded function calldata that don't
+            // require or cannot proceed with actual invocation and mark message as DONE
             refundAmount = _message.value;
             status_ = Status.DONE;
             reason_ = StatusReason.INVOCATION_PROHIBITED;
@@ -276,8 +280,22 @@ contract Bridge is EssentialContract, IBridge {
 
             if (stats.processedByRelayer && _message.gasLimit != 0) {
                 unchecked {
+                    // The relayer (=message processor) needs to get paid from the fee, and below it
+                    // the calculation mechanism of that.
+                    // The high level overview is: "gasCharged * block.basefee" with some caveat.
+                    // Sometimes over or under estimated and it has different reasons:
+                    // - a rational relayer shall simulate transactions off-chain so he/she would
+                    // exactly know if the txn is profitable or not.
+                    // - need to have a buffer/small revenue to the realyer since it consumes
+                    // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
+                    // Taking into account the encoded message calldata cost, and can count with 16
+                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
+                    stats.gasUsedInFeeCalc = uint32(
+                        GAS_OVERHEAD + gasStart
+                            + (uint32(_message.data.length + CALLDATA_MESSAGE_SIZE_BYTES) << 4)
+                            - gasleft()
+                    );
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;

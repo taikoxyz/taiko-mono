@@ -39,6 +39,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
@@ -70,6 +71,7 @@
       }
     },
     "errors": {
+      "amount_exceeds_quota": "This amount exceeds the quota. Please lower the amount.",
       "approve_error": {
         "message": "We encountered an issue while trying to approve this token.",
         "title": "Approval failed"
@@ -381,12 +383,21 @@
     },
     "custom": {
       "label": "Custom",
-      "text": "Customize your processing fee"
+      "text": "Customize your processing fee",
+      "warning": "Fees set below the recommended level may not attract any relayers. Please adjust values only if you understand the consequences."
     },
     "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
+    "gasLimit": {
+      "message": "No other account can pay your gas fees when claiming",
+      "title": "Only allow sender to claim",
+      "warning": {
+        "message": "This will prevent any relayer from claiming for you, you will have to claim manually. Do not use this option if you are not 100% sure what you are doing. "
+      }
+    },
     "link": "Customize fee",
     "none": {
+      "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
       "warning": "Insufficient ETH to cover the gas fees for claiming."
