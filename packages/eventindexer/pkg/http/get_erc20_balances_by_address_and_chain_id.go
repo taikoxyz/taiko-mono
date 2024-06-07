@@ -33,6 +33,7 @@ func (srv *Server) GetERC20BalancesByAddressAndChainID(c echo.Context) error {
 
 	for i := range *page.Items.(*[]eventindexer.ERC20Balance) {
 		v := &(*page.Items.(*[]eventindexer.ERC20Balance))[i]
+
 		md, err := srv.erc20BalanceRepo.FindMetadata(c.Request().Context(), v.ChainID, v.ContractAddress)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
