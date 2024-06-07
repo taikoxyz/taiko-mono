@@ -487,7 +487,8 @@
 | __gap          | uint256[49]                                   | 202  | 0      | 1568  | contracts/bridge/QuotaManager.sol:QuotaManager |
 | tokenQuota     | mapping(address => struct QuotaManager.Quota) | 251  | 0      | 32    | contracts/bridge/QuotaManager.sol:QuotaManager |
 | quotaPeriod    | uint24                                        | 252  | 0      | 3     | contracts/bridge/QuotaManager.sol:QuotaManager |
-| __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
+| whitelist      | mapping(address => bool)                      | 253  | 0      | 32    | contracts/bridge/QuotaManager.sol:QuotaManager |
+| __gap          | uint256[47]                                   | 254  | 0      | 1504  | contracts/bridge/QuotaManager.sol:QuotaManager |
 
 ## ProverSet
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                       |
