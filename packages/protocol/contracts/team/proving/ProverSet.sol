@@ -26,7 +26,6 @@ contract ProverSet is EssentialContract, IERC1271 {
     uint256[48] private __gap;
 
     event ProverEnabled(address indexed prover, bool indexed enabled);
-    event BlockProvenBy(address indexed prover, uint64 indexed blockId);
 
     error INVALID_STATUS();
     error PERMISSION_DENIED();
@@ -78,9 +77,20 @@ contract ProverSet is EssentialContract, IERC1271 {
         IERC20(tkoToken()).transfer(admin, _amount);
     }
 
+    /// @notice Propose a Taiko block.
+    function proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+        nonReentrant
+    {
+        ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
+    }
+
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
-        emit BlockProvenBy(msg.sender, _blockId);
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
