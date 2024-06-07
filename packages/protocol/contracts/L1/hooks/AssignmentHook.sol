@@ -110,19 +110,16 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        if (proverFee != 0) {
-            if (assignment.feeToken == address(0)) {
-                // Paying Ether even when proverFee is 0 to trigger a potential receive() function
-                // call.
-                // Note that this payment may fail if it cost more gas
-                bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
-                if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
-            } else if (_meta.sender != _blk.assignedProver) {
-                // Paying ERC20 tokens
-                IERC20(assignment.feeToken).safeTransferFrom(
-                    _meta.sender, _blk.assignedProver, proverFee
-                );
-            }
+        if (assignment.feeToken == address(0)) {
+            // Paying Ether even when proverFee is 0 to trigger a potential receive() function call.
+            // Note that this payment may fail if it cost more gas
+            bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+            if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
+        } else if (proverFee != 0 && _meta.sender != _blk.assignedProver) {
+            // Paying ERC20 tokens
+            IERC20(assignment.feeToken).safeTransferFrom(
+                _meta.sender, _blk.assignedProver, proverFee
+            );
         }
 
         // block.coinbase can be address(0) in tests
