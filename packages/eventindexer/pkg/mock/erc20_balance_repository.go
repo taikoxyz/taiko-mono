@@ -46,8 +46,8 @@ func (r *ERC20BalanceRepository) FindMetadata(
 	ctx context.Context,
 	chainID int64,
 	contractAddress string,
-) (int, error) {
-	return 0, nil
+) (*eventindexer.ERC20Metadata, error) {
+	return &eventindexer.ERC20Metadata{}, nil
 }
 
 func (r *ERC20BalanceRepository) CreateMetadata(
