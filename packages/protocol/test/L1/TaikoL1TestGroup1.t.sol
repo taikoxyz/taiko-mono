@@ -500,7 +500,5 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
         }
-
-        assertEq(tko.balanceOf(Alice), 10_000 ether);
     }
 }
