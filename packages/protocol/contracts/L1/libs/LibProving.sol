@@ -314,8 +314,8 @@ library LibProving {
             // slots, so it's necessary to reinitialize all transition fields
             // below.
             ts_ = _state.transitions[_local.slot][tid_];
-            ts_.blockHash = 0;
-            ts_.stateRoot = 0;
+            // ts_.blockHash = 0;
+            // ts_.stateRoot = 0;
             ts_.validityBond = 0;
             ts_.contester = address(0);
             ts_.contestBond = 1; // to save gas
