@@ -34,6 +34,8 @@ contract AssignmentHook is EssentialContract, IHook {
         uint256 tip; // A tip to L1 block builder
     }
 
+    event EtherPaymentFailed(address to, uint256 maxGas);
+
     /// @notice Max gas paying the prover.
     /// @dev This should be large enough to prevent the worst cases for the prover.
     /// To assure a trustless relationship between the proposer and the prover it's
@@ -101,7 +103,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Note that we don't have to worry about
         // https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
         // as `assignedProver` has provided a signature above to authorize this hook.
-        tko.transferFrom(_blk.assignedProver, msg.sender, _blk.livenessBond);
+        tko.safeTransferFrom(_blk.assignedProver, msg.sender, _blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, _meta.minTier);
@@ -110,18 +112,16 @@ contract AssignmentHook is EssentialContract, IHook {
         // Ether or ERC20 tokens.
         if (proverFee != 0) {
             if (assignment.feeToken == address(0)) {
-                // Do not check `_meta.sender != _blk.assignedProver` as Ether has been forwarded
-                // from TaikoL1 to this hook.
-                _blk.assignedProver.sendEtherAndVerify(proverFee);
+                // Paying Ether even when proverFee is 0 to trigger a potential receive() function
+                // call.
+                // Note that this payment may fail if it cost more gas
+                bool success = _blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+                if (!success) emit EtherPaymentFailed(_blk.assignedProver, MAX_GAS_PAYING_PROVER);
             } else if (_meta.sender != _blk.assignedProver) {
-                if (assignment.feeToken == address(tko)) {
-                    tko.transferFrom(_meta.sender, _blk.assignedProver, proverFee); // Paying TKO
-                } else {
-                    // Other ERC20
-                    IERC20(assignment.feeToken).safeTransferFrom(
-                        _meta.sender, _blk.assignedProver, proverFee
-                    );
-                }
+                // Paying ERC20 tokens
+                IERC20(assignment.feeToken).safeTransferFrom(
+                    _meta.sender, _blk.assignedProver, proverFee
+                );
             }
         }
 
