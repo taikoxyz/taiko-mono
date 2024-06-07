@@ -355,7 +355,7 @@ contract ERC20Vault is BaseVault {
         private
         returns (address token_)
     {
-        _consumeTokenQuota(token_, _amount);
+        _consumeTokenQuota(_to, token_, _amount);
 
         if (_ctoken.chainId == block.chainid) {
             token_ = _ctoken.addr;
@@ -460,10 +460,10 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    function _consumeTokenQuota(address _token, uint256 _amount) private {
+    function _consumeTokenQuota(address _account, address _token, uint256 _amount) private {
         address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager != address(0)) {
-            IQuotaManager(quotaManager).consumeQuota(_token, _amount);
+            IQuotaManager(quotaManager).consumeQuota(_account, _token, _amount);
         }
     }
 

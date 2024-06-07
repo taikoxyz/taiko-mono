@@ -13,7 +13,8 @@ interface IQuotaManager {
     /// this function to:
     ///  `function consumeQuota(uint256 _srcChainId, address _token, uint256 _amount) `
     ///
+    /// @param _account The user's account.
     /// @param _token The token address. Ether is represented with address(0).
     /// @param _amount The amount of quota to consume.
-    function consumeQuota(address _token, uint256 _amount) external;
+    function consumeQuota(address _account, address _token, uint256 _amount) external;
 }

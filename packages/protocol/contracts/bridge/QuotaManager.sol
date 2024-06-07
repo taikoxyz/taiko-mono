@@ -20,19 +20,27 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     mapping(address token => Quota tokenLimit) public tokenQuota;
     uint24 public quotaPeriod;
+    mapping(address account => bool whitelisted) public whitelist;
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     event QuotaUpdated(address indexed token, uint256 oldQuota, uint256 newQuota);
     event QuotaPeriodUpdated(uint256 quotaPeriod);
+    event Whitelisted(address indexed account, bool whitelisted);
 
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
 
+    modifier notWhitelisted(address _account) {
+        if (!whitelist[_account]) {
+            _;
+        }
+    }
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _quotaPeriod The time required to restore all quota.
+
     function init(
         address _owner,
         address _addressManager,
@@ -57,12 +65,21 @@ contract QuotaManager is EssentialContract, IQuotaManager {
         _setQuotaPeriod(_quotaPeriod);
     }
 
+    function addToWhitelist(address _account, bool _whitelisted) external onlyOwner whenNotPaused {
+        if (whitelist[_account] == _whitelisted) revert QM_INVALID_PARAM();
+
+        whitelist[_account] = _whitelisted;
+        emit Whitelisted(_account, _whitelisted);
+    }
+
     /// @inheritdoc IQuotaManager
     function consumeQuota(
+        address _account,
         address _token,
         uint256 _amount
     )
         external
+        notWhitelisted(_account)
         whenNotPaused
         onlyFromNamedEither(LibStrings.B_BRIDGE, LibStrings.B_ERC20_VAULT)
     {

@@ -193,7 +193,7 @@ contract Bridge is EssentialContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
+        if (!_consumeEtherQuota(_message.srcOwner, _message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -254,7 +254,9 @@ contract Bridge is EssentialContract, IBridge {
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
-        if (!_consumeEtherQuota(_message.value + _message.fee)) revert B_OUT_OF_ETH_QUOTA();
+        if (!_consumeEtherQuota(_message.destOwner, _message.value + _message.fee)) {
+            revert B_OUT_OF_ETH_QUOTA();
+        }
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -328,7 +330,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
+        if (!_consumeEtherQuota(_message.destOwner, _message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         bool succeeded;
         if (_unableToInvokeMessageCall(_message, resolve(LibStrings.B_SIGNAL_SERVICE, false))) {
@@ -589,14 +591,15 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Consumes a given amount of Ether from quota manager.
+    /// @param _account The user account.
     /// @param _amount The amount of Ether to consume.
     /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
     /// consumed already.
-    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
+    function _consumeEtherQuota(address _account, uint256 _amount) private returns (bool) {
         address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager == address(0)) return true;
 
-        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
+        try IQuotaManager(quotaManager).consumeQuota(_account, address(0), _amount) {
             return true;
         } catch {
             return false;

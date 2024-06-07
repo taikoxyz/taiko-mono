@@ -48,10 +48,10 @@ contract QuotaManagerTest is TaikoTest {
         assertEq(qm.availableQuota(address(0), 0), 10 ether);
 
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
-        qm.consumeQuota(Ether, 5 ether);
+        qm.consumeQuota(Bob, Ether, 5 ether);
 
         vm.prank(bridge);
-        qm.consumeQuota(Ether, 6 ether);
+        qm.consumeQuota(Bob, Ether, 6 ether);
         assertEq(qm.availableQuota(Ether, 0), 4 ether);
 
         assertEq(qm.availableQuota(Ether, 3 hours), 4 ether + 10 ether * 3 / 24);
@@ -68,7 +68,7 @@ contract QuotaManagerTest is TaikoTest {
         assertEq(qm.availableQuota(token, 0), type(uint256).max);
 
         vm.prank(bridge);
-        qm.consumeQuota(token, 6 ether);
+        qm.consumeQuota(Bob, token, 6 ether);
         assertEq(qm.availableQuota(token, 0), type(uint256).max);
     }
 

@@ -30,13 +30,13 @@ contract Target is IMessageInvocable {
 }
 
 contract OutOfQuotaManager is IQuotaManager {
-    function consumeQuota(address, uint256) external pure {
+    function consumeQuota(address, address, uint256) external pure {
         revert("out of quota");
     }
 }
 
 contract AlwaysAvailableQuotaManager is IQuotaManager {
-    function consumeQuota(address, uint256) external pure { }
+    function consumeQuota(address, address, uint256) external pure { }
 }
 
 contract BridgeTest2_processMessage is BridgeTest2 {
