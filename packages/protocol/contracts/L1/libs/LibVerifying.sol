@@ -180,7 +180,19 @@ library LibVerifying {
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
                 // Sync chain data
-                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
+
+                if (
+                    lastVerifiedBlockId
+                        > _state.slotA.lastSyncedBlockId + _config.blockSyncThreshold
+                ) {
+                    _state.slotA.lastSyncedBlockId = lastVerifiedBlockId;
+                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
+                        .syncChainData(
+                        _config.chainId, LibStrings.H_STATE_ROOT, lastVerifiedBlockId, stateRoot
+                    );
+                }
             }
         }
     }
@@ -222,25 +234,6 @@ library LibVerifying {
             stateRoot: 0,
             tier: 0
         });
-    }
-
-    function _syncChainData(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        IAddressResolver _resolver,
-        uint64 _lastVerifiedBlockId,
-        bytes32 _stateRoot
-    )
-        private
-    {
-        if (_lastVerifiedBlockId > _state.slotA.lastSyncedBlockId + _config.blockSyncThreshold) {
-            _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
-            _state.slotA.lastSynecdAt = uint64(block.timestamp);
-
-            ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                _config.chainId, LibStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
-            );
-        }
     }
 
     function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
