@@ -10,7 +10,7 @@ import (
 // ERC20Balance
 type ERC20Balance struct {
 	ID              int    `json:"id"`
-	ERC20MetadataID int64  `json:"erc20MetadaID"`
+	ERC20MetadataID int64  `json:"erc20MetadataID"`
 	ChainID         int64  `json:"chainID"`
 	Address         string `json:"address"`
 	Amount          int64  `json:"amount"`
