@@ -148,18 +148,6 @@ interface ISignalService {
         view
         returns (bool);
 
-    /// @notice Returns the given block's chain height.
-    /// @param _chainId Identifier of the chainId.
-    /// @param _kind A value to mark the data type.
-    /// @return blockId_ The largest synced block id.
-    function getSyncedChainHeight(
-        uint64 _chainId,
-        bytes32 _kind
-    )
-        external
-        view
-        returns (uint64 blockId_);
-
     /// @notice Returns the given block's  chain data.
     /// @param _chainId Identifier of the chainId.
     /// @param _kind A value to mark the data type.

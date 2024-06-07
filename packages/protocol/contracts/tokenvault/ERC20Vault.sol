@@ -106,7 +106,7 @@ contract ERC20Vault is BaseVault {
     /// @param msgHash The hash of the message.
     /// @param from The address of the sender.
     /// @param to The address of the recipient.
-    /// @param srcChainId The chain ID of the source chain.
+    /// @param canonicalChainId The chain ID of the canonical token.
     /// @param destChainId The chain ID of the destination chain.
     /// @param ctoken The address of the canonical token.
     /// @param token The address of the bridged token.
@@ -115,7 +115,7 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
-        uint64 srcChainId,
+        uint64 canonicalChainId,
         uint64 destChainId,
         address ctoken,
         address token,
@@ -276,7 +276,7 @@ contract ERC20Vault is BaseVault {
             msgHash: msgHash,
             from: message_.srcOwner,
             to: _op.to,
-            srcChainId: uint64(block.chainid),
+            canonicalChainId: ctoken.chainId,
             destChainId: _op.destChainId,
             ctoken: ctoken.addr,
             token: _op.token,
