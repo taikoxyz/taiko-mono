@@ -200,11 +200,16 @@
   - Upgrade to `0xE84DC8E2a21e59426542Ab040D77f81d6dB881eE` @commit`3ae25fd` @tx`0x2c455ae888a23c232bb5c7603657eda010ffadc602a74e626332bc06eaaa3b78`
   - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
 
-#### proxyless_assignment_hook
+#### assignment_hook
 
-- impl: `0xA641a2d6C0112E5eC6BAF2FA40d519323A085248`
+- proxy: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
+- impl: `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d`
+- owner: `admin.taiko.eth`
 - logs:
-  - deployed on Jun 6, 2024 @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+- todo:
+  - upgrade assignment hook (remove a large Event)
 
 #### tier_provider
 
