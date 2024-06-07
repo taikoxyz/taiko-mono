@@ -11,6 +11,8 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
+    bytes32 private constant _NEW_TRANSITION_MARKER = bytes32(uint256(1));
+
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
         TaikoData.SlotB b;
@@ -110,7 +112,7 @@ library LibProving {
         // the blockHash and stateRoot.
         if (
             _tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0
-                || _tran.stateRoot == 1
+                || _tran.stateRoot == _NEW_TRANSITION_MARKER
         ) {
             revert L1_INVALID_TRANSITION();
         }
@@ -318,7 +320,7 @@ library LibProving {
             // below.
             ts_ = _state.transitions[_local.slot][tid_];
             // ts_.blockHash = 0;
-            ts_.stateRoot = 1;
+            ts_.stateRoot = _NEW_TRANSITION_MARKER;
             ts_.validityBond = 0;
             ts_.contester = address(0);
             ts_.contestBond = 1; // to save gas
