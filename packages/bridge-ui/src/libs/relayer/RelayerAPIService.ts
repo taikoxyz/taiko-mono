@@ -205,6 +205,16 @@ export class RelayerAPIService {
         },
       } satisfies BridgeTransaction;
 
+      // eslint-disable-next-line no-console
+      console.log(
+        'DEBUG',
+        'txhash',
+        transformedTx.hash,
+        'amount',
+        transformedTx.amount,
+        'message.value',
+        transformedTx.message.value,
+      );
       return transformedTx;
     });
 
