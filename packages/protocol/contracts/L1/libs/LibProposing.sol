@@ -40,6 +40,7 @@ library LibProposing {
     error L1_INVALID_PROVER();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
+    error L1_NOT_SAME_ADDRESS();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
@@ -180,7 +181,10 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        {
+        if (params.hookCalls.length == 0) {
+            if (params.assignedProver != msg.sender) revert L1_NOT_SAME_ADDRESS();
+            _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
+        } else {
             uint256 tkoBalance = _tko.balanceOf(address(this));
 
             // Run all hooks.
