@@ -5,8 +5,12 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"sync"
 	"time"
+
+	gorilla_rcp "github.com/gorilla/rpc"
+	"github.com/gorilla/rpc/json"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -159,9 +163,47 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 
 // Start starts the proposer's main loop.
 func (p *Proposer) Start() error {
-	p.wg.Add(1)
-	go p.eventLoop()
+	startRPCServer(p)
+
+	// p.wg.Add(1)
+	// go p.eventLoop()
 	return nil
+}
+
+// Args represents the arguments to be passed to the RPC method.
+type Args struct {
+}
+
+type RPCReplyL2TxLists struct {
+	TxLists []types.Transactions
+}
+
+// ProposerRPC is the receiver type for the RPC methods.
+type ProposerRPC struct {
+	proposer *Proposer
+}
+
+func (p *ProposerRPC) GetL2TxLists(r *http.Request, args *Args, reply *RPCReplyL2TxLists) error {
+	txLists, err := p.proposer.ProposeOpForTakingL2Blocks(context.Background())
+	if err != nil {
+		return err
+	}
+	log.Info("Received L2 txLists ", "txListsLength", len(txLists))
+	*reply = RPCReplyL2TxLists{TxLists: txLists}
+	return nil
+}
+
+const rpcPort = 1234
+
+func startRPCServer(proposer *Proposer) {
+	s := gorilla_rcp.NewServer()
+	s.RegisterCodec(json.NewCodec(), "application/json")
+	proposerRPC := &ProposerRPC{proposer: proposer}
+	s.RegisterService(proposerRPC, "")
+
+	http.Handle("/rpc", s)
+	log.Info("Starting JSON-RPC server", "port", rpcPort)
+	go http.ListenAndServe(fmt.Sprintf(":%d", rpcPort), nil)
 }
 
 // eventLoop starts the main loop of Taiko proposer.
@@ -329,6 +371,25 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (p *Proposer) ProposeOpForTakingL2Blocks(ctx context.Context) ([]types.Transactions, error) {
+	log.Info("ProposeOpForTakingL2Blocks")
+	// Check if it's time to propose unfiltered pool content.
+	filterPoolContent := time.Now().Before(p.lastProposedAt.Add(p.MinProposingInternal))
+
+	// Wait until L2 execution engine is synced at first.
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
+		return nil, fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
+	}
+
+	log.Info(
+		"Start fetching L2 execution engine's transaction pool content",
+		"filterPoolContent", filterPoolContent,
+		"lastProposedAt", p.lastProposedAt,
+	)
+
+	return p.fetchPoolContent(filterPoolContent)
 }
 
 // ProposeTxList proposes the given transactions list to TaikoL1 smart contract.
