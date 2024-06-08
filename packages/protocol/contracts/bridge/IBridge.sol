@@ -16,7 +16,7 @@ interface IBridge {
 
     enum StatusReason {
         INVOCATION_OK,
-        INVOCATION_PROHIBITED, // when message.to is one of those special addresses.
+        INVOCATION_PROHIBITED,
         INVOCATION_FAILED,
         OUT_OF_ETH_QUOTA
     }
