@@ -101,7 +101,7 @@ func (b *CalldataTransactionBuilder) Build(
 		hookCalls = []encoding.HookCall{{Hook: b.assignmentHookAddress, Data: hookInputData}}
 		data      []byte
 	)
-	if b.proverSetAddress != rpc.ZeroAddress {
+	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
 		to = &b.proverSetAddress
 		hookCalls = []encoding.HookCall{}
 	}
@@ -119,7 +119,7 @@ func (b *CalldataTransactionBuilder) Build(
 		return nil, err
 	}
 
-	if b.proverSetAddress != rpc.ZeroAddress {
+	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
 		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
 		if err != nil {
 			return nil, err

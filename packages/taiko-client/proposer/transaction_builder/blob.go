@@ -119,8 +119,9 @@ func (b *BlobTransactionBuilder) Build(
 	var (
 		to        = &b.taikoL1Address
 		hookCalls = []encoding.HookCall{{Hook: b.assignmentHookAddress, Data: hookInputData}}
+		data      []byte
 	)
-	if b.proverSetAddress != rpc.ZeroAddress {
+	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
 		to = &b.proverSetAddress
 		hookCalls = []encoding.HookCall{}
 	}
@@ -138,10 +139,16 @@ func (b *BlobTransactionBuilder) Build(
 		return nil, err
 	}
 
-	// Send the transaction to the L1 node.
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
-	if err != nil {
-		return nil, err
+	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, []byte{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &txmgr.TxCandidate{
