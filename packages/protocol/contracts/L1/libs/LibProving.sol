@@ -205,7 +205,16 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
+
+        if (local.blockId % 32 == 0) {
+            local.sameTransition =
+                _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
+        } else {
+            _tran.blockHash = keccak256(abi.encodePacked(_tran.blockHash, _tran.stateRoot));
+            _tran.stateRoot = 0;
+
+            local.sameTransition = _tran.blockHash == ts.blockHash;
+        }
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -231,8 +240,11 @@ library LibProving {
                 assert(ts.validityBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
+
                 ts.blockHash = _tran.blockHash;
-                ts.stateRoot = _tran.stateRoot;
+                if (_tran.stateRoot != 0) {
+                    ts.stateRoot = _tran.stateRoot;
+                }
 
                 emit TransitionProved({
                     blockId: local.blockId,
@@ -443,7 +455,9 @@ library LibProving {
 
         if (!_local.sameTransition) {
             _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _tran.stateRoot;
+            if (_tran.stateRoot != 0) {
+                _ts.stateRoot = _tran.stateRoot;
+            }
         }
     }
 

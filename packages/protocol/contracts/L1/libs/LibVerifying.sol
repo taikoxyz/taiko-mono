@@ -169,29 +169,18 @@ library LibVerifying {
                     tier: tier
                 });
 
+                if (blockId % 32 == 0) {
+                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
+                        .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
+                }
+
                 ++blockId;
                 ++numBlocksVerified;
             }
 
             if (numBlocksVerified != 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
-
                 // Update protocol level state variables
-                _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-
-                // Sync chain data when necessary
-                if (
-                    lastVerifiedBlockId
-                        > _state.slotA.lastSyncedBlockId + _config.blockSyncThreshold
-                ) {
-                    _state.slotA.lastSyncedBlockId = lastVerifiedBlockId;
-                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
-
-                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        .syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, lastVerifiedBlockId, stateRoot
-                    );
-                }
+                _state.slotB.lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
             }
         }
     }
