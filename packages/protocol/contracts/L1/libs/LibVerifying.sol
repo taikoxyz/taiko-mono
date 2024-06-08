@@ -169,7 +169,7 @@ library LibVerifying {
                     tier: tier
                 });
 
-                if (blockId % 32 == 0) {
+                if (stateRoot != 0) {
                     ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
                         .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
                 }
