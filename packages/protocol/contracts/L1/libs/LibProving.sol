@@ -114,7 +114,7 @@ library LibProving {
         // the blockHash and stateRoot.
         if (
             _tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0
-                || _tran.stateRoot == _NEW_TRANSITION_MARKER
+                || _tran.blockHash == _NEW_TRANSITION_MARKER
         ) {
             revert L1_INVALID_TRANSITION();
         }
@@ -321,7 +321,7 @@ library LibProving {
             // slots, so it's necessary to reinitialize all transition fields
             // below.
             ts_ = _state.transitions[_local.slot][tid_];
-            ts_.stateRoot = _NEW_TRANSITION_MARKER;
+            ts_.blockHash = _NEW_TRANSITION_MARKER;
             ts_.validityBond = 0;
             ts_.contester = address(0);
             ts_.timestamp = _blk.proposedAt;
