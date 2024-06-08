@@ -39,6 +39,7 @@ func (s *ProverSelectorTestSuite) SetupTest() {
 		s.RPCClient,
 		crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		[]encoding.TierFee{},
 		common.Big2,
@@ -59,9 +60,9 @@ func (s *ProverSelectorTestSuite) TestProverAssignProver() {
 		{Tier: encoding.TierOptimisticID, Fee: common.Big256},
 		{Tier: encoding.TierSgxID, Fee: common.Big256},
 	}, testutils.RandomHash())
+	s.Nil(err)
 	s.NotEmpty(sig)
 	s.Equal(fee.Cmp(common.Big32), 1)
-	s.Nil(err)
 }
 
 func TestProverSelectorTestSuite(t *testing.T) {

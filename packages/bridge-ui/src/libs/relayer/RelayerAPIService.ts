@@ -177,6 +177,9 @@ export class RelayerAPIService {
         data = `0x${buffer.toString('hex')}`;
       }
 
+      const tokenType: TokenType = _eventToTokenType(tx.eventType);
+      const value = tokenType === TokenType.ETH ? BigInt(tx.amount) : BigInt(0);
+
       const transformedTx = {
         status: tx.status,
         amount: BigInt(tx.amount),
@@ -187,7 +190,7 @@ export class RelayerAPIService {
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
-        tokenType: _eventToTokenType(tx.eventType),
+        tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
         message: {
@@ -198,7 +201,7 @@ export class RelayerAPIService {
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
           gasLimit: Number(tx.data.Message.GasLimit),
-          value: BigInt(tx.amount),
+          value: value,
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
           fee: BigInt(tx.data.Message.Fee),

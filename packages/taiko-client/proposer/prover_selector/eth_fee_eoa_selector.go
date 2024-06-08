@@ -33,6 +33,7 @@ type ETHFeeEOASelector struct {
 	rpc                           *rpc.Client
 	proposerAddress               common.Address
 	taikoL1Address                common.Address
+	proverSetAddress              common.Address
 	assignmentHookAddress         common.Address
 	tiersFee                      []encoding.TierFee
 	tierFeePriceBump              *big.Int
@@ -48,6 +49,7 @@ func NewETHFeeEOASelector(
 	rpc *rpc.Client,
 	proposerAddress common.Address,
 	taikoL1Address common.Address,
+	proverSetAddress common.Address,
 	assignmentHookAddress common.Address,
 	tiersFee []encoding.TierFee,
 	tierFeePriceBump *big.Int,
@@ -71,6 +73,7 @@ func NewETHFeeEOASelector(
 		rpc,
 		proposerAddress,
 		taikoL1Address,
+		proverSetAddress,
 		assignmentHookAddress,
 		tiersFee,
 		tierFeePriceBump,
@@ -137,11 +140,16 @@ func (s *ETHFeeEOASelector) AssignProver(
 				continue
 			}
 
+			spender := s.assignmentHookAddress
+			if s.proverSetAddress != rpc.ZeroAddress && s.proverSetAddress == proverAddress {
+				spender = s.taikoL1Address
+			}
+
 			ok, err := rpc.CheckProverBalance(
 				ctx,
 				s.rpc,
 				proverAddress,
-				s.assignmentHookAddress,
+				spender,
 				s.protocolConfigs.LivenessBond,
 			)
 			if err != nil {
