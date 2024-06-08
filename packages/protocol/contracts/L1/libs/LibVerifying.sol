@@ -14,14 +14,12 @@ library LibVerifying {
     /// @notice Emitted when a block is verified.
     /// @param blockId The block ID.
     /// @param prover The actual prover of the block.
-    /// @param transitionHash A hash representing this transition.
     /// @param blockHash The block hash.
     /// @param stateRoot The state root.
     /// @param tier The tier of the transition used for verification.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
-        bytes32 transitionHash,
         bytes32 blockHash,
         bytes32 stateRoot,
         uint16 tier
@@ -163,25 +161,13 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                if (stateRoot != 0) {
-                    emit BlockVerified({
-                        blockId: blockId,
-                        prover: prover,
-                        transitionHash: blockHash,
-                        blockHash: blockHash,
-                        stateRoot: stateRoot,
-                        tier: tier
-                    });
-                } else {
-                    emit BlockVerified({
-                        blockId: blockId,
-                        prover: prover,
-                        transitionHash: blockHash,
-                        blockHash: 0,
-                        stateRoot: 0,
-                        tier: tier
-                    });
-                }
+                emit BlockVerified({
+                    blockId: blockId,
+                    prover: prover,
+                    blockHash: blockHash,
+                    stateRoot: stateRoot,
+                    tier: tier
+                });
 
                 ++blockId;
                 ++numBlocksVerified;
