@@ -79,7 +79,8 @@ func CheckProverBalance(
 		"bond", utils.WeiToEther(bond),
 	)
 
-	if bond.Cmp(allowance) > 0 || bond.Cmp(balance) > 0 {
+	// TODO: check allowance
+	if bond.Cmp(balance) > 0 {
 		log.Info(
 			"Assigned prover does not have required on-chain token balance or allowance",
 			"providedProver", prover.Hex(),
