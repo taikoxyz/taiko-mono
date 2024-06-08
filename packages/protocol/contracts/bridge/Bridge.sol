@@ -666,7 +666,10 @@ contract Bridge is EssentialContract, IBridge {
 
             // Also need to add the cost of transferring a nonzero msg.value. This cost is currently
             // 9000, but provides a 2300 gas stipend to the called contract.
-            result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 9300) * 63;
+
+            // Also need to add the cost of the external CALL, which is 5700.
+            // Therefore the total additional cost is 2600 + 9000 - 2300 + 5700 = 15000
+            result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 15_000) * 63;
         }
     }
 
