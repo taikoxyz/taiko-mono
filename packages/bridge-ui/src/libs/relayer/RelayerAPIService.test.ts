@@ -26,6 +26,11 @@ describe('RelayerAPIService', () => {
     setupMocks();
   });
 
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.resetAllMocks();
+  });
+
   // Given
   const mockedAxios = vi.mocked(axios, true);
 
@@ -60,6 +65,17 @@ describe('RelayerAPIService', () => {
     const paginationParams = { page: 1, size: 10 };
     const chainID = 1;
 
+    const mockResponse = {
+      data: {
+        page: 1,
+        size: 10,
+        total: 100,
+        items: [],
+      },
+      status: 200,
+    };
+    mockedAxios.get.mockResolvedValue(mockResponse);
+
     // When
     const result = await relayerAPIService.getAllBridgeTransactionByAddress(address, paginationParams, chainID);
 
@@ -69,7 +85,7 @@ describe('RelayerAPIService', () => {
     expect(result.paginationInfo).toBeDefined();
   });
 
-  test('getTransactionsFromAPI should return API response', async () => {
+  test('getTransactionsFromAPI should return API response for full mock with valid conversion', async () => {
     // Given
     const baseUrl = 'http://example.com';
     const relayerAPIService = new RelayerAPIService(baseUrl);
