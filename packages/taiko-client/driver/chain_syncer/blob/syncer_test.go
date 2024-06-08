@@ -207,6 +207,7 @@ func (s *BlobSyncerTestSuite) initProposer() {
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+			ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		},
 		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,

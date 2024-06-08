@@ -5,6 +5,8 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -153,6 +155,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
 	}
+	ProverSetAddress = &cli.StringFlag{
+		Name:     "proverSet",
+		Usage:    "ProverSet contract `address`",
+		Value:    rpc.ZeroAddress.Hex(),
+		Category: commonCategory,
+		EnvVars:  []string{"PROVER_SET"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -162,6 +171,7 @@ var CommonFlags = []cli.Flag{
 	TaikoL1Address,
 	TaikoL2Address,
 	// Optional
+	ProverSetAddress,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,
