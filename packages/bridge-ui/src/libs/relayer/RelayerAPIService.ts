@@ -168,6 +168,7 @@ export class RelayerAPIService {
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
+
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
@@ -178,11 +179,10 @@ export class RelayerAPIService {
       }
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
-      const value = tokenType === TokenType.ETH ? BigInt(tx.amount) : BigInt(0);
 
       const transformedTx = {
         status: tx.status,
-        amount: BigInt(tx.amount),
+        amount: BigInt(tx.amount.toString()),
         symbol: tx.canonicalTokenSymbol || 'ETH',
         decimals: tx.canonicalTokenDecimals,
         hash: tx.data.Raw.transactionHash,
@@ -201,7 +201,7 @@ export class RelayerAPIService {
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
           gasLimit: Number(tx.data.Message.GasLimit),
-          value: value,
+          value: BigInt(tx.data.Message.Value.toString()),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
           fee: BigInt(tx.data.Message.Fee),
@@ -213,6 +213,7 @@ export class RelayerAPIService {
 
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
+
       if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
       const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
 
@@ -237,6 +238,7 @@ export class RelayerAPIService {
 
       // Update the status
       bridgeTx.msgStatus = msgStatus;
+
       return bridgeTx;
     });
 
