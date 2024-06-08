@@ -349,19 +349,14 @@ library LibProving {
                 ts_.prover = _local.assignedProver;
                 // slot 4, write #4
             } else {
-                // In scenarios where this transition is not the first one, we
-                // straightforwardly reset the transition prover to address
-                // zero.
-                ts_.prover = address(0);
-
                 // Furthermore, we index the transition for future retrieval.
                 // It's worth emphasizing that this mapping for indexing is not
                 // reusable. However, given that the majority of blocks will
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
-                _state.transitionIds[_local.blockId][_tran.parentHash] = tid_;
 
                 // There is no need to initialize ts.key here because it's only used when tid == 1
+                _state.transitionIds[_local.blockId][_tran.parentHash] = tid_;
             }
         } else {
             // A transition with the provided parentHash has been located.
