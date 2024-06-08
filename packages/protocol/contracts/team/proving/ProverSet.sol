@@ -84,6 +84,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     )
         external
         payable
+        onlyProver
         nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
