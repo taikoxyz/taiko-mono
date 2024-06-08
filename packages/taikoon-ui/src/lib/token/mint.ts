@@ -30,7 +30,7 @@ export async function mint({
   }
 
   if (await canMint()) {
-    const proof = getProof();
+    const proof = await getProof();
     tx = await writeContract(config, {
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],

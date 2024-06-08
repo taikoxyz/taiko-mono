@@ -17,7 +17,7 @@ export async function estimateMintGasCost(): Promise<number> {
   const freeMintLeft = await totalWhitelistMintCount();
 
   if (await canMint()) {
-    const proof = getProof();
+    const proof = await getProof();
 
     const gasEstimate = await estimateContractGas({
       abi: taikoonTokenAbi,

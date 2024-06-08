@@ -1,10 +1,11 @@
 import { createPublicClient, http } from 'viem';
-import { holesky } from 'viem/chains';
+
+import { taiko } from '$wagmi-config';
 
 export default async function publicClient() {
   const client = createPublicClient({
-    chain: holesky,
-    transport: http('https://1rpc.io/holesky'),
+    chain: taiko,
+    transport: http('https://rpc.mainnet.taiko.xyz'),
   });
   return client;
 }

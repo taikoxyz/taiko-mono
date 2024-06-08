@@ -4,10 +4,20 @@ import { getAccount } from '@wagmi/core';
 import getConfig from '$lib/wagmi/getConfig';
 
 import type { IAddress } from '../../types';
-import { whitelist } from './index';
+import { whitelist } from '.';
 
-export default function getProof(address?: IAddress): IAddress[] {
+export default async function getProof(address?: IAddress): Promise<IAddress[]> {
   const { config, chainId } = getConfig();
+
+  function legacyProofFetch(_address: string) {
+    const tree = StandardMerkleTree.load(whitelist[chainId]);
+    for (const [i, [leafAddress]] of tree.entries()) {
+      if (leafAddress.toString().toLowerCase() === _address.toString().toLowerCase()) {
+        const proof = tree.getProof(i);
+        return proof as IAddress[];
+      }
+    }
+  }
 
   try {
     if (!address) {
@@ -16,13 +26,21 @@ export default function getProof(address?: IAddress): IAddress[] {
       address = account.address;
     }
 
-    const tree = StandardMerkleTree.load(whitelist[chainId]);
-    for (const [i, [leafAddress]] of tree.entries()) {
-      if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
-        const proof = tree.getProof(i);
-        return proof as IAddress[];
-      }
-    }
+    address = '0x616b958904940c789e104Cb39bd2BFF82427CCCB';
+
+    const url = ['https://qa.trailblazer.taiko.xyz/api/snaefell?address=', address, '&chainId=', chainId].join('');
+
+    console.warn({ url });
+    const res = await fetch(url);
+    const data = await res.json();
+    const proof = JSON.parse(data.proof);
+
+    console.warn('fetched', { proof });
+
+    //return proof as IAddress[];
+    const legacyProof = legacyProofFetch(address);
+
+    console.warn('legacy', { legacyProof });
   } catch (e) {
     console.error(`Error with getProof chainId ${chainId}:`, e);
   }

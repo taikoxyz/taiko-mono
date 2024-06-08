@@ -17,31 +17,31 @@
   ],
   "values": [
     {
-      "value": ["0x8f63e3cD0D14cAef993E59B4e01e3D404cF3c1B7", "10"],
+      "value": ["0x8f63e3cd0d14caef993e59b4e01e3d404cf3c1b7", "10"],
       "treeIndex": 10
     },
     {
-      "value": ["0x2E2989015f5818A256EB967940454EfE8a0B4b5d", "10"],
+      "value": ["0x2e2989015f5818a256eb967940454efe8a0b4b5d", "10"],
       "treeIndex": 6
     },
     {
-      "value": ["0x927a146e18294efb36edCacC99D9aCEA6aB16b95", "10"],
+      "value": ["0x927a146e18294efb36edcacc99d9acea6ab16b95", "10"],
       "treeIndex": 12
     },
     {
-      "value": ["0x4757D97449acA795510b9f3152C6a9019A3545c3", "10"],
+      "value": ["0x4757d97449aca795510b9f3152c6a9019a3545c3", "10"],
       "treeIndex": 7
     },
     {
-      "value": ["0x424bFb32f78731252a6BCeDc828E38e2701DAAEf", "10"],
+      "value": ["0x424bfb32f78731252a6bcedc828e38e2701daaef", "10"],
       "treeIndex": 8
     },
     {
-      "value": ["0xC66fAdfFeb6DA3b9A7FA3C71130F881e3a9B13fb", "10"],
+      "value": ["0xc66fadffeb6da3b9a7fa3c71130f881e3a9b13fb", "10"],
       "treeIndex": 9
     },
     {
-      "value": ["0xFE5124f99f544a84C3C6D0A26339a04937cD2Ff4", "10"],
+      "value": ["0xfe5124f99f544a84c3c6d0a26339a04937cd2ff4", "10"],
       "treeIndex": 11
     }
   ],
