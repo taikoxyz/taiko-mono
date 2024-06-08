@@ -106,7 +106,6 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
-        uint8 __reserved1;
     }
 
     /// @dev Struct containing data required for verifying a block.

@@ -11,6 +11,8 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
+    bytes32 private constant _NEW_TRANSITION_MARKER = 0;
+
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
         TaikoData.SlotB b;
@@ -314,14 +316,22 @@ library LibProving {
             // slots, so it's necessary to reinitialize all transition fields
             // below.
             ts_ = _state.transitions[_local.slot][tid_];
+
+            // slot 2
             ts_.blockHash = 0;
+
+            // slot 3
             ts_.stateRoot = 0;
+
+            // slot 4
             ts_.validityBond = 0;
+
+            // slot 5, write #1
             ts_.contester = address(0);
-            ts_.contestBond = 1; // to save gas
+
+            // slot 6, write #2
             ts_.timestamp = _blk.proposedAt;
             ts_.tier = 0;
-            ts_.__reserved1 = 0;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -330,6 +340,7 @@ library LibProving {
                 // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
                 ts_.key = _tran.parentHash;
+                // slot 1, write #3
 
                 // In the case of this first transition, the block's assigned
                 // prover has the privilege to re-prove it, but only when the
@@ -342,6 +353,7 @@ library LibProving {
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
                 ts_.prover = _local.assignedProver;
+                // slot 4, write #4
             } else {
                 // In scenarios where this transition is not the first one, we
                 // straightforwardly reset the transition prover to address
@@ -436,7 +448,6 @@ library LibProving {
         }
 
         _ts.validityBond = _local.tier.validityBond;
-        _ts.contestBond = 1; // to save gas
         _ts.contester = address(0);
         _ts.prover = msg.sender;
         _ts.tier = _proof.tier;
