@@ -985,6 +985,11 @@
   },
   {
     "type": "error",
+    "name": "VAULT_INSUFFICIENT_FEE",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "VAULT_INTERFACE_NOT_SUPPORTED",
     "inputs": []
   },
