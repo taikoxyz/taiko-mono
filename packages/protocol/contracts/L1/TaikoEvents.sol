@@ -25,16 +25,19 @@ abstract contract TaikoEvents {
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
-    /// @param blockHash The hash of the verified block.
-    /// @param stateRoot The block's state root.
-    /// @param tier The tier ID of the proof.
+
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    /// @notice Emitted when a block is verified.
+    /// @param blockId The block ID.
+    /// @param prover The actual prover of the block.
+    /// @param transitionHash A hash representing this transition.
+    /// @param blockHash The block hash.
+    /// @param stateRoot The state root.
+    /// @param tier The tier of the transition used for verification.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
+        bytes32 transitionHash,
         bytes32 blockHash,
         bytes32 stateRoot,
         uint16 tier
