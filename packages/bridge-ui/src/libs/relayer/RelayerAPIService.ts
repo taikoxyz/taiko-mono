@@ -200,11 +200,11 @@ export class RelayerAPIService {
           data: data as Hex,
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
-          gasLimit: Number(tx.data.Message.GasLimit),
+          gasLimit: tx.data.Message.GasLimit,
           value: BigInt(tx.data.Message.Value.toString()),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          fee: BigInt(tx.data.Message.Fee),
+          fee: BigInt(tx.data.Message.Fee.toString()),
         },
       } satisfies BridgeTransaction;
 
