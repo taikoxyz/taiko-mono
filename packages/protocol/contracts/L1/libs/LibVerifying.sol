@@ -94,7 +94,6 @@ library LibVerifying {
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
-        bytes32 stateRoot;
         uint64 numBlocksVerified;
         ITierRouter tierRouter;
 
@@ -151,7 +150,6 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
-                stateRoot = blockId % 32 == 0 ? ts.stateRoot : 0;
 
                 address prover = ts.prover;
                 _tko.transfer(prover, ts.validityBond);
@@ -163,7 +161,8 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                if (stateRoot == 0) {
+                if (blockId % 32 != 0) {
+                    bytes32 stateRoot = ts.stateRoot;
                     emit BlockVerified({
                         blockId: blockId,
                         prover: prover,
@@ -172,6 +171,8 @@ library LibVerifying {
                         stateRoot: stateRoot,
                         tier: tier
                     });
+                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
+                        .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
                 } else {
                     emit BlockVerified({
                         blockId: blockId,
@@ -181,9 +182,6 @@ library LibVerifying {
                         stateRoot: 0,
                         tier: tier
                     });
-
-                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
                 }
 
                 ++blockId;
