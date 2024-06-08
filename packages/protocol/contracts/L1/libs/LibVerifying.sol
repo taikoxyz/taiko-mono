@@ -167,7 +167,7 @@ library LibVerifying {
                     emit BlockVerified({
                         blockId: blockId,
                         prover: prover,
-                        transitionHash: keccak256(abi.encodePacked(blockHash, stateRoot)),
+                        transitionHash: blockHash,
                         blockHash: blockHash,
                         stateRoot: stateRoot,
                         tier: tier
