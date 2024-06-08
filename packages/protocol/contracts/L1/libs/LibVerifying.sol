@@ -151,7 +151,7 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
-                stateRoot = ts.stateRoot;
+                stateRoot = blockId % 32 == 0 ? ts.stateRoot : 0;
 
                 address prover = ts.prover;
                 _tko.transfer(prover, ts.validityBond);
@@ -182,10 +182,8 @@ library LibVerifying {
                         tier: tier
                     });
 
-                    if (blockId % 32 == 0) {
-                        ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                            .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
-                    }
+                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
+                        .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
                 }
 
                 ++blockId;
