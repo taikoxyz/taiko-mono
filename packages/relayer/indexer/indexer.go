@@ -384,6 +384,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		switch i.eventName {
 		case relayer.EventNameMessageSent:
 			if err := i.withRetry(func() error { return i.indexMessageSentEvents(ctx, filterOpts) }); err != nil {
+				// We will skip the error after retrying, as we want the indexer to continue.
 				slog.Error("i.indexMessageSentEvents", "error", err)
 			}
 
