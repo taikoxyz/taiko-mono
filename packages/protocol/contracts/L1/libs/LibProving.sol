@@ -11,8 +11,6 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
-    uint256 constant FORK_HEIGHT = 100_000;
-
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
         TaikoData.SlotB b;
@@ -208,7 +206,7 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        if (local.blockId >= FORK_HEIGHT && local.blockId % 32 != 0) {
+        if (local.blockId % 32 != 0) {
             _tran.blockHash = keccak256(abi.encodePacked(_tran.blockHash, _tran.stateRoot));
             _tran.stateRoot = 0;
 
