@@ -11,7 +11,9 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
-    bytes32 private constant _NEW_TRANSITION_MARKER = 0;
+    // keccak256("new_transition_marker");
+    bytes32 private constant _NEW_TRANSITION_MARKER =
+        0x0c136b82967369090acdee5f4cfc0b91b241bd8f46a2feb319c6230bdb55071a;
 
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
@@ -110,7 +112,10 @@ library LibProving {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
         // the blockHash and stateRoot.
-        if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
+        if (
+            _tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0
+                || _tran.stateRoot == _NEW_TRANSITION_MARKER
+        ) {
             revert L1_INVALID_TRANSITION();
         }
 
@@ -316,20 +321,9 @@ library LibProving {
             // slots, so it's necessary to reinitialize all transition fields
             // below.
             ts_ = _state.transitions[_local.slot][tid_];
-
-            // slot 2
-            ts_.blockHash = 0;
-
-            // slot 3
-            ts_.stateRoot = 0;
-
-            // slot 4
+            ts_.stateRoot = _NEW_TRANSITION_MARKER;
             ts_.validityBond = 0;
-
-            // slot 5, write #1
             ts_.contester = address(0);
-
-            // slot 6, write #2
             ts_.timestamp = _blk.proposedAt;
             ts_.tier = 0;
 
