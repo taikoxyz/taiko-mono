@@ -29,36 +29,6 @@ var (
 	_ = abi.ConvertType
 )
 
-// TaikoDataBlock is an auto generated low-level Go binding around an user-defined struct.
-type TaikoDataBlock struct {
-	MetaHash             [32]byte
-	AssignedProver       common.Address
-	LivenessBond         *big.Int
-	BlockId              uint64
-	ProposedAt           uint64
-	ProposedIn           uint64
-	NextTransitionId     uint32
-	VerifiedTransitionId uint32
-}
-
-// TaikoDataBlockMetadata is an auto generated low-level Go binding around an user-defined struct.
-type TaikoDataBlockMetadata struct {
-	L1Hash         [32]byte
-	Difficulty     [32]byte
-	BlobHash       [32]byte
-	ExtraData      [32]byte
-	DepositsHash   [32]byte
-	Coinbase       common.Address
-	Id             uint64
-	GasLimit       uint32
-	Timestamp      uint64
-	L1Height       uint64
-	MinTier        uint16
-	BlobUsed       bool
-	ParentMetaHash [32]byte
-	Sender         common.Address
-}
-
 // TaikoDataConfig is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataConfig struct {
 	ChainId                      uint64
