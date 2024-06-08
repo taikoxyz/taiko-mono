@@ -141,7 +141,7 @@ func (s *ETHFeeEOASelector) AssignProver(
 			}
 
 			spender := s.assignmentHookAddress
-			if s.proverSetAddress != rpc.ZeroAddress && s.proposerAddress == proverAddress {
+			if s.proverSetAddress != rpc.ZeroAddress && s.proverSetAddress == proverAddress {
 				spender = s.taikoL1Address
 			}
 
