@@ -95,7 +95,7 @@ describe('RelayerAPIService', () => {
               Message: {
                 Id: 4484,
                 To: '0x1234567890abcdef1234567890abcdef12345678',
-                Fee: 0,
+                Fee: 122994170508407000000,
                 Data: '',
                 From: '0x1234567890abcdef1234567890abcdef12345678',
                 Value: 2994170508407000000,
@@ -154,7 +154,7 @@ describe('RelayerAPIService', () => {
     expect(result.txs[0].message?.srcOwner).toBe('0x1234567890abcdef1234567890abcdef12345678');
     expect(result.txs[0].message?.destOwner).toBe('0x1234567890abcdef1234567890abcdef12345678');
     expect(result.txs[0].message?.to).toBe('0x1234567890abcdef1234567890abcdef12345678');
-    expect(result.txs[0].message?.fee).toBe(0n);
+    expect(result.txs[0].message?.fee).toBe(122994170508407000000n);
     expect(result.txs[0].message?.gasLimit).toBe(0);
     expect(result.txs[0].message?.data).toBe('0x');
   });
