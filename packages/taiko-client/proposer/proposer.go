@@ -117,6 +117,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 		p.rpc,
 		p.proposerAddress,
 		cfg.TaikoL1Address,
+		cfg.ProverSetAddress,
 		cfg.AssignmentHookAddress,
 		p.tierFees,
 		cfg.TierFeePriceBump,

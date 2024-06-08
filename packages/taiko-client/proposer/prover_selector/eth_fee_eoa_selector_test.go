@@ -40,6 +40,7 @@ func (s *ProverSelectorTestSuite) SetupTest() {
 		crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		[]encoding.TierFee{},
 		common.Big2,
 		[]*url.URL{s.ProverEndpoints[0]},

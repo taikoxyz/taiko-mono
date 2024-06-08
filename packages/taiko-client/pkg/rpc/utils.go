@@ -60,7 +60,7 @@ func CheckProverBalance(
 	}
 
 	log.Info(
-		"Prover allowance for TaikoL1 contract",
+		"Prover allowance for the contract",
 		"allowance", utils.WeiToEther(allowance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
@@ -79,8 +79,7 @@ func CheckProverBalance(
 		"bond", utils.WeiToEther(bond),
 	)
 
-	// TODO: check allowance
-	if bond.Cmp(balance) > 0 {
+	if bond.Cmp(allowance) > 0 || bond.Cmp(balance) > 0 {
 		log.Info(
 			"Assigned prover does not have required on-chain token balance or allowance",
 			"providedProver", prover.Hex(),

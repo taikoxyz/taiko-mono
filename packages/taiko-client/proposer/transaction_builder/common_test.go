@@ -36,6 +36,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		s.RPCClient,
 		crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		[]encoding.TierFee{},
 		common.Big2,
