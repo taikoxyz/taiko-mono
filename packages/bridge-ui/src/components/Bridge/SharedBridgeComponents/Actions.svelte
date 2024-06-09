@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
+  import { Alert } from '$components/Alert';
   import {
     allApproved,
     computingBalance,
@@ -10,6 +11,7 @@
     errorComputingBalance,
     insufficientAllowance,
     insufficientBalance,
+    needsApprovalReset,
     recipientAddress,
     selectedToken,
     tokenBalance,
@@ -24,9 +26,11 @@
 
   export let approve: () => Promise<void>;
   export let bridge: () => Promise<void>;
+  export let resetApproval: () => Promise<void>;
 
   export let approving = false;
   export let bridging = false;
+  export let resetting = false;
 
   export let disabled = false;
 
@@ -46,6 +50,12 @@
     bridging = true;
     bridge();
   }
+
+  const onResetApproveClick = async () => {
+    resetting = true;
+    await resetApproval();
+    resetting = false;
+  };
 
   onMount(async () => {
     if ($selectedToken) {
@@ -85,6 +95,8 @@
 
   $: validApprovalStatus = $allApproved;
 
+  $: resetRequired = $selectedToken?.symbol === 'tUSDT' && $needsApprovalReset;
+
   $: commonConditions =
     validApprovalStatus &&
     !bridging &&
@@ -106,6 +118,8 @@
 
   $: ethConditionsSatisfied = commonConditions && $enteredAmount && $enteredAmount > 0;
 
+  $: disableReset = !resetRequired || resetting;
+
   $: disableBridge = isERC20
     ? !erc20ConditionsSatisfied
     : isERC721
@@ -119,24 +133,42 @@
 
 <div class="f-col w-full gap-4">
   {#if $selectedToken && !isETH}
-    <ActionButton
-      priority="primary"
-      disabled={disableApprove}
-      loading={approving || $validatingAmount || checking}
-      on:click={onApproveClick}>
-      {#if approving}
-        <span class="body-bold">{$t('bridge.button.approving')}</span>
-      {:else if $allApproved}
-        <div class="f-items-center">
-          <Icon type="check" />
-          <span class="body-bold">{$t('bridge.button.approved')}</span>
-        </div>
-      {:else if checking}
-        <span class="body-bold">{$t('bridge.button.validating')}</span>
-      {:else}
-        <span class="body-bold">{$t('bridge.button.approve')}</span>
-      {/if}
-    </ActionButton>
+    {#if resetRequired}
+      <Alert type="info">{$t('bridge.usdt_approval.info')}</Alert>
+      <ActionButton priority="primary" disabled={disableReset} loading={resetting} on:click={onResetApproveClick}>
+        {#if resetting}
+          <span class="body-bold">{$t('bridge.button.resetting')}</span>
+        {:else if $allApproved}
+          <div class="f-items-center">
+            <Icon type="check" />
+            <span class="body-bold">{$t('bridge.button.reset')}</span>
+          </div>
+        {:else if checking}
+          <span class="body-bold">{$t('bridge.button.validating')}</span>
+        {:else}
+          <span class="body-bold">{$t('bridge.button.reset_approval')}</span>
+        {/if}
+      </ActionButton>
+    {:else}
+      <ActionButton
+        priority="primary"
+        disabled={disableApprove}
+        loading={approving || $validatingAmount || checking}
+        on:click={onApproveClick}>
+        {#if approving}
+          <span class="body-bold">{$t('bridge.button.approving')}</span>
+        {:else if $allApproved}
+          <div class="f-items-center">
+            <Icon type="check" />
+            <span class="body-bold">{$t('bridge.button.approved')}</span>
+          </div>
+        {:else if checking}
+          <span class="body-bold">{$t('bridge.button.validating')}</span>
+        {:else}
+          <span class="body-bold">{$t('bridge.button.approve')}</span>
+        {/if}
+      </ActionButton>
+    {/if}
   {/if}
   <ActionButton priority="primary" disabled={disableBridge} loading={bridging} on:click={onBridgeClick}>
     {#if bridging}
