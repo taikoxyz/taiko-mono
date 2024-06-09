@@ -95,6 +95,7 @@
 
   $: validApprovalStatus = $allApproved;
 
+  // USDT specific, L1 address of USDT contract
   $: resetRequired =
     $selectedToken?.addresses[$connectedSourceChain.id] === '0xdAC17F958D2ee523a2206206994597C13D831ec7' &&
     $needsApprovalReset;
