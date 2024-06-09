@@ -386,6 +386,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 			if err := i.withRetry(func() error { return i.indexMessageSentEvents(ctx, filterOpts) }); err != nil {
 				// We will skip the error after retrying, as we want the indexer to continue.
 				slog.Error("i.indexMessageSentEvents", "error", err)
+				relayer.MessageSentEventsAfterRetryErrorCount.Inc()
 			}
 
 			// we dont want to watch for message status changed events
@@ -395,16 +396,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 			if i.watchMode != CrawlPastBlocks {
 				if err := i.withRetry(func() error { return i.indexMessageStatusChangedEvents(ctx, filterOpts) }); err != nil {
 					slog.Error("i.indexMessageStatusChangedEvents", "error", err)
+					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
 				}
 
 				// we also want to index chain data synced events.
 				if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
 					slog.Error("i.indexChainDataSyncedEvents", "error", err)
+					relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
 				}
 			}
 		case relayer.EventNameMessageProcessed:
 			if err := i.withRetry(func() error { return i.indexMessageProcessedEvents(ctx, filterOpts) }); err != nil {
 				slog.Error("i.indexMessageProcessedEvents", "error", err)
+				relayer.MessageProcessedEventsAfterRetryErrorCount.Inc()
 			}
 		}
 
