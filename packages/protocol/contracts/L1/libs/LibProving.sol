@@ -11,10 +11,6 @@ import "./LibUtils.sol";
 library LibProving {
     using LibMath for uint256;
 
-    // keccak256("new_transition_marker");
-    bytes32 private constant _NEW_TRANSITION_MARKER =
-        0x0c136b82967369090acdee5f4cfc0b91b241bd8f46a2feb319c6230bdb55071a;
-
     // A struct to get around stack too deep issue and to cache state variables for multiple reads.
     struct Local {
         TaikoData.SlotB b;
@@ -112,10 +108,7 @@ library LibProving {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
         // the blockHash and stateRoot.
-        if (
-            _tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0
-                || _tran.blockHash == _NEW_TRANSITION_MARKER
-        ) {
+        if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
 
@@ -145,7 +138,7 @@ library LibProving {
         // blockHash and stateRoot open for later updates as higher-tier proofs
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
-        TaikoData.TransitionState storage ts;
+        TaikoData.TransitionState memory ts;
         (local.tid, ts) = _fetchOrCreateTransition(_state, blk, _tran, local);
 
         // The new proof must meet or exceed the minimum tier required by the
@@ -286,6 +279,8 @@ library LibProving {
         }
 
         ts.timestamp = uint64(block.timestamp);
+        _state.transitions[local.slot][local.tid] = ts;
+
         return local.tier.maxBlocksToVerifyPerProof;
     }
 
@@ -297,7 +292,7 @@ library LibProving {
         Local memory _local
     )
         private
-        returns (uint32 tid_, TaikoData.TransitionState storage ts_)
+        returns (uint32 tid_, TaikoData.TransitionState memory ts_)
     {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 
@@ -320,12 +315,7 @@ library LibProving {
             // Keep in mind that state.transitions are also reusable storage
             // slots, so it's necessary to reinitialize all transition fields
             // below.
-            ts_ = _state.transitions[_local.slot][tid_];
-            ts_.blockHash = _NEW_TRANSITION_MARKER;
-            ts_.validityBond = 0;
-            ts_.contester = address(0);
             ts_.timestamp = _blk.proposedAt;
-            ts_.tier = 0;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -377,7 +367,7 @@ library LibProving {
     // 6.5625.
     function _overrideWithHigherProof(
         TaikoData.Block storage _blk,
-        TaikoData.TransitionState storage _ts,
+        TaikoData.TransitionState memory _ts,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
         Local memory _local,
