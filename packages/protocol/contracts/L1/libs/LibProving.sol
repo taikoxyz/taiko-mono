@@ -324,7 +324,6 @@ library LibProving {
                 // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
                 ts_.key = _tran.parentHash;
-                // slot 1, write #3
 
                 // In the case of this first transition, the block's assigned
                 // prover has the privilege to re-prove it, but only when the
@@ -337,7 +336,6 @@ library LibProving {
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
                 ts_.prover = _local.assignedProver;
-                // slot 4, write #4
             } else {
                 // Furthermore, we index the transition for future retrieval.
                 // It's worth emphasizing that this mapping for indexing is not
