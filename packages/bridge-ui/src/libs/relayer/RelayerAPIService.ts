@@ -168,6 +168,7 @@ export class RelayerAPIService {
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
+
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
@@ -177,9 +178,11 @@ export class RelayerAPIService {
         data = `0x${buffer.toString('hex')}`;
       }
 
+      const tokenType: TokenType = _eventToTokenType(tx.eventType);
+
       const transformedTx = {
         status: tx.status,
-        amount: BigInt(tx.amount),
+        amount: BigInt(tx.amount.toString()),
         symbol: tx.canonicalTokenSymbol || 'ETH',
         decimals: tx.canonicalTokenDecimals,
         hash: tx.data.Raw.transactionHash,
@@ -187,7 +190,7 @@ export class RelayerAPIService {
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
-        tokenType: _eventToTokenType(tx.eventType),
+        tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
         message: {
@@ -197,11 +200,11 @@ export class RelayerAPIService {
           data: data as Hex,
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
-          gasLimit: Number(tx.data.Message.GasLimit),
-          value: BigInt(tx.amount),
+          gasLimit: tx.data.Message.GasLimit,
+          value: BigInt(tx.data.Message.Value.toString()),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          fee: BigInt(tx.data.Message.Fee),
+          fee: BigInt(tx.data.Message.Fee.toString()),
         },
       } satisfies BridgeTransaction;
 
@@ -210,6 +213,7 @@ export class RelayerAPIService {
 
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
+
       if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
       const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
 
@@ -234,6 +238,7 @@ export class RelayerAPIService {
 
       // Update the status
       bridgeTx.msgStatus = msgStatus;
+
       return bridgeTx;
     });
 

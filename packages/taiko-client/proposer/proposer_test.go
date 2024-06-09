@@ -121,6 +121,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		p.proverSelector,
 		p.Config.L1BlockBuilderTip,
 		cfg.TaikoL1Address,
+		cfg.ProverSetAddress,
 		cfg.L2SuggestedFeeRecipient,
 		cfg.AssignmentHookAddress,
 		cfg.ProposeBlockTxGasLimit,
