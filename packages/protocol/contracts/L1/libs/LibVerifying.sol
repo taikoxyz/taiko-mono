@@ -175,13 +175,13 @@ library LibVerifying {
                     emit BlockVerified({
                         blockId: blockId,
                         prover: ts.prover,
-                        transitionHash: keccak256(abi.encodePacked(blockHash, stateRoot)),
+                        transitionHash: LibUtils.calcTransitionHash(blockHash, stateRoot),
                         blockHash: blockHash,
                         stateRoot: stateRoot,
                         tier: tier
                     });
 
-                    if (blockId % 32 == 0) {
+                    if (blockId % _config.stateRootSyncInternal == 0) {
                         _syncStateRoot(_state, _config, _resolver, blockId, stateRoot);
                     }
                 }

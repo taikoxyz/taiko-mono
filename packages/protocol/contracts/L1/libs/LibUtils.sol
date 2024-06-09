@@ -123,4 +123,15 @@ library LibUtils {
             return block.timestamp >= deadline;
         }
     }
+
+    function calcTransitionHash(
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(_blockHash, _stateRoot));
+    }
 }
