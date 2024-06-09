@@ -10,6 +10,19 @@ import "./LibUtils.sol";
 library LibVerifying {
     using LibMath for uint256;
 
+    // A struct to get around stack too deep issue and to cache state variables for multiple reads.
+    struct Local {
+        TaikoData.SlotB b;
+        uint64 slot;
+        uint64 blockId;
+        uint32 tid;
+        uint16 tier;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+        uint64 numBlocksVerified;
+        address prover;
+    }
+
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
     /// @param blockId The block ID.
@@ -75,56 +88,56 @@ library LibVerifying {
             return;
         }
 
+        Local memory local;
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
-        TaikoData.SlotB memory b = _state.slotB;
-        uint64 blockId = b.lastVerifiedBlockId;
+        local.b = _state.slotB;
+        local.blockId = local.b.lastVerifiedBlockId;
+        local.slot = local.blockId % _config.blockRingBufferSize;
 
-        uint64 slot = blockId % _config.blockRingBufferSize;
+        TaikoData.Block storage blk = _state.blocks[local.slot];
+        if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
 
-        TaikoData.Block storage blk = _state.blocks[slot];
-        if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
-
-        uint32 tid = blk.verifiedTransitionId;
+        local.tid = blk.verifiedTransitionId;
 
         // The following scenario should never occur but is included as a
         // precaution.
-        if (tid == 0) revert L1_TRANSITION_ID_ZERO();
+        if (local.tid == 0) revert L1_TRANSITION_ID_ZERO();
 
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
-        bytes32 blockHash = _state.transitions[slot][tid].blockHash;
-        bytes32 stateRoot;
-        uint64 numBlocksVerified;
+        local.blockHash = _state.transitions[local.slot][local.tid].blockHash;
         ITierRouter tierRouter;
+        ISignalService signalService;
 
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
         unchecked {
-            ++blockId;
+            ++local.blockId;
 
-            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
-                slot = blockId % _config.blockRingBufferSize;
+            while (
+                local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
+            ) {
+                local.slot = local.blockId % _config.blockRingBufferSize;
 
-                blk = _state.blocks[slot];
-                if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
+                blk = _state.blocks[local.slot];
+                if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
 
-                tid = LibUtils.getTransitionId(_state, blk, slot, blockHash);
+                local.tid = LibUtils.getTransitionId(_state, blk, local.slot, local.blockHash);
                 // When `tid` is 0, it indicates that there is no proven
                 // transition with its parentHash equal to the blockHash of the
                 // most recently verified block.
-                if (tid == 0) break;
+                if (local.tid == 0) break;
 
                 // A transition with the correct `parentHash` has been located.
-                TaikoData.TransitionState storage ts = _state.transitions[slot][tid];
+                TaikoData.TransitionState storage ts = _state.transitions[local.slot][local.tid];
+                local.tier = ts.tier;
 
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
-                uint16 tier = ts.tier;
-
                 if (ts.contester != address(0)) {
                     break;
                 } else {
@@ -135,8 +148,8 @@ library LibVerifying {
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
-                            b.lastUnpausedAt,
-                            ITierProvider(tierRouter.getProvider(blockId)).getTier(tier)
+                            local.b.lastUnpausedAt,
+                            ITierProvider(tierRouter.getProvider(local.blockId)).getTier(local.tier)
                                 .cooldownWindow
                         )
                     ) {
@@ -147,13 +160,14 @@ library LibVerifying {
                 }
 
                 // Mark this block as verified
-                blk.verifiedTransitionId = tid;
+                blk.verifiedTransitionId = local.tid;
 
                 // Update variables
-                blockHash = ts.blockHash;
-                stateRoot = ts.stateRoot;
+                local.blockHash = ts.blockHash;
+                local.stateRoot = ts.stateRoot;
+                local.prover = ts.prover;
 
-                _tko.transfer(ts.prover, ts.validityBond);
+                _tko.transfer(local.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -161,60 +175,54 @@ library LibVerifying {
                 // The bonds for these other transitions are burned (more precisely held in custody)
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
-
-                if (stateRoot == 0) {
+                if (local.stateRoot == 0) {
                     emit BlockVerified({
-                        blockId: blockId,
-                        prover: ts.prover,
-                        transitionHash: blockHash,
+                        blockId: local.blockId,
+                        prover: local.prover,
+                        transitionHash: local.blockHash,
                         blockHash: 0,
                         stateRoot: 0,
-                        tier: tier
+                        tier: local.tier
                     });
                 } else {
                     emit BlockVerified({
-                        blockId: blockId,
-                        prover: ts.prover,
-                        transitionHash: LibUtils.calcTransitionHash(blockHash, stateRoot),
-                        blockHash: blockHash,
-                        stateRoot: stateRoot,
-                        tier: tier
+                        blockId: local.blockId,
+                        prover: local.prover,
+                        transitionHash: LibUtils.calcTransitionHash(local.blockHash, local.stateRoot),
+                        blockHash: local.blockHash,
+                        stateRoot: local.stateRoot,
+                        tier: local.tier
                     });
 
-                    if (blockId % _config.stateRootSyncInternal == 0) {
-                        _syncStateRoot(_state, _config, _resolver, blockId, stateRoot);
+                    if (local.blockId % _config.stateRootSyncInternal == 0) {
+                        _state.slotA.lastSyncedBlockId = local.blockId;
+                        _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+                        if (signalService == ISignalService(address(0))) {
+                            signalService = ISignalService(
+                                _resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)
+                            );
+                        }
+
+                        signalService.syncChainData(
+                            _config.chainId, LibStrings.H_STATE_ROOT, local.blockId, local.stateRoot
+                        );
                     }
                 }
 
-                ++blockId;
-                ++numBlocksVerified;
+                ++local.blockId;
+                ++local.numBlocksVerified;
             }
 
-            if (numBlocksVerified != 0) {
+            if (local.numBlocksVerified != 0) {
                 // Update protocol level state variables
-                _state.slotB.lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+                _state.slotB.lastVerifiedBlockId =
+                    local.b.lastVerifiedBlockId + local.numBlocksVerified;
             }
         }
     }
 
-    function _syncStateRoot(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        IAddressResolver _resolver,
-        uint64 _blockId,
-        bytes32 _stateRoot
-    )
-        private
-    {
-        _state.slotA.lastSyncedBlockId = _blockId;
-        _state.slotA.lastSynecdAt = uint64(block.timestamp);
-
-        ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-            _config.chainId, LibStrings.H_STATE_ROOT, _blockId, _stateRoot
-        );
-    }
     /// @notice Emit events used by client/node.
-
     function emitEventForClient(TaikoData.State storage _state) internal {
         emit StateVariablesUpdated({ slotB: _state.slotB });
     }
