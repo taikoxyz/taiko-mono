@@ -52,6 +52,7 @@ type NFTMetadataRepository interface {
 
 func (n *NFTMetadata) UnmarshalJSON(data []byte) error {
 	type Alias NFTMetadata
+
 	aux := &struct {
 		ImageURL string `json:"image_url"`
 		Image    string `json:"image"`

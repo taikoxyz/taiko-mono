@@ -17,7 +17,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc721"
 )
 
-func (i *Indexer) fetchNFTMetadata(ctx context.Context, contractAddress string, tokenID *big.Int, abiJSON, methodName string) (*eventindexer.NFTMetadata, error) {
+func (i *Indexer) fetchNFTMetadata(
+	ctx context.Context, contractAddress string,
+	tokenID *big.Int,
+	abiJSON string,
+	methodName string) (*eventindexer.NFTMetadata, error) {
 	slog.Info("Fetching metadata", "contractAddress", contractAddress, "tokenID", tokenID)
 
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
@@ -43,19 +47,24 @@ func (i *Indexer) fetchNFTMetadata(ctx context.Context, contractAddress string, 
 	}
 
 	var tokenURI string
+
 	err = contractABI.UnpackIntoInterface(&tokenURI, methodName, result)
 	if err != nil {
 		return nil, err
 	}
 
-	metadataURL := resolveMetadataURL(tokenURI)
-	resp, err := http.Get(metadataURL)
+	url := resolveMetadataURL(tokenURI)
+
+	//nolint
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	var metadata eventindexer.NFTMetadata
+
 	err = json.NewDecoder(resp.Body).Decode(&metadata)
 	if err != nil {
 		return nil, err
@@ -78,6 +87,7 @@ func resolveMetadataURL(tokenURI string) string {
 		ipfsHash := strings.TrimPrefix(tokenURI, "ipfs://")
 		return fmt.Sprintf("https://ipfs.io/ipfs/%s", ipfsHash)
 	}
+
 	return tokenURI
 }
 
@@ -98,11 +108,14 @@ func (i *Indexer) fetchSymbol(ctx context.Context, contractABI abi.ABI, metadata
 	}
 
 	var symbol string
+
 	err = contractABI.UnpackIntoInterface(&symbol, "symbol", symbolResult)
 	if err != nil {
 		return err
 	}
+
 	metadata.Symbol = symbol
+
 	return nil
 }
 

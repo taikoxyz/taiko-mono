@@ -33,7 +33,6 @@ func (i *Indexer) indexNFTTransfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-
 	for _, vLog := range logs {
 		if !i.isERC721Transfer(ctx, vLog) && !i.isERC1155Transfer(ctx, vLog) {
 			continue
@@ -131,6 +130,7 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		if err != nil {
 			return err
 		}
+
 		_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
 		if err != nil {
 			return err
@@ -268,7 +268,6 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 		for idx, id := range t.Ids {
 			// Check if metadata already exists in db, if not fetch and store
-
 			metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), fmt.Sprintf("%d", id))
 			if err != nil {
 				return err

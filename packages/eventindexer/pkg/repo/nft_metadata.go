@@ -48,10 +48,12 @@ func (r *NFTMetadataRepository) GetNFTMetadata(
 		Where("token_id = ?", tokenID).
 		First(metadata).
 		Error
+
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
+
 		return nil, errors.Wrap(err, "r.db.First")
 	}
 
