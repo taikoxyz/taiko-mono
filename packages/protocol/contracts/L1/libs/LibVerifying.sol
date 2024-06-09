@@ -94,6 +94,7 @@ library LibVerifying {
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
+        bytes32 stateRoot;
         uint64 numBlocksVerified;
         ITierRouter tierRouter;
 
@@ -150,9 +151,9 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
+                stateRoot = ts.stateRoot;
 
-                address prover = ts.prover;
-                _tko.transfer(prover, ts.validityBond);
+                _tko.transfer(ts.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -161,27 +162,28 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                if (blockId % 32 != 0) {
-                    bytes32 stateRoot = ts.stateRoot;
+                if (stateRoot == 0) {
                     emit BlockVerified({
                         blockId: blockId,
-                        prover: prover,
-                        transitionHash: keccak256(abi.encodePacked(blockHash, stateRoot)),
-                        blockHash: blockHash,
-                        stateRoot: stateRoot,
-                        tier: tier
-                    });
-                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        .syncChainData(_config.chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot);
-                } else {
-                    emit BlockVerified({
-                        blockId: blockId,
-                        prover: prover,
+                        prover: ts.prover,
                         transitionHash: blockHash,
                         blockHash: 0,
                         stateRoot: 0,
                         tier: tier
                     });
+                } else {
+                    emit BlockVerified({
+                        blockId: blockId,
+                        prover: ts.prover,
+                        transitionHash: keccak256(abi.encodePacked(blockHash, stateRoot)),
+                        blockHash: blockHash,
+                        stateRoot: stateRoot,
+                        tier: tier
+                    });
+
+                    if (blockId % 32 == 0) {
+                        _syncStateRoot(_state, _config, _resolver, blockId, stateRoot);
+                    }
                 }
 
                 ++blockId;
@@ -195,7 +197,24 @@ library LibVerifying {
         }
     }
 
+    function _syncStateRoot(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        uint64 _blockId,
+        bytes32 _stateRoot
+    )
+        private
+    {
+        _state.slotA.lastSyncedBlockId = _blockId;
+        _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+        ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+            _config.chainId, LibStrings.H_STATE_ROOT, _blockId, _stateRoot
+        );
+    }
     /// @notice Emit events used by client/node.
+
     function emitEventForClient(TaikoData.State storage _state) internal {
         emit StateVariablesUpdated({ slotB: _state.slotB });
     }
@@ -228,6 +247,7 @@ library LibVerifying {
         emit BlockVerified({
             blockId: 0,
             prover: address(0),
+            transitionHash: 0,
             blockHash: _genesisBlockHash,
             stateRoot: 0,
             tier: 0
