@@ -60,7 +60,7 @@ func CheckProverBalance(
 	}
 
 	log.Info(
-		"Prover allowance for TaikoL1 contract",
+		"Prover allowance for the contract",
 		"allowance", utils.WeiToEther(allowance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),

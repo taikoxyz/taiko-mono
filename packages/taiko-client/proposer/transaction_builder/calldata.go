@@ -23,6 +23,7 @@ type CalldataTransactionBuilder struct {
 	l1BlockBuilderTip       *big.Int
 	l2SuggestedFeeRecipient common.Address
 	taikoL1Address          common.Address
+	proverSetAddress        common.Address
 	assignmentHookAddress   common.Address
 	gasLimit                uint64
 	extraData               string
@@ -36,6 +37,7 @@ func NewCalldataTransactionBuilder(
 	l1BlockBuilderTip *big.Int,
 	l2SuggestedFeeRecipient common.Address,
 	taikoL1Address common.Address,
+	proverSetAddress common.Address,
 	assignmentHookAddress common.Address,
 	gasLimit uint64,
 	extraData string,
@@ -47,6 +49,7 @@ func NewCalldataTransactionBuilder(
 		l1BlockBuilderTip,
 		l2SuggestedFeeRecipient,
 		taikoL1Address,
+		proverSetAddress,
 		assignmentHookAddress,
 		gasLimit,
 		extraData,
@@ -93,29 +96,45 @@ func (b *CalldataTransactionBuilder) Build(
 	}
 	signature[64] = uint8(uint(signature[64])) + 27
 
-	// ABI encode the TaikoL1.proposeBlock parameters.
+	var (
+		to        = &b.taikoL1Address
+		hookCalls = []encoding.HookCall{{Hook: b.assignmentHookAddress, Data: hookInputData}}
+		data      []byte
+	)
+	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
+		to = &b.proverSetAddress
+		hookCalls = []encoding.HookCall{}
+	}
+
+	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
 		AssignedProver: assignedProver,
 		Coinbase:       b.l2SuggestedFeeRecipient,
 		ExtraData:      rpc.StringToBytes32(b.extraData),
 		ParentMetaHash: parentMetaHash,
-		HookCalls:      []encoding.HookCall{{Hook: b.assignmentHookAddress, Data: hookInputData}},
+		HookCalls:      hookCalls,
 		Signature:      signature,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Send the transaction to the L1 node.
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
-	if err != nil {
-		return nil, err
+	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &txmgr.TxCandidate{
 		TxData:   data,
 		Blobs:    nil,
-		To:       &b.taikoL1Address,
+		To:       to,
 		GasLimit: b.gasLimit,
 		Value:    maxFee,
 	}, nil

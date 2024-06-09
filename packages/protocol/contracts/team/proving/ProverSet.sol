@@ -83,6 +83,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         bytes calldata _txList
     )
         external
+        payable
         onlyProver
         nonReentrant
     {

@@ -133,11 +133,6 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function getSyncedChainHeight(uint64 _chainId, bytes32 _kind) external view returns (uint64) {
-        return topBlockId[_chainId][_kind];
-    }
-
-    /// @inheritdoc ISignalService
     function getSyncedChainData(
         uint64 _chainId,
         bytes32 _kind,
