@@ -46,6 +46,7 @@ func Test_NewServer(t *testing.T) {
 				EventRepo:        &repo.EventRepository{},
 				CorsOrigins:      make([]string, 0),
 				NFTBalanceRepo:   &repo.NFTBalanceRepository{},
+				NFTMetadataRepo:  &repo.NFTMetadataRepository{},
 				ERC20BalanceRepo: &repo.ERC20BalanceRepository{},
 			},
 			nil,
@@ -58,6 +59,16 @@ func Test_NewServer(t *testing.T) {
 				CorsOrigins: make([]string, 0),
 			},
 			eventindexer.ErrNoNFTBalanceRepository,
+		},
+		{
+			"noNftMetadataRepo",
+			NewServerOpts{
+				Echo:           echo.New(),
+				EventRepo:      &repo.EventRepository{},
+				NFTBalanceRepo: &repo.NFTBalanceRepository{},
+				CorsOrigins:    make([]string, 0),
+			},
+			eventindexer.ErrNoNFTMetadataRepository,
 		},
 		{
 			"noEventRepo",
