@@ -95,7 +95,9 @@
 
   $: validApprovalStatus = $allApproved;
 
-  $: resetRequired = $selectedToken?.symbol === 'USDT' && $needsApprovalReset;
+  $: resetRequired =
+    $selectedToken?.addresses[$connectedSourceChain.id] === '0xdAC17F958D2ee523a2206206994597C13D831ec7' &&
+    $needsApprovalReset;
 
   $: commonConditions =
     validApprovalStatus &&
