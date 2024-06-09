@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -22,9 +21,6 @@ func (i *Indexer) saveEventToDB(
 	eventValue *big.Int,
 	emittedBlockNumber uint64,
 ) (int, error) {
-
-	slog.Info("saveEventToDB")
-
 	eventType, canonicalToken, amount, err := relayer.DecodeMessageData(eventData, eventValue)
 	if err != nil {
 		return 0, errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
