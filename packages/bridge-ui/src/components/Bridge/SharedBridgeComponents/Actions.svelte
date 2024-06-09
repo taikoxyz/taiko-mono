@@ -95,7 +95,7 @@
 
   $: validApprovalStatus = $allApproved;
 
-  $: resetRequired = $selectedToken?.symbol === 'tUSDT' && $needsApprovalReset;
+  $: resetRequired = $selectedToken?.symbol === 'USDT' && $needsApprovalReset;
 
   $: commonConditions =
     validApprovalStatus &&
