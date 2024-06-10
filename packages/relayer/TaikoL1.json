@@ -128,6 +128,11 @@
             "name": "blockSyncThreshold",
             "type": "uint8",
             "internalType": "uint8"
+          },
+          {
+            "name": "checkEOAForCalldataDA",
+            "type": "bool",
+            "internalType": "bool"
           }
         ]
       }
@@ -1961,6 +1966,16 @@
   },
   {
     "type": "error",
+    "name": "L1_NOT_SAME_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_NO_HOOKS",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "L1_PROVING_PAUSED",
     "inputs": []
   },
@@ -2007,16 +2022,6 @@
   {
     "type": "error",
     "name": "L1_TRANSITION_NOT_FOUND",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_UNAUTHORIZED",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_UNAUTHORIZED",
     "inputs": []
   },
   {
