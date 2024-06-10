@@ -101,6 +101,13 @@ func (i *Indexer) handleMessageSentEvent(
 		return nil
 	}
 
+	// we shouldnt add messages to the queue that will be determined
+	// unprocessable.
+	if event.Message.GasLimit == 0 {
+		slog.Warn("Zero gaslimit message found, will be unprocessable")
+		return nil
+	}
+
 	msg := queue.QueueMessageSentBody{
 		ID:    id,
 		Event: event,
