@@ -266,13 +266,15 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 
 	var amount *big.Int = value
 
+	var err error
+
 	onMessageInvocationFunctionSig := "7f07c947"
 
 	// Check if eventData is valid
 	if len(eventData) > 3 &&
 		common.Bytes2Hex(eventData[:4]) == onMessageInvocationFunctionSig {
 		// Try to decode data as ERC20
-		canonicalToken, amount, err := decodeDataAsERC20(eventData[4:])
+		canonicalToken, amount, err = decodeDataAsERC20(eventData[4:])
 
 		if err == nil {
 			return EventTypeSendERC20, canonicalToken, amount, nil
