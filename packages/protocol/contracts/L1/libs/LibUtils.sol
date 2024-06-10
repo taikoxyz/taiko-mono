@@ -123,4 +123,31 @@ library LibUtils {
             return block.timestamp >= deadline;
         }
     }
+
+    function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
+        if (_meta.livenessBond != 0) {
+            return keccak256(abi.encode(_meta));
+        } else {
+            return keccak256(
+                abi.encode(
+                    TaikoData.BlockMetadataV1({
+                        l1Hash: _meta.l1Hash,
+                        difficulty: _meta.difficulty,
+                        blobHash: _meta.blobHash,
+                        extraData: _meta.extraData,
+                        depositsHash: _meta.depositsHash,
+                        coinbase: _meta.coinbase,
+                        id: _meta.id,
+                        gasLimit: _meta.gasLimit,
+                        timestamp: _meta.timestamp,
+                        l1Height: _meta.l1Height,
+                        minTier: _meta.minTier,
+                        blobUsed: _meta.blobUsed,
+                        parentMetaHash: _meta.parentMetaHash,
+                        sender: _meta.sender
+                    })
+                )
+            );
+        }
+    }
 }

@@ -112,8 +112,9 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
-                sender: msg.sender
-            });
+                sender: msg.sender,
+                livenessBond: 0 // not used
+             });
         }
 
         // Update certain meta fields
@@ -158,7 +159,7 @@ library LibProposing {
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: keccak256(abi.encode(meta_)),
+            metaHash: LibUtils.hashMetadata(meta_),
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
