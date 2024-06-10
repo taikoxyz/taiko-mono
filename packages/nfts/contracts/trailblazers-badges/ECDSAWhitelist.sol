@@ -127,7 +127,6 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         IMinimalBlacklist _blacklist
     )
         internal
-        initializer
     {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __Context_init();
