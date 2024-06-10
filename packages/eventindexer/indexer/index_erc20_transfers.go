@@ -97,15 +97,16 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		"contractAddress", vLog.Address.Hex(),
 	)
 
-	var pk int
+	var pk int = 0
 
 	md, err := i.erc20BalanceRepo.FindMetadata(ctx, chainID.Int64(), vLog.Address.Hex())
 	if err != nil {
 		return err
 	}
 
-	pk = md.ID
-
+	if md != nil {
+		pk = md.ID
+	}
 	if pk == 0 {
 		symbol, err := getERC20Symbol(ctx, i.ethClient, vLog.Address.Hex())
 		if err != nil {
