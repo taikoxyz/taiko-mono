@@ -99,7 +99,7 @@ library LibProposing {
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
-                depositsHash: 0, // Confirmed that client/Node doesn't care this value.
+                depositsHash: 0, // Confirmed that prover/node doesn't respect/use this value.
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
