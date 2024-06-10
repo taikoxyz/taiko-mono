@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { importDone } from '$components/Bridge/state';
+  import { calculatingProcessingFee, importDone } from '$components/Bridge/state';
   import { BridgeSteps, BridgingStatus, ImportMethod } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
   import { StepBack } from '$components/Stepper';
@@ -69,7 +69,7 @@
       {/if}
     {/if}
     {#if activeStep === BridgeSteps.REVIEW}
-      <ActionButton priority="primary" on:click={() => handleNextStep()}>
+      <ActionButton priority="primary" disabled={$calculatingProcessingFee} on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
 
