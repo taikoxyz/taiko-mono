@@ -111,7 +111,7 @@ export class ERC20Bridge extends Bridge {
     return estimatedGas;
   }
 
-  async requireAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
+  async getAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
@@ -125,6 +125,14 @@ export class ERC20Bridge extends Bridge {
       chainId: (await getConnectedWallet()).chain.id,
     });
 
+    return allowance;
+  }
+  async requireAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs, reset = false) {
+    const allowance = await this.getAllowance({ amount, tokenAddress, ownerAddress, spenderAddress });
+
+    if (reset) {
+      return true;
+    }
     const requiresAllowance = allowance < amount;
 
     log('Allowance is', allowance, 'requires allowance?', requiresAllowance);
@@ -132,15 +140,18 @@ export class ERC20Bridge extends Bridge {
     return requiresAllowance;
   }
 
-  async approve(args: ApproveArgs) {
+  async approve(args: ApproveArgs, reset = false) {
     const { amount, tokenAddress, spenderAddress, wallet } = args;
     if (!wallet || !wallet.account) throw new Error('No wallet found');
-    const requireAllowance = await this.requireAllowance({
-      amount,
-      tokenAddress,
-      ownerAddress: wallet.account.address,
-      spenderAddress,
-    });
+    const requireAllowance = await this.requireAllowance(
+      {
+        amount,
+        tokenAddress,
+        ownerAddress: wallet.account.address,
+        spenderAddress,
+      },
+      reset,
+    );
 
     if (!requireAllowance) {
       throw new NoAllowanceRequiredError(`no allowance required for the amount ${amount}`);
@@ -148,10 +159,31 @@ export class ERC20Bridge extends Bridge {
 
     try {
       log(`Calling approve for spender "${spenderAddress}" for token "${tokenAddress}" with amount`, amount);
+      // USDT does not play nice with the default ERC20 ABI, this works for both
+      const approvalABI = [
+        {
+          constant: false,
+          inputs: [
+            {
+              name: '_spender',
+              type: 'address',
+            },
+            {
+              name: '_value',
+              type: 'uint256',
+            },
+          ],
+          name: 'approve',
+          outputs: [],
+          payable: false,
+          stateMutability: 'nonpayable',
+          type: 'function',
+        },
+      ];
 
       const { request } = await simulateContract(config, {
         address: tokenAddress,
-        abi: erc20Abi,
+        abi: approvalABI,
         functionName: 'approve',
         args: [spenderAddress, amount],
       });
