@@ -103,21 +103,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        TaikoData.BlockMetadata memory meta;
-        TaikoData.Transition memory tran;
-        TaikoData.TierProof memory proof;
-
-        if (_blockId < 1_000_000) {
-            TaikoData.BlockMetadataV1 memory metaV1;
-            (metaV1, tran, proof) = abi.decode(
-                _input, (TaikoData.BlockMetadataV1, TaikoData.Transition, TaikoData.TierProof)
-            );
-            meta = LibUtils.metaV1ToV2(metaV1);
-        } else {
-            (meta, tran, proof) = abi.decode(
-                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
-            );
-        }
+        (
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.Transition memory tran,
+            TaikoData.TierProof memory proof
+        ) = abi.decode(_input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
 
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
