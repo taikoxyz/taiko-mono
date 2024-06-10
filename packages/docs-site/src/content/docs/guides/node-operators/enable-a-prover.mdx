@@ -28,15 +28,35 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 5. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
 
-6. You can then run your prover with `docker compose --profile prover up -d`!
+6. Set `COMPOSE_PROFILES=prover` or add prover to the list.
+
+7. You can then run your prover with `docker compose up -d`!
 
 </Steps>
 
 ### Approve TaikoL1 as TAIKO spender (mainnet)
 
-<Aside>
-Coming soon, once TAIKO is available.
-</Aside>
+<Steps>
+
+1. Approve the TaikoL1 contract as a spender.
+
+   Visit the TAIKO contract on Ethereum [here](https://etherscan.io/address/0x10dea67478c5f8c5e2d90e5e9b26dbe60c54d800#writeProxyContract).
+
+2. Click the **Connect to Web3** button.
+
+3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
+
+   <Aside>
+      Please verify [contract addresses](/network-reference/mainnet-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
+   </Aside>
+
+4. Set the amount to at least the minimum bond amount of 250 TAIKO.
+
+   You will need 250 TAIKO for each bond you sign. After entering 250, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
+
+5. Finally, click the **Write** button.
+
+</Steps>
 
 ### Approve TaikoL1 as TTKOh spender (testnet)
 

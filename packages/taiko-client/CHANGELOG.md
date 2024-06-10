@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.26.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.25.0...taiko-client-v0.26.0) (2024-06-08)
+
+
+### Features
+
+* **taiko-client:** allow hooks to be empty if prover and proposer are the same address ([#17520](https://github.com/taikoxyz/taiko-mono/issues/17520)) ([2db6d2c](https://github.com/taikoxyz/taiko-mono/commit/2db6d2c3a978b75f0f57337f1481d1a1066594ea))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix an address check in `AssignProver` ([#17526](https://github.com/taikoxyz/taiko-mono/issues/17526)) ([d6001d3](https://github.com/taikoxyz/taiko-mono/commit/d6001d3f52bed12ff962c7558b9fc173fc964ddb))
+
 ## [0.25.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.24.0...taiko-client-v0.25.0) (2024-06-04)
 
 

@@ -132,6 +132,9 @@ type Processor struct {
 	txmgr txmgr.TxManager
 
 	maxMessageRetries uint64
+
+	processingTxHashes map[common.Hash]bool
+	processingTxHashMu *sync.Mutex
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -368,6 +371,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.targetTxHash = cfg.TargetTxHash
 
 	p.maxMessageRetries = cfg.MaxMessageRetries
+
+	p.processingTxHashes = make(map[common.Hash]bool, 0)
+	p.processingTxHashMu = &sync.Mutex{}
 
 	return nil
 }

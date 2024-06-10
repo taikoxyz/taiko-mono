@@ -48,6 +48,7 @@
 - owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
 - todo:
   - change owner to DelegateOwner
+  - upgrade the contract
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
@@ -111,7 +112,6 @@
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 - todo:
   - change owner to DelegateOwner
-  - update signal service
 
 ## Rollup Specific
 

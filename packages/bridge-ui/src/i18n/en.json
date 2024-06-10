@@ -39,7 +39,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
-      "not_enough_funds": "You do not have enough funds to cover the processing fee and transaction fee",
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
@@ -53,6 +53,9 @@
       "bridging": "Bridging",
       "fetch": "Fetch NFT data",
       "import": "Import",
+      "reset": "Reset",
+      "reset_approval": "Reset Approval",
+      "resetting": "Resetting",
       "validating": "Validating..."
     },
     "description": {
@@ -205,6 +208,9 @@
         "recipient": "Recipient",
         "review": "Review"
       }
+    },
+    "usdt_approval": {
+      "info": "You have previously approved a lower amount of USDT. To adjust the approval, you must first reset the previous amount to 0. This requirement is unique to USDT."
     }
   },
   "chain_selector": {
