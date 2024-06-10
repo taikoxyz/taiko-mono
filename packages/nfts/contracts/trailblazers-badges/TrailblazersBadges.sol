@@ -35,6 +35,7 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
 
     event BadgeCreated(uint256 _badgeId, string _badgeName);
     event MovementSet(address _user, uint256 _movementId);
+    event UriSet(string _uri);
 
     /// @notice Contract initializer
     /// @param _owner Contract owner
@@ -59,13 +60,18 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     /// @param _uri The new base URI
     function setUri(string memory _uri) public onlyOwner {
         _baseURIExtended = _uri;
+        emit UriSet(_uri);
     }
 
     /// @notice Get the URI for a badge
     /// @param _badgeId The badge ID
     /// @return The URI for the badge
     function uri(uint256 _badgeId) public view override returns (string memory) {
-        return string(abi.encodePacked(_baseURIExtended, Strings.toString(_badgeId)));
+        return string(
+            abi.encodePacked(
+                _baseURIExtended, "/", movements[_msgSender()], "/", Strings.toString(_badgeId)
+            )
+        );
     }
 
     /// @notice Mint a badge from the calling wallet
