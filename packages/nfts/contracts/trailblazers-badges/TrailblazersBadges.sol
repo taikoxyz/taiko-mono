@@ -10,7 +10,12 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     /// @notice Base URI required to interact with IPFS
     string private _baseURIExtended;
-
+    /// @notice Movement IDs
+    uint256 public constant MOVEMENT_NEUTRAL = 0;
+    uint256 public constant MOVEMENT_BASED = 1;
+    uint256 public constant MOVEMENT_BOOSTED = 2;
+    /// @notice Wallet-to-Movement mapping
+    mapping(address _user => uint256 _movement) public movements;
     /// @notice Badge IDs
     uint256 public constant BADGE_RAVERS = 0;
     uint256 public constant BADGE_ROBOTS = 1;
@@ -26,8 +31,10 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     error MINTER_NOT_WHITELISTED();
     error INVALID_INPUT();
     error INVALID_BADGE_ID();
+    error INVALID_MOVEMENT_ID();
 
     event BadgeCreated(uint256 _badgeId, string _badgeName);
+    event MovementSet(address _user, uint256 _movementId);
 
     /// @notice Contract initializer
     /// @param _owner Contract owner
@@ -85,5 +92,28 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
             1, // amount
             "" // empty data
         );
+    }
+
+    /// @notice Sets movement for the calling wallet
+    /// @param _movementId The movement ID to set
+    function setMovement(uint256 _movementId) public {
+        _setMovement(_msgSender(), _movementId);
+    }
+
+    /// @notice Sets movement for a specific address
+    /// @param _user The address to set the movement for
+    /// @param _movementId The movement ID to set
+    /// @dev Owner-only method
+    function setMovement(address _user, uint256 _movementId) public onlyOwner {
+        _setMovement(_user, _movementId);
+    }
+
+    /// @notice Internal method for setting movement
+    /// @param _user The address to set the movement for
+    /// @param _movementId The movement ID to set
+    function _setMovement(address _user, uint256 _movementId) internal {
+        if (_movementId > MOVEMENT_BOOSTED) revert INVALID_MOVEMENT_ID();
+        movements[_user] = _movementId;
+        emit MovementSet(_user, _movementId);
     }
 }

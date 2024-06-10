@@ -154,4 +154,28 @@ contract TrailblazersBadgesTest is Test {
         token.mint(abi.encodePacked(r, s, v), BADGE_ID);
         vm.stopBroadcast();
     }
+
+    function test_setMovement_selfWallet() public {
+        vm.startBroadcast(minters[0]);
+
+        token.setMovement(token.MOVEMENT_BASED());
+        assertEq(token.movements(minters[0]), token.MOVEMENT_BASED());
+        vm.stopBroadcast();
+    }
+
+    function test_setMovement_owner() public {
+        vm.startBroadcast(owner);
+
+        token.setMovement(minters[0], token.MOVEMENT_BASED());
+        assertEq(token.movements(minters[0]), token.MOVEMENT_BASED());
+        vm.stopBroadcast();
+    }
+
+    function test_revert_setMovement_notOwner() public {
+        uint256 movement = token.MOVEMENT_BASED();
+        vm.startBroadcast(minters[0]);
+        vm.expectRevert();
+        token.setMovement(minters[0], movement);
+        vm.stopBroadcast();
+    }
 }
