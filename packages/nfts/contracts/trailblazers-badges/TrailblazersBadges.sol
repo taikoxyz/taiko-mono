@@ -78,7 +78,7 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     function _mintBadgeTo(bytes memory _signature, address _minter, uint256 _badgeId) internal {
         if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
         if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
-
+        _consumeMint(_signature, _minter, _badgeId);
         _mint(
             _minter,
             _badgeId,

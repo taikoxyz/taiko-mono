@@ -136,4 +136,23 @@ contract TrailblazersBadgesTest is Test {
 
         assertEq(token.balanceOf(minters[0], BADGE_ID), 1);
     }
+
+    function test_mint_revert_remintSameSignature() public {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        assertTrue(canMint);
+
+        vm.startBroadcast(minters[0]);
+        token.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        assertEq(token.balanceOf(minters[0], BADGE_ID), 1);
+
+        // fail re-minting
+        vm.expectRevert();
+        token.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        vm.stopBroadcast();
+
+    }
 }
