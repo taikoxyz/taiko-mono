@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	zeroAddress      = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	errUnprocessable = errors.New("message is unprocessable")
+	zeroAddress          = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	errUnprocessable     = errors.New("message is unprocessable")
+	errAlreadyProcessing = errors.New("already processing txHash")
 )
 
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
@@ -69,6 +70,33 @@ func (p *Processor) processMessage(
 	}
 
 	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
+
+	// check if we already processing this hash
+	checkHash := func(hash common.Hash) error {
+		p.processingTxHashMu.Lock()
+		defer p.processingTxHashMu.Unlock()
+
+		if _, ok := p.processingTxHashes[hash]; ok {
+			slog.Warn("already processing txHash", "txhash", hash.Hex())
+			return errAlreadyProcessing
+		}
+
+		p.processingTxHashes[hash] = true
+
+		return nil
+	}
+
+	// if we are, we dont need to continue
+	if err := checkHash(msgBody.Event.Raw.TxHash); err != nil {
+		return false, 0, err
+	}
+
+	// otherwise, make sure when we exit, we remove this hash from being checked
+	defer func(hash common.Hash) {
+		p.processingTxHashMu.Lock()
+		defer p.processingTxHashMu.Unlock()
+		delete(p.processingTxHashes, hash)
+	}(msgBody.Event.Raw.TxHash)
 
 	if msgBody.TimesRetried >= p.maxMessageRetries {
 		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)

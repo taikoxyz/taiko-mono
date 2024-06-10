@@ -143,7 +143,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // anyways
         uint256 msgValue = 2 ether;
 
-        AssignmentHookBase.ProverAssignment memory assignment = AssignmentHookBase.ProverAssignment({
+        AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
@@ -172,10 +172,13 @@ abstract contract TaikoL1TestBase is TaikoTest {
         meta.difficulty = bytes32(_difficulty);
         meta.gasLimit = gasLimit;
 
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
-
-        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
-
+        TaikoData.HookCall[] memory hookcalls;
+        if (prover != proposer) {
+            hookcalls = new TaikoData.HookCall[](1);
+            hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
+        } else {
+            hookcalls = new TaikoData.HookCall[](0);
+        }
         vm.prank(proposer, proposer);
         (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
             abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),

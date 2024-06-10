@@ -95,7 +95,7 @@ contract TrailblazersBadgesTest is Test {
         token.mint(abi.encodePacked(r, s, v), BADGE_ID);
         vm.stopPrank();
 
-        assertEq(token.balanceOf(minters[0], BADGE_ID), 1);
+        assertEq(token.balanceOf(minters[0]), 1);
     }
 
     function test_mint_revert_notAuthorized() public {
@@ -134,6 +134,80 @@ contract TrailblazersBadgesTest is Test {
         token.mint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
         vm.stopPrank();
 
-        assertEq(token.balanceOf(minters[0], BADGE_ID), 1);
+        assertEq(token.balanceOf(minters[0]), 1);
+    }
+
+    function test_mint_revert_remintSameSignature() public {
+        bytes32 _hash = token.getHash(minters[0], BADGE_ID);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], BADGE_ID);
+        assertTrue(canMint);
+
+        vm.startBroadcast(minters[0]);
+        token.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        assertEq(token.balanceOf(minters[0]), 1);
+
+        // fail re-minting
+        vm.expectRevert();
+        token.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        vm.stopBroadcast();
+    }
+
+    function test_setMovement_selfWallet() public {
+        vm.startBroadcast(minters[0]);
+
+        token.setMovement(token.MOVEMENT_BASED());
+        assertEq(token.movements(minters[0]), token.MOVEMENT_BASED());
+        vm.stopBroadcast();
+    }
+
+    function test_setMovement_owner() public {
+        vm.startBroadcast(owner);
+
+        token.setMovement(minters[0], token.MOVEMENT_BASED());
+        assertEq(token.movements(minters[0]), token.MOVEMENT_BASED());
+        vm.stopBroadcast();
+    }
+
+    function test_revert_setMovement_notOwner() public {
+        uint256 movement = token.MOVEMENT_BASED();
+        vm.startBroadcast(minters[0]);
+        vm.expectRevert();
+        token.setMovement(minters[0], movement);
+        vm.stopBroadcast();
+    }
+
+    function test_uri() public {
+        uint256 badgeId = token.BADGE_DRUMMERS();
+        uint256 movementId = token.MOVEMENT_BASED();
+
+        // mint the badge
+
+        vm.startBroadcast(owner);
+        bytes32 _hash = token.getHash(minters[0], badgeId);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], badgeId);
+        assertTrue(canMint);
+
+        token.mint(abi.encodePacked(r, s, v), minters[0], badgeId);
+
+        // set the user state to based
+        token.setMovement(minters[0], movementId);
+
+        vm.stopBroadcast();
+
+        // check the token URI
+
+        uint256 tokenId = token.getTokenId(minters[0], badgeId);
+
+        vm.assertEq(tokenId, 0);
+
+        string memory uri = token.tokenURI(tokenId);
+
+        vm.assertEq(uri, "ipfs:///1/5");
     }
 }

@@ -25,7 +25,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     /// @notice Mint signer address
     address public mintSigner;
     /// @notice Tracker for minted signatures
-    mapping(bytes signature => bool hasMinted) public minted;
+    mapping(bytes32 signatureHash => bool hasMinted) public minted;
     /// @notice Blackist address
     IMinimalBlacklist public blacklist;
     /// @notice Gap for upgrade safety
@@ -113,7 +113,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         returns (bool)
     {
         if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
-        if (minted[_signature]) return false;
+        if (minted[keccak256(_signature)]) return false;
         return _isSignatureValid(_signature, _minter, _tokenId);
     }
 
@@ -127,7 +127,6 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         IMinimalBlacklist _blacklist
     )
         internal
-        initializer
     {
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         __Context_init();
@@ -141,7 +140,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
     /// @param _tokenId ID for the token to mint
     function _consumeMint(bytes memory _signature, address _minter, uint256 _tokenId) internal {
         if (!canMint(_signature, _minter, _tokenId)) revert MINTS_EXCEEDED();
-        minted[_signature] = true;
+        minted[keccak256(_signature)] = true;
         emit MintConsumed(_minter, _tokenId);
     }
 
