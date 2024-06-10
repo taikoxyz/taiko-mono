@@ -55,6 +55,12 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
         __ECDSAWhitelist_init(_owner, _mintSigner, _blacklistAddress);
     }
 
+    /// @notice Update the base URI
+    /// @param _uri The new base URI
+    function setUri(string memory _uri) public onlyOwner {
+        _baseURIExtended = _uri;
+    }
+
     /// @notice Get the URI for a badge
     /// @param _badgeId The badge ID
     /// @return The URI for the badge
