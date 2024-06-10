@@ -18,6 +18,7 @@ library LibProving {
         ITierProvider.Tier minTier;
         bytes32 metaHash;
         address assignedProver;
+        uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
         uint32 tid;
@@ -125,6 +126,7 @@ library LibProving {
 
         local.blockId = blk.blockId;
         local.assignedProver = blk.assignedProver;
+        local.livenessBond = blk.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -400,17 +402,16 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            uint256 livenessBond = _blk.livenessBond;
-            if (livenessBond != 0) {
+            if (_local.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
-                    if (_blk.assignedProver == msg.sender) {
-                        reward += livenessBond;
+                    if (_local.assignedProver == msg.sender) {
+                        reward += _local.livenessBond;
                     } else {
-                        _tko.transfer(_blk.assignedProver, livenessBond);
+                        _tko.transfer(_local.assignedProver, _local.livenessBond);
                     }
                 }
             }
