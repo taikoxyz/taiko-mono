@@ -65,11 +65,6 @@ library LibProposing {
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
 
-        // We need a prover that will submit proofs after the block has been submitted
-        if (params.assignedProver == address(0)) {
-            revert L1_INVALID_PROVER();
-        }
-
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
         }
@@ -113,8 +108,8 @@ library LibProposing {
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
                 sender: msg.sender,
-                livenessBond: 0 // not used
-             });
+                livenessBond: _config.livenessBond
+            });
         }
 
         // Update certain meta fields
@@ -163,7 +158,8 @@ library LibProposing {
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
-            livenessBond: _config.livenessBond,
+            livenessBond: 0, // Deprecated
+            assignedProver: address(0), // Deprecated
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
             proposedIn: uint56(block.number),
@@ -171,8 +167,7 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0,
-            assignedProver: params.assignedProver
+            verifiedTransitionId: 0
         });
 
         // Store the block in the ring buffer
@@ -184,7 +179,6 @@ library LibProposing {
         }
 
         if (params.hookCalls.length == 0) {
-            if (params.assignedProver != msg.sender) revert L1_NOT_SAME_ADDRESS();
             _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
         } else {
             uint256 tkoBalance = _tko.balanceOf(address(this));
@@ -226,7 +220,7 @@ library LibProposing {
         deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
             blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
+            assignedProver: msg.sender,
             livenessBond: _config.livenessBond,
             meta: meta_,
             depositsProcessed: deposits_
