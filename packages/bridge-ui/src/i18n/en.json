@@ -39,7 +39,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
-      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.015 ETH).",
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
@@ -291,7 +291,7 @@
     },
     "title": "Faucet",
     "warning": {
-      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add more ETH to your wallet (>= 0.015 ETH)",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add more ETH to your wallet (>= 0.0015 ETH)",
       "no_connected": "Please connect your wallet to mint tokens.",
       "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
@@ -503,7 +503,7 @@
               "title": "What is \"Connected to the correct chain\"?"
             },
             "funds": {
-              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
+              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.0015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
               "title": "What is \"Sufficient funds to claim\"?"
             },
             "quota": {
