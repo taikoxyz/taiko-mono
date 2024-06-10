@@ -388,8 +388,6 @@ library LibProving {
         uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
-            // assert(_blk.livenessBond == 0);
-
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
                 reward = _rewardAfterFriction(_ts.contestBond);
@@ -411,10 +409,11 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            uint256 livenessBond = _blk.livenessBond;
-            if (livenessBond != 0) {
+            uint96 livenessBond = _blk.livenessBond;
+            if (livenessBond != 0 && !_blk.livenessBondReturned) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
+                _blk.livenessBondReturned = true;
                 _blk.livenessBond = 0;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
