@@ -125,29 +125,55 @@ library LibUtils {
     }
 
     function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
-        if (_meta.livenessBond != 0) {
-            return keccak256(abi.encode(_meta));
-        } else {
-            return keccak256(
-                abi.encode(
-                    TaikoData.BlockMetadataV1({
-                        l1Hash: _meta.l1Hash,
-                        difficulty: _meta.difficulty,
-                        blobHash: _meta.blobHash,
-                        extraData: _meta.extraData,
-                        depositsHash: _meta.depositsHash,
-                        coinbase: _meta.coinbase,
-                        id: _meta.id,
-                        gasLimit: _meta.gasLimit,
-                        timestamp: _meta.timestamp,
-                        l1Height: _meta.l1Height,
-                        minTier: _meta.minTier,
-                        blobUsed: _meta.blobUsed,
-                        parentMetaHash: _meta.parentMetaHash,
-                        sender: _meta.sender
-                    })
-                )
-            );
-        }
+        return _meta.livenessBond != 0
+            ? keccak256(abi.encode(_meta))
+            : keccak256(abi.encode(metaV2ToV1(_meta)));
+    }
+
+    function metaV1ToV2(TaikoData.BlockMetadataV1 memory _v1)
+        internal
+        pure
+        returns (TaikoData.BlockMetadata memory)
+    {
+        return TaikoData.BlockMetadata({
+            l1Hash: _v1.l1Hash,
+            difficulty: _v1.difficulty,
+            blobHash: _v1.blobHash,
+            extraData: _v1.extraData,
+            depositsHash: _v1.depositsHash,
+            coinbase: _v1.coinbase,
+            id: _v1.id,
+            gasLimit: _v1.gasLimit,
+            timestamp: _v1.timestamp,
+            l1Height: _v1.l1Height,
+            minTier: _v1.minTier,
+            blobUsed: _v1.blobUsed,
+            parentMetaHash: _v1.parentMetaHash,
+            sender: _v1.sender,
+            livenessBond: 0
+        });
+    }
+
+    function metaV2ToV1(TaikoData.BlockMetadata memory _v2)
+        internal
+        pure
+        returns (TaikoData.BlockMetadataV1 memory)
+    {
+        return TaikoData.BlockMetadataV1({
+            l1Hash: _v2.l1Hash,
+            difficulty: _v2.difficulty,
+            blobHash: _v2.blobHash,
+            extraData: _v2.extraData,
+            depositsHash: _v2.depositsHash,
+            coinbase: _v2.coinbase,
+            id: _v2.id,
+            gasLimit: _v2.gasLimit,
+            timestamp: _v2.timestamp,
+            l1Height: _v2.l1Height,
+            minTier: _v2.minTier,
+            blobUsed: _v2.blobUsed,
+            parentMetaHash: _v2.parentMetaHash,
+            sender: _v2.sender
+        });
     }
 }
