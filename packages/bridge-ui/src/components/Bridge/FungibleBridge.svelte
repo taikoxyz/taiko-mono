@@ -7,7 +7,6 @@
 
   import { ImportStep, ReviewStep, StepNavigation } from './FungibleBridgeComponents';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
-  import { processingFee } from './state';
   import { BridgeSteps, BridgingStatus } from './types';
 
   const handleTransactionDetailsClick = () => (activeStep = BridgeSteps.RECIPIENT);
@@ -48,8 +47,6 @@
     <Step stepIndex={BridgeSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === BridgeSteps.CONFIRM}
       >{$t('bridge.step.confirm.title')}</Step>
   </Stepper>
-
-  $procesingFee: {$processingFee}
 
   <Card class="md:mt-[32px] w-full md:w-[524px]" title={stepTitle} text={stepDescription}>
     <div class="space-y-[30px] mt-[30px]">
