@@ -5,7 +5,7 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block
     // 2. Bob proves the block within the proving window, using the correct parent hash.
     // 3. Taylor contests Bob's proof.
     // 4. Bob re-proves his proof, showing Taylor is incorrect.
@@ -13,9 +13,9 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
     function test_taikoL1_group_6_case_1() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Bob, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 

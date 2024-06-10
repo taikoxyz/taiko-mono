@@ -276,7 +276,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         signature = abi.encodePacked(r, s, v);
     }
 
-    function giveEthAndTko(address to, uint256 amountTko, uint256 amountEth) internal {
+    function giveTkoAndEth(address to, uint256 amountTko, uint256 amountEth) internal {
         vm.deal(to, amountEth);
         tko.transfer(to, amountTko);
 

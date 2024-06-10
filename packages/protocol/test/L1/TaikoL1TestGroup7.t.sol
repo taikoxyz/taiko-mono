@@ -11,8 +11,8 @@ contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
     function test_taikoL1_group_7_case_1() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
@@ -49,9 +49,9 @@ contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
     function test_taikoL1_group_7_case_2() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");

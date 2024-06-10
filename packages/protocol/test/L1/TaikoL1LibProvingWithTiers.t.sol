@@ -47,14 +47,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithSameProof() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -96,14 +96,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithDifferentButCorrectProof() external {
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -149,14 +149,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithSgxProof() external {
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -201,14 +201,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithDifferentButInCorrectProof() external {
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -258,14 +258,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithInvalidBlockHash() external {
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -323,14 +323,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_NonAssignedProverCannotBeFirstInProofWindowTime() external {
-        giveEthAndTko(Alice, 1e8 ether, 100 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 100 ether);
         // This is a very weird test (code?) issue here.
         // If this line (or Bob's query balance) is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        giveEthAndTko(Carol, 1e8 ether, 100 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -365,14 +365,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanAlwaysOverwriteTheProof() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -427,14 +427,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverFailsWithInvalidBlockHash() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -476,14 +476,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e7 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -524,14 +524,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     function test_L1_ProveWithInvalidBlockId() external {
         registerAddress("guardian_prover", Alice);
 
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -565,14 +565,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     function test_L1_ProveWithInvalidMetahash() external {
         registerAddress("guardian_prover", Alice);
 
-        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e8 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -605,14 +605,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProofCannotBeOverwrittenByLowerTier() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are onsgoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e7 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -657,14 +657,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithLowerTierProofReverts() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);

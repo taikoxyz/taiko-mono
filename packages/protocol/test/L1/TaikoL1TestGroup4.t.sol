@@ -5,24 +5,23 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, Bob is the prover.
-    // 2. Bob proves the block within the proving window, using the correct parent hash.
-    // 3. Taylor contests then proves Bob is wrong  in the same transaction with a higher-tier
+    // 1. Alice proposes a block
+    // 2. Alice proves the block within the proving window, using the correct parent hash.
+    // 3. Taylor contests then proves Alice is wrong  in the same transaction with a higher-tier
     // proof.
     // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_4_case_1() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
-        console2.log("====== Bob proves the block as the assigned prover");
+        console2.log("====== Alice proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
@@ -30,7 +29,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
         mineAndWrap(10 seconds);
         proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
-        console2.log("====== Taylor contests Bob with a higher tier proof");
+        console2.log("====== Taylor contests Alice with a higher tier proof");
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
         mineAndWrap(10 seconds);
@@ -55,7 +54,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - tierOp.validityBond);
             assertEq(
                 tko.balanceOf(Taylor),
                 10_000 ether - tierSgx.validityBond + tierOp.validityBond * 7 / 8
@@ -87,7 +86,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block
     // 2. David proves the block outside the proving window, using the correct parent hash.
     // 3. Taylor contests then proves David is wrong in the same transaction with a higher-tier
     // proof.
@@ -95,10 +94,9 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
     function test_taikoL1_group_4_case_2() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
-        giveEthAndTko(David, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(David, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
@@ -107,7 +105,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
 
         uint96 livenessBond = L1.getConfig().livenessBond;
 
-        console2.log("====== Bob proves the block as the assigned prover");
+        console2.log("====== Alice proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
@@ -140,7 +138,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(David), 10_000 ether - tierOp.validityBond);
             assertEq(
                 tko.balanceOf(Taylor),

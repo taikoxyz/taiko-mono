@@ -14,7 +14,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_1() external {
         vm.warp(1_000_000);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -62,7 +62,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_2() external {
         vm.warp(1_000_000);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");

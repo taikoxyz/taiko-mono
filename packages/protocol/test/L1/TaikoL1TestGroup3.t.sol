@@ -5,7 +5,7 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block
     // 2. James proves the block outside the proving window, using the correct parent hash.
     // 3. Taylor contests James' proof.
     // 4. William proves James is correct and Taylor is wrong.
@@ -13,11 +13,10 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
     function test_taikoL1_group_3_case_1() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
-        giveEthAndTko(James, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(James, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
@@ -59,7 +58,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, James);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);
         }
@@ -87,7 +86,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, William);
             assertEq(ts.timestamp, block.timestamp); // not zero
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);
             assertEq(
                 tko.balanceOf(William),
@@ -120,7 +119,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, Bob as the prover.
+    // 1. Alice proposes a block
     // 2. James proves the block outside the proving window, with correct parent hash.
     // 3. Taylor contests James' proof.
     // 4. William proves Taylor is correct and James is wrong.
@@ -128,11 +127,10 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
     function test_taikoL1_group_3_case_2() external {
         vm.warp(1_000_000);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
-        giveEthAndTko(James, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 10_000 ether, 1000 ether);
+        giveTkoAndEth(James, 10_000 ether, 1000 ether);
+        giveTkoAndEth(Taylor, 10_000 ether, 1000 ether);
+        giveTkoAndEth(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
@@ -174,7 +172,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, James);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);
         }
@@ -202,7 +200,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, William);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);
 
             uint256 quarterReward = tierOp.validityBond * 7 / 8 / 4;
@@ -230,7 +228,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
 
             uint256 quarterReward = tierOp.validityBond * 7 / 8 / 4;
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);

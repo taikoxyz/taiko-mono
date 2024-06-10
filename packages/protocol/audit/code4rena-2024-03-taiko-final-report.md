@@ -422,9 +422,9 @@ POC for example 1. Paste the below code into the `TaikoL1LibProvingWithTiers.t` 
 ```solidity
 
     function testProverLoss() external{
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         uint256 bobBalanceBefore = tko.balanceOf(Bob);
         vm.prank(Bob, Bob);
@@ -870,14 +870,14 @@ to ts.contestBond == 1 in the second `assert` statement of the `LibProving.prove
 
 ```solidity
     function test_L1_GuardianProverCanOverwriteIfNotSameProof_test() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1e7 ether, 1000 ether);
+        giveTkoAndEth(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
+        giveTkoAndEth(Bob, 1e7 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
