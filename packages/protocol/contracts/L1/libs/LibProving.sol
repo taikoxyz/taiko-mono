@@ -126,6 +126,9 @@ library LibProving {
 
         local.blockId = blk.blockId;
         local.assignedProver = blk.assignedProver;
+        if (local.assignedProver == address(0)) {
+            local.assignedProver = _meta.sender;
+        }
         local.livenessBond = _meta.livenessBond == 0 ? blk.livenessBond : _meta.livenessBond;
         local.metaHash = blk.metaHash;
 
@@ -421,7 +424,7 @@ library LibProving {
                     if (_blk.assignedProver == msg.sender) {
                         reward += _local.livenessBond;
                     } else {
-                        _tko.transfer(_blk.assignedProver, _local.livenessBond);
+                        _tko.transfer(_local.assignedProver, _local.livenessBond);
                     }
                 }
             }
