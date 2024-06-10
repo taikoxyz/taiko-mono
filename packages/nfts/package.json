@@ -21,7 +21,8 @@
     "taikoon:deploy:mainnet": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 13 ",
     "snaefell:deploy:mainnet": "forge clean && pnpm compile && forge script script/snaefell/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 13 ",
     "taikoon:deploy:holesky": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://1rpc.io/holesky --broadcast   --gas-estimate-multiplier 200",
-    "tbzb:deploy:localhost": "forge clean && pnpm compile && forge script script/trailblazers-badges/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast"
+    "tbzb:deploy:localhost": "forge clean && pnpm compile && forge script script/trailblazers-badges/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "tbzb:deploy:hekla": "forge clean && pnpm compile && forge script script/trailblazers-badges/sol/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

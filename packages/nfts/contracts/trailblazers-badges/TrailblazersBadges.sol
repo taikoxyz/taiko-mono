@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { ERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import { ERC721EnumerableUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import { ECDSAWhitelist } from "./ECDSAWhitelist.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
+contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     /// @notice Base URI required to interact with IPFS
     string private _baseURIExtended;
     /// @notice Movement IDs
@@ -26,9 +26,14 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     uint256 public constant BADGE_ANDROIDS = 6;
     uint256 public constant BADGE_SHINTO = 7;
 
+    /// @notice Token ID to badge ID mapping
+    mapping(uint256 _tokenId => uint256 _badgeId) public badges;
+    /// @notice Wallet to badge ID, token ID mapping
+    mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
+    /// @notice Movement to badge ID, token ID mapping
     mapping(bytes32 movementBadgeHash => uint256[2] movementBadge) public movementBadges;
-
-    uint256[][] public tokenIds;
+    /// @notice Token count, used to generate tokenIds
+    uint256 public tokenCount;
 
     /// @notice Gap for upgrade safety
     uint256[48] private __gap;
@@ -38,7 +43,7 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     error INVALID_BADGE_ID();
     error INVALID_MOVEMENT_ID();
 
-    event BadgeCreated(uint256 _badgeId, string _badgeName);
+    event BadgeCreated(uint256 _tokenId, address _minter, uint256 _badgeId);
     event MovementSet(address _user, uint256 _movementId);
     event UriSet(string _uri);
 
@@ -56,19 +61,28 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
         external
         initializer
     {
-        __ERC1155_init(_rootURI);
+        __ERC721_init("TrailblazersBadges", "TBB");
         _baseURIExtended = _rootURI;
         __ECDSAWhitelist_init(_owner, _mintSigner, _blacklistAddress);
-
-        _initializeMovementBadges();
     }
 
-    function _initializeMovementBadges() internal {
-        for (uint256 i = MOVEMENT_NEUTRAL; i < MOVEMENT_BOOSTED; i++) {
-            for (uint256 j = BADGE_RAVERS; j < BADGE_SHINTO; j++) {
-                tokenIds.push([i, j]);
-            }
-        }
+    /// @notice Ensure update of userBadges on transfers
+    /// @param to The address to transfer to
+    /// @param tokenId The token id to transfer
+    /// @param auth The authorizer of the transfer
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    )
+        internal
+        virtual
+        override
+        returns (address)
+    {
+        // userBadges[_ownerOf(tokenId)][badges[tokenId]] = 0;
+        userBadges[to][badges[tokenId]] = tokenId;
+        return super._update(to, tokenId, auth);
     }
 
     /// @notice Update the base URI
@@ -78,19 +92,15 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
         emit UriSet(_uri);
     }
 
-    /// @notice Get the URI for a badge
+    /// @notice Get the URI for a tokenId
     /// @param _tokenId The badge ID
     /// @return URI The URI for the badge
-    function uri(uint256 _tokenId) public view override returns (string memory) {
-        uint256[] memory tokenData = tokenIds[_tokenId];
+    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
+        uint256 movementId = movements[ownerOf(_tokenId)];
+        uint256 badgeId = badges[_tokenId];
         return string(
             abi.encodePacked(
-                _baseURIExtended,
-                "/",
-                Strings.toString(tokenData[0]), // movement
-                "/",
-                Strings.toString(tokenData[1]), // badge
-                ".json"
+                _baseURIExtended, "/", Strings.toString(movementId), "/", Strings.toString(badgeId)
             )
         );
     }
@@ -118,13 +128,15 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     function _mintBadgeTo(bytes memory _signature, address _minter, uint256 _badgeId) internal {
         if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
         if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
+
         _consumeMint(_signature, _minter, _badgeId);
-        _mint(
-            _minter,
-            _badgeId,
-            1, // amount
-            "" // empty data
-        );
+
+        badges[tokenCount] = _badgeId;
+
+        _mint(_minter, tokenCount);
+
+        emit BadgeCreated(tokenCount, _minter, _badgeId);
+        tokenCount++;
     }
 
     /// @notice Sets movement for the calling wallet
@@ -150,18 +162,29 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
         emit MovementSet(_user, _movementId);
     }
 
-    function tokenId(
-        uint256 _badgeId,
-        uint256 _movementId
+    /// @notice Retrieve a token ID given their owner and Badge ID
+    /// @param _user The address of the badge owner
+    /// @param _badgeId The badge ID
+    /// @return tokenId The token ID
+    function getTokenId(address _user, uint256 _badgeId) public view returns (uint256) {
+        return userBadges[_user][_badgeId];
+    }
+
+    /// @notice Retrieve a batch of balances
+    /// @param _owners The addresses to check
+    /// @param _ids The badge IDs to check
+    function balanceOfBatch(
+        address[] memory _owners,
+        uint256[] memory _ids
     )
         public
         view
-        returns (uint256 _tokenId)
+        returns (uint256[] memory)
     {
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (tokenIds[i][0] == _movementId && tokenIds[i][1] == _badgeId) {
-                return i;
-            }
+        uint256[] memory balances = new uint256[](_owners.length);
+        for (uint256 i; i < _owners.length; i++) {
+            balances[i] = userBadges[_owners[i]][_ids[i]] == 0 ? 0 : 1;
         }
+        return balances;
     }
 }
