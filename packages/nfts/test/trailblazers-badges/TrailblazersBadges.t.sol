@@ -153,6 +153,5 @@ contract TrailblazersBadgesTest is Test {
         vm.expectRevert();
         token.mint(abi.encodePacked(r, s, v), BADGE_ID);
         vm.stopBroadcast();
-
     }
 }
