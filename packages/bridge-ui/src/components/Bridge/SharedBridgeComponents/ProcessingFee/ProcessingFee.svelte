@@ -5,7 +5,7 @@
 
   import Alert from '$components/Alert/Alert.svelte';
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
-  import { gasLimitZero, processingFee, processingFeeMethod } from '$components/Bridge/state';
+  import { calculatingProcessingFee, gasLimitZero, processingFee, processingFeeMethod } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
@@ -26,7 +26,6 @@
   let dialogId = `dialog-${uid()}`;
 
   let recommendedAmount = BigInt(0);
-  let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
 
   let calculatingEnoughEth = false;
@@ -161,7 +160,7 @@
     <div class="f-between-center">
       <span class="text-secondary-content">{$t('processing_fee.title')}</span>
       <span class=" text-primary-content mt-[4px]">
-        {#if calculatingRecommendedAmount}
+        {#if $calculatingProcessingFee}
           <LoadingText mask="0.0017730224073" /> ETH
         {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
           <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
@@ -175,7 +174,7 @@
   </div>
 {:else if textOnly}
   <span class="text-primary-content mt-[4px] {$$props.class}">
-    {#if calculatingRecommendedAmount}
+    {#if $calculatingProcessingFee}
       <LoadingText mask="0.0017730224073" />
     {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
       <span class="text-warning-sentiment">{$t('processing_fee.recommended.error')}</span>
@@ -201,7 +200,7 @@
     </div>
 
     <span class="body-small-regular text-secondary-content mt-[4px]">
-      {#if calculatingRecommendedAmount}
+      {#if $calculatingProcessingFee}
         <LoadingText mask="0.0001" /> ETH
       {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
         <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
@@ -234,7 +233,7 @@
                 </label>
                 <span class="body-small-regular text-secondary-content">
                   <!-- TODO: think about the UI for this part. Talk to Jane -->
-                  {#if calculatingRecommendedAmount}
+                  {#if $calculatingProcessingFee}
                     <LoadingText mask="0.0001" /> ETH
                   {:else if errorCalculatingRecommendedAmount}
                     <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
@@ -383,10 +382,7 @@
   </div>
 {/if}
 
-<RecommendedFee
-  bind:amount={recommendedAmount}
-  bind:calculating={calculatingRecommendedAmount}
-  bind:error={errorCalculatingRecommendedAmount} />
+<RecommendedFee bind:amount={recommendedAmount} bind:error={errorCalculatingRecommendedAmount} />
 
 <NoneOption
   bind:enoughEth={hasEnoughEth}
