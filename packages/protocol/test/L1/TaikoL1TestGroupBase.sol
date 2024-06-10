@@ -138,7 +138,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         TaikoData.Block memory blk = L1.getBlock(blockId);
         printBlock(blk);
 
-        for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
+        for (uint24 i = 1; i < blk.nextTransitionId; ++i) {
             printTran(i, L1.getTransition(blockId, i));
         }
     }

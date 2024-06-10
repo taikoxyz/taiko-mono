@@ -83,7 +83,7 @@ library LibVerifying {
         TaikoData.Block storage blk = _state.blocks[slot];
         if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
-        uint32 tid = blk.verifiedTransitionId;
+        uint24 tid = blk.verifiedTransitionId;
 
         // The following scenario should never occur but is included as a
         // precaution.
@@ -216,7 +216,7 @@ library LibVerifying {
         // Init the genesis block
         TaikoData.Block storage blk = _state.blocks[0];
         blk.nextTransitionId = 2;
-        blk.proposedAt = uint64(block.timestamp);
+        blk.proposedAt = uint56(block.timestamp);
         blk.verifiedTransitionId = 1;
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 

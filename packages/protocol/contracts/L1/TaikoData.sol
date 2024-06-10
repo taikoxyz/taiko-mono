@@ -115,11 +115,11 @@ library TaikoData {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
         uint96 livenessBond;
-        uint64 blockId; // slot 3
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
-        uint32 nextTransitionId;
-        uint32 verifiedTransitionId;
+        uint56 blockId; // slot 3
+        uint56 proposedAt; // timestamp
+        uint56 proposedIn; // L1 block number, required/used by node/client.
+        uint24 nextTransitionId;
+        uint24 verifiedTransitionId;
     }
 
     /// @dev Struct representing an Ethereum deposit.
@@ -158,11 +158,11 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mod_blockRingBufferSize => Block blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)) transitionIds;
+        mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint32 transitionId => TransitionState ts)
+                => mapping(uint24 transitionId => TransitionState ts)
         ) transitions;
         // Ring buffer for Ether deposits
         bytes32 __reserve1;

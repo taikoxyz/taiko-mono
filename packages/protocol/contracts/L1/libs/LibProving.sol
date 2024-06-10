@@ -290,7 +290,7 @@ library LibProving {
         Local memory _local
     )
         private
-        returns (uint32 tid_, TaikoData.TransitionState storage ts_)
+        returns (uint24 tid_, TaikoData.TransitionState storage ts_)
     {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 

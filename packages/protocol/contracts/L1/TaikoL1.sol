@@ -175,7 +175,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @return The state transition data of the block.
     function getTransition(
         uint64 _blockId,
-        uint32 _tid
+        uint24 _tid
     )
         public
         view

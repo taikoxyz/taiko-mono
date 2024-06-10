@@ -163,9 +163,9 @@ library LibProposing {
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
             livenessBond: _config.livenessBond,
-            blockId: b.numBlocks,
-            proposedAt: meta_.timestamp,
-            proposedIn: uint64(block.number),
+            blockId: uint56(b.numBlocks),
+            proposedAt: uint56(meta_.timestamp),
+            proposedIn: uint56(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
