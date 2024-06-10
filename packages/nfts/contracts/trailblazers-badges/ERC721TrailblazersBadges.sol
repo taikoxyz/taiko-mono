@@ -26,12 +26,13 @@ contract ERC721TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist
     uint256 public constant BADGE_ANDROIDS = 6;
     uint256 public constant BADGE_SHINTO = 7;
 
+    /// @notice Token ID to badge ID mapping
     mapping(uint256 _tokenId => uint256 _badgeId) public badges;
-
+    /// @notice Wallet to badge ID, token ID mapping
     mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
-
+    /// @notice Movement to badge ID, token ID mapping
     mapping(bytes32 movementBadgeHash => uint256[2] movementBadge) public movementBadges;
-
+    /// @notice Token count, used to generate tokenIds
     uint256 public tokenCount;
 
     /// @notice Gap for upgrade safety
@@ -91,7 +92,7 @@ contract ERC721TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist
         emit UriSet(_uri);
     }
 
-    /// @notice Get the URI for a badge
+    /// @notice Get the URI for a tokenId
     /// @param _tokenId The badge ID
     /// @return URI The URI for the badge
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
@@ -161,6 +162,10 @@ contract ERC721TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist
         emit MovementSet(_user, _movementId);
     }
 
+    /// @notice Retrieve a token ID given their owner and Badge ID
+    /// @param _user The address of the badge owner
+    /// @param _badgeId The badge ID
+    /// @return tokenId The token ID
     function getTokenId(address _user, uint256 _badgeId) public view returns (uint256) {
         return userBadges[_user][_badgeId];
     }
