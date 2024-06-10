@@ -48,7 +48,7 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 	ERC20BalanceRepo, err := NewERC20BalanceRepository(db)
 	assert.Equal(t, nil, err)
 
-	pk, _ := ERC20BalanceRepo.CreateMetadata(context.Background(), 1, "0x123", "SYMBOL")
+	pk, _ := ERC20BalanceRepo.CreateMetadata(context.Background(), 1, "0x123", "SYMBOL", 18)
 
 	bal1, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateERC20BalanceOpts{
@@ -56,7 +56,7 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 			ChainID:         1,
 			Address:         "0x123",
 			ContractAddress: "0x123",
-			Amount:          1,
+			Amount:          "1",
 		}, eventindexer.UpdateERC20BalanceOpts{})
 	assert.Equal(t, nil, err)
 	assert.NotNil(t, bal1)
@@ -67,7 +67,7 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 			ChainID:         1,
 			Address:         "0x123",
 			ContractAddress: "0x123456",
-			Amount:          2,
+			Amount:          "2",
 		}, eventindexer.UpdateERC20BalanceOpts{})
 	assert.Equal(t, nil, err)
 	assert.NotNil(t, bal2)
@@ -85,14 +85,14 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123456789",
-				Amount:          1,
+				Amount:          "1",
 			},
 			eventindexer.UpdateERC20BalanceOpts{
 				ERC20MetadataID: int64(pk),
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123",
-				Amount:          1,
+				Amount:          "1",
 			},
 			nil,
 		},
@@ -103,14 +103,14 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123456789",
-				Amount:          1,
+				Amount:          "1",
 			},
 			eventindexer.UpdateERC20BalanceOpts{
 				ERC20MetadataID: int64(pk),
 				ChainID:         1,
 				Address:         "0x123",
 				ContractAddress: "0x123456",
-				Amount:          1,
+				Amount:          "1",
 			},
 			nil,
 		},

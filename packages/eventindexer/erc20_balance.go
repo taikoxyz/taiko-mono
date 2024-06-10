@@ -12,6 +12,7 @@ type ERC20Metadata struct {
 	ChainID         int64  `json:"chainID"`
 	ContractAddress string `json:"contractAddress"`
 	Symbol          string `json:"symbol"`
+	Decimals        uint8  `json:"decimals"`
 }
 
 // ERC20Balance
@@ -20,7 +21,7 @@ type ERC20Balance struct {
 	ERC20MetadataID int64          `json:"erc20MetadataID"`
 	ChainID         int64          `json:"chainID"`
 	Address         string         `json:"address"`
-	Amount          int64          `json:"amount"`
+	Amount          string         `json:"amount"`
 	ContractAddress string         `json:"contractAddress"`
 	Metadata        *ERC20Metadata `json:"metadata" gorm:"foreignKey:ERC20MetadataID"`
 }
@@ -30,7 +31,7 @@ type UpdateERC20BalanceOpts struct {
 	ChainID         int64
 	Address         string
 	ContractAddress string
-	Amount          int64
+	Amount          string
 }
 
 // ERC20BalanceRepository is used to interact with nft balances in the store
@@ -51,5 +52,6 @@ type ERC20BalanceRepository interface {
 		chainID int64,
 		contractAddress string,
 		symbol string,
+		decimals uint8,
 	) (int, error)
 }

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS erc20_balances (
     erc20_metadata_id int NOT NULL,
     chain_id int NOT NULL,
     address VARCHAR(42) NOT NULL DEFAULT "",
-    amount DECIMAL(65, 0) DEFAULT NULL,
+    amount VARCHAR(200) DEFAULT "0",
     contract_address VARCHAR(42) NOT NULL DEFAULT "",
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

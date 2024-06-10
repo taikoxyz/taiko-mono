@@ -13,11 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
 // nolint: lll
-const erc20ABI = `[{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"}]`
+const erc20ABI = `[{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"}]`
 
 // nolint: lll
 const transferEventABI = `[{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]`
@@ -79,21 +80,21 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	// Parse the Transfer event ABI
 	parsedABI, err := abi.JSON(strings.NewReader(transferEventABI))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "abi.JSON(strings.NewReader")
 	}
 
 	err = parsedABI.UnpackIntoInterface(&event, "Transfer", vLog.Data)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "parsedABI.UnpackIntoInterface")
 	}
 
-	amount := event.Value.Int64()
+	amount := event.Value.String()
 
 	slog.Info(
 		"erc20 transfer found",
 		"from", from,
 		"to", to,
-		"amount", event.Value.Int64(),
+		"amount", event.Value.String(),
 		"contractAddress", vLog.Address.Hex(),
 	)
 
@@ -101,7 +102,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 
 	md, err := i.erc20BalanceRepo.FindMetadata(ctx, chainID.Int64(), vLog.Address.Hex())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "i.erc20BalanceRepo")
 	}
 
 	if md != nil {
@@ -110,17 +111,22 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	if pk == 0 {
 		symbol, err := getERC20Symbol(ctx, i.ethClient, vLog.Address.Hex())
 		if err != nil {
-			return err
+			return errors.Wrap(err, "getERC20Symbol")
 		}
 
-		pk, err = i.erc20BalanceRepo.CreateMetadata(ctx, chainID.Int64(), vLog.Address.Hex(), symbol)
+		decimals, err := getERC20Decimals(ctx, i.ethClient, vLog.Address.Hex())
 		if err != nil {
-			return err
+			return errors.Wrap(err, "getERC20Decimals")
 		}
 
-		slog.Info("metadata created", "pk", pk, "symbol", symbol, "contractAddress", vLog.Address.Hex())
+		pk, err = i.erc20BalanceRepo.CreateMetadata(ctx, chainID.Int64(), vLog.Address.Hex(), symbol, decimals)
+		if err != nil {
+			return errors.Wrap(err, "i.erc20BalanceRepo.CreateMetadata")
+		}
+
+		slog.Info("metadata created", "pk", pk, "symbol", symbol, "decimals", decimals, "contractAddress", vLog.Address.Hex())
 	} else {
-		slog.Info("metadata found", "pk", pk, "contractAddress", vLog.Address.Hex())
+		slog.Info("metadata found", "pk", pk, "symbol", md.Symbol, "decimals", md.Decimals, "contractAddress", vLog.Address.Hex())
 	}
 
 	// increment To address's balance
@@ -148,7 +154,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 
 	_, _, err = i.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "i.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx")
 	}
 
 	return nil
@@ -161,13 +167,13 @@ func getERC20Symbol(ctx context.Context, client *ethclient.Client, contractAddre
 	// Parse the ERC20 contract ABI
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "abi.JSON")
 	}
 
 	// Prepare the call message
 	callData, err := parsedABI.Pack("symbol")
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "parsedABI.Pack")
 	}
 
 	msg := ethereum.CallMsg{
@@ -177,15 +183,51 @@ func getERC20Symbol(ctx context.Context, client *ethclient.Client, contractAddre
 
 	result, err := client.CallContract(ctx, msg, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "client.CallContract")
 	}
 
 	var symbol string
 
 	err = parsedABI.UnpackIntoInterface(&symbol, "symbol", result)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "parsedABI.UnpackIntoInterface")
 	}
 
 	return symbol, nil
+}
+
+func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAddress string) (uint8, error) {
+	// Parse the contract address
+	address := common.HexToAddress(contractAddress)
+
+	// Parse the ERC20 contract ABI
+	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	if err != nil {
+		return 0, err
+	}
+
+	// Prepare the call message
+	callData, err := parsedABI.Pack("decimals")
+	if err != nil {
+		return 0, err
+	}
+
+	msg := ethereum.CallMsg{
+		To:   &address,
+		Data: callData,
+	}
+
+	result, err := client.CallContract(ctx, msg, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	var decimals uint8
+
+	err = parsedABI.UnpackIntoInterface(&decimals, "decimals", result)
+	if err != nil {
+		return 0, err
+	}
+
+	return decimals, nil
 }

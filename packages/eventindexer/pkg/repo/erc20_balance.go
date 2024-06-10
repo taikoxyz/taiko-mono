@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"math/big"
 	"net/http"
 
 	"github.com/morkid/paginate"
@@ -34,6 +35,7 @@ func (r *ERC20BalanceRepository) increaseBalanceInDB(
 		Address:         opts.Address,
 		ChainID:         opts.ChainID,
 		ERC20MetadataID: opts.ERC20MetadataID,
+		Amount:          "0",
 	}
 
 	err := db.
@@ -49,7 +51,11 @@ func (r *ERC20BalanceRepository) increaseBalanceInDB(
 		}
 	}
 
-	b.Amount += opts.Amount
+	amt, _ := new(big.Int).SetString(b.Amount, 10)
+
+	optsAmt, _ := new(big.Int).SetString(opts.Amount, 10)
+
+	b.Amount = new(big.Int).Add(amt, optsAmt).String()
 
 	// update the row to reflect new balance
 	if err := db.Save(b).Error; err != nil {
@@ -86,10 +92,14 @@ func (r *ERC20BalanceRepository) decreaseBalanceInDB(
 		}
 	}
 
-	b.Amount -= opts.Amount
+	amt, _ := new(big.Int).SetString(b.Amount, 10)
+
+	optsAmt, _ := new(big.Int).SetString(opts.Amount, 10)
+
+	b.Amount = new(big.Int).Sub(amt, optsAmt).String()
 
 	// we can just delete the row, this user has no more of this token
-	if b.Amount == 0 {
+	if b.Amount == "0" {
 		if err := db.Delete(b).Error; err != nil {
 			return nil, errors.Wrap(err, "r.db.Delete")
 		}
@@ -114,7 +124,7 @@ func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 			return err
 		}
 
-		if decreaseOpts.Amount != 0 {
+		if decreaseOpts.Amount != "0" && decreaseOpts.Amount != "" {
 			decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
 		}
 
@@ -174,6 +184,7 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 	chainID int64,
 	contractAddress string,
 	symbol string,
+	decimals uint8,
 ) (int, error) {
 	var id int
 
@@ -182,8 +193,8 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 
 	// Insert the new entry
 	result := tx.Exec(
-		"INSERT INTO erc20_metadata (chain_id, contract_address, symbol, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
-		chainID, contractAddress, symbol,
+		"INSERT INTO erc20_metadata (chain_id, contract_address, symbol, decimals, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())",
+		chainID, contractAddress, symbol, decimals,
 	)
 
 	if result.Error != nil {

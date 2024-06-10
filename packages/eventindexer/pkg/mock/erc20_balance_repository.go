@@ -55,6 +55,7 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 	chainID int64,
 	contractAddress string,
 	symbol string,
+	decimals uint8,
 ) (int, error) {
 	return 1, nil
 }
