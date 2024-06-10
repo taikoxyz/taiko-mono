@@ -38,11 +38,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // If this line (or Bob's query balance) is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveTkoAndEth(Carol, 1e8 ether, 100 ether);
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -69,14 +65,9 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_L1_multiple_blocks_in_one_L1_block() external {
-        giveTkoAndEth(Alice, 1000 ether, 1000 ether);
+        giveTkoAndEth(Alice, 1_000_000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveTkoAndEth(Carol, 1e8 ether, 100 ether);
-        // Bob
-        vm.prank(Bob, Bob);
-
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
@@ -98,7 +89,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             assertEq(meta.id, blk.blockId);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, parentHash);
-            assertEq(ts.prover, Bob);
+            assertEq(ts.prover, Alice);
 
             parentHash = blockHash;
         }
@@ -136,8 +127,6 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_L1_in_proving_window_logic() external {
         giveTkoAndEth(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveTkoAndEth(Carol, 1e8 ether, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -201,7 +190,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         TaikoData.BlockMetadata memory meta;
 
         giveTkoAndEth(Alice, 1000 ether, 1000 ether);
-        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
 
         // Proposing is still possible
         (meta,) = proposeBlock(Alice, 1_000_000, 1024);
@@ -221,7 +209,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         L1.pause();
 
         giveTkoAndEth(Alice, 1000 ether, 1000 ether);
-        giveTkoAndEth(Bob, 1e8 ether, 100 ether);
 
         // Proposing is also not possible
         proposeButRevert(Alice, 1024, EssentialContract.INVALID_PAUSE_STATUS.selector);
