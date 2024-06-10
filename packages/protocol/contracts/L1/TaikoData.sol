@@ -75,7 +75,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
+        address proposer;
     }
 
     struct BlockMetadata {
@@ -92,7 +92,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
+        address proposer;
         uint96 livenessBond;
     }
 
@@ -123,8 +123,8 @@ library TaikoData {
     /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2 - deprecated
-        uint96 livenessBond;
+        address __assignedProver; // slot 2 - DEPRECATED
+        uint96 __livenessBond; // DEPRECATED
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
         uint56 proposedIn; // L1 block number, required/used by node/client.

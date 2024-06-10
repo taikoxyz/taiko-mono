@@ -125,11 +125,11 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
-        local.assignedProver = blk.assignedProver;
+        local.assignedProver = blk.__assignedProver;
         if (local.assignedProver == address(0)) {
-            local.assignedProver = _meta.sender;
+            local.assignedProver = _meta.proposer;
         }
-        local.livenessBond = _meta.livenessBond == 0 ? blk.livenessBond : _meta.livenessBond;
+        local.livenessBond = _meta.livenessBond == 0 ? blk.__livenessBond : _meta.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -416,14 +416,14 @@ library LibProving {
 
             // TODO(daniel): `_blk.livenessBond !=0` can be removed once we are sure al ringbuffer
             // has been written.
-            if (_blk.livenessBondNotReturned || _blk.livenessBond != 0) {
+            if (_blk.livenessBondNotReturned || _blk.__livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
-                _blk.livenessBond = 0;
+                _blk.__livenessBond = 0;
                 _blk.livenessBondNotReturned = false;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
-                    if (_blk.assignedProver == msg.sender) {
+                    if (_local.assignedProver == msg.sender) {
                         reward += _local.livenessBond;
                     } else {
                         _tko.transfer(_local.assignedProver, _local.livenessBond);

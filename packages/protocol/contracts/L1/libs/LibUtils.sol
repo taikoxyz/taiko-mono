@@ -149,7 +149,7 @@ library LibUtils {
             minTier: _v1.minTier,
             blobUsed: _v1.blobUsed,
             parentMetaHash: _v1.parentMetaHash,
-            sender: _v1.sender,
+            proposer: _v1.proposer,
             livenessBond: 0
         });
     }
@@ -173,7 +173,7 @@ library LibUtils {
             minTier: _v2.minTier,
             blobUsed: _v2.blobUsed,
             parentMetaHash: _v2.parentMetaHash,
-            sender: _v2.sender
+            proposer: _v2.proposer
         });
     }
 }

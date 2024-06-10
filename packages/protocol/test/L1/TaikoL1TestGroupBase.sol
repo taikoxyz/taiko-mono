@@ -132,7 +132,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         console2.log(" | numBlocks:", b.numBlocks);
         console2.log(" | timestamp:", block.timestamp);
         console2.log("---BLOCK#", blk.blockId);
-        console2.log(" | livenessBond:", blk.livenessBond);
+        console2.log(" | livenessBond:", blk.__livenessBond);
         console2.log(" | proposedAt:", blk.proposedAt);
         console2.log(" | metaHash:", vm.toString(blk.metaHash));
         console2.log(" | nextTransitionId:", blk.nextTransitionId);
