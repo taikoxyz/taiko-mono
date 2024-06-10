@@ -59,7 +59,6 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     /// @param _signature The signature authorizing the mint
     /// @param _badgeId The badge ID to mint
     function mint(bytes memory _signature, uint256 _badgeId) public {
-        if (!canMint(_signature, _msgSender(), _badgeId)) revert MINTER_NOT_WHITELISTED();
         _mintBadgeTo(_signature, _msgSender(), _badgeId);
     }
 
@@ -69,8 +68,6 @@ contract TrailblazersBadges is ERC1155Upgradeable, ECDSAWhitelist {
     /// @param _badgeId The badge ID to mint
     /// @dev Admin only method
     function mint(bytes memory _signature, address _minter, uint256 _badgeId) public onlyOwner {
-        if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
-
         _mintBadgeTo(_signature, _minter, _badgeId);
     }
 
