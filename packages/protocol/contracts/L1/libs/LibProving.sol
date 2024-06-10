@@ -126,7 +126,7 @@ library LibProving {
 
         local.blockId = blk.blockId;
         local.assignedProver = blk.assignedProver;
-        local.livenessBond = blk.livenessBond;
+        local.livenessBond = _meta.livenessBond == 0 ? blk.livenessBond : _meta.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -411,10 +411,11 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
+            if (_blk.livenessBond != 0 || !_blk.livenessBondReturned) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
+                _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_blk.assignedProver == msg.sender) {
