@@ -32,7 +32,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, false);
+            assertEq(blk.livenessBondNotReturned, true);
 
             proposedAt = blk.proposedAt;
             assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
@@ -69,7 +69,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
@@ -139,7 +139,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.proposedAt, block.timestamp);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, false);
+            assertEq(blk.livenessBondNotReturned, true);
 
             proposedAt = blk.proposedAt;
 
@@ -166,7 +166,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.proposedAt, proposedAt);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
@@ -195,7 +195,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.proposedAt, proposedAt);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
@@ -252,7 +252,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.verifiedTransitionId, 2);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
             assertEq(ts.contester, address(0));
@@ -305,7 +305,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.verifiedTransitionId, 1);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.contester, address(0));
@@ -359,7 +359,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.verifiedTransitionId, 2);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
             assertEq(ts.contester, address(0));
@@ -399,7 +399,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.proposedAt, block.timestamp);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, false);
+            assertEq(blk.livenessBondNotReturned, true);
 
             proposedAt = blk.proposedAt;
 
@@ -426,7 +426,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.proposedAt, proposedAt);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
@@ -455,7 +455,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.proposedAt, proposedAt);
 
             assertEq(blk.livenessBond, 0);
-            assertEq(blk.livenessBondReturned, true);
+            assertEq(blk.livenessBondNotReturned, false);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);

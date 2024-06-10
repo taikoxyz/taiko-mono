@@ -414,11 +414,13 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_blk.livenessBond != 0 || !_blk.livenessBondReturned) {
+            // TODO(daniel): `_blk.livenessBond !=0` can be removed once we are sure al ringbuffer
+            // has been written.
+            if (_blk.livenessBondNotReturned || _blk.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
-                _blk.livenessBondReturned = true;
+                _blk.livenessBondNotReturned = false;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_blk.assignedProver == msg.sender) {

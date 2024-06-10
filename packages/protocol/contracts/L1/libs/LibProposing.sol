@@ -160,7 +160,7 @@ library LibProposing {
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
             proposedIn: uint56(block.number),
-            livenessBondReturned: false,
+            livenessBondNotReturned: true,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
