@@ -526,6 +526,7 @@
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
+      "released": "Released",
       "retry": "Retriable",
       "title": "Filters"
     },
@@ -585,6 +586,9 @@
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
+      },
+      "released": {
+        "name": "Released"
       },
       "releasing": "Releasing",
       "retry": {

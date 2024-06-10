@@ -21,6 +21,7 @@
     { value: MessageStatus.RETRIABLE, label: $t('transactions.filter.retry') },
     { value: MessageStatus.DONE, label: $t('transactions.filter.claimed') },
     { value: MessageStatus.FAILED, label: $t('transactions.filter.failed') },
+    { value: MessageStatus.RECALLED, label: $t('transactions.filter.released') },
   ];
 
   const select = (option: (typeof options)[0]) => {
