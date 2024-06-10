@@ -53,6 +53,9 @@
       "bridging": "Bridging",
       "fetch": "Fetch NFT data",
       "import": "Import",
+      "reset": "Reset",
+      "reset_approval": "Reset Approval",
+      "resetting": "Resetting",
       "validating": "Validating..."
     },
     "description": {
@@ -205,6 +208,9 @@
         "recipient": "Recipient",
         "review": "Review"
       }
+    },
+    "usdt_approval": {
+      "info": "You have previously approved a lower amount of USDT. To adjust the approval, you must first reset the previous amount to 0. This requirement is unique to USDT."
     }
   },
   "chain_selector": {
@@ -526,6 +532,7 @@
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
+      "released": "Released",
       "retry": "Retriable",
       "title": "Filters"
     },
@@ -585,6 +592,9 @@
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
+      },
+      "released": {
+        "name": "Released"
       },
       "releasing": "Releasing",
       "retry": {
