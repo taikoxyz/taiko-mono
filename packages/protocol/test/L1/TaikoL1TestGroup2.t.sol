@@ -21,7 +21,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -29,7 +29,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(10 seconds);
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         console2.log("====== Taylor contests Bob");
         bytes32 blockHash2 = bytes32(uint256(20));
@@ -43,7 +43,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -70,7 +70,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -101,7 +101,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             // assertEq(blk.livenessBond, livenessBond);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -132,7 +132,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -140,7 +140,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(10 seconds);
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         console2.log("====== Taylor contests Bob");
         bytes32 blockHash2 = bytes32(uint256(20));
@@ -154,7 +154,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -181,7 +181,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -211,7 +211,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);

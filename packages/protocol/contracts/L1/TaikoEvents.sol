@@ -13,14 +13,12 @@ import "./TaikoData.sol";
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The block's assigned prover.
-    /// @param livenessBond The bond in Taiko token from the assigned prover.
+    /// @param livenessBond The bond in Taiko token from the prover.
     /// @param meta The block metadata containing information about the proposed
     /// block.
     /// @param depositsProcessed Ether deposits processed.
     event BlockProposed(
         uint256 indexed blockId,
-        address indexed assignedProver,
         uint96 livenessBond,
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed

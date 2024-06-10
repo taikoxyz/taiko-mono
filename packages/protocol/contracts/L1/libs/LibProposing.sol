@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
-import "../hooks/IHook.sol";
 import "./LibUtils.sol";
 
 /// @title LibProposing
@@ -20,14 +19,12 @@ library LibProposing {
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover.
     /// @param livenessBond The liveness bond of the proposed block.
     /// @param meta The metadata of the proposed block.
     /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
-        address indexed assignedProver,
         uint96 livenessBond,
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
@@ -178,39 +175,7 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        if (params.hookCalls.length == 0) {
-            _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
-        } else {
-            uint256 tkoBalance = _tko.balanceOf(address(this));
-
-            // Run all hooks.
-            // Note that address(this).balance has been updated with msg.value,
-            // prior to any code in this function has been executed.
-            address prevHook;
-            for (uint256 i; i < params.hookCalls.length; ++i) {
-                if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
-                    revert L1_INVALID_HOOK();
-                }
-
-                // When a hook is called, all ether in this contract will be sent to the hook.
-                // If the ether sent to the hook is not used entirely, the hook shall send the Ether
-                // back to this contract for the next hook to use.
-                // Proposers shall choose to use extra hooks wisely.
-                IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
-                    blk, meta_, params.hookCalls[i].data
-                );
-
-                prevHook = params.hookCalls[i].hook;
-            }
-
-            // Check that after hooks, the Taiko Token balance of this contract
-            // have increased by the same amount as _config.livenessBond (to prevent)
-            // multiple draining payments by a malicious proposer nesting the same
-            // hook.
-            if (_tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
-                revert L1_LIVENESS_BOND_NOT_RECEIVED();
-            }
-        }
+        _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
 
         // Refund Ether
         if (address(this).balance != 0) {
@@ -220,7 +185,6 @@ library LibProposing {
         deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
             blockId: blk.blockId,
-            assignedProver: msg.sender,
             livenessBond: _config.livenessBond,
             meta: meta_,
             depositsProcessed: deposits_

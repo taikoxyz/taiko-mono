@@ -48,13 +48,13 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -81,13 +81,13 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
@@ -119,13 +119,13 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
@@ -147,7 +147,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             bytes32 blockHash;
             bytes32 stateRoot;
             if (blockId % 2 == 0) {
@@ -173,7 +173,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
                 // Only guardian or assigned prover is allowed
                 if (blockId % 4 == 0) {
-                    proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+                    proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
                 } else {
                     proveBlock(
                         Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
@@ -208,10 +208,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Bob, 1e8 ether, 100 ether);
 
         // Proposing is still possible
-        (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        (meta,) = proposeBlock(Alice, 1_000_000, 1024);
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
-            Bob,
+            Alice,
             meta,
             GENESIS_BLOCK_HASH,
             bytes32("01"),
@@ -228,13 +228,13 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Bob, 1e8 ether, 100 ether);
 
         // Proposing is also not possible
-        proposeButRevert(Alice, Bob, 1024, EssentialContract.INVALID_PAUSE_STATUS.selector);
+        proposeButRevert(Alice, 1024, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
         // unpause
         L1.unpause();
 
         // Proposing is possible again
-        proposeBlock(Alice, Bob, 1_000_000, 1024);
+        proposeBlock(Alice, 1_000_000, 1024);
     }
 
     function test_getTierIds() external {
@@ -247,24 +247,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         cp.getTier(123);
     }
 
-    function proposeButRevert(
-        address proposer,
-        address prover,
-        uint24 txListSize,
-        bytes4 revertReason
-    )
-        internal
-    {
+    function proposeButRevert(address proposer, uint24 txListSize, bytes4 revertReason) internal {
         uint256 msgValue = 2 ether;
-        AssignmentHook.ProverAssignment memory assignment;
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
-        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
-
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
         L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
-            new bytes(txListSize)
+            abi.encode(TaikoData.BlockParams(address(0), 0, 0, "")), new bytes(txListSize)
         );
     }
 }

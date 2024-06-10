@@ -5,9 +5,9 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
-    // 2. Bob proves the block within the proving window, using the correct parent hash.
-    // 3. Bob's proof is used to verify the block.
+    // 1. Alice proposes a block
+    // 2. Alice proves the block within the proving window, using the correct parent hash.
+    // 3. Alice's proof is used to verify the block.
     function test_taikoL1_group_1_case_1() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
@@ -18,7 +18,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -30,7 +30,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
@@ -69,7 +69,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -97,7 +97,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -115,8 +115,8 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
-    // 2. Taylor proposes the block outside the proving window.
+    // 1. Alice proposes a block
+    // 2. Taylor proves the block outside the proving window.
     // 3. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_2() external {
         vm.warp(1_000_000);
@@ -128,7 +128,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -140,7 +140,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
@@ -167,7 +167,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -196,7 +196,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -215,8 +215,8 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
-    // 2. Bob proves the block within the proving window.
+    // 1. Alice proposes a block
+    // 2. Alice proves the block within the proving window.
     // 3. Taylor proves the block outside the proving window.
     // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_3() external {
@@ -227,7 +227,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         // Prove the block
         bytes32 parentHash1 = bytes32(uint256(9));
@@ -238,7 +238,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         mineAndWrap(10 seconds);
 
         console2.log("====== Bob proves the block first");
-        proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Alice, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
 
         console2.log("====== Taylor proves the block later");
         mineAndWrap(10 seconds);
@@ -253,7 +253,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 2);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
@@ -268,8 +268,8 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
-    // 2. Bob proves the block within the proving window.
+    // 1. Alice proposes a block
+    // 2. Alice proves the block within the proving window.
     // 3. Taylor proves the block outside the proving window.
     // 4. Bob's proof is used to verify the block.
     function test_taikoL1_group_1_case_4() external {
@@ -280,7 +280,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         // Prove the block
         bytes32 parentHash1 = GENESIS_BLOCK_HASH;
@@ -291,7 +291,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         mineAndWrap(10 seconds);
 
         console2.log("====== Bob proves the block first");
-        proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Alice, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
 
         console2.log("====== Taylor proves the block later");
         mineAndWrap(10 seconds);
@@ -306,7 +306,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -321,7 +321,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block
     // 2. William proves the block outside the proving window.
     // 3. Taylor also proves the block outside the proving window.
     // 4. Taylor's proof is used to verify the block.
@@ -334,7 +334,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         // Prove the block
         bytes32 parentHash1 = bytes32(uint256(9));
@@ -360,7 +360,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 2);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
@@ -374,9 +374,9 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         }
     }
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
-    // 2. Bob proves the block outside the proving window, using the correct parent hash.
-    // 3. Bob's proof is used to verify the block.
+    // 1. Alice proposes a block
+    // 2. Alice proves the block outside the proving window, using the correct parent hash.
+    // 3. Alice's proof is used to verify the block.
 
     function test_taikoL1_group_1_case_6() external {
         vm.warp(1_000_000);
@@ -388,7 +388,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -400,7 +400,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
@@ -416,7 +416,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
         console2.log("====== Bob proves the block outside the proving window");
         mineAndWrap(7 days);
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         uint256 provenAt;
 
@@ -427,7 +427,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -455,7 +455,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Bob);
+            // assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -473,7 +473,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning herself as the prover.
+    // 1. Alice proposes a block
     function test_taikoL1_group_1_case_7_no_hooks() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
@@ -481,7 +481,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block with herself as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Alice, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -493,7 +493,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Alice);
+            // assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;

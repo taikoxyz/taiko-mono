@@ -62,7 +62,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -70,7 +70,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
             proveBlock(
@@ -111,7 +111,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -121,7 +121,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             // Try to contest
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
@@ -164,7 +164,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -173,7 +173,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             // Try to contest
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
@@ -216,7 +216,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -226,7 +226,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, minTier, "");
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
@@ -273,7 +273,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -282,7 +282,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
@@ -338,7 +338,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -380,7 +380,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -391,7 +391,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             (, TaikoData.SlotB memory b) = L1.getStateVariables();
             uint64 lastVerifiedBlockBefore = b.lastVerifiedBlockId;
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             console2.log("mintTier is:", meta.minTier);
             // Try to contest
             proveBlock(
@@ -442,7 +442,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -450,7 +450,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
             proveBlock(
@@ -491,7 +491,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -499,7 +499,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
 
             // Prove as guardian
             proveBlock(
@@ -539,7 +539,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -580,7 +580,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -590,7 +590,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // Mess up metahash
             meta.l1Height = 200;
             proveBlock(
-                Bob,
+                Alice,
                 meta,
                 parentHash,
                 blockHash,
@@ -620,7 +620,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -628,14 +628,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of blockhash is
             // exchanged with stateRoot
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
 
             // Prove as guardian
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             // Try to re-prove but reverts
             proveBlock(
-                Bob,
+                Alice,
                 meta,
                 parentHash,
                 stateRoot,
@@ -671,13 +671,13 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         printVariables("before propose");
-        (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
         //printVariables("after propose");
         mine(1);
 
         bytes32 blockHash = bytes32(uint256(1));
         bytes32 stateRoot = bytes32(uint256(1));
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
         // Try to contest with a lower tier proof- but should revert with L1_INVALID_TIER
         proveBlock(
