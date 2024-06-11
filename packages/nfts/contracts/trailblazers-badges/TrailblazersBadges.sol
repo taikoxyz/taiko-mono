@@ -60,7 +60,7 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         external
         initializer
     {
-        __ERC721_init("TrailblazersBadges", "TBB");
+        __ERC721_init("Trailblazers Badges", "TBB");
         _baseURIExtended = _rootURI;
         __ECDSAWhitelist_init(_owner, _mintSigner, _blacklistAddress);
     }
@@ -126,7 +126,6 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     /// @param _badgeId The badge ID to mint
     function _mintBadgeTo(bytes memory _signature, address _minter, uint256 _badgeId) internal {
         if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
-        if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
 
         _consumeMint(_signature, _minter, _badgeId);
 

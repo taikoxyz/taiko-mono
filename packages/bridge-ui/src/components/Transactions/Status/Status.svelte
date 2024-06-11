@@ -124,6 +124,9 @@
     <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
       {$t('transactions.button.release')}
     </button>
+  {:else if bridgeTxStatus === MessageStatus.RECALLED}
+    <StatusDot type="error" />
+    <span>{$t('transactions.status.released.name')}</span>
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />
