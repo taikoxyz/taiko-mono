@@ -137,3 +137,8 @@ func (c *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Heade
 
 	return s, nil
 }
+
+// nolint: lll
+func (c *EthClient) TransactionSender(ctx context.Context, tx *types.Transaction, blockHash common.Hash, txIndex uint8) (common.Address, error) {
+	return common.Address{}, nil
+}

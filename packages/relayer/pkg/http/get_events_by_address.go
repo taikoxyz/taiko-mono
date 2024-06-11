@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"html"
 	"math/big"
 	"net/http"
@@ -11,6 +12,45 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
+
+type Raw struct {
+	Data             string   `json:"data"`
+	Topics           []string `json:"topics"`
+	Address          string   `json:"address"`
+	Removed          bool     `json:"removed"`
+	LogIndex         string   `json:"logIndex"`
+	BlockHash        string   `json:"blockHash"`
+	BlockNumber      string   `json:"blockNumber"`
+	TransactionHash  string   `json:"transactionHash"`
+	TransactionIndex string   `json:"transactionIndex"`
+}
+
+type Stats struct {
+	ProofSize        int `json:"ProofSize"`
+	NumCacheOps      int `json:"NumCacheOps"`
+	GasUsedInFeeCalc int `json:"GasUsedInFeeCalc"`
+}
+
+type Message struct {
+	Id          int    `json:"Id"`
+	To          string `json:"To"`
+	Fee         int64  `json:"Fee"`
+	Data        string `json:"Data"`
+	From        string `json:"From"`
+	Value       int64  `json:"Value"`
+	GasLimit    int    `json:"GasLimit"`
+	SrcOwner    string `json:"SrcOwner"`
+	DestOwner   string `json:"DestOwner"`
+	SrcChainId  int    `json:"SrcChainId"`
+	DestChainId int    `json:"DestChainId"`
+}
+
+type DataStruct struct {
+	Raw     Raw     `json:"Raw"`
+	Stats   Stats   `json:"Stats"`
+	Message Message `json:"Message"`
+	MsgHash string  `json:"MsgHash"`
+}
 
 // GetEventsByAddress
 //
@@ -64,6 +104,57 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+	}
+
+	// get processed message tx and claimedBy
+	for i := range *page.Items.(*[]relayer.Event) {
+		v := &(*page.Items.(*[]relayer.Event))[i]
+
+		msgProcessedEvent, err := srv.eventRepo.FirstByEventAndMsgHash(
+			c.Request().Context(),
+			relayer.EventNameMessageProcessed,
+			v.MsgHash,
+		)
+		if err != nil {
+			continue
+		}
+
+		if msgProcessedEvent == nil {
+			continue
+		}
+
+		r := &Raw{}
+
+		if err := json.Unmarshal([]byte(msgProcessedEvent.Data), r); err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		var ethClient ethClient
+
+		if chainID.Cmp(srv.srcChainID) == 0 {
+			ethClient = srv.destEthClient
+		} else {
+			ethClient = srv.srcEthClient
+		}
+
+		tx, _, err := ethClient.TransactionByHash(c.Request().Context(), common.HexToHash(r.TransactionHash))
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		txIndex, err := strconv.ParseInt(r.TransactionIndex[2:], 16, 64)
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		sender, err := ethClient.TransactionSender(c.Request().Context(), tx, common.HexToHash(r.BlockHash), uint8(txIndex))
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		v.ClaimedBy = sender.Hex()
+
+		v.ProcessedTxHash = r.TransactionHash
 	}
 
 	return c.JSON(http.StatusOK, page)
