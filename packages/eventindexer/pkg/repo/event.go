@@ -289,3 +289,16 @@ func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]
 
 	return e, nil
 }
+
+func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+
+	if err := r.db.GormDB().
+		Where("block_id = ?", blockID).
+		Where("event = ?", eventindexer.EventNameBlockProposed).
+		First(&e).Error; err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
