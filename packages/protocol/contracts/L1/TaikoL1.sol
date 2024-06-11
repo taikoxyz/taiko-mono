@@ -226,7 +226,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
             blockRingBufferSize: 324_512,
             // Can be overridden by the tier config.
-            maxBlocksToVerify: 8,
+            maxBlocksToVerify: 16,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
@@ -235,9 +235,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             blockSyncThreshold: 32,
-            // Setting this to 8 means on average, on average 4 blocks will be verified in each
+            // Setting this to 16 means on average, on average 8 blocks will be verified in each
             // verifyBlocks().
-            verificationFrequencyFactor: 8,
+            verificationFrequencyFactor: 16,
             checkEOAForCalldataDA: true
         });
     }
