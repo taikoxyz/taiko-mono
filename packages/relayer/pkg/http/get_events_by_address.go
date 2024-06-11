@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/cyberhorsey/webutils"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -114,7 +113,6 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	for i := range *page.Items.(*[]relayer.Event) {
 		v := &(*page.Items.(*[]relayer.Event))[i]
 
-		spew.Dump("looking", "msgHash", v.MsgHash)
 		msgProcessedEvent, err := srv.eventRepo.FirstByEventAndMsgHash(
 			c.Request().Context(),
 			relayer.EventNameMessageStatusChanged,
@@ -142,7 +140,10 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			ethClient = srv.srcEthClient
 		}
 
-		tx, _, err := ethClient.TransactionByHash(c.Request().Context(), common.HexToHash(r.Raw.TransactionHash))
+		tx, _, err := ethClient.TransactionByHash(
+			c.Request().Context(),
+			common.HexToHash(r.Raw.TransactionHash),
+		)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
@@ -152,7 +153,12 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		sender, err := ethClient.TransactionSender(c.Request().Context(), tx, common.HexToHash(r.Raw.BlockHash), uint(txIndex))
+		sender, err := ethClient.TransactionSender(
+			c.Request().Context(),
+			tx,
+			common.HexToHash(r.Raw.BlockHash),
+			uint(txIndex),
+		)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
