@@ -118,7 +118,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         uint8 maxBlocksToVerify = LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
         uint256 freq = config.verificationFrequencyFactor;
-        if ((freq == 0 || meta.id % freq == 1) && maxBlocksToVerify != 0) {
+        if ((freq == 0 || meta.id % freq == freq / 2) && maxBlocksToVerify != 0) {
             LibVerifying.verifyBlocks(state, tko, config, this, maxBlocksToVerify);
         }
     }
