@@ -108,10 +108,17 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	if md != nil {
 		pk = md.ID
 	}
+
 	if pk == 0 {
 		symbol, err := getERC20Symbol(ctx, i.ethClient, vLog.Address.Hex())
 		if err != nil {
-			return errors.Wrap(err, "getERC20Symbol")
+			// some erc20 dont have symbol method properly,
+			// returns `invalid opcode`.
+			if strings.Contains(err.Error(), "invalid opcode") {
+				symbol = "ERC20"
+			} else {
+				return errors.Wrap(err, "getERC20Symbol")
+			}
 		}
 
 		decimals, err := getERC20Decimals(ctx, i.ethClient, vLog.Address.Hex())
