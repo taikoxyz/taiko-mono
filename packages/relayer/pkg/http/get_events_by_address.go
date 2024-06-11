@@ -132,6 +132,10 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
+		if r.Raw.TransactionIndex == "" {
+			continue
+		}
+
 		var ethClient ethClient
 
 		if chainID.Cmp(srv.srcChainID) == 0 {
