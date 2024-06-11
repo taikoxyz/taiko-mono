@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"gopkg.in/go-playground/assert.v1"
+	"github.com/go-playground/assert/v2"
 )
 
 func Test_BlockToBlockHeader_Legacy(t *testing.T) {

@@ -3,9 +3,9 @@ package repo
 import (
 	"testing"
 
+	"github.com/go-playground/assert/v2"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewSignedBlockRepo(t *testing.T) {

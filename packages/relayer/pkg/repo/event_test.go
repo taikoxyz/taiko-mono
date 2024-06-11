@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/go-playground/assert/v2"
 	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
-	"gopkg.in/go-playground/assert.v1"
 	"gorm.io/datatypes"
 )
 
