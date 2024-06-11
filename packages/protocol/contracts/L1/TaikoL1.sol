@@ -89,7 +89,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         uint256 freq = config.verificationFrequencyFactor;
         if ((freq == 0 || meta_.id % freq == 0) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -115,11 +115,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.Config memory config = getConfig();
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        uint8 maxBlocksToVerify = LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
+        LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
         uint256 freq = config.verificationFrequencyFactor;
-        if ((freq == 0 || meta.id % freq == freq / 2) && maxBlocksToVerify != 0) {
-            LibVerifying.verifyBlocks(state, tko, config, this, maxBlocksToVerify);
+        if ((freq == 0 || meta.id % freq == freq / 2)) {
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -226,18 +226,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
             blockRingBufferSize: 324_512,
             // Can be overridden by the tier config.
-            maxBlocksToVerifyPerProposal: 10,
+            maxBlocksToVerify: 12,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
             // There is 250_000 additional gas for the anchor tx. Therefore, on explorers, you'll
             // read Taiko's gas limit to be 240_250_000.
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 250e18, // 250 Taiko token
+            livenessBond: 125 ether, // 250 Taiko token
             blockSyncThreshold: 32,
-            // Setting this to 16 means on average, on average 8 blocks will be verified in each
+            // Setting this to 8 means on average, on average 4 blocks will be verified in each
             // verifyBlocks().
-            verificationFrequencyFactor: 16,
+            verificationFrequencyFactor: 8,
             checkEOAForCalldataDA: true
         });
     }

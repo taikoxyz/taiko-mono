@@ -3196,7 +3196,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
   *	uint64 blockMaxProposals (8)
   *	uint64 blockRingBufferSize (8)
   *	uint32 blockMaxGasLimit (4)
-  *	uint64 maxBlocksToVerifyPerProposal (8)
+  *	uint64 maxBlocksToVerify (8)
   *	uint64 ethDepositMinCountPerBlock (8)
   *	uint64 ethDepositMaxCountPerBlock (8)
   *	uint24 blockMaxTxListBytes (3)
@@ -3219,7 +3219,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 21: 		        // Size of the block ring buffer, allowing extra space for proposals.
 22: 		        uint64 blockRingBufferSize;
 23: 		        // The maximum number of verifications allowed when a block is proposed.
-24: 		        uint64 maxBlocksToVerifyPerProposal;
+24: 		        uint64 maxBlocksToVerify;
 25: 		        // The maximum gas limit allowed for a block.
 26: 		        uint32 blockMaxGasLimit;
 27: 		        // The maximum allowed bytes for the proposed transaction list calldata.
@@ -5702,7 +5702,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 
 22: 		        uint64 blockRingBufferSize;
 
-24: 		        uint64 maxBlocksToVerifyPerProposal;
+24: 		        uint64 maxBlocksToVerify;
 
 26: 		        uint32 blockMaxGasLimit;
 
