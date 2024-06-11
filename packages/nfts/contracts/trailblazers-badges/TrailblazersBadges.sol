@@ -10,12 +10,12 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     /// @notice Base URI required to interact with IPFS
     string private _baseURIExtended;
+
     /// @notice Movement IDs
     uint256 public constant MOVEMENT_NEUTRAL = 0;
     uint256 public constant MOVEMENT_BASED = 1;
     uint256 public constant MOVEMENT_BOOSTED = 2;
-    /// @notice Wallet-to-Movement mapping
-    mapping(address _user => uint256 _movement) public movements;
+
     /// @notice Badge IDs
     uint256 public constant BADGE_RAVERS = 0;
     uint256 public constant BADGE_ROBOTS = 1;
@@ -32,6 +32,8 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
     /// @notice Movement to badge ID, token ID mapping
     mapping(bytes32 movementBadgeHash => uint256[2] movementBadge) public movementBadges;
+    /// @notice Wallet-to-Movement mapping
+    mapping(address _user => uint256 _movement) public movements;
     /// @notice Token count, used to generate tokenIds
     uint256 public tokenCount;
 
@@ -61,7 +63,7 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         external
         initializer
     {
-        __ERC721_init("TrailblazersBadges", "TBB");
+        __ERC721_init("Trailblazers Badges", "TBB");
         _baseURIExtended = _rootURI;
         __ECDSAWhitelist_init(_owner, _mintSigner, _blacklistAddress);
     }
@@ -127,7 +129,6 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     /// @param _badgeId The badge ID to mint
     function _mintBadgeTo(bytes memory _signature, address _minter, uint256 _badgeId) internal {
         if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
-        if (!canMint(_signature, _minter, _badgeId)) revert MINTER_NOT_WHITELISTED();
 
         _consumeMint(_signature, _minter, _badgeId);
 
@@ -136,7 +137,7 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         _mint(_minter, tokenCount);
 
         emit BadgeCreated(tokenCount, _minter, _badgeId);
-        tokenCount++;
+        ++tokenCount;
     }
 
     /// @notice Sets movement for the calling wallet
@@ -182,9 +183,7 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         returns (uint256[] memory)
     {
         uint256[] memory balances = new uint256[](_owners.length);
-        for (uint256 i; i < _owners.length; i++) {
-            balances[i] = userBadges[_owners[i]][_ids[i]] == 0 ? 0 : 1;
-        }
+        for (uint256 i; i < _owners.length; ++i) { }
         return balances;
     }
 }
