@@ -167,7 +167,7 @@
             "internalType": "uint64"
           },
           {
-            "name": "maxBlocksToVerify",
+            "name": "maxBlocksToVerifyPerProposal",
             "type": "uint64",
             "internalType": "uint64"
           },
