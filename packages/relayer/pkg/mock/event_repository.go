@@ -71,7 +71,11 @@ func (r *EventRepository) FindAllByAddress(
 		Owner string `json:"Owner"`
 	}
 
-	events := make([]*relayer.Event, 0)
+	appendToSlice := func(slice *[]relayer.Event, elements ...relayer.Event) {
+		*slice = append(*slice, elements...)
+	}
+
+	events := &[]relayer.Event{}
 
 	for _, e := range r.events {
 		m, err := e.Data.MarshalJSON()
@@ -85,7 +89,7 @@ func (r *EventRepository) FindAllByAddress(
 		}
 
 		if data.Owner == opts.Address.Hex() {
-			events = append(events, e)
+			appendToSlice(events, *e)
 			break
 		}
 	}
