@@ -252,6 +252,7 @@ library LibVerifying {
             prover: address(0),
             blockHash: _genesisBlockHash,
             stateRoot: 0,
+            transitionId: 0,
             tier: 0
         });
     }
