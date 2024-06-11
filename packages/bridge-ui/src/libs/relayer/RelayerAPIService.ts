@@ -182,7 +182,7 @@ export class RelayerAPIService {
 
       const transformedTx = {
         status: tx.status,
-        amount: BigInt(tx.amount.toString()),
+        amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
         decimals: tx.canonicalTokenDecimals,
         hash: tx.data.Raw.transactionHash,
@@ -201,7 +201,7 @@ export class RelayerAPIService {
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
           gasLimit: tx.data.Message.GasLimit,
-          value: BigInt(tx.data.Message.Value.toString()),
+          value: BigInt(tx.amount),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
           fee: BigInt(tx.data.Message.Fee.toString()),
