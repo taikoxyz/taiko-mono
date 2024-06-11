@@ -33,7 +33,7 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     /// @notice Movement to badge ID, token ID mapping
     mapping(bytes32 movementBadgeHash => uint256[2] movementBadge) public movementBadges;
     /// @notice Gap for upgrade safety
-    uint256[48] private __gap;
+    uint256[43] private __gap;
 
     error MINTER_NOT_WHITELISTED();
     error INVALID_INPUT();
