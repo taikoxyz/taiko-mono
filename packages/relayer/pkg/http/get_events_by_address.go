@@ -132,7 +132,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		if r.Raw.TransactionIndex == "" {
+		if r.Raw.TransactionIndex == "" || r.Raw.TransactionHash == "" {
 			continue
 		}
 
