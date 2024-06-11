@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { importDone } from '$components/Bridge/state';
+  import { calculatingProcessingFee, importDone } from '$components/Bridge/state';
   import { BridgeSteps, BridgingStatus } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
@@ -66,7 +66,7 @@
     manuallyConfirmedRecipientStep = false;
   };
 
-  $: disabled = !$account || !$account.isConnected;
+  $: disabled = !$account || !$account.isConnected || $calculatingProcessingFee;
 
   $: nextStepButtonText = getStepText();
 
