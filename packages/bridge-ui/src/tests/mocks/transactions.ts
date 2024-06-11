@@ -9,7 +9,8 @@ import { L1_CHAIN_ID, L2_CHAIN_ID } from './chains';
 import { MOCK_MESSAGE_L1_L2 } from './messages';
 
 export const MOCK_BRIDGE_TX_1 = {
-  hash: zeroHash,
+  srcTxHash: zeroHash,
+  destTxHash: zeroHash,
   status: 0,
   msgStatus: MessageStatus.NEW,
   msgHash: zeroHash,

@@ -137,11 +137,9 @@ export class RelayerAPIService {
   async getAllBridgeTransactionByAddress(
     address: Address,
     paginationParams: PaginationParams,
-    chainID?: number,
   ): Promise<GetAllByAddressResponse> {
     const params = {
       address,
-      chainID,
       event: 'MessageSent',
       ...paginationParams,
     };
@@ -187,7 +185,8 @@ export class RelayerAPIService {
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
         decimals: tx.canonicalTokenDecimals,
-        hash: tx.data.Raw.transactionHash,
+        srcTxHash: tx.data.Raw.transactionHash,
+        destTxHash: tx.processedTxHash,
         from: tx.messageOwner,
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
@@ -217,15 +216,15 @@ export class RelayerAPIService {
       if (!bridgeTx) return;
 
       if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
-      const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
+      const { destChainId, srcChainId, srcTxHash, msgHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
-      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), hash);
+      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), srcTxHash);
 
       // TODO: do we want to show these transactions?
       if (!receipt || receipt === null) {
-        log('Transaction not mined yet', { hash, srcChainId });
+        log('Transaction not mined yet', { srcTxHash, srcChainId });
       }
 
       bridgeTx.receipt = receipt as TransactionReceipt;
