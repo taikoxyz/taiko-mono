@@ -24,7 +24,6 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
 
     /// @notice Base URI required to interact with IPFS
     string private _baseURIExtended;
-
     /// @notice Token ID to badge ID mapping
     mapping(uint256 _tokenId => uint256 _badgeId) public badges;
     /// @notice Wallet-to-Movement mapping
@@ -33,7 +32,6 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
     /// @notice Movement to badge ID, token ID mapping
     mapping(bytes32 movementBadgeHash => uint256[2] movementBadge) public movementBadges;
-
     /// @notice Gap for upgrade safety
     uint256[48] private __gap;
 

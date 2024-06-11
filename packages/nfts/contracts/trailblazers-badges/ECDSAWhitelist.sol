@@ -112,7 +112,7 @@ contract ECDSAWhitelist is ContextUpgradeable, UUPSUpgradeable, Ownable2StepUpgr
         view
         returns (bool)
     {
-        // if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
+        if (blacklist.isBlacklisted(_minter)) revert ADDRESS_BLACKLISTED();
         if (minted[keccak256(_signature)]) return false;
         return _isSignatureValid(_signature, _minter, _tokenId);
     }
