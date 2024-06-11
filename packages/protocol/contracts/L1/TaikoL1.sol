@@ -240,9 +240,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             blockSyncThreshold: 32,
-            // Setting this to 8 means on average, on average 4 blocks will be verified in each
+            // Setting this to 16 means on average, on average 8 blocks will be verified in each
             // verifyBlocks().
-            verificationFrequencyFactor: 8,
+            verificationFrequencyFactor: 16,
             checkEOAForCalldataDA: true
         });
     }
