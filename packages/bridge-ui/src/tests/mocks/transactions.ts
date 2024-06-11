@@ -14,6 +14,7 @@ export const MOCK_BRIDGE_TX_1 = {
   status: 0,
   msgStatus: MessageStatus.NEW,
   msgHash: zeroHash,
+  processingFee: 1111n,
   from: ALICE,
   amount: 123n,
   symbol: 'WAGMI',

@@ -194,6 +194,7 @@ export class RelayerAPIService {
         tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
+        processingFee: BigInt(tx.data.Message.Fee.toString()),
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,

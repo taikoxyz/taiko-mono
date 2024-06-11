@@ -4,6 +4,7 @@
   import { t } from 'svelte-i18n';
   import { type Address, parseEther } from 'viem';
 
+  import Alert from '$components/Alert/Alert.svelte';
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Spinner from '$components/Spinner/Spinner.svelte';
@@ -93,6 +94,8 @@
   $: hasEnoughEth = false;
   $: hasEnoughQuota = false;
 
+  $: hasPaidProcessingFee = tx.processingFee > 0;
+
   onMount(() => {
     checkConditions();
   });
@@ -113,7 +116,6 @@
             <span>{$t('transactions.claim.steps.pre_check.tooltip.chain.description')}</span>
           </Tooltip>
         </div>
-
         {#if checkingPrerequisites}
           <Spinner />
         {:else if correctChain}
@@ -138,6 +140,7 @@
           <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
         {/if}
       </div>
+
       {#if isL2Chain(Number(tx.srcChainId))}
         <div class="f-between-center">
           <div class="f-row gap-1">
@@ -156,8 +159,19 @@
           {/if}
         </div>
       {/if}
+      {#if hasPaidProcessingFee}
+        <div class="h-sep" />
+        <div class="f-between-center">
+          {#if checkingPrerequisites}
+            <Spinner />
+          {:else}
+            <Alert type="info">{$t('transactions.claim.steps.pre_check.tooltip.processing_fee.description')}</Alert>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
+
   {#if !canContinue && !correctChain}
     <div class="h-sep" />
     <div class="f-col space-y-[16px]">

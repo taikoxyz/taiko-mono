@@ -101,6 +101,7 @@ export type BridgeTransaction = {
   tokenType: TokenType;
   blockNumber: Hex;
   msgHash: Hash;
+  processingFee: bigint;
   message?: Message;
   msgStatus?: MessageStatus;
 

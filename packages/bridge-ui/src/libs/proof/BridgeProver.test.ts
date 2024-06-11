@@ -115,6 +115,7 @@ describe('BridgeProver', () => {
       destTxHash: '' as Hash,
       msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
       srcChainId: 32382n,
+      processingFee: 0n,
       message: {
         data: '0x',
         destChainId: 167001n,

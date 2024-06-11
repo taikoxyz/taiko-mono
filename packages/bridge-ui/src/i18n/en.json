@@ -506,6 +506,9 @@
               "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.0015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
               "title": "What is \"Sufficient funds to claim\"?"
             },
+            "processing_fee": {
+              "description": "A processing fee has been set for this transaction. If the fee is high enough, a relayer may claim it automatically. Regardless, you can choose to manually claim the transaction. Note that the fee is non-refundable."
+            },
             "quota": {
               "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
               "title": "What is \"Sufficient daily quota\"?"
