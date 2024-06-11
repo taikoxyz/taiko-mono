@@ -8,6 +8,10 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeGuardianProver is UpgradeScript {
     function run() external setUp {
-        upgrade("GuardianProver", address(new GuardianProver()));
+        console2.log("upgrading GuardianProver");
+        GuardianProver newGuardianProver = new GuardianProver();
+        upgrade(address(newGuardianProver));
+
+        console2.log("upgraded GuardianProver to", address(newGuardianProver));
     }
 }

@@ -1,8 +1,8 @@
-# Taiko Hekla network Contract Logs
+# Taiko Mainnet Contract Logs
 
 ## Notes
 
-1. Code used on Hekla must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
+1. Code used on mainnet must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
 
 ## L1 Contracts
 
@@ -17,11 +17,11 @@
 
 ### taiko_token
 
-- proxy: `0x6490E12d480549D333499236fF2Ba6676C296011`
-- impl: `0x087f33bf5141033bbf7a2acef5d8fadce9204eca`
-- owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
+- proxy: ``
+- impl: ``
+- owner: `labs.taiko.eth`
 - logs:
-  - deployed on Mar 29, 2024 at commit `b341a68d5`
+  - deployed on April 25, 2024 at commit `2f6d3c62e`
 
 ### signal_service
 
@@ -70,21 +70,21 @@
 
 ### bridged_erc20
 
-- impl: `0x2E062eA9f7f2D777eb67a32710BFDcE42c655B18`
+- impl: ``
 - logs:
-  - deployed on May 10, 2024 at commit `4903bec`
+  - deployed on May 1, 2024 at commit `56dddf2b6`
 
 ### bridged_erc721
 
-- impl: `0xbD832CAf65c8a73609EFd62E2A4FCB1292e4c9C1`
+- impl: ``
 - logs:
-  - deployed on May 10, 2024 at commit `4903bec`
+  - deployed on May 1, 2024 at commit `56dddf2b6`
 
 ### bridged_erc1155
 
-- impl: `0x0B5B063dc89EcfCedf8aF570d82598F72a7dfF35`
+- impl: ``
 - logs:
-  - deployed on May 10, 2024 at commit `4903bec`
+  - deployed on May 1, 2024 at commit `56dddf2b6`
 
 ### rollup_address_manager
 
@@ -97,26 +97,36 @@
 
 ### taikoL1
 
-- proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x168FEe80cD2Cc496b504A0844aBB4eA9ec32f787`
-- owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
+- proxy: ``
+- impl: ``
+- owner: `admin.taiko.eth`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
 
 ### assignmentHook
 
-- proxy: `0x9e640a6aadf4f664CF467B795c31332f44AcBe6c`
-- impl: `0xA35ed4FAD13C038C05aC4c8FD3353B3d90d15ea5`
-- owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
+- proxy: ``
+- impl: ``
+- owner: `admin.taiko.eth`
 - logs:
-  - upgraded on May 10, 2024 at commit `4903bec`
+  - deployed on May 1, 2024 at commit `56dddf2b6`
 
 ### tierProvider
 
-- impl: `0x750D885DCAB712bA808D66D934CF315D0D98d04c.`
+- proxy: ``
+- impl: ``
+- owner: `admin.taiko.eth`
 - logs:
-  - upgraded on May 14, 2024 at commit `0ef7b8caa`
+  - deployed on May 1, 2024 at commit `56dddf2b6`
+
+### tier_sgx
+
+- proxy: ``
+- impl: ``
+- owner: `admin.taiko.eth`
+- logs:
+  - deployed on May 1, 2024 at commit `56dddf2b6`
 
 ### tierRouter
 

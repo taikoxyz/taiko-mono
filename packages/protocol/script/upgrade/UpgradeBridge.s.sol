@@ -8,6 +8,10 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeBridge is UpgradeScript {
     function run() external setUp {
-        upgrade("Bridge", address(new Bridge()));
+        console2.log("upgrading bridge");
+        Bridge newBridge = new Bridge();
+        upgrade(address(newBridge));
+
+        console2.log("upgraded bridge to", address(newBridge));
     }
 }

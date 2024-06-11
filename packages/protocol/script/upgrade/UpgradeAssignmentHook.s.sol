@@ -8,6 +8,10 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeAssignmentHook is UpgradeScript {
     function run() external setUp {
-        upgrade("AssignmentHook", address(new AssignmentHook()));
+        console2.log("upgrading AssignmentHook");
+        AssignmentHook newAssignmentHook = new AssignmentHook();
+        upgrade(address(newAssignmentHook));
+
+        console2.log("upgraded AssignmentHook to", address(newAssignmentHook));
     }
 }
