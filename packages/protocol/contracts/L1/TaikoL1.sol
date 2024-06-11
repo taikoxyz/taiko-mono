@@ -87,12 +87,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
-        if (
-            (
-                config.verificationFrequencyFactor == 0
-                    || meta_.id % config.verificationFrequencyFactor == 0
-            ) && !state.slotB.provingPaused
-        ) {
+        uint256 freq = config.verificationFrequencyFactor;
+        if ((freq == 0 || meta_.id % freq == 0) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
         }
     }
@@ -120,10 +116,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         uint8 maxBlocksToVerify = LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
-        if (
-            config.verificationFrequencyFactor == 0
-                || meta.id % config.verificationFrequencyFactor == 1
-        ) {
+
+        uint256 freq = config.verificationFrequencyFactor;
+        if ((freq == 0 || meta.id % freq == 1) && maxBlocksToVerify != 0) {
             LibVerifying.verifyBlocks(state, tko, config, this, maxBlocksToVerify);
         }
     }
