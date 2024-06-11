@@ -144,9 +144,6 @@ library LibVerifying {
                     }
                 }
 
-                // Mark this block as verified
-                blk.verifiedTransitionId = tid;
-
                 // Update variables
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
@@ -174,9 +171,10 @@ library LibVerifying {
             }
 
             if (numBlocksVerified != 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+                // Mark this block as verified
+                blk.verifiedTransitionId = tid;
 
-                // Update protocol level state variables
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
                 // Sync chain data when necessary
@@ -241,6 +239,7 @@ library LibVerifying {
                 || _config.blockMaxProposals <= 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
                 || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
+                || _config.verificationFrequencyFactor == 0
         ) return false;
 
         return true;
