@@ -355,8 +355,6 @@ contract ERC20Vault is BaseVault {
         private
         returns (address token_)
     {
-        _consumeTokenQuota(token_, _amount);
-
         if (_ctoken.chainId == block.chainid) {
             token_ = _ctoken.addr;
             IERC20(token_).safeTransfer(_to, _amount);
@@ -366,6 +364,7 @@ contract ERC20Vault is BaseVault {
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
+        _consumeTokenQuota(token_, _amount);
     }
 
     /// @dev Handles the message on the source chain and returns the encoded

@@ -48,6 +48,7 @@
   let bridging: boolean;
   let approving: boolean;
   let checking: boolean;
+  let resetting: boolean;
 
   let icon: IconType;
 
@@ -172,6 +173,25 @@
       }
     }
   };
+
+  async function resetApproval() {
+    if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
+    try {
+      let tokenAddress = $selectedToken.addresses[$connectedSourceChain.id];
+      const type: TokenType = $selectedToken.type;
+
+      const spenderAddress = routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc20VaultAddress;
+      const walletClient = await getConnectedWallet($connectedSourceChain.id);
+
+      const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: 0n };
+      approveTxHash = await (bridges[type] as ERC20Bridge).approve(args, true);
+
+      if (approveTxHash) await handleApproveTxHash(approveTxHash);
+    } catch (err) {
+      console.error(err);
+      handleBridgeError(err as Error);
+    }
+  }
 
   async function approve() {
     isBridgePaused().then((paused) => {
@@ -301,7 +321,7 @@
   {#if bridgingStatus === BridgingStatus.PENDING}
     <section id="actions" class="f-col w-full">
       <div class="h-sep mb-[30px]" />
-      <Actions {approve} {bridge} bind:bridging bind:approving bind:checking />
+      <Actions {approve} {bridge} bind:bridging bind:approving bind:checking bind:resetting {resetApproval} />
     </section>
   {/if}
 </div>
