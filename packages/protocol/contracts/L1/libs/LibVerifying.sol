@@ -109,15 +109,11 @@ library LibVerifying {
                 blk = _state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
-                {
-                    uint32 _tid = LibUtils.getTransitionId(_state, blk, slot, blockHash);
-                    // When `tid` is 0, it indicates that there is no proven
-                    // transition with its parentHash equal to the blockHash of the
-                    // most recently verified block.
-                    if (_tid == 0) break;
-
-                    tid = _tid;
-                }
+                tid = LibUtils.getTransitionId(_state, blk, slot, blockHash);
+                // When `tid` is 0, it indicates that there is no proven
+                // transition with its parentHash equal to the blockHash of the
+                // most recently verified block.
+                if (tid == 0) break;
 
                 // A transition with the correct `parentHash` has been located.
                 TaikoData.TransitionState storage ts = _state.transitions[slot][tid];
@@ -148,6 +144,9 @@ library LibVerifying {
                     }
                 }
 
+                // Mark this block as verified
+                blk.verifiedTransitionId = tid;
+
                 // Update variables
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
@@ -175,10 +174,9 @@ library LibVerifying {
             }
 
             if (numBlocksVerified != 0) {
-                // Mark this block as verified
-                blk.verifiedTransitionId = tid;
-
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + numBlocksVerified;
+
+                // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
                 // Sync chain data when necessary
