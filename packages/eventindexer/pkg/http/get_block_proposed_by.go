@@ -17,7 +17,7 @@ import (
 //		    @Param			blockID	query		string		true	"blockID to query"
 //			@Accept			json
 //			@Produce		json
-//			@Success		200	{object} []*eventindexer.Event
+//			@Success		200	{object} []eventindexer.Event
 //			@Router			/blockProposedBy [get]
 func (srv *Server) GetBlockProposedBy(c echo.Context) error {
 	blockID, err := strconv.Atoi(c.QueryParam("blockID"))
