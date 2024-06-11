@@ -8,14 +8,10 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
-    /// @notice Base URI required to interact with IPFS
-    string private _baseURIExtended;
     /// @notice Movement IDs
     uint256 public constant MOVEMENT_NEUTRAL = 0;
     uint256 public constant MOVEMENT_BASED = 1;
     uint256 public constant MOVEMENT_BOOSTED = 2;
-    /// @notice Wallet-to-Movement mapping
-    mapping(address _user => uint256 _movement) public movements;
     /// @notice Badge IDs
     uint256 public constant BADGE_RAVERS = 0;
     uint256 public constant BADGE_ROBOTS = 1;
@@ -26,14 +22,17 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     uint256 public constant BADGE_ANDROIDS = 6;
     uint256 public constant BADGE_SHINTO = 7;
 
+    /// @notice Base URI required to interact with IPFS
+    string private _baseURIExtended;
+
     /// @notice Token ID to badge ID mapping
     mapping(uint256 _tokenId => uint256 _badgeId) public badges;
+    /// @notice Wallet-to-Movement mapping
+    mapping(address _user => uint256 _movement) public movements;
     /// @notice Wallet to badge ID, token ID mapping
     mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
     /// @notice Movement to badge ID, token ID mapping
     mapping(bytes32 movementBadgeHash => uint256[2] movementBadge) public movementBadges;
-    /// @notice Token count, used to generate tokenIds
-    uint256 public tokenCount;
 
     /// @notice Gap for upgrade safety
     uint256[48] private __gap;
@@ -80,7 +79,7 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         override
         returns (address)
     {
-        // userBadges[_ownerOf(tokenId)][badges[tokenId]] = 0;
+        userBadges[_ownerOf(tokenId)][badges[tokenId]] = 0;
         userBadges[to][badges[tokenId]] = tokenId;
         return super._update(to, tokenId, auth);
     }
@@ -131,12 +130,12 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
 
         _consumeMint(_signature, _minter, _badgeId);
 
-        badges[tokenCount] = _badgeId;
+        uint256 tokenId = totalSupply() + 1;
+        badges[tokenId] = _badgeId;
 
-        _mint(_minter, tokenCount);
+        _mint(_minter, tokenId);
 
-        emit BadgeCreated(tokenCount, _minter, _badgeId);
-        tokenCount++;
+        emit BadgeCreated(tokenId, _minter, _badgeId);
     }
 
     /// @notice Sets movement for the calling wallet
@@ -170,21 +169,19 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         return userBadges[_user][_badgeId];
     }
 
-    /// @notice Retrieve a batch of balances
-    /// @param _owners The addresses to check
-    /// @param _ids The badge IDs to check
-    function balanceOfBatch(
-        address[] memory _owners,
-        uint256[] memory _ids
-    )
-        public
-        view
-        returns (uint256[] memory)
-    {
-        uint256[] memory balances = new uint256[](_owners.length);
-        for (uint256 i; i < _owners.length; i++) {
-            balances[i] = userBadges[_owners[i]][_ids[i]] == 0 ? 0 : 1;
-        }
+    /// @notice Retrieve boolean balance for each badge
+    /// @param _owner The addresses to check
+    /// @return balances The badges atomic balances
+    function badgeBalances(address _owner) public view returns (bool[] memory) {
+        bool[] memory balances = new bool[](8);
+        balances[0] = 0 != getTokenId(_owner, BADGE_RAVERS);
+        balances[1] = 0 != getTokenId(_owner, BADGE_ROBOTS);
+        balances[2] = 0 != getTokenId(_owner, BADGE_BOUNCERS);
+        balances[3] = 0 != getTokenId(_owner, BADGE_MASTERS);
+        balances[4] = 0 != getTokenId(_owner, BADGE_MONKS);
+        balances[5] = 0 != getTokenId(_owner, BADGE_DRUMMERS);
+        balances[6] = 0 != getTokenId(_owner, BADGE_ANDROIDS);
+        balances[7] = 0 != getTokenId(_owner, BADGE_SHINTO);
         return balances;
     }
 }

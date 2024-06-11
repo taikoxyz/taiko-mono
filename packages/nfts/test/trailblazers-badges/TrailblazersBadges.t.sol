@@ -203,11 +203,96 @@ contract TrailblazersBadgesTest is Test {
         // check the token URI
 
         uint256 tokenId = token.getTokenId(minters[0], badgeId);
-
-        vm.assertEq(tokenId, 0);
+        vm.assertEq(tokenId, 1);
 
         string memory uri = token.tokenURI(tokenId);
 
         vm.assertEq(uri, "ipfs:///1/5");
+    }
+
+    function test_badgeBalances() public {
+        // mint a token to minter 0
+        uint256 badgeId = token.BADGE_DRUMMERS();
+
+        // mint the badge
+
+        vm.startBroadcast(owner);
+        bytes32 _hash = token.getHash(minters[0], badgeId);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], badgeId);
+        assertTrue(canMint);
+
+        token.mint(abi.encodePacked(r, s, v), minters[0], badgeId);
+        vm.stopBroadcast();
+
+        bool[] memory badges = token.badgeBalances(minters[0]);
+        // ensure only badgeId = 5 (Drummers) is true
+        vm.assertFalse(badges[token.BADGE_RAVERS()]);
+        vm.assertFalse(badges[token.BADGE_ROBOTS()]);
+        vm.assertFalse(badges[token.BADGE_BOUNCERS()]);
+        vm.assertFalse(badges[token.BADGE_MASTERS()]);
+        vm.assertFalse(badges[token.BADGE_MONKS()]);
+        vm.assertTrue(badges[token.BADGE_DRUMMERS()]);
+        vm.assertFalse(badges[token.BADGE_ANDROIDS()]);
+        vm.assertFalse(badges[token.BADGE_SHINTO()]);
+    }
+
+    function test_transfer_dataConsistency() public {
+        // TODO: ensure the values are properly re-assigned after a transfer
+
+        // mint the token for minters[0]
+
+        // mint a token to minter 0
+        uint256 badgeId = token.BADGE_DRUMMERS();
+
+        // mint the badge
+
+        vm.startBroadcast(owner);
+        bytes32 _hash = token.getHash(minters[0], badgeId);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        bool canMint = token.canMint(abi.encodePacked(r, s, v), minters[0], badgeId);
+        assertTrue(canMint);
+
+        token.mint(abi.encodePacked(r, s, v), minters[0], badgeId);
+        vm.stopBroadcast();
+
+        // transfer to minters[1]
+        vm.startBroadcast(minters[0]);
+        token.safeTransferFrom(minters[0], minters[1], 1);
+
+        // ensure the badge balances are consistent
+        bool[] memory badges = token.badgeBalances(minters[1]);
+
+        // ensure only badgeId = 5 (Drummers) is true
+        vm.assertFalse(badges[token.BADGE_RAVERS()]);
+        vm.assertFalse(badges[token.BADGE_ROBOTS()]);
+        vm.assertFalse(badges[token.BADGE_BOUNCERS()]);
+        vm.assertFalse(badges[token.BADGE_MASTERS()]);
+        vm.assertFalse(badges[token.BADGE_MONKS()]);
+        vm.assertTrue(badges[token.BADGE_DRUMMERS()]);
+        vm.assertFalse(badges[token.BADGE_ANDROIDS()]);
+        vm.assertFalse(badges[token.BADGE_SHINTO()]);
+
+        vm.stopBroadcast();
+
+        // ensure wallets[0] has no badges
+        badges = token.badgeBalances(minters[0]);
+
+        vm.assertFalse(badges[token.BADGE_RAVERS()]);
+        vm.assertFalse(badges[token.BADGE_ROBOTS()]);
+        vm.assertFalse(badges[token.BADGE_BOUNCERS()]);
+        vm.assertFalse(badges[token.BADGE_MASTERS()]);
+        vm.assertFalse(badges[token.BADGE_MONKS()]);
+        vm.assertFalse(badges[token.BADGE_DRUMMERS()]);
+        vm.assertFalse(badges[token.BADGE_ANDROIDS()]);
+        vm.assertFalse(badges[token.BADGE_SHINTO()]);
+
+        // check the token IDs
+        vm.assertEq(token.getTokenId(minters[0], badgeId), 0);
+        vm.assertEq(token.getTokenId(minters[1], badgeId), 1);
     }
 }
