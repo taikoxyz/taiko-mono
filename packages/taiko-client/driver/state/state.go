@@ -141,7 +141,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				"📈 Block verified",
 				"blockID", e.BlockId,
 				"hash", common.Hash(e.BlockHash),
-				"stateRoot", common.Hash(e.StateRoot),
+				"transitionId", e.TransitionId,
 				"prover", e.Prover,
 			)
 		case newHead := <-l1HeadCh:

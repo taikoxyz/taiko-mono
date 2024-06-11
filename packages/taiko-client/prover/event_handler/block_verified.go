@@ -30,7 +30,7 @@ func (h *BlockVerifiedEventHandler) Handle(e *bindings.TaikoL1ClientBlockVerifie
 		"New verified block",
 		"blockID", e.BlockId,
 		"hash", common.BytesToHash(e.BlockHash[:]),
-		"stateRoot", common.BytesToHash(e.StateRoot[:]),
+		"transitionId", e.TransitionId,
 		"prover", e.Prover,
 	)
 }
