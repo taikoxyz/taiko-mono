@@ -31,12 +31,14 @@ abstract contract TaikoEvents {
     /// block.
     /// @param blockHash The hash of the verified block.
     /// @param stateRoot The block's state root.
+    /// @param transitionId The transition that used to verify this block.
     /// @param tier The tier ID of the proof.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
+        uint32 transitionId,
         uint16 tier
     );
 

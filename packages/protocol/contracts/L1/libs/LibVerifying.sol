@@ -29,12 +29,14 @@ library LibVerifying {
     /// @param prover The actual prover of the block.
     /// @param blockHash The block hash.
     /// @param stateRoot The state root.
+    /// @param transitionId The transition that used to verify this block.
     /// @param tier The tier of the transition used for verification.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
+        bytes32 transitionId,
         uint16 tier
     );
 
@@ -178,6 +180,7 @@ library LibVerifying {
                     prover: local.prover,
                     blockHash: local.blockHash,
                     stateRoot: local.stateRoot,
+                    transitionId: local.tid,
                     tier: local.tier
                 });
 
