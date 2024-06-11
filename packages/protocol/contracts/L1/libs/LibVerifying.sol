@@ -36,7 +36,7 @@ library LibVerifying {
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
-        bytes32 transitionId,
+        uint32 transitionId,
         uint16 tier
     );
 
