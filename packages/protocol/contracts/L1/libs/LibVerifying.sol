@@ -109,11 +109,15 @@ library LibVerifying {
                 blk = _state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
-                tid = LibUtils.getTransitionId(_state, blk, slot, blockHash);
-                // When `tid` is 0, it indicates that there is no proven
-                // transition with its parentHash equal to the blockHash of the
-                // most recently verified block.
-                if (tid == 0) break;
+                {
+                    uint32 _tid = LibUtils.getTransitionId(_state, blk, slot, blockHash);
+                    // When `tid` is 0, it indicates that there is no proven
+                    // transition with its parentHash equal to the blockHash of the
+                    // most recently verified block.
+                    if (_tid == 0) break;
+
+                    tid = _tid;
+                }
 
                 // A transition with the correct `parentHash` has been located.
                 TaikoData.TransitionState storage ts = _state.transitions[slot][tid];
