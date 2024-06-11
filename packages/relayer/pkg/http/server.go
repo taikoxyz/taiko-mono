@@ -21,7 +21,11 @@ type ethClient interface {
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error)
-	TransactionSender(ctx context.Context, tx *types.Transaction, blockHash common.Hash, txIndex uint) (common.Address, error)
+	TransactionSender(ctx context.Context,
+		tx *types.Transaction,
+		blockHash common.Hash,
+		txIndex uint,
+	) (common.Address, error)
 }
 
 // @title Taiko Bridge Relayer API
