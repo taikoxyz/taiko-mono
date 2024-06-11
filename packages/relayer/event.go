@@ -72,8 +72,8 @@ type Event struct {
 	MsgHash                string         `json:"msgHash"`
 	MessageOwner           string         `json:"messageOwner"`
 	Event                  string         `json:"event"`
-	ClaimedBy              string         `json:"claimedBy"`
-	ProcessedTxHash        string         `json:"processedTxHash"`
+	ClaimedBy              string         `json:"claimedBy" gorm:"-"`
+	ProcessedTxHash        string         `json:"processedTxHash" gorm:"-"`
 }
 
 // SaveEventOpts

@@ -8,11 +8,15 @@ import (
 	"strconv"
 
 	"github.com/cyberhorsey/webutils"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+type JSONData struct {
+	Raw Raw `json:"Raw"`
+}
 type Raw struct {
 	Data             string   `json:"data"`
 	Topics           []string `json:"topics"`
@@ -110,9 +114,10 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	for i := range *page.Items.(*[]relayer.Event) {
 		v := &(*page.Items.(*[]relayer.Event))[i]
 
+		spew.Dump("looking", "msgHash", v.MsgHash)
 		msgProcessedEvent, err := srv.eventRepo.FirstByEventAndMsgHash(
 			c.Request().Context(),
-			relayer.EventNameMessageProcessed,
+			relayer.EventNameMessageStatusChanged,
 			v.MsgHash,
 		)
 		if err != nil {
@@ -123,9 +128,9 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			continue
 		}
 
-		r := &Raw{}
+		r := &JSONData{}
 
-		if err := json.Unmarshal([]byte(msgProcessedEvent.Data), r); err != nil {
+		if err := json.Unmarshal(msgProcessedEvent.Data, r); err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
@@ -137,24 +142,24 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			ethClient = srv.srcEthClient
 		}
 
-		tx, _, err := ethClient.TransactionByHash(c.Request().Context(), common.HexToHash(r.TransactionHash))
+		tx, _, err := ethClient.TransactionByHash(c.Request().Context(), common.HexToHash(r.Raw.TransactionHash))
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		txIndex, err := strconv.ParseInt(r.TransactionIndex[2:], 16, 64)
+		txIndex, err := strconv.ParseInt(r.Raw.TransactionIndex[2:], 16, 64)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		sender, err := ethClient.TransactionSender(c.Request().Context(), tx, common.HexToHash(r.BlockHash), uint8(txIndex))
+		sender, err := ethClient.TransactionSender(c.Request().Context(), tx, common.HexToHash(r.Raw.BlockHash), uint(txIndex))
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
 		v.ClaimedBy = sender.Hex()
 
-		v.ProcessedTxHash = r.TransactionHash
+		v.ProcessedTxHash = r.Raw.TransactionHash
 	}
 
 	return c.JSON(http.StatusOK, page)
