@@ -138,10 +138,10 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 
 		var ethClient ethClient
 
-		if chainID.Cmp(srv.srcChainID) == 0 {
-			ethClient = srv.destEthClient
-		} else {
+		if new(big.Int).SetInt64(msgProcessedEvent.ChainID).Cmp(srv.srcChainID) == 0 {
 			ethClient = srv.srcEthClient
+		} else {
+			ethClient = srv.destEthClient
 		}
 
 		tx, _, err := ethClient.TransactionByHash(
