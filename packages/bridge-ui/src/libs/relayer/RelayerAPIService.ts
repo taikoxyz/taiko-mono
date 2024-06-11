@@ -180,6 +180,8 @@ export class RelayerAPIService {
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
+      const value = tx.data.Message.Value > 0n ? BigInt(tx.amount) : 0n;
+
       const transformedTx = {
         status: tx.status,
         amount: BigInt(tx.amount),
@@ -201,7 +203,7 @@ export class RelayerAPIService {
           srcOwner: tx.data.Message.SrcOwner,
           from: tx.data.Message.From,
           gasLimit: tx.data.Message.GasLimit,
-          value: BigInt(tx.amount),
+          value,
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
           fee: BigInt(tx.data.Message.Fee.toString()),
