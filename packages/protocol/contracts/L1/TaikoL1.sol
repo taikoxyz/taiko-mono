@@ -233,7 +233,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // There is 250_000 additional gas for the anchor tx. Therefore, on explorers, you'll
             // read Taiko's gas limit to be 240_250_000.
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125 ether, // 250 Taiko token
+            livenessBond: 250 ether, // 250 Taiko token
             blockSyncThreshold: 32,
             // Setting this to 8 means on average, on average 4 blocks will be verified in each
             // verifyBlocks().
