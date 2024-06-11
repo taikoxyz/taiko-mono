@@ -149,7 +149,7 @@ library TaikoData {
         bool provingPaused;
         uint8 __reservedB1;
         uint16 __reservedB2;
-        uint32 __reservedB3;
+        uint32 lastVerifiedTransitionId;
         uint64 lastUnpausedAt;
     }
 
