@@ -18,7 +18,6 @@ library LibVerifying {
         uint32 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
-        bytes32 stateRoot;
         address prover;
         ITierRouter tierRouter;
     }
@@ -28,14 +27,12 @@ library LibVerifying {
     /// @param blockId The block ID.
     /// @param prover The actual prover of the block.
     /// @param blockHash The block hash.
-    /// @param stateRoot The state root.
     /// @param transitionId The transition that used to verify this block.
     /// @param tier The tier of the transition used for verification.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 stateRoot,
         uint32 transitionId,
         uint16 tier
     );
@@ -163,7 +160,6 @@ library LibVerifying {
                 // Update variables
                 local.lastVerifiedTransitionId = local.tid;
                 local.blockHash = ts.blockHash;
-                local.stateRoot = ts.stateRoot;
                 local.prover = ts.prover;
 
                 _tko.transfer(local.prover, ts.validityBond);
@@ -179,7 +175,6 @@ library LibVerifying {
                     blockId: local.blockId,
                     prover: local.prover,
                     blockHash: local.blockHash,
-                    stateRoot: local.stateRoot,
                     transitionId: local.tid,
                     tier: local.tier
                 });
@@ -190,12 +185,10 @@ library LibVerifying {
 
             if (local.numBlocksVerified != 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + local.numBlocksVerified;
+                local.slot = lastVerifiedBlockId % _config.blockRingBufferSize;
 
-                // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-
-                _state.blocks[lastVerifiedBlockId % _config.blockRingBufferSize]
-                    .verifiedTransitionId = local.lastVerifiedTransitionId;
+                _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
 
                 // Sync chain data when necessary
                 if (
@@ -205,12 +198,12 @@ library LibVerifying {
                     _state.slotA.lastSyncedBlockId = lastVerifiedBlockId;
                     _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
+                    bytes32 stateRoot =
+                        _state.transitions[local.slot][local.lastVerifiedTransitionId].stateRoot;
+
                     ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
                         .syncChainData(
-                        _config.chainId,
-                        LibStrings.H_STATE_ROOT,
-                        lastVerifiedBlockId,
-                        local.stateRoot
+                        _config.chainId, LibStrings.H_STATE_ROOT, lastVerifiedBlockId, stateRoot
                     );
                 }
             }
@@ -251,7 +244,6 @@ library LibVerifying {
             blockId: 0,
             prover: address(0),
             blockHash: _genesisBlockHash,
-            stateRoot: 0,
             transitionId: 0,
             tier: 0
         });
