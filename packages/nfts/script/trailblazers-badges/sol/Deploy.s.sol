@@ -48,8 +48,6 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        //string memory baseURI = utils.getIpfsBaseURI();
-
         // deploy token with empty root
         address impl = address(new TrailblazersBadges());
         address proxy = address(
