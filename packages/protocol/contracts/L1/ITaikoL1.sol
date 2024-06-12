@@ -27,8 +27,8 @@ interface ITaikoL1 {
     function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
     /// @notice Verifies up to a certain number of blocks.
-    /// @param _maxBlocksToVerifyPerProposal Max number of blocks to verify.
-    function verifyBlocks(uint64 _maxBlocksToVerifyPerProposal) external;
+    /// @param _maxBlocksToVerify Max number of blocks to verify.
+    function verifyBlocks(uint64 _maxBlocksToVerify) external;
 
     /// @notice Pause block proving.
     /// @param _pause True if paused.
