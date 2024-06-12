@@ -166,15 +166,10 @@ library LibUtils {
 
         // Now lets use `maxBlocksToVerify` as an input to calculate the size of each block
         // segment, instead of using 8 as a constant.
-        uint256 segmentSize = _config.maxBlocksToVerify / 2;
+        uint256 segmentSize = _config.maxBlocksToVerify >> 1;
 
         if (segmentSize <= 1) return true;
 
-        uint256 remainder;
-        unchecked {
-            remainder = _isBlockProposed ? segmentSize - 1 : segmentSize / 2 - 1;
-        }
-
-        return _blockId % segmentSize == remainder;
+        return _blockId % segmentSize == _isBlockProposed ? 0 : segmentSize >> 1;
     }
 }
