@@ -6,6 +6,7 @@ import {
   destNetwork,
   enteredAmount,
   insufficientAllowance,
+  needsApprovalReset,
   selectedToken,
 } from '$components/Bridge/state';
 import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
@@ -27,6 +28,7 @@ export enum ApprovalStatus {
   ETH_NO_APPROVAL_REQUIRED,
   APPROVAL_REQUIRED,
   NO_APPROVAL_REQUIRED,
+  RESET_REQUIRED,
 }
 
 export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise<ApprovalStatus> => {
@@ -57,6 +59,7 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   }
   if (token.type === TokenType.ERC20) {
     log('checking approval status for ERC20');
+    needsApprovalReset.set(false);
 
     const tokenVaultAddress = routingContractsMap[currentChainId][destinationChainId].erc20VaultAddress;
     const bridge = bridges[TokenType.ERC20] as ERC20Bridge;
@@ -72,6 +75,19 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       insufficientAllowance.set(requireAllowance);
       allApproved.set(!requireAllowance);
       if (requireAllowance) {
+        // specific check for USDT
+        if (get(selectedToken)?.symbol === 'tUSDT') {
+          const allowance = await bridge.getAllowance({
+            amount: get(enteredAmount),
+            tokenAddress,
+            ownerAddress,
+            spenderAddress: tokenVaultAddress,
+          });
+          if (allowance > 0n) {
+            needsApprovalReset.set(true);
+            return ApprovalStatus.RESET_REQUIRED;
+          }
+        }
         return ApprovalStatus.APPROVAL_REQUIRED;
       }
       return ApprovalStatus.NO_APPROVAL_REQUIRED;
