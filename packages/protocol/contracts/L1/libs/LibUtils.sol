@@ -109,6 +109,26 @@ library LibUtils {
         }
     }
 
+    function getBlockInfo(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+
+        if (blk.verifiedTransitionId != 0) {
+            TaikoData.TransitionState storage transition =
+                _state.transitions[slot][blk.verifiedTransitionId];
+
+            blockHash_ = transition.blockHash;
+            stateRoot_ = transition.stateRoot;
+        }
+    }
+
     function isPostDeadline(
         uint256 _tsTimestamp,
         uint256 _lastUnpausedAt,
