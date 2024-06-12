@@ -150,7 +150,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
+    function getBlock(uint64 _blockId) public view returns (TaikoData.Block memory blk_) {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
