@@ -129,7 +129,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(uint64 _maxBlocksToVerifyPerProposal)
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
@@ -141,7 +141,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)),
             getConfig(),
             this,
-            _maxBlocksToVerifyPerProposal
+            _maxBlocksToVerify
         );
     }
 
