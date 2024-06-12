@@ -30,14 +30,12 @@ library LibVerifying {
     /// @param blockHash The hash of the verified block.
     /// @param stateRoot Deprecated and always zero.
     /// @param tier The tier ID of the proof.
-    /// @param transitionId The transition that used to verify this block.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
         bytes32 blockHash,
         bytes32 stateRoot,
-        uint16 tier,
-        uint32 transitionId
+        uint16 tier
     );
 
     /// @notice Emitted when some state variable values changed.
@@ -175,8 +173,7 @@ library LibVerifying {
                     prover: l.prover,
                     blockHash: l.blockHash,
                     stateRoot: 0, // Always use 0 to avoid an unnecessary sload
-                    tier: l.tier,
-                    transitionId: l.tid
+                    tier: l.tier
                 });
 
                 ++l.blockId;
@@ -245,8 +242,7 @@ library LibVerifying {
             prover: address(0),
             blockHash: _genesisBlockHash,
             stateRoot: 0,
-            tier: 0,
-            transitionId: 0
+            tier: 0
         });
     }
 
