@@ -38,37 +38,12 @@ library LibVerifying {
         uint16 tier
     );
 
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
     error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_ID_ZERO();
     error L1_TOO_LATE();
-
-    /// @notice Initializes the Taiko protocol state.
-    /// @param _state The state to initialize.
-    /// @param _config The configuration for the Taiko protocol.
-    /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
-        _setupGenesisBlock(_state, _genesisBlockHash);
-    }
-
-    function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        if (_state.slotB.numBlocks != 1) revert L1_TOO_LATE();
-
-        _setupGenesisBlock(_state, _genesisBlockHash);
-    }
 
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
@@ -208,17 +183,10 @@ library LibVerifying {
         }
     }
 
-    /// @notice Emit events used by client/node.
-    function emitEventForClient(TaikoData.State storage _state) internal {
-        emit StateVariablesUpdated({ slotB: _state.slotB });
-    }
-
-    function _setupGenesisBlock(
-        TaikoData.State storage _state,
-        bytes32 _genesisBlockHash
-    )
-        private
-    {
+    /// @notice Initializes the Taiko protocol state.
+    /// @param _state The state to initialize.
+    /// @param _genesisBlockHash The block hash of the genesis block.
+    function initGenesis(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
