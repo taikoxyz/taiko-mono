@@ -35,7 +35,6 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
-    error L1_HOOK_NO_LONGER_SUPPORTED();
     error L1_INVALID_PARAM();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
@@ -157,7 +156,7 @@ library LibProposing {
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: keccak256(abi.encode(meta_)),
+            metaHash: LibUtils.hashMetadata(meta_),
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
