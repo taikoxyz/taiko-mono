@@ -24,8 +24,9 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
-                provingWindow: 30 // 0.5 hours
-             });
+                provingWindow: 30, // 0.5 hours
+                maxBlocksToVerifyPerProof: 0
+            });
         }
 
         if (_tierId == LibTiers.TIER_SGX) {
@@ -34,8 +35,9 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
-                provingWindow: 60 // 1 hours
-             });
+                provingWindow: 60, // 1 hours
+                maxBlocksToVerifyPerProof: 0
+            });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
@@ -44,8 +46,9 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 60, //1 hours
-                provingWindow: 2880 // 48 hours
-             });
+                provingWindow: 2880, // 48 hours
+                maxBlocksToVerifyPerProof: 0
+            });
         }
 
         revert TIER_NOT_FOUND();
