@@ -110,7 +110,8 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
-                sender: msg.sender
+                proposer: msg.sender,
+                livenessBond: _config.livenessBond
             });
         }
 
@@ -164,7 +165,8 @@ library LibProposing {
             livenessBond: 0,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
-            proposedIn: uint64(block.number),
+            proposedIn: uint48(block.number),
+            livenessBondNotReturned: true,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
@@ -189,7 +191,7 @@ library LibProposing {
         deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
             blockId: blk.blockId,
-            assignedProver: meta_.sender,
+            assignedProver: meta_.proposer,
             livenessBond: _config.livenessBond,
             meta: meta_,
             depositsProcessed: deposits_

@@ -126,16 +126,20 @@ library LibProving {
 
         local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
-            local.assignedProver = _meta.sender;
+            local.assignedProver = _meta.proposer;
         }
 
-        local.livenessBond = blk.livenessBond;
+        local.livenessBond = _meta.livenessBond;
+        if (local.livenessBond == 0) {
+            local.livenessBond == blk.livenessBond;
+        }
+
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.blockId != _meta.id || local.metaHash != keccak256(abi.encode(_meta))) {
+        if (local.blockId != _meta.id || local.metaHash != LibUtils.hashMetadata(_meta)) {
             revert L1_BLOCK_MISMATCH();
         }
 
@@ -403,10 +407,13 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
+            //  `_blk.livenessBond !=0` can be removed once we are sure all ringbuffer
+            // has been written.
+            if (_blk.livenessBondNotReturned || _local.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
+                _blk.livenessBondNotReturned = false;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {
