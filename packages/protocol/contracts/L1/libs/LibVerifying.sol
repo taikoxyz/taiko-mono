@@ -188,7 +188,6 @@ library LibVerifying {
                 local.slot = lastVerifiedBlockId % _config.blockRingBufferSize;
 
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-                _state.slotB.lastVerifiedTransitionId = local.lastVerifiedTransitionId;
                 _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
 
                 // Sync chain data when necessary
