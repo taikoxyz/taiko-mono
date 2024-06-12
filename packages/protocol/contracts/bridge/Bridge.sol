@@ -662,12 +662,12 @@ contract Bridge is EssentialContract, IBridge {
             uint256 memoryGasCost = words * 3 + words * words / 512;
 
             // Need to add the cost of the worst case scenario of the external CALL, which include
-            // 700 gas for `CALL`, 2,600 gas for `address_access_cost`, 9,000 for
+            // 100 gas for `CALL`, 2,600 gas for `address_access_cost`, 9,000 for
             // `positive_value_cost` (but provides a 2300 gas stipend to the called contract), and
             // 25,000 for `value_to_empty_account_cost`. See EIP-2929.
 
-            // Therefore the total additional cost is 700 + 2600 + 9000 - 2300 + 25000 = 35000.
-            // We use 40000, not 35000, below as a safer buffer.
+            // Therefore the total additional cost is 100 + 2600 + 9000 - 2300 + 25000 = 34400.
+            // We use 40000, not 34400, below as a safer buffer.
             result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 40_000) * 63;
         }
     }
