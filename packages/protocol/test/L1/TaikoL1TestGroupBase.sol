@@ -9,7 +9,6 @@ contract TaikoL1New is TaikoL1 {
         config.maxBlocksToVerify = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
-        config.verificationFrequencyFactor = 2;
         config.checkEOAForCalldataDA = true;
     }
 }

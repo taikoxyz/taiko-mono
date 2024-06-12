@@ -34,7 +34,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The max number of L2 blocks that can stay unsynced on L1
         uint8 blockSyncThreshold;
-        uint8 verificationFrequencyFactor;
         bool checkEOAForCalldataDA;
     }
 

@@ -87,8 +87,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
-        uint256 freq = config.verificationFrequencyFactor;
-        if ((freq == 0 || meta_.id % freq == 0) && !state.slotB.provingPaused) {
+        if ((meta_.id % config.maxBlocksToVerify == 0) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
@@ -117,8 +116,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
-        uint256 freq = config.verificationFrequencyFactor;
-        if ((freq == 0 || meta.id % freq == freq / 2)) {
+        if (meta.id % config.maxBlocksToVerify == config.maxBlocksToVerify / 2) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
@@ -235,9 +233,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             blockSyncThreshold: 32,
-            // Setting this to 16 means on average, on average 8 blocks will be verified in each
-            // verifyBlocks().
-            verificationFrequencyFactor: 16,
             checkEOAForCalldataDA: true
         });
     }
