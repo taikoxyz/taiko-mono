@@ -48,7 +48,7 @@ library LibVerifying {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function initGenesis(TaikoData.State storage _state, bytes32 _genesisBlockHash) public {
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) public {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
