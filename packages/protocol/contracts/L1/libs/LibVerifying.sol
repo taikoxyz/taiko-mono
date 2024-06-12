@@ -162,7 +162,7 @@ library LibVerifying {
                 local.blockHash = ts.blockHash;
                 local.prover = ts.prover;
 
-                _tko.transfer(local.prover, ts.validityBond);
+                LibUtils.conditionallyTransferTo(_tko, local.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist

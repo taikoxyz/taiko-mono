@@ -382,13 +382,13 @@ library LibProving {
                 reward = _rewardAfterFriction(_ts.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                _tko.transfer(_ts.prover, _ts.validityBond);
+                LibUtils.conditionallyTransferTo(_tko, _ts.prover, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
 
-                _tko.transfer(_ts.contester, _ts.contestBond + reward * 3);
+                LibUtils.conditionallyTransferTo(_tko, _ts.contester, _ts.contestBond + reward * 3);
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -407,7 +407,9 @@ library LibProving {
                     if (_local.assignedProver == msg.sender) {
                         reward += _local.livenessBond;
                     } else {
-                        _tko.transfer(_local.assignedProver, _local.livenessBond);
+                        LibUtils.conditionallyTransferTo(
+                            _tko, _local.assignedProver, _local.livenessBond
+                        );
                     }
                 }
             }
@@ -415,7 +417,9 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                _tko.transfer(msg.sender, reward - _local.tier.validityBond);
+                LibUtils.conditionallyTransferTo(
+                    _tko, msg.sender, reward - _local.tier.validityBond
+                );
             } else if (reward < _local.tier.validityBond) {
                 _tko.transferFrom(msg.sender, address(this), _local.tier.validityBond - reward);
             }

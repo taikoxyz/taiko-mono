@@ -22,6 +22,11 @@ library LibUtils {
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();
 
+    function conditionallyTransferTo(IERC20 token, address recipieint, uint256 amount) internal {
+        if (token.balanceOf(recipieint) == 0) return;
+        token.transfer(recipieint, amount);
+    }
+
     /// @notice This function will revert if the transition is not found.
     /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
