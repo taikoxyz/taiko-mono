@@ -667,7 +667,7 @@ contract Bridge is EssentialContract, IBridge {
             // 25,000 for `value_to_empty_account_cost`. See EIP-2929.
 
             // Therefore the total additional cost is 700 + 2600 + 9000 - 2300 + 25000 = 35000.
-            // We use 40000, not 35000,  below as a safer buffer.
+            // We use 40000, not 35000, below as a safer buffer.
             result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 40_000) * 63;
         }
     }
