@@ -31,7 +31,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     modifier emitEventForClient() {
         _;
-        LibVerifying.emitEventForClient(state);
+        emit StateVariablesUpdated({ slotB: state.slotB });
     }
 
     /// @dev Allows for receiving Ether from Hooks
@@ -54,7 +54,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         initializer
     {
         __Essential_init(_owner, _addressManager);
-        LibVerifying.init(state, getConfig(), _genesisBlockHash);
+        LibVerifying.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -64,10 +64,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
-    }
-
-    function resetGenesisHash(bytes32 _genesisBlockHash) external onlyOwner {
-        LibVerifying.resetGenesisHash(state, _genesisBlockHash);
     }
 
     /// @inheritdoc ITaikoL1
@@ -87,8 +83,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
-        uint256 oddBase = config.maxBlocksToVerify >> 1;
-        if (oddBase != 0 && meta_.id % oddBase == 0 && !state.slotB.provingPaused) {
+        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
@@ -117,8 +112,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
-        uint256 oddBase = config.maxBlocksToVerify >> 1;
-        if (oddBase != 0 && meta.id % oddBase == (oddBase >> 1)) {
+        if (LibUtils.shouldVerifyBlocks(config, meta.id, false)) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
@@ -188,11 +182,37 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     {
         return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
     }
+
+    /// @notice Returns information about the last verified block.
+    /// @return blockId_ The last verified block's ID.
+    /// @return blockHash_ The last verified block's blockHash.
+    /// @return stateRoot_ The last verified block's stateRoot.
+    function getLastVerifiedBlock()
+        public
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotB.lastVerifiedBlockId;
+        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+    }
+
+    /// @notice Returns information about the last synchronized block.
+    /// @return blockId_ The last verified block's ID.
+    /// @return blockHash_ The last verified block's blockHash.
+    /// @return stateRoot_ The last verified block's stateRoot.
+    function getLastSyncedBlock()
+        public
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotA.lastSyncedBlockId;
+        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+    }
+
     /// @notice Gets the state variables of the TaikoL1 contract.
     /// @dev This method can be deleted once node/client stops using it.
     /// @return State variables stored at SlotA.
     /// @return State variables stored at SlotB.
-
     function getStateVariables()
         public
         view

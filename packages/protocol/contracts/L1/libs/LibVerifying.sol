@@ -38,11 +38,6 @@ library LibVerifying {
         uint16 tier
     );
 
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -52,24 +47,34 @@ library LibVerifying {
 
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
-    /// @param _config The configuration for the Taiko protocol.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
-        if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) public {
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
+        // Init state
+        _state.slotA.genesisHeight = uint64(block.number);
+        _state.slotA.genesisTimestamp = uint64(block.timestamp);
+        _state.slotB.numBlocks = 1;
 
-        _setupGenesisBlock(_state, _genesisBlockHash);
-    }
+        // Init the genesis block
+        TaikoData.Block storage blk = _state.blocks[0];
+        blk.nextTransitionId = 2;
+        blk.proposedAt = uint64(block.timestamp);
+        blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
-    function resetGenesisHash(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        if (_state.slotB.numBlocks != 1) revert L1_TOO_LATE();
+        // Init the first state transition
+        TaikoData.TransitionState storage ts = _state.transitions[0][1];
+        ts.blockHash = _genesisBlockHash;
+        ts.prover = address(0);
+        ts.timestamp = uint64(block.timestamp);
 
-        _setupGenesisBlock(_state, _genesisBlockHash);
+        emit BlockVerified({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            stateRoot: 0,
+            tier: 0
+        });
     }
 
     /// @dev Verifies up to N blocks.
@@ -208,56 +213,5 @@ library LibVerifying {
                 }
             }
         }
-    }
-
-    /// @notice Emit events used by client/node.
-    function emitEventForClient(TaikoData.State storage _state) internal {
-        emit StateVariablesUpdated({ slotB: _state.slotB });
-    }
-
-    function _setupGenesisBlock(
-        TaikoData.State storage _state,
-        bytes32 _genesisBlockHash
-    )
-        private
-    {
-        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
-        // Init state
-        _state.slotA.genesisHeight = uint64(block.number);
-        _state.slotA.genesisTimestamp = uint64(block.timestamp);
-        _state.slotB.numBlocks = 1;
-
-        // Init the genesis block
-        TaikoData.Block storage blk = _state.blocks[0];
-        blk.nextTransitionId = 2;
-        blk.proposedAt = uint64(block.timestamp);
-        blk.verifiedTransitionId = 1;
-        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
-
-        // Init the first state transition
-        TaikoData.TransitionState storage ts = _state.transitions[0][1];
-        ts.blockHash = _genesisBlockHash;
-        ts.prover = address(0);
-        ts.timestamp = uint64(block.timestamp);
-
-        emit BlockVerified({
-            blockId: 0,
-            prover: address(0),
-            blockHash: _genesisBlockHash,
-            stateRoot: 0,
-            tier: 0
-        });
-    }
-
-    function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
-        if (
-            _config.chainId <= 1 || _config.chainId == block.chainid //
-                || _config.blockMaxProposals <= 1
-                || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
-                || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
-                || _config.maxBlocksToVerify % 2 != 0
-        ) return false;
-
-        return true;
     }
 }
