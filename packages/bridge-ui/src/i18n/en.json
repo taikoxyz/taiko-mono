@@ -39,6 +39,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
@@ -52,6 +53,9 @@
       "bridging": "Bridging",
       "fetch": "Fetch NFT data",
       "import": "Import",
+      "reset": "Reset",
+      "reset_approval": "Reset Approval",
+      "resetting": "Resetting",
       "validating": "Validating..."
     },
     "description": {
@@ -70,6 +74,7 @@
       }
     },
     "errors": {
+      "amount_exceeds_quota": "This amount exceeds the quota. Please lower the amount.",
       "approve_error": {
         "message": "We encountered an issue while trying to approve this token.",
         "title": "Approval failed"
@@ -203,6 +208,9 @@
         "recipient": "Recipient",
         "review": "Review"
       }
+    },
+    "usdt_approval": {
+      "info": "You have previously approved a lower amount of USDT. To adjust the approval, you must first reset the previous amount to 0. This requirement is unique to USDT."
     }
   },
   "chain_selector": {
@@ -283,7 +291,7 @@
     },
     "title": "Faucet",
     "warning": {
-      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add more ETH to your wallet (>= 0.0015 ETH)",
       "no_connected": "Please connect your wallet to mint tokens.",
       "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
@@ -381,12 +389,21 @@
     },
     "custom": {
       "label": "Custom",
-      "text": "Customize your processing fee"
+      "text": "Customize your processing fee",
+      "warning": "Fees set below the recommended level may not attract any relayers. Please adjust values only if you understand the consequences."
     },
     "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
+    "gasLimit": {
+      "message": "No other account can pay your gas fees when claiming",
+      "title": "Only allow sender to claim",
+      "warning": {
+        "message": "This will prevent any relayer from claiming for you, you will have to claim manually. Do not use this option if you are not 100% sure what you are doing. "
+      }
+    },
     "link": "Customize fee",
     "none": {
+      "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
       "warning": "Insufficient ETH to cover the gas fees for claiming."
@@ -486,7 +503,7 @@
               "title": "What is \"Connected to the correct chain\"?"
             },
             "funds": {
-              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain. If you've kept the default processing fee, the relayer will likely claim for you soon.",
+              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.0015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
               "title": "What is \"Sufficient funds to claim\"?"
             },
             "quota": {
@@ -515,6 +532,7 @@
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
+      "released": "Released",
       "retry": "Retriable",
       "title": "Filters"
     },
@@ -574,6 +592,9 @@
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
+      },
+      "released": {
+        "name": "Released"
       },
       "releasing": "Releasing",
       "retry": {

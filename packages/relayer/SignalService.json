@@ -102,6 +102,30 @@
   },
   {
     "type": "function",
+    "name": "getSyncedChainHeight",
+    "inputs": [
+      {
+        "name": "_chainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "_kind",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "impl",
     "inputs": [],
     "outputs": [

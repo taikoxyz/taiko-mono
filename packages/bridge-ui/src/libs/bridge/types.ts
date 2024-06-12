@@ -9,7 +9,7 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
-  PROVEN, // UI ONLY
+  RECALLED,
 }
 
 // struct Message {

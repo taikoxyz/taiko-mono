@@ -86,6 +86,7 @@ library LibProving {
 
     /// @dev Proves or contests a block transition.
     /// @param _state Current TaikoData.State.
+    /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
     /// @param _meta The block's metadata.
@@ -94,6 +95,7 @@ library LibProving {
     /// @return The number of blocks to be verified with this transaction.
     function proveBlock(
         TaikoData.State storage _state,
+        IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         TaikoData.BlockMetadata memory _meta,
@@ -147,9 +149,13 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        ITierProvider tierProvider = LibUtils.getTierProvider(_resolver, local.blockId);
-        local.tier = tierProvider.getTier(_proof.tier);
-        local.minTier = tierProvider.getTier(_meta.minTier);
+        {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
+
+            local.tier = tierProvider.getTier(_proof.tier);
+            local.minTier = tierProvider.getTier(_meta.minTier);
+        }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
             _tsTimestamp: ts.timestamp,
@@ -200,13 +206,12 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
         local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _tran, _proof, local, tko);
+            _overrideWithHigherProof(blk, ts, _tran, _proof, local, _tko);
 
             emit TransitionProved({
                 blockId: local.blockId,
@@ -252,7 +257,7 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                tko.transferFrom(msg.sender, address(this), local.tier.contestBond);
+                _tko.transferFrom(msg.sender, address(this), local.tier.contestBond);
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
