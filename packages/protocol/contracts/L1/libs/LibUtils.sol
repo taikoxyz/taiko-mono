@@ -25,7 +25,7 @@ library LibUtils {
     /// @notice Transfer ERC20 tokens to the recipient only if the recipient's current token balance
     /// is not zero.
     function conditionallyTransferTo(IERC20 token, address recipieint, uint256 amount) internal {
-        if (token.balanceOf(recipieint) != 0) {
+        if (amount != 0 && token.balanceOf(recipieint) != 0) {
             token.transfer(recipieint, amount);
         }
     }
