@@ -77,7 +77,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, block.timestamp);
@@ -105,7 +104,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
@@ -175,7 +173,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, block.timestamp);
@@ -204,7 +201,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
@@ -258,7 +254,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
 
@@ -311,7 +306,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
             assertEq(ts.validityBond, tierOp.validityBond);
 
@@ -365,7 +359,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
 
@@ -435,7 +428,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, block.timestamp);
@@ -463,12 +455,41 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Bob);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
 
             assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+        }
+    }
+
+    // Test summary:
+    // 1. Alice proposes a block, assigning herself as the prover.
+    function test_taikoL1_group_1_case_7_no_hooks() external {
+        vm.warp(1_000_000);
+        printBlockAndTrans(0);
+
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+
+        console2.log("====== Alice propose a block with herself as the assigned prover");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Alice, "");
+
+        uint96 livenessBond = L1.getConfig().livenessBond;
+        uint256 proposedAt;
+        {
+            printBlockAndTrans(meta.id);
+            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
+
+            assertEq(blk.nextTransitionId, 1);
+            assertEq(blk.verifiedTransitionId, 0);
+            assertEq(blk.proposedAt, block.timestamp);
+            assertEq(blk.assignedProver, Alice);
+            assertEq(blk.livenessBond, livenessBond);
+
+            proposedAt = blk.proposedAt;
+
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
         }
     }
 }

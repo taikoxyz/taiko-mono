@@ -24,10 +24,17 @@
     "yourTaikoons": "Your Alpha Tokens",
     "cancel": "Cancel",
     "agree": "Agree",
+    "confirm": "Confirm",
     "view": "View",
     "useOnTrailblazers": "Use NFT"
   },
   "content": {
+    "legal": {
+      "title": "Token claim",
+      "textPre": "By confirming your claim, you agree to the ",
+      "link": "terms and conditions",
+      "textPost": " of the token distribution and authorize the transfer of tokens directly to your wallet."
+    },
     "mint": {
       "title": "Snaefell NFT",
       "textTop": "If you participated in Alpha-1 Testnet (Snæfellsjökull), it's time to connect your wallet and check your eligibility for a special commemorative NFT.",

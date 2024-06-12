@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
@@ -103,11 +102,31 @@ library LibUtils {
     {
         if (_state.transitions[_slot][1].key == _parentHash) {
             tid_ = 1;
+            if (tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
         } else {
             tid_ = _state.transitionIds[_blk.blockId][_parentHash];
+            if (tid_ != 0 && tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
         }
+    }
 
-        if (tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
+    function getBlockInfo(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+
+        if (blk.verifiedTransitionId != 0) {
+            TaikoData.TransitionState storage transition =
+                _state.transitions[slot][blk.verifiedTransitionId];
+
+            blockHash_ = transition.blockHash;
+            stateRoot_ = transition.stateRoot;
+        }
     }
 
     function isPostDeadline(
@@ -123,17 +142,5 @@ library LibUtils {
             uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
             return block.timestamp >= deadline;
         }
-    }
-
-    function getTierProvider(
-        IAddressResolver _resolver,
-        uint256 _blockId
-    )
-        internal
-        view
-        returns (ITierProvider)
-    {
-        ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-        return ITierProvider(tierRouter.getProvider(_blockId));
     }
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.1...docs-site-v1.9.0) (2024-06-07)
+
+
+### Features
+
+* **docs-site:** add based preconfs faq link ([#17493](https://github.com/taikoxyz/taiko-mono/issues/17493)) ([cc8a598](https://github.com/taikoxyz/taiko-mono/commit/cc8a5986206756f1b445ad08543eeaedb5f8aaf4))
+
+## [1.8.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.0...docs-site-v1.8.1) (2024-06-03)
+
+
+### Bug Fixes
+
+* **docs-site:** update rpc call ([#17469](https://github.com/taikoxyz/taiko-mono/issues/17469)) ([bb2a023](https://github.com/taikoxyz/taiko-mono/commit/bb2a023fec3932bfbe2f8fe6c3130332c763d24f))
+
 ## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.1...docs-site-v1.8.0) (2024-06-01)
 
 

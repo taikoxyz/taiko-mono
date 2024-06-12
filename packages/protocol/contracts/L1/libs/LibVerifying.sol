@@ -9,7 +9,6 @@ import "./LibUtils.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerifying {
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is verified.
@@ -63,6 +62,7 @@ library LibVerifying {
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
+        IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
@@ -94,9 +94,7 @@ library LibVerifying {
         bytes32 blockHash = _state.transitions[slot][tid].blockHash;
         bytes32 stateRoot;
         uint64 numBlocksVerified;
-        ITierProvider tierProvider;
-
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+        ITierRouter tierRouter;
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -123,18 +121,21 @@ library LibVerifying {
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
+                uint16 tier = ts.tier;
+
                 if (ts.contester != address(0)) {
                     break;
                 } else {
-                    if (tierProvider == ITierProvider(address(0))) {
-                        tierProvider = LibUtils.getTierProvider(_resolver, blockId);
+                    if (tierRouter == ITierRouter(address(0))) {
+                        tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
                     }
 
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
                             b.lastUnpausedAt,
-                            tierProvider.getTier(ts.tier).cooldownWindow
+                            ITierProvider(tierRouter.getProvider(blockId)).getTier(tier)
+                                .cooldownWindow
                         )
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
@@ -150,7 +151,8 @@ library LibVerifying {
                 blockHash = ts.blockHash;
                 stateRoot = ts.stateRoot;
 
-                tko.safeTransfer(ts.prover, ts.validityBond);
+                address prover = ts.prover;
+                _tko.transfer(prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -161,10 +163,10 @@ library LibVerifying {
 
                 emit BlockVerified({
                     blockId: blockId,
-                    prover: ts.prover,
+                    prover: prover,
                     blockHash: blockHash,
                     stateRoot: stateRoot,
-                    tier: ts.tier
+                    tier: tier
                 });
 
                 ++blockId;
@@ -177,8 +179,19 @@ library LibVerifying {
                 // Update protocol level state variables
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Sync chain data
-                _syncChainData(_state, _config, _resolver, lastVerifiedBlockId, stateRoot);
+                // Sync chain data when necessary
+                if (
+                    lastVerifiedBlockId
+                        > _state.slotA.lastSyncedBlockId + _config.blockSyncThreshold
+                ) {
+                    _state.slotA.lastSyncedBlockId = lastVerifiedBlockId;
+                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
+                        .syncChainData(
+                        _config.chainId, LibStrings.H_STATE_ROOT, lastVerifiedBlockId, stateRoot
+                    );
+                }
             }
         }
     }
@@ -220,32 +233,6 @@ library LibVerifying {
             stateRoot: 0,
             tier: 0
         });
-    }
-
-    function _syncChainData(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        IAddressResolver _resolver,
-        uint64 _lastVerifiedBlockId,
-        bytes32 _stateRoot
-    )
-        private
-    {
-        ISignalService signalService =
-            ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
-
-        (uint64 lastSyncedBlock,) = signalService.getSyncedChainData(
-            _config.chainId, LibStrings.H_STATE_ROOT, 0 /* latest block Id*/
-        );
-
-        if (_lastVerifiedBlockId > lastSyncedBlock + _config.blockSyncThreshold) {
-            _state.slotA.lastSyncedBlockId = _lastVerifiedBlockId;
-            _state.slotA.lastSynecdAt = uint64(block.timestamp);
-
-            signalService.syncChainData(
-                _config.chainId, LibStrings.H_STATE_ROOT, _lastVerifiedBlockId, _stateRoot
-            );
-        }
     }
 
     function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
