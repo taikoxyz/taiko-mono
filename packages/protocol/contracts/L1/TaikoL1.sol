@@ -258,7 +258,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 250e18, // 250 Taiko token
             blockSyncThreshold: 32,
-            checkEOAForCalldataDA: true
+            checkEOAForCalldataDA: true,
+            forkHeight: 500_000
         });
     }
 

@@ -61,8 +61,6 @@ library LibVerifying {
     )
         internal
     {
-        if (!_isConfigValid(_config)) revert L1_INVALID_CONFIG();
-
         _setupGenesisBlock(_state, _genesisBlockHash);
     }
 
@@ -247,16 +245,5 @@ library LibVerifying {
             stateRoot: 0,
             tier: 0
         });
-    }
-
-    function _isConfigValid(TaikoData.Config memory _config) private view returns (bool) {
-        if (
-            _config.chainId <= 1 || _config.chainId == block.chainid //
-                || _config.blockMaxProposals <= 1
-                || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
-                || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
-        ) return false;
-
-        return true;
     }
 }
