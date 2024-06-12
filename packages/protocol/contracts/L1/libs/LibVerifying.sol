@@ -255,7 +255,6 @@ library LibVerifying {
                 || _config.blockMaxProposals <= 1
                 || _config.blockRingBufferSize <= _config.blockMaxProposals + 1
                 || _config.blockMaxGasLimit == 0 || _config.livenessBond == 0
-                || _config.maxBlocksToVerify % 2 != 0
         ) return false;
 
         return true;
