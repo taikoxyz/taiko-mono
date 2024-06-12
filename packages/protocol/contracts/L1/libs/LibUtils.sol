@@ -23,8 +23,9 @@ library LibUtils {
     error L1_UNEXPECTED_TRANSITION_ID();
 
     function conditionallyTransferTo(IERC20 token, address recipieint, uint256 amount) internal {
-        if (token.balanceOf(recipieint) == 0) return;
-        token.transfer(recipieint, amount);
+        if (token.balanceOf(recipieint) != 0) {
+            token.transfer(recipieint, amount);
+        }
     }
 
     /// @notice This function will revert if the transition is not found.
