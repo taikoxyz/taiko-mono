@@ -16,6 +16,7 @@ library LibProving {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
         ITierProvider.Tier minTier;
+        IERC20 tko;
         bytes32 metaHash;
         address assignedProver;
         uint96 livenessBond;
@@ -121,6 +122,7 @@ library LibProving {
         }
 
         Local memory local;
+        local.tko = _tko;
         local.b = _state.slotB;
 
         // Check that the block has been proposed but has not yet been verified.
@@ -232,7 +234,7 @@ library LibProving {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _meta, _tran, _proof, local, _tko);
+            _overrideWithHigherProof(blk, ts, _meta, _tran, _proof, local);
 
             emit TransitionProved({
                 blockId: local.blockId,
@@ -388,8 +390,7 @@ library LibProving {
         TaikoData.BlockMetadata memory _meta,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
-        Local memory _local,
-        IERC20 _tko
+        Local memory _local
     )
         private
     {
@@ -402,13 +403,13 @@ library LibProving {
                 reward = _rewardAfterFriction(_ts.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                _tko.transfer(_ts.prover, _ts.validityBond);
+                _local.tko.transfer(_ts.prover, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
 
-                _tko.transfer(_ts.contester, _ts.contestBond + reward * 3);
+                _local.tko.transfer(_ts.contester, _ts.contestBond + reward * 3);
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -433,7 +434,7 @@ library LibProving {
                     if (_local.assignedProver == msg.sender) {
                         reward += livenessBond;
                     } else {
-                        _tko.transfer(_local.assignedProver, livenessBond);
+                        _local.tko.transfer(_local.assignedProver, livenessBond);
                     }
                 }
             }
@@ -441,9 +442,11 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                _tko.transfer(msg.sender, reward - _local.tier.validityBond);
+                _local.tko.transfer(msg.sender, reward - _local.tier.validityBond);
             } else if (reward < _local.tier.validityBond) {
-                _tko.transferFrom(msg.sender, address(this), _local.tier.validityBond - reward);
+                _local.tko.transferFrom(
+                    msg.sender, address(this), _local.tier.validityBond - reward
+                );
             }
         }
 
