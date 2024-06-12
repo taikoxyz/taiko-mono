@@ -169,6 +169,8 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
+            // This field is no longer used and can/should be removed once the ring buffer has been
+            // re-initialized with this field being 0.
             verifiedTransitionId: 0,
             assignedProver: params.assignedProver
         });
