@@ -179,30 +179,6 @@ library LibUtils {
             : keccak256(abi.encode(metaV2ToV1(_meta)));
     }
 
-    function metaV1ToV2(TaikoData.BlockMetadataV1 memory _v1)
-        internal
-        pure
-        returns (TaikoData.BlockMetadata memory)
-    {
-        return TaikoData.BlockMetadata({
-            l1Hash: _v1.l1Hash,
-            difficulty: _v1.difficulty,
-            blobHash: _v1.blobHash,
-            extraData: _v1.extraData,
-            depositsHash: _v1.depositsHash,
-            coinbase: _v1.coinbase,
-            id: _v1.id,
-            gasLimit: _v1.gasLimit,
-            timestamp: _v1.timestamp,
-            l1Height: _v1.l1Height,
-            minTier: _v1.minTier,
-            blobUsed: _v1.blobUsed,
-            parentMetaHash: _v1.parentMetaHash,
-            proposer: _v1.sender,
-            livenessBond: 0
-        });
-    }
-
     function metaV2ToV1(TaikoData.BlockMetadata memory _v2)
         internal
         pure
