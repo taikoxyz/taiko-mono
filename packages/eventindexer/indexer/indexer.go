@@ -35,10 +35,11 @@ var (
 )
 
 type Indexer struct {
-	accountRepo    eventindexer.AccountRepository
-	eventRepo      eventindexer.EventRepository
-	nftBalanceRepo eventindexer.NFTBalanceRepository
-	txRepo         eventindexer.TransactionRepository
+	accountRepo      eventindexer.AccountRepository
+	eventRepo        eventindexer.EventRepository
+	nftBalanceRepo   eventindexer.NFTBalanceRepository
+	erc20BalanceRepo eventindexer.ERC20BalanceRepository
+	txRepo           eventindexer.TransactionRepository
 
 	ethClient  *ethclient.Client
 	srcChainID uint64
@@ -52,8 +53,9 @@ type Indexer struct {
 	bridge         *bridge.Bridge
 	assignmentHook *assignmenthook.AssignmentHook
 
-	indexNfts bool
-	layer     string
+	indexNfts   bool
+	indexERC20s bool
+	layer       string
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -132,6 +134,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	erc20BalanceRepository, err := repo.NewERC20BalanceRepository(db)
+	if err != nil {
+		return err
+	}
+
 	txRepository, err := repo.NewTransactionRepository(db)
 	if err != nil {
 		return err
@@ -184,6 +191,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
 	i.nftBalanceRepo = nftBalanceRepository
+	i.erc20BalanceRepo = erc20BalanceRepository
 	i.txRepo = txRepository
 
 	i.srcChainID = chainID.Uint64()
@@ -198,6 +206,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs
+	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
 
 	return nil

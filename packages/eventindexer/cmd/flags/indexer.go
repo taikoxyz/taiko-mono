@@ -74,6 +74,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	IndexERC20s = &cli.BoolFlag{
+		Name:     "indexERC20s",
+		Usage:    "Whether to index erc20 transfer events or not",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"INDEX_ERC20S"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -87,4 +94,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SubscriptionBackoff,
 	SyncMode,
 	IndexNFTs,
+	IndexERC20s,
 })

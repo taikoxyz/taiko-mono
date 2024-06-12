@@ -155,11 +155,11 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko testnet proposer",
+                  label: "Run a Taiko proposer",
                   link: "/guides/node-operators/enable-a-proposer/",
                 },
                 {
-                  label: "Run a Taiko testnet prover",
+                  label: "Run a Taiko prover",
                   link: "/guides/node-operators/enable-a-prover/",
                 },
                 {

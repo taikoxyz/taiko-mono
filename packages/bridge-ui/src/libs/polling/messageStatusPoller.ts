@@ -71,12 +71,25 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     transport: http(),
   });
 
+  const srcChainClient = createPublicClient({
+    chain: chains.find((chain) => chain.id === Number(srcChainId)),
+    transport: http(),
+  });
+
   // We are gonna be polling the destination bridge contract
   const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
   const destBridgeContract = getContract({
     address: destBridgeAddress,
     abi: bridgeAbi,
     client: destChainClient,
+  });
+
+  // In case for recalled messages we need to check the source bridge contract
+  const srcBridgeAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress;
+  const srcBridgeContract = getContract({
+    address: srcBridgeAddress,
+    abi: bridgeAbi,
+    client: srcChainClient,
   });
 
   const stopPolling = () => {
@@ -107,6 +120,17 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     try {
       const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([bridgeTx.msgHash]);
       emitter.emit(PollingEvent.STATUS, messageStatus);
+
+      if (messageStatus === MessageStatus.FAILED) {
+        // check if the message is recalled
+        const recallStatus = await srcBridgeContract.read.messageStatus([bridgeTx.msgHash]);
+        if (recallStatus === MessageStatus.RECALLED) {
+          log(`Message ${bridgeTx.msgHash} has been recalled.`);
+          emitter.emit(PollingEvent.STATUS, MessageStatus.RECALLED);
+          stopPolling();
+          return;
+        }
+      }
 
       let blockNumber: Hex;
       if (!bridgeTx.blockNumber) {
