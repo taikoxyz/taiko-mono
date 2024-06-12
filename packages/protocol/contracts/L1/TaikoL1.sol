@@ -87,7 +87,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
-        if ((meta_.id % config.maxBlocksToVerify == 0) && !state.slotB.provingPaused) {
+        if (
+            config.maxBlocksToVerify != 0 && meta_.id % config.maxBlocksToVerify == 0
+                && !state.slotB.provingPaused
+        ) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
@@ -116,7 +119,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
-        if (meta.id % config.maxBlocksToVerify == config.maxBlocksToVerify / 2) {
+        if (
+            config.maxBlocksToVerify != 0
+                && meta.id % config.maxBlocksToVerify == config.maxBlocksToVerify / 2
+        ) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }

@@ -22,18 +22,18 @@ library LibVerifying {
         ITierRouter tierRouter;
     }
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
-    /// @notice Emitted when a block is verified.
-    /// @param blockId The block ID.
-    /// @param prover The actual prover of the block.
-    /// @param blockHash The block hash.
-    /// @param transitionId The transition that used to verify this block.
-    /// @param tier The tier of the transition used for verification.
+    /// @dev Emitted when a block is verified.
+    /// @param blockId The ID of the verified block.
+    /// @param prover The prover whose transition is used for verifying the
+    /// block.
+    /// @param blockHash The hash of the verified block.
+    /// @param stateRoot Deprecated and always zero.
+    /// @param tier The tier ID of the proof.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed prover,
         bytes32 blockHash,
-        uint32 transitionId,
+        bytes32 stateRoot,
         uint16 tier
     );
 
@@ -175,7 +175,7 @@ library LibVerifying {
                     blockId: local.blockId,
                     prover: local.prover,
                     blockHash: local.blockHash,
-                    transitionId: local.tid,
+                    stateRoot: 0, // Always use 0 to avoid an unnecessary sload
                     tier: local.tier
                 });
 
@@ -244,7 +244,7 @@ library LibVerifying {
             blockId: 0,
             prover: address(0),
             blockHash: _genesisBlockHash,
-            transitionId: 0,
+            stateRoot: 0,
             tier: 0
         });
     }
