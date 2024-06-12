@@ -7,7 +7,7 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig() public view override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
         // over-write the following
-        config.maxBlocksToVerifyPerProposal = 0;
+        config.maxBlocksToVerify = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token

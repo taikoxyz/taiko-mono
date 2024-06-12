@@ -88,10 +88,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (
-            config.maxBlocksToVerifyPerProposal != 0
-                && meta_.id % config.maxBlocksToVerifyPerProposal == 0 && !state.slotB.provingPaused
+            config.maxBlocksToVerify != 0 && meta_.id % config.maxBlocksToVerify == 0
+                && !state.slotB.provingPaused
         ) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -120,11 +120,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
         if (
-            config.maxBlocksToVerifyPerProposal != 0
-                && meta.id % config.maxBlocksToVerifyPerProposal
-                    == config.maxBlocksToVerifyPerProposal / 2
+            config.maxBlocksToVerify != 0
+                && meta.id % config.maxBlocksToVerify == config.maxBlocksToVerify / 2
         ) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -230,7 +229,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // new blocks without any verification.
             blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
             blockRingBufferSize: 324_512,
-            maxBlocksToVerifyPerProposal: 8,
+            maxBlocksToVerify: 8,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
