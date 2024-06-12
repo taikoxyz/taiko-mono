@@ -125,11 +125,11 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
-        local.assignedProver = blk.__assignedProver;
+        local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
             local.assignedProver = _meta.proposer;
         }
-        local.livenessBond = _meta.livenessBond == 0 ? blk.__livenessBond : _meta.livenessBond;
+        local.livenessBond = _meta.livenessBond == 0 ? blk.livenessBond : _meta.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -408,7 +408,7 @@ library LibProving {
             if (_blk.livenessBondNotReturned || _local.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
-                _blk.__livenessBond = 0;
+                _blk.livenessBond = 0;
                 _blk.livenessBondNotReturned = false;
 
                 if (_returnLivenessBond(_local, _proof.data)) {

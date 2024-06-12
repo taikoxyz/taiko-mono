@@ -155,8 +155,8 @@ library LibProposing {
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
-            __assignedProver: address(0), // DEPRECATED, set to 0
-            __livenessBond: 0, // DEPRECATED, set to 0
+            assignedProver: address(0), // DEPRECATED, set to 0
+            livenessBond: 0, // DEPRECATED, set to 0
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
             proposedIn: uint56(block.number),
