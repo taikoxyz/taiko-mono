@@ -82,7 +82,7 @@ library LibUtils {
         if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
         return _state.transitions[slot][_tid];
     }
-    
+
     /// @notice Transfer ERC20 tokens to the recipient only if the recipient's current token balance
     /// is not zero.
     function conditionallyTransferTo(IERC20 token, address recipieint, uint256 amount) internal {
