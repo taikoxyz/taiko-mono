@@ -1,7 +1,7 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import type { Address, Hash, Hex, TransactionReceipt } from 'viem';
+import { type Address, getAddress, type Hash, type Hex, type TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -187,7 +187,7 @@ export class RelayerAPIService {
         decimals: tx.canonicalTokenDecimals,
         srcTxHash: tx.data.Raw.transactionHash,
         destTxHash: tx.processedTxHash,
-        from: tx.messageOwner,
+        from: getAddress(tx.messageOwner),
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
@@ -197,11 +197,11 @@ export class RelayerAPIService {
         processingFee: BigInt(tx.data.Message.Fee.toString()),
         message: {
           id: tx.data.Message.Id,
-          to: tx.data.Message.To,
-          destOwner: tx.data.Message.DestOwner,
+          to: getAddress(tx.data.Message.To),
+          destOwner: getAddress(tx.data.Message.DestOwner),
           data: data as Hex,
-          srcOwner: tx.data.Message.SrcOwner,
-          from: tx.data.Message.From,
+          srcOwner: getAddress(tx.data.Message.SrcOwner),
+          from: getAddress(tx.data.Message.From),
           gasLimit: tx.data.Message.GasLimit,
           value,
           srcChainId: BigInt(tx.data.Message.SrcChainId),
@@ -216,7 +216,11 @@ export class RelayerAPIService {
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
 
-      if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
+      const senderMatch = getAddress(bridgeTx.from) === getAddress(address);
+      const receiverMatch = bridgeTx.message && getAddress(bridgeTx.message.destOwner) === getAddress(address);
+
+      if (!senderMatch && !receiverMatch) return;
+
       const { destChainId, srcChainId, srcTxHash, msgHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
