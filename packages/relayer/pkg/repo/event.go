@@ -122,7 +122,7 @@ func (r *EventRepository) FindAllByAddress(
 	q := r.db.GormDB().
 		Model(&relayer.Event{}).
 		Where(
-			"LOWER(dest_owner_json) = ? OR LOWER(message_owner) = ?",
+			"dest_owner_json = ? OR message_owner = ?",
 			strings.ToLower(opts.Address.Hex()),
 			strings.ToLower(opts.Address.Hex()),
 		)
