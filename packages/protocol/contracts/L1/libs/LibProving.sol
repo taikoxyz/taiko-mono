@@ -221,7 +221,7 @@ library LibProving {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _meta, _tran, _proof, local, _tko);
+            _overrideWithHigherProof(blk, ts, _meta, _tran, _proof, local);
 
             emit TransitionProved({
                 blockId: local.blockId,
@@ -377,8 +377,7 @@ library LibProving {
         TaikoData.BlockMetadata memory _meta,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
-        Local memory _local,
-        IERC20 _tko
+        Local memory _local
     )
         private
     {
