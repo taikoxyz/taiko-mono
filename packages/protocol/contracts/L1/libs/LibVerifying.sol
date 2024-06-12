@@ -19,6 +19,7 @@ library LibVerifying {
         uint32 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
+        bytes32 stateRoot;
         address prover;
         ITierRouter tierRouter;
         ISignalService signalService;
@@ -154,17 +155,22 @@ library LibVerifying {
                 });
 
                 if (local.blockId % _config.stateRootSyncInternal == 0) {
-                    _state.slotA.lastSyncedBlockId = local.blockId;
-                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
+                    local.stateRoot = ts.stateRoot;
 
-                    if (local.signalService == ISignalService(address(0))) {
-                        local.signalService =
-                            ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false));
+                    if (local.stateRoot != 0) {
+                        _state.slotA.lastSyncedBlockId = local.blockId;
+                        _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+                        if (local.signalService == ISignalService(address(0))) {
+                            local.signalService = ISignalService(
+                                _resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)
+                            );
+                        }
+
+                        local.signalService.syncChainData(
+                            _config.chainId, LibStrings.H_STATE_ROOT, local.blockId, local.stateRoot
+                        );
                     }
-
-                    local.signalService.syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, local.blockId, ts.stateRoot
-                    );
                 }
 
                 ++local.blockId;
