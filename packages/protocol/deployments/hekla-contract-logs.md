@@ -98,12 +98,13 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x776fd0736d4271B3DB512bcF79c25E44622b54E9.`
+- impl: `0x5f37AF776802AA5F00B0a62432643B999B345ECe.`
 - owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
   - upgraded on Jun 12, 2024 at commit `07b073d`
+  - upgraded on Jun 12, 2024 at [PR #17553](https://github.com/taikoxyz/taiko-mono/pull/17553)
 
 ### assignmentHook
 
