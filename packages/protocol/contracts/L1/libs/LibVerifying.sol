@@ -47,6 +47,38 @@ library LibVerifying {
     error L1_TRANSITION_ID_ZERO();
     error L1_TOO_LATE();
 
+    /// @notice Initializes the Taiko protocol state.
+    /// @param _state The state to initialize.
+    /// @param _genesisBlockHash The block hash of the genesis block.
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) public {
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
+        // Init state
+        _state.slotA.genesisHeight = uint64(block.number);
+        _state.slotA.genesisTimestamp = uint64(block.timestamp);
+        _state.slotB.numBlocks = 1;
+
+        // Init the genesis block
+        TaikoData.Block storage blk = _state.blocks[0];
+        blk.nextTransitionId = 2;
+        blk.proposedAt = uint64(block.timestamp);
+        blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
+
+        // Init the first state transition
+        TaikoData.TransitionState storage ts = _state.transitions[0][1];
+        ts.blockHash = _genesisBlockHash;
+        ts.prover = address(0);
+        ts.timestamp = uint64(block.timestamp);
+
+        emit BlockVerified({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            stateRoot: 0,
+            tier: 0
+        });
+    }
+
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
@@ -185,37 +217,5 @@ library LibVerifying {
                 _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
             }
         }
-    }
-
-    /// @notice Initializes the Taiko protocol state.
-    /// @param _state The state to initialize.
-    /// @param _genesisBlockHash The block hash of the genesis block.
-    function initGenesis(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
-        // Init state
-        _state.slotA.genesisHeight = uint64(block.number);
-        _state.slotA.genesisTimestamp = uint64(block.timestamp);
-        _state.slotB.numBlocks = 1;
-
-        // Init the genesis block
-        TaikoData.Block storage blk = _state.blocks[0];
-        blk.nextTransitionId = 2;
-        blk.proposedAt = uint64(block.timestamp);
-        blk.verifiedTransitionId = 1;
-        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
-
-        // Init the first state transition
-        TaikoData.TransitionState storage ts = _state.transitions[0][1];
-        ts.blockHash = _genesisBlockHash;
-        ts.prover = address(0);
-        ts.timestamp = uint64(block.timestamp);
-
-        emit BlockVerified({
-            blockId: 0,
-            prover: address(0),
-            blockHash: _genesisBlockHash,
-            stateRoot: 0,
-            tier: 0
-        });
     }
 }

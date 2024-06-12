@@ -54,7 +54,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         initializer
     {
         __Essential_init(_owner, _addressManager);
-        LibVerifying.initGenesis(state, _genesisBlockHash);
+        LibVerifying.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
