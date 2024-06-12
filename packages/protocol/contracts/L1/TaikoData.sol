@@ -105,7 +105,7 @@ library TaikoData {
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 6 slots used.
+    /// 6 slots used.
     struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
@@ -116,7 +116,6 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
-        uint8 __reserved1;
     }
 
     /// @dev Struct containing data required for verifying a block.

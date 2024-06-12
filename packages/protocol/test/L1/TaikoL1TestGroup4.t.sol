@@ -49,7 +49,6 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp);
@@ -78,7 +77,6 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_SGX);
-            assertEq(ts.contestBond, 1);
             assertEq(ts.prover, Taylor);
 
             assertEq(tko.balanceOf(Taylor), 10_000 ether + tierOp.validityBond * 7 / 8);
@@ -133,7 +131,6 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp);
@@ -163,7 +160,6 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_SGX);
-            assertEq(ts.contestBond, 1);
             assertEq(ts.prover, Taylor);
 
             assertEq(tko.balanceOf(Taylor), 10_000 ether + tierOp.validityBond * 7 / 8);

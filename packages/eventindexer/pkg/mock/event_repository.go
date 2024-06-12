@@ -161,3 +161,25 @@ func (r *EventRepository) FindLatestBlockID(
 
 	return 0, errors.New("invalid")
 }
+
+func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]*eventindexer.Event, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if int(e.BlockID.Int64) == blockID && e.Event == eventindexer.EventNameTransitionProved {
+			events = append(events, e)
+		}
+	}
+
+	return events, nil
+}
+
+func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if int(e.BlockID.Int64) == blockID && e.Event == eventindexer.EventNameBlockProposed {
+			return e, nil
+		}
+	}
+
+	return nil, errors.New("not found")
+}

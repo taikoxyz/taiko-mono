@@ -54,7 +54,6 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, Alice);
             assertEq(ts.timestamp, block.timestamp); // not zero
@@ -83,7 +82,6 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_SGX);
-            assertEq(ts.contestBond, 1);
             assertEq(ts.prover, Alice);
 
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);

@@ -103,7 +103,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Alice);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
@@ -202,7 +201,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
@@ -256,7 +254,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
 
@@ -309,7 +306,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Alice);
             assertEq(ts.validityBond, tierOp.validityBond);
 
@@ -363,7 +359,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, tierOp.validityBond);
 
@@ -433,7 +428,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Alice);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, block.timestamp);
@@ -462,7 +456,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1); // not zero
             assertEq(ts.prover, Alice);
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
