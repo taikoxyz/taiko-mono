@@ -224,11 +224,11 @@ library LibUtils {
     function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
         return _meta.livenessBond != 0
             ? keccak256(abi.encode(_meta))
-            : keccak256(abi.encode(metaV2ToV1(_meta)));
+            : keccak256(abi.encode(_metaV2ToV1(_meta)));
     }
 
-    function metaV2ToV1(TaikoData.BlockMetadata memory _v2)
-        internal
+    function _metaV2ToV1(TaikoData.BlockMetadata memory _v2)
+        private
         pure
         returns (TaikoData.BlockMetadataV1 memory)
     {
