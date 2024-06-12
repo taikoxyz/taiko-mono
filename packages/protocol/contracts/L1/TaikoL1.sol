@@ -31,7 +31,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     modifier emitEventForClient() {
         _;
-        LibVerifying.emitEventForClient(state);
+        emit StateVariablesUpdated({ slotB: state.slotB });
     }
 
     /// @dev Allows for receiving Ether from Hooks
@@ -54,7 +54,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         initializer
     {
         __Essential_init(_owner, _addressManager);
-        LibVerifying.init(state, getConfig(), _genesisBlockHash);
+        LibVerifying.initGenesis(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -64,10 +64,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
-    }
-
-    function resetGenesisHash(bytes32 _genesisBlockHash) external onlyOwner {
-        LibVerifying.resetGenesisHash(state, _genesisBlockHash);
     }
 
     /// @inheritdoc ITaikoL1
