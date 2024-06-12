@@ -129,7 +129,7 @@ library LibProving {
             local.assignedProver = _meta.proposer;
         }
 
-        if (meta.livenessBond == 0) {
+        if (_meta.livenessBond == 0) {
             local.livenessBond = blk.livenessBond;
         }
 
