@@ -88,10 +88,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (
-            config.maxBlocksToVerify != 0 && meta_.id % config.maxBlocksToVerify == 0
-                && !state.slotB.provingPaused
+            config.maxBlocksToVerifyPerProposal != 0
+                && meta_.id % config.maxBlocksToVerifyPerProposal == 0 && !state.slotB.provingPaused
         ) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
         }
     }
 
@@ -120,15 +120,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
         if (
-            config.maxBlocksToVerify != 0
-                && meta.id % config.maxBlocksToVerify == config.maxBlocksToVerify / 2
+            config.maxBlocksToVerifyPerProposal != 0
+                && meta.id % config.maxBlocksToVerifyPerProposal
+                    == config.maxBlocksToVerifyPerProposal / 2
         ) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerifyPerProposal);
         }
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(uint64 _maxBlocksToVerify)
+    function verifyBlocks(uint64 _maxBlocksToVerifyPerProposal)
         external
         whenNotPaused
         whenProvingNotPaused
@@ -140,7 +141,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)),
             getConfig(),
             this,
-            _maxBlocksToVerify
+            _maxBlocksToVerifyPerProposal
         );
     }
 
@@ -229,7 +230,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // new blocks without any verification.
             blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
             blockRingBufferSize: 324_512,
-            maxBlocksToVerify: 8,
+            maxBlocksToVerifyPerProposal: 8,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.

@@ -7,7 +7,7 @@ contract TaikoL1Tiers is TaikoL1 {
     function getConfig() public view override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
 
-        config.maxBlocksToVerify = 0;
+        config.maxBlocksToVerifyPerProposal = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token

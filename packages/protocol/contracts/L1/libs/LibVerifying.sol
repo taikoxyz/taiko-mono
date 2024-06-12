@@ -78,11 +78,11 @@ library LibVerifying {
         IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
-        uint64 _maxBlocksToVerify
+        uint64 _maxBlocksToVerifyPerProposal
     )
         internal
     {
-        if (_maxBlocksToVerify == 0) {
+        if (_maxBlocksToVerifyPerProposal == 0) {
             return;
         }
 
@@ -112,7 +112,8 @@ library LibVerifying {
         unchecked {
             ++l.blockId;
 
-            while (l.blockId < l.b.numBlocks && l.numBlocksVerified < _maxBlocksToVerify) {
+            while (l.blockId < l.b.numBlocks && l.numBlocksVerified < _maxBlocksToVerifyPerProposal)
+            {
                 l.slot = l.blockId % _config.blockRingBufferSize;
 
                 blk = _state.blocks[l.slot];

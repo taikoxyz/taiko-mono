@@ -3196,7 +3196,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
   *	uint64 blockMaxProposals (8)
   *	uint64 blockRingBufferSize (8)
   *	uint32 blockMaxGasLimit (4)
-  *	uint64 maxBlocksToVerify (8)
+  *	uint64 maxBlocksToVerifyPerProposal (8)
   *	uint64 ethDepositMinCountPerBlock (8)
   *	uint64 ethDepositMaxCountPerBlock (8)
   *	uint24 blockMaxTxListBytes (3)
@@ -3219,7 +3219,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 21: 		        // Size of the block ring buffer, allowing extra space for proposals.
 22: 		        uint64 blockRingBufferSize;
 23: 		        // The maximum number of verifications allowed when a block is proposed.
-24: 		        uint64 maxBlocksToVerify;
+24: 		        uint64 maxBlocksToVerifyPerProposal;
 25: 		        // The maximum gas limit allowed for a block.
 26: 		        uint32 blockMaxGasLimit;
 27: 		        // The maximum allowed bytes for the proposed transaction list calldata.
@@ -3465,7 +3465,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 69: 		        if (!state.slotB.provingPaused) {
 
 // @audit state on line 94
-96: 		        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
+96: 		        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerifyPerProposal);
 
 // @audit state on line 151
 154: 		            ts_ = state.transitions[slot][blk_.verifiedTransitionId];
@@ -3615,7 +3615,7 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 81: 		        whenNotPaused
 82: 		        whenProvingNotPaused
 
-100: 		    function verifyBlocks(uint64 _maxBlocksToVerify)
+100: 		    function verifyBlocks(uint64 _maxBlocksToVerifyPerProposal)
 101: 		        external
 102: 		        nonReentrant
 103: 		        whenNotPaused
@@ -5688,7 +5688,7 @@ File: packages/protocol/contracts/L1/ITaikoL1.sol
 
 27: 		    function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
-31: 		    function verifyBlocks(uint64 _maxBlocksToVerify) external;
+31: 		    function verifyBlocks(uint64 _maxBlocksToVerifyPerProposal) external;
 ```
 
 [[27](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/ITaikoL1.sol#L27), [31](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/ITaikoL1.sol#L31)]
@@ -5702,7 +5702,7 @@ File: packages/protocol/contracts/L1/TaikoData.sol
 
 22: 		        uint64 blockRingBufferSize;
 
-24: 		        uint64 maxBlocksToVerify;
+24: 		        uint64 maxBlocksToVerifyPerProposal;
 
 26: 		        uint32 blockMaxGasLimit;
 
@@ -5820,9 +5820,9 @@ File: packages/protocol/contracts/L1/TaikoL1.sol
 
 76: 		        uint64 _blockId,
 
-94: 		        uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
+94: 		        uint8 maxBlocksToVerifyPerProposal = LibProving.proveBlock(state, config, this, meta, tran, proof);
 
-100: 		    function verifyBlocks(uint64 _maxBlocksToVerify)
+100: 		    function verifyBlocks(uint64 _maxBlocksToVerifyPerProposal)
 
 145: 		    function getBlock(uint64 _blockId)
 
@@ -6262,7 +6262,7 @@ File: packages/protocol/contracts/L1/libs/LibProving.sol
 
 51: 		        uint16 tier
 
-100: 		        returns (uint8 maxBlocksToVerify_)
+100: 		        returns (uint8 maxBlocksToVerifyPerProposal_)
 
 115: 		        uint64 slot = _meta.id % _config.blockRingBufferSize;
 
@@ -6304,7 +6304,7 @@ File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
 35: 		        uint8 contestations
 
-89: 		        uint64 _maxBlocksToVerify
+89: 		        uint64 _maxBlocksToVerifyPerProposal
 
 100: 		        uint64 blockId = b.lastVerifiedBlockId;
 
@@ -6358,7 +6358,7 @@ File: packages/protocol/contracts/L1/tiers/ITierProvider.sol
 
 13: 		        uint16 provingWindow; // in minutes
 
-14: 		        uint8 maxBlocksToVerifyPerProof;
+14: 		        uint8 maxBlocksToVerifyPerProposalPerProof;
 
 22: 		    function getTier(uint16 tierId) external view returns (Tier memory);
 
@@ -6927,9 +6927,9 @@ File: packages/protocol/contracts/L1/libs/LibUtils.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibVerifying.sol
 
-127: 		            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
+127: 		            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerifyPerProposal) {
 
-127: 		            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerify) {
+127: 		            while (blockId < b.numBlocks && numBlocksVerified < _maxBlocksToVerifyPerProposal) {
 
 152: 		                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow) * 60
 153: 		                            + uint256(ts.timestamp).max(_state.slotB.lastUnpausedAt) > block.timestamp
@@ -8030,8 +8030,8 @@ File: packages/protocol/contracts/automata-attestation/utils/SigVerifyLib.sol
 ```solidity
 File: packages/protocol/contracts/L1/libs/LibProving.sol
 
-// @audit uint8 maxBlocksToVerify_
-100: 		        returns (uint8 maxBlocksToVerify_)
+// @audit uint8 maxBlocksToVerifyPerProposal_
+100: 		        returns (uint8 maxBlocksToVerifyPerProposal_)
 ```
 
 [[100](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L100)]
