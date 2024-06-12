@@ -170,6 +170,6 @@ library LibUtils {
 
         if (segmentSize <= 1) return true;
 
-        return _blockId % segmentSize == _isBlockProposed ? 0 : segmentSize >> 1;
+        return _blockId % segmentSize == (_isBlockProposed ? 0 : segmentSize >> 1);
     }
 }
