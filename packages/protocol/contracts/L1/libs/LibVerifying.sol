@@ -15,6 +15,7 @@ library LibVerifying {
         uint64 slot;
         uint64 numBlocksVerified;
         uint32 tid;
+        uint32 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
         address prover;
@@ -95,14 +96,8 @@ library LibVerifying {
         TaikoData.Block storage blk = _state.blocks[local.slot];
         if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
 
-        // b.lastVerifiedTransitionId is zero, but once this code is used for upgrade. it will
-        // become non-zero.
-        // So after one block is verified after the upgrade, we can remove the if-statement below.
-        if (b.lastVerifiedTransitionId == 0) {
-            b.lastVerifiedTransitionId = blk.verifiedTransitionId;
-        }
-
-        local.tid = b.lastVerifiedTransitionId;
+        local.lastVerifiedTransitionId = blk.verifiedTransitionId;
+        local.tid = local.lastVerifiedTransitionId;
 
         // The following scenario should never occur but is included as a
         // precaution.
@@ -163,7 +158,7 @@ library LibVerifying {
                 }
 
                 // Update variables
-                b.lastVerifiedTransitionId = local.tid;
+                local.lastVerifiedTransitionId = local.tid;
                 local.blockHash = ts.blockHash;
                 local.prover = ts.prover;
 
@@ -193,7 +188,8 @@ library LibVerifying {
                 local.slot = lastVerifiedBlockId % _config.blockRingBufferSize;
 
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-                _state.slotB.lastVerifiedTransitionId = b.lastVerifiedTransitionId;
+                _state.slotB.lastVerifiedTransitionId = local.lastVerifiedTransitionId;
+                _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
 
                 // Sync chain data when necessary
                 if (
@@ -204,7 +200,7 @@ library LibVerifying {
                     _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
                     bytes32 stateRoot =
-                        _state.transitions[local.slot][b.lastVerifiedTransitionId].stateRoot;
+                        _state.transitions[local.slot][local.lastVerifiedTransitionId].stateRoot;
 
                     ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
                         .syncChainData(

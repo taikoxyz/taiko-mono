@@ -41,7 +41,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
 
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
-            assertEq(L1.slotB().lastVerifiedTransitionId, 0);
+            assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
@@ -70,7 +70,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
 
             assertEq(blk.nextTransitionId, 2);
-            assertEq(L1.slotB().lastVerifiedTransitionId, 1);
+            assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.assignedProver, Bob);
             // assertEq(blk.livenessBond, livenessBond);
 
@@ -124,7 +124,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
 
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
-            assertEq(L1.slotB().lastVerifiedTransitionId, 0);
+            assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
@@ -154,7 +154,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
 
             assertEq(blk.nextTransitionId, 2);
-            assertEq(L1.slotB().lastVerifiedTransitionId, 1);
+            assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.assignedProver, Bob);
             assertEq(blk.livenessBond, 0);
 
