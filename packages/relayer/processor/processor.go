@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -490,6 +491,16 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						}
 					case errors.Is(err, context.Canceled):
 						slog.Error("process message failed due to context cancel", "err", err.Error())
+
+						// we want to negatively acknowledge the message and make sure
+						// we requeue it
+						if err := p.queue.Nack(ctx, m, true); err != nil {
+							slog.Error("Err nacking message", "err", err.Error())
+						}
+					case strings.Contains(err.Error(), "timeout") ||
+						strings.Contains(err.Error(), "i/o") ||
+						strings.Contains(err.Error(), "connect"):
+						slog.Error("process message failed due to networking issue", "err", err.Error())
 
 						// we want to negatively acknowledge the message and make sure
 						// we requeue it
