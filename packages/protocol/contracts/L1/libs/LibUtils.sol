@@ -162,7 +162,7 @@ library LibUtils {
         // blocks. However, considering worst cases caused by blocks being proved out of order, some
         // verification attempts may verify few or no blocks. In such cases, additional
         // verifications are needed to catch up. Consequently, the `maxBlocksToVerify` parameter
-        // should be set high enough to allow for efficient catch-up.
+        // should be set high enough, for example 16, to allow for efficient catch-up.
 
         // Now lets use `maxBlocksToVerify` as an input to calculate the size of each block
         // segment, instead of using 8 as a constant.
