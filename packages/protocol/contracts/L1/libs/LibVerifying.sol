@@ -11,6 +11,7 @@ library LibVerifying {
     using LibMath for uint256;
 
     struct Local {
+        TaikoData.SlotB b;
         uint64 blockId;
         uint64 slot;
         uint64 numBlocksVerified;
@@ -87,12 +88,9 @@ library LibVerifying {
             return;
         }
 
-        // Retrieve the latest verified block and the associated transition used
-        // for its verification.
-        TaikoData.SlotB memory b = _state.slotB;
-
         Local memory local;
-        local.blockId = b.lastVerifiedBlockId;
+        local.b = _state.slotB;
+        local.blockId = local.b.lastVerifiedBlockId;
         local.slot = local.blockId % _config.blockRingBufferSize;
 
         TaikoData.Block storage blk = _state.blocks[local.slot];
@@ -116,7 +114,9 @@ library LibVerifying {
         unchecked {
             ++local.blockId;
 
-            while (local.blockId < b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify) {
+            while (
+                local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
+            ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
 
                 blk = _state.blocks[local.slot];
@@ -147,7 +147,7 @@ library LibVerifying {
                     if (
                         !LibUtils.isPostDeadline(
                             ts.timestamp,
-                            b.lastUnpausedAt,
+                            local.b.lastUnpausedAt,
                             ITierProvider(local.tierRouter.getProvider(local.blockId)).getTier(
                                 local.tier
                             ).cooldownWindow
@@ -187,7 +187,7 @@ library LibVerifying {
             }
 
             if (local.numBlocksVerified != 0) {
-                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + local.numBlocksVerified;
+                uint64 lastVerifiedBlockId = local.b.lastVerifiedBlockId + local.numBlocksVerified;
                 local.slot = lastVerifiedBlockId % _config.blockRingBufferSize;
 
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
