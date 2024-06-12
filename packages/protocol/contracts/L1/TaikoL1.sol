@@ -197,7 +197,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
-    /// @notice Returns information about the last synchrnized block.
+    /// @notice Returns information about the last synchronized block.
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
