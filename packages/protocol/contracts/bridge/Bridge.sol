@@ -667,8 +667,9 @@ contract Bridge is EssentialContract, IBridge {
             // (but provides a 2300 gas stipend to the called contract), and 25,000 for
             // `value_to_empty_account_cost`. See EIP-2929.
 
-            // Therefore the total additional cost is 700 + 2600 + 9000 - 2300 + 25000 = 35000
-            result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 35_000) * 63;
+            // Therefore the total additional cost is 700 + 2600 + 9000 - 2300 + 25000 = 35000.
+            // We instead use 40000 below as a safer buffer.
+            result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 40_000) * 63;
         }
     }
 
