@@ -54,7 +54,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         initializer
     {
         __Essential_init(_owner, _addressManager);
-        LibVerifying.init(state, _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -134,22 +134,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         );
     }
 
-    /// @inheritdoc ITaikoL1
-    function pauseProving(bool _pause) external {
-        _authorizePause(msg.sender, _pause);
-        LibProving.pauseProving(state, _pause);
-    }
-
-    /// @inheritdoc EssentialContract
-    function unpause() public override {
-        super.unpause(); // permission checked inside
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
-    }
-
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    function getBlock(uint64 _blockId) public view returns (TaikoData.Block memory blk_) {
+    function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
@@ -161,7 +149,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         uint64 _blockId,
         bytes32 _parentHash
     )
-        public
+        external
         view
         returns (TaikoData.TransitionState memory)
     {
@@ -176,7 +164,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         uint64 _blockId,
         uint32 _tid
     )
-        public
+        external
         view
         returns (TaikoData.TransitionState memory)
     {
@@ -188,7 +176,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
     function getLastVerifiedBlock()
-        public
+        external
         view
         returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
     {
@@ -201,7 +189,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
     function getLastSyncedBlock()
-        public
+        external
         view
         returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
     {
@@ -214,23 +202,23 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     /// @return State variables stored at SlotA.
     /// @return State variables stored at SlotB.
     function getStateVariables()
-        public
+        external
         view
         returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
         return (state.slotA, state.slotB);
     }
 
-    /// @notice Gets SlotA
-    /// @return  State variables stored at SlotA.
-    function slotA() public view returns (TaikoData.SlotA memory) {
-        return state.slotA;
+    /// @inheritdoc ITaikoL1
+    function pauseProving(bool _pause) external {
+        _authorizePause(msg.sender, _pause);
+        LibProving.pauseProving(state, _pause);
     }
 
-    /// @notice Gets SlotB
-    /// @return  State variables stored at SlotB.
-    function slotB() public view returns (TaikoData.SlotB memory) {
-        return state.slotB;
+    /// @inheritdoc EssentialContract
+    function unpause() public override {
+        super.unpause(); // permission checked inside
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
     /// @inheritdoc ITaikoL1
