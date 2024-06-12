@@ -111,7 +111,8 @@ library LibProving {
             revert L1_INVALID_TRANSITION();
         }
 
-        bool verifyingStateRoot = _meta.id < _config.forkHeight || _meta.id % 16 == 0;
+        bool verifyingStateRoot =
+            _meta.id < _config.forkHeight || _meta.id % _config.stateRootSyncInternal == 0;
 
         if (verifyingStateRoot) {
             if (_tran.stateRoot == 0) revert L1_INVALID_TRANSITION();
