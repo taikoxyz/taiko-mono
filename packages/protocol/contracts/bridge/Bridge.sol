@@ -476,9 +476,8 @@ contract Bridge is EssentialContract, IBridge {
             // + 32 bytes (A is a dynamic tuple, offset to first elements)
             // + 32 bytes (offset to last bytes element of Message)
             // + 32 bytes (padded encoding of length of Message.data + dataLength (padded to 32
-            // bytes)
-            // = 13 * 32 + (dataLength / 32 * 32) + 32.
-            // non-zero calldata cost per byte is 16.
+            // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
+            // Non-zero calldata cost per byte is 16.
 
             uint256 dataCost = ((dataLength + 31) / 32 * 32 + 416) << 4;
             return SafeCastUpgradeable.toUint32(dataCost + GAS_RESERVE);
