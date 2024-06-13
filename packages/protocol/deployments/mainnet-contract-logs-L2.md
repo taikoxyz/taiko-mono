@@ -72,6 +72,8 @@
   - linked bridged TKO to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xe25d05320b95fbc3bffe0b7cbfe351dd5fa6413db307d5c28f7b70983567a43b`
   - linked bridged USDC to `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b` @tx`0xf1752ac712779e9ae53d408abdc5eec70e63582433143d6d91a489a1e8fc4778`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
+  - todo:
+    - upgrade
 
 #### erc721_vault
 

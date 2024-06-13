@@ -93,6 +93,16 @@ func (i *Indexer) indexRawBlockData(
 		})
 	}
 
+	if i.indexERC20s {
+		wg.Go(func() error {
+			if err := i.indexERC20Transfers(ctx, chainID, logs); err != nil {
+				return errors.Wrap(err, "svc.indexERC20Transfers")
+			}
+
+			return nil
+		})
+	}
+
 	if err := wg.Wait(); err != nil {
 		if errors.Is(err, context.Canceled) {
 			slog.Error("index raw block data context cancelled")

@@ -39,7 +39,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
-      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee",
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
@@ -291,7 +291,7 @@
     },
     "title": "Faucet",
     "warning": {
-      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add more ETH to your wallet (>= 0.0015 ETH)",
       "no_connected": "Please connect your wallet to mint tokens.",
       "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
@@ -491,6 +491,7 @@
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
+          "different_recipient": "The recipient of this transaction does not match the sender or the currently connected wallet. To  manually claim, please connect to the recipient's wallet.",
           "funds_check": "Sufficient funds to claim",
           "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
@@ -503,8 +504,11 @@
               "title": "What is \"Connected to the correct chain\"?"
             },
             "funds": {
-              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain. If you've kept the default processing fee, the relayer will likely claim for you soon.",
+              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.0015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
               "title": "What is \"Sufficient funds to claim\"?"
+            },
+            "processing_fee": {
+              "description": "A processing fee has been set for this transaction. If the fee is high enough, a relayer may claim it automatically. Regardless, you can choose to manually claim the transaction. Note that the fee is non-refundable."
             },
             "quota": {
               "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
@@ -532,6 +536,7 @@
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
+      "released": "Released",
       "retry": "Retriable",
       "title": "Filters"
     },
@@ -591,6 +596,9 @@
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
+      },
+      "released": {
+        "name": "Released"
       },
       "releasing": "Releasing",
       "retry": {
