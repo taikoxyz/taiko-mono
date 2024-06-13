@@ -10,7 +10,7 @@ import { MerkleWhitelist } from "./MerkleWhitelist.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 /// @title TaikoonToken
-/// @dev The Taikoons ERC-721 token
+/// @dev The Taikoons V1 ERC-721 token
 /// @custom:security-contact security@taiko.xyz
 contract TaikoonTokenV2 is ERC721EnumerableUpgradeable, MerkleWhitelist {
     /// @notice The current supply
@@ -128,6 +128,8 @@ contract TaikoonTokenV2 is ERC721EnumerableUpgradeable, MerkleWhitelist {
         _baseURIExtended = _rootURI;
     }
 
+    /// @notice Get the base URI
+    /// @return The base URI
     function baseURI() public view returns (string memory) {
         return _baseURIExtended;
     }
