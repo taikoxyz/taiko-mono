@@ -22,7 +22,7 @@ Taiko deploys two smart contracts which store the hashes of the other chain:
 - TaikoL1 stores the L2 world state root on L1 (deployed on Ethereum)
 - TaikoL2 stores the L1 world state root on L2 (deployed on Taiko)
 
-Every time an L2 block is created on Taiko, the world state root of the enclosing block on L1 is stored in the [TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/fbfcc7f3810d0122f46673944c39e5f4d759d4e0/packages/protocol/contracts/L2/TaikoL2.sol#L151) contract using the `anchor` transaction.
+Every time an L2 block is created on Taiko, the world state root of the enclosing block on L1 is stored in the [TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/fbfcc7f3810d0122f46673944c39e5f4d759d4e0/packages/protocol/contracts/L2/TaikoL2.sol#L151) contract using the `anchor` transaction. To ensure validity, it is part of the (previously the zk circuits, now SGX and ZK) proof data submitted with each block, so no fake L1 world state root can be synchronized to L2."
 
 The L2 world state root is stored in the TaikoL1 contract using the `syncChainData` function call in
 [`LibVerifying`](https://github.com/taikoxyz/taiko-mono/blob/fbfcc7f3810d0122f46673944c39e5f4d759d4e0/packages/protocol/contracts/L1/libs/LibVerifying.sol#L191).
@@ -35,7 +35,7 @@ Merkle trees are a data storage structure that allows a lot of data to be finger
 
 - The merkle root, this is the single "fingerprint" hash of the merkle tree
 - The value, this is the value we are checking is inside the merkle root
-- A list of intermediate sibling hashes, these are the hashes that enable the verifier to re-calculate the merkle root
+- A list of intermediate sibling hashes (sometimes called paths or proofs), these are the hashes that enable the verifier to re-calculate the merkle root
 
 The `signalForChainData` function is used to store and retrieve chain data in the `SignalService` contract. This is a multi-purpose storage function, we can sync the state root or signal service storage roots as needed for each chain respectively.
 
@@ -43,7 +43,7 @@ A verifier will take the value (a leaf in the merkle tree) and the sibling hashe
 
 ## The signal service
 
-Taiko's signal service is a smart contract available on both L1 and L2, available for any dapp developer to use. It uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
+Taiko's signal service is a smart contract available on both L1 and L2, for any dapp developer to use. It uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
 
 You can store signals and check if a signal was sent from an address. It also exposes an important function: `verifySignalReceived`.
 
