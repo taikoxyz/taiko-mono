@@ -8,10 +8,11 @@ import { Merkle } from "murky/Merkle.sol";
 import "forge-std/src/StdJson.sol";
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-
-
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import { ITransparentUpgradeableProxy } from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract UpgradeableTest is Test {
@@ -20,6 +21,7 @@ contract UpgradeableTest is Test {
     UtilsScript public utils;
 
     TaikoonToken public token;
+    TaikoonTokenV2 public tokenV2;
 
     address public owner = vm.addr(0x5);
 
@@ -42,28 +44,47 @@ contract UpgradeableTest is Test {
         bytes32 root = tree.getRoot(leaves);
 
         // deploy token with empty root
-        address impl = address(new TaikoonToken());
+        token = new TaikoonToken();
+        address impl = address(token);
 
-
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root, blacklist))
-            );
-
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            impl, abi.encodeCall(TaikoonToken.initialize, (owner, "ipfs://", root, blacklist))
+        );
         token = TaikoonToken(address(proxy));
 
-        address v2 = address(new TaikoonTokenV2());
+        // mint tokens on the v1 deployment
+        token.mint(minters[0], 5);
 
+        // upgrade to v2
 
+        token.upgradeToAndCall(
+            address(new TaikoonTokenV2()),
+            abi.encodeCall(TaikoonTokenV2.initializeV2, ("ipfs://v2//"))
+        );
 
-
-Upgrades.upgradeProxy(
-    proxy,
-    "TaikoonTokenV2.sol",
-    abi.encodeCall(TaikoonTokenV2.initialize, (address(0), "ipfs://", root, blacklist))
-);
+        tokenV2 = TaikoonTokenV2(address(proxy));
 
         vm.stopBroadcast();
+    }
+
+    function test_upgraded_v2() public view {
+        assertEq(tokenV2.name(), token.name());
+        assertEq(tokenV2.symbol(), token.symbol());
+        assertEq(tokenV2.totalSupply(), token.totalSupply());
+        assertEq(tokenV2.maxSupply(), token.maxSupply());
+    }
+
+    function test_tokenURI() public view {
+        assertEq(tokenV2.baseURI(), "ipfs://v2//");
+        string memory uri = tokenV2.tokenURI(0);
+        assertEq(uri, "ipfs://v2///0.json");
+    }
+
+    function test_updateBaseURI() public {
+        vm.startBroadcast(owner);
+        tokenV2.updateBaseURI("ipfs://test//");
+        vm.stopBroadcast();
+
+        assertEq(tokenV2.baseURI(), "ipfs://test//");
     }
 }
