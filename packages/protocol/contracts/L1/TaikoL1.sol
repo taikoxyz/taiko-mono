@@ -31,7 +31,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     modifier emitEventForClient() {
         _;
-        emit StateVariablesUpdated({ slotB: state.slotB });
+        emit StateVariablesUpdated(state.slotB);
     }
 
     /// @dev Allows for receiving Ether from Hooks
