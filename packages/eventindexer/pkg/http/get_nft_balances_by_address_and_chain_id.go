@@ -42,10 +42,14 @@ func (srv *Server) GetNFTBalancesByAddressAndChainID(c echo.Context) error {
 
 	balances, ok := page.Items.(*[]eventindexer.NFTBalance)
 	if !ok {
-		return webutils.LogAndRenderErrors(c, http.StatusInternalServerError, echo.NewHTTPError(http.StatusInternalServerError, "Failed to cast paginated items"))
+		return webutils.LogAndRenderErrors(
+			c,
+			http.StatusInternalServerError,
+			echo.NewHTTPError(http.StatusInternalServerError, "Failed to cast paginated items"))
 	}
 
 	var balancesWithMetadata []NFTBalanceWithMetadata
+
 	for _, balance := range *balances {
 		metadata, err := srv.nftMetadataRepo.GetNFTMetadata(
 			c.Request().Context(),

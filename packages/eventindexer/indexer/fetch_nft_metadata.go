@@ -89,9 +89,11 @@ func resolveMetadataURL(tokenURI string) (string, error) {
 	if strings.HasPrefix(tokenURI, "ipfs://") {
 		ipfsHash := strings.TrimPrefix(tokenURI, "ipfs://")
 		resolvedURL := fmt.Sprintf("https://ipfs.io/ipfs/%s", ipfsHash)
+
 		if isValidURL(resolvedURL) {
 			return resolvedURL, nil
 		}
+
 		return "", eventindexer.ErrInvalidURL
 	}
 
@@ -106,6 +108,7 @@ func isValidURL(rawURL string) bool {
 	client := &http.Client{
 		Timeout: 20 * time.Second,
 	}
+
 	resp, err := client.Head(rawURL)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return false

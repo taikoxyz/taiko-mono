@@ -77,6 +77,7 @@ func (a *Attributes) Scan(value interface{}) error {
 
 func (a *Attribute) UnmarshalJSON(data []byte) error {
 	type Alias Attribute
+
 	aux := &struct {
 		Value interface{} `json:"value"`
 		*Alias
