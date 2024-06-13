@@ -39,7 +39,7 @@ func (r *NFTMetadataRepository) SaveNFTMetadata(
 func (r *NFTMetadataRepository) GetNFTMetadata(
 	ctx context.Context,
 	contractAddress string,
-	tokenID string,
+	tokenID int64,
 ) (*eventindexer.NFTMetadata, error) {
 	metadata := &eventindexer.NFTMetadata{}
 

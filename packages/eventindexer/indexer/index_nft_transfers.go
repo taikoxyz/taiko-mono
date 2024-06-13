@@ -102,9 +102,7 @@ func (i *Indexer) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog ty
 // saveERC721Transfer updates the user's balances on the from and to of a ERC721 transfer event
 func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[1].Bytes()[12:]))
-
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
-
 	tokenID := vLog.Topics[3].Big().Int64()
 
 	slog.Info(
@@ -116,24 +114,28 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 	)
 
 	// Check if metadata already exists in db, if not fetch and store
-	metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), fmt.Sprintf("%d", tokenID))
+	metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), tokenID)
 	if err != nil {
 		return err
 	}
 
 	if metadata == nil {
-		slog.Info("Fetching and storing ERC721 metadata",
-			"contractAddress", vLog.Address.Hex(),
-			"tokenID", vLog.Topics[3].Big())
+		slog.Info("Fetch and store metadata")
 
-		metadata, err = i.fetchERC721Metadata(ctx, vLog.Address.Hex(), vLog.Topics[3].Big())
+		metadata, err = i.fetchERC721Metadata(ctx, vLog.Address.Hex(), vLog.Topics[3].Big(), chainID)
 		if err != nil {
-			return err
+			if errors.Is(err, eventindexer.ErrInvalidURL) {
+				slog.Warn("Skipping metadata due to invalid URI")
+			} else {
+				return err
+			}
 		}
 
-		_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
-		if err != nil {
-			return err
+		if metadata != nil {
+			_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -201,24 +203,28 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 		}
 
 		// Check if metadata already exists in db, if not fetch and store
-		metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), fmt.Sprintf("%d", t.Id))
+		metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), t.Id.Int64())
 		if err != nil {
 			return err
 		}
 
 		if metadata == nil {
-			slog.Info("Fetching and storing ERC1155 metadata",
-				"contractAddress", vLog.Address.Hex(),
-				"tokenID", vLog.Topics[3].Big())
+			slog.Info("Fetch and store metadata")
 
-			metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), t.Id)
+			metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), t.Id, chainID)
 			if err != nil {
-				return err
+				if errors.Is(err, eventindexer.ErrInvalidURL) {
+					slog.Warn("Skipping metadata due to invalid URI")
+				} else {
+					return err
+				}
 			}
 
-			_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
-			if err != nil {
-				return err
+			if metadata != nil {
+				_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -268,24 +274,28 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 		for idx, id := range t.Ids {
 			// Check if metadata already exists in db, if not fetch and store
-			metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), fmt.Sprintf("%d", id))
+			metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), id.Int64())
 			if err != nil {
 				return err
 			}
 
 			if metadata == nil {
-				slog.Info("Fetching and storing ERC1155 metadata",
-					"contractAddress", vLog.Address.Hex(),
-					"tokenID", vLog.Topics[3].Big())
+				slog.Info("Fetch and store metadata")
 
-				metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), id)
+				metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), id, chainID)
 				if err != nil {
-					return err
+					if errors.Is(err, eventindexer.ErrInvalidURL) {
+						slog.Warn("Skipping metadata due to invalid URI")
+					} else {
+						return err
+					}
 				}
 
-				_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
-				if err != nil {
-					return err
+				if metadata != nil {
+					_, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+					if err != nil {
+						return err
+					}
 				}
 			}
 
