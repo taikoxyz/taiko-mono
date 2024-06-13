@@ -50,7 +50,6 @@ library LibProposing {
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata.
-
     function proposeBlock(
         TaikoData.State storage _state,
         IERC20 _tko,
