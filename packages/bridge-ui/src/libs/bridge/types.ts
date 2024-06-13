@@ -90,7 +90,8 @@ export type RelayerMessage = {
 export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'> & { blockNumber: Hex };
 
 export type BridgeTransaction = {
-  hash: Hash;
+  srcTxHash: Hash;
+  destTxHash: Hash;
   from: Address;
   amount: bigint;
   symbol: string;
@@ -100,6 +101,7 @@ export type BridgeTransaction = {
   tokenType: TokenType;
   blockNumber: Hex;
   msgHash: Hash;
+  processingFee: bigint;
   message?: Message;
   msgStatus?: MessageStatus;
 
