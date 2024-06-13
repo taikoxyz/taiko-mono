@@ -108,8 +108,17 @@ library LibProving {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
         // the blockHash and stateRoot.
-        if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
+        if (_tran.parentHash == 0 || _tran.blockHash == 0) {
             revert L1_INVALID_TRANSITION();
+        }
+
+        bool verifyingStateRoot =
+            _meta.id < _config.forkHeight || _meta.id % _config.stateRootSyncInternal == 0;
+
+        if (verifyingStateRoot) {
+            if (_tran.stateRoot == 0) revert L1_INVALID_TRANSITION();
+        } else {
+            if (_tran.stateRoot != 0) revert L1_INVALID_TRANSITION();
         }
 
         Local memory local;
@@ -215,7 +224,11 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
+
+        local.sameTransition = _tran.blockHash == ts.blockHash;
+        if (local.sameTransition && verifyingStateRoot) {
+            local.sameTransition = _tran.stateRoot == ts.stateRoot;
+        }
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
