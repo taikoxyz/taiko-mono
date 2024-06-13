@@ -22,7 +22,7 @@ abstract contract TaikoEvents {
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
-        TaikoData.BlockMetadata meta,
+        TaikoData.BlockMetadataV2 meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
 

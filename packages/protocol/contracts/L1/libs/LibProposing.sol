@@ -28,7 +28,7 @@ library LibProposing {
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
-        TaikoData.BlockMetadata meta,
+        TaikoData.BlockMetadataV2 meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
 
@@ -59,7 +59,7 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;
@@ -71,9 +71,9 @@ library LibProposing {
         }
 
         // Convert params to the version 1
-        TaikoData.BlockParamsV1 memory params = b.numBlocks < _config.forkHeight
-            ? abi.decode(_data, (TaikoData.BlockParamsV1))
-            : _paramsToV1(abi.decode(_data, (TaikoData.BlockParams)));
+        TaikoData.BlockParams memory params = b.numBlocks < _config.forkHeight
+            ? abi.decode(_data, (TaikoData.BlockParams))
+            : _paramsToV1(abi.decode(_data, (TaikoData.BlockParamsV2)));
 
         if (params.assignedProver != address(0) || params.hookCalls.length != 0) {
             revert L1_INVALID_PARAM();
@@ -98,7 +98,7 @@ library LibProposing {
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
         unchecked {
-            meta_ = TaikoData.BlockMetadata({
+            meta_ = TaikoData.BlockMetadataV2({
                 l1Hash: blockhash(block.number - 1),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
@@ -200,12 +200,12 @@ library LibProposing {
         });
     }
 
-    function _paramsToV1(TaikoData.BlockParams memory v2)
+    function _paramsToV1(TaikoData.BlockParamsV2 memory v2)
         private
         pure
-        returns (TaikoData.BlockParamsV1 memory)
+        returns (TaikoData.BlockParams memory)
     {
-        return TaikoData.BlockParamsV1({
+        return TaikoData.BlockParams({
             assignedProver: address(0),
             coinbase: v2.coinbase,
             extraData: v2.extraData,

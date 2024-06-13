@@ -221,18 +221,18 @@ library LibUtils {
         return _blockId % segmentSize == (_isBlockProposed ? 0 : segmentSize >> 1);
     }
 
-    function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
+    function hashMetadata(TaikoData.BlockMetadataV2 memory _meta) internal pure returns (bytes32) {
         return _meta.livenessBond != 0
             ? keccak256(abi.encode(_meta))
             : keccak256(abi.encode(_metaV2ToV1(_meta)));
     }
 
-    function _metaV2ToV1(TaikoData.BlockMetadata memory _v2)
+    function _metaV2ToV1(TaikoData.BlockMetadataV2 memory _v2)
         private
         pure
-        returns (TaikoData.BlockMetadataV1 memory)
+        returns (TaikoData.BlockMetadata memory)
     {
-        return TaikoData.BlockMetadataV1({
+        return TaikoData.BlockMetadata({
             l1Hash: _v2.l1Hash,
             difficulty: _v2.difficulty,
             blobHash: _v2.blobHash,

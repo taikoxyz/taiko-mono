@@ -99,7 +99,7 @@ library LibProving {
         IERC20 _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
-        TaikoData.BlockMetadata memory _meta,
+        TaikoData.BlockMetadataV2 memory _meta,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof
     )
@@ -387,7 +387,7 @@ library LibProving {
     function _overrideWithHigherProof(
         TaikoData.Block storage _blk,
         TaikoData.TransitionState memory _ts,
-        TaikoData.BlockMetadata memory _meta,
+        TaikoData.BlockMetadataV2 memory _meta,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
         Local memory _local

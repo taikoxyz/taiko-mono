@@ -117,7 +117,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         uint24 txListSize
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory ethDeposits)
+        returns (TaikoData.BlockMetadataV2 memory meta, TaikoData.EthDeposit[] memory ethDeposits)
     {
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
         // Register the tier fees
@@ -151,14 +151,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         vm.prank(proposer, proposer);
         (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParamsV1(address(0), address(0), 0, 0, hookcalls, "")),
+            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
     }
 
     function proveBlock(
         address prover,
-        TaikoData.BlockMetadata memory meta,
+        TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,

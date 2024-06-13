@@ -17,7 +17,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1");
         mineAndWrap(10 seconds);
@@ -65,7 +65,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1 proving");
         mineAndWrap(10 seconds);

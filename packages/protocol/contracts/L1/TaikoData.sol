@@ -58,7 +58,7 @@ library TaikoData {
     }
 
     /// @dev Represents proposeBlock's _data input parameter
-    struct BlockParamsV1 {
+    struct BlockParams {
         address assignedProver;
         address coinbase;
         bytes32 extraData;
@@ -67,7 +67,7 @@ library TaikoData {
         bytes signature;
     }
 
-    struct BlockParams {
+    struct BlockParamsV2 {
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
@@ -78,7 +78,7 @@ library TaikoData {
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
-    struct BlockMetadataV1 {
+    struct BlockMetadata {
         bytes32 l1Hash;
         bytes32 difficulty;
         bytes32 blobHash; //or txListHash (if Blob not yet supported)
@@ -95,7 +95,7 @@ library TaikoData {
         address sender;
     }
 
-    struct BlockMetadata {
+    struct BlockMetadataV2 {
         bytes32 l1Hash;
         bytes32 difficulty;
         bytes32 blobHash; //or txListHash (if Blob not yet supported)
@@ -140,8 +140,8 @@ library TaikoData {
     /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2
-        uint96 livenessBond;
+        address assignedProver; // slot 2, DEPRECATED and will always be zero
+        uint96 livenessBond; // DEPRECATED and will always be zero
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
         uint48 proposedIn; // L1 block number, required/used by node/client.

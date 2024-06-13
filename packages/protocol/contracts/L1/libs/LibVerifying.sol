@@ -32,6 +32,7 @@ library LibVerifying {
     error L1_TOO_LATE();
 
     /// @dev Verifies up to N blocks.
+    /// This methid is made public to reduce TaikoL1 code size.
     function verifyBlocks(
         TaikoData.State storage _state,
         IERC20 _tko,

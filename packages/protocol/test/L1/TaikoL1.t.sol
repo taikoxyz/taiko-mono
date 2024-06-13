@@ -44,7 +44,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -72,7 +72,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -106,7 +106,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -132,7 +132,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             bytes32 blockHash;
             bytes32 stateRoot;
             if (blockId % 2 == 0) {
@@ -187,7 +187,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_pauseProving() external {
         L1.pauseProving(true);
 
-        TaikoData.BlockMetadata memory meta;
+        TaikoData.BlockMetadataV2 memory meta;
 
         giveEthAndTko(Alice, 1000 ether, 1000 ether);
 
@@ -237,7 +237,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
         L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParamsV1(address(0), address(0), 0, 0, hookcalls, "")),
+            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
     }

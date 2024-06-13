@@ -17,7 +17,7 @@ interface ITaikoL1 {
     )
         external
         payable
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
+        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_);
 
     /// @notice Proves or contests a block transition.
     /// @param _blockId The index of the block to prove. This is also used to
