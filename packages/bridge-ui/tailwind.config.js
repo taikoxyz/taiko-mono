@@ -179,10 +179,6 @@ export default {
           background: 'var(--warning-background)',
         },
 
-        neutral: {
-          sentiment: 'var(--neutral-sentiment)',
-        },
-
         dialog: {
           background: 'var(--dialog-background)',
           interactive: {
