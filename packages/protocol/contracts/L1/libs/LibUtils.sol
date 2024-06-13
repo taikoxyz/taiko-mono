@@ -74,6 +74,8 @@ library LibUtils {
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
+    /// @return blk_ The block storage pointer.
+    /// @return slot_ The slot value.
     function getBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -88,6 +90,12 @@ library LibUtils {
         if (blk_.blockId != _blockId) revert L1_INVALID_BLOCK_ID();
     }
 
+    /// @dev Retrieves a block's block hash and state root.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockId Id of the block.
+    /// @return blockHash_ The block's block hash.
+    /// @return stateRoot_ The block's storage root.
     function getBlockInfo(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -114,7 +122,7 @@ library LibUtils {
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
     /// @param _tid The transition id.
-    /// @return The state transition data of the block.
+    /// @return The state transition pointer.
     function getTransition(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -137,7 +145,7 @@ library LibUtils {
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
     /// @param _parentHash Parent hash of the block.
-    /// @return The state transition data of the block.
+    /// @return The state transition pointer.
     function getTransition(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
