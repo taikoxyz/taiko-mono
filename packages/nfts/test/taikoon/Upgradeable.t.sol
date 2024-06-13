@@ -8,6 +8,8 @@ import { Merkle } from "murky/Merkle.sol";
 import "forge-std/src/StdJson.sol";
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -43,25 +45,24 @@ contract UpgradeableTest is Test {
         address impl = address(new TaikoonToken());
 
 
-        address proxy = address(
+        ERC1967Proxy proxy =
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root, blacklist))
-            )
-        );
+            );
 
-        token = TaikoonToken(proxy);
+        token = TaikoonToken(address(proxy));
 
         address v2 = address(new TaikoonTokenV2());
 
 
 
 
-
-       new ERC1967Proxy(
-                impl,
-                abi.encodeCall(TaikoonToken.initialize, (address(0), "ipfs://", root, blacklist))
-            ).upgradeTo(v2);
+Upgrades.upgradeProxy(
+    proxy,
+    "TaikoonTokenV2.sol",
+    abi.encodeCall(TaikoonTokenV2.initialize, (address(0), "ipfs://", root, blacklist))
+);
 
         vm.stopBroadcast();
     }

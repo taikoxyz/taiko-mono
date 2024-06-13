@@ -45,6 +45,7 @@
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
     "@openzeppelin/merkle-tree": "^1.0.6",
+    "@taiko/supplementary-contracts": "workspace:*",
     "convert-csv-to-json": "^2.46.0",
     "dotenv": "^16.4.5",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
@@ -52,10 +53,10 @@
     "ipfs-http-client": "^60.0.1",
     "merkletreejs": "^0.3.11",
     "murky": "github:dmfxyz/murky",
+    "openzeppelin-foundry-upgrades": "github:OpenZeppelin/openzeppelin-foundry-upgrades",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "sharp": "^0.33.3",
     "solady": "github:Vectorized/solady#v0.0.167",
-    "solidity-stringutils": "github:Arachnid/solidity-stringutils",
-    "@taiko/supplementary-contracts": "workspace:*"
+    "solidity-stringutils": "github:Arachnid/solidity-stringutils"
   }
 }

@@ -22,6 +22,7 @@ remappings = [
   "murky/=node_modules/murky/src/",
   "solidity-stringutils/=node_modules/solidity-stringutils/",
   "@taiko/blacklist/=node_modules/@taiko/supplementary-contracts/contracts/blacklist/",
+  "openzeppelin-foundry-upgrades/=node_modules/openzeppelin-foundry-upgrades/src/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
