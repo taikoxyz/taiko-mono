@@ -50,6 +50,7 @@ library LibProposing {
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata.
+
     function proposeBlock(
         TaikoData.State storage _state,
         IERC20 _tko,
@@ -61,16 +62,6 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
-        TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
-
-        if (params.assignedProver != address(0) || params.hookCalls.length != 0) {
-            revert L1_INVALID_PARAM();
-        }
-
-        if (params.coinbase == address(0)) {
-            params.coinbase = msg.sender;
-        }
-
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;
 
@@ -78,6 +69,19 @@ library LibProposing {
         // still has space for at least one more block.
         if (b.numBlocks >= b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
+        }
+
+        // Convert params to the version 1
+        TaikoData.BlockParamsV1 memory params = b.numBlocks < _config.forkHeight
+            ? abi.decode(_data, (TaikoData.BlockParamsV1))
+            : _paramsToV1(abi.decode(_data, (TaikoData.BlockParams)));
+
+        if (params.assignedProver != address(0) || params.hookCalls.length != 0) {
+            revert L1_INVALID_PARAM();
+        }
+
+        if (params.coinbase == address(0)) {
+            params.coinbase = msg.sender;
         }
 
         bytes32 parentMetaHash =
@@ -160,8 +164,8 @@ library LibProposing {
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
-            assignedProver: address(0),
-            livenessBond: 0,
+            assignedProver: address(0), // DEPRECATED, always 0
+            livenessBond: 0, // DEPRECATED, always 0
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
             proposedIn: uint48(block.number),
@@ -194,6 +198,21 @@ library LibProposing {
             livenessBond: _config.livenessBond,
             meta: meta_,
             depositsProcessed: deposits_
+        });
+    }
+
+    function _paramsToV1(TaikoData.BlockParams memory v2)
+        private
+        pure
+        returns (TaikoData.BlockParamsV1 memory)
+    {
+        return TaikoData.BlockParamsV1({
+            assignedProver: address(0),
+            coinbase: v2.coinbase,
+            extraData: v2.extraData,
+            parentMetaHash: v2.parentMetaHash,
+            hookCalls: new TaikoData.HookCall[](0),
+            signature: v2.signature
         });
     }
 }

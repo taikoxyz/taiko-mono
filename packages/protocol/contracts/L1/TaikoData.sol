@@ -58,12 +58,19 @@ library TaikoData {
     }
 
     /// @dev Represents proposeBlock's _data input parameter
-    struct BlockParams {
+    struct BlockParamsV1 {
         address assignedProver;
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
+        bytes signature;
+    }
+
+    struct BlockParams {
+        address coinbase;
+        bytes32 extraData;
+        bytes32 parentMetaHash;
         bytes signature;
     }
 
