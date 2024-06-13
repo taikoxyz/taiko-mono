@@ -7,15 +7,18 @@ pragma solidity 0.8.24;
 /// to it's canonical counterpart (by-default it is, but in case a third-party "native" token is set
 /// and used in our bridge):
 /// - The token should be ERC-20 compliant
-/// - The token should not be rebasing token
+/// - Supply increases should only be caused by mints from the vault. Notably, rebasing tokens are
+/// not supported.
+/// - Token balances should change by exactly the given amounts on `transfer`/`mint`/`burn`. Notable,
+/// tokens with fees on transfers are not supported.
 /// - If the bridged token is not directly deployed by the Bridge (ERC20Vault), - for example a USDT
 /// token bytecode deployed on Taiko to support native tokens - it might be necessary to implement
 /// an intermediary adapter contract which should conform mint() and burn() interfaces, so that the
-/// ERC20Vault can call these actions on the adapter
+/// ERC20Vault can call these actions on the adapter.
 /// - If the bridged token is not directly deployed by the Bridge (ERC20Vault), but conforms the
 /// mint() and burn() interface and the ERC20Vault has the right to perform these actions (has
-/// minter/burner role)
-/// - If the bridged token is directly deployed by our Bridge (ERC20Vault)
+/// minter/burner role).
+/// - If the bridged token is directly deployed by our Bridge (ERC20Vault).
 /// @custom:security-contact security@taiko.xyz
 interface IBridgedERC20 {
     /// @notice Mints `amount` tokens and assigns them to the `account` address.
