@@ -234,11 +234,16 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint256 msgValue = 2 ether;
         TaikoData.HookCall[] memory hookcalls;
 
+        (, TaikoData.SlotB memory b) = L1.getStateVariables();
+
+        TaikoData.Config memory config = L1.getConfig();
+
+        bytes memory paramEncoded = b.numBlocks < config.forkHeight
+            ? abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, ""))
+            : abi.encode(TaikoData.BlockParamsV2(address(0), 0, 0, ""));
+
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
-        L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
-            new bytes(txListSize)
-        );
+        L1.proposeBlock{ value: msgValue }(paramEncoded, new bytes(txListSize));
     }
 }
