@@ -19,18 +19,8 @@ library LibProposing {
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover.
-    /// @param livenessBond The liveness bond of the proposed block.
     /// @param meta The metadata of the proposed block.
-    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
-    /// block.
-    event BlockProposed(
-        uint256 indexed blockId,
-        address indexed assignedProver,
-        uint96 livenessBond,
-        TaikoData.BlockMetadataV2 meta,
-        TaikoData.EthDeposit[] depositsProcessed
-    );
+    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
@@ -59,7 +49,7 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;
@@ -190,14 +180,7 @@ library LibProposing {
             msg.sender.sendEtherAndVerify(address(this).balance);
         }
 
-        deposits_ = new TaikoData.EthDeposit[](0);
-        emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: meta_.proposer,
-            livenessBond: _config.livenessBond,
-            meta: meta_,
-            depositsProcessed: deposits_
-        });
+        emit BlockProposedV2({ blockId: blk.blockId, meta: meta_ });
     }
 
     function _paramsToV1(TaikoData.BlockParamsV2 memory v2)

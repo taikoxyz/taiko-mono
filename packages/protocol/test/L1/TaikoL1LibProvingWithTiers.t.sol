@@ -62,7 +62,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -111,7 +111,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -164,7 +164,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -216,7 +216,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -273,7 +273,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -338,7 +338,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -380,7 +380,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -442,7 +442,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -491,7 +491,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -539,7 +539,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -580,7 +580,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -620,7 +620,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -671,7 +671,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         printVariables("before propose");
-        (TaikoData.BlockMetadataV2 memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
         //printVariables("after propose");
         mine(1);
 

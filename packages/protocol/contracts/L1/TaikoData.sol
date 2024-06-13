@@ -150,15 +150,6 @@ library TaikoData {
         uint32 verifiedTransitionId;
     }
 
-    /// @dev Struct representing an Ethereum deposit.
-    /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
-    /// return values stayed for now.
-    struct EthDeposit {
-        address recipient;
-        uint96 amount;
-        uint64 id;
-    }
-
     /// @dev Forge is only able to run coverage in case the contracts by default
     /// capable of compiling without any optimization (neither optimizer runs,
     /// no compiling --via-ir flag).
