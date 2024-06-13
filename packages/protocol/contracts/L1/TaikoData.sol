@@ -147,6 +147,9 @@ library TaikoData {
         uint48 proposedIn; // L1 block number, required/used by node/client.
         bool livenessBondNotReturned;
         uint32 nextTransitionId;
+        // The ID of the transaction that is used to verify this block. However, if
+        // this block is not verified as the last block in a batch, verifiedTransitionId
+        // will remain zero.
         uint32 verifiedTransitionId;
     }
 
