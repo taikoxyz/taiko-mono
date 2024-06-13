@@ -99,15 +99,10 @@ library LibVerifying {
                             ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
                     }
 
-                    if (
-                        !LibUtils.isPostDeadline(
-                            ts.timestamp,
-                            local.b.lastUnpausedAt,
-                            ITierProvider(local.tierRouter.getProvider(local.blockId)).getTier(
-                                local.tier
-                            ).cooldownWindow
-                        )
-                    ) {
+                    uint24 cooldown = ITierProvider(local.tierRouter.getProvider(local.blockId))
+                        .getTier(local.tier).cooldownWindow;
+
+                    if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, cooldown)) {
                         // If cooldownWindow is 0, the block can theoretically
                         // be proved and verified within the same L1 block.
                         break;
