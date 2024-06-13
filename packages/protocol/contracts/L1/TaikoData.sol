@@ -71,6 +71,23 @@ library TaikoData {
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
+    struct BlockMetadataV1 {
+        bytes32 l1Hash;
+        bytes32 difficulty;
+        bytes32 blobHash; //or txListHash (if Blob not yet supported)
+        bytes32 extraData;
+        bytes32 depositsHash;
+        address coinbase; // L2 coinbase,
+        uint64 id;
+        uint32 gasLimit;
+        uint64 timestamp;
+        uint64 l1Height;
+        uint16 minTier;
+        bool blobUsed;
+        bytes32 parentMetaHash;
+        address sender;
+    }
+
     struct BlockMetadata {
         bytes32 l1Hash;
         bytes32 difficulty;
@@ -85,7 +102,8 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
+        address proposer;
+        uint96 livenessBond;
     }
 
     /// @dev Struct representing transition to be proven.
@@ -119,7 +137,8 @@ library TaikoData {
         uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
+        uint48 proposedIn; // L1 block number, required/used by node/client.
+        bool livenessBondNotReturned;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
     }

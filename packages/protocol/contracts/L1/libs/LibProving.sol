@@ -134,14 +134,22 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
+
         local.assignedProver = blk.assignedProver;
-        local.livenessBond = blk.livenessBond;
+        if (local.assignedProver == address(0)) {
+            local.assignedProver = _meta.proposer;
+        }
+
+        if (_meta.livenessBond == 0) {
+            local.livenessBond = blk.livenessBond;
+        }
+
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.blockId != _meta.id || local.metaHash != keccak256(abi.encode(_meta))) {
+        if (local.blockId != _meta.id || local.metaHash != LibUtils.hashMetadata(_meta)) {
             revert L1_BLOCK_MISMATCH();
         }
 
@@ -226,7 +234,7 @@ library LibProving {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _tran, _proof, local);
+            _overrideWithHigherProof(blk, ts, _meta, _tran, _proof, local);
 
             emit TransitionProved({
                 blockId: local.blockId,
@@ -379,6 +387,7 @@ library LibProving {
     function _overrideWithHigherProof(
         TaikoData.Block storage _blk,
         TaikoData.TransitionState memory _ts,
+        TaikoData.BlockMetadata memory _meta,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
         Local memory _local
@@ -389,8 +398,6 @@ library LibProving {
         uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
-            // assert(_blk.livenessBond == 0);
-
             if (_local.sameTransition) {
                 // The contested transition is proven to be valid, contester loses the game
                 reward = _rewardAfterFriction(_ts.contestBond);
@@ -412,16 +419,22 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
+            //  `_local.livenessBond !=0` can be removed once we are sure all ringbuffer
+            // has been written.
+            if (_blk.livenessBondNotReturned || _local.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
+                _blk.livenessBondNotReturned = false;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
+                    uint96 livenessBond =
+                        _meta.livenessBond == 0 ? _local.livenessBond : _meta.livenessBond;
+
                     if (_local.assignedProver == msg.sender) {
-                        reward += _local.livenessBond;
+                        reward += livenessBond;
                     } else {
-                        _local.tko.transfer(_local.assignedProver, _local.livenessBond);
+                        _local.tko.transfer(_local.assignedProver, livenessBond);
                     }
                 }
             }
