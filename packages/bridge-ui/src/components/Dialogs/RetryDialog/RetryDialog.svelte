@@ -138,7 +138,7 @@
       </DialogStepper>
 
       {#if activeStep === RetrySteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
       {:else if activeStep === RetrySteps.SELECT}
         <RetryOptionStep bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}
