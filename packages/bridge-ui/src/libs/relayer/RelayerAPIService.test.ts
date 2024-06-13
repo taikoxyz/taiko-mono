@@ -63,7 +63,6 @@ describe('RelayerAPIService', () => {
     const relayerAPIService = new RelayerAPIService(baseUrl);
     const address = '0x123';
     const paginationParams = { page: 1, size: 10 };
-    const chainID = 1;
 
     const mockResponse = {
       data: {
@@ -77,7 +76,7 @@ describe('RelayerAPIService', () => {
     mockedAxios.get.mockResolvedValue(mockResponse);
 
     // When
-    const result = await relayerAPIService.getAllBridgeTransactionByAddress(address, paginationParams, chainID);
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(address, paginationParams);
 
     // Then
     expect(result).toBeDefined();

@@ -1,7 +1,7 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import type { Address, Hash, Hex, TransactionReceipt } from 'viem';
+import { type Address, getAddress, type Hash, type Hex, type TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -137,11 +137,9 @@ export class RelayerAPIService {
   async getAllBridgeTransactionByAddress(
     address: Address,
     paginationParams: PaginationParams,
-    chainID?: number,
   ): Promise<GetAllByAddressResponse> {
     const params = {
       address,
-      chainID,
       event: 'MessageSent',
       ...paginationParams,
     };
@@ -187,21 +185,23 @@ export class RelayerAPIService {
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
         decimals: tx.canonicalTokenDecimals,
-        hash: tx.data.Raw.transactionHash,
-        from: tx.messageOwner,
+        srcTxHash: tx.data.Raw.transactionHash,
+        destTxHash: tx.processedTxHash,
+        from: getAddress(tx.messageOwner),
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
         tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
+        processingFee: BigInt(tx.data.Message.Fee.toString()),
         message: {
           id: tx.data.Message.Id,
-          to: tx.data.Message.To,
-          destOwner: tx.data.Message.DestOwner,
+          to: getAddress(tx.data.Message.To),
+          destOwner: getAddress(tx.data.Message.DestOwner),
           data: data as Hex,
-          srcOwner: tx.data.Message.SrcOwner,
-          from: tx.data.Message.From,
+          srcOwner: getAddress(tx.data.Message.SrcOwner),
+          from: getAddress(tx.data.Message.From),
           gasLimit: tx.data.Message.GasLimit,
           value,
           srcChainId: BigInt(tx.data.Message.SrcChainId),
@@ -216,16 +216,20 @@ export class RelayerAPIService {
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
 
-      if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
-      const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
+      const senderMatch = getAddress(bridgeTx.from) === getAddress(address);
+      const receiverMatch = bridgeTx.message && getAddress(bridgeTx.message.destOwner) === getAddress(address);
+
+      if (!senderMatch && !receiverMatch) return;
+
+      const { destChainId, srcChainId, srcTxHash, msgHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
-      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), hash);
+      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), srcTxHash);
 
       // TODO: do we want to show these transactions?
       if (!receipt || receipt === null) {
-        log('Transaction not mined yet', { hash, srcChainId });
+        log('Transaction not mined yet', { srcTxHash, srcChainId });
       }
 
       bridgeTx.receipt = receipt as TransactionReceipt;
