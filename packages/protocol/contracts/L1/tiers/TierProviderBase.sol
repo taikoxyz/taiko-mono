@@ -53,7 +53,7 @@ abstract contract TierProviderBase is ITierProvider {
                 verifierName: LibStrings.B_TIER_GUARDIAN_MINORITY,
                 validityBond: 500 ether, // TKO
                 contestBond: 3280 ether, // =500TKO * 6.5625
-                cooldownWindow: 360, // 6 hours
+                cooldownWindow: 240, // 4 hours
                 provingWindow: 2880, // 48 hours
                 maxBlocksToVerifyPerProof: 16
             });
