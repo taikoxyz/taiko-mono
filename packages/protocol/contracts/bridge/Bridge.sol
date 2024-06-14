@@ -9,7 +9,6 @@ import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
-import "forge-std/src/console2.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
