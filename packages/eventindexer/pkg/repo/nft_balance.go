@@ -31,6 +31,7 @@ func (r *NFTBalanceRepository) increaseBalanceInDB(
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
 		ContractAddress: opts.ContractAddress,
+		NftMetadataId:   opts.NftMetadataId,
 		TokenID:         opts.TokenID,
 		Address:         opts.Address,
 		ContractType:    opts.ContractType,
@@ -68,6 +69,7 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
 		ContractAddress: opts.ContractAddress,
+		NftMetadataId:   opts.NftMetadataId,
 		TokenID:         opts.TokenID,
 		Address:         opts.Address,
 		ContractType:    opts.ContractType,

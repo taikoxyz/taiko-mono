@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc1155"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc721"
@@ -54,6 +56,10 @@ func (i *Indexer) fetchNFTMetadata(
 
 	url, err := resolveMetadataURL(tokenURI)
 	if err != nil {
+		if errors.Is(err, eventindexer.ErrInvalidURL) {
+			slog.Warn("Skipping metadata due to invalid URI")
+			return nil, nil
+		}
 		return nil, err
 	}
 

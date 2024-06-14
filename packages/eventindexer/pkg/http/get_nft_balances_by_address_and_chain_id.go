@@ -40,35 +40,20 @@ func (srv *Server) GetNFTBalancesByAddressAndChainID(c echo.Context) error {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	balances, ok := page.Items.(*[]eventindexer.NFTBalance)
-	if !ok {
-		return webutils.LogAndRenderErrors(
-			c,
-			http.StatusInternalServerError,
-			echo.NewHTTPError(http.StatusInternalServerError, "Failed to cast paginated items"))
-	}
+	for i := range *page.Items.(*[]eventindexer.NFTBalance) {
+		v := &(*page.Items.(*[]eventindexer.NFTBalance))[i]
 
-	var balancesWithMetadata []NFTBalanceWithMetadata
-
-	for _, balance := range *balances {
 		metadata, err := srv.nftMetadataRepo.GetNFTMetadata(
 			c.Request().Context(),
-			balance.ContractAddress,
-			balance.TokenID,
+			v.ContractAddress,
+			v.TokenID,
 		)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		balancesWithMetadata = append(balancesWithMetadata, NFTBalanceWithMetadata{
-			Balance:  balance,
-			Metadata: metadata,
-		})
+		v.Metadata = metadata
 	}
 
-	response := NFTBalancesResponse{
-		Balances: balancesWithMetadata,
-	}
-
-	return c.JSON(http.StatusOK, response)
+	return c.JSON(http.StatusOK, page)
 }
