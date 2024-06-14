@@ -27,7 +27,7 @@
 		"daisyui": "^4.10.1",
 		"eslint": "^8.56.0",
 		"eslint-config-prettier": "^9.1.0",
-		"eslint-plugin-svelte": "^2.38.0",
+		"eslint-plugin-svelte": "^2.39.3",
 		"postcss": "^8.4.38",
 		"postcss-import": "^16.1.0",
 		"postcss-nesting": "^12.1.0",
