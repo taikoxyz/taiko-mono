@@ -1,5 +1,5 @@
 import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
+import { getAddress, getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -40,12 +40,12 @@ export abstract class Bridge {
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
-    const { srcOwner } = message;
+    const { srcOwner, destOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const userAddress = wallet.account.address;
-    // Are we the owner of the message?
-    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
+    // Are we the owner of the message, either src or dest?
+    if (getAddress(srcOwner) !== getAddress(userAddress) && getAddress(destOwner) !== getAddress(userAddress)) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 

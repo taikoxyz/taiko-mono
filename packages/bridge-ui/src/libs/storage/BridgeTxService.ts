@@ -98,7 +98,7 @@ export class BridgeTxService {
 
     const bridgeTx: BridgeTransaction = { ...tx }; // prevent mutation
 
-    const { destChainId, srcChainId, hash } = bridgeTx;
+    const { destChainId, srcChainId, srcTxHash } = bridgeTx;
 
     // Ignore transactions from chains not supported by the bridge
     if (!isSupportedChain(Number(srcChainId))) return;
@@ -108,14 +108,14 @@ export class BridgeTxService {
     if (waitForTx) {
       // We might want to wait for the transaction to be mined
       receipt = await waitForTransactionReceipt(config, {
-        hash,
+        hash: srcTxHash,
         chainId: Number(srcChainId),
         timeout: pendingTransaction.waitTimeout,
       });
     } else {
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
-      receipt = await BridgeTxService._getTransactionReceipt(Number(srcChainId), hash);
+      receipt = await BridgeTxService._getTransactionReceipt(Number(srcChainId), srcTxHash);
     }
 
     if (!receipt) {
@@ -201,7 +201,7 @@ export class BridgeTxService {
   async getTxByHash(hash: Hash, address: Address) {
     const txs = this._getTxFromStorage(address);
 
-    const tx = txs.find((tx) => tx.hash === hash) as BridgeTransaction;
+    const tx = txs.find((tx) => tx.srcTxHash === hash) as BridgeTransaction;
 
     log('Transaction from storage', { ...tx });
 
@@ -237,9 +237,9 @@ export class BridgeTxService {
     log('Removing transactions from storage', txs);
     const txsFromStorage = this._getTxFromStorage(address);
 
-    const txsToRemove = txs.map((tx) => tx.hash);
+    const txsToRemove = txs.map((tx) => tx.srcTxHash);
 
-    const filteredTxs = txsFromStorage.filter((tx) => !txsToRemove.includes(tx.hash));
+    const filteredTxs = txsFromStorage.filter((tx) => !txsToRemove.includes(tx.srcTxHash));
 
     this.updateByAddress(address, filteredTxs);
   }

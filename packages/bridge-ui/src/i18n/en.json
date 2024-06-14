@@ -491,6 +491,7 @@
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
+          "different_recipient": "The recipient of this transaction does not match the sender or the currently connected wallet. To  manually claim, please connect to the recipient's wallet.",
           "funds_check": "Sufficient funds to claim",
           "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
@@ -505,6 +506,9 @@
             "funds": {
               "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.0015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
               "title": "What is \"Sufficient funds to claim\"?"
+            },
+            "processing_fee": {
+              "description": "A processing fee has been set for this transaction. If the fee is high enough, a relayer may claim it automatically. Regardless, you can choose to manually claim the transaction. Note that the fee is non-refundable."
             },
             "quota": {
               "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
