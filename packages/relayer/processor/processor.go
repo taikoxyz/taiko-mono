@@ -513,7 +513,6 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
 							slog.Error("err publishing to queue", "err", err.Error())
 						}
-
 					default:
 						slog.Error("process message failed", "err", err.Error())
 
