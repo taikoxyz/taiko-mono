@@ -648,7 +648,7 @@ contract Bridge is EssentialContract, IBridge {
             // We can get the actual memory allocated with `msize()`, but that will require
             // yul optimizer turned off, which will make other contract's code size too large.
             // Though our unit tests, we estimiated the memory allocated is betweetn 1400 - 2800,
-            // Therefore, we can use 8=2816/32 as the old total memory used in words.
+            // Therefore, we can use 2816 bytes (88 words) as the estimated old total memory used.
             uint256 additionalWords = (_dataLength + 31) / 32;
             uint256 memoryGasCost =
                 (176 + additionalWords) * additionalWords / 512 + 3 * additionalWords;
