@@ -90,7 +90,7 @@
     }
 
     const bridgeTx = {
-      hash: txHash,
+      srcTxHash: txHash,
       from: $account.address,
       amount: $enteredAmount,
       symbol: $selectedToken?.symbol,

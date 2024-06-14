@@ -42,7 +42,7 @@ export const toastConfig = {
 };
 
 export const apiService = {
-  timeout: 5000,
+  timeout: 10_000, // 10 seconds
 };
 
 export const ipfsConfig = {
