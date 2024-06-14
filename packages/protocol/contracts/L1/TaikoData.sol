@@ -34,9 +34,8 @@ library TaikoData {
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
         // The max number of L2 blocks that can stay unsynced on L1
-        uint8 stateRootSyncInternal;
+        uint8 blockSyncThreshold;
         bool checkEOAForCalldataDA;
-        uint64 forkHeight;
     }
 
     /// @dev Struct representing prover fees per given tier
@@ -67,13 +66,6 @@ library TaikoData {
         bytes signature;
     }
 
-    struct BlockParamsV2 {
-        address coinbase;
-        bytes32 extraData;
-        bytes32 parentMetaHash;
-        bytes signature;
-    }
-
     /// @dev Struct containing data only required for proving a block
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
@@ -92,25 +84,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender;
-    }
-
-    struct BlockMetadataV2 {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        bytes32 extraData;
-        bytes32 depositsHash;
-        address coinbase; // L2 coinbase,
-        uint64 id;
-        uint32 gasLimit;
-        uint64 timestamp;
-        uint64 l1Height;
-        uint16 minTier;
-        bool blobUsed;
-        bytes32 parentMetaHash;
-        address proposer;
-        uint96 livenessBond;
+        address sender; // a.k.a proposer
     }
 
     /// @dev Struct representing transition to be proven.
@@ -140,17 +114,25 @@ library TaikoData {
     /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2, DEPRECATED and will always be zero
-        uint96 livenessBond; // DEPRECATED and will always be zero
+        address assignedProver; // slot 2
+        uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
-        uint48 proposedIn; // L1 block number, required/used by node/client.
-        bool livenessBondNotReturned;
+        uint64 proposedIn; // L1 block number, required/used by node/client.
         uint32 nextTransitionId;
         // The ID of the transaction that is used to verify this block. However, if
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+    }
+
+    /// @dev Struct representing an Ethereum deposit.
+    /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
+    /// return values stayed for now.
+    struct EthDeposit {
+        address recipient;
+        uint96 amount;
+        uint64 id;
     }
 
     /// @dev Forge is only able to run coverage in case the contracts by default

@@ -38,19 +38,23 @@ contract TaikoL1Test is TaikoL1TestBase {
         // If this line (or Bob's query balance) is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveEthAndTko(Carol, 1e8 ether, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -65,20 +69,25 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_L1_multiple_blocks_in_one_L1_block() external {
-        giveEthAndTko(Alice, 1_000_000 ether, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveEthAndTko(Carol, 1e8 ether, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
+
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
@@ -89,7 +98,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             assertEq(meta.id, blk.blockId);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, parentHash);
-            assertEq(ts.prover, Alice);
+            assertEq(ts.prover, Bob);
 
             parentHash = blockHash;
         }
@@ -98,21 +107,25 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_L1_verifying_multiple_blocks_once() external {
-        giveEthAndTko(Alice, 10_000_000 ether, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveEthAndTko(Carol, 1e8 ether, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
@@ -127,12 +140,14 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_L1_in_proving_window_logic() external {
         giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         giveEthAndTko(Carol, 1e8 ether, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
-            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             bytes32 blockHash;
             bytes32 stateRoot;
             if (blockId % 2 == 0) {
@@ -158,7 +173,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
                 // Only guardian or assigned prover is allowed
                 if (blockId % 4 == 0) {
-                    proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+                    proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
                 } else {
                     proveBlock(
                         Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
@@ -187,15 +202,16 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_pauseProving() external {
         L1.pauseProving(true);
 
-        TaikoData.BlockMetadataV2 memory meta;
+        TaikoData.BlockMetadata memory meta;
 
         giveEthAndTko(Alice, 1000 ether, 1000 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
 
         // Proposing is still possible
-        meta = proposeBlock(Alice, 1_000_000, 1024);
+        (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
-            Alice,
+            Bob,
             meta,
             GENESIS_BLOCK_HASH,
             bytes32("01"),
@@ -209,15 +225,16 @@ contract TaikoL1Test is TaikoL1TestBase {
         L1.pause();
 
         giveEthAndTko(Alice, 1000 ether, 1000 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
 
         // Proposing is also not possible
-        proposeButRevert(Alice, 1024, EssentialContract.INVALID_PAUSE_STATUS.selector);
+        proposeButRevert(Alice, Bob, 1024, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
         // unpause
         L1.unpause();
 
         // Proposing is possible again
-        proposeBlock(Alice, 1_000_000, 1024);
+        proposeBlock(Alice, Bob, 1_000_000, 1024);
     }
 
     function test_getTierIds() external {
@@ -230,20 +247,24 @@ contract TaikoL1Test is TaikoL1TestBase {
         cp.getTier(123);
     }
 
-    function proposeButRevert(address proposer, uint24 txListSize, bytes4 revertReason) internal {
+    function proposeButRevert(
+        address proposer,
+        address prover,
+        uint24 txListSize,
+        bytes4 revertReason
+    )
+        internal
+    {
         uint256 msgValue = 2 ether;
-        TaikoData.HookCall[] memory hookcalls;
-
-        (, TaikoData.SlotB memory b) = L1.getStateVariables();
-
-        TaikoData.Config memory config = L1.getConfig();
-
-        bytes memory paramEncoded = b.numBlocks < config.forkHeight
-            ? abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, ""))
-            : abi.encode(TaikoData.BlockParamsV2(address(0), 0, 0, ""));
+        AssignmentHook.ProverAssignment memory assignment;
+        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
+        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
 
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
-        L1.proposeBlock{ value: msgValue }(paramEncoded, new bytes(txListSize));
+        L1.proposeBlock{ value: msgValue }(
+            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
+            new bytes(txListSize)
+        );
     }
 }

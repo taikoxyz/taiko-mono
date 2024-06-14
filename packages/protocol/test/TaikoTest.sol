@@ -18,6 +18,7 @@ import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../test/L1/TestTierProvider.sol";
+import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/bridge/QuotaManager.sol";
 
