@@ -71,6 +71,6 @@
     "minidenticons": "^4.2.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
-    "viem": "^2.13.1"
+    "viem": "^2.14.0"
   }
 }
