@@ -5,7 +5,7 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block
     // 2. James proves the block outside the proving window, using the correct parent hash.
     // 3. Taylor contests James' proof.
     // 4. William proves James is correct and Taylor is wrong.
@@ -14,15 +14,14 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
         vm.warp(1_000_000);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(James, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
-        console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        console2.log("====== Alice propose a block");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
 
@@ -46,7 +45,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -59,7 +58,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, James);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);
         }
@@ -74,7 +73,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -86,7 +85,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, William);
             assertEq(ts.timestamp, block.timestamp); // not zero
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);
             assertEq(
                 tko.balanceOf(William),
@@ -104,7 +103,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.assignedProver, Bob);
+
             // assertEq(blk.livenessBond, livenessBond);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -118,7 +117,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // 1. Alice proposes a block, Bob as the prover.
+    // 1. Alice proposes a block
     // 2. James proves the block outside the proving window, with correct parent hash.
     // 3. Taylor contests James' proof.
     // 4. William proves Taylor is correct and James is wrong.
@@ -127,15 +126,14 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
         vm.warp(1_000_000);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(James, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
-        console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        console2.log("====== Alice propose a block");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
 
@@ -159,7 +157,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -172,7 +170,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, James);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);
             assertEq(tko.balanceOf(Taylor), 10_000 ether - tierOp.contestBond);
         }
@@ -187,7 +185,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.assignedProver, Bob);
+
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -199,7 +197,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.prover, William);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);
 
             uint256 quarterReward = tierOp.validityBond * 7 / 8 / 4;
@@ -217,7 +215,6 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.assignedProver, Bob);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
@@ -227,7 +224,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
 
-            assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
+            assertEq(tko.balanceOf(Alice), 10_000 ether - livenessBond);
 
             uint256 quarterReward = tierOp.validityBond * 7 / 8 / 4;
             assertEq(tko.balanceOf(James), 10_000 ether - tierOp.validityBond);

@@ -5,7 +5,6 @@ import "../TaikoTest.sol";
 
 abstract contract TaikoL1TestBase is TaikoTest {
     AddressManager public addressManager;
-    AssignmentHook public assignmentHook;
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
@@ -88,14 +87,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
             )
         );
 
-        assignmentHook = AssignmentHook(
-            deployProxy({
-                name: "assignment_hook",
-                impl: address(new AssignmentHook()),
-                data: abi.encodeCall(AssignmentHook.init, (address(0), address(addressManager)))
-            })
-        );
-
         registerAddress("taiko", address(L1));
         registerAddress("tier_sgx", address(sv));
         registerAddress("tier_guardian", address(gp));
@@ -122,12 +113,11 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function proposeBlock(
         address proposer,
-        address prover,
         uint32 gasLimit,
         uint24 txListSize
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory ethDeposits)
+        returns (TaikoData.BlockMetadataV2 memory meta)
     {
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
         // Register the tier fees
@@ -142,21 +132,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // rest will be returned
         // anyways
         uint256 msgValue = 2 ether;
-
-        AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
-            feeToken: address(0),
-            tierFees: tierFees,
-            expiry: uint64(block.timestamp + 60 minutes),
-            maxBlockId: 0,
-            maxProposedIn: 0,
-            metaHash: 0,
-            parentMetaHash: 0,
-            signature: new bytes(0)
-        });
-
-        assignment.signature = _signAssignment(
-            prover, assignment, address(L1), proposer, keccak256(new bytes(txListSize))
-        );
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
@@ -173,22 +148,20 @@ abstract contract TaikoL1TestBase is TaikoTest {
         meta.gasLimit = gasLimit;
 
         TaikoData.HookCall[] memory hookcalls;
-        if (prover != proposer) {
-            hookcalls = new TaikoData.HookCall[](1);
-            hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
-        } else {
-            hookcalls = new TaikoData.HookCall[](0);
-        }
+
+        TaikoData.Config memory config = L1.getConfig();
+
+        bytes memory paramEncoded = b.numBlocks < config.forkHeight
+            ? abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, ""))
+            : abi.encode(TaikoData.BlockParamsV2(address(0), 0, 0, ""));
+
         vm.prank(proposer, proposer);
-        (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
-            new bytes(txListSize)
-        );
+        meta = L1.proposeBlock{ value: msgValue }(paramEncoded, new bytes(txListSize));
     }
 
     function proveBlock(
         address prover,
-        TaikoData.BlockMetadata memory meta,
+        TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -281,36 +254,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         console2.log(conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr);
     }
 
-    function _signAssignment(
-        address prover,
-        AssignmentHook.ProverAssignment memory assignment,
-        address taikoAddr,
-        address blockProposer,
-        bytes32 blobHash
-    )
-        internal
-        view
-        returns (bytes memory signature)
-    {
-        uint256 signerPrivateKey;
-
-        // In the test suite these are the 3 which acts as provers
-        if (prover == Alice) {
-            signerPrivateKey = 0x1;
-        } else if (prover == Bob) {
-            signerPrivateKey = 0x2;
-        } else if (prover == Carol) {
-            signerPrivateKey = 0x3;
-        } else {
-            revert("unexpected");
-        }
-
-        bytes32 assignmentHash =
-            assignmentHook.hashAssignment(assignment, taikoAddr, blockProposer, prover, blobHash);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, assignmentHash);
-        signature = abi.encodePacked(r, s, v);
-    }
-
     function createSgxSignatureProof(
         TaikoData.Transition memory tran,
         address newInstance,
@@ -345,8 +288,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         vm.prank(to, to);
         tko.approve(address(L1), amountTko);
-        vm.prank(to, to);
-        tko.approve(address(assignmentHook), amountTko);
 
         console2.log("TKO balance:", to, tko.balanceOf(to));
         console2.log("ETH balance:", to, to.balance);
