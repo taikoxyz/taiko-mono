@@ -644,12 +644,13 @@ contract Bridge is EssentialContract, IBridge {
     {
         unchecked {
             // https://github.com/ethereum/execution-specs/blob/master/src/ethereum/cancun/vm/gas.py#L128
-            uint256 currentMemSize;
-            assembly {
-                currentMemSize := msize()
-            } // Get size in bytes of currently allocated memory
-            uint256 oldTotalMemWords = (currentMemSize + 31) / 32;
-            uint256 newTotalMemWords = (currentMemSize + _dataLength + 31) / 32;
+
+            // We can get the actually memory allocated, we can use `msize()`, but that will require
+            // yul optimizer turned off, which will make other contract's code size too large.
+            // Though our unit tests, we estimiated the memory allocated is clost to 1700 bytes.
+
+            uint256 oldTotalMemWords = 54; // = 1728 / 32;
+            uint256 newTotalMemWords = 54 + _dataLength / 32;
 
             uint256 alreadyPaid = oldTotalMemWords * 3 + oldTotalMemWords * oldTotalMemWords / 512;
             uint256 newlyPaid = newTotalMemWords * 3 + newTotalMemWords * newTotalMemWords / 512;
