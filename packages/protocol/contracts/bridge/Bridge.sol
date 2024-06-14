@@ -289,7 +289,7 @@ contract Bridge is EssentialContract, IBridge {
                     // Taking into account the encoded message calldata cost, and can count with 16
                     // gas per bytes (vs. checking each and every byte if zero or non-zero)
                     stats.gasUsedInFeeCalc = uint32(
-                        GAS_OVERHEAD + gasStart + _encodedMessageDataCost(_message.data.length)
+                        GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
                             - gasleft()
                     );
 
@@ -469,19 +469,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param dataLength The length of message.data.
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
-        return _encodedMessageDataCost(dataLength) + GAS_RESERVE;
-    }
-
-    function _encodedMessageDataCost(uint256 dataLength) private pure returns (uint32) {
-        // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
-        // + 32 bytes (A is a dynamic tuple, offset to first elements)
-        // + 32 bytes (offset to last bytes element of Message)
-        // + 32 bytes (padded encoding of length of Message.data + dataLength
-        //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-        // Non-zero calldata cost per byte is 16.
-        unchecked {
-            return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
-        }
+        return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
     /// @notice Checks if the given address can pause and/or unpause the bridge.
@@ -696,6 +684,18 @@ contract Bridge is EssentialContract, IBridge {
         uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
         unchecked {
             return minGasRequired.max(_message.gasLimit) - minGasRequired;
+        }
+    }
+
+    function _messageCalldataCost(uint256 dataLength) private pure returns (uint32) {
+        // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
+        // + 32 bytes (A is a dynamic tuple, offset to first elements)
+        // + 32 bytes (offset to last bytes element of Message)
+        // + 32 bytes (padded encoding of length of Message.data + dataLength
+        //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
+        // Non-zero calldata cost per byte is 16.
+        unchecked {
+            return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
     }
 }
