@@ -30,7 +30,7 @@
     "@types/node": "^20.12.7",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "convert-csv-to-json": "^2.44.0",
+    "convert-csv-to-json": "^2.47.0",
     "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
