@@ -60,6 +60,7 @@ func (i *Indexer) fetchNFTMetadata(
 			slog.Warn("Skipping metadata due to invalid URI")
 			return nil, nil
 		}
+
 		return nil, err
 	}
 

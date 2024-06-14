@@ -249,6 +249,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 		} else {
 			slog.Info("metadata found", "pk", pk, "tokenId", metadata.TokenID, "contractAddress", vLog.Address.Hex())
 		}
+
 		increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			NftMetadataId:   int64(pk),
@@ -332,6 +333,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			} else {
 				slog.Info("metadata found", "pk", pk, "tokenId", metadata.TokenID, "contractAddress", vLog.Address.Hex())
 			}
+
 			increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         chainID.Int64(),
 				NftMetadataId:   int64(pk),
