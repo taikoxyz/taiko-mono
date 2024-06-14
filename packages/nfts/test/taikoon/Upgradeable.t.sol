@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import { Test, console } from "forge-std/src/Test.sol";
 import { TaikoonToken } from "../../contracts/taikoon/TaikoonToken.sol";
-import { TaikoonTokenV2 } from "../../contracts/taikoon/TaikoonTokenV2.sol";
 import { Merkle } from "murky/Merkle.sol";
 import "forge-std/src/StdJson.sol";
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
@@ -21,7 +20,7 @@ contract UpgradeableTest is Test {
     UtilsScript public utils;
 
     TaikoonToken public token;
-    TaikoonTokenV2 public tokenV2;
+    TaikoonToken public tokenV2;
 
     address public owner = vm.addr(0x5);
 
@@ -58,11 +57,10 @@ contract UpgradeableTest is Test {
         // upgrade to v2
 
         token.upgradeToAndCall(
-            address(new TaikoonTokenV2()),
-            abi.encodeCall(TaikoonTokenV2.initializeV2, ("ipfs://v2//"))
+            address(new TaikoonToken()), abi.encodeCall(TaikoonToken.initializeV2, ("ipfs://v2//"))
         );
 
-        tokenV2 = TaikoonTokenV2(address(proxy));
+        tokenV2 = TaikoonToken(address(proxy));
 
         vm.stopBroadcast();
     }
