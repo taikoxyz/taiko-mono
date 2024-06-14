@@ -178,7 +178,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param _proof The tier proof.
     /// @return approved_ True if the minimum number of approval is acquired, false otherwise.
     function approve(
-        TaikoData.BlockMetadataV2 calldata _meta,
+        TaikoData.BlockMetadata calldata _meta,
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )

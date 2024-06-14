@@ -228,33 +228,4 @@ library LibUtils {
 
         return _blockId % segmentSize == (_isBlockProposed ? 0 : segmentSize >> 1);
     }
-
-    function hashMetadata(TaikoData.BlockMetadataV2 memory _meta) internal pure returns (bytes32) {
-        return _meta.livenessBond != 0
-            ? keccak256(abi.encode(_meta))
-            : keccak256(abi.encode(_metaV2ToV1(_meta)));
-    }
-
-    function _metaV2ToV1(TaikoData.BlockMetadataV2 memory _v2)
-        private
-        pure
-        returns (TaikoData.BlockMetadata memory)
-    {
-        return TaikoData.BlockMetadata({
-            l1Hash: _v2.l1Hash,
-            difficulty: _v2.difficulty,
-            blobHash: _v2.blobHash,
-            extraData: _v2.extraData,
-            depositsHash: _v2.depositsHash,
-            coinbase: _v2.coinbase,
-            id: _v2.id,
-            gasLimit: _v2.gasLimit,
-            timestamp: _v2.timestamp,
-            l1Height: _v2.l1Height,
-            minTier: _v2.minTier,
-            blobUsed: _v2.blobUsed,
-            parentMetaHash: _v2.parentMetaHash,
-            sender: _v2.proposer
-        });
-    }
 }

@@ -360,6 +360,22 @@
 | __gap              | uint256[46]                                     | 355  | 0      | 1472  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 
 ## AssignmentHook
+| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
+|----------------|-------------|------|--------|-------|------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| _owner         | address     | 51   | 0      | 20    | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| addressManager | address     | 151  | 0      | 20    | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
 
 ## ERC20Airdrop
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                             |

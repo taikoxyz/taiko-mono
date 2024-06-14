@@ -9,6 +9,7 @@ import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
+import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
@@ -257,6 +258,13 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
             ),
+            registerTo: rollupAddressManager
+        });
+
+        deployProxy({
+            name: "assignment_hook",
+            impl: address(new AssignmentHook()),
+            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
