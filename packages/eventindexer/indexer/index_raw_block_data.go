@@ -24,7 +24,7 @@ func (i *Indexer) indexRawBlockData(
 
 	// only index block/transaction data on L2
 	if i.layer == Layer2 {
-		for j := start; j < end; j++ {
+		for j := start; j <= end; j++ {
 			id := j
 
 			wg.Go(func() error {
@@ -87,6 +87,16 @@ func (i *Indexer) indexRawBlockData(
 		wg.Go(func() error {
 			if err := i.indexNFTTransfers(ctx, chainID, logs); err != nil {
 				return errors.Wrap(err, "svc.indexNFTTransfers")
+			}
+
+			return nil
+		})
+	}
+
+	if i.indexERC20s {
+		wg.Go(func() error {
+			if err := i.indexERC20Transfers(ctx, chainID, logs); err != nil {
+				return errors.Wrap(err, "svc.indexERC20Transfers")
 			}
 
 			return nil

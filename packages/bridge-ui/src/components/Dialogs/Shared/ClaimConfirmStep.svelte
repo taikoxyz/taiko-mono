@@ -20,7 +20,7 @@
 
   export let txHash: Hash;
 
-  export let canForceTransaction = false;
+  // export let canForceTransaction = false;
 
   const dispatch = createEventDispatcher();
 
@@ -28,9 +28,9 @@
     dispatch('claim');
   };
 
-  const handleForceClaim = async () => {
-    dispatch('forceClaim');
-  };
+  // const handleForceClaim = async () => {
+  //   dispatch('forceClaim');
+  // };
 
   const getSuccessTitle = () => {
     return $t('bridge.step.confirm.success.claim');
@@ -93,16 +93,15 @@
           priority="primary"
           loading={claiming}
           on:click={() => handleClaimClick()}
-          disabled={claimDisabled || canForceTransaction}
-          >{$t('transactions.claim.steps.confirm.claim_button')}</ActionButton>
-        {#if canForceTransaction}
+          disabled={claimDisabled}>{$t('transactions.claim.steps.confirm.claim_button')}</ActionButton>
+        <!-- {#if canForceTransaction}
           <ActionButton
             onPopup
             priority="primary"
             loading={claiming}
             on:click={() => handleForceClaim()}
             disabled={claimDisabled}>Force transaction</ActionButton>
-        {/if}
+        {/if} -->
       </section>
     {/if}
   </div>

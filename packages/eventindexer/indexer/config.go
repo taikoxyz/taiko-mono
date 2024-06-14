@@ -36,6 +36,7 @@ type Config struct {
 	SubscriptionBackoff     uint64
 	SyncMode                SyncMode
 	IndexNFTs               bool
+	IndexERC20s             bool
 	Layer                   string
 	OpenDBFunc              func() (DB, error)
 }
@@ -60,6 +61,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		RPCUrl:                  c.String(flags.IndexerRPCUrl.Name),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
 		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),
+		IndexERC20s:             c.Bool(flags.IndexERC20s.Name),
 		Layer:                   c.String(flags.Layer.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
