@@ -43,9 +43,6 @@ contract Bridge is EssentialContract, IBridge {
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
-    ///@dev The 32bytes padded 11 fields in Message struct (11 * 32)
-    uint256 public constant CALLDATA_MESSAGE_SIZE_BYTES = 352;
-
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -292,10 +289,11 @@ contract Bridge is EssentialContract, IBridge {
                     // Taking into account the encoded message calldata cost, and can count with 16
                     // gas per bytes (vs. checking each and every byte if zero or non-zero)
                     stats.gasUsedInFeeCalc = uint32(
-                        GAS_OVERHEAD + gasStart
-                            + (uint32(_message.data.length + CALLDATA_MESSAGE_SIZE_BYTES) << 4)
+                        GAS_OVERHEAD + gasStart + _encodedMessageDataCost(_message.data.length)
                             - gasleft()
                     );
+
+                    // uint256 dataCost = ((dataLength + 31) / 32 * 32 + 416) << 4;
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
@@ -471,16 +469,18 @@ contract Bridge is EssentialContract, IBridge {
     /// @param dataLength The length of message.data.
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
-        unchecked {
-            // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
-            // + 32 bytes (A is a dynamic tuple, offset to first elements)
-            // + 32 bytes (offset to last bytes element of Message)
-            // + 32 bytes (padded encoding of length of Message.data + dataLength (padded to 32
-            // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-            // Non-zero calldata cost per byte is 16.
+        return _encodedMessageDataCost(dataLength) + GAS_RESERVE;
+    }
 
-            uint256 dataCost = ((dataLength + 31) / 32 * 32 + 416) << 4;
-            return SafeCastUpgradeable.toUint32(dataCost + GAS_RESERVE);
+    function _encodedMessageDataCost(uint256 dataLength) private pure returns (uint32) {
+        // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
+        // + 32 bytes (A is a dynamic tuple, offset to first elements)
+        // + 32 bytes (offset to last bytes element of Message)
+        // + 32 bytes (padded encoding of length of Message.data + dataLength
+        //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
+        // Non-zero calldata cost per byte is 16.
+        unchecked {
+            return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
     }
 
