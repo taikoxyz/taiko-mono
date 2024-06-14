@@ -9,6 +9,7 @@ import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
+import "forge-std/src/console2.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
@@ -645,16 +646,13 @@ contract Bridge is EssentialContract, IBridge {
         unchecked {
             // https://github.com/ethereum/execution-specs/blob/master/src/ethereum/cancun/vm/gas.py#L128
 
-            // We can get the actually memory allocated, we can use `msize()`, but that will require
+            // We can get the actual memory allocated with `msize()`, but that will require
             // yul optimizer turned off, which will make other contract's code size too large.
-            // Though our unit tests, we estimiated the memory allocated is clost to but smaller
-            // than 1728 bytes.
-            uint256 oldTotalMemWords = 54; // = 1728 / 32;
-            uint256 newTotalMemWords = (1728 + _dataLength) / 32;
-
-            uint256 alreadyPaid = oldTotalMemWords * 3 + oldTotalMemWords * oldTotalMemWords / 512;
-            uint256 newlyPaid = newTotalMemWords * 3 + newTotalMemWords * newTotalMemWords / 512;
-            uint256 memoryGasCost = newlyPaid - alreadyPaid;
+            // Though our unit tests, we estimiated the memory allocated is betweetn 1400 - 2800,
+            // Therefore, we can use 8=2816/32 as the old total memory used in words.
+            uint256 additionalWords = (_dataLength + 31) / 32;
+            uint256 memoryGasCost =
+                (176 + additionalWords) * additionalWords / 512 + 3 * additionalWords;
 
             // Need to add the cost of the worst case scenario of the external CALL, which include
             // 2,600 gas for `address_access_cost`, 9,000 for `positive_value_cost` (but provides
