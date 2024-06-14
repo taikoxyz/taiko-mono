@@ -116,7 +116,8 @@ type Indexer struct {
 
 	wg *sync.WaitGroup
 
-	numLatestBlocksToIgnoreWhenCrawling uint64
+	numLatestBlocksEndWhenCrawling   uint64
+	numLatestBlocksStartWhenCrawling uint64
 
 	targetBlockNumber *uint64
 
@@ -233,7 +234,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
-	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
+	i.numLatestBlocksEndWhenCrawling = cfg.NumLatestBlocksEndWhenCrawling
+	i.numLatestBlocksStartWhenCrawling = cfg.NumLatestBlocksStartWhenCrawling
 
 	i.targetBlockNumber = cfg.TargetBlockNumber
 
@@ -274,7 +276,7 @@ func (i *Indexer) Start() error {
 	}
 
 	// set the initial processing block, which will vary by sync mode.
-	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.srcChainId); err != nil {
+	if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
@@ -297,10 +299,6 @@ func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
 	defer i.wg.Done()
 
 	var d time.Duration = 10 * time.Second
-
-	if i.watchMode == CrawlPastBlocks {
-		d = 10 * time.Minute
-	}
 
 	t := time.NewTicker(d)
 
@@ -333,6 +331,11 @@ func (i *Indexer) filter(ctx context.Context) error {
 	// ignore latest N blocks if we are crawling past blocks, they are probably in queue already
 	// and are not "missed", have just not been processed.
 	if i.watchMode == CrawlPastBlocks {
+		if i.numLatestBlocksEndWhenCrawling > i.numLatestBlocksStartWhenCrawling {
+			slog.Error("Invalid configuration", "numLatestBlocksEndWhenCrawling", i.numLatestBlocksEndWhenCrawling, "numLatestBlocksStartWhenCrawling", i.numLatestBlocksStartWhenCrawling)
+			return errors.New("numLatestBlocksStartWhenCrawling must be greater than numLatestBlocksEndWhenCrawling")
+		}
+
 		// if targetBlockNumber is not nil, we are just going to process a singular block.
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
@@ -342,15 +345,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 			endBlockID = i.latestIndexedBlockNumber + 1
 		} else {
 			// set the initial processing block back to either 0 or the genesis block again.
-			if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.srcChainId); err != nil {
+			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
 				return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 			}
 
-			if endBlockID > i.numLatestBlocksToIgnoreWhenCrawling {
+			if i.latestIndexedBlockNumber < endBlockID-i.numLatestBlocksStartWhenCrawling {
+				i.latestIndexedBlockNumber = endBlockID - i.numLatestBlocksStartWhenCrawling
+			}
+
+			if endBlockID > i.numLatestBlocksEndWhenCrawling {
 				// otherwise, we need to set the endBlockID as the greater of the two:
 				// either the endBlockID minus the number of latest blocks to ignore,
 				// or endBlockID.
-				endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
+				endBlockID -= i.numLatestBlocksEndWhenCrawling
 			}
 		}
 	}
@@ -594,7 +601,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		event := chainDataSyncedEvents.Event
 
 		group.Go(func() error {
-			err := i.handleChainDataSyncedEvent(ctx, i.srcChainId, event, true)
+			err := i.handleChainDataSyncedEvent(ctx, event, true)
 			if err != nil {
 				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
 
