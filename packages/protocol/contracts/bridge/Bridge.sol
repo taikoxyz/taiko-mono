@@ -293,7 +293,6 @@ contract Bridge is EssentialContract, IBridge {
                             - gasleft()
                     );
 
-                    // uint256 dataCost = ((dataLength + 31) / 32 * 32 + 416) << 4;
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
