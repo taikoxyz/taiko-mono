@@ -117,17 +117,17 @@
 
 ### tierProvider
 
-- impl: `0x750D885DCAB712bA808D66D934CF315D0D98d04c.`
+- impl: `0x9b7f1148EC864f0A8aD88a73151Ddedb2B945613.`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
-- todo:
-  - update tier config in Hekla and mainnet
+  - upgraded on Jun 14, 2024 at commit `cc10b04`
 
 ### tierRouter
 
-- impl: `0x1e55bc9cA270F0F1dFFB37C7B3dBED413be4282c.`
+- impl: `0x9689c8729D9982cD2429d8Db218d584886BCD79e.`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Jun 14, 2024 at commit `cc10b04`
 
 ### guardian_prover
 
