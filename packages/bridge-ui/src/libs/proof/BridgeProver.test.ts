@@ -1,5 +1,14 @@
 import { getPublicClient, readContract } from '@wagmi/core';
-import { BlockNotFoundError, keccak256, numberToHex, stringToHex, toBytes, zeroAddress, zeroHash } from 'viem';
+import {
+  BlockNotFoundError,
+  type Hash,
+  keccak256,
+  numberToHex,
+  stringToHex,
+  toBytes,
+  zeroAddress,
+  zeroHash,
+} from 'viem';
 
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -102,9 +111,11 @@ describe('BridgeProver', () => {
       decimals: 0,
       destChainId: BigInt(167001),
       from: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
-      hash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      srcTxHash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      destTxHash: '' as Hash,
       msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
       srcChainId: 32382n,
+      processingFee: 0n,
       message: {
         data: '0x',
         destChainId: 167001n,
