@@ -19,8 +19,10 @@ library LibVerifying {
         uint32 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
+        bytes32 stateRoot;
         address prover;
         ITierRouter tierRouter;
+        ISignalService signalService;
     }
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -30,6 +32,7 @@ library LibVerifying {
     error L1_TOO_LATE();
 
     /// @dev Verifies up to N blocks.
+    /// This methid is made public to reduce TaikoL1 code size.
     function verifyBlocks(
         TaikoData.State storage _state,
         IERC20 _tko,
@@ -37,7 +40,7 @@ library LibVerifying {
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
     )
-        internal
+        public
     {
         if (_maxBlocksToVerify == 0) {
             return;
@@ -131,6 +134,25 @@ library LibVerifying {
                     tier: local.tier
                 });
 
+                if (local.blockId % _config.stateRootSyncInternal == 0) {
+                    local.stateRoot = ts.stateRoot;
+
+                    if (local.stateRoot != 0) {
+                        _state.slotA.lastSyncedBlockId = local.blockId;
+                        _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+                        if (local.signalService == ISignalService(address(0))) {
+                            local.signalService = ISignalService(
+                                _resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)
+                            );
+                        }
+
+                        local.signalService.syncChainData(
+                            _config.chainId, LibStrings.H_STATE_ROOT, local.blockId, local.stateRoot
+                        );
+                    }
+                }
+
                 ++local.blockId;
                 ++local.numBlocksVerified;
             }
@@ -141,23 +163,6 @@ library LibVerifying {
 
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
-
-                // Sync chain data when necessary
-                if (
-                    lastVerifiedBlockId
-                        > _state.slotA.lastSyncedBlockId + _config.blockSyncThreshold
-                ) {
-                    _state.slotA.lastSyncedBlockId = lastVerifiedBlockId;
-                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
-
-                    bytes32 stateRoot =
-                        _state.transitions[local.slot][local.lastVerifiedTransitionId].stateRoot;
-
-                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        .syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, lastVerifiedBlockId, stateRoot
-                    );
-                }
             }
         }
     }
