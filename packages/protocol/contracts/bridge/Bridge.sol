@@ -647,10 +647,10 @@ contract Bridge is EssentialContract, IBridge {
 
             // We can get the actually memory allocated, we can use `msize()`, but that will require
             // yul optimizer turned off, which will make other contract's code size too large.
-            // Though our unit tests, we estimiated the memory allocated is clost to 1700 bytes.
-
+            // Though our unit tests, we estimiated the memory allocated is clost to but smaller
+            // than 1728 bytes.
             uint256 oldTotalMemWords = 54; // = 1728 / 32;
-            uint256 newTotalMemWords = 54 + _dataLength / 32;
+            uint256 newTotalMemWords = (1728 + _dataLength) / 32;
 
             uint256 alreadyPaid = oldTotalMemWords * 3 + oldTotalMemWords * oldTotalMemWords / 512;
             uint256 newlyPaid = newTotalMemWords * 3 + newTotalMemWords * newTotalMemWords / 512;
