@@ -115,12 +115,6 @@ contract TaikoonToken is ERC721EnumerableUpgradeable, MerkleWhitelist {
 
     /// @dev V2 code additions
 
-    /// @notice Contract initializer
-    /// @param _rootURI Base URI for the token metadata
-    function initializeV2(string memory _rootURI) external {
-        _baseURIExtended = _rootURI;
-    }
-
     /// @notice Update the base URI
     /// @param _rootURI The new base URI
     /// @dev Only the owner can update the base URI

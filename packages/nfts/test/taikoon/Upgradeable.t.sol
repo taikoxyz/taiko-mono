@@ -57,7 +57,7 @@ contract UpgradeableTest is Test {
         // upgrade to v2
 
         token.upgradeToAndCall(
-            address(new TaikoonToken()), abi.encodeCall(TaikoonToken.initializeV2, ("ipfs://v2//"))
+            address(new TaikoonToken()), abi.encodeCall(TaikoonToken.updateBaseURI, ("ipfs://v2//"))
         );
 
         tokenV2 = TaikoonToken(address(proxy));
