@@ -80,8 +80,8 @@ The bridge is a set of smart contracts and a frontend web app that allow you to 
 
 First, here is a flowchart of how our bridge dapp implementation works, which uses the signal service:
 
-![bridging send message flowchart](~/assets/content/docs/core-concepts/bridging-send-message.excalidraw.png) \
-![bridging process message flowchart](~/assets/content/docs/core-concepts/bridging-process-message.excalidraw.png)
+![bridging send message flowchart](~/assets/content/docs/core-concepts/bridging-source-chain.webp) \
+![bridging process message flowchart](~/assets/content/docs/core-concepts/bridging-dest-chain.webp)
 
 ### How does Ether bridging work?
 
@@ -106,8 +106,8 @@ Here are the overall steps for transferring canonical ERC-20 (the overall proces
 
 1. A contract for the ERC-20 (or ERC-721, ERC-1155) must first be deployed on the destination chain (will be done automatically by the ERC20Vault if not already deployed)
 2. Call `sendToken` on the source chain ERC20Vault, this will **transfer** the amount by using the `safeTransferFrom` function on the canonical ERC-20 contract, on the source chain, to the ERC20Vault.
-3. The vault contract (via the Bridge) sends a message to the Signal Service (on the source chain), this message will contain some metadata related to the bridge request, but most importantly it includes the calldata for the `receiveToken` method.
-4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain Signal Service. After verifying this occurred and doing some checks, it will attempt to invoke the `receiveToken` method encoded in the message. This will **mint** ERC-20 (or ERC-721, ERC-1155) on the BridgedERC20 contract to the `to` address on the destination chain!
+3. The vault contract (via the Bridge) sends a message to the Signal Service (on the source chain), this message will contain some metadata related to the bridge request, but most importantly it includes the calldata for the `onMessageInvocation()` method.
+4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain Signal Service. After verifying this occurred and doing some checks, it will attempt to invoke the `onMessageInvocation()` method encoded in the message. This will **mint** ERC-20 (or ERC-721, ERC-1155) on the BridgedERC20 contract to the `to` address on the destination chain!
 
 #### Bridge from destination chain back to the canonical chain
 
@@ -115,5 +115,5 @@ Okay now let’s do the reverse, how do we transfer a bridged token from a sourc
 
 1. A contract for the ERC-20 (or ERC-721, ERC-1155) already exists on the canonical chain, so no need to deploy a new one.
 2. Call `sendToken` on the source chain token vault contract, this will **burn** the ERC-20 on the BridgedERC20 contract.
-3. The vault contract (via the Bridge) sends a message to the Signal Service (on the source chain), this message will contain some metadata related to the bridge request, but most importantly it includes the calldata for the `receiveToken` method.
-4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain SignalService. After verifying this occurred and doing some checks, it will attempt to invoke the `receiveToken` method encoded in this message. This will transfer the amount from the destination chain TokenVault to the `to` address on the destination chain.
+3. The vault contract (via the Bridge) sends a message to the Signal Service (on the source chain), this message will contain some metadata related to the bridge request, but most importantly it includes the calldata for the `onMessageInvocation()` method.
+4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain SignalService. After verifying this occurred and doing some checks, it will attempt to invoke the `onMessageInvocation()` method encoded in this message. This will transfer the amount from the destination chain TokenVault to the `to` address on the destination chain.
