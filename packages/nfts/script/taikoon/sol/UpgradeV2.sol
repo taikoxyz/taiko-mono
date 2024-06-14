@@ -17,7 +17,8 @@ contract UpgradeV2 is Script {
 
     address tokenV1 = 0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295;
 
-    string baseURI = "PENDING";
+    string baseURI =
+        "https://taikonfts.4everland.link/ipfs/bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy";
 
     TaikoonToken public token;
 
