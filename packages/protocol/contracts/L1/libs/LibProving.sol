@@ -132,7 +132,7 @@ library LibProving {
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.blockId != _meta.id || local.metaHash != keccak256(abi.encode(_meta))) {
+        if (local.blockId != _meta.id || local.metaHash != LibUtils.hashMetadata(_meta)) {
             revert L1_BLOCK_MISMATCH();
         }
 
