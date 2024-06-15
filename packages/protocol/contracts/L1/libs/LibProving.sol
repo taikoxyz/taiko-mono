@@ -3,11 +3,11 @@ pragma solidity 0.8.24;
 
 import "../../verifiers/IVerifier.sol";
 import "./LibUtils.sol";
+
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
-
 library LibProving {
     using LibMath for uint256;
 
