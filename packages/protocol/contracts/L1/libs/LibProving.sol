@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import "../../verifiers/IVerifier.sol";
 import "./LibUtils.sol";
-import "forge-std/src/console2.sol";
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
@@ -132,10 +131,6 @@ library LibProving {
             local.stateRoot = _tran.stateRoot;
         }
 
-        console2.log("prover:", msg.sender);
-        console2.log("-------> blockID", local.blockId);
-        console2.log("-------> stateRoot", uint256(local.stateRoot));
-
         local.assignedProver = blk.assignedProver;
         local.livenessBond = blk.livenessBond;
         local.metaHash = blk.metaHash;
@@ -220,13 +215,6 @@ library LibProving {
         local.isTopTier = local.tier.contestBond == 0;
 
         local.sameTransition = _tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
-        console2.log("-------> _tran.blockHash", uint256(_tran.blockHash));
-        console2.log("-------> _tran.stateRoot", uint256(_tran.stateRoot));
-
-        console2.log("-------> ts.blockHash", uint256(ts.blockHash));
-        console2.log("-------> ts.stateRoot", uint256(ts.stateRoot));
-        console2.log("-------> local.stateRoot", uint256(local.stateRoot));
-        console2.log("-------> isSameTransition", local.sameTransition);
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -301,7 +289,6 @@ library LibProving {
 
         ts.timestamp = uint64(block.timestamp);
 
-        console2.log("stateRoot (written):", uint256(ts.stateRoot));
         _state.transitions[local.slot][local.tid] = ts;
     }
 
