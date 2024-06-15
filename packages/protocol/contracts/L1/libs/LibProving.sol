@@ -3,11 +3,12 @@ pragma solidity 0.8.24;
 
 import "../../verifiers/IVerifier.sol";
 import "./LibUtils.sol";
-
+import "forge-std/src/console2.sol";
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
+
 library LibProving {
     using LibMath for uint256;
 
@@ -23,7 +24,7 @@ library LibProving {
         uint64 slot;
         uint64 blockId;
         uint32 tid;
-        bool storeStateRoot;
+        bool syncStateRoot;
         bool lastUnpausedAt;
         bool isTopTier;
         bool inProvingWindow;
@@ -126,7 +127,10 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
-        local.storeStateRoot = LibUtils.shouldSyncStateRoot(_config, local.blockId);
+        local.syncStateRoot =
+            LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
+        console2.log("blockID (???)", local.blockId);
+        console2.log("syncStateRoot (???): ", local.syncStateRoot);
         local.assignedProver = blk.assignedProver;
         local.livenessBond = blk.livenessBond;
         local.metaHash = blk.metaHash;
@@ -211,7 +215,7 @@ library LibProving {
         local.isTopTier = local.tier.contestBond == 0;
 
         local.sameTransition = _tran.blockHash == ts.blockHash;
-        if (local.sameTransition && local.storeStateRoot) {
+        if (local.sameTransition && local.syncStateRoot) {
             local.sameTransition = _tran.stateRoot == ts.stateRoot;
         }
 
@@ -240,7 +244,7 @@ library LibProving {
 
                 ts.prover = msg.sender;
                 ts.blockHash = _tran.blockHash;
-                ts.stateRoot = local.storeStateRoot ? _tran.stateRoot : bytes32(uint256(0));
+                ts.stateRoot = local.syncStateRoot ? _tran.stateRoot : bytes32(uint256(0));
 
                 emit TransitionProved({
                     blockId: local.blockId,
@@ -287,6 +291,8 @@ library LibProving {
         }
 
         ts.timestamp = uint64(block.timestamp);
+
+        console2.log("stateRoot (written):", uint256(ts.stateRoot));
         _state.transitions[local.slot][local.tid] = ts;
     }
 
@@ -437,7 +443,7 @@ library LibProving {
 
         if (!_local.sameTransition) {
             _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _local.storeStateRoot ? _tran.stateRoot : bytes32(uint256(0));
+            _ts.stateRoot = _local.syncStateRoot ? _tran.stateRoot : bytes32(uint256(0));
         }
     }
 

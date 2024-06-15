@@ -133,7 +133,7 @@ library LibVerifying {
                     tier: local.tier
                 });
 
-                if (LibUtils.shouldSyncStateRoot(_config, local.blockId)) {
+                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     local.stateRoot = ts.stateRoot;
                     if (local.stateRoot != 0) {
                         _state.slotA.lastSyncedBlockId = local.blockId;

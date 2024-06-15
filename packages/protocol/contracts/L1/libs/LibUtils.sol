@@ -230,15 +230,17 @@ library LibUtils {
     }
 
     function shouldSyncStateRoot(
-        TaikoData.Config memory _config,
+        uint256 _stateRootSyncInternal,
         uint64 _blockId
     )
         internal
         pure
         returns (bool)
     {
-        return _config.stateRootSyncInternal <= 1 //
-            || _blockId % _config.stateRootSyncInternal == 1;
+        if (_stateRootSyncInternal <= 1) return true;
+        unchecked {
+            return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
+        }
     }
 
     function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {

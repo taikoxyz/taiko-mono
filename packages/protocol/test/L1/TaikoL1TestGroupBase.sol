@@ -10,6 +10,7 @@ contract TaikoL1New is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
         config.checkEOAForCalldataDA = true;
+        config.stateRootSyncInternal = 2;
     }
 }
 
