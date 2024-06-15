@@ -488,25 +488,29 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         // Bob
         vm.prank(Bob, Bob);
 
+        uint256 syncInterval = L1.getConfig().stateRootSyncInternal;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
+            bool storeStateRoot = blockId % syncInterval == 1;
+
             printVariables("before propose");
             (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 stateRoot = bytes32(1e9 + blockId);
+            bytes32 blockHash = bytes32(1_000_000 + blockId);
+            bytes32 stateRoot = bytes32(2_000_000 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Prove as guardian
-            proveBlock(
-                Carol, meta, parentHash, blockHash, bytes32(uint256(1)), LibTiers.TIER_GUARDIAN, ""
-            );
+            blockHash = bytes32(1_000_000 + blockId + 100);
+            stateRoot = bytes32(2_000_000 + blockId + 100);
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             // Prove as guardian again
+            blockHash = bytes32(1_000_000 + blockId);
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             vm.roll(block.number + 15 * 12);

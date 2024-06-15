@@ -126,7 +126,7 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
-        local.storeStateRoot = local.blockId % _config.stateRootSyncInternal == 0;
+        local.storeStateRoot = LibUtils.shouldSyncStateRoot(_config, local.blockId);
         local.assignedProver = blk.assignedProver;
         local.livenessBond = blk.livenessBond;
         local.metaHash = blk.metaHash;
@@ -209,6 +209,7 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
+
         local.sameTransition = _tran.blockHash == ts.blockHash
             && (!local.storeStateRoot || _tran.stateRoot == ts.stateRoot);
 
