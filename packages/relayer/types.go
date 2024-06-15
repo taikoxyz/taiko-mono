@@ -160,6 +160,11 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 
 	// Boundary check
 	if startIndex >= int64(len(decodedData)) {
+		slog.Info("startIndex greater than decodedData length",
+			"startIndex", startIndex,
+			"lenDecodedData", int64(len(decodedData)),
+		)
+
 		return token, big.NewInt(0), errors.New("calculated index is out of bounds")
 	}
 
@@ -203,6 +208,11 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 
 	// Boundary check
 	if startIndex >= int64(len(decodedData)) {
+		slog.Info("startIndex greater than decodedData length",
+			"startIndex", startIndex,
+			"lenDecodedData", int64(len(decodedData)),
+		)
+
 		return EventTypeSendETH, token, big.NewInt(0), errors.New("calculated index is out of bounds")
 	}
 
