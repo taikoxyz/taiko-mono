@@ -231,7 +231,7 @@ library LibUtils {
 
     function shouldSyncStateRoot(
         uint256 _stateRootSyncInternal,
-        uint64 _blockId
+        uint256 _blockId
     )
         internal
         pure

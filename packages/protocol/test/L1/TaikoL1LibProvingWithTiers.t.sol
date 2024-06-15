@@ -476,6 +476,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
+        uint64 syncInternal = L1.getConfig().stateRootSyncInternal;
+        console2.log("syncInternal:", syncInternal);
+
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -491,17 +494,17 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         uint256 syncInterval = L1.getConfig().stateRootSyncInternal;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
-            bool storeStateRoot = blockId % syncInterval == 1;
+            bool storeStateRoot = LibUtils.shouldSyncStateRoot(syncInternal, blockId);
+            console2.log("blockId:", blockId);
+            console2.log("storeStateRoot:", storeStateRoot);
 
             printVariables("before propose");
             (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
-            //printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1_000_000 + blockId);
             bytes32 stateRoot = bytes32(2_000_000 + blockId);
-            // This proof cannot be verified obviously because of
-            // blockhash:blockId
+
             proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Prove as guardian
@@ -509,16 +512,22 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             stateRoot = bytes32(2_000_000 + blockId + 100);
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
-            // vm.expectRevert(TaikoL1.L1_ALREADY_PROVED.selector);
-            vm.expectRevert();
-            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+            // Re-prove as guardian
+            if (storeStateRoot) {
+                blockHash = bytes32(1_000_000 + blockId + 200);
+                stateRoot = bytes32(2_000_000 + blockId + 200);
+                proveBlock(
+                    Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
+                );
+            } else {
+                blockHash = bytes32(1_000_000 + blockId + 200);
 
-            // blockHash = bytes32(1_000_000 + blockId + 200);
-            // if (storeStateRoot) {
-            //     stateRoot = bytes32(2_000_000 + blockId + 200);
-            // }
-            // proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN,
-            // "");
+                //  stateRoot = bytes32(2_000_000 + blockId + 200);
+                //  vm.expectRevert();
+                proveBlock(
+                    Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
+                );
+            }
 
             vm.roll(block.number + 15 * 12);
 
