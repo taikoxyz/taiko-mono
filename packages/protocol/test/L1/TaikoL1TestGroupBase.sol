@@ -10,6 +10,7 @@ contract TaikoL1New is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
         config.checkEOAForCalldataDA = true;
+        config.stateRootSyncInternal = 2;
     }
 }
 
@@ -59,8 +60,10 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
                 privateKey = 0x2;
             } else if (proposer == Carol) {
                 privateKey = 0x3;
+            } else if (proposer == David) {
+                privateKey = 0x4;
             } else {
-                revert("unexpected");
+                revert("test setup: you need to change proposeBlock() in TaikoL1TestGroupBase");
             }
 
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(txList));
