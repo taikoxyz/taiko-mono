@@ -72,7 +72,11 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
-	slog.Info("chainDataSynced event saved", "srcChainId", i.srcChainId, "destChainId", i.destChainId, "SyncedChainID", event.ChainId)
+	slog.Info("chainDataSynced event saved",
+		"srcChainId", i.srcChainId,
+		"destChainId", i.destChainId,
+		"SyncedChainID", event.ChainId,
+	)
 
 	relayer.ChainDataSyncedEventsIndexed.Inc()
 

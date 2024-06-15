@@ -70,15 +70,19 @@ var (
 		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
 	}
 	NumLatestBlocksEndWhenCrawling = &cli.Uint64Flag{
-		Name:     "numLatestBlocksEndWhenCrawling",
-		Usage:    "Number of blocks to ignore from the end when crawling chain, should be higher for L2-L1 indexing due to delay",
+		Name: "numLatestBlocksEndWhenCrawling",
+		Usage: `Number of blocks to ignore from the end when crawling chain,
+		should be higher for L2-L1 indexing due to delay
+		`,
 		Value:    300,
 		Category: indexerCategory,
 		EnvVars:  []string{"NUM_LATEST_BLOCKS_END_WHEN_CRAWLING"},
 	}
 	NumLatestBlocksStartWhenCrawling = &cli.Uint64Flag{
-		Name:     "numLatestBlocksStartWhenCrawling",
-		Usage:    "Number of latest blocks to index from the start when crawling chain. The default value is to cover past 7 days.",
+		Name: "numLatestBlocksStartWhenCrawling",
+		Usage: `Number of latest blocks to index from the start when crawling chain.
+		The default value is to cover past 7 days.
+		`,
 		Value:    50400,
 		Category: indexerCategory,
 		EnvVars:  []string{"NUM_LATEST_BLOCKS_START_WHEN_CRAWLING"},

@@ -332,7 +332,10 @@ func (i *Indexer) filter(ctx context.Context) error {
 	// and are not "missed", have just not been processed.
 	if i.watchMode == CrawlPastBlocks {
 		if i.numLatestBlocksEndWhenCrawling > i.numLatestBlocksStartWhenCrawling {
-			slog.Error("Invalid configuration", "numLatestBlocksEndWhenCrawling", i.numLatestBlocksEndWhenCrawling, "numLatestBlocksStartWhenCrawling", i.numLatestBlocksStartWhenCrawling)
+			slog.Error("Invalid configuration",
+				"numLatestBlocksEndWhenCrawling", i.numLatestBlocksEndWhenCrawling,
+				"numLatestBlocksStartWhenCrawling", i.numLatestBlocksStartWhenCrawling,
+			)
 			return errors.New("numLatestBlocksStartWhenCrawling must be greater than numLatestBlocksEndWhenCrawling")
 		}
 
