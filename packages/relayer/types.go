@@ -299,8 +299,6 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 
 		if err == nil {
 			return eventType, canonicalToken, amount, nil
-		} else {
-			return EventTypeSendETH, canonicalToken, amount, err
 		}
 	}
 
