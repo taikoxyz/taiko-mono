@@ -229,6 +229,8 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - deployed on May 15, 2024 @commit`cd5144255`
+- todo:
+  - update tier config in Hekla and mainnet
 
 #### tier_sgx
 
