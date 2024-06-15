@@ -120,6 +120,8 @@
 - impl: `0x750D885DCAB712bA808D66D934CF315D0D98d04c.`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
+- todo:
+  - update tier config in Hekla and mainnet
 
 ### tierRouter
 
