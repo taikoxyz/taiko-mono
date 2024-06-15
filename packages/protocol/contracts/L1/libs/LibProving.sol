@@ -23,6 +23,7 @@ library LibProving {
         uint64 slot;
         uint64 blockId;
         uint32 tid;
+        bool storeStateRoot;
         bool lastUnpausedAt;
         bool isTopTier;
         bool inProvingWindow;
@@ -125,6 +126,7 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
+        local.storeStateRoot = local.blockId % _config.stateRootSyncInternal == 0;
         local.assignedProver = blk.assignedProver;
         local.livenessBond = blk.livenessBond;
         local.metaHash = blk.metaHash;
@@ -207,7 +209,8 @@ library LibProving {
         }
 
         local.isTopTier = local.tier.contestBond == 0;
-        local.sameTransition = _tran.blockHash == ts.blockHash && _tran.stateRoot == ts.stateRoot;
+        local.sameTransition = _tran.blockHash == ts.blockHash
+            && (!local.storeStateRoot || _tran.stateRoot == ts.stateRoot);
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -234,7 +237,7 @@ library LibProving {
 
                 ts.prover = msg.sender;
                 ts.blockHash = _tran.blockHash;
-                ts.stateRoot = _tran.stateRoot;
+                ts.stateRoot = local.storeStateRoot ? _tran.stateRoot : bytes32(uint256(0));
 
                 emit TransitionProved({
                     blockId: local.blockId,
@@ -431,7 +434,7 @@ library LibProving {
 
         if (!_local.sameTransition) {
             _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _tran.stateRoot;
+            _ts.stateRoot = _local.storeStateRoot ? _tran.stateRoot : bytes32(uint256(0));
         }
     }
 
