@@ -59,6 +59,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
@@ -99,6 +100,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
@@ -137,6 +139,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.prover, address(gp));
@@ -201,6 +204,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
@@ -227,6 +231,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.prover, address(gp));
@@ -294,6 +299,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
@@ -321,6 +327,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.prover, address(gp));
@@ -364,6 +371,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
+            // This block is not storing state root
             assertEq(ts.stateRoot, 0);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
