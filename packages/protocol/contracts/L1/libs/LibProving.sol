@@ -210,8 +210,10 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        local.sameTransition = _tran.blockHash == ts.blockHash
-            && (!local.storeStateRoot || _tran.stateRoot == ts.stateRoot);
+        local.sameTransition = _tran.blockHash == ts.blockHash;
+        if (local.sameTransition && local.storeStateRoot) {
+            local.sameTransition = _tran.stateRoot == ts.stateRoot;
+        }
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.

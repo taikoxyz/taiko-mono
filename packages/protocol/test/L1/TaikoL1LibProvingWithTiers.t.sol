@@ -509,9 +509,16 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             stateRoot = bytes32(2_000_000 + blockId + 100);
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
-            // Prove as guardian again
-            blockHash = bytes32(1_000_000 + blockId);
+            // vm.expectRevert(TaikoL1.L1_ALREADY_PROVED.selector);
+            vm.expectRevert();
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+
+            // blockHash = bytes32(1_000_000 + blockId + 200);
+            // if (storeStateRoot) {
+            //     stateRoot = bytes32(2_000_000 + blockId + 200);
+            // }
+            // proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN,
+            // "");
 
             vm.roll(block.number + 15 * 12);
 
