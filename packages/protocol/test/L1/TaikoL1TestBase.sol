@@ -22,8 +22,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
     address public L2SS = randAddress();
     address public L2 = randAddress();
     // Bootstrapped SGX instances (by owner)
-    address internal SGX_X_0 = vm.addr(0x4);
-    address internal SGX_X_1 = vm.addr(0x5);
+    address internal SGX_X_0 = vm.addr(0x1000004);
+    address internal SGX_X_1 = vm.addr(0x1000005);
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -301,8 +301,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
             signerPrivateKey = 0x2;
         } else if (prover == Carol) {
             signerPrivateKey = 0x3;
+        } else if (prover == David) {
+            signerPrivateKey = 0x4;
         } else {
-            revert("unexpected");
+            revert("test setup: you need to change _signAssignment() in TaikoL1TestBase");
         }
 
         bytes32 assignmentHash =
@@ -330,9 +332,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         // In the test suite these are the 3 which acts as provers
         if (SGX_X_0 == newInstance) {
-            signerPrivateKey = 0x5;
+            signerPrivateKey = 0x1000005;
         } else if (SGX_X_1 == newInstance) {
-            signerPrivateKey = 0x4;
+            signerPrivateKey = 0x1000004;
         }
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);

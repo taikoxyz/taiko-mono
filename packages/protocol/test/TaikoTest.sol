@@ -38,7 +38,7 @@ abstract contract TaikoTest is Test, DeployCapability {
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);
     address internal Carol = vm.addr(0x3);
-    address internal David = randAddress();
+    address internal David = vm.addr(0x4);
     address internal Emma = randAddress();
     address internal Frank = randAddress();
     address internal Grace = randAddress();
