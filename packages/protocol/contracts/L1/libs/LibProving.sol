@@ -288,7 +288,6 @@ library LibProving {
         }
 
         ts.timestamp = uint64(block.timestamp);
-
         _state.transitions[local.slot][local.tid] = ts;
     }
 
