@@ -31,6 +31,7 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice Batch transfers tokens
     /// @param recipients The list of addresses to transfer tokens to.
     /// @param amounts The list of amounts for transfer.
+    /// @return true if the transfer is successful.
     function batchTransfer(
         address[] calldata recipients,
         uint256[] calldata amounts
