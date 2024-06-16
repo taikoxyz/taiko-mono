@@ -23,11 +23,9 @@ contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
 
             // Prove the block
-
             bytes32 blockHash = bytes32(uint256(10_000 + i));
             bytes32 stateRoot = bytes32(uint256(20_000 + i));
 
-            console2.log("====== Bob proves the block");
             mineAndWrap(10 seconds);
             proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
