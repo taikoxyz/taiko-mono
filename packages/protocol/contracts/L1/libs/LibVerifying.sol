@@ -34,7 +34,7 @@ library LibVerifying {
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
-        IERC20 _tko,
+        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
@@ -68,6 +68,10 @@ library LibVerifying {
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
+
+        address[] memory provers = new address[](_maxBlocksToVerify);
+        uint256[] memory bonds = new uint256[](_maxBlocksToVerify);
+
         unchecked {
             ++local.blockId;
 
@@ -116,7 +120,8 @@ library LibVerifying {
                 local.blockHash = ts.blockHash;
                 local.prover = ts.prover;
 
-                _tko.transfer(local.prover, ts.validityBond);
+                provers[local.numBlocksVerified] = local.prover;
+                bonds[local.numBlocksVerified] = ts.validityBond;
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -161,6 +166,14 @@ library LibVerifying {
 
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
+
+                // Resize the provers and bonds array
+                uint256 newLen = local.numBlocksVerified;
+                assembly {
+                    mstore(provers, newLen)
+                    mstore(bonds, newLen)
+                }
+                _tko.batchTransfer(provers, bonds);
             }
         }
     }

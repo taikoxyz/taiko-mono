@@ -14,10 +14,11 @@ contract TaikoToken is TaikoTokenBase {
     address private constant _TAIKO_L1 = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     address private constant _ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
+    error TT_INVALID_PARAM();
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _recipient The address to receive initial token minting.
-
     function init(address _owner, address _recipient) public initializer {
         __Essential_init(_owner);
         __ERC20_init("Taiko Token", "TKO");
@@ -25,6 +26,20 @@ contract TaikoToken is TaikoTokenBase {
         __ERC20Permit_init("Taiko Token");
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
+    }
+
+    function batchTransfer(
+        address[] calldata recipients,
+        uint256[] calldata amounts
+    )
+        external
+        returns (bool)
+    {
+        if (recipients.length != amounts.length) revert TT_INVALID_PARAM();
+        for (uint256 i; i < recipients.length; ++i) {
+            _transfer(msg.sender, recipients[i], amounts[i]);
+        }
+        return true;
     }
 
     function delegates(address account) public view virtual override returns (address) {
