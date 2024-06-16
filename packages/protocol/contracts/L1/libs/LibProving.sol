@@ -16,7 +16,7 @@ library LibProving {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
         ITierProvider.Tier minTier;
-        IERC20 tko;
+        TaikoToken tko;
         bytes32 metaHash;
         address assignedProver;
         bytes32 stateRoot;
@@ -97,7 +97,7 @@ library LibProving {
     /// @param _proof The proof.
     function proveBlock(
         TaikoData.State storage _state,
-        IERC20 _tko,
+        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         TaikoData.BlockMetadata memory _meta,
