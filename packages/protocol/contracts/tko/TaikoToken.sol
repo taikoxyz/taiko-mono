@@ -28,6 +28,9 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
+    /// @notice Batch transfers tokens
+    /// @param recipients The list of addresses to transfer tokens to.
+    /// @param amounts The list of amounts for transfer.
     function batchTransfer(
         address[] calldata recipients,
         uint256[] calldata amounts

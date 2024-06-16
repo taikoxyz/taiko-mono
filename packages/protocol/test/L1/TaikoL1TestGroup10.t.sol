@@ -16,8 +16,6 @@ contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
 
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        uint96 livenessBond = L1.getConfig().livenessBond;
         console2.log("====== Alice propose 5 block with bob as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -42,7 +40,7 @@ contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
         mineAndWrap(7 days);
         verifyBlock(10);
         {
-            (TaikoData.SlotA memory a, TaikoData.SlotB memory b) = L1.getStateVariables();
+            (, TaikoData.SlotB memory b) = L1.getStateVariables();
             assertEq(b.lastVerifiedBlockId, 5);
 
             assertEq(tko.balanceOf(Bob), 10_000 ether);

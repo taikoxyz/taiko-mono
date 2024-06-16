@@ -26,6 +26,7 @@ library LibVerifying {
     }
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
+    error L1_BATCH_TRANSFER_FAILED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
@@ -173,7 +174,7 @@ library LibVerifying {
                     mstore(provers, newLen)
                     mstore(bonds, newLen)
                 }
-                _tko.batchTransfer(provers, bonds);
+                if (!_tko.batchTransfer(provers, bonds)) revert L1_BATCH_TRANSFER_FAILED();
             }
         }
     }
