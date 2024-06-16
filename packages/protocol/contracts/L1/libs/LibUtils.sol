@@ -239,6 +239,9 @@ library LibUtils {
     {
         if (_stateRootSyncInternal <= 1) return true;
         unchecked {
+            // We could use `_blockId % _stateRootSyncInternal == 0`, but this will break many unit
+            // tests as in most of these tests, we test block#1, so by setting
+            // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
             return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
         }
     }
