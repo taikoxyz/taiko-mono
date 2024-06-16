@@ -17,18 +17,12 @@ export default defineConfig({
       plugins: [
         starlightLinksValidator({
           exclude: [
-            // "/api-reference/blob-storage",
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
             "/api-reference/prover-server",
           ],
         }),
         starlightOpenAPI([
-          // {
-          //   base: "api-reference/blob-storage",
-          //   label: "Blob Storage API",
-          //   schema: "../blobstorage/docs/swagger.yaml",
-          // },
           {
             base: "api-reference/bridge-relayer",
             label: "Bridge Relayer API",
@@ -52,7 +46,7 @@ export default defineConfig({
       },
       title: "Docs",
       editLink: {
-        baseUrl: "https://github.com/taikoxyz/docs/edit/main/",
+        baseUrl: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
       },
       customCss: ["./src/styles/custom.css"],
       logo: {

@@ -155,7 +155,20 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 		return token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
+	// Calculate the starting index for canonicalTokenData
+	startIndex := offset.Int64() + canonicalTokenDataStartingindex*32
+
+	// Boundary check
+	if startIndex >= int64(len(decodedData)) {
+		slog.Warn("startIndex greater than decodedData length",
+			"startIndex", startIndex,
+			"lenDecodedData", int64(len(decodedData)),
+		)
+
+		return token, big.NewInt(0), errors.New("calculated index is out of bounds")
+	}
+
+	canonicalTokenData := decodedData[startIndex:]
 
 	types := []string{"uint64", "address", "uint8", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -190,7 +203,20 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 		return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
+	// Calculate the starting index for canonicalTokenData
+	startIndex := offset.Int64() + canonicalTokenDataStartingindex*32
+
+	// Boundary check
+	if startIndex >= int64(len(decodedData)) {
+		slog.Warn("startIndex greater than decodedData length",
+			"startIndex", startIndex,
+			"lenDecodedData", int64(len(decodedData)),
+		)
+
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("calculated index is out of bounds")
+	}
+
+	canonicalTokenData := decodedData[startIndex:]
 
 	types := []string{"uint64", "address", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
