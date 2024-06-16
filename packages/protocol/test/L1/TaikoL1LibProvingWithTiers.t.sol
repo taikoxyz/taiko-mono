@@ -491,7 +491,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         // Bob
         vm.prank(Bob, Bob);
 
-        uint256 syncInterval = L1.getConfig().stateRootSyncInternal;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             bool storeStateRoot = LibUtils.shouldSyncStateRoot(syncInternal, blockId);
