@@ -134,9 +134,8 @@ library LibVerifying {
                     tier: local.tier
                 });
 
-                if (local.blockId % _config.stateRootSyncInternal == 0) {
+                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     local.stateRoot = ts.stateRoot;
-
                     if (local.stateRoot != 0) {
                         _state.slotA.lastSyncedBlockId = local.blockId;
                         _state.slotA.lastSynecdAt = uint64(block.timestamp);

@@ -476,6 +476,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
+        uint64 syncInternal = L1.getConfig().stateRootSyncInternal;
+        console2.log("syncInternal:", syncInternal);
+
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -488,25 +491,42 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         // Bob
         vm.prank(Bob, Bob);
 
+        uint256 syncInterval = L1.getConfig().stateRootSyncInternal;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
+            bool storeStateRoot = LibUtils.shouldSyncStateRoot(syncInternal, blockId);
+            console2.log("blockId:", blockId);
+            console2.log("storeStateRoot:", storeStateRoot);
+
             printVariables("before propose");
-            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
-            //printVariables("after propose");
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
             mine(1);
 
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 stateRoot = bytes32(1e9 + blockId);
-            // This proof cannot be verified obviously because of
-            // blockhash:blockId
-            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            bytes32 blockHash = bytes32(1_000_000 + blockId);
+            bytes32 stateRoot = bytes32(2_000_000 + blockId);
+
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Prove as guardian
-            proveBlock(
-                Carol, meta, parentHash, blockHash, bytes32(uint256(1)), LibTiers.TIER_GUARDIAN, ""
-            );
+            blockHash = bytes32(1_000_000 + blockId + 100);
+            stateRoot = bytes32(2_000_000 + blockId + 100);
+            proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
-            // Prove as guardian again
+            // Re-prove as guardian
+            stateRoot = bytes32(2_000_000 + blockId + 200);
+            if (!storeStateRoot) {
+                // Changing stateRoot doesn't help
+                proveBlock(
+                    Carol,
+                    meta,
+                    parentHash,
+                    blockHash,
+                    stateRoot,
+                    LibTiers.TIER_GUARDIAN,
+                    TaikoErrors.L1_ALREADY_PROVED.selector
+                );
+            }
+            blockHash = bytes32(1_000_000 + blockId + 200);
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
             vm.roll(block.number + 15 * 12);

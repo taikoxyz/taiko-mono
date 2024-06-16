@@ -19,6 +19,7 @@ library LibProving {
         IERC20 tko;
         bytes32 metaHash;
         address assignedProver;
+        bytes32 stateRoot;
         uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
@@ -135,6 +136,10 @@ library LibProving {
 
         local.blockId = blk.blockId;
 
+        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+            local.stateRoot = _tran.stateRoot;
+        }
+
         local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
             local.assignedProver = _meta.proposer;
@@ -225,10 +230,7 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        local.sameTransition = _tran.blockHash == ts.blockHash;
-        if (local.sameTransition && verifyingStateRoot) {
-            local.sameTransition = _tran.stateRoot == ts.stateRoot;
-        }
+        local.sameTransition = _tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
 
         if (_proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -255,7 +257,7 @@ library LibProving {
 
                 ts.prover = msg.sender;
                 ts.blockHash = _tran.blockHash;
-                ts.stateRoot = _tran.stateRoot;
+                ts.stateRoot = local.stateRoot;
 
                 emit TransitionProved({
                     blockId: local.blockId,
@@ -457,7 +459,7 @@ library LibProving {
 
         if (!_local.sameTransition) {
             _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _tran.stateRoot;
+            _ts.stateRoot = _local.stateRoot;
         }
     }
 
