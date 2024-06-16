@@ -33,6 +33,7 @@ library LibVerifying {
     error L1_TOO_LATE();
 
     /// @dev Verifies up to N blocks.
+    /// This function is made public to reduce the code size.
     function verifyBlocks(
         TaikoData.State storage _state,
         TaikoToken _tko,
@@ -40,7 +41,7 @@ library LibVerifying {
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
     )
-        internal
+        public
     {
         if (_maxBlocksToVerify == 0) {
             return;
