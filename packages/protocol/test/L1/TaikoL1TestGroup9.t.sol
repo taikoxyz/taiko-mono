@@ -13,7 +13,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
         giveEthAndTko(David, 10_000 ether, 1000 ether);
         console2.log("====== David proposes, proves, and verifies the first block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(David, David, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(David, "");
 
         bytes32 stateRoot = bytes32(uint256(1));
 
@@ -40,7 +40,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         giveEthAndTko(William, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Guardian prover proves");
         bytes32 parentHash = FIRST_BLOCK_HASH;
@@ -167,7 +167,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block");
         bytes32 parentHash = FIRST_BLOCK_HASH;
@@ -175,7 +175,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(10 seconds);
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
         console2.log("====== Guardian re-approve with the same transition");
         mineAndWrap(10 seconds);
@@ -260,7 +260,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
 
@@ -348,11 +348,10 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         proposeProveVerifyTheFirstBlock();
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Guardian prover proves");
         bytes32 parentHash = FIRST_BLOCK_HASH;

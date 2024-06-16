@@ -499,7 +499,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             console2.log("storeStateRoot:", storeStateRoot);
 
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1_000_000, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1_000_000 + blockId);
