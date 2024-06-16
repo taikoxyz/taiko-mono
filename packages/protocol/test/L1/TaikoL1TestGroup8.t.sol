@@ -42,7 +42,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         );
 
         // Somehow the following proposeBlock did revert with the given error, but the error is not
-        // catched in the test correctly.
+        // cought in the test correctly.
         // console2.log("====== Alice tries to propose another block after L1 paused");
         // proposeBlock(Alice, Bob, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
