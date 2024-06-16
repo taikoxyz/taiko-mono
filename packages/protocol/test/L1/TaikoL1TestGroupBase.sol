@@ -27,7 +27,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         bytes4 revertReason
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (TaikoData.BlockMetadata memory)
     {
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
@@ -72,10 +72,12 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        (meta,) = L1.proposeBlock{ value: 3 ether }(
+        bytes memory returnData = L1.proposeBlock{ value: 3 ether }(
             abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, eoaSig)),
             txList
         );
+
+        return abi.decode(returnData, (TaikoData.BlockMetadata));
     }
 
     function proveBlock(

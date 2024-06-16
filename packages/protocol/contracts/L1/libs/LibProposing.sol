@@ -17,20 +17,17 @@ library LibProposing {
     bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
-    /// @notice Emitted when a block is proposed.
+    /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover.
-    /// @param livenessBond The liveness bond of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
+    /// @param assignedProver The block's assigned prover.
+    /// @param livenessBond The bond in Taiko token from the assigned prover.
+    /// @param meta The block metadata containing information about the proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
-        TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
+        TaikoData.BlockMetadata meta
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -61,7 +58,7 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadata memory meta_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
 
@@ -221,13 +218,11 @@ library LibProposing {
             msg.sender.sendEtherAndVerify(address(this).balance);
         }
 
-        deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: _config.livenessBond,
-            meta: meta_,
-            depositsProcessed: deposits_
+            meta: meta_
         });
     }
 }

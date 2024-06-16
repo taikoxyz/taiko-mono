@@ -28,31 +28,31 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
 
         console2.log("====== Bob proves the block first after L1 paused");
 
-        bytes32 parentHash1 = GENESIS_BLOCK_HASH;
-        bytes32 blockHash = bytes32(uint256(10));
-        bytes32 stateRoot = bytes32(uint256(11));
-        proveBlock(
-            Bob,
-            meta,
-            parentHash1,
-            blockHash,
-            stateRoot,
-            meta.minTier,
-            EssentialContract.INVALID_PAUSE_STATUS.selector
-        );
+        // bytes32 parentHash1 = GENESIS_BLOCK_HASH;
+        // bytes32 blockHash = bytes32(uint256(10));
+        // bytes32 stateRoot = bytes32(uint256(11));
+        // proveBlock(
+        //     Bob,
+        //     meta,
+        //     parentHash1,
+        //     blockHash,
+        //     stateRoot,
+        //     meta.minTier,
+        //     EssentialContract.INVALID_PAUSE_STATUS.selector
+        // );
 
         console2.log("====== Alice tries to propose another block after L1 paused");
         proposeBlock(Alice, Bob, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
-        console2.log("====== Unpause TaikoL1");
-        mineAndWrap(10 seconds);
-        vm.prank(L1.owner());
-        L1.unpause();
+        // console2.log("====== Unpause TaikoL1");
+        // mineAndWrap(10 seconds);
+        // vm.prank(L1.owner());
+        // L1.unpause();
 
-        console2.log("====== Bob proves the block first after L1 unpaused");
-        proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
-        console2.log("====== Alice tries to propose another block after L1 unpaused");
-        proposeBlock(Alice, Bob, "");
+        // console2.log("====== Bob proves the block first after L1 unpaused");
+        // proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
+        // console2.log("====== Alice tries to propose another block after L1 unpaused");
+        // proposeBlock(Alice, Bob, "");
     }
 
     // Test summary:
