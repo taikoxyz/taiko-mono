@@ -157,7 +157,7 @@ library LibProposing {
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
-            assignedProver: msg.sender,
+            assignedProver: address(0),
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,

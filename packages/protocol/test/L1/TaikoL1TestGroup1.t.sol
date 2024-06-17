@@ -29,7 +29,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
@@ -67,7 +66,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -94,7 +92,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -136,7 +133,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
@@ -162,7 +158,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -189,7 +184,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -245,7 +239,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 2);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
@@ -297,7 +290,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -349,7 +341,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 2);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 2);
@@ -387,7 +378,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
@@ -413,7 +403,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -440,7 +429,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
@@ -477,7 +465,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.assignedProver, Alice);
             assertEq(blk.livenessBond, livenessBond);
 
             proposedAt = blk.proposedAt;
