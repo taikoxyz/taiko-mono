@@ -61,12 +61,11 @@ library LibProposing {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
+        if (params.hookCalls.length != 0) revert L1_HOOKS_NO_LONGER_SUPPORTED();
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
         }
-
-        if (params.hookCalls.length != 0) revert L1_HOOKS_NO_LONGER_SUPPORTED();
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;
