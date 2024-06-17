@@ -6,6 +6,8 @@ import "./TaikoL1TestBase.sol";
 contract TaikoL1New is TaikoL1 {
     function getConfig() public view override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
+
+        config.forkHeight = 1;
         config.maxBlocksToVerify = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;

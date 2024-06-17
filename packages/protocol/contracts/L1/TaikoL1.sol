@@ -82,7 +82,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         meta_ = LibProposing.proposeBlock(state, tko, config, this, _params, _txList, false);
-        if (meta_.id >= 500_000) revert L1_INVALID_FUNCTION();
+        if (meta_.id >= config.forkHeight) revert L1_INVALID_FUNCTION();
 
         deposits_ = new TaikoData.EthDeposit[](0);
 
@@ -109,7 +109,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.BlockMetadata memory meta =
             LibProposing.proposeBlock(state, tko, config, this, _params, _txList, true);
 
-        if (meta.id < 500_000) revert L1_INVALID_FUNCTION();
+        if (meta.id < config.forkHeight) revert L1_INVALID_FUNCTION();
 
         if (LibUtils.shouldVerifyBlocks(config, meta.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
@@ -259,6 +259,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         // after 256 L2 blocks)
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO,
+            forkHeight: 500_000,
             // Assume the block time is 3s, the protocol will allow ~90 days of
             // new blocks without any verification.
             blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
