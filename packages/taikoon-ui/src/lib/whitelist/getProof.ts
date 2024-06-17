@@ -20,6 +20,7 @@ export default function getProof(address?: IAddress): IAddress[] {
     for (const [i, [leafAddress]] of tree.entries()) {
       if (leafAddress.toString().toLowerCase() === address.toString().toLowerCase()) {
         const proof = tree.getProof(i);
+
         return proof as IAddress[];
       }
     }

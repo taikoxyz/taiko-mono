@@ -98,25 +98,30 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x168FEe80cD2Cc496b504A0844aBB4eA9ec32f787`
+- impl: `0xB8CC2BB92372b7F24063B4079E9153d092b515d1.`
 - owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
+  - upgraded on Jun 12, 2024 at commit `07b073d`
+  - upgraded on Jun 12, 2024 at [PR #17553](https://github.com/taikoxyz/taiko-mono/pull/17553)
 
 ### assignmentHook
 
 - proxy: `0x9e640a6aadf4f664CF467B795c31332f44AcBe6c`
-- impl: `0xA35ed4FAD13C038C05aC4c8FD3353B3d90d15ea5`
+- impl: `0xfcb5B945dbd08AfdB08e6C358193B23b0E6eFa23`
 - owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
+  - upgraded on Jun 12, 2024 at commit `04bb81e`
 
 ### tierProvider
 
 - impl: `0x750D885DCAB712bA808D66D934CF315D0D98d04c.`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
+- todo:
+  - update tier config in Hekla and mainnet
 
 ### tierRouter
 
