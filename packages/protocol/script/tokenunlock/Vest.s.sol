@@ -16,6 +16,7 @@ contract VestTokenUnlock is Script {
         uint256 vestAmount;
     }
 
+    // On L2 it shall be: 0xA9d23408b9bA935c230493c40C73824Df71A0975
     ERC20 private tko = ERC20(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
 
     function run() external {
@@ -28,17 +29,22 @@ contract VestTokenUnlock is Script {
 
         for (uint256 i; i < items.length; i++) {
             if (items[i].vestAmount != 0) {
+                // This is needed due to some memory read operation! It seems forge/foundry
+                // parseJson works in a way that we need to read into local variables from struct,
+                // as it acts like a stack-like buffer read.
                 address proxy = items[i].proxy;
+                address recipient = items[i].recipient;
+                uint128 vestAmount = uint128(items[i].vestAmount);
                 console2.log("proxy. :", proxy);
-                console2.log("grantee:", items[i].recipient);
-                console2.log("vested :", items[i].vestAmount);
+                console2.log("grantee:", recipient);
+                console2.log("vested :", vestAmount);
 
                 require(TokenUnlock(proxy).owner() == msg.sender, "msg.sender not owner");
                 require(
                     TokenUnlock(proxy).recipient() == items[i].recipient, "inconsistent recipient"
                 );
 
-                uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
+                vestAmount = uint128(items[i].vestAmount * 1e18);
                 require(tko.balanceOf(msg.sender) >= vestAmount, "insufficient TKO balance");
 
                 tko.approve(proxy, vestAmount);
