@@ -132,6 +132,10 @@ library LibProving {
         }
 
         local.assignedProver = blk.assignedProver;
+        if (local.assignedProver == address(0)) {
+            local.assignedProver = _meta.sender;
+        }
+
         local.livenessBond = blk.livenessBond;
         local.metaHash = blk.metaHash;
 
