@@ -24,7 +24,7 @@ func (i *Indexer) indexRawBlockData(
 
 	// only index block/transaction data on L2
 	if i.layer == Layer2 {
-		for j := start; j < end; j++ {
+		for j := start; j <= end; j++ {
 			id := j
 
 			wg.Go(func() error {
