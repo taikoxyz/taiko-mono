@@ -61,6 +61,7 @@ func (i *Indexer) fetchNFTMetadata(
 				"tokenID", tokenID.String(),
 				"contractAddress", contractAddress,
 				"chainID", chainID.String())
+
 			return nil, nil
 		}
 
