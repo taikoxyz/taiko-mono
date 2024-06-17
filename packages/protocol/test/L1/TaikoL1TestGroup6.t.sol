@@ -5,7 +5,7 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block,
     // 2. Bob proves the block within the proving window, using the correct parent hash.
     // 3. Taylor contests Bob's proof.
     // 4. Bob re-proves his proof, showing Taylor is incorrect.
@@ -20,7 +20,7 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;

@@ -5,7 +5,7 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes 5 blocks, assigning Bob as the prover.
+    // 1. Alice proposes 5 blocks,
     // 2. Bob proves all 5 block within the proving window, using the correct parent hash.
     // 3. Verify up to 10 blocks
     function test_taikoL1_group_10_case_1() external {
@@ -20,7 +20,7 @@ contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 i = 1; i <= 5; ++i) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
             // Prove the block
             bytes32 blockHash = bytes32(uint256(10_000 + i));

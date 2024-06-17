@@ -23,7 +23,6 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
     function proposeBlock(
         address proposer,
-        address assignedProver,
         bytes4 revertReason
     )
         internal
@@ -57,8 +56,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
         (meta,) = L1.proposeBlock{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, eoaSig)),
-            txList
+            abi.encode(TaikoData.BlockParams(proposer, address(0), 0, 0, hookcalls, eoaSig)), txList
         );
     }
 

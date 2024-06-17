@@ -113,7 +113,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function proposeBlock(
         address proposer,
-        address prover,
         uint32 gasLimit,
         uint24 txListSize
     )
@@ -151,7 +150,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         vm.prank(proposer, proposer);
         (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
+            abi.encode(TaikoData.BlockParams(proposer, address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
     }

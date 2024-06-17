@@ -5,7 +5,7 @@ import "./TaikoL1TestGroupBase.sol";
 
 contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block,
     // 2. TaikoL1 is paused.
     // 3. Bob attempts to prove the block within the proving window.
     // 4. Alice tries to propose another block.
@@ -19,7 +19,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
 
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1");
         mineAndWrap(10 seconds);
@@ -42,7 +42,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         );
 
         console2.log("====== Alice tries to propose another block after L1 paused");
-        proposeBlock(Alice, Bob, EssentialContract.INVALID_PAUSE_STATUS.selector);
+        proposeBlock(Alice, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
         console2.log("====== Unpause TaikoL1");
         mineAndWrap(10 seconds);
@@ -52,11 +52,11 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         console2.log("====== Bob proves the block first after L1 unpaused");
         proveBlock(Bob, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
         console2.log("====== Alice tries to propose another block after L1 unpaused");
-        proposeBlock(Alice, Bob, "");
+        proposeBlock(Alice, "");
     }
 
     // Test summary:
-    // 1. Alice proposes a block, assigning Bob as the prover.
+    // 1. Alice proposes a block,
     // 2. TaikoL1 proving is paused.
     // 3. Bob attempts to prove the block within the proving window.
     // 4. Alice tries to propose another block.
@@ -70,7 +70,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
 
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1 proving");
         mineAndWrap(10 seconds);
@@ -93,7 +93,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         );
 
         console2.log("====== Alice tries to propose another block after L1 proving paused");
-        proposeBlock(Alice, Bob, "");
+        proposeBlock(Alice, "");
 
         console2.log("====== Unpause TaikoL1 proving");
         mineAndWrap(10 seconds);

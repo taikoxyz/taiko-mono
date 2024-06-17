@@ -21,7 +21,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -130,7 +130,7 @@ contract TaikoL1TestGroup2 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block with bob as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, Bob, "");
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
