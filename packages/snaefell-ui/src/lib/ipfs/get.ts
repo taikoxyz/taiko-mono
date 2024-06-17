@@ -1,6 +1,5 @@
-import { PUBLIC_IPFS_GATEWAY } from './config';
 
-export default async function get(hash: string, json?: boolean): Promise<any> {
-  const response = await fetch(`${PUBLIC_IPFS_GATEWAY}${hash}`);
+export default async function get(tokenURI: string, json?: boolean): Promise<any> {
+  const response = await fetch(tokenURI);
   return json ? response.json() : response.text();
 }

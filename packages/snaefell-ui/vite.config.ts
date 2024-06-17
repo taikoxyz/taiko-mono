@@ -11,6 +11,11 @@ export default defineConfig({
     },
         optimizeDeps: {
           exclude: ['@urql/svelte'],
+        },
+        define: {
+          'process.env': {
+            'PUBLIC_WALLETCONNECT_PROJECT_ID': ''
+          }
         }
         // other properties
 })

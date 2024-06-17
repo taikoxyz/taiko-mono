@@ -3,7 +3,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xD57b9EE8f597801e82018ed44e07E9065645B0c1)
  */
 export const snaefellTokenAbi = [
   {
@@ -40,8 +41,17 @@ export const snaefellTokenAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'baseURI',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'blacklist',
-    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
+    outputs: [
+      { name: '', internalType: 'contract IMinimalBlacklist', type: 'address' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -286,6 +296,13 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: '_rootURI', internalType: 'string', type: 'string' }],
+    name: 'updateBaseURI',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [
       {
         name: '_blacklist',
@@ -491,7 +508,9 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -578,20 +597,22 @@ export const snaefellTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const;
+] as const
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xD57b9EE8f597801e82018ed44e07E9065645B0c1)
  */
 export const snaefellTokenAddress = {
-  31337: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+  31337: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
   167000: '0xD57b9EE8f597801e82018ed44e07E9065645B0c1',
-} as const;
+} as const
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xD57b9EE8f597801e82018ed44e07E9065645B0c1)
  */
 export const snaefellTokenConfig = {
   address: snaefellTokenAddress,
   abi: snaefellTokenAbi,
-} as const;
+} as const
