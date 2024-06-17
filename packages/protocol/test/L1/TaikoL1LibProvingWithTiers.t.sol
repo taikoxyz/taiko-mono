@@ -50,14 +50,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -70,7 +62,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
             proveBlock(
@@ -99,14 +91,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -121,7 +105,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             // Try to contest
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
@@ -152,14 +136,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -173,7 +149,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             // Try to contest
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, minTier, "");
@@ -204,14 +180,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -226,7 +194,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, minTier, "");
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
@@ -261,14 +229,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
@@ -282,7 +242,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // stateRoot instead of blockHash
             uint16 minTier = meta.minTier;
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, minTier, "");
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
@@ -324,15 +284,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
     function test_L1_NonAssignedProverCannotBeFirstInProofWindowTime() external {
         giveEthAndTko(Alice, 1e8 ether, 100 ether);
-        // This is a very weird test (code?) issue here.
-        // If this line (or Bob's query balance) is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
+
         giveEthAndTko(Carol, 1e8 ether, 100 ether);
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -368,14 +322,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -391,7 +337,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             (, TaikoData.SlotB memory b) = L1.getStateVariables();
             uint64 lastVerifiedBlockBefore = b.lastVerifiedBlockId;
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             console2.log("mintTier is:", meta.minTier);
             // Try to contest
             proveBlock(
@@ -430,14 +376,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -450,7 +388,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
             proveBlock(
@@ -482,14 +420,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -504,7 +434,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1_000_000 + blockId);
             bytes32 stateRoot = bytes32(2_000_000 + blockId);
 
-            proveBlock(Bob, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
             // Prove as guardian
             blockHash = bytes32(1_000_000 + blockId + 100);
@@ -546,14 +476,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
@@ -587,14 +509,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
@@ -627,14 +544,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are onsgoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
@@ -647,7 +556,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 stateRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of blockhash is
             // exchanged with stateRoot
-            proveBlock(Bob, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
+            proveBlock(Alice, meta, parentHash, stateRoot, stateRoot, meta.minTier, "");
 
             // Prove as guardian
             proveBlock(Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
@@ -679,14 +588,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        // This is a very weird test (code?) issue here.
-        // If this line is uncommented,
-        // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
-        console2.log("Bob balance:", tko.balanceOf(Bob));
-        // Bob
-        vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         printVariables("before propose");
@@ -696,7 +597,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 blockHash = bytes32(uint256(1));
         bytes32 stateRoot = bytes32(uint256(1));
-        proveBlock(Bob, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
 
         // Try to contest with a lower tier proof- but should revert with L1_INVALID_TIER
         proveBlock(
