@@ -63,8 +63,7 @@ library LibProposing {
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList,
-        bool afterFork
+        bytes calldata _txList
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_)
@@ -227,11 +226,11 @@ library LibProposing {
             msg.sender.sendEtherAndVerify(address(this).balance);
         }
 
-        if (afterFork) {
-            emit BlockProposed2({ blockId: blk.blockId, meta: meta_ });
+        if (meta_.id >= _config.forkHeight) {
+            emit BlockProposed2({ blockId: meta_.blockId, meta: meta_ });
         } else {
             emit BlockProposed({
-                blockId: blk.blockId,
+                blockId: meta_.id,
                 assignedProver: blk.assignedProver,
                 livenessBond: _config.livenessBond,
                 meta: meta_,

@@ -81,7 +81,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        meta_ = LibProposing.proposeBlock(state, tko, config, this, _params, _txList, false);
+        meta_ = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
         if (meta_.id >= config.forkHeight) revert L1_INVALID_FUNCTION();
 
         deposits_ = new TaikoData.EthDeposit[](0);
@@ -107,7 +107,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         TaikoData.BlockMetadata memory meta =
-            LibProposing.proposeBlock(state, tko, config, this, _params, _txList, true);
+            LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (meta.id < config.forkHeight) revert L1_INVALID_FUNCTION();
 
