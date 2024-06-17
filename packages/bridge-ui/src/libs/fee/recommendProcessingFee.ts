@@ -1,5 +1,5 @@
 import { getPublicClient } from '@wagmi/core';
-import { formatGwei } from 'viem';
+import { formatGwei, parseGwei } from 'viem';
 
 import { gasLimitConfig } from '$config';
 import { PUBLIC_FEE_MULTIPLIER } from '$env/static/public';
@@ -38,8 +38,13 @@ export async function recommendProcessingFee({
   const maxPriorityFee = await destPublicClient.estimateMaxPriorityFeePerGas();
   log(`maxPriorityFee: ${formatGwei(maxPriorityFee)} gwei`);
 
-  const gasPrice = await destPublicClient.getGasPrice();
+  let gasPrice = await destPublicClient.getGasPrice();
   log(`gasPrice: ${formatGwei(gasPrice)} gwei`);
+
+  if (gasPrice < parseGwei('0.01')) {
+    log(`gasPrice is less than 0.01 gwei, setting gasPrice to 0.01 gwei`);
+    gasPrice = parseGwei('0.01');
+  }
 
   if (!baseFee) throw new Error('Unable to get base fee');
   log(`baseFee: ${formatGwei(baseFee)} gwei`);
@@ -60,41 +65,41 @@ export async function recommendProcessingFee({
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
 
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20DeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc20DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc20NotDeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc20NotDeployedGasLimit;
       }
     } else if (token.type === TokenType.ERC721) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc721DeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc721DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc721NotDeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc721NotDeployedGasLimit;
       }
     } else if (token.type === TokenType.ERC1155) {
       if (isTokenAlreadyDeployed) {
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc1155DeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc1155DeployedGasLimit;
       } else {
         log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
-        estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE) + gasLimitConfig.erc1155NotDeployedGasLimit;
+        estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE + gasLimitConfig.erc1155NotDeployedGasLimit;
       }
     }
   } else {
     log(`Fee for ETH bridging`);
-    estimatedMsgGaslimit = BigInt(gasLimitConfig.GAS_RESERVE);
+    estimatedMsgGaslimit = gasLimitConfig.GAS_RESERVE;
   }
   if (!estimatedMsgGaslimit) throw new Error('Unable to calculate fee');
 
   // Initial fee multiplicator and add fallback
   let feeMultiplicator: number = parseInt(PUBLIC_FEE_MULTIPLIER);
 
-  if (gasPrice <= 50000000n) {
+  if (gasPrice <= parseGwei('0.05')) {
     feeMultiplicator = 4;
-    log(`gasPrice  ${formatGwei(gasPrice)} is less than 0.5 gwei, setting feeMultiplicator to 4`);
-  } else if (gasPrice <= 100000000n && gasPrice > 50000000n) {
+    log(`gasPrice {formatGwei(gasPrice)} is less than 0.5 gwei, setting feeMultiplicator to 4`);
+  } else if (gasPrice <= parseGwei('0.1') && gasPrice > parseGwei('0.05')) {
     feeMultiplicator = 3;
     log(
       `gasPrice ${formatGwei(gasPrice)} is less than 0.1 gwei and more than 0.05 gwei, setting feeMultiplicator to 3`,
@@ -104,8 +109,8 @@ export async function recommendProcessingFee({
     log(`gasPrice ${formatGwei(gasPrice)} is more than 0.1 gwei, setting feeMultiplicator to 2`);
   }
 
-  const fee = estimatedMsgGaslimit * gasPrice * BigInt(feeMultiplicator);
-  return fee;
+  const fee = estimatedMsgGaslimit * Number(gasPrice) * feeMultiplicator;
+  return BigInt(fee);
 }
 
 // function roundWeiTo6DecimalPlaces(wei: bigint): bigint {

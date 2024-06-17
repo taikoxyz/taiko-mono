@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.9.0...docs-site-v1.10.0) (2024-06-14)
+
+
+### Features
+
+* **docs-site:** update guides ([#17536](https://github.com/taikoxyz/taiko-mono/issues/17536)) ([4a9ba42](https://github.com/taikoxyz/taiko-mono/commit/4a9ba42cadd1b2cd7d1a29097192ffe167eda3e2))
+* **docs-site:** update multiple articles ([#17552](https://github.com/taikoxyz/taiko-mono/issues/17552)) ([1561f92](https://github.com/taikoxyz/taiko-mono/commit/1561f92dded423676ced15c28ff7fa26cd6c96f5))
+
+## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.1...docs-site-v1.9.0) (2024-06-07)
+
+
+### Features
+
+* **docs-site:** add based preconfs faq link ([#17493](https://github.com/taikoxyz/taiko-mono/issues/17493)) ([cc8a598](https://github.com/taikoxyz/taiko-mono/commit/cc8a5986206756f1b445ad08543eeaedb5f8aaf4))
+
 ## [1.8.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.0...docs-site-v1.8.1) (2024-06-03)
 
 

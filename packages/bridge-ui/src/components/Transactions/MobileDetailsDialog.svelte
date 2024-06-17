@@ -201,7 +201,7 @@
             <h4 class="text-secondary-content">{$t('transactions.header.explorer')}</h4>
             <a
               class="flex justify-start content-center link"
-              href={`${chainConfig[Number(selectedItem.srcChainId)]?.blockExplorers?.default.url}/tx/${selectedItem.hash}`}
+              href={`${chainConfig[Number(selectedItem.srcChainId)]?.blockExplorers?.default.url}/tx/${selectedItem.srcTxHash}`}
               target="_blank">
               {$t('transactions.link.explorer')}
               <Icon type="arrow-top-right" />

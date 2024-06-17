@@ -10,6 +10,7 @@
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test": "pnpm clean && pnpm compile && forge test --match-path 'test/*.t.sol' -vvv",
     "node": "anvil",
+    "layout": "./deployments/gen-layouts.sh",
     "taikoon:merkle": "node script/taikoon/js/generate-merkle-tree.js",
     "snaefell:merkle": "node script/snaefell/js/generate-merkle-tree.js",
     "taikoon:deploy:localhost": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
@@ -20,7 +21,10 @@
     "snaefell:deploy:devnet": "forge clean && pnpm compile && forge script script/snaefell/sol/Deploy.s.sol --rpc-url https://rpc.internal.taiko.xyz --broadcast --gas-estimate-multiplier 200",
     "taikoon:deploy:mainnet": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 13 ",
     "snaefell:deploy:mainnet": "forge clean && pnpm compile && forge script script/snaefell/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 13 ",
-    "taikoon:deploy:holesky": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://1rpc.io/holesky --broadcast   --gas-estimate-multiplier 200"
+    "taikoon:deploy:holesky": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://1rpc.io/holesky --broadcast   --gas-estimate-multiplier 200",
+    "tbzb:deploy:localhost": "forge clean && pnpm compile && forge script script/trailblazers-badges/sol/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "tbzb:deploy:hekla": "forge clean && pnpm compile && forge script script/trailblazers-badges/sol/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "taikoon:deploy:v2": "forge clean && pnpm compile && forge script script/taikoon/sol/UpgradeV2.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -45,6 +49,7 @@
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
     "@openzeppelin/merkle-tree": "^1.0.6",
+    "@taiko/supplementary-contracts": "workspace:*",
     "convert-csv-to-json": "^2.46.0",
     "dotenv": "^16.4.5",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
@@ -55,7 +60,6 @@
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "sharp": "^0.33.3",
     "solady": "github:Vectorized/solady#v0.0.167",
-    "solidity-stringutils": "github:Arachnid/solidity-stringutils",
-    "@taiko/supplementary-contracts": "workspace:*"
+    "solidity-stringutils": "github:Arachnid/solidity-stringutils"
   }
 }

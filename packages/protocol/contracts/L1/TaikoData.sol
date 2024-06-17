@@ -32,9 +32,9 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
-        // syncing)
+        // The max number of L2 blocks that can stay unsynced on L1
         uint8 blockSyncThreshold;
+        bool checkEOAForCalldataDA;
     }
 
     /// @dev Struct representing prover fees per given tier
@@ -95,7 +95,7 @@ library TaikoData {
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 6 slots used.
+    /// 6 slots used.
     struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
@@ -106,7 +106,6 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
-        uint8 __reserved1;
     }
 
     /// @dev Struct containing data required for verifying a block.

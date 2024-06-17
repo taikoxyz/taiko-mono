@@ -13,3 +13,7 @@ description: Resource page where we list various useful learning resources.
 
 - [The Rollup Glossary](https://rollup-glossary.vercel.app).
 - Rollup training wheels: [L2Beat](https://l2beat.com).
+
+## Based Preconfirmations
+
+- [Based Preconfs FAQ](https://hackmd.io/@samlaf/based-preconfs-faq)

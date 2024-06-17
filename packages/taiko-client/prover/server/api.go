@@ -137,11 +137,15 @@ func (s *ProverServer) CreateAssignment(c echo.Context) error {
 	}
 
 	// 3. Check if the prover's token balance is enough to cover the bonds.
+	spender := s.assignmentHookAddress
+	if s.proverSetAddress != rpc.ZeroAddress {
+		spender = s.taikoL1Address
+	}
 	if ok, err = rpc.CheckProverBalance(
 		c.Request().Context(),
 		s.rpc,
 		prover,
-		s.assignmentHookAddress,
+		spender,
 		s.livenessBond,
 	); err != nil {
 		log.Error("Failed to check prover's token balance", "error", err)

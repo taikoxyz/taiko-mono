@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { importDone } from '$components/Bridge/state';
+  import { calculatingProcessingFee, importDone } from '$components/Bridge/state';
   import { BridgeSteps, BridgingStatus } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
@@ -11,9 +11,12 @@
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
 
+  export let hasEnoughFundsToContinue: boolean;
   export let needsManualReviewConfirmation: boolean;
   export let needsManualRecipientConfirmation: boolean;
   export let bridgingStatus: BridgingStatus;
+
+  export let exceedsQuota: boolean;
 
   let nextStepButtonText: string;
   let manuallyConfirmedReviewStep = false;
@@ -63,7 +66,7 @@
     manuallyConfirmedRecipientStep = false;
   };
 
-  $: disabled = !$account || !$account.isConnected;
+  $: disabled = !$account || !$account.isConnected || $calculatingProcessingFee;
 
   $: nextStepButtonText = getStepText();
 
@@ -77,12 +80,13 @@
     <div class="h-sep mt-0" />
     <ActionButton
       priority="primary"
-      disabled={!$importDone || disabled}
+      disabled={!$importDone || disabled || exceedsQuota}
       loading={validatingImport}
       on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
   {/if}
+
   {#if activeStep === BridgeSteps.REVIEW}
     {#if needsManualReviewConfirmation}
       <ActionButton
@@ -97,7 +101,10 @@
       </ActionButton>
     {/if}
 
-    <ActionButton priority="primary" disabled={disabled || !reviewConfirmed} on:click={() => handleNextStep()}>
+    <ActionButton
+      priority="primary"
+      disabled={disabled || !reviewConfirmed || !hasEnoughFundsToContinue}
+      on:click={() => handleNextStep()}>
       <span class="body-bold">{nextStepButtonText}</span>
     </ActionButton>
 

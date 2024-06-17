@@ -42,7 +42,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
             assertEq(ts.timestamp, block.timestamp);
@@ -83,7 +82,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
             assertEq(ts.timestamp, block.timestamp);
@@ -121,7 +119,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
-            assertEq(ts.contestBond, 1);
             assertEq(ts.prover, address(gp));
 
             assertEq(tko.balanceOf(Bob), 10_000 ether);
@@ -186,7 +183,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
             assertEq(ts.timestamp, block.timestamp);
@@ -212,7 +208,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
-            assertEq(ts.contestBond, 1);
             assertEq(ts.prover, address(gp));
 
             assertEq(tko.balanceOf(Bob), 10_000 ether - tierOp.validityBond);
@@ -280,7 +275,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
             assertEq(ts.timestamp, block.timestamp);
@@ -307,7 +301,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
-            assertEq(ts.contestBond, 1);
             assertEq(ts.prover, address(gp));
 
             assertEq(tko.balanceOf(Bob), 10_000 ether - livenessBond);
@@ -351,7 +344,6 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(ts.stateRoot, stateRoot);
             assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
-            assertEq(ts.contestBond, 1);
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
             assertEq(ts.timestamp, block.timestamp);
