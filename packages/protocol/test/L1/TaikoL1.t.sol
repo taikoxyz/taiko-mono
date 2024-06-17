@@ -256,9 +256,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         internal
     {
         uint256 msgValue = 2 ether;
-        AssignmentHook.ProverAssignment memory assignment;
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
-        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
+        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
 
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
