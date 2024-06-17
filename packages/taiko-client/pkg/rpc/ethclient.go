@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -351,7 +352,7 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 		if err != nil {
 			return nil, err
 		}
-		tip = big.NewInt(resp.blockPrices[0].estimatedPrices[0].maxPriorityFeePerGas)
+		tip = big.NewInt(int64(resp.BlockPrices[0].EstimatedPrices[0].MaxPriorityFeePerGas * params.GWei))
 	}
 
 	return tip, err

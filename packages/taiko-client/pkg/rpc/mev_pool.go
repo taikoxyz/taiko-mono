@@ -22,20 +22,20 @@ type MevPool struct {
 }
 
 type ErrorResp struct {
-	error uint16
-	msg   string
+	Error uint16
+	Msg   string
 }
 type EstimatedPrice struct {
-	maxPriorityFeePerGas int64
+	MaxPriorityFeePerGas float64 `json:"maxPriorityFeePerGas"`
 }
 
 type BlockPrice struct {
-	estimatedPrices []*EstimatedPrice
+	EstimatedPrices []*EstimatedPrice `json:"estimatedPrices"`
 }
 
 type BlockPriceResp struct {
 	*ErrorResp
-	blockPrices []*BlockPrice
+	BlockPrices []*BlockPrice `json:"blockPrices"`
 }
 
 func NewMevPool(
@@ -55,6 +55,7 @@ func NewMevPool(
 	}, nil
 }
 
+// GetPriorityFee gets a suggested gas priority fee to future block
 func (p *MevPool) GetPriorityFee(
 	ctx context.Context,
 ) (*BlockPriceResp, error) {
@@ -67,6 +68,7 @@ func (p *MevPool) GetPriorityFee(
 		SetContext(ctx).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
+		SetHeader("Authorization", p.apiKey).
 		Get(requestURL)
 	if err != nil {
 		return nil, err
@@ -75,13 +77,14 @@ func (p *MevPool) GetPriorityFee(
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(
 			"unable to connect apiEndpoint, error code: %v, msg: %s",
-			response.error,
-			response.msg,
+			response.Error,
+			response.Msg,
 		)
 	}
 	return response, nil
 }
 
+// SendTransaction injects a signed transaction into the private pool for execution.
 func (p *MevPool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	return p.rpcClient.SendTransaction(ctx, tx)
 }
