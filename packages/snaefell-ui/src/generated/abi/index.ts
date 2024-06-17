@@ -4,7 +4,7 @@
 
 /**
  * -
- * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xD57b9EE8f597801e82018ed44e07E9065645B0c1)
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xA5804b2a764f9808858355c1f1832588f47ab654)
  */
 export const snaefellTokenAbi = [
   {
@@ -49,9 +49,7 @@ export const snaefellTokenAbi = [
     type: 'function',
     inputs: [],
     name: 'blacklist',
-    outputs: [
-      { name: '', internalType: 'contract IMinimalBlacklist', type: 'address' },
-    ],
+    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
     stateMutability: 'view',
   },
   {
@@ -508,9 +506,7 @@ export const snaefellTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -597,22 +593,22 @@ export const snaefellTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const
+] as const;
 
 /**
  * -
- * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xD57b9EE8f597801e82018ed44e07E9065645B0c1)
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xA5804b2a764f9808858355c1f1832588f47ab654)
  */
 export const snaefellTokenAddress = {
   31337: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  167000: '0xD57b9EE8f597801e82018ed44e07E9065645B0c1',
-} as const
+  167000: '0xA5804b2a764f9808858355c1f1832588f47ab654',
+} as const;
 
 /**
  * -
- * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xD57b9EE8f597801e82018ed44e07E9065645B0c1)
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xA5804b2a764f9808858355c1f1832588f47ab654)
  */
 export const snaefellTokenConfig = {
   address: snaefellTokenAddress,
   abi: snaefellTokenAbi,
-} as const
+} as const;
