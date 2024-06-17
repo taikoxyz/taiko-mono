@@ -7,10 +7,24 @@ import "./TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block.
+    /// @dev This function will deprecate after block 50,000.
+    /// @param _params Block parameters, currently an encoded BlockParams object.
+    /// @param _txList txList data if calldata is used for DA.
+    /// @return meta_ The metadata of the proposed L2 block.
+    /// @return deposits_ The Ether deposits processed.
+    function proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
+
+    /// @notice Proposes a Taiko L2 block.
     /// @param _params Block parameters, currently an encoded BlockParams object.
     /// @param _txList txList data if calldata is used for DA.
     /// @return ABI-encoded BlockMetadata for this block.
-    function proposeBlock(
+    function proposeBlock2(
         bytes calldata _params,
         bytes calldata _txList
     )

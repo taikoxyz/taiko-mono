@@ -18,6 +18,7 @@ abstract contract TaikoErrors {
     error L1_CANNOT_CONTEST();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
+    error L1_INVALID_FUNCTION();
     error L1_INVALID_GENESIS_HASH();
     error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();

@@ -87,7 +87,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         onlyProver
         nonReentrant
     {
-        ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
+        ITaikoL1(taikoL1()).proposeBlock2(_params, _txList);
     }
 
     /// @notice Proves or contests a Taiko block.

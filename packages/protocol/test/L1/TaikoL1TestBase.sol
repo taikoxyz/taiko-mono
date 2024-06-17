@@ -180,7 +180,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             hookcalls = new TaikoData.HookCall[](0);
         }
         vm.prank(proposer, proposer);
-        bytes memory returnData = L1.proposeBlock{ value: msgValue }(
+        bytes memory returnData = L1.proposeBlock2{ value: msgValue }(
             abi.encode(TaikoData.BlockParams(prover, address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );

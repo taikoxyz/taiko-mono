@@ -17,18 +17,26 @@ library LibProposing {
     bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
-    /// @dev Emitted when a block is proposed.
+    /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The block's assigned prover.
-    /// @param livenessBond The bond in Taiko token from the assigned prover.
-    /// @param meta The block metadata containing information about the proposed
+    /// @param assignedProver The address of the assigned prover.
+    /// @param livenessBond The liveness bond of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
-        TaikoData.BlockMetadata meta
+        TaikoData.BlockMetadata meta,
+        TaikoData.EthDeposit[] depositsProcessed
     );
+
+    /// @dev Emitted when a block is proposed.
+    /// @param blockId The ID of the proposed block.
+    /// @param meta The block metadata containing information about the proposed
+    /// block.
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata meta);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
@@ -55,7 +63,8 @@ library LibProposing {
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bool afterFork
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_)
@@ -218,11 +227,16 @@ library LibProposing {
             msg.sender.sendEtherAndVerify(address(this).balance);
         }
 
-        emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
-            livenessBond: _config.livenessBond,
-            meta: meta_
-        });
+        if (afterFork) {
+            emit BlockProposed2({ blockId: blk.blockId, meta: meta_ });
+        } else {
+            emit BlockProposed({
+                blockId: blk.blockId,
+                assignedProver: blk.assignedProver,
+                livenessBond: _config.livenessBond,
+                meta: meta_,
+                depositsProcessed: new TaikoData.EthDeposit[](0)
+            });
+        }
     }
 }

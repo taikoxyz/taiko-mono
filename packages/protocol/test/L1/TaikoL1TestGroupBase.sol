@@ -72,7 +72,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        bytes memory returnData = L1.proposeBlock{ value: 3 ether }(
+        bytes memory returnData = L1.proposeBlock2{ value: 3 ether }(
             abi.encode(TaikoData.BlockParams(assignedProver, address(0), 0, 0, hookcalls, eoaSig)),
             txList
         );

@@ -65,9 +65,34 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
+    /// @inheritdoc ITaikoL1
+
+    function proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        emitEventForClient
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+    {
+        TaikoData.Config memory config = getConfig();
+        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
+
+        meta_ = LibProposing.proposeBlock(state, tko, config, this, _params, _txList, false);
+        if (meta_.id >= 500_000) revert L1_INVALID_FUNCTION();
+
+        deposits_ = new TaikoData.EthDeposit[](0);
+
+        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+        }
+    }
 
     /// @inheritdoc ITaikoL1
-    function proposeBlock(
+    function proposeBlock2(
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -82,7 +107,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         TaikoData.BlockMetadata memory meta =
-            LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+            LibProposing.proposeBlock(state, tko, config, this, _params, _txList, true);
+
+        if (meta.id < 500_000) revert L1_INVALID_FUNCTION();
 
         if (LibUtils.shouldVerifyBlocks(config, meta.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
