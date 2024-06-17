@@ -35,6 +35,7 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
+    error L1_INVALID_PARAM();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
@@ -60,6 +61,9 @@ library LibProposing {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
+        if (params.assignedProver != address(0) || params.hookCalls.length != 0) {
+            revert L1_INVALID_PARAM();
+        }
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
