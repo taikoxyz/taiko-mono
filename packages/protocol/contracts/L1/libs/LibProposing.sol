@@ -51,7 +51,7 @@ library LibProposing {
     /// @return meta_ The constructed block's metadata.
     function proposeBlock(
         TaikoData.State storage _state,
-        IERC20 _tko,
+        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,

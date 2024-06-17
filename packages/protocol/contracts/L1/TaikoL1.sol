@@ -79,7 +79,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (bytes memory)
     {
         TaikoData.Config memory config = getConfig();
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         TaikoData.BlockMetadata memory meta =
             LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
@@ -111,7 +111,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
@@ -130,7 +130,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     {
         LibVerifying.verifyBlocks(
             state,
-            IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)),
+            TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false)),
             getConfig(),
             this,
             _maxBlocksToVerify

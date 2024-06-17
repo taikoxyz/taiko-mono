@@ -171,6 +171,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         console2.log("   | contester:", ts.contester);
         console2.log("   | contestBond:", ts.contestBond);
         console2.log("   | timestamp:", ts.timestamp);
+        console2.log("   | key (parentHash):", vm.toString(ts.key));
         console2.log("   | blockHash:", vm.toString(ts.blockHash));
         console2.log("   | stateRoot:", vm.toString(ts.stateRoot));
     }
