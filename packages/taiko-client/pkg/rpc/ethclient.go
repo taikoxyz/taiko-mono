@@ -29,11 +29,17 @@ type EthClient struct {
 	*rpc.Client
 	*gethClient
 	*ethClient
+	*MevPool
 
 	timeout time.Duration
 }
 
-func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthClient, error) {
+func NewEthClient(
+	ctx context.Context,
+	url string,
+	timeout time.Duration,
+	pool *MevPool,
+) (*EthClient, error) {
 	var timeoutVal = defaultTimeout
 	if timeout != 0 {
 		timeoutVal = timeout
@@ -57,6 +63,7 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		gethClient: &gethClient{gethclient.New(client)},
 		ethClient:  ethClient,
 		timeout:    timeoutVal,
+		MevPool:    pool,
 	}, nil
 }
 
@@ -333,8 +340,21 @@ func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
+	var (
+		tip *big.Int
+		err error
+	)
+	if c.MevPool == nil {
+		tip, err = c.ethClient.SuggestGasTipCap(ctxWithTimeout)
+	} else {
+		resp, err := c.MevPool.GetPriorityFee(ctxWithTimeout)
+		if err != nil {
+			return nil, err
+		}
+		tip = big.NewInt(resp.blockPrices[0].estimatedPrices[0].maxPriorityFeePerGas)
+	}
 
-	return c.ethClient.SuggestGasTipCap(ctxWithTimeout)
+	return tip, err
 }
 
 // FeeHistory retrieves the fee market history.

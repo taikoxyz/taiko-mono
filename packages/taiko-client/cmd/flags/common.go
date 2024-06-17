@@ -162,6 +162,25 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	// MevPool
+	MevPoolAPIEndpoint = &cli.StringFlag{
+		Name:     "mevPool.endpoint",
+		Usage:    "HTTP api endpoint of the mev pool",
+		Category: commonCategory,
+		EnvVars:  []string{"MEV_POOL_ENDPOINT"},
+	}
+	MevPoolAPIKey = &cli.StringFlag{
+		Name:     "mevPool.apikey",
+		Usage:    "Apikey of the mev pool`",
+		Category: commonCategory,
+		EnvVars:  []string{"MEV_POOL_APIKEY"},
+	}
+	MevPoolRPCUrl = &cli.StringFlag{
+		Name:     "mevPool.rpcUrl",
+		Usage:    "HTTP RPC url of the mev pool",
+		Category: commonCategory,
+		EnvVars:  []string{"MEV_POOL_RPC_URL"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -180,6 +199,9 @@ var CommonFlags = []cli.Flag{
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 	RPCTimeout,
+	MevPoolAPIEndpoint,
+	MevPoolAPIKey,
+	MevPoolRPCUrl,
 }
 
 // MergeFlags merges the given flag slices.

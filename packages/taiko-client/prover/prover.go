@@ -114,6 +114,9 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
 		Timeout:                       cfg.RPCTimeout,
+		MevPoolRPCUrl:                 cfg.MevPoolRPCUrl,
+		MevPoolAPIEndpoint:            cfg.MevPoolAPIEndpoint,
+		MevPoolAPIKey:                 cfg.MevPoolAPIKey,
 	}); err != nil {
 		return err
 	}
@@ -153,11 +156,17 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		p.cfg.GuardianProverMinorityAddress,
 	)
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
+	conf, err := txmgr.NewConfig(*cfg.TxmgrConfigs, log.Root())
+	if err != nil {
+		return err
+	}
+	// Reset TxManager's backend to eth client including mev pool
+	conf.Backend = p.rpc.L1
+	if p.txmgr, err = txmgr.NewSimpleTxManagerFromConfig(
 		"prover",
 		log.Root(),
 		&metrics.TxMgrMetrics,
-		*cfg.TxmgrConfigs,
+		conf,
 	); err != nil {
 		return err
 	}

@@ -103,11 +103,17 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 		return err
 	}
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
+	conf, err := txmgr.NewConfig(*cfg.TxmgrConfigs, log.Root())
+	if err != nil {
+		return err
+	}
+	// Reset TxManager's backend to eth client including mev pool
+	conf.Backend = p.rpc.L1
+	if p.txmgr, err = txmgr.NewSimpleTxManagerFromConfig(
 		"proposer",
 		log.Root(),
 		&metrics.TxMgrMetrics,
-		*cfg.TxmgrConfigs,
+		conf,
 	); err != nil {
 		return err
 	}

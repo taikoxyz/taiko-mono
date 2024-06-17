@@ -52,6 +52,9 @@ type ClientConfig struct {
 	L2EngineEndpoint              string
 	JwtSecret                     string
 	Timeout                       time.Duration
+	MevPoolAPIKey                 string
+	MevPoolAPIEndpoint            string
+	MevPoolRPCUrl                 string
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -62,6 +65,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		l1BeaconClient *BeaconClient
 		l2CheckPoint   *EthClient
 		err            error
+		mevPool        *MevPool
 	)
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
@@ -69,12 +73,30 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
 		defer cancel()
 
-		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
+		if len(cfg.MevPoolAPIEndpoint) > 0 && len(cfg.MevPoolAPIKey) > 0 && len(cfg.MevPoolRPCUrl) > 0 {
+			if mevPool, err = NewMevPool(
+				ctxWithTimeout,
+				cfg.MevPoolAPIKey,
+				cfg.MevPoolAPIEndpoint,
+				cfg.MevPoolRPCUrl,
+			); err != nil {
+				log.Error("Failed to connect to L1 endpoint, retrying",
+					"apiEndpoint", cfg.MevPoolAPIEndpoint,
+					"rpcUrl", cfg.MevPoolRPCUrl,
+					"err", err,
+				)
+				return err
+			}
+		} else {
+			log.Warn("Failed to init MevPool")
+		}
+
+		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout, mevPool); err != nil {
 			log.Error("Failed to connect to L1 endpoint, retrying", "endpoint", cfg.L1Endpoint, "err", err)
 			return err
 		}
 
-		if l2Client, err = NewEthClient(ctxWithTimeout, cfg.L2Endpoint, cfg.Timeout); err != nil {
+		if l2Client, err = NewEthClient(ctxWithTimeout, cfg.L2Endpoint, cfg.Timeout, nil); err != nil {
 			log.Error("Failed to connect to L2 endpoint, retrying", "endpoint", cfg.L2Endpoint, "err", err)
 			return err
 		}
@@ -88,7 +110,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		}
 
 		if cfg.L2CheckPoint != "" {
-			l2CheckPoint, err = NewEthClient(ctxWithTimeout, cfg.L2CheckPoint, cfg.Timeout)
+			l2CheckPoint, err = NewEthClient(ctxWithTimeout, cfg.L2CheckPoint, cfg.Timeout, nil)
 			if err != nil {
 				log.Error("Failed to connect to L2 checkpoint endpoint, retrying", "endpoint", cfg.L2CheckPoint, "err", err)
 				return err
