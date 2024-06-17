@@ -54,10 +54,13 @@ func (i *Indexer) fetchNFTMetadata(
 		return nil, err
 	}
 
-	url, err := resolveMetadataURL(tokenURI)
+	url, err := resolveMetadataURL(ctx, tokenURI)
 	if err != nil {
 		if errors.Is(err, eventindexer.ErrInvalidURL) {
-			slog.Warn("Skipping metadata due to invalid URI")
+			slog.Warn("Skipping metadata due to invalid URI",
+				"tokenID", tokenID.String(),
+				"contractAddress", contractAddress,
+				"chainID", chainID.String())
 			return nil, nil
 		}
 
@@ -92,26 +95,26 @@ func (i *Indexer) fetchNFTMetadata(
 	return &metadata, nil
 }
 
-func resolveMetadataURL(tokenURI string) (string, error) {
+func resolveMetadataURL(ctx context.Context, tokenURI string) (string, error) {
 	if strings.HasPrefix(tokenURI, "ipfs://") {
 		ipfsHash := strings.TrimPrefix(tokenURI, "ipfs://")
 		resolvedURL := fmt.Sprintf("https://ipfs.io/ipfs/%s", ipfsHash)
 
-		if isValidURL(resolvedURL) {
+		if isValidURL(ctx, resolvedURL) {
 			return resolvedURL, nil
 		}
 
 		return "", eventindexer.ErrInvalidURL
 	}
 
-	if isValidURL(tokenURI) {
+	if isValidURL(ctx, tokenURI) {
 		return tokenURI, nil
 	}
 
 	return "", eventindexer.ErrInvalidURL
 }
 
-func isValidURL(rawURL string) bool {
+func isValidURL(ctx context.Context, rawURL string) bool {
 	client := &http.Client{
 		Timeout: 20 * time.Second,
 	}

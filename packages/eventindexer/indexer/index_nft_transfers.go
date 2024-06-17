@@ -134,7 +134,12 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		}
 
 		if metadata == nil {
-			return nil
+			metadata = &eventindexer.NFTMetadata{
+				ChainID:         chainID.Int64(),
+				ContractAddress: vLog.Address.Hex(),
+				TokenID:         vLog.Topics[3].Big().Int64(),
+				Name:            "invalid_metadata",
+			}
 		}
 
 		metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
@@ -235,7 +240,12 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			}
 
 			if metadata == nil {
-				return nil
+				metadata = &eventindexer.NFTMetadata{
+					ChainID:         chainID.Int64(),
+					ContractAddress: vLog.Address.Hex(),
+					TokenID:         vLog.Topics[3].Big().Int64(),
+					Name:            "invalid_metadata",
+				}
 			}
 
 			metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
@@ -319,7 +329,12 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 				}
 
 				if metadata == nil {
-					return nil
+					metadata = &eventindexer.NFTMetadata{
+						ChainID:         chainID.Int64(),
+						ContractAddress: vLog.Address.Hex(),
+						TokenID:         vLog.Topics[3].Big().Int64(),
+						Name:            "invalid_metadata",
+					}
 				}
 
 				metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
