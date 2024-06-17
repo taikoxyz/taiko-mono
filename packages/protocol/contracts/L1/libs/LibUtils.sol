@@ -42,7 +42,7 @@ library LibUtils {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) public {
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -82,7 +82,7 @@ library LibUtils {
         TaikoData.Config memory _config,
         uint64 _blockId
     )
-        public
+        internal
         view
         returns (TaikoData.Block storage blk_, uint64 slot_)
     {
@@ -102,7 +102,7 @@ library LibUtils {
         TaikoData.Config memory _config,
         uint64 _blockId
     )
-        public
+        internal
         view
         returns (bytes32 blockHash_, bytes32 stateRoot_)
     {
@@ -130,7 +130,7 @@ library LibUtils {
         uint64 _blockId,
         uint32 _tid
     )
-        public
+        internal
         view
         returns (TaikoData.TransitionState storage)
     {
