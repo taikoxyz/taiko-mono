@@ -26,7 +26,8 @@ contract DeployScript is Script {
     // Holesky Testnet Values
     // address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
     // bytes32 root = 0xf1359c4c4ba41a72025f2534ea8ad23c6b941b55a715838ebdc71202a78c6c87;
-    // string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
+    // string baseURI =
+    // "https://taikonfts.4everland.link/ipfs/bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy";
     // IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     // Hardhat Testnet Values
