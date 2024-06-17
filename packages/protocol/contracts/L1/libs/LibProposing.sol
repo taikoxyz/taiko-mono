@@ -35,7 +35,7 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
-    error L1_INVALID_HOOK();
+    error L1_HOOKS_NO_LONGER_SUPPORTED();
     error L1_INVALID_PROVER();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
@@ -72,7 +72,7 @@ library LibProposing {
             params.coinbase = msg.sender;
         }
 
-        if (params.hookCalls.length != 0) revert L1_INVALID_HOOK();
+        if (params.hookCalls.length != 0) revert L1_HOOKS_NO_LONGER_SUPPORTED();
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;

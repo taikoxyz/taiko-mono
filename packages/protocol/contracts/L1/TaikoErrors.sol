@@ -16,10 +16,10 @@ abstract contract TaikoErrors {
     error L1_BLOB_NOT_FOUND();
     error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
+    error L1_HOOKS_NO_LONGER_SUPPORTED();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
     error L1_INVALID_GENESIS_HASH();
-    error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_PROVER();
