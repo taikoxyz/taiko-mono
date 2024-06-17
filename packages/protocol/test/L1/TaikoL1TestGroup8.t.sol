@@ -17,7 +17,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
 
-        console2.log("====== Alice propose a block with bob as the assigned prover");
+        console2.log("====== Alice propose a block");
 
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
@@ -68,7 +68,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
 
-        console2.log("====== Alice propose a block with bob as the assigned prover");
+        console2.log("====== Alice propose a block");
 
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 

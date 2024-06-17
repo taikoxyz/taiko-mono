@@ -16,7 +16,7 @@ contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
-        console2.log("====== Alice propose a block with bob as the assigned prover");
+        console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");
@@ -56,7 +56,7 @@ contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
         giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
-        console2.log("====== Alice propose a block with bob as the assigned prover");
+        console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Bob proves the block as the assigned prover");

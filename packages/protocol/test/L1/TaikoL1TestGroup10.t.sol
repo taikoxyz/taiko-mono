@@ -16,7 +16,7 @@ contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
         giveEthAndTko(Bob, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
 
-        console2.log("====== Alice propose 5 block with bob as the assigned prover");
+        console2.log("====== Alice propose 5 block");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 i = 1; i <= 5; ++i) {
