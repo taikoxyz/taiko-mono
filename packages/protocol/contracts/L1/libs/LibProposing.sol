@@ -36,7 +36,6 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_HOOKS_NO_LONGER_SUPPORTED();
-    error L1_INVALID_PROVER();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
@@ -62,11 +61,6 @@ library LibProposing {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
-
-        // We need a prover that will submit proofs after the block has been submitted
-        if (params.assignedProver != msg.sender) {
-            revert L1_INVALID_PROVER();
-        }
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
@@ -162,6 +156,7 @@ library LibProposing {
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
+            assignedProver: msg.sender,
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
@@ -169,8 +164,7 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0,
-            assignedProver: params.assignedProver
+            verifiedTransitionId: 0
         });
 
         // Store the block in the ring buffer
