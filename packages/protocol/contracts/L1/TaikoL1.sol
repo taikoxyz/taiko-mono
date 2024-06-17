@@ -81,7 +81,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        meta_ = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        TaikoData.BlockMetadata2 memory meta2 =
+            LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        meta_ = LibUtils.metaV2ToV1(meta2);
         if (meta_.id >= config.forkHeight) revert L1_INVALID_FUNCTION();
 
         deposits_ = new TaikoData.EthDeposit[](0);
@@ -106,7 +108,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        TaikoData.BlockMetadata memory meta =
+        TaikoData.BlockMetadata2 memory meta =
             LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (meta.id < config.forkHeight) revert L1_INVALID_FUNCTION();
@@ -129,17 +131,26 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.Transition memory tran,
-            TaikoData.TierProof memory proof
-        ) = abi.decode(_input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
+        TaikoData.Config memory config = getConfig();
+        TaikoData.BlockMetadata2 memory meta;
+        TaikoData.Transition memory tran;
+        TaikoData.TierProof memory proof;
+
+        if (_blockId < config.forkHeight) {
+            TaikoData.BlockMetadata memory meta1;
+            (meta1, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
+            );
+            meta = LibUtils.metaV1ToV2(config, meta1);
+        } else {
+            (meta, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata2, TaikoData.Transition, TaikoData.TierProof)
+            );
+        }
 
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
-        TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
-
         LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
 
         if (LibUtils.shouldVerifyBlocks(config, meta.id, false)) {

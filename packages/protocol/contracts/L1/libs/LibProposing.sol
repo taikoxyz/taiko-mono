@@ -36,7 +36,7 @@ library LibProposing {
     /// @param blockId The ID of the proposed block.
     /// @param meta The block metadata containing information about the proposed
     /// block.
-    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata meta);
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata2 meta);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
@@ -66,7 +66,7 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta_)
+        returns (TaikoData.BlockMetadata2 memory meta_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
 
@@ -103,7 +103,7 @@ library LibProposing {
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
         unchecked {
-            meta_ = TaikoData.BlockMetadata({
+            meta_ = TaikoData.BlockMetadata2({
                 l1Hash: blockhash(block.number - 1),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
@@ -117,7 +117,8 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
-                sender: msg.sender
+                proposer: msg.sender,
+                livenessBond: _config.livenessBond
             });
         }
 
@@ -161,9 +162,11 @@ library LibProposing {
             meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
         }
 
+        TaikoData.BlockMetadata memory meta1 = LibUtils.metaV2ToV1(meta_);
+
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: LibUtils.hashMetadata(meta_),
+            metaHash: LibUtils.hashMetadata(_config, meta_),
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
@@ -206,7 +209,7 @@ library LibProposing {
                 // back to this contract for the next hook to use.
                 // Proposers shall choose to use extra hooks wisely.
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
-                    blk, meta_, params.hookCalls[i].data
+                    blk, meta1, params.hookCalls[i].data
                 );
 
                 prevHook = params.hookCalls[i].hook;
@@ -227,13 +230,13 @@ library LibProposing {
         }
 
         if (meta_.id >= _config.forkHeight) {
-            emit BlockProposed2({ blockId: meta_.blockId, meta: meta_ });
+            emit BlockProposed2({ blockId: meta_.id, meta: meta_ });
         } else {
             emit BlockProposed({
                 blockId: meta_.id,
                 assignedProver: blk.assignedProver,
                 livenessBond: _config.livenessBond,
-                meta: meta_,
+                meta: meta1,
                 depositsProcessed: new TaikoData.EthDeposit[](0)
             });
         }

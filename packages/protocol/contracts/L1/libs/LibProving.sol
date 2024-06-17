@@ -100,7 +100,7 @@ library LibProving {
         TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
-        TaikoData.BlockMetadata memory _meta,
+        TaikoData.BlockMetadata2 memory _meta,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof
     )
@@ -138,7 +138,7 @@ library LibProving {
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.blockId != _meta.id || local.metaHash != LibUtils.hashMetadata(_meta)) {
+        if (local.blockId != _meta.id || local.metaHash != LibUtils.hashMetadata(_config, _meta)) {
             revert L1_BLOCK_MISMATCH();
         }
 

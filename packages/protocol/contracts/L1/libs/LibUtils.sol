@@ -247,7 +247,66 @@ library LibUtils {
         }
     }
 
-    function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_meta));
+    function hashMetadata(
+        TaikoData.Config memory _config,
+        TaikoData.BlockMetadata2 memory _meta
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return _meta.id >= _config.forkHeight
+            ? keccak256(abi.encode(_meta))
+            : keccak256(abi.encode(metaV2ToV1(_meta)));
+    }
+
+    function metaV2ToV1(TaikoData.BlockMetadata2 memory _v2)
+        internal
+        pure
+        returns (TaikoData.BlockMetadata memory)
+    {
+        return TaikoData.BlockMetadata({
+            l1Hash: _v2.l1Hash,
+            difficulty: _v2.difficulty,
+            blobHash: _v2.blobHash,
+            extraData: _v2.extraData,
+            depositsHash: _v2.depositsHash,
+            coinbase: _v2.coinbase,
+            id: _v2.id,
+            gasLimit: _v2.gasLimit,
+            timestamp: _v2.timestamp,
+            l1Height: _v2.l1Height,
+            minTier: _v2.minTier,
+            blobUsed: _v2.blobUsed,
+            parentMetaHash: _v2.parentMetaHash,
+            sender: _v2.proposer
+        });
+    }
+
+    function metaV1ToV2(
+        TaikoData.Config memory _config,
+        TaikoData.BlockMetadata memory _v1
+    )
+        internal
+        pure
+        returns (TaikoData.BlockMetadata2 memory)
+    {
+        return TaikoData.BlockMetadata2({
+            l1Hash: _v1.l1Hash,
+            difficulty: _v1.difficulty,
+            blobHash: _v1.blobHash,
+            extraData: _v1.extraData,
+            depositsHash: _v1.depositsHash,
+            coinbase: _v1.coinbase,
+            id: _v1.id,
+            gasLimit: _v1.gasLimit,
+            timestamp: _v1.timestamp,
+            l1Height: _v1.l1Height,
+            minTier: _v1.minTier,
+            blobUsed: _v1.blobUsed,
+            parentMetaHash: _v1.parentMetaHash,
+            proposer: _v1.sender,
+            livenessBond: _config.livenessBond
+        });
     }
 }
