@@ -191,6 +191,8 @@
   - register `prover_set` to `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` @tx`0xb23d9cec24a1cc14956482d9d6a77eee0d6ab6ccd5b77e2be191fb8368c2d107`
   - unregister `assignment_hook` @tx`0xb23d9cec24a1cc14956482d9d6a77eee0d6ab6ccd5b77e2be191fb8368c2d107`
   - register `prover_set` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
+- todo:
+  - deploy and register a new tier_router
 
 #### taikoL1
 
@@ -210,6 +212,8 @@
   - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
   - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
+- todos:
+  - upgrade for liveness bond change
 
 #### assignment_hook
 
