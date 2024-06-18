@@ -62,16 +62,14 @@
 
   function reset() {
     canMint = false;
-    totalMintCount = 0;
-    gasCost = 0;
-    mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
-    isReady = true;
+    mintState.set({ ...$mintState, address: zeroAddress });
   }
 
   async function load() {
     if (isReady && (!$account || ($account && !$account.isConnected))) {
       return reset();
     }
+    isReady = false;
 
     if (totalSupply < 0 && mintMax < 0) {
       totalSupply = await Token.totalSupply();
@@ -80,12 +78,18 @@
     }
 
     if (!$account || !$account.address || $account.address === zeroAddress) {
+      isReady = true;
       return reset();
     }
     const address = $account.address as IAddress;
 
     const balance = await Token.balanceOf(address);
     hasAlreadyMinted = balance > 0;
+
+    if (totalMintCount < 0) {
+      totalMintCount = await User.totalWhitelistMintCount();
+      await calculateGasCost();
+    }
 
     if (!hasAlreadyMinted) {
       canMint = await Token.canMint();
@@ -95,11 +99,6 @@
 
       isReady = true;
       return;
-    }
-
-    if (totalMintCount < 0) {
-      totalMintCount = await User.totalWhitelistMintCount();
-      await calculateGasCost();
     }
 
     mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
@@ -201,7 +200,7 @@
 
         <Button class={buttonClasses} on:click={connectWallet} wide block type="primary">
           {$t('buttons.connectWallet')}</Button>
-      {:else if !canMint || $mintState.totalMintCount === 0}
+      {:else if !canMint && $mintState.totalMintCount === 0}
         <Divider />
 
         <div class={classNames('text-xl', 'text-center')}>
@@ -223,13 +222,7 @@
           <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
         </div>
 
-        <Button
-          disabled={!canMint || $mintState.totalMintCount === 0}
-          on:click={mint}
-          class={buttonClasses}
-          wide
-          block
-          type="primary">
+        <Button on:click={mint} class={buttonClasses} wide block type="primary">
           {$t('buttons.mint')}</Button>
       {/if}
     {:else}
