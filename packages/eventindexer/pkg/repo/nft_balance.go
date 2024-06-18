@@ -137,7 +137,9 @@ func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 
 		if strings.Contains(err.Error(), "Deadlock") {
 			retries--
+
 			time.Sleep(100 * time.Millisecond) // backoff before retrying
+
 			continue
 		}
 
