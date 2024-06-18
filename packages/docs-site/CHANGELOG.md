@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.10.0...docs-site-v1.11.0) (2024-06-18)
+
+
+### Features
+
+* **docs-site:** add dune dashboard to dev tools ([#17617](https://github.com/taikoxyz/taiko-mono/issues/17617)) ([ae0b0f0](https://github.com/taikoxyz/taiko-mono/commit/ae0b0f0838541a58ff4f5018098881c15eeae46c))
+* **docs-site:** add verify in batches explanation ([#17600](https://github.com/taikoxyz/taiko-mono/issues/17600)) ([0a8a886](https://github.com/taikoxyz/taiko-mono/commit/0a8a88675413b0f579d4d4889897d2e8404a67f6))
+
 ## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.9.0...docs-site-v1.10.0) (2024-06-14)
 
 
