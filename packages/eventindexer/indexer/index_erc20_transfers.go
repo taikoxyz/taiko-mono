@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"golang.org/x/sync/errgroup"
 )
 
 // nolint: lll
@@ -30,14 +31,26 @@ func (i *Indexer) indexERC20Transfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	for _, vLog := range logs {
-		if !i.isERC20Transfer(ctx, vLog) {
-			continue
-		}
+	wg, ctx := errgroup.WithContext(ctx)
 
-		if err := i.saveERC20Transfer(ctx, chainID, vLog); err != nil {
-			return err
-		}
+	for _, vLog := range logs {
+		l := vLog
+
+		wg.Go(func() error {
+			if !i.isERC20Transfer(ctx, l) {
+				return nil
+			}
+
+			if err := i.saveERC20Transfer(ctx, chainID, l); err != nil {
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	if err := wg.Wait(); err != nil {
+		return err
 	}
 
 	return nil

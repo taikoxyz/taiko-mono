@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc1155"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -33,14 +34,26 @@ func (i *Indexer) indexNFTTransfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	for _, vLog := range logs {
-		if !i.isERC721Transfer(ctx, vLog) && !i.isERC1155Transfer(ctx, vLog) {
-			continue
-		}
+	nftWg, ctx := errgroup.WithContext(ctx)
 
-		if err := i.saveNFTTransfer(ctx, chainID, vLog); err != nil {
-			return err
-		}
+	for _, vLog := range logs {
+		l := vLog
+
+		nftWg.Go(func() error {
+			if !i.isERC721Transfer(ctx, l) && !i.isERC1155Transfer(ctx, l) {
+				return nil
+			}
+
+			if err := i.saveNFTTransfer(ctx, chainID, l); err != nil {
+				return errors.Wrap(err, "i.saveNFTTransfer")
+			}
+
+			return nil
+		})
+	}
+
+	if err := nftWg.Wait(); err != nil {
+		return err
 	}
 
 	return nil

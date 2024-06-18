@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
+	"golang.org/x/sync/errgroup"
 )
 
 func (i *Indexer) saveBlockAssignedEvents(
@@ -23,19 +24,29 @@ func (i *Indexer) saveBlockAssignedEvents(
 		return nil
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)
+
 	for {
-		event := events.Event
+		event := events.Event // capture the event
 
-		if err := i.saveBlockAssignedEvent(ctx, chainID, event); err != nil {
-			eventindexer.BlockAssignedEventsProcessedError.Inc()
-
-			return errors.Wrap(err, "i.saveBlockAssignedEvent")
-		}
+		wg.Go(func() error {
+			if err := i.saveBlockAssignedEvent(ctx, chainID, event); err != nil {
+				eventindexer.BlockAssignedEventsProcessedError.Inc()
+				return errors.Wrap(err, "i.saveBlockAssignedEvent")
+			}
+			return nil
+		})
 
 		if !events.Next() {
-			return nil
+			break
 		}
 	}
+
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Indexer) saveBlockAssignedEvent(
