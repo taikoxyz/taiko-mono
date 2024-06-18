@@ -31,7 +31,7 @@ abstract contract TaikoEvents {
     /// @param prover The prover whose transition is used for verifying the
     /// block.
     /// @param blockHash The hash of the verified block.
-    /// @param stateRoot Deprecated and always zero.
+    /// @param stateRoot Deprecated and is always zero.
     /// @param tier The tier ID of the proof.
     event BlockVerified(
         uint256 indexed blockId,

@@ -135,7 +135,7 @@ library LibVerifying {
                     blockId: local.blockId,
                     prover: local.prover,
                     blockHash: local.blockHash,
-                    stateRoot: 0, // Always use 0 to avoid an unnecessary sload
+                    stateRoot: 0, // DEPRECATED and is always zero.
                     tier: local.tier
                 });
 
