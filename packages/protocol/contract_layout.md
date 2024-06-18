@@ -103,8 +103,9 @@
 | lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | l1ChainId      | uint64      | 251  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
-| nextTxId       | uint64      | 251  | 8      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
-| realOwner      | address     | 252  | 0      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| admin          | address     | 251  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| nextTxId       | uint64      | 252  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| realOwner      | address     | 252  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | __gap          | uint256[48] | 253  | 0      | 1536  | contracts/L2/DelegateOwner.sol:DelegateOwner |
 
 ## GuardianProver
