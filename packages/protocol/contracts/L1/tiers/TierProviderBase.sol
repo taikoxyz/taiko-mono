@@ -19,7 +19,7 @@ abstract contract TierProviderBase is ITierProvider {
             return ITierProvider.Tier({
                 verifierName: "",
                 validityBond: 125 ether, // TKO
-                contestBond: 820 ether, // TKO
+                contestBond: 250 ether, // TKO
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 15, // 15 minutes
                 maxBlocksToVerifyPerProof: 16
