@@ -21,10 +21,12 @@ func (i *Indexer) saveMessageSentEvents(
 ) error {
 	if !events.Next() || events.Event == nil {
 		slog.Info("no MessageSent events")
+
 		return nil
 	}
 
 	wg, ctx := errgroup.WithContext(ctx)
+
 	for {
 		wg.Go(func() error {
 			event := events.Event

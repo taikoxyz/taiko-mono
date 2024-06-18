@@ -34,6 +34,7 @@ func (i *Indexer) saveBlockAssignedEvents(
 				eventindexer.BlockAssignedEventsProcessedError.Inc()
 				return errors.Wrap(err, "i.saveBlockAssignedEvent")
 			}
+
 			return nil
 		})
 
