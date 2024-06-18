@@ -33,7 +33,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The max number of L2 blocks that can stay unsynced on L1
+        // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         bool checkEOAForCalldataDA;
     }
