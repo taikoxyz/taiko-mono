@@ -30,7 +30,6 @@ func (i *Indexer) saveTransitionProvedEvents(
 		event := events.Event
 
 		wg.Go(func() error {
-
 			if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
 				eventindexer.TransitionProvedEventsProcessedError.Inc()
 
