@@ -25,7 +25,7 @@ const baseConfig = {
   transports: {
     // [hardhat.id]: http('http://localhost:8545'),
     [taiko.id]: http('https://rpc.mainnet.taiko.xyz'),
-    //   [holesky.id]: http('https://1rpc.io/holesky'),
+    //  [holesky.id]: http('https://1rpc.io/holesky'),
   },
 } as const;
 
