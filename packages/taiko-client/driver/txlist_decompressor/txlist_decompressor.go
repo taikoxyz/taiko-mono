@@ -56,8 +56,9 @@ func (v *TxListDecompressor) TryDecompress(
 	}
 
 	var (
-		txs types.Transactions
-		err error
+		txs       types.Transactions
+		err       error
+		resultTxs types.Transactions
 	)
 
 	// Decompress the transaction list bytes.
@@ -72,6 +73,16 @@ func (v *TxListDecompressor) TryDecompress(
 		return []byte{}
 	}
 
+	// Re-encode txs when txs contains invalid tx
+	for _, tx := range txs {
+		// Skip invalid L2 blob tx
+		if tx.Type() == types.BlobTxType {
+			continue
+		}
+		resultTxs = append(resultTxs, tx)
+	}
+	resultBytes, err := rlp.EncodeToBytes(resultTxs)
+
 	log.Info("Transaction list is valid", "blockID", blockID)
-	return txListBytes
+	return resultBytes
 }
