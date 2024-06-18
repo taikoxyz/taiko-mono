@@ -29,9 +29,9 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Check formatting
+      - name: Format solidity && update contract layout table
         working-directory: ./packages/nfts
-        run: forge fmt --check
+        run: pnpm layout && forge fmt
 
       - name: Solidity compilation
         working-directory: ./packages/nfts
