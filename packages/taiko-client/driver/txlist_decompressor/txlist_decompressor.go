@@ -81,7 +81,7 @@ func (v *TxListDecompressor) TryDecompress(
 		}
 		resultTxs = append(resultTxs, tx)
 	}
-	resultBytes, err := rlp.EncodeToBytes(resultTxs)
+	resultBytes, _ := rlp.EncodeToBytes(resultTxs)
 
 	log.Info("Transaction list is valid", "blockID", blockID)
 	return resultBytes
