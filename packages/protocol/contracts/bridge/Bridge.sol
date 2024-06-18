@@ -487,7 +487,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _checkGasleft True to check gasleft is sufficient for target function invocation.
+    /// @param _shouldCheckForwardedGas True to check gasleft is sufficient for target function
+    /// invocation.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
@@ -495,7 +496,7 @@ contract Bridge is EssentialContract, IBridge {
         Message calldata _message,
         bytes32 _msgHash,
         uint256 _gasLimit,
-        bool _checkGasleft
+        bool _shouldCheckForwardedGas
     )
         private
         returns (bool success_)
@@ -505,10 +506,20 @@ contract Bridge is EssentialContract, IBridge {
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        if (_checkGasleft && _hasInsufficientGas(_gasLimit, _message.data.length)) {
-            revert B_INSUFFICIENT_GAS();
+
+        address to = _message.to;
+        uint256 value = _message.value;
+        bytes memory data = _message.data;
+        uint256 gasLeft;
+
+        assembly {
+            success_ := call(_gasLimit, to, value, add(data, 0x20), mload(data), 0, 0)
+            gasLeft := gas()
         }
-        success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
+
+        if (_shouldCheckForwardedGas) {
+            _checkForwardedGas(gasLeft, _gasLimit);
+        }
         _resetContext();
     }
 
@@ -633,38 +644,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    ///@dev This implementation was suggested by OpenZeppelin in an audit to replace the previous.
-    function _hasInsufficientGas(
-        uint256 _minGas,
-        uint256 _dataLength
-    )
-        private
-        view
-        returns (bool result_)
-    {
-        unchecked {
-            // https://github.com/ethereum/execution-specs/blob/master/src/ethereum/cancun/vm/gas.py#L128
-
-            // We can get the actual memory allocated with `msize()`, but that will require
-            // yul optimizer turned off, which will make other contract's code size too large.
-            // Though our unit tests, we estimiated the memory allocated is betweetn 1400 - 2800,
-            // Therefore, we can use 2816 bytes (88 words) as the estimated old total memory used.
-            uint256 additionalWords = (_dataLength + 31) / 32;
-            uint256 memoryGasCost =
-                (176 + additionalWords) * additionalWords / 512 + 3 * additionalWords;
-
-            // Need to add the cost of the worst case scenario of the external CALL, which include
-            // 2,600 gas for `address_access_cost`, 9,000 for `positive_value_cost` (but provides
-            // a 2300 gas stipend to the called contract), and 25,000 for
-            // `value_to_empty_account_cost`.
-            // See EIP-2929.
-
-            // Therefore the total additional cost is 2600 + 9000 - 2300 + 25000 = 34300.
-            // We use 40000, not 34300, below as a safer buffer.
-            result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 40_000) * 63;
-        }
-    }
-
     function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
@@ -702,6 +681,61 @@ contract Bridge is EssentialContract, IBridge {
         // Non-zero calldata cost per byte is 16.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
+        }
+    }
+
+    /// @dev Suggested by OpenZeppelin and copied from
+    /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/83c7e45092dac350b070c421cd2bf7105616cf1a/contracts/metatx/ERC2771Forwarder.sol#L327C1-L370C6
+    ///
+    /// @dev Checks if the requested gas was correctly forwarded to the callee.
+    /// As a consequence of https://eips.ethereum.org/EIPS/eip-150[EIP-150]:
+    /// - At most `gasleft() - floor(gasleft() / 64)` is forwarded to the callee.
+    /// - At least `floor(gasleft() / 64)` is kept in the caller.
+    ///
+    /// It reverts consuming all the available gas if the forwarded gas is not the requested gas.
+    ///
+    /// IMPORTANT: The `gasLeft` parameter should be measured exactly at the end of the forwarded
+    /// call.
+    /// Any gas consumed in between will make room for bypassing this check.
+    function _checkForwardedGas(uint256 _gasLeft, uint256 _gasRequested) private pure {
+        // To avoid insufficient gas griefing attacks, as referenced in
+        // https://ronan.eth.limo/blog/ethereum-gas-dangers/
+        //
+        // A malicious relayer can attempt to shrink the gas forwarded so that the underlying call
+        // reverts out-of-gas
+        // but the forwarding itself still succeeds. In order to make sure that the subcall received
+        // sufficient gas,
+        // we will inspect gasleft() after the forwarding.
+        //
+        // Let X be the gas available before the subcall, such that the subcall gets at most X * 63
+        // / 64.
+        // We can't know X after CALL dynamic costs, but we want it to be such that X * 63 / 64 >=
+        // req.gas.
+        // Let Y be the gas used in the subcall. gasleft() measured immediately after the subcall
+        // will be gasleft() = X - Y.
+        // If the subcall ran out of gas, then Y = X * 63 / 64 and gasleft() = X - Y = X / 64.
+        // Under this assumption req.gas / 63 > gasleft() is true is true if and only if
+        // req.gas / 63 > X / 64, or equivalently req.gas > X * 63 / 64.
+        // This means that if the subcall runs out of gas we are able to detect that insufficient
+        // gas was passed.
+        //
+        // We will now also see that req.gas / 63 > gasleft() implies that req.gas >= X * 63 / 64.
+        // The contract guarantees Y <= req.gas, thus gasleft() = X - Y >= X - req.gas.
+        // -    req.gas / 63 > gasleft()
+        // -    req.gas / 63 >= X - req.gas
+        // -    req.gas >= X * 63 / 64
+        // In other words if req.gas < X * 63 / 64 then req.gas / 63 <= gasleft(), thus if the
+        // relayer behaves honestly
+        // the forwarding does not revert.
+        if (_gasLeft < _gasRequested / 63) {
+            // We explicitly trigger invalid opcode to consume all gas and bubble-up the effects,
+            // since
+            // neither revert or assert consume all gas since Solidity 0.8.20
+            // https://docs.soliditylang.org/en/v0.8.20/control-structures.html#panic-via-assert-and-error-via-require
+            /// @solidity memory-safe-assembly
+            assembly {
+                invalid()
+            }
         }
     }
 }
