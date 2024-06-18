@@ -130,7 +130,8 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 
 		metadata, err = i.fetchERC721Metadata(ctx, vLog.Address.Hex(), vLog.Topics[3].Big(), chainID)
 		if err != nil {
-			return err
+			slog.Warn("error fetching metadata. setting defaults",
+				"contractAddress", vLog.Address.Hex(), "error", err.Error())
 		}
 
 		if metadata == nil {
@@ -236,7 +237,8 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 			metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), t.Id, chainID)
 			if err != nil {
-				return err
+				slog.Warn("error fetching metadata. setting defaults",
+					"contractAddress", vLog.Address.Hex(), "error", err.Error())
 			}
 
 			if metadata == nil {

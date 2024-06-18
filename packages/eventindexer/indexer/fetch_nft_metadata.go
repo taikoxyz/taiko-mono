@@ -44,14 +44,14 @@ func (i *Indexer) fetchNFTMetadata(
 
 	result, err := i.ethClient.CallContract(ctx, msg, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "i.ethClient.CallContract")
 	}
 
 	var tokenURI string
 
 	err = contractABI.UnpackIntoInterface(&tokenURI, methodName, result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "contractABI.UnpackIntoInterface")
 	}
 
 	url, err := resolveMetadataURL(ctx, tokenURI)
@@ -65,7 +65,7 @@ func (i *Indexer) fetchNFTMetadata(
 			return nil, nil
 		}
 
-		return nil, err
+		return nil, errors.Wrap(err, "resolveMetadataURL")
 	}
 
 	//nolint
@@ -117,7 +117,7 @@ func resolveMetadataURL(ctx context.Context, tokenURI string) (string, error) {
 
 func isValidURL(ctx context.Context, rawURL string) bool {
 	client := &http.Client{
-		Timeout: 20 * time.Second,
+		Timeout: 3 * time.Second,
 	}
 
 	resp, err := client.Head(rawURL)
@@ -131,7 +131,7 @@ func isValidURL(ctx context.Context, rawURL string) bool {
 func (i *Indexer) fetchSymbol(ctx context.Context, contractABI abi.ABI, metadata *eventindexer.NFTMetadata, contractAddress common.Address) error {
 	symbolCallData, err := contractABI.Pack("symbol")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "contractABI.Pack")
 	}
 
 	symbolMsg := ethereum.CallMsg{
@@ -141,14 +141,14 @@ func (i *Indexer) fetchSymbol(ctx context.Context, contractABI abi.ABI, metadata
 
 	symbolResult, err := i.ethClient.CallContract(ctx, symbolMsg, nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "i.ethClient.CallContract(symbolMsg)")
 	}
 
 	var symbol string
 
 	err = contractABI.UnpackIntoInterface(&symbol, "symbol", symbolResult)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "contractABI.UnpackIntoInterface")
 	}
 
 	metadata.Symbol = symbol
