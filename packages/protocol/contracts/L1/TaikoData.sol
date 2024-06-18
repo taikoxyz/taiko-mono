@@ -58,11 +58,11 @@ library TaikoData {
 
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
-        address assignedProver; // DEPRECATED, value ignored.
+        address assignedProver; // DEPRECATED, must be 0.
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
-        HookCall[] hookCalls; // DEPRECATED, value ignored.
+        HookCall[] hookCalls; // DEPRECATED, must be empty.
         bytes signature;
     }
 
