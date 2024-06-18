@@ -74,6 +74,12 @@ type Event struct {
 	Event                  string         `json:"event"`
 	ClaimedBy              string         `json:"claimedBy" gorm:"-"`
 	ProcessedTxHash        string         `json:"processedTxHash" gorm:"-"`
+	Fee                    *uint64        `json:"fee"`
+	DestChainBaseFee       *uint64        `json:"destChainBaseFee"`
+	GasTipCap              *uint64        `json:"gasTipCap"`
+	GasLimit               *uint64        `json:"gasLimit"`
+	IsProfitable           *bool          `json:"isProfitable"`
+	EstimatedOnchainFee    *uint64        `json:"estimatedOnchainFee"`
 }
 
 // SaveEventOpts
@@ -100,6 +106,15 @@ type SaveEventOpts struct {
 	SyncedInBlockID        uint64
 }
 
+type SaveEventDetailsOpts struct {
+	Fee                 uint64
+	DestChainBaseFee    uint64
+	GasTipCap           uint64
+	GasLimit            uint64
+	IsProfitable        bool
+	EstimatedOnchainFee uint64
+}
+
 type FindAllByAddressOpts struct {
 	Address   common.Address
 	EventType *EventType
@@ -112,6 +127,7 @@ type FindAllByAddressOpts struct {
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
+	SaveWithDetails(ctx context.Context, id int, opts SaveEventDetailsOpts) error
 	FindAllByAddress(
 		ctx context.Context,
 		req *http.Request,

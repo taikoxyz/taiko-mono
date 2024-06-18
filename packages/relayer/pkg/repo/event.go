@@ -58,6 +58,26 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 	return e, nil
 }
 
+func (r *EventRepository) SaveWithDetails(ctx context.Context, id int, opts relayer.SaveEventDetailsOpts) error {
+	e := &relayer.Event{}
+	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
+		return errors.Wrap(err, "r.db.First")
+	}
+
+	e.Fee = &opts.Fee
+	e.DestChainBaseFee = &opts.DestChainBaseFee
+	e.GasTipCap = &opts.GasTipCap
+	e.GasLimit = &opts.GasLimit
+	e.IsProfitable = &opts.IsProfitable
+	e.EstimatedOnchainFee = &opts.EstimatedOnchainFee
+
+	if err := r.db.GormDB().Save(e).Error; err != nil {
+		return errors.Wrap(err, "r.db.Save")
+	}
+
+	return nil
+}
+
 func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
 	e := &relayer.Event{}
 	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
