@@ -27,7 +27,7 @@ func (i *Indexer) saveBlockAssignedEvents(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
-		event := events.Event // capture the event
+		event := events.Event
 
 		wg.Go(func() error {
 			if err := i.saveBlockAssignedEvent(ctx, chainID, event); err != nil {

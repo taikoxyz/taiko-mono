@@ -27,8 +27,9 @@ func (i *Indexer) saveTransitionProvedEvents(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
+		event := events.Event
+
 		wg.Go(func() error {
-			event := events.Event
 
 			if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
 				eventindexer.TransitionProvedEventsProcessedError.Inc()

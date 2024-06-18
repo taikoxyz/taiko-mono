@@ -28,9 +28,9 @@ func (i *Indexer) saveBlockProposedEvents(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
-		wg.Go(func() error {
-			event := events.Event
+		event := events.Event
 
+		wg.Go(func() error {
 			tx, _, err := i.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 			if err != nil {
 				return errors.Wrap(err, "i.ethClient.TransactionByHash")

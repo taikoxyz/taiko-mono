@@ -27,9 +27,9 @@ func (i *Indexer) saveBlockVerifiedEvents(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
-		wg.Go(func() error {
-			event := events.Event
+		event := events.Event
 
+		wg.Go(func() error {
 			if err := i.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 				eventindexer.BlockVerifiedEventsProcessedError.Inc()
 

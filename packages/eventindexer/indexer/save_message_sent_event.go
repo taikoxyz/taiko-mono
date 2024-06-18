@@ -28,9 +28,9 @@ func (i *Indexer) saveMessageSentEvents(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
-		wg.Go(func() error {
-			event := events.Event
+		event := events.Event
 
+		wg.Go(func() error {
 			slog.Info("new messageSent event", "owner", event.Message.From.Hex())
 
 			if err := i.saveMessageSentEvent(ctx, chainID, event); err != nil {
