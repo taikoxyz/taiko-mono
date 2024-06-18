@@ -1663,7 +1663,7 @@ function proveBlock
 }
 ```
 
-Also, according to the documentation, [ If the parent block hash is incorrect, the winning transition won't be used for block verification, and the prover will forfeit their validity bond entirely.](https://taiko.mirror.xyz/Z4I5ZhreGkyfdaL5I9P0Rj0DNX4zaWFmcws-0CVMJ2A#:~:text=If%20the%20parent%20block%20hash%20is%20incorrect%2C%20the%20winning%20transition%20won%27t%20be%20used%20for%20block%20verification%2C%20and%20the%20prover%20will%20forfeit%20their%20validity%20bond%20entirely) If a maliciously proposed block with zero parent block hash is contested and a higher-tier prover ends up proving the proposed block, then he/she loses its own validity bond.
+Also, according to the documentation, [ If the parent block hash is incorrect, the winning transition won't be used for block verification, and the prover will forfeit their validity bond entirely.](https://taiko.mirror.xyz/Z4I5ZhreGkyfdaL5I9P0Rj0DNX4zaWFmcws-0CVMJ2A#:~:text=If%20the%20parent%20block%20hash%20is%20incorrect%2C%20the%20winning%20transition%20won%27t%20be%20used%20for%20block%20verification%2C%20and%20the%20prover%20will%20forfeit%20their%20validity%20bond%20entirely) If a maliciously proposed block with zero parent block hash is contested and a higher-tier prover ends up proving the proposed block, then he/she loses its own validity bond.
 
 ### Proof of Concept
 
