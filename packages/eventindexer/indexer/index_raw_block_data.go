@@ -43,22 +43,22 @@ func (i *Indexer) indexRawBlockData(
 				for _, tx := range txs {
 					t := tx
 
-					wg.Go(func() error {
+					txWg.Go(func() error {
 						slog.Info("transaction found", "hash", t.Hash())
 
 						receipt, err := i.ethClient.TransactionReceipt(ctx, t.Hash())
 
 						if err != nil {
-							return err
+							return errors.Wrap(err, "i.ethClient.TransactionReceipt")
 						}
 
 						sender, err := i.ethClient.TransactionSender(ctx, t, block.Hash(), receipt.TransactionIndex)
 						if err != nil {
-							return err
+							return errors.Wrap(err, "i.ethClient.TransactionSender")
 						}
 
 						if err := i.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
-							return err
+							return errors.Wrap(err, "i.accountRepo.Save")
 						}
 
 						if err := i.txRepo.Save(ctx,
@@ -68,7 +68,7 @@ func (i *Indexer) indexRawBlockData(
 							time.Unix(int64(block.Time()), 0),
 							receipt.ContractAddress,
 						); err != nil {
-							return err
+							return errors.Wrap(err, "i.txRepo.Save")
 						}
 
 						return nil
