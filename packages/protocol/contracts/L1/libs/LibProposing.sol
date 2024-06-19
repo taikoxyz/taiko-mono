@@ -61,7 +61,8 @@ library LibProposing {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
-        if (params.assignedProver != address(0) || params.hookCalls.length != 0) {
+        if (params.hookCalls.length != 0) revert L1_INVALID_PARAM();
+        if (params.assignedProver != address(0) && params.assignedProver != msg.sender) {
             revert L1_INVALID_PARAM();
         }
 
