@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "./TaikoL1TestBase.sol";
 
 contract TaikoL1Tiers is TaikoL1 {
-    function getConfig() public view override returns (TaikoData.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
 
         config.maxBlocksToVerify = 0;
@@ -423,7 +423,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
-            bool storeStateRoot = LibUtils.shouldSyncStateRoot(syncInternal, blockId);
+            bool storeStateRoot = LibUtils.willSyncStateRoot(syncInternal, blockId);
             console2.log("blockId:", blockId);
             console2.log("storeStateRoot:", storeStateRoot);
 

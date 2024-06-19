@@ -685,7 +685,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @dev Suggested by OpenZeppelin and copied from
-    /// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/83c7e45092dac350b070c421cd2bf7105616cf1a/contracts/metatx/ERC2771Forwarder.sol#L327C1-L370C6
+    /// https://github.com/OpenZeppelin/openzeppelin-contracts/
+    /// blob/83c7e45092dac350b070c421cd2bf7105616cf1a/contracts/
+    /// metatx/ERC2771Forwarder.sol#L327C1-L370C6
     ///
     /// @dev Checks if the requested gas was correctly forwarded to the callee.
     /// As a consequence of https://eips.ethereum.org/EIPS/eip-150[EIP-150]:

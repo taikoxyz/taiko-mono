@@ -139,7 +139,7 @@ library LibVerifying {
                     tier: local.tier
                 });
 
-                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+                if (LibUtils.willSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     local.stateRoot = ts.stateRoot;
                     local.syncBlockId = local.blockId;
                 }

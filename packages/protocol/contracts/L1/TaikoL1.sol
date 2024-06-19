@@ -222,7 +222,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     }
 
     /// @inheritdoc ITaikoL1
-    function getConfig() public view virtual override returns (TaikoData.Config memory) {
+    function getConfig() public pure virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
@@ -244,6 +244,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             stateRootSyncInternal: 16,
             checkEOAForCalldataDA: true
         });
+    }
+
+    function willSyncStateRoot(uint64 _blockId) public pure returns (bool) {
+        return LibUtils.willSyncStateRoot(getConfig().stateRootSyncInternal, _blockId);
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.
