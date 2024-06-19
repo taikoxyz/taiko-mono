@@ -120,17 +120,19 @@
 
 ### tierProvider
 
-- impl: `0x9b7f1148EC864f0A8aD88a73151Ddedb2B945613.`
+- impl: `0xDDfaA6F5E9ed78229660953439958636C9e26A34.`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
+  - upgraded on Jun 19, 2024 at commit `b7e12e3`
 
 ### tierRouter
 
-- impl: `0x9689c8729D9982cD2429d8Db218d584886BCD79e.`
+- impl: `0x18277Dfb30309360Fd4B8FbdD48283D1C71BDB65.`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
+  - upgraded on Jun 19, 2024 at commit `b7e12e3`
 
 ### prover_set
 
