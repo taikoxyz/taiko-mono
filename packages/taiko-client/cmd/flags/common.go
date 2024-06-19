@@ -162,24 +162,24 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
-	// MevPool
-	MevPoolAPIEndpoint = &cli.StringFlag{
-		Name:     "mevPool.endpoint",
-		Usage:    "HTTP api endpoint of the mev pool",
+	// BlocknativePrivateTxPool
+	PrivateTxPoolAPIEndpoint = &cli.StringFlag{
+		Name:     "privateTxPool.endpoint",
+		Usage:    "HTTP api endpoint of the Blocknative private tx pool",
 		Category: commonCategory,
-		EnvVars:  []string{"MEV_POOL_ENDPOINT"},
+		EnvVars:  []string{"PRIVATE_TX_POOL_ENDPOINT"},
 	}
-	MevPoolAPIKey = &cli.StringFlag{
-		Name:     "mevPool.apikey",
-		Usage:    "Apikey of the mev pool`",
+	PrivateTxPoolAPIKey = &cli.StringFlag{
+		Name:     "privateTxPool.apikey",
+		Usage:    "Apikey of the Blocknative private tx pool`",
 		Category: commonCategory,
-		EnvVars:  []string{"MEV_POOL_APIKEY"},
+		EnvVars:  []string{"PRIVATE_TX_POOL_APIKEY"},
 	}
-	MevPoolRPCUrl = &cli.StringFlag{
-		Name:     "mevPool.rpcUrl",
-		Usage:    "HTTP RPC url of the mev pool",
+	PrivateTxPoolRPCUrl = &cli.StringFlag{
+		Name:     "privateTxPool.rpcUrl",
+		Usage:    "HTTP RPC url of the Blocknative private tx pool",
 		Category: commonCategory,
-		EnvVars:  []string{"MEV_POOL_RPC_URL"},
+		EnvVars:  []string{"PRIVATE_TX_POOL_RPC_URL"},
 	}
 )
 
@@ -199,9 +199,9 @@ var CommonFlags = []cli.Flag{
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 	RPCTimeout,
-	MevPoolAPIEndpoint,
-	MevPoolAPIKey,
-	MevPoolRPCUrl,
+	PrivateTxPoolAPIEndpoint,
+	PrivateTxPoolAPIKey,
+	PrivateTxPoolRPCUrl,
 }
 
 // MergeFlags merges the given flag slices.

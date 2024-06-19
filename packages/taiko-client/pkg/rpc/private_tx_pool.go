@@ -15,7 +15,7 @@ const (
 	BlockPriceURL = "/gasprices/blockprices"
 )
 
-type MevPool struct {
+type BlocknativePrivateTxPool struct {
 	apiEndpoint string
 	apiKey      string
 	rpcClient   *ethclient.Client
@@ -38,17 +38,17 @@ type BlockPriceResp struct {
 	BlockPrices []*BlockPrice `json:"blockPrices"`
 }
 
-func NewMevPool(
+func NewPrivateTxPool(
 	ctx context.Context,
 	apiKey string,
 	apiEndpoint string,
 	rpcURL string,
-) (*MevPool, error) {
+) (*BlocknativePrivateTxPool, error) {
 	client, err := rpc.DialContext(ctx, rpcURL)
 	if err != nil {
 		return nil, err
 	}
-	return &MevPool{
+	return &BlocknativePrivateTxPool{
 		apiKey:      apiKey,
 		apiEndpoint: apiEndpoint,
 		rpcClient:   ethclient.NewClient(client),
@@ -56,7 +56,7 @@ func NewMevPool(
 }
 
 // GetPriorityFee gets a suggested gas priority fee to future block
-func (p *MevPool) GetPriorityFee(
+func (p *BlocknativePrivateTxPool) GetPriorityFee(
 	ctx context.Context,
 ) (*BlockPriceResp, error) {
 	requestURL, err := url.JoinPath(p.apiEndpoint, BlockPriceURL)
@@ -85,6 +85,6 @@ func (p *MevPool) GetPriorityFee(
 }
 
 // SendTransaction injects a signed transaction into the private pool for execution.
-func (p *MevPool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (p *BlocknativePrivateTxPool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	return p.rpcClient.SendTransaction(ctx, tx)
 }

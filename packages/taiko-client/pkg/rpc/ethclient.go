@@ -30,7 +30,7 @@ type EthClient struct {
 	*rpc.Client
 	*gethClient
 	*ethClient
-	*MevPool
+	*BlocknativePrivateTxPool
 
 	timeout time.Duration
 }
@@ -39,7 +39,7 @@ func NewEthClient(
 	ctx context.Context,
 	url string,
 	timeout time.Duration,
-	pool *MevPool,
+	pool *BlocknativePrivateTxPool,
 ) (*EthClient, error) {
 	var timeoutVal = defaultTimeout
 	if timeout != 0 {
@@ -59,12 +59,12 @@ func NewEthClient(
 	}
 
 	return &EthClient{
-		ChainID:    chainID,
-		Client:     client,
-		gethClient: &gethClient{gethclient.New(client)},
-		ethClient:  ethClient,
-		timeout:    timeoutVal,
-		MevPool:    pool,
+		ChainID:                  chainID,
+		Client:                   client,
+		gethClient:               &gethClient{gethclient.New(client)},
+		ethClient:                ethClient,
+		timeout:                  timeoutVal,
+		BlocknativePrivateTxPool: pool,
 	}, nil
 }
 
@@ -345,13 +345,14 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 		tip *big.Int
 		err error
 	)
-	if c.MevPool == nil {
+	if c.BlocknativePrivateTxPool == nil {
 		tip, err = c.ethClient.SuggestGasTipCap(ctxWithTimeout)
 	} else {
-		resp, err := c.MevPool.GetPriorityFee(ctxWithTimeout)
+		resp, err := c.BlocknativePrivateTxPool.GetPriorityFee(ctxWithTimeout)
 		if err != nil {
 			return nil, err
 		}
+		// Use estimated next block priority fee as the suggested tip
 		tip = big.NewInt(int64(resp.BlockPrices[0].EstimatedPrices[0].MaxPriorityFeePerGas * params.GWei))
 	}
 

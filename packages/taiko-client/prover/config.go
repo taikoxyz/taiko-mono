@@ -61,9 +61,9 @@ type Config struct {
 	L1NodeVersion                           string
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
-	MevPoolAPIKey                           string
-	MevPoolAPIEndpoint                      string
-	MevPoolRPCUrl                           string
+	PrivateTxPoolAPIKey                     string
+	PrivateTxPoolAPIEndpoint                string
+	PrivateTxPoolRPCUrl                     string
 	TxmgrConfigs                            *txmgr.CLIConfig
 }
 
@@ -196,9 +196,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1NodeVersion:                           c.String(flags.L1NodeVersion.Name),
 		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
 		BlockConfirmations:                      c.Uint64(flags.BlockConfirmations.Name),
-		MevPoolAPIEndpoint:                      c.String(flags.MevPoolAPIEndpoint.Name),
-		MevPoolRPCUrl:                           c.String(flags.MevPoolRPCUrl.Name),
-		MevPoolAPIKey:                           c.String(flags.MevPoolAPIKey.Name),
+		PrivateTxPoolAPIEndpoint:                c.String(flags.PrivateTxPoolAPIEndpoint.Name),
+		PrivateTxPoolRPCUrl:                     c.String(flags.PrivateTxPoolRPCUrl.Name),
+		PrivateTxPoolAPIKey:                     c.String(flags.PrivateTxPoolAPIKey.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1HTTPEndpoint.Name),
 			l1ProverPrivKey,

@@ -114,9 +114,9 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
 		Timeout:                       cfg.RPCTimeout,
-		MevPoolRPCUrl:                 cfg.MevPoolRPCUrl,
-		MevPoolAPIEndpoint:            cfg.MevPoolAPIEndpoint,
-		MevPoolAPIKey:                 cfg.MevPoolAPIKey,
+		PrivateTxPoolRPCUrl:           cfg.PrivateTxPoolRPCUrl,
+		PrivateTxPoolAPIEndpoint:      cfg.PrivateTxPoolAPIEndpoint,
+		PrivateTxPoolAPIKey:           cfg.PrivateTxPoolAPIKey,
 	}); err != nil {
 		return err
 	}

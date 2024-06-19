@@ -52,20 +52,20 @@ type ClientConfig struct {
 	L2EngineEndpoint              string
 	JwtSecret                     string
 	Timeout                       time.Duration
-	MevPoolAPIKey                 string
-	MevPoolAPIEndpoint            string
-	MevPoolRPCUrl                 string
+	PrivateTxPoolAPIKey           string
+	PrivateTxPoolAPIEndpoint      string
+	PrivateTxPoolRPCUrl           string
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
 func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	var (
-		l1Client       *EthClient
-		l2Client       *EthClient
-		l1BeaconClient *BeaconClient
-		l2CheckPoint   *EthClient
-		err            error
-		mevPool        *MevPool
+		l1Client                 *EthClient
+		l2Client                 *EthClient
+		l1BeaconClient           *BeaconClient
+		l2CheckPoint             *EthClient
+		err                      error
+		blocknativePrivateTxPool *BlocknativePrivateTxPool
 	)
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
@@ -73,25 +73,25 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
 		defer cancel()
 
-		if len(cfg.MevPoolAPIEndpoint) > 0 && len(cfg.MevPoolAPIKey) > 0 && len(cfg.MevPoolRPCUrl) > 0 {
-			if mevPool, err = NewMevPool(
+		if len(cfg.PrivateTxPoolAPIEndpoint) > 0 && len(cfg.PrivateTxPoolAPIKey) > 0 && len(cfg.PrivateTxPoolRPCUrl) > 0 {
+			if blocknativePrivateTxPool, err = NewPrivateTxPool(
 				ctxWithTimeout,
-				cfg.MevPoolAPIKey,
-				cfg.MevPoolAPIEndpoint,
-				cfg.MevPoolRPCUrl,
+				cfg.PrivateTxPoolAPIKey,
+				cfg.PrivateTxPoolAPIEndpoint,
+				cfg.PrivateTxPoolRPCUrl,
 			); err != nil {
 				log.Error("Failed to connect to L1 endpoint, retrying",
-					"apiEndpoint", cfg.MevPoolAPIEndpoint,
-					"rpcUrl", cfg.MevPoolRPCUrl,
+					"apiEndpoint", cfg.PrivateTxPoolAPIEndpoint,
+					"rpcUrl", cfg.PrivateTxPoolRPCUrl,
 					"err", err,
 				)
 				return err
 			}
 		} else {
-			log.Warn("Failed to init MevPool")
+			log.Warn("Failed to init BlocknativePrivateTxPool")
 		}
 
-		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout, mevPool); err != nil {
+		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout, blocknativePrivateTxPool); err != nil {
 			log.Error("Failed to connect to L1 endpoint, retrying", "endpoint", cfg.L1Endpoint, "err", err)
 			return err
 		}
