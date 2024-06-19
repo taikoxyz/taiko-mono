@@ -277,7 +277,7 @@ The `LibVerifying` library is part of the Taiko protocol and is designed for han
 
 - `init(TaikoData.State storage _state, TaikoData.Config memory _config, bytes32 _genesisBlockHash)` : Sets up initial protocol state using specified configuration and genesis block hash, ensuring the protocol is ready for operation from a clearly defined starting point.
 
-- `verifyBlocks(TaikoData.State storage _state, TaikoData.Config memory _config, IAddressResolver _resolver, uint64 _maxBlocksToVerify)` : Processes and verifies up to `_maxBlocksToVerify` blocks based on established transition rules and updates their state as verified, maintaining blockchain integrity.
+- `verifyBlocks(TaikoData.State storage _state, TaikoData.Config memory _config, IAddressResolver _resolver, uint64 _maxBlocksToVerifyPerProposal)` : Processes and verifies up to `_maxBlocksToVerifyPerProposal` blocks based on established transition rules and updates their state as verified, maintaining blockchain integrity.
 
 - `_syncChainData(TaikoData.Config memory _config, IAddressResolver _resolver, uint64 _lastVerifiedBlockId, bytes32 _stateRoot)` :
   Internally updates external systems with the latest verified blockchain data, ensuring consistency across the protocol and external references.
