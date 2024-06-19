@@ -18,10 +18,11 @@
 ### taiko_token
 
 - proxy: `0x6490E12d480549D333499236fF2Ba6676C296011`
-- impl: `0x087f33bf5141033bbf7a2acef5d8fadce9204eca`
+- impl: `0x01BB2fD6D80942CE95B43c1322530fe690F2bc0e`
 - owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
 - logs:
   - deployed on Mar 29, 2024 at commit `b341a68d5`
+  - upgraded on Jun 18, 2024, added `batchTransfer` method.
 
 ### signal_service
 
@@ -98,7 +99,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xf53d940F90267f9Da7397E7693599c6bA5b0F1E1.`
+- impl: `0x2B230fbF973fb637B4B3Cc424C22308565AEf954.`
 - owner: `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -106,6 +107,7 @@
   - upgraded on Jun 12, 2024 at commit `07b073d`
   - upgraded on Jun 12, 2024 at [PR #17553](https://github.com/taikoxyz/taiko-mono/pull/17553)
   - upgraded on Jun 14, 2024 at [PR #17553](https://github.com/taikoxyz/taiko-mono/pull/17553) @commit `baed5b5`
+  - upgraded on Jun 19, 2024 at commit `b7e12e3`
 
 ### assignmentHook
 
@@ -129,6 +131,14 @@
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
+
+### prover_set
+
+- proxy: `0xD3f681bD6B49887A48cC9C9953720903967E9DC0`
+- impl: `0xC001CcacC84431F35b39Df49880198bB78CcF841`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Jun 17, 2024 at commit `b7e12e3`
 
 ### guardian_prover
 
