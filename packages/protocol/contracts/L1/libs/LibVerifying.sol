@@ -176,6 +176,7 @@ library LibVerifying {
                     local.slot = local.syncBlockId % _config.blockRingBufferSize;
                     _state.blocks[local.slot].verifiedTransitionId = local.syncTransitionId;
 
+                    // Ask signal service to write cross chain signal
                     ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
                         .syncChainData(
                         _config.chainId,
