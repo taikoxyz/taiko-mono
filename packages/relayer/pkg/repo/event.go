@@ -120,7 +120,12 @@ func (r *EventRepository) FindAllByAddress(
 	})
 
 	q := r.db.GormDB().
-		Model(&relayer.Event{}).Where("message_owner = ?", strings.ToLower(opts.Address.Hex()))
+		Model(&relayer.Event{}).
+		Where(
+			"dest_owner_json = ? OR message_owner = ?",
+			strings.ToLower(opts.Address.Hex()),
+			strings.ToLower(opts.Address.Hex()),
+		)
 
 	if opts.EventType != nil {
 		q = q.Where("event_type = ?", *opts.EventType)

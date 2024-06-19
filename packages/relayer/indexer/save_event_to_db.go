@@ -23,7 +23,7 @@ func (i *Indexer) saveEventToDB(
 ) (int, error) {
 	eventType, canonicalToken, amount, err := relayer.DecodeMessageData(eventData, eventValue)
 	if err != nil {
-		return 0, errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
+		return 0, errors.Wrap(err, "relayer.DecodeMessageData")
 	}
 
 	// check if we have an existing event already. this is mostly likely only true
