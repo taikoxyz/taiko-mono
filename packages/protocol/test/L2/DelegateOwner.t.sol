@@ -45,7 +45,8 @@ contract TestDelegateOwner is TaikoTest {
                 name: "delegate_owner",
                 impl: address(new DelegateOwner()),
                 data: abi.encodeCall(
-                    DelegateOwner.init, (remoteOwner, address(addressManager), remoteChainId)
+                    DelegateOwner.init,
+                    (remoteOwner, address(addressManager), remoteChainId, address(0))
                 ),
                 registerTo: address(addressManager)
             })
@@ -94,7 +95,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -127,7 +128,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -191,7 +192,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunCall(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -211,5 +212,61 @@ contract TestDelegateOwner is TaikoTest {
         assertTrue(target1.paused());
         assertEq(target2.impl(), impl2);
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
+    }
+
+    function test_delegate_owner_update_admin() public {
+        assertEq(delegateOwner.admin(), address(0));
+        bytes memory data = abi.encode(
+            DelegateOwner.Call(
+                uint64(0),
+                address(delegateOwner),
+                false, // CALL
+                abi.encodeCall(DelegateOwner.setAdmin, (David))
+            )
+        );
+
+        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
+        delegateOwner.dryrunCall(data);
+
+        IBridge.Message memory message;
+        message.from = remoteOwner;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
+        message.destOwner = Bob;
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.to = address(delegateOwner);
+
+        vm.prank(Bob);
+        bridge.processMessage(message, "");
+
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(delegateOwner.nextTxId(), 1);
+        assertEq(delegateOwner.admin(), David);
+
+        // David is now the security council
+        data = abi.encode(
+            DelegateOwner.Call(
+                uint64(1),
+                address(delegateOwner),
+                false, // CALL
+                abi.encodeCall(DelegateOwner.setAdmin, (Emma))
+            )
+        );
+
+        vm.prank(Bob);
+        vm.expectRevert(DelegateOwner.DO_PERMISSION_DENIED.selector);
+        delegateOwner.invokeCall(data);
+
+        vm.prank(David);
+        delegateOwner.invokeCall(data);
+        assertEq(delegateOwner.nextTxId(), 2);
+        assertEq(delegateOwner.admin(), Emma);
+
+        vm.prank(Emma);
+        delegateOwner.setAdmin(Bob);
+        assertEq(delegateOwner.nextTxId(), 2);
+        assertEq(delegateOwner.admin(), Bob);
     }
 }
