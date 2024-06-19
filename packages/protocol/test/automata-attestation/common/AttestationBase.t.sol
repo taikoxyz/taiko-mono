@@ -34,7 +34,8 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         "/test/automata-attestation/assets/0923/tcb_00606A000000.json",
         "/test/automata-attestation/assets/0424/tcb_00A067110000.json",
         "/test/automata-attestation/assets/0424/tcb_00906ED50000.json",
-        "/test/automata-attestation/assets/0424/tcb_30606a000000.json"
+        "/test/automata-attestation/assets/0424/tcb_30606a000000.json",
+        "/test/automata-attestation/assets/0424/tcb_00706A100000.json"
     ];
     string internal idPath = "/test/automata-attestation/assets/0923/identity.json";
     address constant admin = address(1);
@@ -66,7 +67,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
                 data: abi.encodeCall(
                     AutomataDcapV3Attestation.init,
                     (admin, address(sigVerifyLib), address(pemCertChainLib))
-                )
+                    )
             })
         );
 
