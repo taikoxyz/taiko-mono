@@ -71,7 +71,7 @@
 - impl: `0xD28f2c26aD8bA88b0691F6BB41Ff021878052561`
 - owner: `admin.taiko.eth`
 - todo:
-  - upgrade the contract
+  - upgrade the contract:https://github.com/taikoxyz/taiko-mono/pull/17529
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
