@@ -20,9 +20,9 @@ library LibVerifying {
         uint16 tier;
         bytes32 blockHash;
         bytes32 stateRoot;
+        uint64 syncBlockId;
         address prover;
         ITierRouter tierRouter;
-        ISignalService signalService;
     }
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -141,20 +141,7 @@ library LibVerifying {
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     local.stateRoot = ts.stateRoot;
-                    if (local.stateRoot != 0) {
-                        _state.slotA.lastSyncedBlockId = local.blockId;
-                        _state.slotA.lastSynecdAt = uint64(block.timestamp);
-
-                        if (local.signalService == ISignalService(address(0))) {
-                            local.signalService = ISignalService(
-                                _resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false)
-                            );
-                        }
-
-                        local.signalService.syncChainData(
-                            _config.chainId, LibStrings.H_STATE_ROOT, local.blockId, local.stateRoot
-                        );
-                    }
+                    local.syncBlockId = local.blockId;
                 }
 
                 ++local.blockId;
@@ -175,6 +162,16 @@ library LibVerifying {
                     mstore(bonds, newLen)
                 }
                 if (!_tko.batchTransfer(provers, bonds)) revert L1_BATCH_TRANSFER_FAILED();
+
+                if (local.stateRoot != 0) {
+                    _state.slotA.lastSyncedBlockId = local.syncBlockId;
+                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
+
+                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
+                        .syncChainData(
+                        _config.chainId, LibStrings.H_STATE_ROOT, local.syncBlockId, local.stateRoot
+                    );
+                }
             }
         }
     }
