@@ -22,7 +22,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 250 ether, // TKO
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 15, // 15 minutes
-                maxBlocksToVerifyPerProof: 16
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
@@ -33,7 +33,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 820 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 60, // 1 hours
-                maxBlocksToVerifyPerProof: 8
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
@@ -44,7 +44,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 1640 ether, // =500TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 240, // 4 hours
-                maxBlocksToVerifyPerProof: 4
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
@@ -55,7 +55,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 1640 ether, // =500TKO * 6.5625
                 cooldownWindow: 240, // 4 hours
                 provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 16
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
@@ -66,7 +66,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 1440, // 24 hours
                 provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 16
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
