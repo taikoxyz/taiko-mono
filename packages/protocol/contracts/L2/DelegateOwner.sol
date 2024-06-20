@@ -107,7 +107,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
-    function setAdmin(address _admin) external onlyFromSelf {
+    function setAdmin(address _admin) external nonReentrant onlyFromSelf {
         if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
 
         emit AdminUpdated(admin, _admin);
@@ -116,7 +116,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @dev Accepts contract ownership
     /// @param _target Target addresses.
-    function acceptOwnership(address _target) external onlyFromSelf {
+    function acceptOwnership(address _target) external nonReentrant onlyFromSelf {
         Ownable2StepUpgradeable(_target).acceptOwnership();
     }
 

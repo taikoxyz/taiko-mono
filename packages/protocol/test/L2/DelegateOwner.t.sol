@@ -169,7 +169,7 @@ contract TestDelegateOwner is TaikoTest {
             })
         );
 
-        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](3);
+        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](4);
         calls[0].target = address(target1);
         calls[0].allowFailure = false;
         calls[0].callData = abi.encodeCall(EssentialContract.pause, ());
@@ -181,6 +181,10 @@ contract TestDelegateOwner is TaikoTest {
         calls[2].target = address(delegateOwner);
         calls[2].allowFailure = false;
         calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl2));
+
+        calls[3].target = address(delegateOwner);
+        calls[3].allowFailure = false;
+        calls[3].callData = abi.encodeCall(DelegateOwner.setAdmin, (David));
 
         bytes memory data = abi.encode(
             DelegateOwner.Call(
@@ -212,5 +216,6 @@ contract TestDelegateOwner is TaikoTest {
         assertTrue(target1.paused());
         assertEq(target2.impl(), impl2);
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
+        assertEq(delegateOwner.admin(), David);
     }
 }
