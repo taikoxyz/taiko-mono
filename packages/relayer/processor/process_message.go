@@ -69,6 +69,12 @@ func (p *Processor) processMessage(
 		return false, 0, errors.Wrap(err, "json.Unmarshal")
 	}
 
+	if msgBody.Event == nil {
+		slog.Warn("empty msgBody", "id", msgBody.ID)
+
+		return false, 0, errors.New("empty message body")
+	}
+
 	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
 
 	// check if we already processing this hash
