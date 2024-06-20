@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"strings"
+	"time"
 
 	"net/http"
 
@@ -58,7 +59,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 	return e, nil
 }
 
-func (r *EventRepository) SaveWithDetails(ctx context.Context, id int, opts relayer.SaveEventDetailsOpts) error {
+func (r *EventRepository) UpdateFeesAndProfitability(ctx context.Context, id int, opts relayer.UpdateFeesAndProfitabilityOpts) error {
 	e := &relayer.Event{}
 	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.First")
@@ -70,6 +71,8 @@ func (r *EventRepository) SaveWithDetails(ctx context.Context, id int, opts rela
 	e.GasLimit = &opts.GasLimit
 	e.IsProfitable = &opts.IsProfitable
 	e.EstimatedOnchainFee = &opts.EstimatedOnchainFee
+	currentTime := time.Now().UTC()
+	e.IsProfitableEvaluatedAt = &currentTime
 
 	if err := r.db.GormDB().Save(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.Save")

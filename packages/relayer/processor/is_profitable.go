@@ -50,7 +50,7 @@ func (p *Processor) isProfitable(
 		"estimatedOnchainFee", estimatedOnchainFee,
 	)
 
-	opts := relayer.SaveEventDetailsOpts{
+	opts := relayer.UpdateFeesAndProfitabilityOpts{
 		Fee:                 fee,
 		DestChainBaseFee:    destChainBaseFee,
 		GasTipCap:           gasTipCap,
@@ -59,7 +59,7 @@ func (p *Processor) isProfitable(
 		EstimatedOnchainFee: estimatedOnchainFee,
 	}
 
-	if err := p.eventRepo.SaveWithDetails(ctx, id, opts); err != nil {
+	if err := p.eventRepo.UpdateFeesAndProfitability(ctx, id, opts); err != nil {
 		slog.Error("failed to update event", "error", err)
 	}
 
