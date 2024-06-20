@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -63,8 +64,8 @@ func (i *Indexer) saveEventToDB(
 
 		if canonicalToken != nil {
 			opts.CanonicalTokenAddress = canonicalToken.Address().Hex()
-			opts.CanonicalTokenSymbol = canonicalToken.ContractSymbol()
-			opts.CanonicalTokenName = canonicalToken.ContractName()
+			opts.CanonicalTokenSymbol = sanitizeString(canonicalToken.ContractSymbol())
+			opts.CanonicalTokenName = sanitizeString(canonicalToken.ContractName())
 			opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
 		}
 
@@ -99,4 +100,18 @@ func (i *Indexer) saveEventToDB(
 	}
 
 	return id, nil
+}
+
+const maxLength = 255
+
+// sanitizeString ensures that the input string is
+// valid UTF-8 and does not exceed the maximum allowed length.
+// If the input string contains invalid UTF-8 characters
+// or exceeds the maximum length, it returns an empty string.
+func sanitizeString(input string) string {
+	if !utf8.ValidString(input) || len(input) > maxLength {
+		return ""
+	}
+
+	return input
 }
