@@ -23,7 +23,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     uint64 public nextTxId; // slot 2
 
     /// @notice The real owner on L1, supposedly the DAO.
-    address public realOwner;
+    address public remoteOwner;
 
     uint256[48] private __gap;
 
@@ -54,14 +54,24 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
 
+    modifier onlyAuthorized() {
+        if (!_isAuthorized(msg.sender)) revert DO_PERMISSION_DENIED();
+        _;
+    }
+
+    modifier onlyFromSelf() {
+        if (msg.sender != address(this)) revert DO_PERMISSION_DENIED();
+        _;
+    }
+
     /// @notice Initializes the contract.
-    /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
+    /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
     /// @param _l1ChainId The L1 chain's ID.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _admin The admin address.
     function init(
-        address _realOwner,
+        address _remoteOwner,
         address _addressManager,
         uint64 _l1ChainId,
         address _admin
@@ -72,40 +82,24 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         // This contract's owner will be itself.
         __Essential_init(address(this), _addressManager);
 
-        if (_realOwner == address(0) || _l1ChainId == 0 || _l1ChainId == block.chainid) {
+        if (_remoteOwner == address(0) || _l1ChainId == 0 || _l1ChainId == block.chainid) {
             revert DO_INVALID_PARAM();
         }
 
         l1ChainId = _l1ChainId;
-        realOwner = _realOwner;
+        remoteOwner = _remoteOwner;
         admin = _admin;
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data)
-        external
-        payable
-        onlyFromNamed(LibStrings.B_BRIDGE)
-    {
-        IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
-            revert DO_PERMISSION_DENIED();
-        }
-        _invokeCall(_data, true);
-    }
-
-    /// @dev Invokes a call by the admin
-    /// @param _data The data for this contract to interpret.
-    function invokeCall(bytes calldata _data) external {
-        if (msg.sender != admin) revert DO_PERMISSION_DENIED();
+    function onMessageInvocation(bytes calldata _data) external payable onlyAuthorized {
         _invokeCall(_data, true);
     }
 
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
-    function setAdmin(address _admin) external {
-        if (msg.sender != owner() && msg.sender != admin) revert DO_PERMISSION_DENIED();
-        if (admin == _admin) revert DO_INVALID_PARAM();
+    function setAdmin(address _admin) external onlyFromSelf {
+        if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
 
         emit AdminUpdated(admin, _admin);
         admin = _admin;
@@ -115,12 +109,12 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
     /// Note that this function shall not be used in transaction and is designed for offchain
     /// simulation only.
-    function dryrunCall(bytes calldata _data) external payable {
+    function dryrunInvocation(bytes calldata _data) external payable {
         _invokeCall(_data, false);
         revert DO_DRYRUN_SUCCEEDED();
     }
 
-    function acceptOwnership(address target) external {
+    function acceptOwnership(address target) external onlyFromSelf {
         Ownable2StepUpgradeable(target).acceptOwnership();
     }
 
@@ -128,7 +122,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
 
-    function _invokeCall(bytes calldata _data, bool _verifyTxId) internal {
+    function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
         Call memory call = abi.decode(_data, (Call));
 
         if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
@@ -142,5 +136,14 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
         if (!success) LibBytes.revertWithExtractedError(result);
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
+    }
+
+    function _isAuthorized(address sender) private view returns (bool) {
+        if (sender == admin) return true;
+
+        if (msg.sender != resolve(LibStrings.B_BRIDGE, false)) return false;
+
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
+        return ctx.srcChainId == l1ChainId && ctx.from == remoteOwner;
     }
 }
