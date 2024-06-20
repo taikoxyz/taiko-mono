@@ -59,7 +59,11 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 	return e, nil
 }
 
-func (r *EventRepository) UpdateFeesAndProfitability(ctx context.Context, id int, opts relayer.UpdateFeesAndProfitabilityOpts) error {
+func (r *EventRepository) UpdateFeesAndProfitability(
+	ctx context.Context,
+	id int,
+	opts relayer.UpdateFeesAndProfitabilityOpts,
+) error {
 	e := &relayer.Event{}
 	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.First")
