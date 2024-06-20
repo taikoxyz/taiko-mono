@@ -26,6 +26,11 @@ func (i *Indexer) saveEventToDB(
 		return 0, errors.Wrap(err, "relayer.DecodeMessageData")
 	}
 
+	if eventType == relayer.EventTypeSendETH {
+		canonicalToken = nil
+		amount = eventValue
+	}
+
 	// check if we have an existing event already. this is mostly likely only true
 	// in the case of us crawling past blocks.
 	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(

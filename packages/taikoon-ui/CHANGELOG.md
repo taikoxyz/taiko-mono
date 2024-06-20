@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/taikoxyz/taiko-mono/compare/taikoon-ui-v1.1.0...taikoon-ui-v1.1.1) (2024-06-17)
+
+
+### Bug Fixes
+
+* **nfts:** taikoon-ui whitelist update ([#17491](https://github.com/taikoxyz/taiko-mono/issues/17491)) ([403c18f](https://github.com/taikoxyz/taiko-mono/commit/403c18f7f77a94ef8675eacea7b512ea5a2ddfce))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/taikoon-ui-v1.0.0...taikoon-ui-v1.1.0) (2024-06-14)
 
 
