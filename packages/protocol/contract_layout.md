@@ -102,7 +102,7 @@
 | __paused       | uint8       | 201  | 1      | 1     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L2/DelegateOwner.sol:DelegateOwner |
-| l1ChainId      | uint64      | 251  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| remoteChainId  | uint64      | 251  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | admin          | address     | 251  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | nextTxId       | uint64      | 252  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | remoteOwner    | address     | 252  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
