@@ -14,7 +14,7 @@ import "../bridge/IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice The owner chain ID.
-    uint64 public l1ChainId; // slot 1
+    uint64 public remoteChainId; // slot 1
 
     /// @notice The admin who can directly call `invokeCall`.
     address public admin;
@@ -50,6 +50,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
+    error DO_INVALID_SENDER();
     error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
@@ -60,20 +61,20 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     modifier onlyFromSelf() {
-        if (msg.sender != address(this)) revert DO_PERMISSION_DENIED();
+        if (msg.sender != address(this)) revert DO_INVALID_SENDER();
         _;
     }
 
     /// @notice Initializes the contract.
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
-    /// @param _l1ChainId The L1 chain's ID.
+    /// @param _remoteChainId The L1 chain's ID.
     /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _admin The admin address.
     function init(
         address _remoteOwner,
         address _addressManager,
-        uint64 _l1ChainId,
+        uint64 _remoteChainId,
         address _admin
     )
         external
@@ -82,11 +83,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         // This contract's owner will be itself.
         __Essential_init(address(this), _addressManager);
 
-        if (_remoteOwner == address(0) || _l1ChainId == 0 || _l1ChainId == block.chainid) {
+        if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
             revert DO_INVALID_PARAM();
         }
 
-        l1ChainId = _l1ChainId;
+        remoteChainId = _remoteChainId;
         remoteOwner = _remoteOwner;
         admin = _admin;
     }
@@ -145,6 +146,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         if (_sender != resolve(LibStrings.B_BRIDGE, false)) return false;
 
         IBridge.Context memory ctx = IBridge(_sender).context();
-        return ctx.srcChainId == l1ChainId && ctx.from == remoteOwner;
+        return ctx.srcChainId == remoteChainId && ctx.from == remoteOwner;
     }
 }
