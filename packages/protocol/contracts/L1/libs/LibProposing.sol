@@ -174,7 +174,8 @@ library LibProposing {
 
         _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
 
-        // Bribe the block builder
+        // Bribe the block builder. Unlock 1559-tips, this tip is only made
+        // if this transaction succeeds.
         if (msg.value != 0 && block.coinbase != address(0)) {
             address(block.coinbase).sendEtherAndVerify(msg.value);
         }
