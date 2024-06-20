@@ -104,7 +104,10 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
     function setAdmin(address _admin) external {
-        if (msg.sender != owner() && msg.sender != admin) revert DO_PERMISSION_DENIED();
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
+        if (msg.sender != owner() && msg.sender != admin && ctx.from != realOwner) {
+            revert DO_PERMISSION_DENIED();
+        }
         if (admin == _admin) revert DO_INVALID_PARAM();
 
         emit AdminUpdated(admin, _admin);
