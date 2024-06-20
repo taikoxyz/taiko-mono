@@ -140,7 +140,7 @@ library LibVerifying {
                     tier: local.tier
                 });
 
-                if (LibUtils.willSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
                     if (stateRoot != 0) {
                         local.syncStateRoot = stateRoot;

@@ -423,7 +423,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
-            bool storeStateRoot = LibUtils.willSyncStateRoot(syncInternal, blockId);
+            bool storeStateRoot = LibUtils.shouldSyncStateRoot(syncInternal, blockId);
             console2.log("blockId:", blockId);
             console2.log("storeStateRoot:", storeStateRoot);
 

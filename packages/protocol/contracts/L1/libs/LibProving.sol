@@ -127,7 +127,7 @@ library LibProving {
 
         local.blockId = blk.blockId;
 
-        if (LibUtils.willSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = _tran.stateRoot;
         }
 
