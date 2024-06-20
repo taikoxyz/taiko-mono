@@ -175,7 +175,7 @@ library LibProposing {
         _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
 
         // Bribe the block builder
-        if (msg.value != 0) {
+        if (msg.value != 0 && block.coinbase != address(0)) {
             address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
