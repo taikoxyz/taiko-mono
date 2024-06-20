@@ -60,11 +60,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _;
     }
 
-    modifier onlyFromSelf() {
-        if (msg.sender != address(this)) revert DO_INVALID_SENDER();
-        _;
-    }
-
     /// @notice Initializes the contract.
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
@@ -108,7 +103,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
-    function setAdmin(address _admin) external nonReentrant onlyFromSelf {
+    function setAdmin(address _admin) external nonReentrant onlyOwner {
         if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
 
         emit AdminUpdated(admin, _admin);
@@ -117,7 +112,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @dev Accepts contract ownership
     /// @param _target Target addresses.
-    function acceptOwnership(address _target) external nonReentrant onlyFromSelf {
+    function acceptOwnership(address _target) external nonReentrant onlyOwner {
         Ownable2StepUpgradeable(_target).acceptOwnership();
     }
 
