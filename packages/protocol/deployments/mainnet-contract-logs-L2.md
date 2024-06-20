@@ -164,6 +164,14 @@
   - updated master minter to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0x6d8019683b10e59259610d57063c19d7a38b6f3de51eb94cce97818a7e0b9cc4`
   - transferred ownership to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0x55ed56d6c30e366566436f8341cd2f54d14c94790398a24633068d08c8972d45`
 
+#### delegate_owner
+
+- proxy: `0x394BD905822287F21c3A081f56FEc897e8Eb3954`
+- impl: `0xe308de7210e26bd9df963fec2faedd720701727f`
+- logs:
+  - deployed by Daniel @commit`6e07ab5` @tx`0xfd4c2ccaa152a461e29ebd6aa8829a16943827fd9fa5d3403083737214341694` and @tx`0xcbe9c45497867e882a6903e7e4edd3365e7aaccc501bbb6cb38d744098c8f8ff` with `danielwang.eth` as the admin, and `admin.taiko.eth` as the cross-chain owner.
+    `
+
 #### airdrop contract
 
 - proxy: `0x30A0EE3f0F2C76Ad9f0731a4C1c89d9e2cB10930`
