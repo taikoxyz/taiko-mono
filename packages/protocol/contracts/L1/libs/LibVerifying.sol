@@ -173,8 +173,10 @@ library LibVerifying {
                     _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
                     // We write the synced block's verifiedTransitionId to storage
-                    local.slot = local.syncBlockId % _config.blockRingBufferSize;
-                    _state.blocks[local.slot].verifiedTransitionId = local.syncTransitionId;
+                    if (local.syncBlockId != lastVerifiedBlockId) {
+                        local.slot = local.syncBlockId % _config.blockRingBufferSize;
+                        _state.blocks[local.slot].verifiedTransitionId = local.syncTransitionId;
+                    }
 
                     // Ask signal service to write cross chain signal
                     ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
