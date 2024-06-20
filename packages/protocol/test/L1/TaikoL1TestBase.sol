@@ -131,7 +131,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
-        uint256 msgValue = 2 ether;
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
@@ -149,7 +148,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         vm.prank(proposer, proposer);
-        (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
+        (meta, ethDeposits) = L1.proposeBlock(
             abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );

@@ -72,7 +72,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         bytes calldata _txList
     )
         external
-        payable
         whenNotPaused
         nonReentrant
         emitEventForClient

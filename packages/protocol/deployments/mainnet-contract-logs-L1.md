@@ -195,6 +195,7 @@
   - register `prover_set` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
 - todo:
   - deploy and register a new tier_router
+  - deploy a non-payable prover_set
 
 #### taikoL1
 
@@ -215,7 +216,7 @@
   - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
 - todo
-  - upgrade this contract for PR 17553
+  - upgrade this contract for PR 17553, and non-prover proposeBlock
   - upgrade for liveness bond change
 
 #### assignment_hook
@@ -337,6 +338,8 @@
 - impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
+- todo:
+  - deploay a non-payable version
 
 ### labprover.taiko.eth
 

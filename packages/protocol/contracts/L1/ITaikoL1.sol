@@ -16,7 +16,6 @@ interface ITaikoL1 {
         bytes calldata _txList
     )
         external
-        payable
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
 
     /// @notice Proves or contests a block transition.

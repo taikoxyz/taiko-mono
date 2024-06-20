@@ -236,12 +236,11 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function proposeButRevert(address proposer, uint24 txListSize, bytes4 revertReason) internal {
-        uint256 msgValue = 2 ether;
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
 
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
-        L1.proposeBlock{ value: msgValue }(
+        L1.proposeBlock(
             abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
