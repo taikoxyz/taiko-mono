@@ -140,12 +140,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
     }
 
-    function _isAuthorized(address sender) private view returns (bool) {
-        if (sender == admin) return true;
+    function _isAuthorized(address _sender) private view returns (bool) {
+        if (_sender == admin) return true;
+        if (_sender != resolve(LibStrings.B_BRIDGE, false)) return false;
 
-        if (sender != resolve(LibStrings.B_BRIDGE, false)) return false;
-
-        IBridge.Context memory ctx = IBridge(sender).context();
+        IBridge.Context memory ctx = IBridge(_sender).context();
         return ctx.srcChainId == l1ChainId && ctx.from == remoteOwner;
     }
 }
