@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-resty/resty/v2"
@@ -82,9 +81,4 @@ func (p *BlocknativePrivateTxPool) GetPriorityFee(
 		)
 	}
 	return response, nil
-}
-
-// SendTransaction injects a signed transaction into the private pool for execution.
-func (p *BlocknativePrivateTxPool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	return p.rpcClient.SendTransaction(ctx, tx)
 }

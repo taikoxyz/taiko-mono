@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -345,17 +346,16 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 		tip *big.Int
 		err error
 	)
-	if c.BlocknativePrivateTxPool == nil {
-		tip, err = c.ethClient.SuggestGasTipCap(ctxWithTimeout)
-	} else {
+	if c.BlocknativePrivateTxPool != nil {
 		resp, err := c.BlocknativePrivateTxPool.GetPriorityFee(ctxWithTimeout)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			// Use estimated next block priority fee as the suggested tip
+			tip = big.NewInt(int64(resp.BlockPrices[0].EstimatedPrices[0].MaxPriorityFeePerGas * params.GWei))
+			return tip, nil
 		}
-		// Use estimated next block priority fee as the suggested tip
-		tip = big.NewInt(int64(resp.BlockPrices[0].EstimatedPrices[0].MaxPriorityFeePerGas * params.GWei))
+		log.Error("Failed to get priority fee from blocknative", "error", err)
 	}
-
+	tip, err = c.ethClient.SuggestGasTipCap(ctxWithTimeout)
 	return tip, err
 }
 
