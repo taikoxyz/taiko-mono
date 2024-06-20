@@ -55,8 +55,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
 
-    modifier onlyAuthorized() {
-        if (!_isAuthorized(msg.sender)) revert DO_PERMISSION_DENIED();
+    modifier onlyAdminOrRemoteOwner() {
+        if (!_isAdminOrRemoteOwner(msg.sender)) revert DO_PERMISSION_DENIED();
         _;
     }
 
@@ -88,7 +88,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) external payable onlyAuthorized {
+    function onMessageInvocation(bytes calldata _data) external payable onlyAdminOrRemoteOwner {
         _invokeCall(_data, true);
     }
 
@@ -136,7 +136,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
     }
 
-    function _isAuthorized(address _sender) private view returns (bool) {
+    function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {
         if (_sender == admin) return true;
         if (_sender != resolve(LibStrings.B_BRIDGE, false)) return false;
 
