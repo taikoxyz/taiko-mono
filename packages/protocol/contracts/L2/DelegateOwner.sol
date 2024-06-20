@@ -105,6 +105,12 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         admin = _admin;
     }
 
+    /// @dev Accepts contract ownership
+    /// @param _target Target addresses.
+    function acceptOwnership(address _target) external onlyFromSelf {
+        Ownable2StepUpgradeable(_target).acceptOwnership();
+    }
+
     /// @notice Dryruns a message invocation but always revert.
     /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
     /// Note that this function shall not be used in transaction and is designed for offchain
@@ -112,10 +118,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     function dryrunInvocation(bytes calldata _data) external payable {
         _invokeCall(_data, false);
         revert DO_DRYRUN_SUCCEEDED();
-    }
-
-    function acceptOwnership(address target) external onlyFromSelf {
-        Ownable2StepUpgradeable(target).acceptOwnership();
     }
 
     function transferOwnership(address) public pure override notImplemented { }
