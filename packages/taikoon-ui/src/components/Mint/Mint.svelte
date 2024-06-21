@@ -135,7 +135,7 @@
       mintState.set({ ...$mintState, isModalOpen: false });
       errorToast({
         title: 'Mint Error',
-        message: e.message,
+        message: e.shortMessage || e.message,
       });
     }
     mintState.set({ ...$mintState, isMinting: false });
