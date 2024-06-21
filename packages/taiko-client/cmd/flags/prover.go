@@ -231,7 +231,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxProposedIn,
 	TaikoTokenAddress,
 	MaxAcceptableBlockSlippage,
-	AssignmentHookAddress,
 	Allowance,
 	L1NodeVersion,
 	L2NodeVersion,

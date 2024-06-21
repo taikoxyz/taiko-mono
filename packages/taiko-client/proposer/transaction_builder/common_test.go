@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -37,13 +36,10 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
-		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		[]encoding.TierFee{},
 		common.Big2,
 		[]*url.URL{s.ProverEndpoints[0]},
 		32,
-		1*time.Minute,
-		1*time.Minute,
 	)
 	s.Nil(err)
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
@@ -54,7 +50,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
-		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		0,
 		"test",
 	)
@@ -66,7 +61,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		10_000_000,
 		"test",
 	)

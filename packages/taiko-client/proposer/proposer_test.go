@@ -73,7 +73,6 @@ func (s *ProposerTestSuite) SetupTest() {
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 			ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		MinProposingInternal:       0,
@@ -122,7 +121,6 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.TaikoL1Address,
 		cfg.ProverSetAddress,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.AssignmentHookAddress,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
 	)
@@ -261,7 +259,7 @@ func (s *ProposerTestSuite) TestAssignProverSuccessFirstRound() {
 	s.SetL1Automine(false)
 	defer s.SetL1Automine(true)
 
-	_, _, fee, err := s.p.proverSelector.AssignProver(context.Background(), s.p.tierFees, testutils.RandomHash())
+	fee, err := s.p.proverSelector.AssignProver(context.Background(), s.p.tierFees)
 
 	s.Nil(err)
 	s.Equal(fee.Uint64(), s.p.OptimisticTierFee.Uint64())
