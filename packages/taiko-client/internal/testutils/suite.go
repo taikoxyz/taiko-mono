@@ -175,19 +175,19 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS"))
 	)
 
-	data, err := encoding.TaikoTokenABI.Pack(
-		"approve",
-		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
-		bigInt,
-	)
-	s.Nil(err)
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &taikoTokenAddress,
-	})
-	s.Nil(err)
+	//data, err := encoding.TaikoTokenABI.Pack(
+	//	"approve",
+	//	common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
+	//	bigInt,
+	//)
+	//s.Nil(err)
+	//_, err = t.Send(context.Background(), txmgr.TxCandidate{
+	//	TxData: data,
+	//	To:     &taikoTokenAddress,
+	//})
+	//s.Nil(err)
 
-	data, err = encoding.TaikoTokenABI.Pack(
+	data, err := encoding.TaikoTokenABI.Pack(
 		"approve",
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		bigInt,
@@ -233,7 +233,7 @@ func (s *ClientTestSuite) setAllowanceForProverSet(key *ecdsa.PrivateKey) {
 
 	data, err := encoding.ProverSetABI.Pack(
 		"approveAllowance",
-		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		bigInt,
 	)
 	s.Nil(err)
