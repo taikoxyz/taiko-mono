@@ -40,10 +40,36 @@ type IVerifierContext struct {
 	MsgSender    common.Address
 }
 
+// TaikoDataBlockMetadata is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataBlockMetadata struct {
+	L1Hash         [32]byte
+	Difficulty     [32]byte
+	BlobHash       [32]byte
+	ExtraData      [32]byte
+	DepositsHash   [32]byte
+	Coinbase       common.Address
+	Id             uint64
+	GasLimit       uint32
+	Timestamp      uint64
+	L1Height       uint64
+	MinTier        uint16
+	BlobUsed       bool
+	ParentMetaHash [32]byte
+	Sender         common.Address
+}
+
 // TaikoDataTierProof is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataTierProof struct {
 	Tier uint16
 	Data []byte
+}
+
+// TaikoDataTransition is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataTransition struct {
+	ParentHash [32]byte
+	BlockHash  [32]byte
+	StateRoot  [32]byte
+	Graffiti   [32]byte
 }
 
 // GuardianProverMetaData contains all meta data concerning the GuardianProver contract.
