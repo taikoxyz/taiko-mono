@@ -49,13 +49,9 @@ func isValidProof(
 		return false, err
 	}
 
-	// If the stateRoot is not empty, we need to check
-	// if the stateRoot matches the one in the header.
-	if stateRoot != (common.Hash{}) && l2Header.Root != stateRoot {
-		return false, nil
-	}
-
-	return parent.Hash() == parentHash && l2Header.Hash() == blockHash, nil
+	return parent.Hash() == parentHash &&
+		l2Header.Hash() == blockHash &&
+		l2Header.Root == stateRoot, nil
 }
 
 // getProvingWindow returns the provingWindow of the given tier.
