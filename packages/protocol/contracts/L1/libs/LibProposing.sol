@@ -32,10 +32,14 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a block's txList is in the calldata.
+    /// @param blockId The ID of the proposed block.
+    /// @param txList The txList.
+    event CalldataUsedForTxList(uint256 indexed blockId, bytes txList);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
-    error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
@@ -119,17 +123,7 @@ library LibProposing {
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
-
-            // This function must be called as the outmost transaction (not an internal one) for
-            // the node to extract the calldata easily.
-            // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
-            // 7645: Alias ORIGIN to SENDER
-            if (
-                _config.checkEOAForCalldataDA
-                    && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
-            ) {
-                revert L1_INVALID_SIG();
-            }
+            emit CalldataUsedForTxList(meta_.id, _txList);
         }
 
         // Following the Merge, the L1 mixHash incorporates the

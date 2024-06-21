@@ -9,7 +9,6 @@ contract TaikoL1New is TaikoL1 {
         config.maxBlocksToVerify = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
-        config.checkEOAForCalldataDA = true;
         config.stateRootSyncInternal = 2;
     }
 }
@@ -34,30 +33,11 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         bytes memory txList = new bytes(10);
-        bytes memory eoaSig;
-        {
-            uint256 privateKey;
-            if (proposer == Alice) {
-                privateKey = 0x1;
-            } else if (proposer == Bob) {
-                privateKey = 0x2;
-            } else if (proposer == Carol) {
-                privateKey = 0x3;
-            } else if (proposer == David) {
-                privateKey = 0x4;
-            } else {
-                revert("test setup: you need to change proposeBlock() in TaikoL1TestGroupBase");
-            }
-
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(txList));
-            eoaSig = abi.encodePacked(r, s, v);
-        }
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
         (meta,) = L1.proposeBlock{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, eoaSig)),
-            txList
+            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")), txList
         );
     }
 

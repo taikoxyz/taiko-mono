@@ -241,8 +241,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // read Taiko's gas limit to be 240_250_000.
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInternal: 16,
-            checkEOAForCalldataDA: true
+            stateRootSyncInternal: 16
         });
     }
 

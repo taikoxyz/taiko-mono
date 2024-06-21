@@ -11,7 +11,6 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
-        config.checkEOAForCalldataDA = false;
     }
 }
 
