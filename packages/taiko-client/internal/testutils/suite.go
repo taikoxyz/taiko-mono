@@ -130,10 +130,18 @@ func (s *ClientTestSuite) SetupTest() {
 		)
 		s.Nil(err)
 
-		data, err := encoding.ProverSetABI.Pack("enableProver", crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), true)
+		proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS"))
+
+		data, err := encoding.ProverSetABI.Pack("enableProver", crypto.PubkeyToAddress(s.TestAddrPrivKey.PublicKey), true)
+		s.Nil(err)
+		_, err = t.Send(context.Background(), txmgr.TxCandidate{
+			TxData: data,
+			To:     &proverSetAddress,
+		})
 		s.Nil(err)
 
-		proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS"))
+		data, err = encoding.ProverSetABI.Pack("enableProver", crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), true)
+		s.Nil(err)
 		_, err = t.Send(context.Background(), txmgr.TxCandidate{
 			TxData: data,
 			To:     &proverSetAddress,
