@@ -143,7 +143,6 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 		&cli.Uint64Flag{Name: flags.TierFeePriceBump.Name},
 		&cli.Uint64Flag{Name: flags.MaxTierFeePriceBumps.Name},
 		&cli.BoolFlag{Name: flags.ProposeBlockIncludeParentMetaHash.Name},
-		&cli.StringFlag{Name: flags.AssignmentHookAddress.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)
 	app.Action = func(ctx *cli.Context) error {
