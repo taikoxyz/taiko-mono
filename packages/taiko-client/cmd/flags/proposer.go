@@ -163,7 +163,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	TierFeePriceBump,
 	MaxTierFeePriceBumps,
 	ProposeBlockIncludeParentMetaHash,
-	AssignmentHookAddress,
 	BlobAllowed,
 	L1BlockBuilderTip,
 }, TxmgrFlags)

@@ -174,9 +174,10 @@ library LibProposing {
 
         _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
 
-        // Refund Ether
-        if (address(this).balance != 0) {
-            msg.sender.sendEtherAndVerify(address(this).balance);
+        // Bribe the block builder. Unlock 1559-tips, this tip is only made
+        // if this transaction succeeds.
+        if (msg.value != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
         deposits_ = new TaikoData.EthDeposit[](0);

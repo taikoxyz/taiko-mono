@@ -222,7 +222,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     }
 
     /// @inheritdoc ITaikoL1
-    function getConfig() public view virtual override returns (TaikoData.Config memory) {
+    function getConfig() public pure virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
