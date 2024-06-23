@@ -101,22 +101,6 @@ func filterFunc(
 		})
 	}
 
-	if i.assignmentHook != nil {
-		wg.Go(func() error {
-			blocksAssigned, err := i.assignmentHook.FilterBlockAssigned(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.assignmentHook.FilterBlockAssigned")
-			}
-
-			err = i.saveBlockAssignedEvents(ctx, chainID, blocksAssigned)
-			if err != nil {
-				return errors.Wrap(err, "i.saveBlockAssignedEvents")
-			}
-
-			return nil
-		})
-	}
-
 	wg.Go(func() error {
 		if err := i.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
 			return errors.Wrap(err, "i.indexRawBlockData")
