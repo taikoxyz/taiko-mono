@@ -8,6 +8,7 @@ import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
+import "./ISequencerRegistry.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -78,6 +79,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         emitEventForClient
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
+        // If there's a sequencer registry, check if the block can be proposed by the current
+        // proposer
+        ISequencerRegistry sequencerRegistry =
+            ISequencerRegistry(resolve(LibStrings.B_SEQUENCER_REGISTRY, true));
+        if (sequencerRegistry != ISequencerRegistry(address(0))) {
+            if (!sequencerRegistry.isEligibleSigner(msg.sender)) {
+                revert L1_INVALID_PROPOSER();
+            }
+        }
+
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 

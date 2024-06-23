@@ -30,4 +30,5 @@ library LibStrings {
     bytes32 internal constant H_RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
+    bytes32 internal constant B_SEQUENCER_REGISTRY = bytes32("sequencer_registry");
 }

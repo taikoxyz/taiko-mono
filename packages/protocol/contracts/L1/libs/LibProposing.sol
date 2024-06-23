@@ -39,6 +39,7 @@ library LibProposing {
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
+    error L1_INVALID_L1_STATE_BLOCK();
 
     /// @dev Proposes a Taiko L2 block.
     /// @param _state Current TaikoData.State.
@@ -74,14 +75,25 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        bytes32 parentMetaHash =
-            _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
-        // assert(parentMetaHash != 0);
+        TaikoData.Block storage parentBlock =
+            _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize];
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
-        if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
+        if (params.parentMetaHash != 0 && parentBlock.metaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
+        }
+
+        // Verify the passed in L1 state block number.
+        // We only allow the L1 block to be 2 epochs old.
+        // The other constraint is that the L1 block number needs to be larger than or equal the one
+        // in the previous block.
+        if (
+            params.l1StateBlockNumber < block.number - 64
+                || params.l1StateBlockNumber >= block.number
+                || params.l1StateBlockNumber < parentBlock.l1StateBlockNumber
+        ) {
+            revert L1_INVALID_L1_STATE_BLOCK();
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of
@@ -90,7 +102,7 @@ library LibProposing {
         // require additional storage slots.
         unchecked {
             meta_ = TaikoData.BlockMetadata({
-                l1Hash: blockhash(block.number - 1),
+                l1Hash: blockhash(params.l1StateBlockNumber),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
@@ -98,11 +110,12 @@ library LibProposing {
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
-                timestamp: uint64(block.timestamp),
-                l1Height: uint64(block.number - 1),
+                // Use the timestamp of the L1 state block
+                timestamp: uint64(block.timestamp - 12 * (block.number - params.l1StateBlockNumber)),
+                l1Height: uint64(params.l1StateBlockNumber),
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
-                parentMetaHash: parentMetaHash,
+                parentMetaHash: parentBlock.metaHash,
                 sender: msg.sender
             });
         }
@@ -137,7 +150,9 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we choose to introduce a salt to this random
         // number as the L2 mixHash.
-        meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
+        meta_.difficulty = keccak256(
+            abi.encodePacked(blockhash(params.l1StateBlockNumber), b.numBlocks, block.number)
+        );
 
         {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
@@ -161,7 +176,8 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
+            verifiedTransitionId: 0,
+            l1StateBlockNumber: params.l1StateBlockNumber
         });
 
         // Store the block in the ring buffer

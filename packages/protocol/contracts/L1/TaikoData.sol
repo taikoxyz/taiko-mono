@@ -64,6 +64,7 @@ library TaikoData {
         bytes32 parentMetaHash;
         HookCall[] hookCalls; // DEPRECATED, value ignored.
         bytes signature;
+        uint32 l1StateBlockNumber;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -124,6 +125,7 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        uint64 l1StateBlockNumber;
     }
 
     /// @dev Struct representing an Ethereum deposit.
@@ -167,7 +169,7 @@ library TaikoData {
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
-        ) transitions;
+            ) transitions;
         // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5
