@@ -2,7 +2,7 @@ name: "Push docker image to GAR"
 
 on:
   push:
-    branches: [upgrade_taiko-client_docker]
+    branches: [main]
     tags:
       - "taiko-client-v*"
     paths:
@@ -46,10 +46,8 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           file: packages/taiko-client/Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
