@@ -21,6 +21,10 @@ We already know what a proposed block is (must pass at least the block-level int
 
 Now, a block can be proved, but also further "verified". What's the difference? A block is proved if it has a valid proof which proves a state transition from one state (parent block) to another (current block). However, blocks are proven in parallel by the decentralized provers. So while a block can prove a parent block transitions to the current block, we don't know if the parent block itself has been proven. As you can see, for a block to be "verified", it needs to prove the valid state transition to the current block, but the parent also needs to be verified. We assume that the genesis block (which has no parent), is verified. So all the children blocks from genesis to the current block need to have proofs of their state transition for the current block to be "verified".
 
+A recent change in our protocol means we verify blocks in batches. Previously, so long as a block was verified it's `verifiedTransitionId` in block data would be non-zero; now that we verify in batches, only the last block in a batch will have a non-zero `verifiedTransitionId`.
+
+i.e. It is now possible for a block to be verified, and have `verifiedTransitionId` == 0.
+
 For the visual learners here is a visualization of the three stages (proposed -> proved -> verified)
 
 **Proposed:**

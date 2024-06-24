@@ -69,6 +69,12 @@ func (p *Processor) processMessage(
 		return false, 0, errors.Wrap(err, "json.Unmarshal")
 	}
 
+	if msgBody.Event == nil {
+		slog.Warn("empty msgBody", "id", msgBody.ID)
+
+		return false, 0, errors.New("empty message body")
+	}
+
 	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
 
 	// check if we already processing this hash
@@ -182,7 +188,7 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	_, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+	_, err = p.sendProcessMessageCall(ctx, msgBody.ID, msgBody.Event, encodedSignalProof)
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
@@ -384,6 +390,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 // after estimating gas, and checking profitability.
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,
+	id int,
 	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Receipt, error) {
@@ -427,6 +434,7 @@ func (p *Processor) sendProcessMessageCall(
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
+			id,
 			event.Message.Fee,
 			gasLimit,
 			baseFee.Uint64(),

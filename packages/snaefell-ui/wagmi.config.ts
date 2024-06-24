@@ -40,7 +40,7 @@ function generateWhitelistJson() {
         mkdirSync(whitelistDir, { recursive: true });
     }
     generateNetworkWhitelist('mainnet')
-    generateNetworkWhitelist('hardhat')
+  //  generateNetworkWhitelist('hardhat')
 }
 
 generateWhitelistJson();

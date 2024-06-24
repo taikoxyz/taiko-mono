@@ -37,13 +37,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"BRIDGE_ADDRESS"},
 	}
-	AssignmentHookAddress = &cli.StringFlag{
-		Name:     "assignmentHookAddress",
-		Usage:    "Address of the AssignmentHook contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
-	}
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
 		Usage:    "Block batch size when iterating through blocks",
@@ -89,7 +82,6 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ETHClientTimeout,
 	L1TaikoAddress,
 	BridgeAddress,
-	AssignmentHookAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
