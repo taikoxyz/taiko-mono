@@ -75,8 +75,15 @@ if __name__ == "__main__":
         sys.exit(1)
 
     input_file_path = sys.argv[1]
+    print(f"input file: {input_file_path}")
+
     safe_address = sys.argv[2]
+    print(f"safe address: {safe_address}")
+
     token_address = sys.argv[3]
+    print(f"token address: {token_address}")
+
     decimals = int(sys.argv[4])
+    print(f"decimals: {decimals}")
 
     generate_json(input_file_path, safe_address, token_address, decimals)
