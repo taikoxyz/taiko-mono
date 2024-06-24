@@ -2,6 +2,7 @@ import { waitForTransactionReceipt, writeContract } from '@wagmi/core';
 import { decodeEventLog } from 'viem';
 
 import { FilterLogsError, MintError } from '$lib/error';
+import calculateGasPrice from '$lib/util/calculateGasPrice';
 import getProof from '$lib/whitelist/getProof';
 import { config } from '$wagmi-config';
 
@@ -31,12 +32,14 @@ export async function mint({
 
   if (await canMint()) {
     const proof = getProof();
+    const gasPrice = await calculateGasPrice();
     tx = await writeContract(config, {
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(mintCount)],
       chainId: chainId as number,
+      gasPrice,
     });
 
     onTransaction(tx);

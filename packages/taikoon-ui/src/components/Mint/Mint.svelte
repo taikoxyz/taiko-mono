@@ -7,15 +7,16 @@
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
   import { errorToast } from '$components/core/Toast';
+  import { web3modal } from '$lib/connect';
+  import Token from '$lib/token';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
+  import { account } from '$stores/account';
   import type { IMint } from '$stores/mint';
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
   import { Spinner } from '$ui/Spinner';
 
-  import Token from '../../lib/token';
-  import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import {
@@ -135,14 +136,12 @@
       mintState.set({ ...$mintState, isModalOpen: false });
       errorToast({
         title: 'Mint Error',
-        message: e.message,
+        message: e.shortMessage || e.message,
       });
     }
     mintState.set({ ...$mintState, isMinting: false });
     await load();
   }
-
-  import { web3modal } from '$lib/connect';
 
   let web3modalOpen = false;
 

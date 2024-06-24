@@ -143,7 +143,8 @@ func GetBlockProofStatus(
 		return nil, err
 	}
 
-	if header.Hash() != transition.BlockHash || transition.StateRoot != header.Root {
+	if header.Hash() != transition.BlockHash ||
+		(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
 		log.Info(
 			"Different block hash or state root detected, try submitting a contest",
 			"localBlockHash", header.Hash(),
