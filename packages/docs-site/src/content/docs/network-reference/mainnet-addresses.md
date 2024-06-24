@@ -74,8 +74,8 @@ The owner has the ability to upgrade the contracts.
 
 | Name         | Address                                      |
 | ------------ | -------------------------------------------- |
-| Proposer #1  | `0x000000633b68f5d8d3a86593ebb815b4663bcbe0` |
-| Prover #1    | `0x000000629FBCf27A347d1AEbA658435230D74a5f` |
+| Proposer #1  | `0x000000629FBCf27A347d1AEbA658435230D74a5f` |
+| Prover #1    | `0x000000633b68f5d8d3a86593ebb815b4663bcbe0` |
 | Contester #1 | `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B` |
 
 ## Taiko Labs' bootnode addresses

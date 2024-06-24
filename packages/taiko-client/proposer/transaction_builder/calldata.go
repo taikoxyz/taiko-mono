@@ -24,7 +24,6 @@ type CalldataTransactionBuilder struct {
 	l2SuggestedFeeRecipient common.Address
 	taikoL1Address          common.Address
 	proverSetAddress        common.Address
-	assignmentHookAddress   common.Address
 	gasLimit                uint64
 	extraData               string
 }
@@ -38,7 +37,6 @@ func NewCalldataTransactionBuilder(
 	l2SuggestedFeeRecipient common.Address,
 	taikoL1Address common.Address,
 	proverSetAddress common.Address,
-	assignmentHookAddress common.Address,
 	gasLimit uint64,
 	extraData string,
 ) *CalldataTransactionBuilder {
@@ -50,7 +48,6 @@ func NewCalldataTransactionBuilder(
 		l2SuggestedFeeRecipient,
 		taikoL1Address,
 		proverSetAddress,
-		assignmentHookAddress,
 		gasLimit,
 		extraData,
 	}
@@ -64,10 +61,9 @@ func (b *CalldataTransactionBuilder) Build(
 	txListBytes []byte,
 ) (*txmgr.TxCandidate, error) {
 	// Try to assign a prover.
-	assignment, assignedProver, maxFee, err := b.proverSelector.AssignProver(
+	maxFee, err := b.proverSelector.AssignProver(
 		ctx,
 		tierFees,
-		crypto.Keccak256Hash(txListBytes),
 	)
 	if err != nil {
 		return nil, err
@@ -81,15 +77,6 @@ func (b *CalldataTransactionBuilder) Build(
 		}
 	}
 
-	// Initially just use the AssignmentHook default.
-	hookInputData, err := encoding.EncodeAssignmentHookInput(&encoding.AssignmentHookInput{
-		Assignment: assignment,
-		Tip:        b.l1BlockBuilderTip,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	signature, err := crypto.Sign(crypto.Keccak256(txListBytes), b.proposerPrivateKey)
 	if err != nil {
 		return nil, err
@@ -97,29 +84,25 @@ func (b *CalldataTransactionBuilder) Build(
 	signature[64] = uint8(uint(signature[64])) + 27
 
 	var (
-		to        = &b.taikoL1Address
-		hookCalls = []encoding.HookCall{{Hook: b.assignmentHookAddress, Data: hookInputData}}
-		data      []byte
+		to   = &b.taikoL1Address
+		data []byte
 	)
-	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
+	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
-		hookCalls = []encoding.HookCall{}
 	}
 
 	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		AssignedProver: assignedProver,
 		Coinbase:       b.l2SuggestedFeeRecipient,
 		ExtraData:      rpc.StringToBytes32(b.extraData),
 		ParentMetaHash: parentMetaHash,
-		HookCalls:      hookCalls,
 		Signature:      signature,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if b.proverSetAddress != rpc.ZeroAddress && b.assignmentHookAddress == rpc.ZeroAddress {
+	if b.proverSetAddress != rpc.ZeroAddress {
 		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
 		if err != nil {
 			return nil, err

@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.6.0...protocol-v1.7.0) (2024-06-20)
+
+
+### Features
+
+* **protocol:** add getLastVerifiedBlock and getLastSyncedBlock ([#17566](https://github.com/taikoxyz/taiko-mono/issues/17566)) ([cf0743f](https://github.com/taikoxyz/taiko-mono/commit/cf0743fcd48631dbf23cdba8a53343abfb7d5aae))
+* **protocol:** add new tcb & add test case ([#17622](https://github.com/taikoxyz/taiko-mono/issues/17622)) ([2384b7c](https://github.com/taikoxyz/taiko-mono/commit/2384b7c73c7b8814cb21ea276865fd92ac509fb1))
+* **protocol:** add new tcb & update related tests ([#17545](https://github.com/taikoxyz/taiko-mono/issues/17545)) ([97aa874](https://github.com/taikoxyz/taiko-mono/commit/97aa874e7637d29862f9b78af78e0c7a02bb424a))
+* **protocol:** change guardian prover cooldown windows ([#17590](https://github.com/taikoxyz/taiko-mono/issues/17590)) ([cc10b04](https://github.com/taikoxyz/taiko-mono/commit/cc10b04cefa90420325df3626ae22bf3b8149451))
+* **protocol:** improve DelegateOwner to have an optional L2 admin ([#17445](https://github.com/taikoxyz/taiko-mono/issues/17445)) ([1c59e8c](https://github.com/taikoxyz/taiko-mono/commit/1c59e8c42d71a900743ba6aaab8642297b29dc92))
+* **protocol:** lower liveness, validity, and contestation bonds by 50% ([#17616](https://github.com/taikoxyz/taiko-mono/issues/17616)) ([c9b8d40](https://github.com/taikoxyz/taiko-mono/commit/c9b8d407240720bcf6328569a3c57c830ea79d01))
+* **protocol:** persist and compare stateRoot only once per 16 blocks ([b7e12e3](https://github.com/taikoxyz/taiko-mono/commit/b7e12e3c36879361c1bb470e3d6132dfc63150ef))
+* **protocol:** remove hook support completely ([b7e12e3](https://github.com/taikoxyz/taiko-mono/commit/b7e12e3c36879361c1bb470e3d6132dfc63150ef))
+* **protocol:** require assigned prover to be the block proposer itself ([b7e12e3](https://github.com/taikoxyz/taiko-mono/commit/b7e12e3c36879361c1bb470e3d6132dfc63150ef))
+* **protocol:** update Hekla deployment ([#17560](https://github.com/taikoxyz/taiko-mono/issues/17560)) ([bfeadd8](https://github.com/taikoxyz/taiko-mono/commit/bfeadd8f44dc7284e6e8c81cd13e8433ec04e410))
+* **protocol:** verify blocks less frequently but more efficiently ([b7e12e3](https://github.com/taikoxyz/taiko-mono/commit/b7e12e3c36879361c1bb470e3d6132dfc63150ef))
+
+
+### Bug Fixes
+
+* **protocol:** fix an issue for `ProverSet.proposeBlock` ([#17521](https://github.com/taikoxyz/taiko-mono/issues/17521)) ([d3037ad](https://github.com/taikoxyz/taiko-mono/commit/d3037ad6551b5ae6353a360ae3677ec17cd00ec9))
+* **protocol:** fix Bridge forwarded gas check and `getMessageMinGasLimit` ([#17529](https://github.com/taikoxyz/taiko-mono/issues/17529)) ([0082c6a](https://github.com/taikoxyz/taiko-mono/commit/0082c6a5dd6e383edf13b8505712d20a86d99cba))
+* **protocol:** fix getLastSyncedBlock by writing the block's verifiedTransitionId ([6e07ab5](https://github.com/taikoxyz/taiko-mono/commit/6e07ab5089602ef552592985d230c879b5905312))
+* **protocol:** fix in vesting scripts ([#17581](https://github.com/taikoxyz/taiko-mono/issues/17581)) ([5d7b256](https://github.com/taikoxyz/taiko-mono/commit/5d7b256b00e3903ae097ecd24e6ed296a6a17828))
+* **protocol:** fix ProverSet permission issue ([#17527](https://github.com/taikoxyz/taiko-mono/issues/17527)) ([98b47d4](https://github.com/taikoxyz/taiko-mono/commit/98b47d421697694db1926486410c08adbf4a6155))
+* **protocol:** fix seemingly quota issue ([#17544](https://github.com/taikoxyz/taiko-mono/issues/17544)) ([d083eeb](https://github.com/taikoxyz/taiko-mono/commit/d083eeb29cf7610b733b978e3cfdd0df2d7461f8))
+* **protocol:** fix tip payment to L1 block builder ([6e07ab5](https://github.com/taikoxyz/taiko-mono/commit/6e07ab5089602ef552592985d230c879b5905312))
+
+
+### Chores
+
+* **protocol:** add assumption desc. for IBridgedERC20 ([#17546](https://github.com/taikoxyz/taiko-mono/issues/17546)) ([7fa3b55](https://github.com/taikoxyz/taiko-mono/commit/7fa3b55cc9322d79850bdbfb31def9c0501cf647))
+* **protocol:** update TAIKO symbol in protocol deployment logs ([#17555](https://github.com/taikoxyz/taiko-mono/issues/17555)) ([04bb81e](https://github.com/taikoxyz/taiko-mono/commit/04bb81e692348ca7a16bf92588379e047a1bf5f5))
+
+
+### Documentation
+
+* **protocol:** add open_zeppelin_taiko_protocol_audit_june_2024.pdf ([#17621](https://github.com/taikoxyz/taiko-mono/issues/17621)) ([03cff67](https://github.com/taikoxyz/taiko-mono/commit/03cff6788c3ce1b8b2979beb110336d5383847cf))
+* **protocol:** update Hekla deployment ([#17543](https://github.com/taikoxyz/taiko-mono/issues/17543)) ([98beab8](https://github.com/taikoxyz/taiko-mono/commit/98beab8a7de4f365ec76bd6fbffebfcc6fb4505d))
+* **protocol:** update Hekla deployment ([#17592](https://github.com/taikoxyz/taiko-mono/issues/17592)) ([6bcda30](https://github.com/taikoxyz/taiko-mono/commit/6bcda306792ff8a15339b3f0ff217929cb7684cf))
+* **protocol:** update L1 deployment ([#17513](https://github.com/taikoxyz/taiko-mono/issues/17513)) ([006e522](https://github.com/taikoxyz/taiko-mono/commit/006e522ea962adda0f42bde6e54d3d0e3f901d29))
+
+
+### Code Refactoring
+
+* **protocol:** avoid unnecessary Signal Service call ([#17516](https://github.com/taikoxyz/taiko-mono/issues/17516)) ([9fac584](https://github.com/taikoxyz/taiko-mono/commit/9fac584a5001d6b5246062cba3f24a374f6697fa))
+* **protocol:** optimize storage reads/writes in proveBlock ([#17532](https://github.com/taikoxyz/taiko-mono/issues/17532)) ([ba5c25b](https://github.com/taikoxyz/taiko-mono/commit/ba5c25b4060865b7c36cce8a3d0d86ad930cbc4c))
+
 ## [1.6.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.5.0...protocol-v1.6.0) (2024-06-07)
 
 

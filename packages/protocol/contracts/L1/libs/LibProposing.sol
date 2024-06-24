@@ -32,6 +32,11 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a block's txList is in the calldata.
+    /// @param blockId The ID of the proposed block.
+    /// @param txList The txList.
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
@@ -130,6 +135,8 @@ library LibProposing {
             ) {
                 revert L1_INVALID_SIG();
             }
+
+            emit CalldataTxList(meta_.id, _txList);
         }
 
         // Following the Merge, the L1 mixHash incorporates the
@@ -174,9 +181,10 @@ library LibProposing {
 
         _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
 
-        // Refund Ether
-        if (address(this).balance != 0) {
-            msg.sender.sendEtherAndVerify(address(this).balance);
+        // Bribe the block builder. Unlock 1559-tips, this tip is only made
+        // if this transaction succeeds.
+        if (msg.value != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
         deposits_ = new TaikoData.EthDeposit[](0);

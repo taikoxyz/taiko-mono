@@ -19,8 +19,9 @@ library LibVerifying {
         uint32 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
-        bytes32 stateRoot;
+        bytes32 syncStateRoot;
         uint64 syncBlockId;
+        uint32 syncTransitionId;
         address prover;
         ITierRouter tierRouter;
     }
@@ -140,8 +141,12 @@ library LibVerifying {
                 });
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
-                    local.stateRoot = ts.stateRoot;
-                    local.syncBlockId = local.blockId;
+                    bytes32 stateRoot = ts.stateRoot;
+                    if (stateRoot != 0) {
+                        local.syncStateRoot = stateRoot;
+                        local.syncBlockId = local.blockId;
+                        local.syncTransitionId = local.tid;
+                    }
                 }
 
                 ++local.blockId;
@@ -163,13 +168,23 @@ library LibVerifying {
                 }
                 if (!_tko.batchTransfer(provers, bonds)) revert L1_BATCH_TRANSFER_FAILED();
 
-                if (local.stateRoot != 0) {
+                if (local.syncStateRoot != 0) {
                     _state.slotA.lastSyncedBlockId = local.syncBlockId;
                     _state.slotA.lastSynecdAt = uint64(block.timestamp);
 
+                    // We write the synced block's verifiedTransitionId to storage
+                    if (local.syncBlockId != lastVerifiedBlockId) {
+                        local.slot = local.syncBlockId % _config.blockRingBufferSize;
+                        _state.blocks[local.slot].verifiedTransitionId = local.syncTransitionId;
+                    }
+
+                    // Ask signal service to write cross chain signal
                     ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
                         .syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, local.syncBlockId, local.stateRoot
+                        _config.chainId,
+                        LibStrings.H_STATE_ROOT,
+                        local.syncBlockId,
+                        local.syncStateRoot
                     );
                 }
             }

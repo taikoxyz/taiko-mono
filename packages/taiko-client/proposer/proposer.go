@@ -27,11 +27,6 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
-var (
-	proverAssignmentTimeout    = 30 * time.Minute
-	requestProverServerTimeout = 12 * time.Second
-)
-
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 type Proposer struct {
 	// configurations
@@ -118,13 +113,10 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 		p.proposerAddress,
 		cfg.TaikoL1Address,
 		cfg.ProverSetAddress,
-		cfg.AssignmentHookAddress,
 		p.tierFees,
 		cfg.TierFeePriceBump,
 		cfg.ProverEndpoints,
 		cfg.MaxTierFeePriceBumps,
-		proverAssignmentTimeout,
-		requestProverServerTimeout,
 	); err != nil {
 		return err
 	}
@@ -138,7 +130,6 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 			cfg.TaikoL1Address,
 			cfg.ProverSetAddress,
 			cfg.L2SuggestedFeeRecipient,
-			cfg.AssignmentHookAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
 		)
@@ -151,7 +142,6 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 			cfg.L2SuggestedFeeRecipient,
 			cfg.TaikoL1Address,
 			cfg.ProverSetAddress,
-			cfg.AssignmentHookAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
 		)

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "./TaikoL1TestBase.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
-    function getConfig() public view override returns (TaikoData.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
         // over-write the following
         config.maxBlocksToVerify = 0;
