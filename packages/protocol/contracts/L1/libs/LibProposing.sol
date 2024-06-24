@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "./LibUtils.sol";
@@ -123,18 +122,6 @@ library LibProposing {
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
-
-            // This function must be called as the outmost transaction (not an internal one) for
-            // the node to extract the calldata easily.
-            // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
-            // 7645: Alias ORIGIN to SENDER
-            if (
-                _config.checkEOAForCalldataDA
-                    && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
-            ) {
-                revert L1_INVALID_SIG();
-            }
-
             emit CalldataTxList(meta_.id, _txList);
         }
 
