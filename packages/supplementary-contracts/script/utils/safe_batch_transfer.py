@@ -2,8 +2,12 @@ import json
 import sys
 import time
 
+# How to run:
+# python3 safe_batch_transfer.py input.txt 0x7aEeed56d1B21baD7b66f1357A6Ed51DA848a698 0x19e26B0638bf63aa9fa4d14c6baF8D52eBE86C5C 6
+#
+#
 # Taiko Labs Wallet (on Taiko): 0x7aEeed56d1B21baD7b66f1357A6Ed51DA848a698
-#:Token Bridged USDC (Stargate) 0x19e26B0638bf63aa9fa4d14c6baF8D52eBE86C5C (DECIMAL 6)
+# Token Bridged USDC (Stargate) 0x19e26B0638bf63aa9fa4d14c6baF8D52eBE86C5C (DECIMAL 6)
 def generate_json(input_file_path, safe_address, token_address, decimals):
     transactions = []
     multiplier = 10 ** decimals
