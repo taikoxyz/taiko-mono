@@ -13,7 +13,6 @@ WORKDIR /build/packages/taiko-client
 ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
     make build
 
 FROM alpine:latest
