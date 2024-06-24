@@ -42,24 +42,6 @@ jobs:
             type=ref,event=tag
             type=sha
 
-      - name: Cache Go build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ runner.os }}-go_build-platforms
-          key: ${{ runner.os }}-go_build-platforms
-          restore-keys: |
-            ${{ runner.os }}-go_build-platforms
-
-      - name: Inject cache into docker
-        uses: reproducible-containers/buildkit-cache-dance@v3.1.0
-        with:
-          cache-map: |
-            {
-              "${{ runner.os }}-go_build-platforms": "/root/.cache/go-build"
-            }
-          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
-
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
