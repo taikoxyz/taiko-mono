@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -57,6 +58,44 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 
 	event.Status = status
 
+	r.events[index] = event
+
+	return nil
+}
+
+func (r *EventRepository) UpdateFeesAndProfitability(
+	ctx context.Context,
+	id int, opts relayer.UpdateFeesAndProfitabilityOpts,
+) error {
+	var event *relayer.Event
+
+	var index int
+
+	// Find the event by ID
+	for i, e := range r.events {
+		if e.ID == id {
+			event = e
+			index = i
+
+			break
+		}
+	}
+
+	if event == nil {
+		return nil // Or return an appropriate error if the event is not found
+	}
+
+	// Update the event fields
+	event.Fee = &opts.Fee
+	event.DestChainBaseFee = &opts.DestChainBaseFee
+	event.GasTipCap = &opts.GasTipCap
+	event.GasLimit = &opts.GasLimit
+	event.IsProfitable = &opts.IsProfitable
+	event.EstimatedOnchainFee = &opts.EstimatedOnchainFee
+	currentTime := time.Now().UTC()
+	event.IsProfitableEvaluatedAt = &currentTime
+
+	// Save the updated event back to the slice
 	r.events[index] = event
 
 	return nil
