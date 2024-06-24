@@ -10,6 +10,11 @@ import "./ISequencerRegistry.sol";
 /// using some selection mechanism.
 /// @custom:security-contact security@taiko.xyz
 contract SequencerRegistry is EssentialContract, ISequencerRegistry {
+    /// @dev Emitted when the status of a sequencer is updated.
+    /// @param sequencer The address of the sequencer whose state has updated.
+    /// @param enabled If the sequencer is now enabled or not.
+    event SequencerUpdated(address indexed sequencer, bool enabled);
+
     /// @notice Whitelisted sequencers
     mapping(address sequencer => bool enabled) public sequencers;
 
@@ -34,6 +39,7 @@ contract SequencerRegistry is EssentialContract, ISequencerRegistry {
         require(_sequencers.length == _enabled.length, "invalid input data");
         for (uint256 i = 0; i < _sequencers.length; i++) {
             sequencers[_sequencers[i]] = _enabled[i];
+            emit SequencerUpdated(_sequencers[i], _enabled[i]);
         }
     }
 

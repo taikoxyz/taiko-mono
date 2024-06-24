@@ -66,6 +66,13 @@ library LibProposing {
             params.coinbase = msg.sender;
         }
 
+        // If no L1 state block is specified, fall back to the previous L1 block
+        // (the most recent block that has its block hash availabe in the EVM throught the blockhash
+        // opcode).
+        if (params.l1StateBlockNumber == 0) {
+            params.l1StateBlockNumber = uint32(block.number) - 1;
+        }
+
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;
 
@@ -87,7 +94,7 @@ library LibProposing {
         // Verify the passed in L1 state block number.
         // We only allow the L1 block to be 2 epochs old.
         // The other constraint is that the L1 block number needs to be larger than or equal the one
-        // in the previous block.
+        // in the previous L2 block.
         if (
             params.l1StateBlockNumber < block.number - 64
                 || params.l1StateBlockNumber >= block.number
@@ -110,8 +117,10 @@ library LibProposing {
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
-                // Use the timestamp of the L1 state block
-                timestamp: uint64(block.timestamp - 12 * (block.number - params.l1StateBlockNumber)),
+                // Use the timestamp one block after the chosen L1 state block
+                timestamp: uint64(
+                    block.timestamp - 12 * (block.number - (params.l1StateBlockNumber + 1))
+                    ),
                 l1Height: uint64(params.l1StateBlockNumber),
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
