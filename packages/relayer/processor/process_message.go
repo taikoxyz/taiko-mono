@@ -65,7 +65,6 @@ func (p *Processor) processMessage(
 	ctx context.Context,
 	msg queue.Message,
 ) (bool, uint64, error) {
-	slog.Info("processing message", "msg", msg)
 	msgBody := &queue.QueueMessageSentBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
 		return false, 0, errors.Wrap(err, "json.Unmarshal")
@@ -410,6 +409,7 @@ func (p *Processor) sendProcessMessageCall(
 		)
 
 		relayer.MessagesNotReceivedOnDestChain.Inc()
+
 		return nil, errors.New("message not received")
 	}
 
@@ -554,7 +554,6 @@ func (p *Processor) sendProcessMessageCall(
 
 // retrieve the balance of the relayer and set Prometheus
 func (p *Processor) logRelayerBalance(ctx context.Context) {
-
 	balance, err := p.destEthClient.BalanceAt(ctx, p.relayerAddr, nil)
 	if err != nil {
 		slog.Warn("Failed to retrieve relayer balance", "error", err)
