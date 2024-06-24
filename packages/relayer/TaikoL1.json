@@ -110,7 +110,7 @@
             "internalType": "uint64"
           },
           {
-            "name": "maxBlocksToVerifyPerProposal",
+            "name": "maxBlocksToVerify",
             "type": "uint64",
             "internalType": "uint64"
           },
@@ -125,7 +125,7 @@
             "internalType": "uint96"
           },
           {
-            "name": "blockSyncThreshold",
+            "name": "stateRootSyncInternal",
             "type": "uint8",
             "internalType": "uint8"
           },
@@ -135,6 +135,52 @@
             "internalType": "bool"
           }
         ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getLastSyncedBlock",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "blockId_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockHash_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "stateRoot_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLastVerifiedBlock",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "blockId_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockHash_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "stateRoot_",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -659,19 +705,6 @@
   },
   {
     "type": "function",
-    "name": "resetGenesisHash",
-    "inputs": [
-      {
-        "name": "_genesisBlockHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "resolve",
     "inputs": [
       {
@@ -719,91 +752,6 @@
         "name": "",
         "type": "address",
         "internalType": "address payable"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "slotA",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct TaikoData.SlotA",
-        "components": [
-          {
-            "name": "genesisHeight",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "genesisTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "lastSyncedBlockId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "lastSynecdAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "slotB",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct TaikoData.SlotB",
-        "components": [
-          {
-            "name": "numBlocks",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "lastVerifiedBlockId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "provingPaused",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "__reservedB1",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "__reservedB2",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
-            "name": "__reservedB3",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "lastUnpausedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
       }
     ],
     "stateMutability": "view"
@@ -1454,56 +1402,6 @@
   },
   {
     "type": "event",
-    "name": "StateVariablesUpdated",
-    "inputs": [
-      {
-        "name": "slotB",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct TaikoData.SlotB",
-        "components": [
-          {
-            "name": "numBlocks",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "lastVerifiedBlockId",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "provingPaused",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "__reservedB1",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "__reservedB2",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
-            "name": "__reservedB3",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "lastUnpausedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "TransitionContested",
     "inputs": [
       {
@@ -1801,6 +1699,16 @@
   },
   {
     "type": "error",
+    "name": "L1_BATCH_TRANSFER_FAILED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "L1_BATCH_TRANSFER_FAILED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "L1_BLOB_NOT_AVAILABLE",
     "inputs": []
   },
@@ -1866,27 +1774,12 @@
   },
   {
     "type": "error",
-    "name": "L1_INVALID_CONFIG",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "L1_INVALID_GENESIS_HASH",
     "inputs": []
   },
   {
     "type": "error",
     "name": "L1_INVALID_GENESIS_HASH",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_INVALID_HOOK",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_INVALID_HOOK",
     "inputs": []
   },
   {
@@ -1906,16 +1799,6 @@
   },
   {
     "type": "error",
-    "name": "L1_INVALID_PROVER",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_INVALID_PROVER",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "L1_INVALID_SIG",
     "inputs": []
   },
@@ -1951,22 +1834,12 @@
   },
   {
     "type": "error",
-    "name": "L1_LIVENESS_BOND_NOT_RECEIVED",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "L1_NOT_ASSIGNED_PROVER",
     "inputs": []
   },
   {
     "type": "error",
     "name": "L1_NOT_ASSIGNED_PROVER",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_NOT_SAME_ADDRESS",
     "inputs": []
   },
   {
@@ -1982,11 +1855,6 @@
   {
     "type": "error",
     "name": "L1_RECEIVE_DISABLED",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "L1_TOO_LATE",
     "inputs": []
   },
   {
