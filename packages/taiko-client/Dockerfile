@@ -10,8 +10,7 @@ COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
 
-RUN --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
-    make build
+RUN make build
 
 FROM alpine:latest
 
