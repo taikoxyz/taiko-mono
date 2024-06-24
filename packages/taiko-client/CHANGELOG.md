@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.0...taiko-client-v0.27.1) (2024-06-24)
+
+
+### Bug Fixes
+
+* **taiko-client:** remove Go build cache ([#17661](https://github.com/taikoxyz/taiko-mono/issues/17661)) ([f6075f7](https://github.com/taikoxyz/taiko-mono/commit/f6075f75ca57b8136e7edfed2b73912c79ccec63))
+
 ## [0.27.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.26.0...taiko-client-v0.27.0) (2024-06-24)
 
 
