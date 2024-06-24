@@ -7,16 +7,7 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-      day: "saturday"
-      time: "04:20"
-      timezone: "America/New_York"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "npm"
     directory: "/"
@@ -25,4 +16,4 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
