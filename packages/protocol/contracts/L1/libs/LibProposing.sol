@@ -35,7 +35,7 @@ library LibProposing {
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
-    event CalldataUsedForTxList(uint256 indexed blockId, bytes txList);
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
@@ -123,7 +123,7 @@ library LibProposing {
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
-            emit CalldataUsedForTxList(meta_.id, _txList);
+            emit CalldataTxList(meta_.id, _txList);
         }
 
         // Following the Merge, the L1 mixHash incorporates the

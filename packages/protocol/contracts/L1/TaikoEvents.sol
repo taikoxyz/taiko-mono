@@ -29,7 +29,7 @@ abstract contract TaikoEvents {
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
-    event CalldataUsedForTxList(uint256 indexed blockId, bytes txList);
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
