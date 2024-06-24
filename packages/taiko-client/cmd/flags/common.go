@@ -149,12 +149,6 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	AssignmentHookAddress = &cli.StringFlag{
-		Name:     "assignmentHookAddress",
-		Usage:    "Address of the AssignmentHook contract",
-		Category: commonCategory,
-		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
-	}
 	ProverSetAddress = &cli.StringFlag{
 		Name:     "proverSet",
 		Usage:    "ProverSet contract `address`",
