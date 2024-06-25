@@ -1,22 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS nft_metadata (
-    id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    chain_id int NOT NULL,
-    contract_address VARCHAR(42) NOT NULL,
-    token_id DECIMAL(65, 0) NOT NULL,
-    name VARCHAR(255) DEFAULT NULL,
-    description TEXT DEFAULT NULL,
-    symbol VARCHAR(10) DEFAULT NULL,
-    attributes JSON DEFAULT NULL,
-    image_url VARCHAR(255) DEFAULT NULL,
-    image_data TEXT DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+ALTER TABLE nft_metadata MODIFY symbol VARCHAR(42) DEFAULT NULL;
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE nft_metadata;
+ALTER TABLE nft_metadata MODIFY symbol VARCHAR(10) DEFAULT NULL;
 -- +goose StatementEnd
