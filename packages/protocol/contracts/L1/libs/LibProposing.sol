@@ -114,7 +114,7 @@ library LibProposing {
         // The other constraint is that the timestamp needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            params.timestamp < block.timestamp - 64 * 12 || params.timestamp >= block.timestamp
+            params.timestamp < block.timestamp - 64 * 12 || params.timestamp > block.timestamp
                 || params.timestamp < parentBlock.timestamp
         ) {
             revert L1_INVALID_TIMESTAMP();
