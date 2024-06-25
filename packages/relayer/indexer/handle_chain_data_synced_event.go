@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 
 	"log/slog"
 
@@ -16,7 +15,6 @@ import (
 // handleChainDataSyncedEvent handles an individual ChainDataSynced event
 func (i *Indexer) handleChainDataSyncedEvent(
 	ctx context.Context,
-	chainID *big.Int,
 	event *signalservice.SignalServiceChainDataSynced,
 	waitForConfirmations bool,
 ) error {
@@ -74,7 +72,11 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
-	slog.Info("chainDataSynced event saved")
+	slog.Info("chainDataSynced event saved",
+		"srcChainId", i.srcChainId,
+		"destChainId", i.destChainId,
+		"SyncedChainID", event.ChainId,
+	)
 
 	relayer.ChainDataSyncedEventsIndexed.Inc()
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.1...taiko-client-v0.28.0) (2024-06-24)
+
+
+### Features
+
+* **taiko-client:** improve some comments in prover ([#17668](https://github.com/taikoxyz/taiko-mono/issues/17668)) ([e7afcfe](https://github.com/taikoxyz/taiko-mono/commit/e7afcfe18399240fbac04a7d90a52fe17edcab67))
+
+
+### Chores
+
+* **taiko-client:** revert the failed cross-compilation ([#17670](https://github.com/taikoxyz/taiko-mono/issues/17670)) ([0a1de79](https://github.com/taikoxyz/taiko-mono/commit/0a1de792eaf0c17de1b873a465febe1dca9ce16a))
+
 ## [0.27.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.0...taiko-client-v0.27.1) (2024-06-24)
 
 
