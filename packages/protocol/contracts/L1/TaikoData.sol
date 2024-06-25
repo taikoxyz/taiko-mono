@@ -65,6 +65,7 @@ library TaikoData {
         HookCall[] hookCalls; // DEPRECATED, value ignored.
         bytes signature;
         uint32 l1StateBlockNumber;
+        uint64 timestamp;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -125,9 +126,11 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        // The block's timestamp
+        uint64 timestamp; // slot 4
         // This block number is the value for _l1BlockId (and related values) in TaikoL2's anchor()
         // function.
-        uint32 l1StateBlockNumber; // slot 4
+        uint32 l1StateBlockNumber;
     }
 
     /// @dev Struct representing an Ethereum deposit.

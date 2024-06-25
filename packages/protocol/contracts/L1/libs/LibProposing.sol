@@ -35,11 +35,12 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
+    error L1_INVALID_L1_STATE_BLOCK();
     error L1_INVALID_SIG();
+    error L1_INVALID_TIMESTAMP();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
-    error L1_INVALID_L1_STATE_BLOCK();
 
     /// @dev Proposes a Taiko L2 block.
     /// @param _state Current TaikoData.State.
@@ -73,6 +74,11 @@ library LibProposing {
             params.l1StateBlockNumber = uint32(block.number) - 1;
         }
 
+        // If no timestamp specified, use the current timestamp
+        if (params.timestamp == 0) {
+            params.timestamp = uint64(block.timestamp);
+        }
+
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         TaikoData.SlotB memory b = _state.slotB;
 
@@ -103,6 +109,17 @@ library LibProposing {
             revert L1_INVALID_L1_STATE_BLOCK();
         }
 
+        // Verify the passed in timestamp.
+        // We only allow the timestamp to be 2 epochs old.
+        // The other constraint is that the timestamp needs to be larger than or equal the one
+        // in the previous L2 block.
+        if (
+            params.timestamp < block.timestamp - 64 * 12 || params.timestamp >= block.timestamp
+                || params.timestamp < parentBlock.timestamp
+        ) {
+            revert L1_INVALID_TIMESTAMP();
+        }
+
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
@@ -118,10 +135,8 @@ library LibProposing {
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
                 // Use the timestamp one block after the chosen L1 state block
-                timestamp: uint64(
-                    block.timestamp - 12 * (block.number - (params.l1StateBlockNumber + 1))
-                    ),
-                l1Height: uint64(params.l1StateBlockNumber),
+                timestamp: params.timestamp,
+                l1Height: params.l1StateBlockNumber,
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentBlock.metaHash,
@@ -186,7 +201,8 @@ library LibProposing {
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
             verifiedTransitionId: 0,
-            l1StateBlockNumber: params.l1StateBlockNumber
+            l1StateBlockNumber: params.l1StateBlockNumber,
+            timestamp: params.timestamp
         });
 
         // Store the block in the ring buffer
