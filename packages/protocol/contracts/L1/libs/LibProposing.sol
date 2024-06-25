@@ -169,14 +169,9 @@ library LibProposing {
             }
         }
 
-        // Following the Merge, the L1 mixHash incorporates the
-        // prevrandao value from the beacon chain. Given the possibility
-        // of multiple Taiko blocks being proposed within a single
-        // Ethereum block, we choose to introduce a salt to this random
-        // number as the L2 mixHash.
-        meta_.difficulty = keccak256(
-            abi.encodePacked(blockhash(params.l1StateBlockNumber), b.numBlocks, block.number)
-        );
+        // Generate a random value from the L1 state block hash and the L2 block ID
+        meta_.difficulty =
+            keccak256(abi.encodePacked(blockhash(params.l1StateBlockNumber), b.numBlocks));
 
         {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
