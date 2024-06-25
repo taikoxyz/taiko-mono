@@ -113,13 +113,27 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 
 	var pk int = 0
 
-	md, err := i.erc20BalanceRepo.FindMetadata(ctx, chainID.Int64(), vLog.Address.Hex())
-	if err != nil {
-		return errors.Wrap(err, "i.erc20BalanceRepo")
+	i.contractToMetadataMutex.Lock()
+
+	md, ok := i.contractToMetadata[vLog.Address]
+
+	i.contractToMetadataMutex.Unlock()
+
+	if !ok {
+		md, err = i.erc20BalanceRepo.FindMetadata(ctx, chainID.Int64(), vLog.Address.Hex())
+		if err != nil {
+			return errors.Wrap(err, "i.erc20BalanceRepo")
+		}
 	}
 
 	if md != nil {
 		pk = md.ID
+
+		i.contractToMetadataMutex.Lock()
+
+		i.contractToMetadata[vLog.Address] = md
+
+		i.contractToMetadataMutex.Unlock()
 	}
 
 	if pk == 0 {

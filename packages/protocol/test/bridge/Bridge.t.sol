@@ -93,7 +93,7 @@ contract BridgeTest is TaikoTest {
                     impl: address(new DelegateOwner()),
                     data: abi.encodeCall(
                         DelegateOwner.init, (mockDAO, address(addressManager), l1ChainId, address(0))
-                    )
+                        )
                 })
             )
         );

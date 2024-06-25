@@ -62,6 +62,9 @@ type Indexer struct {
 	syncMode SyncMode
 
 	blockSaveMutex *sync.Mutex
+
+	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
+	contractToMetadataMutex *sync.Mutex
 }
 
 func (i *Indexer) Start() error {
@@ -201,6 +204,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.indexNfts = cfg.IndexNFTs
 	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
+	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
+	i.contractToMetadataMutex = &sync.Mutex{}
 
 	return nil
 }
